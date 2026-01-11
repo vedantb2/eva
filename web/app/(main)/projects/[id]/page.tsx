@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { api } from "../../../../../backend/convex/_generated/api";
-import { Id } from "../../../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";

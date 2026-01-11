@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../backend/convex/_generated/api";
-import { Id } from "../../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
 import { IconCheck, IconX } from "@tabler/icons-react";
 
 type TaskStatus = "todo" | "in_progress" | "done";

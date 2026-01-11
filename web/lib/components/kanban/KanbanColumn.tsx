@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Id } from "../../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { TaskCard } from "./TaskCard";
 import { CreateTaskForm } from "./CreateTaskForm";
 import { IconPlus } from "@tabler/icons-react";

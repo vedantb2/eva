@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { IconFolder, IconTrash, IconChevronRight } from "@tabler/icons-react";
-import { Id } from "../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 
 interface Project {
   _id: Id<"projects">;

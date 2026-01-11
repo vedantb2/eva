@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../backend/convex/_generated/api";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@/lib/components/ui/Button";
@@ -11,7 +12,6 @@ import { ProjectCard } from "@/lib/components/ProjectCard";
 import { CreateProjectModal } from "@/lib/components/CreateProjectModal";
 import { ConfirmationModal } from "@/lib/components/modals/ConfirmationModal";
 import { IconFolder, IconPlus } from "@tabler/icons-react";
-import { Id } from "../../../../backend/convex/_generated/dataModel";
 
 export default function ProjectsPage() {
   const projects = useQuery(api.projects.list);

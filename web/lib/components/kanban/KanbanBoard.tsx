@@ -12,8 +12,8 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { useMutation } from "convex/react";
-import { api } from "../../../../backend/convex/_generated/api";
-import { Id } from "../../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskCard } from "./TaskCard";
 import { useState } from "react";

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation } from "convex/react";
-import { api } from "../../../../backend/convex/_generated/api";
-import { Id } from "../../../../backend/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
 import { IconTrash, IconEdit, IconCheck, IconX, IconGripVertical } from "@tabler/icons-react";
 
 type TaskStatus = "todo" | "in_progress" | "done";

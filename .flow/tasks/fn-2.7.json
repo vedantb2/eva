@@ -2,7 +2,7 @@
   "id": "fn-2.7",
   "epic_id": "fn-2",
   "title": "Build enhanced Kanban board with columns and agent task cards",
-  "status": "pending",
+  "status": "done",
   "depends_on": ["fn-2.3", "fn-2.4", "fn-2.6"],
   "created_at": "2026-01-11T21:00:00.000000Z",
   "updated_at": "2026-01-11T21:00:00.000000Z"

@@ -2,7 +2,7 @@
   "id": "fn-2.8",
   "epic_id": "fn-2",
   "title": "Build agent run panel with real-time log streaming",
-  "status": "pending",
+  "status": "done",
   "depends_on": ["fn-2.5", "fn-2.7"],
   "created_at": "2026-01-11T21:00:00.000000Z",
   "updated_at": "2026-01-11T21:00:00.000000Z"

@@ -1,16 +1,25 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-11T22:45:15.293293Z",
   "created_at": "2026-01-11T22:18:45.685907Z",
   "depends_on": [
     "fn-5.1"
   ],
   "epic": "fn-5",
+  "evidence": {
+    "commits": [
+      "9a98468cb6e8f6baf2faacb479f9d5b1843bff75"
+    ],
+    "prs": [],
+    "tests": [
+      "npx convex dev --once"
+    ]
+  },
   "id": "fn-5.5",
   "priority": null,
   "spec_path": ".flow/tasks/fn-5.5.md",
-  "status": "todo",
+  "status": "done",
   "title": "Update boards functions to support repo filtering",
-  "updated_at": "2026-01-11T22:20:17.950572Z"
+  "updated_at": "2026-01-11T22:46:53.519293Z"
 }

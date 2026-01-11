@@ -6,6 +6,7 @@ const boardValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   ownerId: v.string(),
+  repoId: v.optional(v.id("githubRepos")),
   createdAt: v.number(),
 });
 
@@ -51,6 +52,22 @@ export const list = query({
       .query("boards")
       .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
       .collect();
+  },
+});
+
+export const listByRepo = query({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(boardValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const boards = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return boards.filter((b) => b.ownerId === identity.subject);
   },
 });
 
@@ -113,7 +130,7 @@ export const getWithColumns = query({
 });
 
 export const create = mutation({
-  args: { name: v.string() },
+  args: { name: v.string(), repoId: v.optional(v.id("githubRepos")) },
   returns: v.id("boards"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -123,6 +140,7 @@ export const create = mutation({
     const boardId = await ctx.db.insert("boards", {
       name: args.name,
       ownerId: identity.subject,
+      repoId: args.repoId,
       createdAt: Date.now(),
     });
     const defaultColumns = [

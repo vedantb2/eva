@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentTasks from "../agentTasks.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
@@ -29,6 +30,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  agentTasks: typeof agentTasks;
   auth: typeof auth;
   boards: typeof boards;
   columns: typeof columns;

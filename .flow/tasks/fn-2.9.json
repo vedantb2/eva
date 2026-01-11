@@ -2,8 +2,8 @@
   "id": "fn-2.9",
   "epic_id": "fn-2",
   "title": "Build execution history page",
-  "status": "pending",
+  "status": "done",
   "depends_on": ["fn-2.5", "fn-2.6"],
   "created_at": "2026-01-11T21:00:00.000000Z",
-  "updated_at": "2026-01-11T21:00:00.000000Z"
+  "updated_at": "2026-01-11T22:00:00.000000Z"
 }

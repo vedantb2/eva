@@ -51,6 +51,45 @@ export const get = query({
   },
 });
 
+export const getWithDetails = query({
+  args: { id: v.id("agentRuns") },
+  returns: v.union(
+    v.object({
+      ...agentRunValidator.fields,
+      taskTitle: v.string(),
+      taskDescription: v.optional(v.string()),
+      boardName: v.string(),
+      boardId: v.id("boards"),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+    const run = await ctx.db.get(args.id);
+    if (!run) {
+      return null;
+    }
+    const task = await ctx.db.get(run.taskId);
+    if (!task) {
+      return null;
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== identity.subject) {
+      return null;
+    }
+    return {
+      ...run,
+      taskTitle: task.title,
+      taskDescription: task.description,
+      boardName: board.name,
+      boardId: board._id,
+    };
+  },
+});
+
 export const listByTask = query({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(agentRunValidator),

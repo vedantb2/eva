@@ -7,7 +7,7 @@
   "plan_review_status": "unknown",
   "plan_reviewed_at": null,
   "spec_path": ".flow/specs/fn-2.md",
-  "status": "open",
+  "status": "done",
   "title": "LLM Agent Orchestration Platform",
-  "updated_at": "2026-01-11T21:00:00.000000Z"
+  "updated_at": "2026-01-11T22:00:00.000000Z"
 }

@@ -1,11 +1,10 @@
-- Added repoId to boards types and listByRepo query
-- Added branchName to agentTasks types
-- Added githubRepos section (list, get, getByOwnerAndName, create, remove)
-- Added subtasks section (listByTask, create, update, remove, reorder)
-- Added taskComments section (listByTask, create, remove)
+- Added Repositories nav item to Sidebar with GitHub icon
+- Created /repositories page listing connected repos with cards
+- Created /repositories/[owner]/[repo] page with per-repo Kanban board
+- Auto-creates board for repo if none exists on first visit
 
 Why:
-- Frontend components need type definitions to use new backend functions
+- Enable per-repository feature tracking with Kanban boards
 
 Verification:
 - npx tsc --noEmit passes without errors

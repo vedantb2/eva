@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import {
   IconBrain,
+  IconBrandGithub,
   IconFolder,
   IconLayoutKanban,
   IconSettings,
@@ -15,6 +16,7 @@ import {
 import { useState } from "react";
 
 const navigation = [
+  { name: "Repositories", href: "/repositories", icon: IconBrandGithub },
   { name: "Boards", href: "/boards", icon: IconLayoutKanban },
   { name: "Projects", href: "/projects", icon: IconFolder },
   { name: "History", href: "/history", icon: IconHistory },

@@ -1,16 +1,25 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-11T22:51:59.409722Z",
   "created_at": "2026-01-11T22:18:55.125192Z",
   "depends_on": [
     "fn-5.2"
   ],
   "epic": "fn-5",
+  "evidence": {
+    "commits": [
+      "6b7eb57c14ee97669e3801885edd51a389accaff"
+    ],
+    "prs": [],
+    "tests": [
+      "npx tsc --noEmit"
+    ]
+  },
   "id": "fn-5.6",
   "priority": null,
   "spec_path": ".flow/tasks/fn-5.6.md",
-  "status": "todo",
+  "status": "done",
   "title": "Build Repositories list page with navigation",
-  "updated_at": "2026-01-11T22:22:46.647860Z"
+  "updated_at": "2026-01-11T22:55:33.981500Z"
 }

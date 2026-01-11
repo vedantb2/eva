@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as boards from "../boards.js";
 import type * as projects from "../projects.js";
 import type * as tasks from "../tasks.js";
 
@@ -28,6 +29,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  boards: typeof boards;
   projects: typeof projects;
   tasks: typeof tasks;
 }>;

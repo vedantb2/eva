@@ -21,9 +21,18 @@ Follow existing patterns in the file using `FunctionReference` and `GenericId`.
 - [ ] TypeScript compiles without errors
 
 ## Done summary
-TBD
+- Added repoId to boards types and listByRepo query
+- Added branchName to agentTasks types
+- Added githubRepos section (list, get, getByOwnerAndName, create, remove)
+- Added subtasks section (listByTask, create, update, remove, reorder)
+- Added taskComments section (listByTask, create, remove)
 
+Why:
+- Frontend components need type definitions to use new backend functions
+
+Verification:
+- npx tsc --noEmit passes without errors
 ## Evidence
-- Commits:
-- Tests:
+- Commits: af545c3e0c1d364687683fdc4ed0989efdf82047
+- Tests: npx tsc --noEmit
 - PRs:

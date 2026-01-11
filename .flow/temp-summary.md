@@ -1,9 +1,11 @@
-- Updated boardValidator to include repoId field
-- Updated create mutation to accept optional repoId
-- Added listByRepo query filtering by repo with owner check
+- Added repoId to boards types and listByRepo query
+- Added branchName to agentTasks types
+- Added githubRepos section (list, get, getByOwnerAndName, create, remove)
+- Added subtasks section (listByTask, create, update, remove, reorder)
+- Added taskComments section (listByTask, create, remove)
 
 Why:
-- Enable 1:1 board-to-repo mapping for per-repository Kanban boards
+- Frontend components need type definitions to use new backend functions
 
 Verification:
-- npx convex dev --once passes without errors
+- npx tsc --noEmit passes without errors

@@ -1,16 +1,25 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-11T22:47:29.324233Z",
   "created_at": "2026-01-11T22:19:23.345348Z",
   "depends_on": [
     "fn-5.1"
   ],
   "epic": "fn-5",
+  "evidence": {
+    "commits": [
+      "af545c3e0c1d364687683fdc4ed0989efdf82047"
+    ],
+    "prs": [],
+    "tests": [
+      "npx tsc --noEmit"
+    ]
+  },
   "id": "fn-5.9",
   "priority": null,
   "spec_path": ".flow/tasks/fn-5.9.md",
-  "status": "todo",
+  "status": "done",
   "title": "Update web/api.ts with new endpoint types",
-  "updated_at": "2026-01-11T22:22:47.593891Z"
+  "updated_at": "2026-01-11T22:51:23.996604Z"
 }

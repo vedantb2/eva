@@ -9,6 +9,7 @@ import { api } from "@/api";
 import { AgentStatusBadge } from "./AgentStatusBadge";
 import { IconTrash, IconEdit, IconCheck, IconX, IconGripVertical, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { AgentRunPanel } from "./AgentRunPanel";
+import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 
 type AgentStatus = "idle" | "queued" | "running" | "reviewing" | "completed" | "failed";
 
@@ -18,6 +19,7 @@ interface AgentTask {
   columnId: Id<"columns">;
   title: string;
   description?: string;
+  branchName?: string;
   status: AgentStatus;
   order: number;
 }
@@ -33,6 +35,7 @@ export function AgentTaskCard({ task, isDragging: isDraggingOverlay }: AgentTask
 
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
 
@@ -135,9 +138,12 @@ export function AgentTaskCard({ task, isDragging: isDraggingOverlay }: AgentTask
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
-              <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              <button
+                onClick={() => setIsDetailOpen(true)}
+                className="text-left text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+              >
                 {task.title}
-              </h4>
+              </button>
               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!isLocked && (
                   <>
@@ -189,6 +195,12 @@ export function AgentTaskCard({ task, isDragging: isDraggingOverlay }: AgentTask
           <AgentRunPanel taskId={task._id} />
         </div>
       )}
+
+      <TaskDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        task={task}
+      />
     </div>
   );
 }

@@ -34,9 +34,18 @@ Build the project list page at `web/app/(main)/projects/page.tsx`.
 - [ ] Click project navigates to `/projects/[id]`
 - [ ] Uses existing UI component patterns
 ## Done summary
-TBD
+- Created `projects/page.tsx` with project list, loading spinner, and empty state
+- Created `ProjectCard.tsx` component with name, description, delete button, and link to board
+- Created `CreateProjectModal.tsx` with form to create new projects
 
+Why:
+- Provides UI for users to manage their projects
+- Follows existing component patterns (HeroUI modals, custom Card/Button)
+
+Verification:
+- TypeScript compiles without errors for new files
+- Components follow existing codebase patterns
 ## Evidence
-- Commits:
-- Tests:
+- Commits: bd48d0da6344cfb573944833d0937afb8ee7ee79
+- Tests: npx tsc --noEmit (new files only)
 - PRs:

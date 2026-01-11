@@ -1,10 +1,11 @@
-- Created `projects.ts` with list, get, create, update, remove functions
-- Created `tasks.ts` with listByProject, get, create, update, updateStatus, updateOrder, remove functions
-- All mutations validate user ownership via Clerk identity.subject
+- Created `projects/page.tsx` with project list, loading spinner, and empty state
+- Created `ProjectCard.tsx` component with name, description, delete button, and link to board
+- Created `CreateProjectModal.tsx` with form to create new projects
 
 Why:
-- Provides API layer for frontend to interact with Convex database
-- Follows existing auth patterns from auth.ts
+- Provides UI for users to manage their projects
+- Follows existing component patterns (HeroUI modals, custom Card/Button)
 
 Verification:
-- `npx convex codegen` passed without errors
+- TypeScript compiles without errors for new files
+- Components follow existing codebase patterns

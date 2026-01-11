@@ -1,1 +1,1 @@
-{"commits":["548d5d12c9c6ef8209864fd813196644794b7809"],"tests":["npx convex codegen"],"prs":[]}
+{"commits":["bd48d0da6344cfb573944833d0937afb8ee7ee79"],"tests":["npx tsc --noEmit (new files only)"],"prs":[]}

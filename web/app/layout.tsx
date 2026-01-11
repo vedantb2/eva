@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   keywords:
     "learn marathi, marathi language, language learning, duolingo style, vocabulary builder",
   icons: {
-    icon: "/icon.jpg",
+    icon: "/icon.png",
     apple: "/icon-192x192.png",
   },
   viewport: {

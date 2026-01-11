@@ -16,6 +16,7 @@ import type * as columns from "../columns.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as projects from "../projects.js";
 import type * as subtasks from "../subtasks.js";
+import type * as taskComments from "../taskComments.js";
 import type * as tasks from "../tasks.js";
 
 import type {
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   githubRepos: typeof githubRepos;
   projects: typeof projects;
   subtasks: typeof subtasks;
+  taskComments: typeof taskComments;
   tasks: typeof tasks;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

@@ -1,12 +1,10 @@
-- Created subtasks.ts with listByTask, create, update, remove, reorder functions
-- All functions verify ownership through parent task's board
-- listByTask returns subtasks sorted by order field
-- create auto-assigns next order number
-- reorder accepts batch updates for drag-drop
+- Created taskComments.ts with listByTask, create, remove functions
+- listByTask returns comments sorted by createdAt
+- create uses identity.subject as authorId
+- All functions verify ownership through task's board
 
 Why:
-- Enable subtask management in TaskDetailModal
-- Support hierarchical task breakdown
+- Enable comment threads on tasks in TaskDetailModal
 
 Verification:
 - npx convex dev --once passes without errors

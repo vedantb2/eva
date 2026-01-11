@@ -2,14 +2,14 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Vello - Learn Marathi",
-    short_name: "Vello",
+    name: "Conductor - Kanban for AI Agents",
+    short_name: "Conductor",
     description:
-      "Learn Marathi language and explore Maharashtra's culture. Master vocabulary, discover festivals, and use the Marathi calendar.",
+      "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#eab308",
+    theme_color: "#db2777",
     orientation: "portrait",
     scope: "/",
     icons: [
@@ -24,7 +24,7 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
       },
     ],
-    categories: ["education", "language", "culture"],
+    categories: ["productivity", "developer tools"],
     lang: "en",
     dir: "ltr",
   };

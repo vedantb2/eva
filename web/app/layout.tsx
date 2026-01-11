@@ -6,11 +6,11 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  title: "Conductor - LLM Agent Orchestration",
+  title: "Conductor - Kanban for AI Agents",
   description:
-    "Learn Marathi language and explore Maharashtra's rich culture. Master vocabulary, discover festivals, and use the Marathi calendar with our Duolingo-style learning platform.",
+    "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
   keywords:
-    "learn marathi, marathi language, language learning, duolingo style, vocabulary builder",
+    "ai agents, llm orchestration, kanban, task automation, agent execution",
   icons: {
     icon: "/icon.png",
     apple: "/icon-192x192.png",
@@ -21,21 +21,21 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false,
   },
-  themeColor: "#eab308",
+  themeColor: "#db2777",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "शिका",
+    title: "Conductor",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: "website",
-    siteName: "शिका",
-    title: "शिका - Learn Marathi",
+    siteName: "Conductor",
+    title: "Conductor - Kanban for AI Agents",
     description:
-      "Master Marathi through fun, bite-sized lessons. Build vocabulary, earn XP, and track your progress with our Duolingo-style learning platform.",
+      "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
   },
 };
 

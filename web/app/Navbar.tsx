@@ -90,11 +90,11 @@ export function Navbar() {
               className="group flex items-center gap-3 transition-all duration-200"
               onClick={() => setSidebarOpen(false)}
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-green-500 flex items-center justify-center text-2xl">
-                🗣️
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-2xl">
+                🤖
               </div>
-              <span className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-green-600 dark:group-hover:text-green-400 transition-all duration-200">
-                Vello
+              <span className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-all duration-200">
+                Conductor
               </span>
             </Link>
           </div>

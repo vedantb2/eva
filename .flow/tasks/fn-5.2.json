@@ -1,16 +1,25 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-11T22:38:37.162796Z",
   "created_at": "2026-01-11T22:18:18.266321Z",
   "depends_on": [
     "fn-5.1"
   ],
   "epic": "fn-5",
+  "evidence": {
+    "commits": [
+      "fa8e2d915c780f1071bf0c70f69bdc2e837d6dde"
+    ],
+    "prs": [],
+    "tests": [
+      "npx convex dev --once"
+    ]
+  },
   "id": "fn-5.2",
   "priority": null,
   "spec_path": ".flow/tasks/fn-5.2.md",
-  "status": "todo",
+  "status": "done",
   "title": "Add Convex functions for githubRepos CRUD",
-  "updated_at": "2026-01-11T22:19:50.312999Z"
+  "updated_at": "2026-01-11T22:40:18.619599Z"
 }

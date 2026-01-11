@@ -23,9 +23,18 @@ Follow patterns from existing files like `agentTasks.ts`.
 - [ ] TypeScript compiles without errors
 
 ## Done summary
-TBD
+- Created githubRepos.ts with list, get, getByOwnerAndName, create, remove functions
+- All functions require authentication
+- Create mutation checks for duplicate repos before insert
+- Using index by_owner_name for efficient lookup
 
+Why:
+- Enable CRUD operations for GitHub repository management
+- Support repo-to-board relationship in Repositories page
+
+Verification:
+- npx convex dev --once passes without errors
 ## Evidence
-- Commits:
-- Tests:
+- Commits: fa8e2d915c780f1071bf0c70f69bdc2e837d6dde
+- Tests: npx convex dev --once
 - PRs:

@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-11T22:19:04.418128Z",
+  "depends_on": [
+    "fn-5.3",
+    "fn-5.4"
+  ],
+  "epic": "fn-5",
+  "id": "fn-5.7",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-5.7.md",
+  "status": "todo",
+  "title": "Build TaskDetailModal with subtasks and comments",
+  "updated_at": "2026-01-11T22:22:47.143728Z"
+}

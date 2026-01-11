@@ -54,8 +54,11 @@ const schema = defineSchema({
   boards: defineTable({
     name: v.string(),
     ownerId: v.string(),
+    repoId: v.optional(v.id("githubRepos")),
     createdAt: v.number(),
-  }).index("by_owner", ["ownerId"]),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_repo", ["repoId"]),
 
   columns: defineTable({
     boardId: v.id("boards"),
@@ -69,6 +72,7 @@ const schema = defineSchema({
     columnId: v.id("columns"),
     title: v.string(),
     description: v.optional(v.string()),
+    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     status: v.union(
       v.literal("idle"),
@@ -112,6 +116,20 @@ const schema = defineSchema({
     name: v.string(),
     installationId: v.number(),
   }).index("by_owner_name", ["owner", "name"]),
+
+  subtasks: defineTable({
+    parentTaskId: v.id("agentTasks"),
+    title: v.string(),
+    completed: v.boolean(),
+    order: v.number(),
+  }).index("by_parent", ["parentTaskId"]),
+
+  taskComments: defineTable({
+    taskId: v.id("agentTasks"),
+    content: v.string(),
+    authorId: v.string(),
+    createdAt: v.number(),
+  }).index("by_task", ["taskId"]),
 });
 
 export default schema;

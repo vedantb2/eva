@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-11T22:18:45.685907Z",
+  "depends_on": [
+    "fn-5.1"
+  ],
+  "epic": "fn-5",
+  "id": "fn-5.5",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-5.5.md",
+  "status": "todo",
+  "title": "Update boards functions to support repo filtering",
+  "updated_at": "2026-01-11T22:20:17.950572Z"
+}

@@ -1,0 +1,13 @@
+{
+  "branch_name": "fn-5",
+  "created_at": "2026-01-11T22:16:51.590238Z",
+  "depends_on_epics": [],
+  "id": "fn-5",
+  "next_task": 1,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "spec_path": ".flow/specs/fn-5.md",
+  "status": "open",
+  "title": "GitHub repositories tab with subtasks, comments, and AI spec generation",
+  "updated_at": "2026-01-11T22:17:43.951693Z"
+}

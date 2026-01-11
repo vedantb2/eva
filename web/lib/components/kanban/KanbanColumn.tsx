@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Id } from "../../../../backend/convex/_generated/dataModel";
 import { TaskCard } from "./TaskCard";
 import { CreateTaskForm } from "./CreateTaskForm";
@@ -35,9 +37,18 @@ const columnColors: Record<TaskStatus, string> = {
 export function KanbanColumn({ id, title, tasks, projectId }: KanbanColumnProps) {
   const [isCreating, setIsCreating] = useState(false);
 
+  const { setNodeRef, isOver } = useDroppable({
+    id,
+  });
+
+  const taskIds = tasks.map((t) => t._id);
+
   return (
     <div
-      className={`flex flex-col bg-neutral-100 dark:bg-neutral-800/50 rounded-xl border-t-4 ${columnColors[id]} p-3`}
+      ref={setNodeRef}
+      className={`flex flex-col bg-neutral-100 dark:bg-neutral-800/50 rounded-xl border-t-4 ${columnColors[id]} p-3 transition-colors ${
+        isOver ? "bg-neutral-200 dark:bg-neutral-700/50" : ""
+      }`}
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wide">
@@ -48,11 +59,13 @@ export function KanbanColumn({ id, title, tasks, projectId }: KanbanColumnProps)
         </span>
       </div>
 
-      <div className="flex-1 flex flex-col gap-2 min-h-[100px]">
-        {tasks.map((task) => (
-          <TaskCard key={task._id} task={task} />
-        ))}
-      </div>
+      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+        <div className="flex-1 flex flex-col gap-2 min-h-[100px]">
+          {tasks.map((task) => (
+            <TaskCard key={task._id} task={task} />
+          ))}
+        </div>
+      </SortableContext>
 
       {isCreating ? (
         <CreateTaskForm

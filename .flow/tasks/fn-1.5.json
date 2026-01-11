@@ -1,16 +1,25 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-11T20:33:04.150513Z",
   "created_at": "2026-01-11T20:04:19.133529Z",
   "depends_on": [
     "fn-1.4"
   ],
   "epic": "fn-1",
+  "evidence": {
+    "commits": [
+      "2c8652d4a399091157e3e13affd715fbd941f9cb"
+    ],
+    "prs": [],
+    "tests": [
+      "npx tsc --noEmit"
+    ]
+  },
   "id": "fn-1.5",
   "priority": null,
   "spec_path": ".flow/tasks/fn-1.5.md",
-  "status": "todo",
+  "status": "done",
   "title": "Add drag-and-drop for task cards",
-  "updated_at": "2026-01-11T20:06:50.607020Z"
+  "updated_at": "2026-01-11T20:36:23.308435Z"
 }

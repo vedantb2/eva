@@ -1,13 +1,12 @@
-- Created `projects/[id]/page.tsx` with project header, loading state, and board
-- Created `KanbanBoard.tsx` organizing tasks into three columns by status
-- Created `KanbanColumn.tsx` with task count badge and add task button
-- Created `TaskCard.tsx` with inline edit mode and delete functionality
-- Created `CreateTaskForm.tsx` for adding new tasks to columns
+- Installed @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities via pnpm
+- Updated KanbanBoard with DndContext, drag handlers, and DragOverlay
+- Updated KanbanColumn with useDroppable and SortableContext
+- Updated TaskCard with useSortable, drag handle (grip icon), and visual feedback
 
 Why:
-- Main Kanban board UI for managing project tasks
-- Tasks organized by status (Todo, In Progress, Done)
+- Enable drag-and-drop to move tasks between columns and reorder within columns
+- dnd-kit provides keyboard accessibility out of the box
 
 Verification:
-- TypeScript compiles without errors for new files
-- Components follow existing codebase patterns
+- TypeScript compiles without errors
+- Components structured for drag-and-drop functionality

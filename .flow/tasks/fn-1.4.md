@@ -34,9 +34,20 @@ Build the Kanban board page at `web/app/(main)/projects/[id]/page.tsx`.
 - [ ] Can delete task
 - [ ] Real-time updates when data changes
 ## Done summary
-TBD
+- Created `projects/[id]/page.tsx` with project header, loading state, and board
+- Created `KanbanBoard.tsx` organizing tasks into three columns by status
+- Created `KanbanColumn.tsx` with task count badge and add task button
+- Created `TaskCard.tsx` with inline edit mode and delete functionality
+- Created `CreateTaskForm.tsx` for adding new tasks to columns
 
+Why:
+- Main Kanban board UI for managing project tasks
+- Tasks organized by status (Todo, In Progress, Done)
+
+Verification:
+- TypeScript compiles without errors for new files
+- Components follow existing codebase patterns
 ## Evidence
-- Commits:
-- Tests:
+- Commits: e98186966e176e8c2db7550ae86318d5732fd1f3
+- Tests: npx tsc --noEmit (new files only)
 - PRs:

@@ -1,10 +1,12 @@
-- Created `projects/page.tsx` with project list, loading spinner, and empty state
-- Created `ProjectCard.tsx` component with name, description, delete button, and link to board
-- Created `CreateProjectModal.tsx` with form to create new projects
+- Created `projects/[id]/page.tsx` with project header, loading state, and board
+- Created `KanbanBoard.tsx` organizing tasks into three columns by status
+- Created `KanbanColumn.tsx` with task count badge and add task button
+- Created `TaskCard.tsx` with inline edit mode and delete functionality
+- Created `CreateTaskForm.tsx` for adding new tasks to columns
 
 Why:
-- Provides UI for users to manage their projects
-- Follows existing component patterns (HeroUI modals, custom Card/Button)
+- Main Kanban board UI for managing project tasks
+- Tasks organized by status (Todo, In Progress, Done)
 
 Verification:
 - TypeScript compiles without errors for new files

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "turbo": "npm run api && next dev --turbopack",
-    "build": "next build",
+    "build": "npm run api:prod && next build",
     "start": "next start",
     "lint": "next lint",
     "api": "npx convex-helpers ts-api-spec --output-file api",

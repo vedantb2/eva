@@ -1,10 +1,10 @@
-- Added `projects` table with name, description, userId, createdAt fields and user index
-- Added `tasks` table with projectId, title, description, status, order, timestamps and project indexes
-- Status field uses union type for "todo", "in_progress", "done"
+- Created `projects.ts` with list, get, create, update, remove functions
+- Created `tasks.ts` with listByProject, get, create, update, updateStatus, updateOrder, remove functions
+- All mutations validate user ownership via Clerk identity.subject
 
 Why:
-- Foundation for Kanban board data layer
-- Follows existing schema patterns in the codebase
+- Provides API layer for frontend to interact with Convex database
+- Follows existing auth patterns from auth.ts
 
 Verification:
 - `npx convex codegen` passed without errors

@@ -33,9 +33,17 @@ Create Convex queries and mutations for projects and tasks CRUD operations.
 - [ ] All mutations validate user ownership before modifying data
 - [ ] TypeScript compiles without errors
 ## Done summary
-TBD
+- Created `projects.ts` with list, get, create, update, remove functions
+- Created `tasks.ts` with listByProject, get, create, update, updateStatus, updateOrder, remove functions
+- All mutations validate user ownership via Clerk identity.subject
 
+Why:
+- Provides API layer for frontend to interact with Convex database
+- Follows existing auth patterns from auth.ts
+
+Verification:
+- `npx convex codegen` passed without errors
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 548d5d12c9c6ef8209864fd813196644794b7809
+- Tests: npx convex codegen
 - PRs:

@@ -9,6 +9,8 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as projects from "../projects.js";
+import type * as tasks from "../tasks.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +28,8 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  projects: typeof projects;
+  tasks: typeof tasks;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

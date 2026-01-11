@@ -1,0 +1,9 @@
+{
+  "id": "fn-4.1",
+  "epic_id": "fn-4",
+  "title": "Delete unused component files",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-01-11T22:20:00.000000Z",
+  "updated_at": "2026-01-11T22:25:00.000000Z"
+}

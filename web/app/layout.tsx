@@ -6,7 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  title: "Vello - Learn Marathi",
+  title: "Conductor - LLM Agent Orchestration",
   description:
     "Learn Marathi language and explore Maharashtra's rich culture. Master vocabulary, discover festivals, and use the Marathi calendar with our Duolingo-style learning platform.",
   keywords:

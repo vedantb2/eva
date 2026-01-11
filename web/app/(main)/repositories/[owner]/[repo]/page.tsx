@@ -6,6 +6,7 @@ import { api } from "@/api";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { AgentKanbanBoard } from "@/lib/components/agent/AgentKanbanBoard";
+import { NewFeatureButton } from "@/lib/components/features/NewFeatureButton";
 import { useEffect, useState } from "react";
 
 export default function RepoBoardPage() {
@@ -95,12 +96,15 @@ export default function RepoBoardPage() {
     return null;
   }
 
+  const firstColumn = boardData.columns[0];
+
   return (
     <>
       <PageHeader
         title={`${owner}/${repoName}`}
         showBack
         onBack={() => router.push("/repositories")}
+        headerRight={firstColumn && <NewFeatureButton columnId={firstColumn._id} />}
       />
       <Container>
         <AgentKanbanBoard columns={boardData.columns} />

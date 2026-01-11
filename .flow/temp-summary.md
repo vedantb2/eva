@@ -1,11 +1,14 @@
-- Created SubtaskList with add, toggle complete, delete functionality
-- Created CommentThread with add, delete (author only) functionality
-- Created TaskDetailModal showing title, status, branch, description, subtasks, comments
-- Updated AgentTaskCard to open modal on title click
-- Added branchName to AgentTask interface
+- Created specs.ts action with OpenAI API integration
+- Fallback to mock spec generation if no API key
+- Created NewFeatureModal with input/generating/review/error steps
+- Created NewFeatureButton wrapper component
+- Added button to repo board page header
+- Updated api.ts with specs action type
 
 Why:
-- Enable detailed task view with subtasks and discussion
+- Enable AI-powered feature spec generation from brief descriptions
+- Automatically create tasks with subtasks from generated specs
 
 Verification:
-- npx tsc --noEmit passes without errors
+- npx convex dev --once passes
+- npx tsc --noEmit passes

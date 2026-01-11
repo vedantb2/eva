@@ -1,1 +1,1 @@
-{"commits":["d2d277bada2304afd3cffcba0c79fa2f23e9ade0"],"tests":["npx tsc --noEmit"],"prs":[]}
+{"commits":["d9d7bd2237b68623a3e5064efc47001261e6db4a"],"tests":["npx convex dev --once","npx tsc --noEmit"],"prs":[]}

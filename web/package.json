@@ -1,0 +1,59 @@
+{
+  "name": "vello",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "turbo": "npm run api && next dev --turbopack",
+    "build": "npm run api:prod && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "api": "npx convex-helpers ts-api-spec --output-file api",
+    "api:prod": "npx convex-helpers ts-api-spec --prod --output-file api"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^2.0.30",
+    "@clerk/nextjs": "^6.24.0",
+    "@heroui/react": "^2.7.8",
+    "@hookform/resolvers": "^4.1.2",
+    "@openrouter/ai-sdk-provider": "^1.1.2",
+    "@t3-oss/env-nextjs": "^0.13.8",
+    "@tabler/icons-react": "^3.33.0",
+    "@vercel/analytics": "^1.5.0",
+    "ai": "^5.0.30",
+    "chart.js": "^4.4.8",
+    "clsx": "^2.1.1",
+    "convex": "^1.24.1",
+    "convex-helpers": "^0.1.88",
+    "dayjs": "^1.11.13",
+    "framer-motion": "^12.12.1",
+    "jspdf": "^3.0.0",
+    "jspdf-autotable": "^3.8.4",
+    "next": "15.5.7",
+    "next-themes": "^0.2.1",
+    "react": "19.2.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "19.2.1",
+    "react-hook-form": "^7.54.2",
+    "resend": "^4.5.1",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.0.4",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "15.2.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.10",
+      "@types/react-dom": "19.0.4"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "vello-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx convex dev",
+    "deploy": "npx convex deploy"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "convex": "^1.24.5",
+    "resend": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.5",
+    "typescript": "^5.8.3"
+  }
+}

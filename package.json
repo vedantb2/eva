@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "scripts": {
+    "start": "npm run start --prefix ./mobile",
+    "android": "npm run android --prefix ./mobile",
+    "build:dev": "npm run build:dev --prefix ./mobile",
+    "build:preview": "npm run build:preview --prefix ./mobile",
+    "build:prod": "npm run build:prod --prefix ./mobile",
+    "update:dev": "npm run update:dev --prefix ./mobile",
+    "update:preview": "npm run update:preview --prefix ./mobile",
+    "dev": "npm run dev --prefix ./web",
+    "turbo": "npm run turbo --prefix ./web",
+    "convex": "npm run dev --prefix ./backend",
+    "convex:deploy": "npm run deploy --prefix ./backend",
+    "api:web": "npm run api --prefix ./web"
+  }
+}

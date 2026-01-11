@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-11T20:04:19.133529Z",
+  "depends_on": [
+    "fn-1.4"
+  ],
+  "epic": "fn-1",
+  "id": "fn-1.5",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-1.5.md",
+  "status": "todo",
+  "title": "Add drag-and-drop for task cards",
+  "updated_at": "2026-01-11T20:06:50.607020Z"
+}

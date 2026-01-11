@@ -155,6 +155,30 @@ const schema = defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_card", ["userId", "cultureCardId"]),
+
+  projects: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    userId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"]),
+
+  tasks: defineTable({
+    projectId: v.id("projects"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("todo"),
+      v.literal("in_progress"),
+      v.literal("done")
+    ),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
 });
 
 export default schema;

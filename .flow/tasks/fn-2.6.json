@@ -2,7 +2,7 @@
   "id": "fn-2.6",
   "epic_id": "fn-2",
   "title": "Build boards list page and create board modal",
-  "status": "pending",
+  "status": "done",
   "depends_on": ["fn-2.2"],
   "created_at": "2026-01-11T21:00:00.000000Z",
   "updated_at": "2026-01-11T21:00:00.000000Z"

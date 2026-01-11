@@ -9,15 +9,14 @@ import {
   IconLayoutKanban,
   IconSettings,
   IconHistory,
-  IconRobot,
   IconMenu2,
   IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
 
 const navigation = [
+  { name: "Boards", href: "/boards", icon: IconLayoutKanban },
   { name: "Projects", href: "/projects", icon: IconFolder },
-  { name: "Agents", href: "/agents", icon: IconRobot },
   { name: "History", href: "/history", icon: IconHistory },
   { name: "Settings", href: "/settings", icon: IconSettings },
 ];

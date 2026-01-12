@@ -7,8 +7,8 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- createTaskBranchName already implemented in branchName.ts
+- Pattern: conductor/feature-{slug}-{taskNumber}
 ## Evidence
 - Commits:
 - Tests:

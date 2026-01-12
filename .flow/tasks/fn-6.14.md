@@ -7,8 +7,10 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created ActiveTasksAccordion using HeroUI Accordion
+- Shows tasks with status: todo, in_progress, code_review
+- Displays task title, number, and status badge
+- Collapsible with count indicator
 ## Evidence
 - Commits:
 - Tests:

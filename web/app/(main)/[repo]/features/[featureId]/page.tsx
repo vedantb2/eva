@@ -65,14 +65,7 @@ export default function FeatureDetailPage({
     <>
       <PageHeader
         title={feature.title}
-        headerLeft={
-          <Link
-            href={`/${encodeRepoSlug(fullName)}/features`}
-            className="mr-4 p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-          >
-            <IconArrowLeft className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-          </Link>
-        }
+        showBack
         headerRight={
           <div className="flex items-center gap-3">
             <span

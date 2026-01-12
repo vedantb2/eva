@@ -16,22 +16,26 @@ const features = [
   {
     icon: IconRobot,
     title: "Agent Task Assignment",
-    description: "Assign tasks to LLM agents and monitor their execution in real-time.",
+    description:
+      "Assign tasks to LLM agents and monitor their execution in real-time.",
   },
   {
     icon: IconGitBranch,
     title: "Task Dependencies",
-    description: "Define task relationships and let the system handle execution order.",
+    description:
+      "Define task relationships and let the system handle execution order.",
   },
   {
     icon: IconClockHour4,
     title: "Real-time Sync",
-    description: "Powered by Convex for instant updates across all connected clients.",
+    description:
+      "Powered by Convex for instant updates across all connected clients.",
   },
   {
     icon: IconChartBar,
     title: "Execution History",
-    description: "Track every agent action with detailed logs and performance metrics.",
+    description:
+      "Track every agent action with detailed logs and performance metrics.",
   },
 ];
 
@@ -62,7 +66,7 @@ export default function LandingPage() {
               </Unauthenticated>
               <Authenticated>
                 <Link
-                  href="/projects"
+                  href="/repos"
                   className="px-4 py-2 text-sm font-medium bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
                 >
                   Dashboard
@@ -86,8 +90,9 @@ export default function LandingPage() {
               <span className="text-pink-600"> AI Agents</span>
             </h1>
             <p className="text-lg sm:text-xl text-neutral-600 dark:text-neutral-400 mb-8 max-w-2xl mx-auto">
-              A powerful Kanban-style platform to manage, assign, and track LLM agent tasks
-              with real-time sync, dependency management, and execution history.
+              A powerful Kanban-style platform to manage, assign, and track LLM
+              agent tasks with real-time sync, dependency management, and
+              execution history.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Unauthenticated>
@@ -99,7 +104,7 @@ export default function LandingPage() {
               </Unauthenticated>
               <Authenticated>
                 <Link
-                  href="/projects"
+                  href="/repos"
                   className="w-full sm:w-auto px-6 py-3 text-base font-medium bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   Go to Dashboard <IconArrowRight className="w-4 h-4" />
@@ -115,7 +120,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-neutral-800/50">
+        <section
+          id="features"
+          className="py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-neutral-800/50"
+        >
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
@@ -152,7 +160,8 @@ export default function LandingPage() {
               Ready to Orchestrate?
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
-              Start managing your AI agents today with our intuitive Kanban board.
+              Start managing your AI agents today with our intuitive Kanban
+              board.
             </p>
             <Unauthenticated>
               <SignUpButton mode="modal">
@@ -163,7 +172,7 @@ export default function LandingPage() {
             </Unauthenticated>
             <Authenticated>
               <Link
-                href="/projects"
+                href="/repos"
                 className="inline-block px-8 py-4 text-lg font-medium bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors"
               >
                 Open Dashboard

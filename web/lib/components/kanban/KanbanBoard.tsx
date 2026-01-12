@@ -42,7 +42,7 @@ const columns: { id: TaskStatus; title: string }[] = [
   { id: "done", title: "Done" },
 ];
 
-export function KanbanBoard({ projectId, tasks }: KanbanBoardProps) {
+export function KanbanBoard({ tasks }: KanbanBoardProps) {
   const updateStatus = useMutation(api.tasks.updateStatus);
   const updateOrder = useMutation(api.tasks.updateOrder);
 
@@ -113,11 +113,13 @@ export function KanbanBoard({ projectId, tasks }: KanbanBoardProps) {
         {tasksByStatus.map((column) => (
           <KanbanColumn
             key={column.id}
-            id={column.id}
-            title={column.title}
-            tasks={column.tasks}
-            projectId={projectId}
-          />
+            status={column.id}
+            count={column.tasks.length}
+          >
+            {column.tasks.map((task) => (
+              <TaskCard key={task._id} task={task} />
+            ))}
+          </KanbanColumn>
         ))}
       </div>
       <DragOverlay>

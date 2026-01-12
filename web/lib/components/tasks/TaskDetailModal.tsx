@@ -4,18 +4,18 @@ import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/react";
 import { GenericId as Id } from "convex/values";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { AgentStatusBadge } from "@/lib/components/agent/AgentStatusBadge";
+import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
 import { CommentThread } from "./CommentThread";
 import { IconGitBranch } from "@tabler/icons-react";
 
-type AgentStatus =
-  | "idle"
-  | "queued"
-  | "running"
-  | "reviewing"
-  | "completed"
-  | "failed";
+type TaskStatus =
+  | "archived"
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "code_review"
+  | "done";
 
 interface AgentTask {
   _id: Id<"agentTasks">;
@@ -24,7 +24,7 @@ interface AgentTask {
   title: string;
   description?: string;
   branchName?: string;
-  status: AgentStatus;
+  status: TaskStatus;
   order: number;
 }
 
@@ -58,7 +58,7 @@ export function TaskDetailModal({
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
               {currentTask.title}
             </h2>
-            <AgentStatusBadge status={currentTask.status} />
+            <TaskStatusBadge status={currentTask.status} />
           </div>
           {currentTask.branchName && (
             <div className="flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">

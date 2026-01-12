@@ -20,7 +20,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 
 const mainNavigation = [
-  { name: "Repositories", href: "/", icon: IconBrandGithub },
+  { name: "Repositories", href: "/repos", icon: IconBrandGithub },
   { name: "Settings", href: "/settings", icon: IconSettings },
 ];
 

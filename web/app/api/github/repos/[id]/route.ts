@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { listInstallationRepos } from "@/lib/github/client";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const installationId = url.searchParams.get("installation_id");
-
-  if (!installationId) {
-    return NextResponse.json(
-      { error: "Missing installation_id" },
-      { status: 400 }
-    );
-  }
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
 
   try {
-    const repos = await listInstallationRepos(Number(installationId));
+    const repos = await listInstallationRepos(Number(id));
     return NextResponse.json({ repos });
   } catch (error) {
     console.error("Error fetching repos:", error);

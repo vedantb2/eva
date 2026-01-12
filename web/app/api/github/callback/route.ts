@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/repos/setup?installation_id=" + installationId, req.url)
+      new URL("/repos/setup/" + installationId, req.url)
     );
   }
 
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("GitHub callback error:", error);
     return NextResponse.redirect(
-      new URL("/repos/setup?installation_id=" + installationId, req.url)
+      new URL("/repos/setup/" + installationId, req.url)
     );
   }
 }

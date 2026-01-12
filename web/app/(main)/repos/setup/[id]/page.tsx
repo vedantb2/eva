@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
@@ -16,10 +17,14 @@ interface GitHubRepo {
   url: string;
 }
 
-export default function RepoSetupPage() {
+export default function RepoSetupPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: installationId } = use(params);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const installationId = searchParams.get("installation_id");
   const autoSync = searchParams.get("auto") !== "false";
   
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -32,13 +37,7 @@ export default function RepoSetupPage() {
   const createRepo = useMutation(api.githubRepos.create);
 
   useEffect(() => {
-    if (!installationId) {
-      setError("No installation ID provided");
-      setLoading(false);
-      return;
-    }
-
-    fetch("/api/github/repos?installation_id=" + installationId)
+    fetch("/api/github/repos/" + installationId)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
@@ -62,7 +61,7 @@ export default function RepoSetupPage() {
   }, [loading, repos, autoSync]);
 
   const handleAddAll = async () => {
-    if (!installationId || syncing) return;
+    if (syncing) return;
     setSyncing(true);
     
     for (const repo of repos) {

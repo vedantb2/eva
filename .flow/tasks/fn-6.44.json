@@ -1,17 +1,22 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T09:27:14.450066Z",
   "created_at": "2026-01-12T00:23:48.954308Z",
   "depends_on": [
     "fn-6.9",
     "fn-6.10"
   ],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.44",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.44.md",
-  "status": "todo",
+  "status": "done",
   "title": "Migrate existing pages to work with new routing structure",
-  "updated_at": "2026-01-12T00:30:15.017657Z"
+  "updated_at": "2026-01-12T09:29:47.740769Z"
 }

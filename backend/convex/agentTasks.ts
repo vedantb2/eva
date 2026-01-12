@@ -404,3 +404,73 @@ export const remove = mutation({
     return null;
   },
 });
+
+export const createQuickTask = mutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    title: v.string(),
+    description: v.optional(v.string()),
+  },
+  returns: v.id("agentTasks"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    let board = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+    if (!board) {
+      const boardId = await ctx.db.insert("boards", {
+        name: "Quick Tasks",
+        ownerId: identity.subject,
+        repoId: args.repoId,
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("columns", {
+        boardId,
+        name: "Backlog",
+        order: 0,
+        isRunColumn: false,
+      });
+      board = await ctx.db.get(boardId);
+    }
+    if (!board) {
+      throw new Error("Failed to create board");
+    }
+    let column = await ctx.db
+      .query("columns")
+      .withIndex("by_board", (q) => q.eq("boardId", board._id))
+      .first();
+    if (!column) {
+      const columnId = await ctx.db.insert("columns", {
+        boardId: board._id,
+        name: "Backlog",
+        order: 0,
+        isRunColumn: false,
+      });
+      column = await ctx.db.get(columnId);
+    }
+    if (!column) {
+      throw new Error("Failed to create column");
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_column", (q) => q.eq("columnId", column._id))
+      .collect();
+    const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
+    const now = Date.now();
+    return await ctx.db.insert("agentTasks", {
+      boardId: board._id,
+      columnId: column._id,
+      title: args.title,
+      description: args.description,
+      repoId: args.repoId,
+      status: "backlog",
+      order: maxOrder + 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});

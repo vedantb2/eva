@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created PlanFinalizationModal component with options to save as draft or create feature directly. Integrates with createFromPlan mutation.
 ## Evidence
 - Commits:
 - Tests:

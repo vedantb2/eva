@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created formatSubtaskNumber utility and SubtaskList component with parent-relative numbering (2.1, 2.2)
 ## Evidence
 - Commits:
 - Tests:

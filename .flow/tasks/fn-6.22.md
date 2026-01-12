@@ -59,8 +59,7 @@ When you have enough information, generate:
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created plan prompts with PLAN_SYSTEM_PROMPT, SPEC_GENERATION_PROMPT, INTERVIEW_PROMPT, and createInitialAssistantMessage helper
 ## Evidence
 - Commits:
 - Tests:

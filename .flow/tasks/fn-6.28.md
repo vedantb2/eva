@@ -45,8 +45,7 @@ export function FeatureKanbanBoard({ featureId }) {
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created FeatureKanbanBoard component with dnd-kit integration for dragging tasks between 5 status columns, dependency checking on status change, and sortable task cards
 ## Evidence
 - Commits:
 - Tests:

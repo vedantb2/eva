@@ -52,8 +52,7 @@ export function PlanConversation({ planId, onSpecGenerated }) {
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created PlanConversation component with AI SDK useChat hook, ChatMessage component, and proper Convex integration for saving messages
 ## Evidence
 - Commits:
 - Tests:

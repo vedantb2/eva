@@ -67,8 +67,7 @@ export const createFromPlan = mutation({
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created createFromPlan mutation that parses spec JSON, creates feature with branch name, creates tasks with sequential numbers and dependencies
 ## Evidence
 - Commits:
 - Tests:

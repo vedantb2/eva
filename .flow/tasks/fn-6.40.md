@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Added createTaskBranch utility that creates task branches from feature branch using pattern feature-branch-name-taskNumber
 ## Evidence
 - Commits:
 - Tests:

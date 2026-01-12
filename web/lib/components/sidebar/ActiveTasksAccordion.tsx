@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
-import { Id } from "convex/values";
+import { GenericId as Id } from "convex/values";
 
 interface ActiveTasksAccordionProps {
   repoId?: Id<"githubRepos">;
@@ -38,7 +38,8 @@ export function ActiveTasksAccordion({ repoId }: ActiveTasksAccordionProps) {
         }
         classNames={{
           base: "px-0",
-          trigger: "px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg",
+          trigger:
+            "px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg",
           content: "px-0",
         }}
       >

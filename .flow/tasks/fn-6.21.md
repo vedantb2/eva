@@ -43,8 +43,7 @@ export async function POST(req: Request) {
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created OpenRouter API route with streaming chat endpoint using AI SDK
 ## Evidence
 - Commits:
 - Tests:

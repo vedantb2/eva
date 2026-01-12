@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created GitHub create-branch API route and client-side utility. Branch names are generated using conductor/feature-{slug} pattern. Full GitHub API integration can be added when GitHub App auth is set up.
 ## Evidence
 - Commits:
 - Tests:

@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { Id } from "convex/values";
+import { GenericId as Id } from "convex/values";
 import { decodeRepoSlug } from "@/lib/utils/repoUrl";
 
 interface Repo {

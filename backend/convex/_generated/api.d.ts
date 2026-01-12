@@ -13,11 +13,14 @@ import type * as agentTasks from "../agentTasks.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
+import type * as features from "../features.js";
 import type * as githubRepos from "../githubRepos.js";
+import type * as plans from "../plans.js";
 import type * as projects from "../projects.js";
 import type * as specs from "../specs.js";
 import type * as subtasks from "../subtasks.js";
 import type * as taskComments from "../taskComments.js";
+import type * as taskDependencies from "../taskDependencies.js";
 import type * as tasks from "../tasks.js";
 
 import type {
@@ -40,11 +43,14 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   boards: typeof boards;
   columns: typeof columns;
+  features: typeof features;
   githubRepos: typeof githubRepos;
+  plans: typeof plans;
   projects: typeof projects;
   specs: typeof specs;
   subtasks: typeof subtasks;
   taskComments: typeof taskComments;
+  taskDependencies: typeof taskDependencies;
   tasks: typeof tasks;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

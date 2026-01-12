@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Added Ask More Questions and Generate Spec buttons to PlanConversation component with interview functionality
 ## Evidence
 - Commits:
 - Tests:

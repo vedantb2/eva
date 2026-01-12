@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created FeatureTaskCard component with task number, title, description, status badge, dependency indicator, and branch name display
 ## Evidence
 - Commits:
 - Tests:

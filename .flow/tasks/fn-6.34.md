@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created KanbanColumn component for 6 task states (archived, backlog, todo, in_progress, code_review, done) with status-specific colors and labels
 ## Evidence
 - Commits:
 - Tests:

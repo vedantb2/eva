@@ -9,6 +9,7 @@ import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@/lib/components/ui/Button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
+import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { IconChecklist, IconPlus } from "@tabler/icons-react";
 
 export default function QuickTasksPage() {
@@ -67,6 +68,10 @@ export default function QuickTasksPage() {
           </div>
         )}
       </Container>
+      <QuickTaskModal
+        isOpen={isCreating}
+        onClose={() => setIsCreating(false)}
+      />
     </>
   );
 }

@@ -7,8 +7,7 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+Created QuickTaskModal component with createQuickTask mutation that automatically finds or creates board/column for quick tasks
 ## Evidence
 - Commits:
 - Tests:

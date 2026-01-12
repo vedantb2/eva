@@ -27,13 +27,16 @@ const agentTaskValidator = v.object({
   title: v.string(),
   description: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
+  branchName: v.optional(v.string()),
+  featureId: v.optional(v.id("features")),
+  taskNumber: v.optional(v.number()),
   status: v.union(
-    v.literal("idle"),
-    v.literal("queued"),
-    v.literal("running"),
-    v.literal("reviewing"),
-    v.literal("completed"),
-    v.literal("failed")
+    v.literal("archived"),
+    v.literal("backlog"),
+    v.literal("todo"),
+    v.literal("in_progress"),
+    v.literal("code_review"),
+    v.literal("done")
   ),
   order: v.number(),
   createdAt: v.number(),

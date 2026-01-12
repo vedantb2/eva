@@ -8,16 +8,17 @@ import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@/lib/components/ui/Button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
+import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { IconChecklist, IconPlus } from "@tabler/icons-react";
 
 export function QuickTasksClient() {
   const { repo } = useRepo();
-  const tasks = useQuery(api.agentTasks.getActiveTasks, { repoId: repo._id });
+  const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
 
   const quickTasks = tasks?.filter((t) => !t.featureId) ?? [];
+  const hasQuickTasks = quickTasks.length > 0;
 
   return (
     <>
@@ -35,7 +36,7 @@ export function QuickTasksClient() {
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
           </div>
-        ) : quickTasks.length === 0 ? (
+        ) : !hasQuickTasks ? (
           <EmptyState
             icon={IconChecklist}
             title="No quick tasks"
@@ -44,28 +45,7 @@ export function QuickTasksClient() {
             onAction={() => setIsCreating(true)}
           />
         ) : (
-          <div className="space-y-3">
-            {quickTasks.map((task) => (
-              <div
-                key={task._id}
-                className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-medium text-neutral-900 dark:text-white">
-                      {task.title}
-                    </h3>
-                    {task.description && (
-                      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-                  </div>
-                  <TaskStatusBadge status={task.status} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <QuickTasksKanbanBoard repoId={repo._id} />
         )}
       </Container>
       <QuickTaskModal

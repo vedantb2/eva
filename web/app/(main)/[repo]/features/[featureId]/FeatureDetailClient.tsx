@@ -6,7 +6,7 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
-import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
+import { FeatureKanbanBoard } from "@/lib/components/features/FeatureKanbanBoard";
 import { IconGitBranch, IconArrowLeft } from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -27,13 +27,8 @@ const statusColors = {
 
 export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
   const { fullName } = useRepo();
-  const feature = useQuery(api.features.get, {
-    id: featureId as Id<"features">,
-  });
-  const tasks = useQuery(
-    api.agentTasks.listByFeature,
-    feature ? { featureId: feature._id } : "skip"
-  );
+  const typedFeatureId = featureId as Id<"features">;
+  const feature = useQuery(api.features.get, { id: typedFeatureId });
 
   if (feature === undefined) {
     return (
@@ -87,53 +82,7 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
             {feature.description}
           </p>
         )}
-
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
-            Tasks
-          </h3>
-          {tasks === undefined ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
-            </div>
-          ) : tasks.length === 0 ? (
-            <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
-              No tasks yet. Tasks will be generated when the plan is finalized.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {tasks
-                .sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0))
-                .map((task) => (
-                  <div
-                    key={task._id}
-                    className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        {task.taskNumber && (
-                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 text-sm flex items-center justify-center font-medium">
-                            {task.taskNumber}
-                          </span>
-                        )}
-                        <div>
-                          <h4 className="font-medium text-neutral-900 dark:text-white">
-                            {task.title}
-                          </h4>
-                          {task.description && (
-                            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                              {task.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <TaskStatusBadge status={task.status} />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
+        <FeatureKanbanBoard featureId={typedFeatureId} />
       </Container>
     </>
   );

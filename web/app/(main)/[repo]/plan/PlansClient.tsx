@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -10,9 +9,16 @@ import { Button } from "@/lib/components/ui/Button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
 import { NewPlanModal } from "@/lib/components/plans/NewPlanModal";
-import { IconSparkles, IconPlus, IconChevronRight } from "@tabler/icons-react";
+import {
+  IconSparkles,
+  IconPlus,
+  IconChevronRight,
+  IconMessageQuestion,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { Tooltip } from "@heroui/tooltip";
+import { useState } from "react";
 
 export function PlansClient() {
   const { repo, fullName } = useRepo();
@@ -45,28 +51,62 @@ export function PlansClient() {
           />
         ) : (
           <div className="space-y-4">
-            {plans.map((plan) => (
-              <Link
-                key={plan._id}
-                href={"/" + encodeRepoSlug(fullName) + "/plan/" + plan._id}
-                className="block p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
-                        {plan.title}
-                      </h3>
-                      <PlanStatusBadge state={plan.state} />
+            {plans.map((plan) => {
+              const canInterview = plan.state !== "feature_created";
+              const planUrl =
+                "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
+              return (
+                <div
+                  key={plan._id}
+                  className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-start justify-between">
+                    <Link href={planUrl} className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                          {plan.title}
+                        </h3>
+                        <PlanStatusBadge state={plan.state} />
+                      </div>
+                      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                        {plan.rawInput}
+                      </p>
+                    </Link>
+                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                      <Tooltip
+                        content={
+                          canInterview
+                            ? "Interview to refine requirements"
+                            : "Feature already created - plan is locked"
+                        }
+                      >
+                        <span>
+                          <Link
+                            href={canInterview ? `${planUrl}?interview=true` : "#"}
+                            onClick={(e) => {
+                              if (!canInterview) e.preventDefault();
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${
+                              canInterview
+                                ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-500 hover:text-pink-600"
+                                : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
+                            }`}
+                          >
+                            <IconMessageQuestion size={20} />
+                          </Link>
+                        </span>
+                      </Tooltip>
+                      <Link
+                        href={planUrl}
+                        className="text-neutral-400 group-hover:text-pink-600 transition-colors"
+                      >
+                        <IconChevronRight size={20} />
+                      </Link>
                     </div>
-                    <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                      {plan.rawInput}
-                    </p>
                   </div>
-                  <IconChevronRight className="w-5 h-5 text-neutral-400 group-hover:text-pink-600 transition-colors flex-shrink-0 ml-4" />
                 </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </Container>

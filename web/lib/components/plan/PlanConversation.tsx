@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
+import { Tooltip } from "@heroui/tooltip";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -27,14 +28,18 @@ interface ConversationMessage {
   content: string;
 }
 
+type PlanState = "draft" | "finalized" | "feature_created";
+
 interface PlanConversationProps {
   planId: Id<"plans">;
+  planState: PlanState;
   initialMessages: ConversationMessage[];
   onSpecGenerated?: (spec: string) => void;
 }
 
 export function PlanConversation({
   planId,
+  planState,
   initialMessages,
   onSpecGenerated,
 }: PlanConversationProps) {
@@ -42,6 +47,10 @@ export function PlanConversation({
   const clearMessagesDb = useMutation(api.plans.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
+
+  const isLocked = planState === "feature_created";
+  const isFinalized = planState === "finalized";
+  const canEdit = planState === "draft";
 
   const { messages, sendMessage, status, setMessages } = useChat({
     id: `plan-${planId}`,
@@ -136,64 +145,135 @@ export function PlanConversation({
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="flat"
-            startContent={<IconHelpCircle size={16} />}
-            onPress={handleAskMoreQuestions}
-            isDisabled={isLoading}
+        <div className="flex gap-2 flex-wrap">
+          <Tooltip
+            content={
+              isLocked
+                ? "Feature already created - plan is locked"
+                : isFinalized
+                  ? "Spec is finalized - create feature or continue editing"
+                  : "Ask AI to gather more requirements"
+            }
+            isDisabled={canEdit && !isLoading}
           >
-            Ask More Questions
-          </Button>
-          <Button
-            size="sm"
-            variant="flat"
-            color="success"
-            startContent={<IconSparkles size={16} />}
-            onPress={handleGenerateSpec}
-            isDisabled={isLoading}
+            <span>
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={<IconHelpCircle size={16} />}
+                onPress={handleAskMoreQuestions}
+                isDisabled={isLoading || isLocked}
+              >
+                Ask More Questions
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip
+            content={
+              isLocked
+                ? "Feature already created - plan is locked"
+                : isFinalized
+                  ? "Spec already generated - create feature to proceed"
+                  : "Generate implementation spec from conversation"
+            }
+            isDisabled={canEdit && !isLoading}
           >
-            Generate Spec
-          </Button>
-          <Button
-            size="sm"
-            variant="flat"
-            color="danger"
-            startContent={<IconTrash size={16} />}
-            onPress={handleClearChat}
-            isDisabled={isLoading || messages.length === 0}
+            <span>
+              <Button
+                size="sm"
+                variant="flat"
+                color="success"
+                startContent={<IconSparkles size={16} />}
+                onPress={handleGenerateSpec}
+                isDisabled={isLoading || isLocked}
+              >
+                Generate Spec
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip
+            content={
+              isLocked
+                ? "Feature already created - plan is locked"
+                : isFinalized
+                  ? "Spec is finalized - cannot clear conversation"
+                  : messages.length === 0
+                    ? "No messages to clear"
+                    : "Clear all messages"
+            }
+            isDisabled={canEdit && messages.length > 0 && !isLoading}
           >
-            Clear Chat
-          </Button>
+            <span>
+              <Button
+                size="sm"
+                variant="flat"
+                color="danger"
+                startContent={<IconTrash size={16} />}
+                onPress={handleClearChat}
+                isDisabled={isLoading || isLocked || isFinalized || messages.length === 0}
+              >
+                Clear Chat
+              </Button>
+            </span>
+          </Tooltip>
         </div>
         <form onSubmit={handleFormSubmit}>
           <div className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe your feature or answer questions..."
-              minRows={1}
-              maxRows={4}
-              className="flex-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleFormSubmit(
-                    e as unknown as React.FormEvent<HTMLFormElement>
-                  );
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              isIconOnly
-              color="primary"
-              isLoading={isLoading}
-              isDisabled={!input.trim()}
+            <Tooltip
+              content={
+                isLocked
+                  ? "Feature already created - plan is locked"
+                  : isFinalized
+                    ? "Spec is finalized - you can still add messages"
+                    : ""
+              }
+              isDisabled={canEdit}
             >
-              <IconSend size={18} />
-            </Button>
+              <div className="flex-1">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={
+                    isLocked
+                      ? "Plan is locked - feature has been created"
+                      : "Describe your feature or answer questions..."
+                  }
+                  minRows={1}
+                  maxRows={4}
+                  isDisabled={isLocked}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !isLocked) {
+                      e.preventDefault();
+                      handleFormSubmit(
+                        e as unknown as React.FormEvent<HTMLFormElement>
+                      );
+                    }
+                  }}
+                />
+              </div>
+            </Tooltip>
+            <Tooltip
+              content={
+                isLocked
+                  ? "Feature already created - plan is locked"
+                  : !input.trim()
+                    ? "Enter a message first"
+                    : "Send message"
+              }
+              isDisabled={!isLocked && input.trim().length > 0}
+            >
+              <span>
+                <Button
+                  type="submit"
+                  isIconOnly
+                  color="primary"
+                  isLoading={isLoading}
+                  isDisabled={!input.trim() || isLocked}
+                >
+                  <IconSend size={18} />
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         </form>
       </div>

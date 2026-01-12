@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 const taskStatusValidator = v.union(
   v.literal("archived"),
@@ -215,12 +216,26 @@ export const moveToColumn = mutation({
     if (task.columnId === args.columnId) {
       return null;
     }
+    if (targetColumn.isRunColumn) {
+      const dependencies = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_task", (q) => q.eq("taskId", args.id))
+        .collect();
+      for (const dep of dependencies) {
+        const dependsOnTask = await ctx.db.get(dep.dependsOnId);
+        if (dependsOnTask && dependsOnTask.status !== "done") {
+          throw new Error(
+            `Task is blocked by incomplete dependency: ${dependsOnTask.title}`
+          );
+        }
+      }
+    }
     const tasksInTarget = await ctx.db
       .query("agentTasks")
       .withIndex("by_column", (q) => q.eq("columnId", args.columnId))
       .collect();
     const maxOrder = tasksInTarget.reduce((max, t) => Math.max(max, t.order), -1);
-    let runId: ReturnType<typeof v.id<"agentRuns">> | null = null;
+    let runId: Id<"agentRuns"> | null = null;
     if (targetColumn.isRunColumn && task.status === "backlog") {
       runId = await ctx.db.insert("agentRuns", {
         taskId: args.id,
@@ -327,28 +342,7 @@ export const getActiveTasks = query({
     const relevantBoards = args.repoId
       ? ownedBoards.filter((b) => b.repoId === args.repoId)
       : ownedBoards;
-    const activeTasks: Array<{
-      _id: ReturnType<typeof v.id<"agentTasks">>;
-      _creationTime: number;
-      boardId: ReturnType<typeof v.id<"boards">>;
-      columnId: ReturnType<typeof v.id<"columns">>;
-      title: string;
-      description?: string;
-      branchName?: string;
-      repoId?: ReturnType<typeof v.id<"githubRepos">>;
-      featureId?: ReturnType<typeof v.id<"features">>;
-      taskNumber?: number;
-      status:
-        | "archived"
-        | "backlog"
-        | "todo"
-        | "in_progress"
-        | "code_review"
-        | "done";
-      order: number;
-      createdAt: number;
-      updatedAt: number;
-    }> = [];
+    const activeTasks = [];
     for (const board of relevantBoards) {
       const tasks = await ctx.db
         .query("agentTasks")
@@ -402,6 +396,32 @@ export const remove = mutation({
     }
     await ctx.db.delete(args.id);
     return null;
+  },
+});
+
+export const getAllTasks = query({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const boards = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const allTasks = [];
+    for (const board of ownedBoards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      const nonArchived = tasks.filter((t) => t.status !== "archived");
+      allTasks.push(...nonArchived);
+    }
+    return allTasks.sort((a, b) => a.order - b.order);
   },
 });
 

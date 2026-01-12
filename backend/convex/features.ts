@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
 
 const featureValidator = v.object({
@@ -238,7 +239,7 @@ export const createFromPlan = mutation({
     if (!column) {
       throw new Error("Failed to get or create column");
     }
-    const taskIdMap: Map<number, ReturnType<typeof v.id<"agentTasks">>> = new Map();
+    const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];

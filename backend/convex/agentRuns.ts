@@ -184,7 +184,7 @@ export const updateStatus = mutation({
     }
     await ctx.db.patch(args.id, { status: args.status });
     if (args.status === "running") {
-      await ctx.db.patch(task._id, { status: "running", updatedAt: Date.now() });
+      await ctx.db.patch(task._id, { status: "in_progress", updatedAt: Date.now() });
     }
     return null;
   },
@@ -267,7 +267,7 @@ export const complete = mutation({
       error: args.error,
     });
     await ctx.db.patch(task._id, {
-      status: args.success ? "completed" : "failed",
+      status: args.success ? "code_review" : "backlog",
       updatedAt: now,
     });
     return null;

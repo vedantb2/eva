@@ -52,6 +52,7 @@ export function PlanDetailClient({ planId }: PlanDetailClientProps) {
       <div className="flex-1 overflow-hidden">
         <PlanConversation
           planId={typedPlanId}
+          planState={plan.state}
           initialMessages={plan.conversationHistory}
           onSpecGenerated={handleSpecGenerated}
         />

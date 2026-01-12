@@ -12,9 +12,10 @@ interface ActiveTasksAccordionProps {
 }
 
 export function ActiveTasksAccordion({ repoId }: ActiveTasksAccordionProps) {
-  const tasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
+  const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
+  const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 
-  if (!tasks || tasks.length === 0) {
+  if (tasks.length === 0) {
     return null;
   }
 

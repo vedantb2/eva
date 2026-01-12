@@ -1,4 +1,3 @@
-- Added featureId field (optional) to link tasks to features
-- Added taskNumber field for sequential numbering within features
-- Updated status to 6 states: archived, backlog, todo, in_progress, code_review, done
-- Added indexes: by_feature, by_feature_and_status
+- Created encodeRepoSlug to convert owner/repo to owner-repo for URLs
+- Created decodeRepoSlug to convert URL slug back to owner/repo
+- Created buildRepoPath helper to construct repo-scoped paths

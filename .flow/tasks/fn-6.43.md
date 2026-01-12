@@ -47,9 +47,10 @@ export function buildRepoPath(fullName: string, path: string): string {
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created encodeRepoSlug to convert owner/repo to owner-repo for URLs
+- Created decodeRepoSlug to convert URL slug back to owner/repo
+- Created buildRepoPath helper to construct repo-scoped paths
 ## Evidence
-- Commits:
+- Commits: 521a751
 - Tests:
 - PRs:

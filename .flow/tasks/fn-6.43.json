@@ -1,14 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:14:12.827393Z",
   "created_at": "2026-01-12T00:23:40.402056Z",
   "depends_on": [],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [
+      "521a751"
+    ],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.43",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.43.md",
-  "status": "todo",
+  "status": "done",
   "title": "Create repo URL helper functions (encode/decode owner-repo)",
-  "updated_at": "2026-01-12T00:33:29.923459Z"
+  "updated_at": "2026-01-12T01:15:53.173451Z"
 }

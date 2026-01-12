@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created plans.ts with list, get, create, update, addMessage, remove mutations
+- Added planValidator for return type consistency
+- Uses getCurrentUserId for auth
 ## Evidence
 - Commits:
 - Tests:

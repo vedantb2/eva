@@ -1,16 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:24:14.384600Z",
   "created_at": "2026-01-12T00:17:11.267542Z",
   "depends_on": [
     "fn-6.1"
   ],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.5",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.5.md",
-  "status": "todo",
+  "status": "done",
   "title": "Create plans CRUD mutations (create, get, list, update, delete)",
-  "updated_at": "2026-01-12T00:24:08.184043Z"
+  "updated_at": "2026-01-12T01:26:21.581839Z"
 }

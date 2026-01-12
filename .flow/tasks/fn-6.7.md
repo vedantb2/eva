@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created taskDependencies.ts with getForTask, getDependents, isBlocked, add, remove, removeByTasks
+- isBlocked checks if any dependent task is not done
+- Prevents self-referential dependencies
 ## Evidence
 - Commits:
 - Tests:

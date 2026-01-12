@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created features.ts with list, get, getByPlan, create, update, remove mutations
+- Added featureValidator for return type consistency
+- Uses getCurrentUserId for auth
 ## Evidence
 - Commits:
 - Tests:

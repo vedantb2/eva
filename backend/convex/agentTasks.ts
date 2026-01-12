@@ -314,6 +314,55 @@ export const updateStatus = mutation({
   },
 });
 
+export const getActiveTasks = query({
+  args: { repoId: v.optional(v.id("githubRepos")) },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const boards = await ctx.db.query("boards").collect();
+    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const relevantBoards = args.repoId
+      ? ownedBoards.filter((b) => b.repoId === args.repoId)
+      : ownedBoards;
+    const activeTasks: Array<{
+      _id: ReturnType<typeof v.id<"agentTasks">>;
+      _creationTime: number;
+      boardId: ReturnType<typeof v.id<"boards">>;
+      columnId: ReturnType<typeof v.id<"columns">>;
+      title: string;
+      description?: string;
+      branchName?: string;
+      repoId?: ReturnType<typeof v.id<"githubRepos">>;
+      featureId?: ReturnType<typeof v.id<"features">>;
+      taskNumber?: number;
+      status:
+        | "archived"
+        | "backlog"
+        | "todo"
+        | "in_progress"
+        | "code_review"
+        | "done";
+      order: number;
+      createdAt: number;
+      updatedAt: number;
+    }> = [];
+    for (const board of relevantBoards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      const active = tasks.filter(
+        (t) => t.status === "todo" || t.status === "in_progress" || t.status === "code_review"
+      );
+      activeTasks.push(...active);
+    }
+    return activeTasks.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

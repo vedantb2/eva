@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created branchName.ts with slugify, createFeatureBranchName, createTaskBranchName
+- Feature branches: conductor/feature-{slug}
+- Task branches: conductor/feature-{slug}-{taskNumber}
 ## Evidence
 - Commits:
 - Tests:

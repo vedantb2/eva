@@ -72,7 +72,7 @@ export function PlansClient() {
                         {plan.rawInput}
                       </p>
                     </Link>
-                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    <div className="flex items-center gap-2 ml-4">
                       <Tooltip
                         content={
                           canInterview
@@ -82,7 +82,9 @@ export function PlansClient() {
                       >
                         <span>
                           <Link
-                            href={canInterview ? `${planUrl}?interview=true` : "#"}
+                            href={
+                              canInterview ? `${planUrl}?interview=true` : "#"
+                            }
                             onClick={(e) => {
                               if (!canInterview) e.preventDefault();
                             }}
@@ -110,10 +112,7 @@ export function PlansClient() {
           </div>
         )}
       </Container>
-      <NewPlanModal
-        isOpen={isCreating}
-        onClose={() => setIsCreating(false)}
-      />
+      <NewPlanModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
     </>
   );
 }

@@ -7,8 +7,8 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Plan list implemented inline in plan/page.tsx
+- Displays plans with status badges
 ## Evidence
 - Commits:
 - Tests:

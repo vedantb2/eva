@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T13:29:42.472558Z",
+  "depends_on": [],
+  "epic": "fn-8",
+  "id": "fn-8.4",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-8.4.md",
+  "status": "todo",
+  "title": "Refactor Features Page - Extract features list to client",
+  "updated_at": "2026-01-12T13:29:42.472583Z"
+}

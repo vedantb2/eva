@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:22:26.691848Z",
+  "depends_on": [
+    "fn-6.4"
+  ],
+  "epic": "fn-6",
+  "id": "fn-6.36",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.36.md",
+  "status": "todo",
+  "title": "Update subtask display with parent-relative numbering (2.1, 2.2)",
+  "updated_at": "2026-01-12T00:29:49.392883Z"
+}

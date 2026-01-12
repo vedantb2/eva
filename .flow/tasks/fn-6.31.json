@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:21:35.839122Z",
+  "depends_on": [
+    "fn-6.10"
+  ],
+  "epic": "fn-6",
+  "id": "fn-6.31",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.31.md",
+  "status": "todo",
+  "title": "Create quick-tasks page (/[repo]/quick-tasks/page.tsx)",
+  "updated_at": "2026-01-12T00:29:31.864026Z"
+}

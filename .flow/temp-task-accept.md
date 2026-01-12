@@ -1,0 +1,4 @@
+- [ ] `plans` table added to schema.ts
+- [ ] All fields defined as specified (repoId, userId, title, rawInput, generatedSpec, state, conversationHistory)
+- [ ] Indexes created: by_repo, by_user, by_repo_and_state
+- [ ] `npx convex dev` runs without schema errors

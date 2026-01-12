@@ -1,0 +1,18 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:20:14.286014Z",
+  "depends_on": [
+    "fn-6.22",
+    "fn-6.6",
+    "fn-6.8"
+  ],
+  "epic": "fn-6",
+  "id": "fn-6.23",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.23.md",
+  "status": "todo",
+  "title": "Implement task generation from finalized spec (1-10 tasks)",
+  "updated_at": "2026-01-12T00:33:38.513682Z"
+}

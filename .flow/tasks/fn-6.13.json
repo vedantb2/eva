@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:18:33.505261Z",
+  "depends_on": [
+    "fn-6.10"
+  ],
+  "epic": "fn-6",
+  "id": "fn-6.13",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.13.md",
+  "status": "todo",
+  "title": "Update Sidebar navigation for repo-scoped routes (Plan, Features, Quick Tasks)",
+  "updated_at": "2026-01-12T00:25:27.809938Z"
+}

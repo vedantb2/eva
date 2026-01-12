@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:22:01.310466Z",
+  "depends_on": [],
+  "epic": "fn-6",
+  "id": "fn-6.33",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.33.md",
+  "status": "todo",
+  "title": "Create TaskStatusBadge component for 6 task states",
+  "updated_at": "2026-01-12T00:22:01.310492Z"
+}

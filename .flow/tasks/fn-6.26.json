@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:20:46.456866Z",
+  "depends_on": [],
+  "epic": "fn-6",
+  "id": "fn-6.26",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.26.md",
+  "status": "todo",
+  "title": "Create FeatureCard component for features list",
+  "updated_at": "2026-01-12T00:20:46.456885Z"
+}

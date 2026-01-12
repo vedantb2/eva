@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:19:57.693874Z",
+  "depends_on": [],
+  "epic": "fn-6",
+  "id": "fn-6.21",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.21.md",
+  "status": "todo",
+  "title": "Create OpenRouter API route for chat streaming",
+  "updated_at": "2026-01-12T00:32:42.290670Z"
+}

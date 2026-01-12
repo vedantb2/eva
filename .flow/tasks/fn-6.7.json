@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-01-12T00:17:27.818539Z",
+  "depends_on": [
+    "fn-6.3"
+  ],
+  "epic": "fn-6",
+  "id": "fn-6.7",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6.7.md",
+  "status": "todo",
+  "title": "Create taskDependencies mutations (add, remove, getForTask)",
+  "updated_at": "2026-01-12T00:24:25.214332Z"
+}

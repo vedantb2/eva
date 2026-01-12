@@ -19,6 +19,7 @@ import {
   KANBAN_STATUSES,
 } from "@/lib/components/kanban/KanbanColumn";
 import { FeatureTaskCard } from "./FeatureTaskCard";
+import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -45,7 +46,13 @@ interface FeatureKanbanBoardProps {
   featureId: Id<"features">;
 }
 
-function SortableTaskCard({ task }: { task: Task }) {
+function SortableTaskCard({
+  task,
+  onSelect,
+}: {
+  task: Task;
+  onSelect: (task: Task) => void;
+}) {
   const {
     attributes,
     listeners,
@@ -70,6 +77,7 @@ function SortableTaskCard({ task }: { task: Task }) {
         description={task.description}
         status={task.status}
         branchName={task.branchName}
+        onClick={() => onSelect(task)}
       />
     </div>
   );
@@ -80,6 +88,7 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
   const updateStatus = useMutation(api.agentTasks.updateStatus);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -146,7 +155,7 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[500px]">
+      <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-4 min-h-[400px] sm:min-h-[500px] h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)]">
         {KANBAN_STATUSES.map((status) => (
           <KanbanColumn
             key={status}
@@ -154,14 +163,18 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
             count={tasksByStatus[status]?.length ?? 0}
           >
             {tasksByStatus[status]?.map((task) => (
-              <SortableTaskCard key={task._id} task={task} />
+              <SortableTaskCard
+                key={task._id}
+                task={task}
+                onSelect={setSelectedTask}
+              />
             ))}
           </KanbanColumn>
         ))}
       </div>
       <DragOverlay>
         {activeTask ? (
-          <Card className="w-[280px]">
+          <Card className="w-[240px] sm:w-[280px]">
             <CardBody className="p-3">
               <span className="text-default-400 font-mono text-sm">
                 #{activeTask.taskNumber}
@@ -173,6 +186,18 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
           </Card>
         ) : null}
       </DragOverlay>
+      {selectedTask && (
+        <TaskDetailModal
+          isOpen={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          taskId={selectedTask._id}
+          taskNumber={selectedTask.taskNumber}
+          title={selectedTask.title}
+          description={selectedTask.description}
+          status={selectedTask.status}
+          branchName={selectedTask.branchName}
+        />
+      )}
     </DndContext>
   );
 }

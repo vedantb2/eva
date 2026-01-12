@@ -6,7 +6,7 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
-import { Button } from "@/lib/components/ui/Button";
+import { Button } from "@heroui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -25,7 +25,7 @@ export function QuickTasksClient() {
       <PageHeader
         title="Quick Tasks"
         headerRight={
-          <Button onClick={() => setIsCreating(true)}>
+          <Button onPress={() => setIsCreating(true)}>
             <IconPlus size={16} className="mr-1" />
             New Task
           </Button>

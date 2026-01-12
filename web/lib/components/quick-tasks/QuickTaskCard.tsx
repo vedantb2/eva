@@ -3,6 +3,8 @@
 import { Card, CardBody } from "@heroui/card";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
+import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
+import { IconSubtask } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
@@ -21,6 +23,7 @@ interface QuickTaskCardProps {
 }
 
 export function QuickTaskCard({
+  id,
   title,
   description,
   status,
@@ -36,6 +39,10 @@ export function QuickTaskCard({
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
+        <div className="flex items-center gap-1 text-xs text-default-400">
+          <IconSubtask size={12} />
+          <SubtaskProgress taskId={id} />
+        </div>
       </CardBody>
     </Card>
   );

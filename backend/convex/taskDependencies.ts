@@ -40,6 +40,41 @@ export const getDependents = query({
   },
 });
 
+export const getDependencies = query({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.array(
+    v.object({
+      _id: v.id("agentTasks"),
+      title: v.string(),
+      status: v.string(),
+      taskNumber: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+    const dependencies = await ctx.db
+      .query("taskDependencies")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const result = [];
+    for (const dep of dependencies) {
+      const task = await ctx.db.get(dep.dependsOnId);
+      if (task) {
+        result.push({
+          _id: task._id,
+          title: task.title,
+          status: task.status,
+          taskNumber: task.taskNumber,
+        });
+      }
+    }
+    return result;
+  },
+});
+
 export const isBlocked = query({
   args: { taskId: v.id("agentTasks") },
   returns: v.boolean(),

@@ -13,7 +13,7 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
   const isUser = role === "user";
 
   return (
-    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+    <div className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <Avatar
         icon={isUser ? <IconUser size={20} /> : <IconRobot size={20} />}
         classNames={{
@@ -21,12 +21,13 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
           icon: isUser ? "text-primary-foreground" : "text-default-600",
         }}
         size="sm"
+        className="flex-shrink-0"
       />
       <Card
-        className={`max-w-[80%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
+        className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
       >
-        <CardBody className="py-2 px-3">
-          <p className="text-sm whitespace-pre-wrap">{content}</p>
+        <CardBody className="py-2 px-2 sm:px-3">
+          <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
         </CardBody>
       </Card>
     </div>

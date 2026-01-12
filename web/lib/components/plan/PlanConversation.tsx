@@ -35,6 +35,7 @@ interface PlanConversationProps {
   planState: PlanState;
   initialMessages: ConversationMessage[];
   onSpecGenerated?: (spec: string) => void;
+  autoInterview?: boolean;
 }
 
 export function PlanConversation({
@@ -42,6 +43,7 @@ export function PlanConversation({
   planState,
   initialMessages,
   onSpecGenerated,
+  autoInterview = false,
 }: PlanConversationProps) {
   const addMessage = useMutation(api.plans.addMessage);
   const clearMessagesDb = useMutation(api.plans.clearMessages);
@@ -74,7 +76,7 @@ export function PlanConversation({
         content,
       });
       if (content.includes("\"title\"") && content.includes("\"tasks\"")) {
-        const jsonMatch = content.match(/{[sS]*}/);
+        const jsonMatch = content.match(/{[\s\S]*}/);
         if (jsonMatch) {
           onSpecGenerated?.(jsonMatch[0]);
         }
@@ -105,6 +107,14 @@ export function PlanConversation({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const hasAutoInterviewed = useRef(false);
+  useEffect(() => {
+    if (autoInterview && !hasAutoInterviewed.current && !isLocked && !isLoading) {
+      hasAutoInterviewed.current = true;
+      handleAskMoreQuestions();
+    }
+  }, [autoInterview, isLocked, isLoading]);
+
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -128,7 +138,7 @@ export function PlanConversation({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-4 p-4">
+      <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 p-2 sm:p-4">
         {messages.map((m) => (
           <ChatMessage
             key={m.id}
@@ -144,8 +154,8 @@ export function PlanConversation({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-divider p-4 space-y-3">
-        <div className="flex gap-2 flex-wrap">
+      <div className="border-t border-divider p-2 sm:p-4 space-y-2 sm:space-y-3">
+        <div className="flex gap-1 sm:gap-2 flex-wrap">
           <Tooltip
             content={
               isLocked
@@ -164,7 +174,8 @@ export function PlanConversation({
                 onPress={handleAskMoreQuestions}
                 isDisabled={isLoading || isLocked}
               >
-                Ask More Questions
+                <span className="hidden sm:inline">Ask More Questions</span>
+                <span className="sm:hidden">Ask</span>
               </Button>
             </span>
           </Tooltip>
@@ -187,7 +198,8 @@ export function PlanConversation({
                 onPress={handleGenerateSpec}
                 isDisabled={isLoading || isLocked}
               >
-                Generate Spec
+                <span className="hidden sm:inline">Generate Spec</span>
+                <span className="sm:hidden">Spec</span>
               </Button>
             </span>
           </Tooltip>
@@ -212,7 +224,8 @@ export function PlanConversation({
                 onPress={handleClearChat}
                 isDisabled={isLoading || isLocked || isFinalized || messages.length === 0}
               >
-                Clear Chat
+                <span className="hidden sm:inline">Clear Chat</span>
+                <span className="sm:hidden">Clear</span>
               </Button>
             </span>
           </Tooltip>
@@ -241,12 +254,13 @@ export function PlanConversation({
                   minRows={1}
                   maxRows={4}
                   isDisabled={isLocked}
-                  onKeyDown={(e) => {
+  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey && !isLocked) {
                       e.preventDefault();
-                      handleFormSubmit(
-                        e as unknown as React.FormEvent<HTMLFormElement>
-                      );
+                      const form = e.currentTarget.closest("form");
+                      if (form) {
+                        form.requestSubmit();
+                      }
                     }
                   }}
                 />

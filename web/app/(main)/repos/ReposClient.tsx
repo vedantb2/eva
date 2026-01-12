@@ -37,25 +37,25 @@ export function ReposClient() {
       <PageHeader
         title="Repositories"
         headerRight={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {hasRepos && (
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className="inline-flex items-center gap-2 px-3 py-2 text-neutral-600 dark:text-neutral-300 text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
               >
                 <IconRefresh className={"w-4 h-4" + (syncing ? " animate-spin" : "")} />
-                Sync
+                <span className="hidden sm:inline">Sync</span>
               </button>
             )}
             <a
               href={hasRepos ? configureUrl : connectUrl}
               target={hasRepos ? "_blank" : undefined}
               rel={hasRepos ? "noopener noreferrer" : undefined}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs sm:text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
             >
               <IconPlus className="w-4 h-4" />
-              {hasRepos ? "Add Repos" : "Connect GitHub"}
+              <span className="hidden sm:inline">{hasRepos ? "Add Repos" : "Connect GitHub"}</span>
             </a>
           </div>
         }

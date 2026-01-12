@@ -19,6 +19,7 @@ import {
   KANBAN_STATUSES,
 } from "@/lib/components/kanban/KanbanColumn";
 import { QuickTaskCard } from "./QuickTaskCard";
+import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -43,7 +44,13 @@ interface QuickTasksKanbanBoardProps {
   repoId: Id<"githubRepos">;
 }
 
-function SortableTaskCard({ task }: { task: Task }) {
+function SortableTaskCard({
+  task,
+  onSelect,
+}: {
+  task: Task;
+  onSelect: (task: Task) => void;
+}) {
   const {
     attributes,
     listeners,
@@ -66,6 +73,7 @@ function SortableTaskCard({ task }: { task: Task }) {
         title={task.title}
         description={task.description}
         status={task.status}
+        onClick={() => onSelect(task)}
       />
     </div>
   );
@@ -76,6 +84,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const updateStatus = useMutation(api.agentTasks.updateStatus);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -152,7 +161,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-160px)]">
+      <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-4 h-[calc(100vh-180px)] sm:h-[calc(100vh-160px)]">
         {KANBAN_STATUSES.map((status) => (
           <KanbanColumn
             key={status}
@@ -160,20 +169,34 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             count={tasksByStatus[status]?.length ?? 0}
           >
             {tasksByStatus[status]?.map((task) => (
-              <SortableTaskCard key={task._id} task={task} />
+              <SortableTaskCard
+                key={task._id}
+                task={task}
+                onSelect={setSelectedTask}
+              />
             ))}
           </KanbanColumn>
         ))}
       </div>
       <DragOverlay>
         {activeTask ? (
-          <Card className="w-[280px]">
+          <Card className="w-[240px] sm:w-[280px]">
             <CardBody className="p-3">
               <span className="font-medium text-sm">{activeTask.title}</span>
             </CardBody>
           </Card>
         ) : null}
       </DragOverlay>
+      {selectedTask && (
+        <TaskDetailModal
+          isOpen={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          taskId={selectedTask._id}
+          title={selectedTask.title}
+          description={selectedTask.description}
+          status={selectedTask.status}
+        />
+      )}
     </DndContext>
   );
 }

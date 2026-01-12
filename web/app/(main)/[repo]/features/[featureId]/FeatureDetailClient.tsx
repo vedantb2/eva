@@ -63,22 +63,22 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
         title={feature.title}
         showBack
         headerRight={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span
-              className={`px-2.5 py-1 text-sm font-medium rounded-full ${statusColors[feature.status]}`}
+              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs sm:text-sm font-medium rounded-full ${statusColors[feature.status]}`}
             >
               {feature.status}
             </span>
-            <span className="flex items-center gap-1 text-sm text-neutral-500">
-              <IconGitBranch className="w-4 h-4" />
-              {feature.branchName}
+            <span className="hidden sm:flex items-center gap-1 text-sm text-neutral-500 max-w-[150px] truncate">
+              <IconGitBranch className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{feature.branchName}</span>
             </span>
           </div>
         }
       />
       <Container>
         {feature.description && (
-          <p className="mb-6 text-neutral-600 dark:text-neutral-400">
+          <p className="mb-4 sm:mb-6 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
             {feature.description}
           </p>
         )}

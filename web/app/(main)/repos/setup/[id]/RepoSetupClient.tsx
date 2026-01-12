@@ -111,33 +111,33 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
 
   return (
     <Container>
-      <div className="max-w-2xl mx-auto py-8">
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+      <div className="max-w-2xl mx-auto py-4 sm:py-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mb-2">
           GitHub App Installed
         </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+        <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mb-4 sm:mb-6">
           Select which repositories you want to add to Conductor.
         </p>
 
-        <div className="space-y-3 mb-6">
+        <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
           {repos.map((repo) => (
             <div
               key={repo.id}
-              className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700"
+              className="flex items-center justify-between p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700"
             >
-              <div className="flex items-center gap-3">
-                <IconBrandGithub className="w-5 h-5 text-neutral-500" />
-                <div>
-                  <p className="font-medium text-neutral-900 dark:text-white">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <IconBrandGithub className="w-5 h-5 text-neutral-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-medium text-sm sm:text-base text-neutral-900 dark:text-white truncate">
                     {repo.name}
                   </p>
-                  <p className="text-sm text-neutral-500">{repo.owner}</p>
+                  <p className="text-xs sm:text-sm text-neutral-500 truncate">{repo.owner}</p>
                 </div>
               </div>
               {addedRepos.has(repo.fullName) ? (
-                <span className="flex items-center gap-1 text-green-600 text-sm">
+                <span className="flex items-center gap-1 text-green-600 text-xs sm:text-sm flex-shrink-0">
                   <IconCheck className="w-4 h-4" />
-                  Added
+                  <span className="hidden sm:inline">Added</span>
                 </span>
               ) : (
                 <button
@@ -151,7 +151,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                       setAddedRepos((prev) => new Set([...prev, repo.fullName]));
                     } catch {}
                   }}
-                  className="px-3 py-1.5 text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex-shrink-0"
                 >
                   Add
                 </button>
@@ -160,17 +160,17 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
           ))}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={handleAddAll}
             disabled={repos.length === addedRepos.size}
-            className="flex-1 px-4 py-2 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 bg-pink-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add All & Continue
           </button>
           <button
             onClick={() => router.push("/repos")}
-            className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600"
+            className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-sm sm:text-base font-medium rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600"
           >
             Done
           </button>

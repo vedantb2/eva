@@ -4,9 +4,10 @@ import { Card, CardBody } from "@heroui/card";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
+import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { IconGitBranch } from "@tabler/icons-react";
+import { IconGitBranch, IconSubtask } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
@@ -55,12 +56,18 @@ export function FeatureTaskCard({
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
-        {branchName && (
-          <div className="flex items-center gap-1 text-xs text-default-400">
-            <IconGitBranch size={12} />
-            <span className="font-mono truncate">{branchName}</span>
+        <div className="flex items-center gap-3 text-xs text-default-400">
+          {branchName && (
+            <div className="flex items-center gap-1">
+              <IconGitBranch size={12} />
+              <span className="font-mono truncate">{branchName}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <IconSubtask size={12} />
+            <SubtaskProgress taskId={id} />
           </div>
-        )}
+        </div>
       </CardBody>
     </Card>
   );

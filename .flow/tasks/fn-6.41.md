@@ -7,8 +7,8 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Added useRepoContext as alias for useRepo hook
+- Maintains consistency with naming conventions (useThemeContext)
 ## Evidence
 - Commits:
 - Tests:

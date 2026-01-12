@@ -1,16 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:32:31.866153Z",
   "created_at": "2026-01-12T00:23:23.845248Z",
   "depends_on": [
     "fn-6.43"
   ],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.41",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.41.md",
-  "status": "todo",
+  "status": "done",
   "title": "Create useRepoContext hook for accessing current repo",
-  "updated_at": "2026-01-12T00:30:14.207451Z"
+  "updated_at": "2026-01-12T01:33:04.302146Z"
 }

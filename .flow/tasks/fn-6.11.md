@@ -49,8 +49,10 @@ export function RepoSwitcher() {
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created RepoSwitcher dropdown using HeroUI Dropdown component
+- Shows current repo owner/name with GitHub icon
+- Lists all connected repos in dropdown
+- Navigates to /[repo]/plan on selection
 ## Evidence
 - Commits:
 - Tests:

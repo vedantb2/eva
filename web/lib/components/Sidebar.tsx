@@ -81,16 +81,25 @@ export function Sidebar() {
 
   return (
     <>
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm"
-      >
-        <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
-      </button>
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 -ml-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+        </button>
+        <Link href="/" className="flex items-center gap-2">
+          <IconBrain className="w-6 h-6 text-pink-600" />
+          <span className="text-base font-semibold text-neutral-900 dark:text-white">
+            Conductor
+          </span>
+        </Link>
+        <div className="w-9" />
+      </header>
 
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50"
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         />
       )}

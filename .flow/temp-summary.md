@@ -1,5 +1,4 @@
-- Added `plans` table with fields: repoId, userId, title, rawInput, generatedSpec, state, conversationHistory
-- Created indexes: by_repo, by_user, by_repo_and_state
-- State is a union type: draft | finalized | feature_created
-- ConversationHistory stores user/assistant message pairs
-- Schema compiles without errors
+- Added `features` table with fields: repoId, userId, planId, title, description, branchName, status
+- Created indexes: by_repo, by_user, by_repo_and_status, by_plan
+- Status tracks feature lifecycle: planning, active, completed, archived
+- planId is optional to support manually created features

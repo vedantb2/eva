@@ -33,9 +33,11 @@ features: defineTable({
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Added `features` table with fields: repoId, userId, planId, title, description, branchName, status
+- Created indexes: by_repo, by_user, by_repo_and_status, by_plan
+- Status tracks feature lifecycle: planning, active, completed, archived
+- planId is optional to support manually created features
 ## Evidence
-- Commits:
+- Commits: ed6c63e
 - Tests:
 - PRs:

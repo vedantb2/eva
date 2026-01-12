@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Integrated ActiveTasksAccordion into Sidebar
+- Shows only when in repo context
+- Filtered by current repoId
 ## Evidence
 - Commits:
 - Tests:

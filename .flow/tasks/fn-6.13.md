@@ -7,8 +7,10 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Added repo-scoped navigation (Plan, Features, Quick Tasks)
+- Detects repo context from URL path
+- Shows repo name header when in repo context
+- Links to repo-specific routes
 ## Evidence
 - Commits:
 - Tests:

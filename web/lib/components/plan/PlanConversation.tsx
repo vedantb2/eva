@@ -1,12 +1,12 @@
 "use client";
 
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { useEffect, useRef } from "react";
 import { ChatMessage } from "./ChatMessage";
 import {
@@ -14,7 +14,7 @@ import {
   SPEC_GENERATION_PROMPT,
   INTERVIEW_PROMPT,
 } from "@/lib/prompts/planPrompts";
-import { Send, HelpCircle, Sparkles } from "lucide-react";
+import { IconSend, IconHelpCircle, IconSparkles } from "@tabler/icons-react";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -35,31 +35,40 @@ export function PlanConversation({
   const addMessage = useMutation(api.plans.addMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append } =
-    useChat({
-      api: "/api/chat",
-      body: {
-        systemPrompt: PLAN_SYSTEM_PROMPT,
-      },
-      initialMessages: initialMessages.map((m, i) => ({
-        id: `initial-${i}`,
-        role: m.role,
-        content: m.content,
-      })),
-      onFinish: async (message) => {
-        await addMessage({
-          id: planId,
-          role: "assistant",
-          content: message.content,
-        });
-        if (message.content.includes('"title"') && message.content.includes('"tasks"')) {
-          const jsonMatch = message.content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            onSpecGenerated?.(jsonMatch[0]);
-          }
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    append,
+  } = useChat({
+    api: "/api/chat",
+    body: {
+      systemPrompt: PLAN_SYSTEM_PROMPT,
+    },
+    initialMessages: initialMessages.map((m, i) => ({
+      id: `initial-${i}`,
+      role: m.role,
+      content: m.content,
+    })),
+    onFinish: async (message) => {
+      await addMessage({
+        id: planId,
+        role: "assistant",
+        content: message.content,
+      });
+      if (
+        message.content.includes('"title"') &&
+        message.content.includes('"tasks"')
+      ) {
+        const jsonMatch = message.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          onSpecGenerated?.(jsonMatch[0]);
         }
-      },
-    });
+      }
+    },
+  });
 
   const handleAskMoreQuestions = async () => {
     const prompt = INTERVIEW_PROMPT;
@@ -93,7 +102,11 @@ export function PlanConversation({
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-4 p-4">
         {messages.map((m) => (
-          <ChatMessage key={m.id} role={m.role as "user" | "assistant"} content={m.content} />
+          <ChatMessage
+            key={m.id}
+            role={m.role as "user" | "assistant"}
+            content={m.content}
+          />
         ))}
         {isLoading && (
           <div className="flex gap-3">
@@ -108,7 +121,7 @@ export function PlanConversation({
           <Button
             size="sm"
             variant="flat"
-            startContent={<HelpCircle size={16} />}
+            startContent={<IconHelpCircle size={16} />}
             onPress={handleAskMoreQuestions}
             isDisabled={isLoading}
           >
@@ -118,7 +131,7 @@ export function PlanConversation({
             size="sm"
             variant="flat"
             color="success"
-            startContent={<Sparkles size={16} />}
+            startContent={<IconSparkles size={16} />}
             onPress={handleGenerateSpec}
             isDisabled={isLoading}
           >
@@ -137,7 +150,9 @@ export function PlanConversation({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleFormSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
+                  handleFormSubmit(
+                    e as unknown as React.FormEvent<HTMLFormElement>
+                  );
                 }
               }}
             />
@@ -148,7 +163,7 @@ export function PlanConversation({
               isLoading={isLoading}
               isDisabled={!input.trim()}
             >
-              <Send size={18} />
+              <IconSend size={18} />
             </Button>
           </div>
         </form>

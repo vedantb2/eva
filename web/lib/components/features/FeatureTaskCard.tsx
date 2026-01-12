@@ -1,12 +1,12 @@
 "use client";
 
 import { Card, CardBody } from "@heroui/card";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { GitBranch } from "lucide-react";
+import { IconGitBranch } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
@@ -38,11 +38,7 @@ export function FeatureTaskCard({
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
 
   return (
-    <Card
-      isPressable={!!onClick}
-      onPress={onClick}
-      className="w-full"
-    >
+    <Card isPressable={!!onClick} onPress={onClick} className="w-full">
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -61,7 +57,7 @@ export function FeatureTaskCard({
         )}
         {branchName && (
           <div className="flex items-center gap-1 text-xs text-default-400">
-            <GitBranch size={12} />
+            <IconGitBranch size={12} />
             <span className="font-mono truncate">{branchName}</span>
           </div>
         )}

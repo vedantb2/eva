@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useParams } from "next/navigation";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { PlanConversation } from "@/lib/components/plan/PlanConversation";

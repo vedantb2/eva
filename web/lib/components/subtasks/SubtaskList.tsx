@@ -3,7 +3,7 @@
 import { Checkbox } from "@heroui/checkbox";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { formatSubtaskNumber } from "@/lib/utils/subtaskNumber";
 
 interface SubtaskListProps {
@@ -11,7 +11,10 @@ interface SubtaskListProps {
   parentTaskNumber: number;
 }
 
-export function SubtaskList({ parentTaskId, parentTaskNumber }: SubtaskListProps) {
+export function SubtaskList({
+  parentTaskId,
+  parentTaskNumber,
+}: SubtaskListProps) {
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId });
   const updateSubtask = useMutation(api.subtasks.update);
 
@@ -34,7 +37,9 @@ export function SubtaskList({ parentTaskId, parentTaskNumber }: SubtaskListProps
               {formatSubtaskNumber(parentTaskNumber, subtask.order)}
             </span>
             <span
-              className={`text-sm ${subtask.completed ? "line-through text-default-400" : ""}`}
+              className={`text-sm ${
+                subtask.completed ? "line-through text-default-400" : ""
+              }`}
             >
               {subtask.title}
             </span>

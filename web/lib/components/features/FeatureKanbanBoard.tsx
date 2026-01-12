@@ -12,9 +12,12 @@ import {
 } from "@dnd-kit/core";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { useState } from "react";
-import { KanbanColumn, KANBAN_STATUSES } from "@/lib/components/kanban/KanbanColumn";
+import {
+  KanbanColumn,
+  KANBAN_STATUSES,
+} from "@/lib/components/kanban/KanbanColumn";
 import { FeatureTaskCard } from "./FeatureTaskCard";
 import { Card, CardBody } from "@heroui/card";
 import { useSortable } from "@dnd-kit/sortable";
@@ -90,15 +93,12 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
     return <div>Loading...</div>;
   }
 
-  const tasksByStatus = KANBAN_STATUSES.reduce(
-    (acc, status) => {
-      acc[status] = tasks
-        .filter((t) => t.status === status)
-        .sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0));
-      return acc;
-    },
-    {} as Record<TaskStatus, Task[]>
-  );
+  const tasksByStatus = KANBAN_STATUSES.reduce((acc, status) => {
+    acc[status] = tasks
+      .filter((t) => t.status === status)
+      .sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0));
+    return acc;
+  }, {} as Record<TaskStatus, Task[]>);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t._id === event.active.id);
@@ -166,7 +166,9 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
               <span className="text-default-400 font-mono text-sm">
                 #{activeTask.taskNumber}
               </span>
-              <span className="ml-2 font-medium text-sm">{activeTask.title}</span>
+              <span className="ml-2 font-medium text-sm">
+                {activeTask.title}
+              </span>
             </CardBody>
           </Card>
         ) : null}

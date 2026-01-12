@@ -11,10 +11,10 @@ import {
 import { Button } from "@heroui/button";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { GenericId as Id } from "convex/values";
 import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import { FileText, Rocket, CheckCircle } from "lucide-react";
+import { IconFileText, IconRocket, IconCircleCheck } from "@tabler/icons-react";
 
 interface PlanFinalizationModalProps {
   isOpen: boolean;
@@ -81,7 +81,7 @@ export function PlanFinalizationModal({
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <span className="flex items-center gap-2">
-            <CheckCircle size={20} className="text-success" />
+            <IconCircleCheck size={20} className="text-success" />
             Spec Generated
           </span>
         </ModalHeader>
@@ -89,7 +89,9 @@ export function PlanFinalizationModal({
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-lg">{parsedSpec.title}</h3>
-              <p className="text-default-500 text-sm">{parsedSpec.description}</p>
+              <p className="text-default-500 text-sm">
+                {parsedSpec.description}
+              </p>
             </div>
             <div>
               <h4 className="font-medium mb-2">
@@ -121,7 +123,7 @@ export function PlanFinalizationModal({
             variant="flat"
             onPress={handleSaveDraft}
             isDisabled={isLoading}
-            startContent={<FileText size={16} />}
+            startContent={<IconFileText size={16} />}
           >
             Save as Draft
           </Button>
@@ -129,7 +131,7 @@ export function PlanFinalizationModal({
             color="primary"
             onPress={handleCreateFeature}
             isLoading={isLoading}
-            startContent={<Rocket size={16} />}
+            startContent={<IconRocket size={16} />}
           >
             Create Feature
           </Button>

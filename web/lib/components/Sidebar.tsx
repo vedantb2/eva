@@ -6,26 +6,21 @@ import { UserButton } from "@clerk/nextjs";
 import {
   IconBrain,
   IconBrandGithub,
-  IconFolder,
   IconLayoutKanban,
   IconSettings,
-  IconHistory,
   IconMenu2,
   IconX,
   IconSparkles,
   IconChecklist,
 } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
-import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { decodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 
 const mainNavigation = [
-  { name: "Repositories", href: "/repositories", icon: IconBrandGithub },
-  { name: "Boards", href: "/boards", icon: IconLayoutKanban },
-  { name: "Projects", href: "/projects", icon: IconFolder },
-  { name: "History", href: "/history", icon: IconHistory },
+  { name: "Repositories", href: "/", icon: IconBrandGithub },
   { name: "Settings", href: "/settings", icon: IconSettings },
 ];
 

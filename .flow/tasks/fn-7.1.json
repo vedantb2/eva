@@ -1,0 +1,21 @@
+{
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
+  "claim_note": "",
+  "claimed_at": "2026-01-12T10:32:43.510780Z",
+  "created_at": "2026-01-12T10:31:49.892673Z",
+  "depends_on": [],
+  "epic": "fn-7",
+  "evidence": {
+    "commits": [
+      "db52abf2adecf33d66908da1146e4af3a417524b"
+    ],
+    "prs": [],
+    "tests": []
+  },
+  "id": "fn-7.1",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-7.1.md",
+  "status": "done",
+  "title": "Remove unused pre-fn-6 code and pages",
+  "updated_at": "2026-01-12T10:39:19.204448Z"
+}

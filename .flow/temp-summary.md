@@ -1,3 +1,4 @@
-- Added `taskDependencies` table as join table for many-to-many task dependencies
-- Fields: taskId (blocked task), dependsOnId (prerequisite task)
-- Created indexes: by_task, by_dependency for efficient lookups
+- Added featureId field (optional) to link tasks to features
+- Added taskNumber field for sequential numbering within features
+- Updated status to 6 states: archived, backlog, todo, in_progress, code_review, done
+- Added indexes: by_feature, by_feature_and_status

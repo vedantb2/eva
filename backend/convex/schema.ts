@@ -74,20 +74,24 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
+    featureId: v.optional(v.id("features")),
+    taskNumber: v.optional(v.number()),
     status: v.union(
-      v.literal("idle"),
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("reviewing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal("archived"),
+      v.literal("backlog"),
+      v.literal("todo"),
+      v.literal("in_progress"),
+      v.literal("code_review"),
+      v.literal("done")
     ),
     order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_board", ["boardId"])
-    .index("by_column", ["columnId"]),
+    .index("by_column", ["columnId"])
+    .index("by_feature", ["featureId"])
+    .index("by_feature_and_status", ["featureId", "status"]),
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),

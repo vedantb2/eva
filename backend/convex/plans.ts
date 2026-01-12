@@ -160,3 +160,22 @@ export const remove = mutation({
     return null;
   },
 });
+
+export const clearMessages = mutation({
+  args: { id: v.id("plans") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    await ctx.db.patch(args.id, {
+      conversationHistory: [],
+    });
+    return null;
+  },
+});

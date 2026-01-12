@@ -15,7 +15,12 @@ import {
   SPEC_GENERATION_PROMPT,
   INTERVIEW_PROMPT,
 } from "@/lib/prompts/planPrompts";
-import { IconSend, IconHelpCircle, IconSparkles } from "@tabler/icons-react";
+import {
+  IconSend,
+  IconHelpCircle,
+  IconSparkles,
+  IconTrash,
+} from "@tabler/icons-react";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -34,10 +39,11 @@ export function PlanConversation({
   onSpecGenerated,
 }: PlanConversationProps) {
   const addMessage = useMutation(api.plans.addMessage);
+  const clearMessagesDb = useMutation(api.plans.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     id: `plan-${planId}`,
     messages: initialMessages.map((m, i) => ({
       id: `initial-${i}`,
@@ -79,6 +85,11 @@ export function PlanConversation({
     const prompt = SPEC_GENERATION_PROMPT;
     await addMessage({ id: planId, role: "user", content: prompt });
     sendMessage({ parts: [{ type: "text", text: prompt }] });
+  };
+
+  const handleClearChat = async () => {
+    await clearMessagesDb({ id: planId });
+    setMessages([]);
   };
 
   useEffect(() => {
@@ -144,6 +155,16 @@ export function PlanConversation({
             isDisabled={isLoading}
           >
             Generate Spec
+          </Button>
+          <Button
+            size="sm"
+            variant="flat"
+            color="danger"
+            startContent={<IconTrash size={16} />}
+            onPress={handleClearChat}
+            isDisabled={isLoading || messages.length === 0}
+          >
+            Clear Chat
           </Button>
         </div>
         <form onSubmit={handleFormSubmit}>

@@ -9,6 +9,7 @@ import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@/lib/components/ui/Button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
+import { NewPlanModal } from "@/lib/components/plans/NewPlanModal";
 import { IconSparkles, IconPlus, IconChevronRight } from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -69,6 +70,10 @@ export function PlansClient() {
           </div>
         )}
       </Container>
+      <NewPlanModal
+        isOpen={isCreating}
+        onClose={() => setIsCreating(false)}
+      />
     </>
   );
 }

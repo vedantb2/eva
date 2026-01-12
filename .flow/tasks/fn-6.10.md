@@ -36,8 +36,12 @@ export default function RepoLayout({
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created RepoContext.tsx with RepoProvider and useRepo hook
+- Uses decodeRepoSlug to parse owner/name from URL
+- Queries Convex getByOwnerAndName for validation
+- Shows loading spinner while fetching
+- Shows 404 message if repo not found
+- Updated layout.tsx to use RepoProvider
 ## Evidence
 - Commits:
 - Tests:

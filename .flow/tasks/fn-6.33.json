@@ -1,14 +1,19 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:29:13.512473Z",
   "created_at": "2026-01-12T00:22:01.310466Z",
   "depends_on": [],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.33",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.33.md",
-  "status": "todo",
+  "status": "done",
   "title": "Create TaskStatusBadge component for 6 task states",
-  "updated_at": "2026-01-12T00:22:01.310492Z"
+  "updated_at": "2026-01-12T01:30:19.621423Z"
 }

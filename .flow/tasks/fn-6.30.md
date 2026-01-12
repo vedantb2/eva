@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created DependencyBadge to show blocked/unblocked state
+- Shows lock icon when blocked, lock-open when ready
+- Optionally shows count of blocking tasks
 ## Evidence
 - Commits:
 - Tests:

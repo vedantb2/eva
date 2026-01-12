@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created TaskStatusBadge with 6 states
+- Uses cn utility for class merging
+- Supports sm and md sizes
 ## Evidence
 - Commits:
 - Tests:

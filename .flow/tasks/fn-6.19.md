@@ -7,8 +7,8 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created PlanStatusBadge for draft/finalized/feature_created states
+- Follows same pattern as other badges
 ## Evidence
 - Commits:
 - Tests:

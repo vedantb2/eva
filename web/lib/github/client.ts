@@ -1,10 +1,11 @@
 import { Octokit } from "octokit";
+import { serverEnv } from "@/env/server";
 import { createAppAuth } from "@octokit/auth-app";
 
-const appId = process.env.GITHUB_APP_ID;
-const privateKey = process.env.GITHUB_PRIVATE_KEY;
-const clientId = process.env.GITHUB_CLIENT_ID;
-const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+const appId = serverEnv.GITHUB_APP_ID;
+const privateKey = serverEnv.GITHUB_PRIVATE_KEY;
+const clientId = serverEnv.GITHUB_CLIENT_ID;
+const clientSecret = serverEnv.GITHUB_CLIENT_SECRET;
 
 export function getAppOctokit() {
   if (!appId || !privateKey) {

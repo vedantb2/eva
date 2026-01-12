@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
+import { clientEnv } from "@/env/client";
 import { listInstallationRepos } from "@/lib/github/client";
 
 export async function GET(req: Request) {
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
     convex.setAuth(token);
 
     const repos = await listInstallationRepos(Number(installationId));

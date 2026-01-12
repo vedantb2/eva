@@ -1,3 +1,5 @@
+"use client";
+
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
 

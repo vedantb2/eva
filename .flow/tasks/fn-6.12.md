@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Integrated RepoSwitcher into repo layout header
+- Shows at top of all repo-scoped pages
+- Allows switching between repositories
 ## Evidence
 - Commits:
 - Tests:

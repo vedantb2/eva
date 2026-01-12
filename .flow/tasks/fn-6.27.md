@@ -7,8 +7,10 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created feature detail page with tasks list
+- Shows feature title, status, branch name
+- Displays tasks sorted by task number
+- Loading and not found states
 ## Evidence
 - Commits:
 - Tests:

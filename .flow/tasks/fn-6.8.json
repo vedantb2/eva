@@ -1,16 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:27:37.627240Z",
   "created_at": "2026-01-12T00:17:36.785956Z",
   "depends_on": [
     "fn-6.4"
   ],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.8",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.8.md",
-  "status": "todo",
+  "status": "done",
   "title": "Update agentTasks mutations for featureId and dependency checking",
-  "updated_at": "2026-01-12T00:24:33.609489Z"
+  "updated_at": "2026-01-12T01:28:31.075566Z"
 }

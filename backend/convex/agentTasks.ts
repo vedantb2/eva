@@ -2,12 +2,12 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const taskStatusValidator = v.union(
-  v.literal("idle"),
-  v.literal("queued"),
-  v.literal("running"),
-  v.literal("reviewing"),
-  v.literal("completed"),
-  v.literal("failed")
+  v.literal("archived"),
+  v.literal("backlog"),
+  v.literal("todo"),
+  v.literal("in_progress"),
+  v.literal("code_review"),
+  v.literal("done")
 );
 
 const agentTaskValidator = v.object({
@@ -17,7 +17,10 @@ const agentTaskValidator = v.object({
   columnId: v.id("columns"),
   title: v.string(),
   description: v.optional(v.string()),
+  branchName: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
+  featureId: v.optional(v.id("features")),
+  taskNumber: v.optional(v.number()),
   status: taskStatusValidator,
   order: v.number(),
   createdAt: v.number(),
@@ -67,6 +70,21 @@ export const listByColumn = query({
   },
 });
 
+export const listByFeature = query({
+  args: { featureId: v.id("features") },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    return await ctx.db
+      .query("agentTasks")
+      .withIndex("by_feature", (q) => q.eq("featureId", args.featureId))
+      .collect();
+  },
+});
+
 export const get = query({
   args: { id: v.id("agentTasks") },
   returns: v.union(agentTaskValidator, v.null()),
@@ -92,7 +110,11 @@ export const create = mutation({
     columnId: v.id("columns"),
     title: v.string(),
     description: v.optional(v.string()),
+    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
+    featureId: v.optional(v.id("features")),
+    taskNumber: v.optional(v.number()),
+    status: v.optional(taskStatusValidator),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -119,8 +141,11 @@ export const create = mutation({
       columnId: args.columnId,
       title: args.title,
       description: args.description,
+      branchName: args.branchName,
       repoId: args.repoId,
-      status: "idle",
+      featureId: args.featureId,
+      taskNumber: args.taskNumber,
+      status: args.status ?? "backlog",
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
@@ -133,7 +158,10 @@ export const update = mutation({
     id: v.id("agentTasks"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
+    featureId: v.optional(v.id("features")),
+    taskNumber: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -149,15 +177,13 @@ export const update = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
-    const updates: {
-      title?: string;
-      description?: string;
-      repoId?: ReturnType<typeof v.id<"githubRepos">>;
-      updatedAt: number;
-    } = { updatedAt: Date.now() };
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.repoId !== undefined) updates.repoId = args.repoId;
+    if (args.featureId !== undefined) updates.featureId = args.featureId;
+    if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     await ctx.db.patch(args.id, updates);
     return null;
   },
@@ -195,7 +221,7 @@ export const moveToColumn = mutation({
       .collect();
     const maxOrder = tasksInTarget.reduce((max, t) => Math.max(max, t.order), -1);
     let runId: ReturnType<typeof v.id<"agentRuns">> | null = null;
-    if (targetColumn.isRunColumn && task.status === "idle") {
+    if (targetColumn.isRunColumn && task.status === "backlog") {
       runId = await ctx.db.insert("agentRuns", {
         taskId: args.id,
         status: "queued",
@@ -205,7 +231,7 @@ export const moveToColumn = mutation({
       await ctx.db.patch(args.id, {
         columnId: args.columnId,
         order: maxOrder + 1,
-        status: "queued",
+        status: "todo",
         updatedAt: Date.now(),
       });
     } else {
@@ -265,6 +291,21 @@ export const updateStatus = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
+    const workStatuses = ["todo", "in_progress", "code_review"];
+    if (workStatuses.includes(args.status)) {
+      const dependencies = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_task", (q) => q.eq("taskId", args.id))
+        .collect();
+      for (const dep of dependencies) {
+        const dependsOnTask = await ctx.db.get(dep.dependsOnId);
+        if (dependsOnTask && dependsOnTask.status !== "done") {
+          throw new Error(
+            `Cannot move to ${args.status}: task is blocked by "${dependsOnTask.title}"`
+          );
+        }
+      }
+    }
     await ctx.db.patch(args.id, {
       status: args.status,
       updatedAt: Date.now(),
@@ -295,6 +336,20 @@ export const remove = mutation({
       .collect();
     for (const run of runs) {
       await ctx.db.delete(run._id);
+    }
+    const dependencies = await ctx.db
+      .query("taskDependencies")
+      .withIndex("by_task", (q) => q.eq("taskId", args.id))
+      .collect();
+    for (const dep of dependencies) {
+      await ctx.db.delete(dep._id);
+    }
+    const dependents = await ctx.db
+      .query("taskDependencies")
+      .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.id))
+      .collect();
+    for (const dep of dependents) {
+      await ctx.db.delete(dep._id);
     }
     await ctx.db.delete(args.id);
     return null;

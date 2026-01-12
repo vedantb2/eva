@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { Container } from "@/lib/components/ui/Container";
@@ -20,12 +20,14 @@ export default function RepoSetupPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const installationId = searchParams.get("installation_id");
+  const autoSync = searchParams.get("auto") !== "false";
   
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedRepos, setAddedRepos] = useState<Set<string>>(new Set());
+  const syncedRef = useRef(false);
   
   const createRepo = useMutation(api.githubRepos.create);
 
@@ -52,23 +54,15 @@ export default function RepoSetupPage() {
       });
   }, [installationId]);
 
-  const handleAddRepo = async (repo: GitHubRepo) => {
-    if (!installationId) return;
-    
-    try {
-      await createRepo({
-        owner: repo.owner,
-        name: repo.name,
-        installationId: Number(installationId),
-      });
-      setAddedRepos((prev) => new Set([...prev, repo.fullName]));
-    } catch (err) {
-      console.error("Failed to add repo:", err);
+  useEffect(() => {
+    if (!loading && repos.length > 0 && autoSync && !syncedRef.current) {
+      syncedRef.current = true;
+      handleAddAll();
     }
-  };
+  }, [loading, repos, autoSync]);
 
   const handleAddAll = async () => {
-    if (!installationId) return;
+    if (!installationId || syncing) return;
     setSyncing(true);
     
     for (const repo of repos) {
@@ -80,8 +74,7 @@ export default function RepoSetupPage() {
             installationId: Number(installationId),
           });
           setAddedRepos((prev) => new Set([...prev, repo.fullName]));
-        } catch (err) {
-          console.error("Failed to add repo:", repo.fullName, err);
+        } catch {
         }
       }
     }
@@ -90,12 +83,14 @@ export default function RepoSetupPage() {
     router.push("/repos");
   };
 
-  if (loading) {
+  if (loading || syncing) {
     return (
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
           <IconLoader2 className="w-8 h-8 text-pink-600 animate-spin mb-4" />
-          <p className="text-neutral-600 dark:text-neutral-400">Loading repositories...</p>
+          <p className="text-neutral-600 dark:text-neutral-400">
+            {syncing ? "Adding repositories..." : "Loading repositories..."}
+          </p>
         </div>
       </Container>
     );
@@ -149,7 +144,16 @@ export default function RepoSetupPage() {
                 </span>
               ) : (
                 <button
-                  onClick={() => handleAddRepo(repo)}
+                  onClick={async () => {
+                    try {
+                      await createRepo({
+                        owner: repo.owner,
+                        name: repo.name,
+                        installationId: Number(installationId),
+                      });
+                      setAddedRepos((prev) => new Set([...prev, repo.fullName]));
+                    } catch {}
+                  }}
                   className="px-3 py-1.5 text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700"
                 >
                   Add
@@ -162,16 +166,16 @@ export default function RepoSetupPage() {
         <div className="flex gap-3">
           <button
             onClick={handleAddAll}
-            disabled={syncing || repos.length === addedRepos.size}
+            disabled={repos.length === addedRepos.size}
             className="flex-1 px-4 py-2 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {syncing ? "Adding..." : "Add All & Continue"}
+            Add All & Continue
           </button>
           <button
             onClick={() => router.push("/repos")}
             className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600"
           >
-            Skip
+            Done
           </button>
         </div>
       </div>

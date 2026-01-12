@@ -2,30 +2,54 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "@/api";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconBrandGithub, IconPlus } from "@tabler/icons-react";
+import { IconBrandGithub, IconPlus, IconRefresh } from "@tabler/icons-react";
 
 const GITHUB_APP_NAME = "v-conductor-dev";
 
 export default function RepositoriesPage() {
   const repos = useQuery(api.githubRepos.list);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await fetch("/api/github/sync", { method: "POST" });
+    } catch (err) {
+      console.error("Sync failed:", err);
+    }
+    setSyncing(false);
+  };
+
+  const connectUrl = "https://github.com/apps/" + GITHUB_APP_NAME + "/installations/new";
 
   return (
     <>
       <PageHeader
         title="Repositories"
         headerRight={
-          <a
-            href={"https://github.com/apps/" + GITHUB_APP_NAME + "/installations/new"}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-          >
-            <IconPlus className="w-4 h-4" />
-            Connect GitHub
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="inline-flex items-center gap-2 px-3 py-2 text-neutral-600 dark:text-neutral-300 text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+            >
+              <IconRefresh className={"w-4 h-4" + (syncing ? " animate-spin" : "")} />
+              Sync
+            </button>
+            <a
+              href={connectUrl}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+            >
+              <IconPlus className="w-4 h-4" />
+              Connect GitHub
+            </a>
+          </div>
         }
       />
       <Container>
@@ -38,13 +62,22 @@ export default function RepositoriesPage() {
             icon={IconBrandGithub}
             title="No repositories"
             description="Connect a GitHub repository to get started with planning and tracking features."
+            action={
+              <a
+                href={connectUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors"
+              >
+                <IconBrandGithub className="w-4 h-4" />
+                Connect GitHub Repository
+              </a>
+            }
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {repos.map((repo) => (
               <Link
                 key={repo._id}
-                href={`/${encodeRepoSlug(`${repo.owner}/${repo.name}`)}/plan`}
+                href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name) + "/plan"}
                 className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 transition-all group"
               >
                 <div className="flex items-start gap-3">

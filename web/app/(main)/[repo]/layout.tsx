@@ -2,7 +2,6 @@
 
 import { use } from "react";
 import { RepoProvider } from "@/lib/contexts/RepoContext";
-import { RepoSwitcher } from "@/lib/components/repo/RepoSwitcher";
 
 export default function RepoLayout({
   children,
@@ -13,12 +12,5 @@ export default function RepoLayout({
 }) {
   const { repo } = use(params);
 
-  return (
-    <RepoProvider repoSlug={repo}>
-      <div className="mb-4 flex items-center">
-        <RepoSwitcher />
-      </div>
-      {children}
-    </RepoProvider>
-  );
+  return <RepoProvider repoSlug={repo}>{children}</RepoProvider>;
 }

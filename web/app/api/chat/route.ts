@@ -4,16 +4,22 @@ import { streamText, convertToModelMessages } from "ai";
 
 const openrouter = createOpenRouter({
   apiKey: serverEnv.NEXT_OPENROUTER_API_KEY,
+  headers: {
+    "HTTP-Referer": "https://conductor-lake.vercel.app",
+    "X-Title": "Conductor",
+  },
 });
 
 export async function POST(req: Request) {
   const { messages, systemPrompt } = await req.json();
 
+  const modelMessages = convertToModelMessages(messages);
+
   const result = streamText({
-    model: openrouter("anthropic/claude-3.5-sonnet"),
+    model: openrouter.chat("openai/gpt-5-nano"),
     system: systemPrompt,
-    messages: convertToModelMessages(messages),
+    messages: modelMessages,
   });
 
-  return result.toTextStreamResponse();
+  return result.toUIMessageStreamResponse();
 }

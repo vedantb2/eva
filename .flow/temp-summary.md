@@ -1,3 +1,4 @@
-- Created encodeRepoSlug to convert owner/repo to owner-repo for URLs
-- Created decodeRepoSlug to convert URL slug back to owner/repo
-- Created buildRepoPath helper to construct repo-scoped paths
+- Created [repo] dynamic route folder under (main)
+- Added RepoLayout wrapper (placeholder for now)
+- Created placeholder pages for plan, features, features/[featureId], quick-tasks
+- All pages have basic placeholder content

@@ -33,9 +33,11 @@ web/app/(main)/[repo]/
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created [repo] dynamic route folder under (main)
+- Added RepoLayout wrapper (placeholder for now)
+- Created placeholder pages for plan, features, features/[featureId], quick-tasks
+- All pages have basic placeholder content
 ## Evidence
-- Commits:
+- Commits: 658660a
 - Tests:
 - PRs:

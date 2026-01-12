@@ -8,9 +8,10 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  action?: React.ReactNode;
 }
 
-export function EmptyState({ icon: Icon = IconDatabase, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ icon: Icon = IconDatabase, title, description, actionLabel, onAction, action }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
       <Icon size={24} className="text-neutral-400 mb-2" />
@@ -22,6 +23,7 @@ export function EmptyState({ icon: Icon = IconDatabase, title, description, acti
           <span>{actionLabel}</span>
         </button>
       )}
+      {action}
     </div>
   );
 }

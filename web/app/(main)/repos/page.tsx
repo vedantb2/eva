@@ -7,14 +7,27 @@ import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconBrandGithub } from "@tabler/icons-react";
+import { IconBrandGithub, IconPlus } from "@tabler/icons-react";
+
+const GITHUB_APP_NAME = "v-conductor-dev";
 
 export default function RepositoriesPage() {
   const repos = useQuery(api.githubRepos.list);
 
   return (
     <>
-      <PageHeader title="Repositories" />
+      <PageHeader
+        title="Repositories"
+        headerRight={
+          <a
+            href={"https://github.com/apps/" + GITHUB_APP_NAME + "/installations/new"}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+          >
+            <IconPlus className="w-4 h-4" />
+            Connect GitHub
+          </a>
+        }
+      />
       <Container>
         {repos === undefined ? (
           <div className="flex items-center justify-center py-12">

@@ -1,8 +1,74 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/api";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { Container } from "@/lib/components/ui/Container";
+import { PageHeader } from "@/lib/components/PageHeader";
+import { Button } from "@/lib/components/ui/Button";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
+import { IconSparkles, IconPlus, IconChevronRight } from "@tabler/icons-react";
+import Link from "next/link";
+import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 export default function PlanPage() {
+  const { repo, fullName } = useRepo();
+  const plans = useQuery(api.plans.list, { repoId: repo._id });
+  const [isCreating, setIsCreating] = useState(false);
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Plan</h1>
-      <p className="text-gray-500 mt-2">Plan page placeholder</p>
-    </div>
+    <>
+      <PageHeader
+        title="Plan"
+        headerRight={
+          <Button onClick={() => setIsCreating(true)}>
+            <IconPlus size={16} className="mr-1" />
+            New Plan
+          </Button>
+        }
+      />
+      <Container>
+        {plans === undefined ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+          </div>
+        ) : plans.length === 0 ? (
+          <EmptyState
+            icon={IconSparkles}
+            title="No plans yet"
+            description="Create a plan to describe a feature and let AI help you break it down into tasks"
+            actionLabel="Create Plan"
+            onAction={() => setIsCreating(true)}
+          />
+        ) : (
+          <div className="space-y-4">
+            {plans.map((plan) => (
+              <Link
+                key={plan._id}
+                href={`/${encodeRepoSlug(fullName)}/plan/${plan._id}`}
+                className="block p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                        {plan.title}
+                      </h3>
+                      <PlanStatusBadge state={plan.state} />
+                    </div>
+                    <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                      {plan.rawInput}
+                    </p>
+                  </div>
+                  <IconChevronRight className="w-5 h-5 text-neutral-400 group-hover:text-pink-600 transition-colors flex-shrink-0 ml-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Container>
+    </>
   );
 }

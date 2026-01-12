@@ -7,8 +7,10 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created plan page with plans list
+- Shows plan title, status badge, and raw input
+- Links to individual plan pages
+- Includes create plan button
 ## Evidence
 - Commits:
 - Tests:

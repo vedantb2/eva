@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created quick tasks page
+- Shows standalone tasks not tied to features
+- Includes status badge and create button
 ## Evidence
 - Commits:
 - Tests:

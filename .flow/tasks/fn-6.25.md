@@ -7,8 +7,9 @@ TBD
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Created features list page with feature cards
+- Shows title, description, status, branch name
+- Links to feature detail pages
 ## Evidence
 - Commits:
 - Tests:

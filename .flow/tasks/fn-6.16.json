@@ -1,16 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:37:26.240178Z",
   "created_at": "2026-01-12T00:18:59.112184Z",
   "depends_on": [
     "fn-6.10"
   ],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.16",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.16.md",
-  "status": "todo",
+  "status": "done",
   "title": "Create plan page shell (/[repo]/plan/page.tsx)",
-  "updated_at": "2026-01-12T00:25:52.719585Z"
+  "updated_at": "2026-01-12T01:39:04.633243Z"
 }

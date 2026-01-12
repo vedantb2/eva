@@ -27,9 +27,10 @@ taskDependencies: defineTable({
 - [ ] TBD
 
 ## Done summary
-TBD
-
+- Added `taskDependencies` table as join table for many-to-many task dependencies
+- Fields: taskId (blocked task), dependsOnId (prerequisite task)
+- Created indexes: by_task, by_dependency for efficient lookups
 ## Evidence
-- Commits:
+- Commits: 9b88721
 - Tests:
 - PRs:

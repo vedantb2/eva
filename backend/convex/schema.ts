@@ -171,6 +171,13 @@ const schema = defineSchema({
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"])
     .index("by_plan", ["planId"]),
+
+  taskDependencies: defineTable({
+    taskId: v.id("agentTasks"),
+    dependsOnId: v.id("agentTasks"),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_dependency", ["dependsOnId"]),
 });
 
 export default schema;

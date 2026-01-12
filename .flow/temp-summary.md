@@ -1,4 +1,3 @@
-- Added `features` table with fields: repoId, userId, planId, title, description, branchName, status
-- Created indexes: by_repo, by_user, by_repo_and_status, by_plan
-- Status tracks feature lifecycle: planning, active, completed, archived
-- planId is optional to support manually created features
+- Added `taskDependencies` table as join table for many-to-many task dependencies
+- Fields: taskId (blocked task), dependsOnId (prerequisite task)
+- Created indexes: by_task, by_dependency for efficient lookups

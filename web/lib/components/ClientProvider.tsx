@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { EnsureUser } from "./EnsureUser";
 import { clientEnv } from "@/env/client";
 
 if (!clientEnv.NEXT_PUBLIC_CONVEX_URL) {
@@ -19,19 +20,21 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <ConvexQueryCacheProvider>
-        <NextThemesProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <ThemeProvider>
-            <HeroUIProvider>
-              <ToastProvider placement="top-center" />
-              {children}
-            </HeroUIProvider>
-          </ThemeProvider>
-        </NextThemesProvider>
+        <EnsureUser>
+          <NextThemesProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ThemeProvider>
+              <HeroUIProvider>
+                <ToastProvider placement="top-center" />
+                {children}
+              </HeroUIProvider>
+            </ThemeProvider>
+          </NextThemesProvider>
+        </EnsureUser>
       </ConvexQueryCacheProvider>
     </ConvexProviderWithClerk>
   );

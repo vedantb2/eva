@@ -130,6 +130,28 @@ const schema = defineSchema({
     authorId: v.string(),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
+
+  plans: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    rawInput: v.string(),
+    generatedSpec: v.optional(v.string()),
+    state: v.union(
+      v.literal("draft"),
+      v.literal("finalized"),
+      v.literal("feature_created")
+    ),
+    conversationHistory: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+      })
+    ),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"])
+    .index("by_repo_and_state", ["repoId", "state"]),
 });
 
 export default schema;

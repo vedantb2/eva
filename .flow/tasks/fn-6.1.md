@@ -37,9 +37,12 @@ plans: defineTable({
 - [ ] Indexes created: by_repo, by_user, by_repo_and_state
 - [ ] `npx convex dev` runs without schema errors
 ## Done summary
-TBD
-
+- Added `plans` table with fields: repoId, userId, title, rawInput, generatedSpec, state, conversationHistory
+- Created indexes: by_repo, by_user, by_repo_and_state
+- State is a union type: draft | finalized | feature_created
+- ConversationHistory stores user/assistant message pairs
+- Schema compiles without errors
 ## Evidence
-- Commits:
+- Commits: 531abc9
 - Tests:
 - PRs:

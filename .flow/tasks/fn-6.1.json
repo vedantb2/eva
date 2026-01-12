@@ -1,14 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "48868398+vedantb2@users.noreply.github.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-12T01:06:50.422122Z",
   "created_at": "2026-01-12T00:16:30.971394Z",
   "depends_on": [],
   "epic": "fn-6",
+  "evidence": {
+    "commits": [
+      "531abc9"
+    ],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-6.1",
   "priority": null,
   "spec_path": ".flow/tasks/fn-6.1.md",
-  "status": "todo",
+  "status": "done",
   "title": "Add plans table to Convex schema",
-  "updated_at": "2026-01-12T00:30:46.281315Z"
+  "updated_at": "2026-01-12T01:09:00.299441Z"
 }

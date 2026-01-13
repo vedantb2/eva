@@ -10,7 +10,6 @@ import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
-import { Chip } from "@heroui/chip";
 import {
   Modal,
   ModalContent,
@@ -33,17 +32,16 @@ import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 
-type FeatureStatus = "planning" | "active" | "completed" | "archived";
+type FeatureStatus = "planning" | "active" | "completed";
 type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
 
-const ALL_STATUSES: FeatureStatus[] = ["planning", "active", "completed", "archived"];
+const ALL_STATUSES: FeatureStatus[] = ["planning", "active", "completed"];
 
-const statusConfig: Record<FeatureStatus, { label: string; chipColor: "default" | "secondary" | "warning" | "success" | "danger"; cardBg: string }> = {
-  planning: { label: "Planning", chipColor: "secondary", cardBg: "bg-purple-50 dark:bg-purple-900/20" },
-  active: { label: "Active", chipColor: "warning", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
-  completed: { label: "Completed", chipColor: "success", cardBg: "bg-green-50 dark:bg-green-900/20" },
-  archived: { label: "Archived", chipColor: "danger", cardBg: "bg-red-50 dark:bg-red-900/20" },
+const statusConfig: Record<FeatureStatus, { label: string; badgeBg: string; badgeText: string; cardBg: string }> = {
+  planning: { label: "Planning", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-neutral-50 dark:bg-neutral-800" },
+  active: { label: "Active", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
+  completed: { label: "Completed", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-green-50 dark:bg-green-900/20" },
 };
 
 export function FeaturesClient() {
@@ -140,7 +138,6 @@ export function FeaturesClient() {
                     <DropdownItem key="planning">Planning</DropdownItem>
                     <DropdownItem key="active">Active</DropdownItem>
                     <DropdownItem key="completed">Completed</DropdownItem>
-                    <DropdownItem key="archived">Archived</DropdownItem>
                   </DropdownMenu>
                 </Dropdown>
                 <Dropdown>
@@ -192,9 +189,9 @@ export function FeaturesClient() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{statusConfig[status].label}</span>
-                      <Chip size="sm" variant="flat" color={statusConfig[status].chipColor}>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusConfig[status].badgeBg} ${statusConfig[status].badgeText}`}>
                         {featuresByStatus[status]?.length ?? 0}
-                      </Chip>
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-2">

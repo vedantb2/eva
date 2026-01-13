@@ -15,9 +15,9 @@ const statusConfig: Record<
   { bg: string; text: string; dot: string; label: string }
 > = {
   todo: {
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    text: "text-blue-700 dark:text-blue-400",
-    dot: "bg-blue-500",
+    bg: "bg-neutral-100 dark:bg-neutral-700",
+    text: "text-neutral-600 dark:text-neutral-300",
+    dot: "bg-neutral-500",
     label: "To Do",
   },
   in_progress: {

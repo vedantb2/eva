@@ -15,15 +15,15 @@ const stateConfig: Record<
   { bg: string; text: string; dot: string; label: string }
 > = {
   draft: {
-    bg: "bg-yellow-100 dark:bg-yellow-900/30",
-    text: "text-yellow-700 dark:text-yellow-400",
-    dot: "bg-yellow-500",
+    bg: "bg-neutral-100 dark:bg-neutral-700",
+    text: "text-neutral-600 dark:text-neutral-300",
+    dot: "bg-neutral-500",
     label: "Draft",
   },
   finalized: {
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    text: "text-blue-700 dark:text-blue-400",
-    dot: "bg-blue-500",
+    bg: "bg-yellow-100 dark:bg-yellow-900/30",
+    text: "text-yellow-700 dark:text-yellow-400",
+    dot: "bg-yellow-500",
     label: "Finalized",
   },
   feature_created: {

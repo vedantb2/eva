@@ -8,9 +8,9 @@ import { IconSubtask } from "@tabler/icons-react";
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 const statusCardBg: Record<TaskStatus, string> = {
-  todo: "bg-blue-50 dark:bg-blue-900/20",
+  todo: "bg-neutral-50 dark:bg-neutral-800",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
-  code_review: "bg-pink-50 dark:bg-pink-900/20",
+  code_review: "bg-purple-50 dark:bg-purple-900/20",
   done: "bg-green-50 dark:bg-green-900/20",
 };
 

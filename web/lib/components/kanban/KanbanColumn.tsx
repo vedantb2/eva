@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardHeader, CardBody } from "@heroui/card";
-import { Chip } from "@heroui/chip";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 
@@ -9,12 +8,12 @@ type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 const statusConfig: Record<
   TaskStatus,
-  { label: string; color: "default" | "primary" | "secondary" | "success" | "warning" | "danger" }
+  { label: string; badgeBg: string; badgeText: string }
 > = {
-  todo: { label: "To Do", color: "primary" },
-  in_progress: { label: "In Progress", color: "warning" },
-  code_review: { label: "Code Review", color: "secondary" },
-  done: { label: "Done", color: "success" },
+  todo: { label: "To Do", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300" },
+  in_progress: { label: "In Progress", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400" },
+  code_review: { label: "Code Review", badgeBg: "bg-purple-100 dark:bg-purple-900/30", badgeText: "text-purple-700 dark:text-purple-400" },
+  done: { label: "Done", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
 };
 
 interface KanbanColumnProps {
@@ -41,9 +40,9 @@ export function KanbanColumn({
       <CardHeader className="flex justify-between items-center pb-2">
         <div className="flex items-center gap-2">
           <span className="font-medium">{config.label}</span>
-          <Chip size="sm" variant="flat" color={config.color}>
+          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${config.badgeBg} ${config.badgeText}`}>
             {count}
-          </Chip>
+          </span>
         </div>
       </CardHeader>
       <CardBody className="pt-0 overflow-y-auto space-y-2">

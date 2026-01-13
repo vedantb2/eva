@@ -25,6 +25,8 @@ import {
   IconFilter,
   IconSortAscending,
   IconSortDescending,
+  IconLayoutGrid,
+  IconLayoutList,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -33,6 +35,7 @@ import { useState, useMemo } from "react";
 type FeatureStatus = "planning" | "active" | "completed" | "archived";
 type SortField = "created" | "title" | "status";
 type SortDirection = "asc" | "desc";
+type ViewMode = "grid" | "list";
 
 const statusColors = {
   planning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -53,6 +56,7 @@ export function FeaturesClient() {
   const [statusFilter, setStatusFilter] = useState<FeatureStatus | "all">("all");
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const filteredAndSortedFeatures = useMemo(() => {
     if (!features) return [];
@@ -105,57 +109,67 @@ export function FeaturesClient() {
           />
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
-                    {statusFilter === "all" ? "All Status" : statusFilter}
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu
-                  aria-label="Filter by status"
-                  selectionMode="single"
-                  selectedKeys={new Set([statusFilter])}
-                  onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as FeatureStatus | "all")}
-                >
-                  <DropdownItem key="all">All Status</DropdownItem>
-                  <DropdownItem key="planning">Planning</DropdownItem>
-                  <DropdownItem key="active">Active</DropdownItem>
-                  <DropdownItem key="completed">Completed</DropdownItem>
-                  <DropdownItem key="archived">Archived</DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button
-                    variant="flat"
-                    size="sm"
-                    startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Dropdown>
+                  <DropdownTrigger>
+                    <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
+                      {statusFilter === "all" ? "All Status" : statusFilter}
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Filter by status"
+                    selectionMode="single"
+                    selectedKeys={new Set([statusFilter])}
+                    onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as FeatureStatus | "all")}
                   >
-                    {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu
-                  aria-label="Sort by"
-                  selectionMode="single"
-                  selectedKeys={new Set([sortField])}
-                  onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                    <DropdownItem key="all">All Status</DropdownItem>
+                    <DropdownItem key="planning">Planning</DropdownItem>
+                    <DropdownItem key="active">Active</DropdownItem>
+                    <DropdownItem key="completed">Completed</DropdownItem>
+                    <DropdownItem key="archived">Archived</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+                <Dropdown>
+                  <DropdownTrigger>
+                    <Button
+                      variant="flat"
+                      size="sm"
+                      startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                    >
+                      {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Sort by"
+                    selectionMode="single"
+                    selectedKeys={new Set([sortField])}
+                    onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                  >
+                    <DropdownItem key="created">Date Created</DropdownItem>
+                    <DropdownItem key="title">Title</DropdownItem>
+                    <DropdownItem key="status">Status</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+                <Button
+                  variant="flat"
+                  size="sm"
+                  isIconOnly
+                  onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
                 >
-                  <DropdownItem key="created">Date Created</DropdownItem>
-                  <DropdownItem key="title">Title</DropdownItem>
-                  <DropdownItem key="status">Status</DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
+                  {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                </Button>
+              </div>
               <Button
                 variant="flat"
                 size="sm"
                 isIconOnly
-                onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+                onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
               >
-                {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                {viewMode === "grid" ? <IconLayoutList size={16} /> : <IconLayoutGrid size={16} />}
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" : "space-y-3"}>
             {filteredAndSortedFeatures.map((feature) => (
               <div
                 key={feature._id}

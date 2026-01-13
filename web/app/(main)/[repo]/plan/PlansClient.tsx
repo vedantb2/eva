@@ -20,6 +20,8 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconTrash,
+  IconLayoutGrid,
+  IconLayoutList,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -37,6 +39,7 @@ import {
 type PlanState = "draft" | "finalized" | "feature_created";
 type SortField = "created" | "title" | "status";
 type SortDirection = "asc" | "desc";
+type ViewMode = "grid" | "list";
 
 export function PlansClient() {
   const { repo, fullName } = useRepo();
@@ -49,6 +52,7 @@ export function PlansClient() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [planToDelete, setPlanToDelete] = useState<{ id: Id<"plans">; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const filteredAndSortedPlans = useMemo(() => {
     if (!plans) return [];
@@ -111,125 +115,137 @@ export function PlansClient() {
           />
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
-                    {statusFilter === "all" ? "All Status" : statusFilter.replace("_", " ")}
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu
-                  aria-label="Filter by status"
-                  selectionMode="single"
-                  selectedKeys={new Set([statusFilter])}
-                  onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as PlanState | "all")}
-                >
-                  <DropdownItem key="all">All Status</DropdownItem>
-                  <DropdownItem key="draft">Draft</DropdownItem>
-                  <DropdownItem key="finalized">Finalized</DropdownItem>
-                  <DropdownItem key="feature_created">Feature Created</DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button
-                    variant="flat"
-                    size="sm"
-                    startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Dropdown>
+                  <DropdownTrigger>
+                    <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
+                      {statusFilter === "all" ? "All Status" : statusFilter.replace("_", " ")}
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Filter by status"
+                    selectionMode="single"
+                    selectedKeys={new Set([statusFilter])}
+                    onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as PlanState | "all")}
                   >
-                    {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu
-                  aria-label="Sort by"
-                  selectionMode="single"
-                  selectedKeys={new Set([sortField])}
-                  onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                    <DropdownItem key="all">All Status</DropdownItem>
+                    <DropdownItem key="draft">Draft</DropdownItem>
+                    <DropdownItem key="finalized">Finalized</DropdownItem>
+                    <DropdownItem key="feature_created">Feature Created</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+                <Dropdown>
+                  <DropdownTrigger>
+                    <Button
+                      variant="flat"
+                      size="sm"
+                      startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                    >
+                      {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Sort by"
+                    selectionMode="single"
+                    selectedKeys={new Set([sortField])}
+                    onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                  >
+                    <DropdownItem key="created">Date Created</DropdownItem>
+                    <DropdownItem key="title">Title</DropdownItem>
+                    <DropdownItem key="status">Status</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+                <Button
+                  variant="flat"
+                  size="sm"
+                  isIconOnly
+                  onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
                 >
-                  <DropdownItem key="created">Date Created</DropdownItem>
-                  <DropdownItem key="title">Title</DropdownItem>
-                  <DropdownItem key="status">Status</DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
+                  {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                </Button>
+              </div>
               <Button
                 variant="flat"
                 size="sm"
                 isIconOnly
-                onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+                onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
               >
-                {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                {viewMode === "grid" ? <IconLayoutList size={16} /> : <IconLayoutGrid size={16} />}
               </Button>
             </div>
-            {filteredAndSortedPlans.map((plan) => {
-              const canInterview = plan.state !== "feature_created";
-              const planUrl =
-                "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
-              return (
-                <div
-                  key={plan._id}
-                  className="p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
-                >
-                  <div className="flex items-start gap-2 sm:gap-4">
-                    <Link href={planUrl} className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                        <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate max-w-full">
-                          {plan.title}
-                        </h3>
-                        <PlanStatusBadge state={plan.state} />
-                      </div>
-                      <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                        {plan.rawInput}
-                      </p>
-                    </Link>
-                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                      <Tooltip
-                        content={
-                          canInterview
-                            ? "Interview to refine requirements"
-                            : "Feature already created - plan is locked"
-                        }
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (canInterview) setInterviewPlanId(plan._id);
-                          }}
-                          disabled={!canInterview}
-                          className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                            canInterview
-                              ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-500 hover:text-pink-600"
-                              : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
-                          }`}
-                        >
-                          <IconMessageQuestion size={18} className="sm:hidden" />
-                          <IconMessageQuestion size={20} className="hidden sm:block" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Delete plan">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPlanToDelete({ id: plan._id, title: plan.title });
-                          }}
-                          className="p-1.5 sm:p-2 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                        >
-                          <IconTrash size={18} className="sm:hidden" />
-                          <IconTrash size={20} className="hidden sm:block" />
-                        </button>
-                      </Tooltip>
-                      <Link
-                        href={planUrl}
-                        className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
-                      >
-                        <IconChevronRight size={18} className="sm:hidden" />
-                        <IconChevronRight size={20} className="hidden sm:block" />
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" : "space-y-3"}>
+              {filteredAndSortedPlans.map((plan) => {
+                const canInterview = plan.state !== "feature_created";
+                const planUrl =
+                  "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
+                return (
+                  <div
+                    key={plan._id}
+                    className="p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-start gap-2 sm:gap-4">
+                      <Link href={planUrl} className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate max-w-full">
+                            {plan.title}
+                          </h3>
+                          <PlanStatusBadge state={plan.state} />
+                        </div>
+                        <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                          {plan.rawInput}
+                        </p>
                       </Link>
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                        <Tooltip
+                          content={
+                            canInterview
+                              ? "Interview to refine requirements"
+                              : "Feature already created - plan is locked"
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (canInterview) setInterviewPlanId(plan._id);
+                            }}
+                            disabled={!canInterview}
+                            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                              canInterview
+                                ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-500 hover:text-pink-600"
+                                : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
+                            }`}
+                          >
+                            <IconMessageQuestion size={18} className="sm:hidden" />
+                            <IconMessageQuestion size={20} className="hidden sm:block" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="Delete plan">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPlanToDelete({ id: plan._id, title: plan.title });
+                            }}
+                            className="p-1.5 sm:p-2 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                          >
+                            <IconTrash size={18} className="sm:hidden" />
+                            <IconTrash size={20} className="hidden sm:block" />
+                          </button>
+                        </Tooltip>
+                        <Link
+                          href={planUrl}
+                          className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                        >
+                          <IconChevronRight size={18} className="sm:hidden" />
+                          <IconChevronRight size={20} className="hidden sm:block" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </Container>

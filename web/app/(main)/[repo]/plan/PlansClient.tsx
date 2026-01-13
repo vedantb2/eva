@@ -7,8 +7,8 @@ import { GenericId as Id } from "convex/values";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@heroui/button";
+import { Chip } from "@heroui/chip";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
 import { NewPlanModal } from "@/lib/components/plans/NewPlanModal";
 import { PlanInterviewModal } from "@/lib/components/plans/PlanInterviewModal";
 import {
@@ -20,9 +20,9 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconTrash,
-  IconLayoutGrid,
-  IconLayoutList,
+  IconSearch,
 } from "@tabler/icons-react";
+import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { Tooltip } from "@heroui/tooltip";
@@ -37,9 +37,16 @@ import {
 } from "@heroui/modal";
 
 type PlanState = "draft" | "finalized" | "feature_created";
-type SortField = "created" | "title" | "status";
+type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
-type ViewMode = "grid" | "list";
+
+const ALL_STATES: PlanState[] = ["draft", "finalized", "feature_created"];
+
+const stateConfig: Record<PlanState, { label: string; chipColor: "default" | "secondary" | "warning" | "success"; cardBg: string }> = {
+  draft: { label: "Draft", chipColor: "default", cardBg: "bg-neutral-50 dark:bg-neutral-800" },
+  finalized: { label: "Finalized", chipColor: "warning", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
+  feature_created: { label: "Feature Created", chipColor: "success", cardBg: "bg-green-50 dark:bg-green-900/20" },
+};
 
 export function PlansClient() {
   const { repo, fullName } = useRepo();
@@ -47,36 +54,39 @@ export function PlansClient() {
   const deletePlan = useMutation(api.plans.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
   const [interviewPlanId, setInterviewPlanId] = useState<Id<"plans"> | null>(null);
-  const [statusFilter, setStatusFilter] = useState<PlanState | "all">("all");
+  const [visibleStates, setVisibleStates] = useState<Set<PlanState>>(new Set(ALL_STATES));
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [planToDelete, setPlanToDelete] = useState<{ id: Id<"plans">; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredAndSortedPlans = useMemo(() => {
-    if (!plans) return [];
-    let result = [...plans];
-    if (statusFilter !== "all") {
-      result = result.filter((p) => p.state === statusFilter);
-    }
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "created":
-          comparison = a._creationTime - b._creationTime;
-          break;
-        case "title":
-          comparison = a.title.localeCompare(b.title);
-          break;
-        case "status":
-          comparison = a.state.localeCompare(b.state);
-          break;
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-    return result;
-  }, [plans, statusFilter, sortField, sortDirection]);
+  const plansByState = useMemo(() => {
+    if (!plans) return {} as Record<PlanState, typeof plans>;
+    const query = searchQuery.toLowerCase().trim();
+    const grouped = ALL_STATES.reduce((acc, state) => {
+      acc[state] = plans
+        .filter((p) => p.state === state)
+        .filter((p) => {
+          if (!query) return true;
+          return p.title.toLowerCase().includes(query) || p.rawInput?.toLowerCase().includes(query);
+        })
+        .sort((a, b) => {
+          let comparison = 0;
+          switch (sortField) {
+            case "created":
+              comparison = a._creationTime - b._creationTime;
+              break;
+            case "title":
+              comparison = a.title.localeCompare(b.title);
+              break;
+          }
+          return sortDirection === "asc" ? comparison : -comparison;
+        });
+      return acc;
+    }, {} as Record<PlanState, typeof plans>);
+    return grouped;
+  }, [plans, sortField, sortDirection, searchQuery]);
 
   const handleDelete = async () => {
     if (!planToDelete) return;
@@ -87,6 +97,12 @@ export function PlansClient() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleStateToggle = (keys: Set<string>) => {
+    const newStates = new Set(Array.from(keys) as PlanState[]);
+    if (newStates.size === 0) return;
+    setVisibleStates(newStates);
   };
 
   return (
@@ -120,16 +136,18 @@ export function PlansClient() {
                 <Dropdown>
                   <DropdownTrigger>
                     <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
-                      {statusFilter === "all" ? "All Status" : statusFilter.replace("_", " ")}
+                      {visibleStates.size === ALL_STATES.length
+                        ? "All Columns"
+                        : `${visibleStates.size} Columns`}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
-                    aria-label="Filter by status"
-                    selectionMode="single"
-                    selectedKeys={new Set([statusFilter])}
-                    onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as PlanState | "all")}
+                    aria-label="Toggle columns"
+                    selectionMode="multiple"
+                    selectedKeys={visibleStates}
+                    onSelectionChange={(keys) => handleStateToggle(keys as Set<string>)}
+                    closeOnSelect={false}
                   >
-                    <DropdownItem key="all">All Status</DropdownItem>
                     <DropdownItem key="draft">Draft</DropdownItem>
                     <DropdownItem key="finalized">Finalized</DropdownItem>
                     <DropdownItem key="feature_created">Feature Created</DropdownItem>
@@ -142,7 +160,7 @@ export function PlansClient() {
                       size="sm"
                       startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                     >
-                      {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
+                      {sortField === "created" ? "Date" : "Title"}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
@@ -153,7 +171,6 @@ export function PlansClient() {
                   >
                     <DropdownItem key="created">Date Created</DropdownItem>
                     <DropdownItem key="title">Title</DropdownItem>
-                    <DropdownItem key="status">Status</DropdownItem>
                   </DropdownMenu>
                 </Dropdown>
                 <Button
@@ -165,86 +182,103 @@ export function PlansClient() {
                   {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                 </Button>
               </div>
-              <Button
-                variant="flat"
+              <Input
+                placeholder="Search plans..."
                 size="sm"
-                isIconOnly
-                onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
-              >
-                {viewMode === "grid" ? <IconLayoutList size={16} /> : <IconLayoutGrid size={16} />}
-              </Button>
+                className="w-48"
+                startContent={<IconSearch size={16} className="text-default-400" />}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                isClearable
+                onClear={() => setSearchQuery("")}
+              />
             </div>
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" : "space-y-3"}>
-              {filteredAndSortedPlans.map((plan) => {
-                const canInterview = plan.state !== "feature_created";
-                const planUrl =
-                  "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
-                return (
-                  <div
-                    key={plan._id}
-                    className="p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
-                  >
-                    <div className="flex items-start gap-2 sm:gap-4">
-                      <Link href={planUrl} className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                          <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate max-w-full">
-                            {plan.title}
-                          </h3>
-                          <PlanStatusBadge state={plan.state} />
-                        </div>
-                        <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                          {plan.rawInput}
-                        </p>
-                      </Link>
-                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                        <Tooltip
-                          content={
-                            canInterview
-                              ? "Interview to refine requirements"
-                              : "Feature already created - plan is locked"
-                          }
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (canInterview) setInterviewPlanId(plan._id);
-                            }}
-                            disabled={!canInterview}
-                            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                              canInterview
-                                ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-500 hover:text-pink-600"
-                                : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
-                            }`}
-                          >
-                            <IconMessageQuestion size={18} className="sm:hidden" />
-                            <IconMessageQuestion size={20} className="hidden sm:block" />
-                          </button>
-                        </Tooltip>
-                        <Tooltip content="Delete plan">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPlanToDelete({ id: plan._id, title: plan.title });
-                            }}
-                            className="p-1.5 sm:p-2 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                          >
-                            <IconTrash size={18} className="sm:hidden" />
-                            <IconTrash size={20} className="hidden sm:block" />
-                          </button>
-                        </Tooltip>
-                        <Link
-                          href={planUrl}
-                          className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
-                        >
-                          <IconChevronRight size={18} className="sm:hidden" />
-                          <IconChevronRight size={20} className="hidden sm:block" />
-                        </Link>
-                      </div>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {ALL_STATES.filter((state) => visibleStates.has(state)).map((state) => (
+                <div
+                  key={state}
+                  className="min-w-[280px] max-w-[320px] flex-shrink-0 bg-neutral-50 dark:bg-neutral-900 rounded-xl p-3"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{stateConfig[state].label}</span>
+                      <Chip size="sm" variant="flat" color={stateConfig[state].chipColor}>
+                        {plansByState[state]?.length ?? 0}
+                      </Chip>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="space-y-2">
+                    {plansByState[state]?.map((plan) => {
+                      const canInterview = plan.state !== "feature_created";
+                      const planUrl = "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
+                      return (
+                        <div
+                          key={plan._id}
+                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${stateConfig[state].cardBg}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <Link href={planUrl} className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                                {plan.title}
+                              </h3>
+                              {plan.rawInput && (
+                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                                  {plan.rawInput}
+                                </p>
+                              )}
+                            </Link>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Tooltip
+                                content={
+                                  canInterview
+                                    ? "Interview to refine requirements"
+                                    : "Feature already created - plan is locked"
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (canInterview) setInterviewPlanId(plan._id);
+                                  }}
+                                  disabled={!canInterview}
+                                  className={`p-1 rounded-lg transition-colors ${
+                                    canInterview
+                                      ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-400 hover:text-pink-600"
+                                      : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
+                                  }`}
+                                >
+                                  <IconMessageQuestion size={16} />
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Delete plan">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPlanToDelete({ id: plan._id, title: plan.title });
+                                  }}
+                                  className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                                >
+                                  <IconTrash size={16} />
+                                </button>
+                              </Tooltip>
+                              <Link
+                                href={planUrl}
+                                className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                              >
+                                <IconChevronRight size={18} />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {(plansByState[state]?.length ?? 0) === 0 && (
+                      <p className="text-xs text-neutral-400 text-center py-4">No plans</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

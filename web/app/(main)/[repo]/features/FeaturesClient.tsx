@@ -10,6 +10,7 @@ import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import { Chip } from "@heroui/chip";
 import {
   Modal,
   ModalContent,
@@ -25,23 +26,24 @@ import {
   IconFilter,
   IconSortAscending,
   IconSortDescending,
-  IconLayoutGrid,
-  IconLayoutList,
+  IconSearch,
 } from "@tabler/icons-react";
+import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 
 type FeatureStatus = "planning" | "active" | "completed" | "archived";
-type SortField = "created" | "title" | "status";
+type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
-type ViewMode = "grid" | "list";
 
-const statusColors = {
-  planning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  active: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  archived: "bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400",
+const ALL_STATUSES: FeatureStatus[] = ["planning", "active", "completed", "archived"];
+
+const statusConfig: Record<FeatureStatus, { label: string; chipColor: "default" | "secondary" | "warning" | "success" | "danger"; cardBg: string }> = {
+  planning: { label: "Planning", chipColor: "secondary", cardBg: "bg-purple-50 dark:bg-purple-900/20" },
+  active: { label: "Active", chipColor: "warning", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
+  completed: { label: "Completed", chipColor: "success", cardBg: "bg-green-50 dark:bg-green-900/20" },
+  archived: { label: "Archived", chipColor: "danger", cardBg: "bg-red-50 dark:bg-red-900/20" },
 };
 
 export function FeaturesClient() {
@@ -53,34 +55,37 @@ export function FeaturesClient() {
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<FeatureStatus | "all">("all");
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<FeatureStatus>>(new Set(ALL_STATUSES));
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredAndSortedFeatures = useMemo(() => {
-    if (!features) return [];
-    let result = [...features];
-    if (statusFilter !== "all") {
-      result = result.filter((f) => f.status === statusFilter);
-    }
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "created":
-          comparison = a._creationTime - b._creationTime;
-          break;
-        case "title":
-          comparison = a.title.localeCompare(b.title);
-          break;
-        case "status":
-          comparison = a.status.localeCompare(b.status);
-          break;
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-    return result;
-  }, [features, statusFilter, sortField, sortDirection]);
+  const featuresByStatus = useMemo(() => {
+    if (!features) return {} as Record<FeatureStatus, typeof features>;
+    const query = searchQuery.toLowerCase().trim();
+    const grouped = ALL_STATUSES.reduce((acc, status) => {
+      acc[status] = features
+        .filter((f) => f.status === status)
+        .filter((f) => {
+          if (!query) return true;
+          return f.title.toLowerCase().includes(query) || f.description?.toLowerCase().includes(query);
+        })
+        .sort((a, b) => {
+          let comparison = 0;
+          switch (sortField) {
+            case "created":
+              comparison = a._creationTime - b._creationTime;
+              break;
+            case "title":
+              comparison = a.title.localeCompare(b.title);
+              break;
+          }
+          return sortDirection === "asc" ? comparison : -comparison;
+        });
+      return acc;
+    }, {} as Record<FeatureStatus, typeof features>);
+    return grouped;
+  }, [features, sortField, sortDirection, searchQuery]);
 
   const handleDelete = async () => {
     if (!featureToDelete) return;
@@ -91,6 +96,12 @@ export function FeaturesClient() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleStatusToggle = (keys: Set<string>) => {
+    const newStatuses = new Set(Array.from(keys) as FeatureStatus[]);
+    if (newStatuses.size === 0) return;
+    setVisibleStatuses(newStatuses);
   };
 
   return (
@@ -114,16 +125,18 @@ export function FeaturesClient() {
                 <Dropdown>
                   <DropdownTrigger>
                     <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
-                      {statusFilter === "all" ? "All Status" : statusFilter}
+                      {visibleStatuses.size === ALL_STATUSES.length
+                        ? "All Columns"
+                        : `${visibleStatuses.size} Columns`}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
-                    aria-label="Filter by status"
-                    selectionMode="single"
-                    selectedKeys={new Set([statusFilter])}
-                    onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as FeatureStatus | "all")}
+                    aria-label="Toggle columns"
+                    selectionMode="multiple"
+                    selectedKeys={visibleStatuses}
+                    onSelectionChange={(keys) => handleStatusToggle(keys as Set<string>)}
+                    closeOnSelect={false}
                   >
-                    <DropdownItem key="all">All Status</DropdownItem>
                     <DropdownItem key="planning">Planning</DropdownItem>
                     <DropdownItem key="active">Active</DropdownItem>
                     <DropdownItem key="completed">Completed</DropdownItem>
@@ -137,7 +150,7 @@ export function FeaturesClient() {
                       size="sm"
                       startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                     >
-                      {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
+                      {sortField === "created" ? "Date" : "Title"}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
@@ -148,7 +161,6 @@ export function FeaturesClient() {
                   >
                     <DropdownItem key="created">Date Created</DropdownItem>
                     <DropdownItem key="title">Title</DropdownItem>
-                    <DropdownItem key="status">Status</DropdownItem>
                   </DropdownMenu>
                 </Dropdown>
                 <Button
@@ -160,69 +172,84 @@ export function FeaturesClient() {
                   {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                 </Button>
               </div>
-              <Button
-                variant="flat"
+              <Input
+                placeholder="Search features..."
                 size="sm"
-                isIconOnly
-                onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
-              >
-                {viewMode === "grid" ? <IconLayoutList size={16} /> : <IconLayoutGrid size={16} />}
-              </Button>
+                className="w-48"
+                startContent={<IconSearch size={16} className="text-default-400" />}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                isClearable
+                onClear={() => setSearchQuery("")}
+              />
             </div>
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" : "space-y-3"}>
-            {filteredAndSortedFeatures.map((feature) => (
-              <div
-                key={feature._id}
-                className="p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <Link
-                    href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
-                    className="flex-1 min-w-0"
-                  >
-                    <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
-                      {feature.title}
-                    </h3>
-                    {feature.description && (
-                      <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                        {feature.description}
-                      </p>
-                    )}
-                    <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-2">
-                      <span
-                        className={"px-2 py-0.5 text-xs font-medium rounded-full " + statusColors[feature.status]}
-                      >
-                        {feature.status}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-neutral-500 truncate max-w-[150px] sm:max-w-none">
-                        <IconGitBranch className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate">{feature.branchName}</span>
-                      </span>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {ALL_STATUSES.filter((status) => visibleStatuses.has(status)).map((status) => (
+                <div
+                  key={status}
+                  className="min-w-[280px] max-w-[320px] flex-shrink-0 bg-neutral-50 dark:bg-neutral-900 rounded-xl p-3"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{statusConfig[status].label}</span>
+                      <Chip size="sm" variant="flat" color={statusConfig[status].chipColor}>
+                        {featuresByStatus[status]?.length ?? 0}
+                      </Chip>
                     </div>
-                  </Link>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Tooltip content="Delete feature">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFeatureToDelete({ id: feature._id, title: feature.title });
-                        }}
-                        className="p-1.5 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                  </div>
+                  <div className="space-y-2">
+                    {featuresByStatus[status]?.map((feature) => (
+                      <div
+                        key={feature._id}
+                        className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${statusConfig[status].cardBg}`}
                       >
-                        <IconTrash size={18} />
-                      </button>
-                    </Tooltip>
-                    <Link
-                      href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
-                      className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
-                    >
-                      <IconChevronRight size={20} />
-                    </Link>
+                        <div className="flex items-start justify-between gap-2">
+                          <Link
+                            href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
+                            className="flex-1 min-w-0"
+                          >
+                            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                              {feature.title}
+                            </h3>
+                            {feature.description && (
+                              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                                {feature.description}
+                              </p>
+                            )}
+                            <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
+                              <IconGitBranch className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{feature.branchName}</span>
+                            </div>
+                          </Link>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Tooltip content="Delete feature">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFeatureToDelete({ id: feature._id, title: feature.title });
+                                }}
+                                className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                              >
+                                <IconTrash size={16} />
+                              </button>
+                            </Tooltip>
+                            <Link
+                              href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
+                              className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                            >
+                              <IconChevronRight size={18} />
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {(featuresByStatus[status]?.length ?? 0) === 0 && (
+                      <p className="text-xs text-neutral-400 text-center py-4">No features</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
           </div>
         )}

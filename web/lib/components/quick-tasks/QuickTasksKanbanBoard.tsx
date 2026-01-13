@@ -9,12 +9,7 @@ import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 interface Task {
   _id: Id<"agentTasks">;

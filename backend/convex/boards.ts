@@ -31,7 +31,6 @@ const agentTaskValidator = v.object({
   featureId: v.optional(v.id("features")),
   taskNumber: v.optional(v.number()),
   status: v.union(
-    v.literal("archived"),
     v.literal("todo"),
     v.literal("in_progress"),
     v.literal("code_review"),

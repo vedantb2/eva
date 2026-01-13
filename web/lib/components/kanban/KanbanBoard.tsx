@@ -29,12 +29,7 @@ import {
 } from "@heroui/dropdown";
 import { IconFilter, IconSearch } from "@tabler/icons-react";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 interface BaseTask {
   _id: string;

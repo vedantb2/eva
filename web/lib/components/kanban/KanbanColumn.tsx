@@ -5,18 +5,12 @@ import { Chip } from "@heroui/chip";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 const statusConfig: Record<
   TaskStatus,
   { label: string; color: "default" | "primary" | "secondary" | "success" | "warning" | "danger" }
 > = {
-  archived: { label: "Archived", color: "default" },
   todo: { label: "To Do", color: "primary" },
   in_progress: { label: "In Progress", color: "warning" },
   code_review: { label: "Code Review", color: "secondary" },
@@ -67,7 +61,6 @@ export const KANBAN_STATUSES: TaskStatus[] = [
 ];
 
 export const ALL_STATUSES: TaskStatus[] = [
-  "archived",
   "todo",
   "in_progress",
   "code_review",

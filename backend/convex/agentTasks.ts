@@ -4,7 +4,6 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
 const taskStatusValidator = v.union(
-  v.literal("archived"),
   v.literal("todo"),
   v.literal("in_progress"),
   v.literal("code_review"),
@@ -350,7 +349,7 @@ export const updateStatus = mutation({
           if (allDone && feature.status !== "completed") {
             await ctx.db.patch(task.featureId, { status: "completed" });
           }
-        } else if (args.status !== "archived") {
+        } else {
           if (feature.status === "planning") {
             await ctx.db.patch(task.featureId, { status: "active" });
           }
@@ -450,8 +449,7 @@ export const getAllTasks = query({
         .query("agentTasks")
         .withIndex("by_board", (q) => q.eq("boardId", board._id))
         .collect();
-      const nonArchived = tasks.filter((t) => t.status !== "archived");
-      allTasks.push(...nonArchived);
+      allTasks.push(...tasks);
     }
     return allTasks.sort((a, b) => a.order - b.order);
   },

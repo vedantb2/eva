@@ -8,15 +8,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { IconGitBranch, IconSubtask } from "@tabler/icons-react";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 const statusCardBg: Record<TaskStatus, string> = {
-  archived: "bg-red-50 dark:bg-red-900/20",
   todo: "bg-blue-50 dark:bg-blue-900/20",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
   code_review: "bg-pink-50 dark:bg-pink-900/20",

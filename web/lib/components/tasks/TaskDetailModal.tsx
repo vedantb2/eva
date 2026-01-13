@@ -18,12 +18,7 @@ import { IconGitBranch, IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullReq
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 interface TaskDetailModalProps {
   isOpen: boolean;

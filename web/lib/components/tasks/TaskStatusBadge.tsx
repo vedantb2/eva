@@ -2,12 +2,7 @@
 
 import { cn } from "@/lib/utils/cn";
 
-type TaskStatus =
-  | "archived"
-  | "todo"
-  | "in_progress"
-  | "code_review"
-  | "done";
+type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 interface TaskStatusBadgeProps {
   status: TaskStatus;
@@ -19,12 +14,6 @@ const statusConfig: Record<
   TaskStatus,
   { bg: string; text: string; dot: string; label: string }
 > = {
-  archived: {
-    bg: "bg-neutral-100 dark:bg-neutral-700",
-    text: "text-neutral-500 dark:text-neutral-400",
-    dot: "bg-neutral-400",
-    label: "Archived",
-  },
   todo: {
     bg: "bg-blue-100 dark:bg-blue-900/30",
     text: "text-blue-700 dark:text-blue-400",

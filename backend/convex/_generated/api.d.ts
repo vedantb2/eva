@@ -16,6 +16,7 @@ import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
 import type * as features from "../features.js";
 import type * as githubRepos from "../githubRepos.js";
+import type * as migrations from "../migrations.js";
 import type * as plans from "../plans.js";
 import type * as projects from "../projects.js";
 import type * as specs from "../specs.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   columns: typeof columns;
   features: typeof features;
   githubRepos: typeof githubRepos;
+  migrations: typeof migrations;
   plans: typeof plans;
   projects: typeof projects;
   specs: typeof specs;

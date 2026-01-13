@@ -20,7 +20,6 @@ import { Accordion, AccordionItem } from "@heroui/accordion";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -169,7 +168,7 @@ export function TaskDetailModal({
             )}
 
             <div className="border-t border-divider pt-4">
-              <SubtaskList taskId={taskId} readOnly={status !== "backlog" && status !== "todo"} />
+              <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
             </div>
 
             {runs && runs.length > 0 && (

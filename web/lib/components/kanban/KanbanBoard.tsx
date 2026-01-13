@@ -31,7 +31,6 @@ import { IconFilter, IconSearch } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -199,7 +198,6 @@ export function KanbanBoard<T extends BaseTask>({
             }
             closeOnSelect={false}
           >
-            <DropdownItem key="backlog">Backlog</DropdownItem>
             <DropdownItem key="todo">To Do</DropdownItem>
             <DropdownItem key="in_progress">In Progress</DropdownItem>
             <DropdownItem key="code_review">Code Review</DropdownItem>

@@ -267,7 +267,7 @@ export const complete = mutation({
       error: args.error,
     });
     await ctx.db.patch(task._id, {
-      status: args.success ? "code_review" : "backlog",
+      status: args.success ? "code_review" : "todo",
       updatedAt: now,
     });
     return null;
@@ -354,7 +354,7 @@ export const completeNoAuth = mutation({
     const task = await ctx.db.get(run.taskId);
     if (task) {
       await ctx.db.patch(task._id, {
-        status: args.success ? "code_review" : "backlog",
+        status: args.success ? "code_review" : "todo",
         updatedAt: now,
       });
     }

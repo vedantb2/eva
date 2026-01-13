@@ -5,7 +5,6 @@ import { IconLock, IconLockOpen } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -27,7 +26,7 @@ export function DependencyBadge({
   status,
 }: DependencyBadgeProps) {
   if (!isBlocked) {
-    if (status && status !== "backlog" && status !== "todo") {
+    if (status && status !== "todo") {
       return null;
     }
     return (

@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils/cn";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -25,12 +24,6 @@ const statusConfig: Record<
     text: "text-neutral-500 dark:text-neutral-400",
     dot: "bg-neutral-400",
     label: "Archived",
-  },
-  backlog: {
-    bg: "bg-neutral-100 dark:bg-neutral-700",
-    text: "text-neutral-600 dark:text-neutral-300",
-    dot: "bg-neutral-500",
-    label: "Backlog",
   },
   todo: {
     bg: "bg-blue-100 dark:bg-blue-900/30",

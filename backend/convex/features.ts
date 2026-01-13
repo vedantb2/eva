@@ -368,7 +368,7 @@ export const createFromPlan = mutation({
         repoId: plan.repoId,
         featureId,
         taskNumber,
-        status: "backlog",
+        status: "todo",
         order: i,
         createdAt: now,
         updatedAt: now,

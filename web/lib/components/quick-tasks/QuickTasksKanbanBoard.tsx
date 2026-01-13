@@ -11,7 +11,6 @@ import { Card, CardBody } from "@heroui/card";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"

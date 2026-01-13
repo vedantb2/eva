@@ -10,7 +10,6 @@ import { IconGitBranch, IconSubtask } from "@tabler/icons-react";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -18,7 +17,6 @@ type TaskStatus =
 
 const statusCardBg: Record<TaskStatus, string> = {
   archived: "bg-red-50 dark:bg-red-900/20",
-  backlog: "bg-neutral-50 dark:bg-neutral-800",
   todo: "bg-blue-50 dark:bg-blue-900/20",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
   code_review: "bg-pink-50 dark:bg-pink-900/20",

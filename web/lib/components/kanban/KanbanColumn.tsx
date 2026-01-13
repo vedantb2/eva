@@ -7,7 +7,6 @@ import { ReactNode } from "react";
 
 type TaskStatus =
   | "archived"
-  | "backlog"
   | "todo"
   | "in_progress"
   | "code_review"
@@ -18,7 +17,6 @@ const statusConfig: Record<
   { label: string; color: "default" | "primary" | "secondary" | "success" | "warning" | "danger" }
 > = {
   archived: { label: "Archived", color: "default" },
-  backlog: { label: "Backlog", color: "default" },
   todo: { label: "To Do", color: "primary" },
   in_progress: { label: "In Progress", color: "warning" },
   code_review: { label: "Code Review", color: "secondary" },
@@ -62,7 +60,6 @@ export function KanbanColumn({
 }
 
 export const KANBAN_STATUSES: TaskStatus[] = [
-  "backlog",
   "todo",
   "in_progress",
   "code_review",
@@ -71,7 +68,6 @@ export const KANBAN_STATUSES: TaskStatus[] = [
 
 export const ALL_STATUSES: TaskStatus[] = [
   "archived",
-  "backlog",
   "todo",
   "in_progress",
   "code_review",

@@ -5,7 +5,6 @@ import { internal } from "./_generated/api";
 
 const taskStatusValidator = v.union(
   v.literal("archived"),
-  v.literal("backlog"),
   v.literal("todo"),
   v.literal("in_progress"),
   v.literal("code_review"),
@@ -155,7 +154,7 @@ export const create = mutation({
       repoId: args.repoId,
       featureId: args.featureId,
       taskNumber: args.taskNumber,
-      status: args.status ?? "backlog",
+      status: args.status ?? "todo",
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
@@ -245,7 +244,7 @@ export const moveToColumn = mutation({
       .collect();
     const maxOrder = tasksInTarget.reduce((max, t) => Math.max(max, t.order), -1);
     let runId: Id<"agentRuns"> | null = null;
-    if (targetColumn.isRunColumn && task.status === "backlog") {
+    if (targetColumn.isRunColumn && task.status === "todo") {
       runId = await ctx.db.insert("agentRuns", {
         taskId: args.id,
         status: "queued",
@@ -351,7 +350,7 @@ export const updateStatus = mutation({
           if (allDone && feature.status !== "completed") {
             await ctx.db.patch(task.featureId, { status: "completed" });
           }
-        } else if (args.status !== "archived" && args.status !== "backlog") {
+        } else if (args.status !== "archived") {
           if (feature.status === "planning") {
             await ctx.db.patch(task.featureId, { status: "active" });
           }
@@ -520,7 +519,7 @@ export const createQuickTask = mutation({
       title: args.title,
       description: args.description,
       repoId: args.repoId,
-      status: "backlog",
+      status: "todo",
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,

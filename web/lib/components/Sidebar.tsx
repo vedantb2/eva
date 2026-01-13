@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import {
@@ -92,7 +93,7 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <IconBrain className="w-6 h-6 text-pink-600" />
+          <Image src="/icon.png" alt="Conductor" width={24} height={24} />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
             Conductor
           </span>
@@ -115,7 +116,7 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between h-16 px-4 border-b border-neutral-200 dark:border-neutral-800">
             <Link href="/" className="flex items-center gap-2">
-              <IconBrain className="w-8 h-8 text-pink-600" />
+              <Image src="/icon.png" alt="Conductor" width={32} height={32} />
               <span className="text-lg font-semibold text-neutral-900 dark:text-white">
                 Conductor
               </span>

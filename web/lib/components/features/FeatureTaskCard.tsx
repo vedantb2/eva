@@ -39,17 +39,17 @@ export function FeatureTaskCard({
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
 
   return (
-    <Card isPressable={!!onClick} onPress={onClick} className="w-full">
+    <Card isPressable={!!onClick} onPress={onClick} className="max-w-full">
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-default-400 font-mono text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-default-400 font-mono text-sm flex-shrink-0">
               #{taskNumber}
             </span>
             <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
           </div>
-          <div className="flex items-center gap-1">
-            <DependencyBadge isBlocked={isBlocked ?? false} />
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
             <TaskStatusBadge status={status} />
           </div>
         </div>

@@ -11,9 +11,10 @@ import { useState } from "react";
 
 interface SubtaskListProps {
   taskId: Id<"agentTasks">;
+  readOnly?: boolean;
 }
 
-export function SubtaskList({ taskId }: SubtaskListProps) {
+export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
   const createSubtask = useMutation(api.subtasks.create);
   const updateSubtask = useMutation(api.subtasks.update);
@@ -63,7 +64,7 @@ export function SubtaskList({ taskId }: SubtaskListProps) {
             </span>
           )}
         </h4>
-        {!isAdding && (
+        {!isAdding && !readOnly && (
           <Button
             size="sm"
             variant="light"

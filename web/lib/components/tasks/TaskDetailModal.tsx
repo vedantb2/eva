@@ -14,7 +14,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { IconGitBranch, IconPlayerPlay, IconTerminal2, IconTrash } from "@tabler/icons-react";
+import { IconGitBranch, IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullRequest } from "@tabler/icons-react";
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 
@@ -59,6 +59,8 @@ export function TaskDetailModal({
   const hasActiveRun = runs?.some(
     (r) => r.status === "queued" || r.status === "running"
   );
+
+  const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -149,8 +151,25 @@ export function TaskDetailModal({
               </div>
             )}
 
+            {latestPrUrl && (
+              <div>
+                <h4 className="text-sm font-medium text-default-700 mb-2">
+                  Pull Request
+                </h4>
+                <a
+                  href={latestPrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary-500 hover:underline"
+                >
+                  <IconGitPullRequest size={16} />
+                  View Pull Request
+                </a>
+              </div>
+            )}
+
             <div className="border-t border-divider pt-4">
-              <SubtaskList taskId={taskId} />
+              <SubtaskList taskId={taskId} readOnly={status !== "backlog" && status !== "todo"} />
             </div>
 
             {runs && runs.length > 0 && (
@@ -248,15 +267,30 @@ export function TaskDetailModal({
           >
             Delete
           </Button>
-          <Button
-            color="primary"
-            startContent={<IconPlayerPlay size={18} />}
-            onPress={handleStartExecution}
-            isLoading={isStarting}
-            isDisabled={isBlocked || hasActiveRun || status === "done"}
-          >
-            {hasActiveRun ? "Running..." : "Run Agent"}
-          </Button>
+          {status === "code_review" || status === "done" ? (
+            latestPrUrl ? (
+              <Button
+                color="primary"
+                startContent={<IconGitPullRequest size={18} />}
+                as="a"
+                href={latestPrUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open PR
+              </Button>
+            ) : null
+          ) : (
+            <Button
+              color="primary"
+              startContent={<IconPlayerPlay size={18} />}
+              onPress={handleStartExecution}
+              isLoading={isStarting}
+              isDisabled={isBlocked || hasActiveRun}
+            >
+              {hasActiveRun ? "Running..." : "Run Agent"}
+            </Button>
+          )}
         </ModalFooter>
       </ModalContent>
     </Modal>

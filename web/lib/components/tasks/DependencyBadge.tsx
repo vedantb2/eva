@@ -3,11 +3,20 @@
 import { cn } from "@/lib/utils/cn";
 import { IconLock, IconLockOpen } from "@tabler/icons-react";
 
+type TaskStatus =
+  | "archived"
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "code_review"
+  | "done";
+
 interface DependencyBadgeProps {
   isBlocked: boolean;
   blockedByCount?: number;
   size?: "sm" | "md";
   className?: string;
+  status?: TaskStatus;
 }
 
 export function DependencyBadge({
@@ -15,8 +24,12 @@ export function DependencyBadge({
   blockedByCount,
   size = "sm",
   className,
+  status,
 }: DependencyBadgeProps) {
   if (!isBlocked) {
+    if (status && status !== "backlog" && status !== "todo") {
+      return null;
+    }
     return (
       <span
         className={cn(

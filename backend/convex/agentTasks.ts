@@ -337,6 +337,27 @@ export const updateStatus = mutation({
       status: args.status,
       updatedAt: Date.now(),
     });
+    if (task.featureId) {
+      const feature = await ctx.db.get(task.featureId);
+      if (feature) {
+        if (args.status === "done") {
+          const featureTasks = await ctx.db
+            .query("agentTasks")
+            .withIndex("by_feature", (q) => q.eq("featureId", task.featureId))
+            .collect();
+          const allDone = featureTasks.every(
+            (t) => t._id === args.id ? true : t.status === "done"
+          );
+          if (allDone && feature.status !== "completed") {
+            await ctx.db.patch(task.featureId, { status: "completed" });
+          }
+        } else if (args.status !== "archived" && args.status !== "backlog") {
+          if (feature.status === "planning") {
+            await ctx.db.patch(task.featureId, { status: "active" });
+          }
+        }
+      }
+    }
     return null;
   },
 });

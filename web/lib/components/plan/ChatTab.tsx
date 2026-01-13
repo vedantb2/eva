@@ -68,6 +68,7 @@ export function ChatTab({
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
 
   const isLocked = planState === "feature_created";
+  const minQuestions = 3;
   const maxQuestions = 10;
   const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
 
@@ -199,7 +200,7 @@ export function ChatTab({
     setAnswers([]);
   };
 
-  const canGenerateSpec = questionCount >= maxQuestions;
+  const canGenerateSpec = questionCount >= minQuestions;
   const showQuestion = questionObject && !isSpecLoading && questionCount <= maxQuestions;
 
   if (!hasStarted && !isLocked) {
@@ -213,8 +214,8 @@ export function ChatTab({
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
           Click the button below to start answering questions about your feature. The AI
-          will ask {maxQuestions} multiple choice questions to understand your
-          requirements. You can also provide custom answers.
+          will ask up to {maxQuestions} multiple choice questions to understand your
+          requirements. You can generate a plan after {minQuestions} questions.
         </p>
         <Button
           color="primary"
@@ -286,7 +287,7 @@ export function ChatTab({
           )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
-            Questions: {questionCount}/{maxQuestions}
+            Questions: {questionCount}/{maxQuestions} (min {minQuestions})
           </span>
           <div className="flex gap-2">
             <Button

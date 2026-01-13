@@ -20,7 +20,8 @@ const questionSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { featureDescription, questionTopic, previousAnswer } = await req.json();
+  const { featureDescription, questionTopic, previousAnswer } =
+    await req.json();
 
   const prompt = previousAnswer
     ? `Feature: "${featureDescription}"
@@ -30,7 +31,7 @@ Generate a question about: "${questionTopic}"`
 Generate a question about: "${questionTopic}"`;
 
   const result = streamObject({
-    model: openrouter.chat("openai/gpt-4.1-nano"),
+    model: openrouter.chat("openai/gpt-5-nano"),
     schema: questionSchema,
     schemaName: "MultipleChoiceQuestion",
     schemaDescription: "A multiple choice question with exactly 4 options",

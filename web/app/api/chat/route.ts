@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       }));
 
   const result = streamText({
-    model: openrouter.chat("openai/gpt-4.1-nano"),
+    model: openrouter.chat("openai/gpt-5-nano"),
     system: systemPrompt,
     messages: modelMessages,
   });

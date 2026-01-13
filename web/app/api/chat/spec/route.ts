@@ -31,7 +31,10 @@ export async function POST(req: Request) {
   const { featureDescription, answers } = await req.json();
 
   const answersText = answers
-    .map((a: { question: string; answer: string }, i: number) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`)
+    .map(
+      (a: { question: string; answer: string }, i: number) =>
+        `Q${i + 1}: ${a.question}\nA: ${a.answer}`
+    )
     .join("\n\n");
 
   const prompt = `Feature: "${featureDescription}"
@@ -42,7 +45,7 @@ ${answersText}
 Generate an implementation spec with 3-10 tasks.`;
 
   const result = streamObject({
-    model: openrouter.chat("openai/gpt-4.1-nano"),
+    model: openrouter.chat("openai/gpt-5-nano"),
     schema: specSchema,
     schemaName: "ImplementationSpec",
     schemaDescription: "A structured implementation specification with tasks",

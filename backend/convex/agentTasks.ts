@@ -563,3 +563,94 @@ export const startExecution = mutation({
     };
   },
 });
+
+export const getDependentTasks = query({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.array(
+    v.object({
+      _id: v.id("agentTasks"),
+      title: v.string(),
+      taskNumber: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const dependents = await ctx.db
+      .query("taskDependencies")
+      .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
+      .collect();
+    const result = [];
+    for (const dep of dependents) {
+      const task = await ctx.db.get(dep.taskId);
+      if (task) {
+        result.push({
+          _id: task._id,
+          title: task.title,
+          taskNumber: task.taskNumber,
+        });
+      }
+    }
+    return result;
+  },
+});
+
+export const deleteCascade = mutation({
+  args: { id: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const task = await ctx.db.get(args.id);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== identity.subject) {
+      throw new Error("Task not found");
+    }
+    const tasksToDelete: Id<"agentTasks">[] = [args.id];
+    const collectDependents = async (taskId: Id<"agentTasks">) => {
+      const dependents = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_dependency", (q) => q.eq("dependsOnId", taskId))
+        .collect();
+      for (const dep of dependents) {
+        if (!tasksToDelete.includes(dep.taskId)) {
+          tasksToDelete.push(dep.taskId);
+          await collectDependents(dep.taskId);
+        }
+      }
+    };
+    await collectDependents(args.id);
+    for (const taskId of tasksToDelete) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", taskId))
+        .collect();
+      for (const run of runs) {
+        await ctx.db.delete(run._id);
+      }
+      const dependencies = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_task", (q) => q.eq("taskId", taskId))
+        .collect();
+      for (const dep of dependencies) {
+        await ctx.db.delete(dep._id);
+      }
+      const dependents = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_dependency", (q) => q.eq("dependsOnId", taskId))
+        .collect();
+      for (const dep of dependents) {
+        await ctx.db.delete(dep._id);
+      }
+      await ctx.db.delete(taskId);
+    }
+    return null;
+  },
+});

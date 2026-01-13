@@ -14,7 +14,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { IconGitBranch, IconPlayerPlay, IconTerminal2 } from "@tabler/icons-react";
+import { IconGitBranch, IconPlayerPlay, IconTerminal2, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 
@@ -49,8 +49,12 @@ export function TaskDetailModal({
 }: TaskDetailModalProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
+  const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const deleteTask = useMutation(api.agentTasks.deleteCascade);
   const [isStarting, setIsStarting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const hasActiveRun = runs?.some(
     (r) => r.status === "queued" || r.status === "running"
@@ -80,7 +84,21 @@ export function TaskDetailModal({
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteTask({ id: taskId });
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -221,7 +239,15 @@ export function TaskDetailModal({
             )}
           </div>
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter className="justify-between">
+          <Button
+            color="danger"
+            variant="flat"
+            startContent={<IconTrash size={18} />}
+            onPress={() => setShowDeleteConfirm(true)}
+          >
+            Delete
+          </Button>
           <Button
             color="primary"
             startContent={<IconPlayerPlay size={18} />}
@@ -234,5 +260,45 @@ export function TaskDetailModal({
         </ModalFooter>
       </ModalContent>
     </Modal>
+    <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} size="md">
+      <ModalContent>
+        <ModalHeader>Delete Task</ModalHeader>
+        <ModalBody>
+          <p className="text-default-600">
+            Are you sure you want to delete{" "}
+            <strong>
+              {taskNumber ? `#${taskNumber} ` : ""}
+              {title}
+            </strong>
+            ?
+          </p>
+          {dependentTasks && dependentTasks.length > 0 && (
+            <div className="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
+              <p className="text-sm font-medium text-warning-700 dark:text-warning-300 mb-2">
+                The following tasks depend on this task and will also be deleted:
+              </p>
+              <ul className="text-sm text-warning-600 dark:text-warning-400 space-y-1">
+                {dependentTasks.map((t) => (
+                  <li key={t._id}>
+                    {t.taskNumber ? `#${t.taskNumber} ` : ""}
+                    {t.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-sm text-default-500 mt-3">This action cannot be undone.</p>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="flat" onPress={() => setShowDeleteConfirm(false)}>
+            Cancel
+          </Button>
+          <Button color="danger" onPress={handleDelete} isLoading={isDeleting}>
+            Delete{dependentTasks && dependentTasks.length > 0 ? ` ${dependentTasks.length + 1} Tasks` : ""}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  </>
   );
 }

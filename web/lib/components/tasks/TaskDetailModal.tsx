@@ -14,8 +14,9 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { IconGitBranch, IconPlayerPlay } from "@tabler/icons-react";
+import { IconGitBranch, IconPlayerPlay, IconTerminal2 } from "@tabler/icons-react";
 import { useState } from "react";
+import { Accordion, AccordionItem } from "@heroui/accordion";
 
 type TaskStatus =
   | "archived"
@@ -133,6 +134,91 @@ export function TaskDetailModal({
             <div className="border-t border-divider pt-4">
               <SubtaskList taskId={taskId} />
             </div>
+
+            {runs && runs.length > 0 && (
+              <div className="border-t border-divider pt-4">
+                <h4 className="text-sm font-medium text-default-700 mb-3 flex items-center gap-2">
+                  <IconTerminal2 size={16} />
+                  Agent Runs ({runs.length})
+                </h4>
+                <Accordion variant="splitted" selectionMode="multiple">
+                  {runs.map((run) => (
+                    <AccordionItem
+                      key={run._id}
+                      title={
+                        <div className="flex items-center gap-2">
+                          <Chip
+                            size="sm"
+                            color={
+                              run.status === "success"
+                                ? "success"
+                                : run.status === "error"
+                                  ? "danger"
+                                  : run.status === "running"
+                                    ? "warning"
+                                    : "default"
+                            }
+                            variant="flat"
+                          >
+                            {run.status}
+                          </Chip>
+                          <span className="text-xs text-default-400">
+                            {run.startedAt
+                              ? new Date(run.startedAt).toLocaleString()
+                              : "Queued"}
+                          </span>
+                        </div>
+                      }
+                    >
+                      <div className="space-y-2">
+                        {run.resultSummary && (
+                          <p className="text-sm text-default-600">{run.resultSummary}</p>
+                        )}
+                        {run.error && (
+                          <div className="p-2 bg-danger-50 dark:bg-danger-900/20 rounded text-sm text-danger-600 dark:text-danger-400">
+                            {run.error}
+                          </div>
+                        )}
+                        {run.prUrl && (
+                          <a
+                            href={run.prUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary-500 hover:underline"
+                          >
+                            View Pull Request
+                          </a>
+                        )}
+                        {run.logs.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-default-400 mb-1">Logs</p>
+                            <div className="bg-default-100 rounded p-2 max-h-60 overflow-y-auto font-mono text-xs space-y-1">
+                              {run.logs.map((log, i) => (
+                                <div
+                                  key={i}
+                                  className={`flex gap-2 ${
+                                    log.level === "error"
+                                      ? "text-danger-500"
+                                      : log.level === "warn"
+                                        ? "text-warning-500"
+                                        : "text-default-600"
+                                  }`}
+                                >
+                                  <span className="text-default-400 flex-shrink-0">
+                                    {new Date(log.timestamp).toLocaleTimeString()}
+                                  </span>
+                                  <span className="break-all">{log.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
           </div>
         </ModalBody>
         <ModalFooter>

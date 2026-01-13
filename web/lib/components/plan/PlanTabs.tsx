@@ -7,7 +7,6 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { ChatTab } from "./ChatTab";
 import { PlanTab } from "./PlanTab";
-import { ContextTab } from "./ContextTab";
 import { PlanFinalizationModal } from "./PlanFinalizationModal";
 
 interface ConversationMessage {
@@ -83,17 +82,6 @@ export function PlanTabs({
         >
           <Tab key="chat" title="Chat" />
           <Tab key="plan" title="Plan" />
-          <Tab
-            key="context"
-            title={
-              <div className="flex items-center gap-2">
-                Context
-                {codebaseIndex && (
-                  <span className="w-2 h-2 rounded-full bg-success" />
-                )}
-              </div>
-            }
-          />
         </Tabs>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -120,15 +108,6 @@ export function PlanTabs({
             repoOwner={repoOwner}
             repoName={repoName}
             onStartInterview={handleStartInterview}
-          />
-        )}
-        {activeTab === "context" && (
-          <ContextTab
-            planId={planId}
-            codebaseIndex={codebaseIndex}
-            indexingStatus={indexingStatus}
-            repoOwner={repoOwner}
-            repoName={repoName}
           />
         )}
       </div>

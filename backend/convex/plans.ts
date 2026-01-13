@@ -171,6 +171,26 @@ export const remove = mutation({
   },
 });
 
+export const deleteCascade = mutation({
+  args: { id: v.id("plans") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    if (plan.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
 export const clearMessages = mutation({
   args: { id: v.id("plans") },
   returns: v.null(),

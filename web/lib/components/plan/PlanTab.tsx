@@ -12,13 +12,21 @@ import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { useGitHubToken } from "@/lib/hooks/useGitHubToken";
 import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+} from "@heroui/modal";
+import {
   IconRocket,
   IconMessageQuestion,
   IconCircleCheck,
   IconCode,
   IconFolderSearch,
   IconAlertCircle,
+  IconEye,
 } from "@tabler/icons-react";
+import { ContextTab } from "./ContextTab";
 
 type PlanState = "draft" | "finalized" | "feature_created";
 type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
@@ -77,6 +85,7 @@ export function PlanTab({
   const [isLoading, setIsLoading] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
+  const [showIndexModal, setShowIndexModal] = useState(false);
   const { getToken } = useGitHubToken();
 
   const parsedSpec = (() => {
@@ -249,12 +258,22 @@ export function PlanTab({
         {parsedIndex && (
           <Card>
             <CardBody className="space-y-4">
-              <div className="flex items-center gap-2">
-                <IconCode size={20} className="text-success" />
-                <h3 className="font-semibold">Codebase Context</h3>
-                <Chip size="sm" color="success" variant="flat">
-                  Indexed
-                </Chip>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <IconCode size={20} className="text-success" />
+                  <h3 className="font-semibold">Codebase Context</h3>
+                  <Chip size="sm" color="success" variant="flat">
+                    Indexed
+                  </Chip>
+                </div>
+                <Button
+                  variant="flat"
+                  size="sm"
+                  startContent={<IconEye size={16} />}
+                  onPress={() => setShowIndexModal(true)}
+                >
+                  View Index
+                </Button>
               </div>
               <p className="text-sm text-default-600">{parsedIndex.summary}</p>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -344,6 +363,25 @@ export function PlanTab({
           </div>
         )}
       </div>
+      <Modal
+        isOpen={showIndexModal}
+        onClose={() => setShowIndexModal(false)}
+        size="4xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          <ModalHeader>Codebase Index</ModalHeader>
+          <ModalBody className="p-0">
+            <ContextTab
+              planId={planId}
+              codebaseIndex={codebaseIndex}
+              indexingStatus={indexingStatus}
+              repoOwner={repoOwner}
+              repoName={repoName}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

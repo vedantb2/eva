@@ -29,6 +29,7 @@
     "convex": "^1.24.1",
     "convex-helpers": "^0.1.88",
     "dayjs": "^1.11.13",
+    "e2b": "^2.10.1",
     "framer-motion": "^12.12.1",
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^3.8.4",

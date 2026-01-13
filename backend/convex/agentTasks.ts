@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 const taskStatusValidator = v.union(
   v.literal("archived"),
@@ -242,6 +243,9 @@ export const moveToColumn = mutation({
         status: "queued",
         logs: [],
         startedAt: Date.now(),
+      });
+      await ctx.scheduler.runAfter(0, internal.agentExecution.trigger, {
+        runId,
       });
       await ctx.db.patch(args.id, {
         columnId: args.columnId,

@@ -5,7 +5,6 @@ import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/nextjs";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { EnsureUser } from "./EnsureUser";
 import { clientEnv } from "@/env/client";
@@ -21,19 +20,12 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <ConvexQueryCacheProvider>
         <EnsureUser>
-          <NextThemesProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ThemeProvider>
-              <HeroUIProvider>
-                <ToastProvider placement="top-center" />
-                {children}
-              </HeroUIProvider>
-            </ThemeProvider>
-          </NextThemesProvider>
+          <ThemeProvider>
+            <HeroUIProvider>
+              <ToastProvider placement="top-center" />
+              {children}
+            </HeroUIProvider>
+          </ThemeProvider>
         </EnsureUser>
       </ConvexQueryCacheProvider>
     </ConvexProviderWithClerk>

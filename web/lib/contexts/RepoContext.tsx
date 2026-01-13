@@ -16,8 +16,10 @@ interface Repo {
 
 interface RepoContextType {
   repo: Repo;
+  repoId: Id<"githubRepos">;
   repoSlug: string;
   fullName: string;
+  installationId: number;
 }
 
 const RepoContext = createContext<RepoContextType | undefined>(undefined);
@@ -37,8 +39,10 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
     if (!repo) return undefined;
     return {
       repo,
+      repoId: repo._id,
       repoSlug,
       fullName,
+      installationId: repo.installationId,
     };
   }, [repo, repoSlug, fullName]);
 

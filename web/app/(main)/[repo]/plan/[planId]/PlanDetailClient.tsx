@@ -15,7 +15,7 @@ interface PlanDetailClientProps {
 }
 
 export function PlanDetailClient({ planId }: PlanDetailClientProps) {
-  const { fullName } = useRepo();
+  const { fullName, repo } = useRepo();
   const typedPlanId = planId as Id<"plans">;
 
   const plan = useQuery(api.plans.get, { id: typedPlanId });
@@ -50,8 +50,12 @@ export function PlanDetailClient({ planId }: PlanDetailClientProps) {
           planState={plan.state}
           rawInput={plan.rawInput}
           generatedSpec={plan.generatedSpec}
+          codebaseIndex={plan.codebaseIndex}
+          indexingStatus={plan.indexingStatus}
           conversationHistory={plan.conversationHistory}
           repoSlug={encodeRepoSlug(fullName)}
+          repoOwner={repo.owner}
+          repoName={repo.name}
         />
       </div>
     </div>

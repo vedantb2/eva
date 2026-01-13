@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 const githubRepoValidator = v.object({
@@ -93,5 +93,13 @@ export const remove = mutation({
     }
     await ctx.db.delete(args.id);
     return null;
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { id: v.id("githubRepos") },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });

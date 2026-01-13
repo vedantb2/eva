@@ -15,6 +15,15 @@ const planValidator = v.object({
   title: v.string(),
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
+  codebaseIndex: v.optional(v.string()),
+  indexingStatus: v.optional(
+    v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    )
+  ),
   state: v.union(
     v.literal("draft"),
     v.literal("finalized"),
@@ -175,6 +184,56 @@ export const clearMessages = mutation({
     }
     await ctx.db.patch(args.id, {
       conversationHistory: [],
+    });
+    return null;
+  },
+});
+
+export const setIndexingStatus = mutation({
+  args: {
+    id: v.id("plans"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    await ctx.db.patch(args.id, {
+      indexingStatus: args.status,
+    });
+    return null;
+  },
+});
+
+export const setCodebaseIndex = mutation({
+  args: {
+    id: v.id("plans"),
+    codebaseIndex: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    await ctx.db.patch(args.id, {
+      codebaseIndex: args.codebaseIndex,
+      indexingStatus: "complete",
     });
     return null;
   },

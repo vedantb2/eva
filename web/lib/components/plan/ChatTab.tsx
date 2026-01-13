@@ -230,7 +230,7 @@ export function ChatTab({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-200px)]">
       <div className="flex-1 overflow-y-auto space-y-3 p-4">
         {displayMessages.map((m, i) => {
           if (m.role === "assistant") {

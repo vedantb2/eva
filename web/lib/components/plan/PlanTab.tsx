@@ -2,20 +2,60 @@
 
 import { useState } from "react";
 import { Button } from "@heroui/button";
+import { Spinner } from "@heroui/spinner";
+import { Card, CardBody } from "@heroui/card";
+import { Chip } from "@heroui/chip";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import { IconRocket, IconMessageQuestion, IconCircleCheck } from "@tabler/icons-react";
+import { useGitHubToken } from "@/lib/hooks/useGitHubToken";
+import {
+  IconRocket,
+  IconMessageQuestion,
+  IconCircleCheck,
+  IconCode,
+  IconFolderSearch,
+  IconAlertCircle,
+} from "@tabler/icons-react";
 
 type PlanState = "draft" | "finalized" | "feature_created";
+type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
+
+interface CodebaseIndex {
+  summary: string;
+  techStack: {
+    language: string;
+    framework: string;
+    other: string[];
+  };
+  structure: {
+    entryPoints: string[];
+    keyDirectories: Array<{ path: string; purpose: string }>;
+  };
+  patterns: {
+    componentPattern: string;
+    stateManagement: string;
+    apiPattern: string;
+  };
+  keyFiles: Array<{ path: string; purpose: string; exports: string[] }>;
+  conventions: {
+    naming: string;
+    fileStructure: string;
+    imports: string;
+  };
+}
 
 interface PlanTabProps {
   planId: Id<"plans">;
   planState: PlanState;
   generatedSpec: string | undefined;
+  codebaseIndex: string | undefined;
+  indexingStatus: IndexingStatus;
   repoSlug: string;
+  repoOwner: string;
+  repoName: string;
   onStartInterview: () => void;
 }
 
@@ -23,13 +63,21 @@ export function PlanTab({
   planId,
   planState,
   generatedSpec,
+  codebaseIndex,
+  indexingStatus,
   repoSlug,
+  repoOwner,
+  repoName,
   onStartInterview,
 }: PlanTabProps) {
   const router = useRouter();
   const createFromPlan = useMutation(api.features.createFromPlan);
   const updatePlan = useMutation(api.plans.update);
+  const setIndexingStatus = useMutation(api.plans.setIndexingStatus);
   const [isLoading, setIsLoading] = useState(false);
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
+  const { getToken } = useGitHubToken();
 
   const parsedSpec = (() => {
     if (!generatedSpec) return null;
@@ -40,7 +88,44 @@ export function PlanTab({
     }
   })();
 
+  const parsedIndex: CodebaseIndex | null = (() => {
+    if (!codebaseIndex) return null;
+    try {
+      return JSON.parse(codebaseIndex);
+    } catch {
+      return null;
+    }
+  })();
+
   const isLocked = planState === "feature_created";
+
+  const handleIndexCodebase = async () => {
+    setIsIndexing(true);
+    setIndexError(null);
+    try {
+      await setIndexingStatus({ id: planId, status: "indexing" });
+      const githubToken = await getToken();
+
+      const response = await fetch("/api/index-codebase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, repoOwner, repoName, githubToken }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to index codebase");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Indexing error:", errorMessage);
+      setIndexError(errorMessage);
+      await setIndexingStatus({ id: planId, status: "error" });
+    } finally {
+      setIsIndexing(false);
+    }
+  };
 
   const handleCreateFeature = async () => {
     if (!generatedSpec) return;
@@ -62,9 +147,12 @@ export function PlanTab({
         <div className="w-16 h-16 rounded-full bg-default-100 flex items-center justify-center mb-4">
           <IconMessageQuestion size={32} className="text-default-400" />
         </div>
-        <h3 className="text-lg font-semibold text-default-700 mb-2">No Plan Generated Yet</h3>
+        <h3 className="text-lg font-semibold text-default-700 mb-2">
+          No Plan Generated Yet
+        </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
-          Complete the interview in the Chat tab to generate a structured implementation plan.
+          Complete the interview in the Chat tab to generate a structured
+          implementation plan.
         </p>
         <Button color="primary" onPress={onStartInterview}>
           Go to Chat
@@ -72,6 +160,9 @@ export function PlanTab({
       </div>
     );
   }
+
+  const showIndexButton = !codebaseIndex && indexingStatus !== "indexing";
+  const isCurrentlyIndexing = indexingStatus === "indexing" || isIndexing;
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -83,14 +174,127 @@ export function PlanTab({
           </div>
           <p className="text-default-500">{parsedSpec.description}</p>
         </div>
+
+        {showIndexButton && (
+          <Card className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+            <CardBody className="flex flex-row items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center flex-shrink-0">
+                <IconFolderSearch size={20} className="text-primary-600 dark:text-primary-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-primary-700 dark:text-primary-300">
+                  Index Codebase for Better Context
+                </p>
+                <p className="text-sm text-primary-600 dark:text-primary-400">
+                  Analyze your codebase so the AI agent knows which files to modify
+                </p>
+              </div>
+              <Button
+                color="primary"
+                startContent={<IconCode size={18} />}
+                onPress={handleIndexCodebase}
+                isLoading={isCurrentlyIndexing}
+              >
+                Index Now
+              </Button>
+            </CardBody>
+          </Card>
+        )}
+
+        {isCurrentlyIndexing && (
+          <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
+            <CardBody className="flex flex-row items-center gap-4">
+              <Spinner size="sm" color="warning" />
+              <div>
+                <p className="font-medium text-warning-700 dark:text-warning-300">
+                  Indexing Codebase...
+                </p>
+                <p className="text-sm text-warning-600 dark:text-warning-400">
+                  This may take 1-2 minutes. The AI is analyzing your project structure.
+                </p>
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
+        {(indexingStatus === "error" || indexError) && (
+          <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+            <CardBody className="space-y-3">
+              <div className="flex items-start gap-3">
+                <IconAlertCircle size={24} className="text-danger-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-danger-700 dark:text-danger-300">
+                    Indexing Failed
+                  </p>
+                  <p className="text-sm text-danger-600 dark:text-danger-400">
+                    There was an error analyzing the codebase. You can try again or proceed
+                    without indexing.
+                  </p>
+                </div>
+                <Button color="danger" variant="flat" size="sm" onPress={handleIndexCodebase}>
+                  Retry
+                </Button>
+              </div>
+              {indexError && (
+                <div className="bg-danger-100 dark:bg-danger-900/40 p-3 rounded-lg">
+                  <p className="text-xs font-mono text-danger-700 dark:text-danger-300 break-all">
+                    {indexError}
+                  </p>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {parsedIndex && (
+          <Card>
+            <CardBody className="space-y-4">
+              <div className="flex items-center gap-2">
+                <IconCode size={20} className="text-success" />
+                <h3 className="font-semibold">Codebase Context</h3>
+                <Chip size="sm" color="success" variant="flat">
+                  Indexed
+                </Chip>
+              </div>
+              <p className="text-sm text-default-600">{parsedIndex.summary}</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-default-400 mb-1">Tech Stack</p>
+                  <p className="font-medium">
+                    {parsedIndex.techStack.language} / {parsedIndex.techStack.framework}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-default-400 mb-1">Key Files</p>
+                  <p className="font-medium">{parsedIndex.keyFiles.length} identified</p>
+                </div>
+              </div>
+              {parsedIndex.keyFiles.length > 0 && (
+                <div>
+                  <p className="text-default-400 mb-2 text-sm">Key Files to Modify</p>
+                  <div className="flex flex-wrap gap-1">
+                    {parsedIndex.keyFiles.slice(0, 5).map((file, i) => (
+                      <Chip key={i} size="sm" variant="flat">
+                        {file.path}
+                      </Chip>
+                    ))}
+                    {parsedIndex.keyFiles.length > 5 && (
+                      <Chip size="sm" variant="flat" color="default">
+                        +{parsedIndex.keyFiles.length - 5} more
+                      </Chip>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
         <div>
           <h3 className="font-semibold mb-3">Tasks ({parsedSpec.tasks.length})</h3>
           <div className="space-y-2">
             {parsedSpec.tasks.map((task, i) => (
-              <div
-                key={i}
-                className="p-3 bg-default-100 rounded-lg"
-              >
+              <div key={i} className="p-3 bg-default-100 rounded-lg">
                 <div className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-600 text-sm font-medium flex items-center justify-center">
                     {i + 1}
@@ -111,6 +315,7 @@ export function PlanTab({
             ))}
           </div>
         </div>
+
         {!isLocked && (
           <div className="flex gap-3 pt-4 border-t border-divider">
             <Button

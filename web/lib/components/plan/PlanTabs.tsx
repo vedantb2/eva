@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { ChatTab } from "./ChatTab";
 import { PlanTab } from "./PlanTab";
+import { ContextTab } from "./ContextTab";
 import { PlanFinalizationModal } from "./PlanFinalizationModal";
 
 interface ConversationMessage {
@@ -15,14 +16,19 @@ interface ConversationMessage {
 }
 
 type PlanState = "draft" | "finalized" | "feature_created";
+type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface PlanTabsProps {
   planId: Id<"plans">;
   planState: PlanState;
   rawInput: string;
   generatedSpec: string | undefined;
+  codebaseIndex: string | undefined;
+  indexingStatus: IndexingStatus;
   conversationHistory: ConversationMessage[];
   repoSlug: string;
+  repoOwner: string;
+  repoName: string;
 }
 
 export function PlanTabs({
@@ -30,8 +36,12 @@ export function PlanTabs({
   planState,
   rawInput,
   generatedSpec,
+  codebaseIndex,
+  indexingStatus,
   conversationHistory,
   repoSlug,
+  repoOwner,
+  repoName,
 }: PlanTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(generatedSpec ? "plan" : "chat");
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
@@ -39,11 +49,14 @@ export function PlanTabs({
   const [isInterview, setIsInterview] = useState(false);
   const updatePlan = useMutation(api.plans.update);
 
-  const handleSpecGenerated = useCallback(async (spec: string) => {
-    setPendingSpec(spec);
-    await updatePlan({ id: planId, generatedSpec: spec, state: "finalized" });
-    setShowModal(true);
-  }, [planId, updatePlan]);
+  const handleSpecGenerated = useCallback(
+    async (spec: string) => {
+      setPendingSpec(spec);
+      await updatePlan({ id: planId, generatedSpec: spec, state: "finalized" });
+      setShowModal(true);
+    },
+    [planId, updatePlan]
+  );
 
   const handleModalClose = useCallback(() => {
     setShowModal(false);
@@ -52,10 +65,6 @@ export function PlanTabs({
 
   const handleStartInterview = useCallback(() => {
     setIsInterview(true);
-    setActiveTab("chat");
-  }, []);
-
-  const handleGoToChat = useCallback(() => {
     setActiveTab("chat");
   }, []);
 
@@ -74,10 +83,21 @@ export function PlanTabs({
         >
           <Tab key="chat" title="Chat" />
           <Tab key="plan" title="Plan" />
+          <Tab
+            key="context"
+            title={
+              <div className="flex items-center gap-2">
+                Context
+                {codebaseIndex && (
+                  <span className="w-2 h-2 rounded-full bg-success" />
+                )}
+              </div>
+            }
+          />
         </Tabs>
       </div>
       <div className="flex-1 overflow-hidden">
-        {activeTab === "chat" ? (
+        {activeTab === "chat" && (
           <ChatTab
             planId={planId}
             planState={planState}
@@ -86,13 +106,27 @@ export function PlanTabs({
             onSpecGenerated={handleSpecGenerated}
             isInterview={isInterview}
           />
-        ) : (
+        )}
+        {activeTab === "plan" && (
           <PlanTab
             planId={planId}
             planState={planState}
             generatedSpec={pendingSpec || generatedSpec}
+            codebaseIndex={codebaseIndex}
+            indexingStatus={indexingStatus}
             repoSlug={repoSlug}
+            repoOwner={repoOwner}
+            repoName={repoName}
             onStartInterview={handleStartInterview}
+          />
+        )}
+        {activeTab === "context" && (
+          <ContextTab
+            planId={planId}
+            codebaseIndex={codebaseIndex}
+            indexingStatus={indexingStatus}
+            repoOwner={repoOwner}
+            repoName={repoName}
           />
         )}
       </div>

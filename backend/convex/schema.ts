@@ -141,6 +141,15 @@ const schema = defineSchema({
     title: v.string(),
     rawInput: v.string(),
     generatedSpec: v.optional(v.string()),
+    codebaseIndex: v.optional(v.string()),
+    indexingStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("indexing"),
+        v.literal("complete"),
+        v.literal("error")
+      )
+    ),
     state: v.union(
       v.literal("draft"),
       v.literal("finalized"),

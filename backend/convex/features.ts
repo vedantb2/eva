@@ -28,10 +28,33 @@ export const list = query({
     if (!userId) {
       return [];
     }
-    return await ctx.db
+    const features = await ctx.db
       .query("features")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+    const result = [];
+    for (const feature of features) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_feature", (q) => q.eq("featureId", feature._id))
+        .collect();
+      if (tasks.length > 0) {
+        const allDone = tasks.every((t) => t.status === "done");
+        const anyActive = tasks.some(
+          (t) => t.status === "todo" || t.status === "in_progress" || t.status === "code_review"
+        );
+        if (allDone && feature.status !== "completed" && feature.status !== "archived") {
+          result.push({ ...feature, status: "completed" as const });
+          continue;
+        }
+        if (anyActive && feature.status === "planning") {
+          result.push({ ...feature, status: "active" as const });
+          continue;
+        }
+      }
+      result.push(feature);
+    }
+    return result;
   },
 });
 
@@ -43,7 +66,27 @@ export const get = query({
     if (!userId) {
       return null;
     }
-    return await ctx.db.get(args.id);
+    const feature = await ctx.db.get(args.id);
+    if (!feature) {
+      return null;
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_feature", (q) => q.eq("featureId", args.id))
+      .collect();
+    if (tasks.length > 0) {
+      const allDone = tasks.every((t) => t.status === "done");
+      const anyActive = tasks.some(
+        (t) => t.status === "todo" || t.status === "in_progress" || t.status === "code_review"
+      );
+      if (allDone && feature.status !== "completed" && feature.status !== "archived") {
+        return { ...feature, status: "completed" as const };
+      }
+      if (anyActive && feature.status === "planning") {
+        return { ...feature, status: "active" as const };
+      }
+    }
+    return feature;
   },
 });
 

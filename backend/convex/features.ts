@@ -142,6 +142,77 @@ export const remove = mutation({
   },
 });
 
+export const deleteCascade = mutation({
+  args: { id: v.id("features") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const feature = await ctx.db.get(args.id);
+    if (!feature) {
+      throw new Error("Feature not found");
+    }
+    if (feature.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_feature", (q) => q.eq("featureId", args.id))
+      .collect();
+    for (const task of tasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const run of runs) {
+        await ctx.db.delete(run._id);
+      }
+      const dependencies = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const dep of dependencies) {
+        await ctx.db.delete(dep._id);
+      }
+      const dependents = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_dependency", (q) => q.eq("dependsOnId", task._id))
+        .collect();
+      for (const dep of dependents) {
+        await ctx.db.delete(dep._id);
+      }
+      const subtasks = await ctx.db
+        .query("subtasks")
+        .withIndex("by_parent", (q) => q.eq("parentTaskId", task._id))
+        .collect();
+      for (const subtask of subtasks) {
+        await ctx.db.delete(subtask._id);
+      }
+      await ctx.db.delete(task._id);
+    }
+    await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const getTaskCount = query({
+  args: { featureId: v.id("features") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return 0;
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_feature", (q) => q.eq("featureId", args.featureId))
+      .collect();
+    return tasks.length;
+  },
+});
+
 interface ParsedTask {
   title: string;
   description: string;

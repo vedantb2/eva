@@ -21,7 +21,7 @@ import {
 import { FeatureTaskCard } from "./FeatureTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
-import { useSortable } from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 type TaskStatus =
@@ -66,10 +66,17 @@ function SortableTaskCard({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    cursor: "grab",
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={() => onSelect(task)}
+    >
       <FeatureTaskCard
         id={task._id}
         taskNumber={task.taskNumber ?? 0}
@@ -77,7 +84,6 @@ function SortableTaskCard({
         description={task.description}
         status={task.status}
         branchName={task.branchName}
-        onClick={() => onSelect(task)}
       />
     </div>
   );
@@ -162,13 +168,18 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
             status={status}
             count={tasksByStatus[status]?.length ?? 0}
           >
-            {tasksByStatus[status]?.map((task) => (
-              <SortableTaskCard
-                key={task._id}
-                task={task}
-                onSelect={setSelectedTask}
-              />
-            ))}
+            <SortableContext
+              items={tasksByStatus[status]?.map((t) => t._id) ?? []}
+              strategy={verticalListSortingStrategy}
+            >
+              {tasksByStatus[status]?.map((task) => (
+                <SortableTaskCard
+                  key={task._id}
+                  task={task}
+                  onSelect={setSelectedTask}
+                />
+              ))}
+            </SortableContext>
           </KanbanColumn>
         ))}
       </div>

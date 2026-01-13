@@ -5,14 +5,17 @@ import {
   ModalContent,
   ModalHeader,
   ModalBody,
+  ModalFooter,
 } from "@heroui/modal";
+import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { IconGitBranch } from "@tabler/icons-react";
+import { IconGitBranch, IconPlayerPlay } from "@tabler/icons-react";
+import { useState } from "react";
 
 type TaskStatus =
   | "archived"
@@ -44,9 +47,32 @@ export function TaskDetailModal({
   branchName,
 }: TaskDetailModalProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
+  const runs = useQuery(api.agentRuns.listByTask, { taskId });
+  const startExecution = useMutation(api.agentTasks.startExecution);
+  const [isStarting, setIsStarting] = useState(false);
+
+  const hasActiveRun = runs?.some(
+    (r) => r.status === "queued" || r.status === "running"
+  );
+
+  const handleStartExecution = async () => {
+    setIsStarting(true);
+    try {
+      await startExecution({ id: taskId });
+    } catch (err) {
+      console.error("Failed to start execution:", err);
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="full" className="sm:max-w-2xl" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="sm:max-w-2xl"
+      scrollBehavior="inside"
+    >
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -91,12 +117,22 @@ export function TaskDetailModal({
               </div>
             )}
 
-
             <div className="border-t border-divider pt-4">
               <SubtaskList taskId={taskId} />
             </div>
           </div>
         </ModalBody>
+        <ModalFooter>
+          <Button
+            color="primary"
+            startContent={<IconPlayerPlay size={18} />}
+            onPress={handleStartExecution}
+            isLoading={isStarting}
+            isDisabled={isBlocked || hasActiveRun || status === "done"}
+          >
+            {hasActiveRun ? "Running..." : "Run Agent"}
+          </Button>
+        </ModalFooter>
       </ModalContent>
     </Modal>
   );

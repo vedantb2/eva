@@ -498,3 +498,47 @@ export const createQuickTask = mutation({
     });
   },
 });
+
+export const startExecution = mutation({
+  args: { id: v.id("agentTasks") },
+  returns: v.id("agentRuns"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const task = await ctx.db.get(args.id);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== identity.subject) {
+      throw new Error("Task not found");
+    }
+    if (!task.repoId) {
+      throw new Error("Task has no associated repository");
+    }
+    const existingRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.id))
+      .collect();
+    const activeRun = existingRuns.find(
+      (r) => r.status === "queued" || r.status === "running"
+    );
+    if (activeRun) {
+      throw new Error("Task already has an active execution");
+    }
+    const runId = await ctx.db.insert("agentRuns", {
+      taskId: args.id,
+      status: "queued",
+      logs: [],
+      startedAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.agentExecution.trigger, { runId });
+    await ctx.db.patch(args.id, {
+      status: "in_progress",
+      updatedAt: Date.now(),
+    });
+    return runId;
+  },
+});

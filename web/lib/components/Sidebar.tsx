@@ -18,6 +18,7 @@ import { useState, useMemo } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
+import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import {
@@ -96,7 +97,7 @@ export function Sidebar() {
             Conductor
           </span>
         </Link>
-        <div className="w-9" />
+        <ThemeToggleClient />
       </header>
 
       {mobileOpen && (
@@ -250,6 +251,7 @@ export function Sidebar() {
               <p className="flex-1 min-w-0 text-sm font-medium text-neutral-900 dark:text-white truncate">
                 {user?.fullName || user?.firstName || "User"}
               </p>
+              <ThemeToggleClient />
             </div>
           </div>
         </div>

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { Button } from "@heroui/button";
 import { Spinner } from "@heroui/spinner";
 import { useMutation } from "convex/react";
@@ -10,12 +9,9 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
 import { ChatMessage } from "./ChatMessage";
-import {
-  MC_INITIAL_QUESTIONS,
-  MC_FOLLOWUP_QUESTIONS,
-  SPEC_GENERATION_PROMPT,
-} from "@/lib/prompts/planPrompts";
+import { MC_INITIAL_QUESTIONS, MC_FOLLOWUP_QUESTIONS } from "@/lib/prompts/planPrompts";
 import { IconSparkles, IconTrash, IconPlayerPlay } from "@tabler/icons-react";
+import { z } from "zod";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -23,11 +19,6 @@ interface ConversationMessage {
 }
 
 type PlanState = "draft" | "finalized" | "feature_created";
-
-interface ParsedQuestion {
-  question: string;
-  options: string[];
-}
 
 interface ChatTabProps {
   planId: Id<"plans">;
@@ -38,36 +29,27 @@ interface ChatTabProps {
   isInterview?: boolean;
 }
 
-function parseQuestionFromMessage(content: string): ParsedQuestion | null {
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.question && Array.isArray(parsed.options)) {
-        return { question: parsed.question, options: parsed.options };
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
+interface AnswerRecord {
+  question: string;
+  answer: string;
 }
 
-function getMessageContent(message: {
-  parts?: Array<{ type: string; text?: string }>;
-  content?: string;
-}): string {
-  if (message.parts) {
-    return message.parts
-      .filter(
-        (p): p is { type: "text"; text: string } =>
-          p.type === "text" && typeof p.text === "string"
-      )
-      .map((p) => p.text)
-      .join("");
-  }
-  return message.content || "";
-}
+const questionSchema = z.object({
+  question: z.string(),
+  options: z.array(z.string()),
+});
+
+const specSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  tasks: z.array(
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      dependencies: z.array(z.number()),
+    })
+  ),
+});
 
 export function ChatTab({
   planId,
@@ -82,147 +64,143 @@ export function ChatTab({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [questionCount, setQuestionCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(initialMessages.length > 1);
-  const [currentQuestion, setCurrentQuestion] = useState<ParsedQuestion | null>(null);
-  const systemPromptRef = useRef("");
-  const pendingQuestionRef = useRef<string | null>(null);
+  const [displayMessages, setDisplayMessages] = useState<ConversationMessage[]>(initialMessages);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
 
   const isLocked = planState === "feature_created";
   const maxQuestions = 10;
   const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/chat",
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: {
-            messages: messages.map((m) => ({
-              role: m.role,
-              content: getMessageContent(m),
-            })),
-            systemPrompt: systemPromptRef.current,
-          },
-        }),
-      }),
-    []
-  );
-
-  const { messages, status, sendMessage, setMessages } = useChat({
-    id: `plan-chat-${planId}`,
-    transport,
-    onFinish: async ({ message }) => {
-      const content = getMessageContent(message);
-      await addMessageDb({ id: planId, role: "assistant", content });
-
-      const parsed = parseQuestionFromMessage(content);
-      if (parsed) {
-        setCurrentQuestion(parsed);
+  const {
+    object: questionObject,
+    submit: submitQuestion,
+    isLoading: isQuestionLoading,
+    stop: stopQuestion,
+  } = useObject({
+    api: "/api/chat/question",
+    schema: questionSchema,
+    onFinish: async ({ object }) => {
+      if (object) {
+        const content = JSON.stringify(object);
+        await addMessageDb({ id: planId, role: "assistant", content });
+        setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
         setQuestionCount((prev) => prev + 1);
       }
-
-      if (content.includes('"title"') && content.includes('"tasks"')) {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          onSpecGenerated?.(jsonMatch[0]);
-        }
-      }
+    },
+    onError: (error) => {
+      console.error("Question generation error:", error);
     },
   });
 
-  const isLoading = status === "streaming" || status === "submitted";
+  const {
+    object: specObject,
+    submit: submitSpec,
+    isLoading: isSpecLoading,
+  } = useObject({
+    api: "/api/chat/spec",
+    schema: specSchema,
+    onFinish: async ({ object }) => {
+      if (object) {
+        const content = JSON.stringify(object);
+        await addMessageDb({ id: planId, role: "assistant", content });
+        setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
+        onSpecGenerated?.(content);
+      }
+    },
+    onError: (error) => {
+      console.error("Spec generation error:", error);
+    },
+  });
+
+  const isLoading = isQuestionLoading || isSpecLoading;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [displayMessages, questionObject]);
 
   useEffect(() => {
     if (initialMessages.length > 0) {
-      setMessages(
-        initialMessages.map((m, i) => ({
-          id: `init-${i}`,
-          role: m.role,
-          parts: [{ type: "text" as const, text: m.content }],
-        }))
-      );
+      setDisplayMessages(initialMessages);
       const assistantMessages = initialMessages.filter((m) => m.role === "assistant");
-      const lastAssistant = assistantMessages[assistantMessages.length - 1];
-      if (lastAssistant) {
-        const parsed = parseQuestionFromMessage(lastAssistant.content);
-        if (parsed) {
-          setCurrentQuestion(parsed);
-        }
-      }
       setQuestionCount(assistantMessages.length);
+      if (assistantMessages.length > 0) {
+        const parsedAnswers: AnswerRecord[] = [];
+        for (let i = 0; i < initialMessages.length - 1; i++) {
+          const msg = initialMessages[i];
+          const nextMsg = initialMessages[i + 1];
+          if (msg.role === "assistant" && nextMsg?.role === "user") {
+            try {
+              const parsed = JSON.parse(msg.content);
+              if (parsed.question) {
+                parsedAnswers.push({ question: parsed.question, answer: nextMsg.content });
+              }
+            } catch {
+              continue;
+            }
+          }
+        }
+        setAnswers(parsedAnswers);
+      }
     }
   }, []);
 
   const askQuestion = useCallback(
-    async (questionIndex: number, userMessage?: string) => {
+    async (questionIndex: number, previousAnswer?: string) => {
       if (questionIndex >= maxQuestions) return;
 
-      setCurrentQuestion(null);
       const questionTemplate = questionList[questionIndex % questionList.length];
 
-      systemPromptRef.current = `You are helping gather requirements for this feature: "${rawInput}".
-Generate a multiple choice question about: "${questionTemplate}"
-Respond with ONLY a JSON object in this format:
-{"question": "Your specific question based on the topic?", "options": ["Option A", "Option B", "Option C", "Option D"]}`;
-
-      const messageContent = userMessage || rawInput;
-      await addMessageDb({ id: planId, role: "user", content: messageContent });
-      sendMessage({ parts: [{ type: "text", text: messageContent }] });
+      submitQuestion({
+        featureDescription: rawInput,
+        questionTopic: questionTemplate,
+        previousAnswer,
+      });
     },
-    [rawInput, planId, addMessageDb, sendMessage, questionList]
+    [rawInput, submitQuestion, questionList]
   );
 
   const handleStartInterview = async () => {
     setHasStarted(true);
-    await askQuestion(0);
+    await addMessageDb({ id: planId, role: "user", content: rawInput });
+    setDisplayMessages([{ role: "user", content: rawInput }]);
+    askQuestion(0);
   };
 
   const handleAnswer = async (answer: string) => {
-    setCurrentQuestion(null);
+    const currentQuestion = questionObject?.question || "";
+    setAnswers((prev) => [...prev, { question: currentQuestion, answer }]);
+
     await addMessageDb({ id: planId, role: "user", content: answer });
+    setDisplayMessages((prev) => [...prev, { role: "user", content: answer }]);
 
     const nextQuestionIndex = questionCount;
     if (nextQuestionIndex < maxQuestions) {
-      const questionTemplate = questionList[nextQuestionIndex % questionList.length];
-      systemPromptRef.current = `You are helping gather requirements for this feature: "${rawInput}".
-The user answered the previous question with: "${answer}"
-Generate a multiple choice question about: "${questionTemplate}"
-Respond with ONLY a JSON object in this format:
-{"question": "Your specific question based on the topic?", "options": ["Option A", "Option B", "Option C", "Option D"]}`;
-
-      sendMessage({ parts: [{ type: "text", text: answer }] });
+      askQuestion(nextQuestionIndex, answer);
     }
   };
 
   const handleGenerateSpec = async () => {
-    setCurrentQuestion(null);
-    await addMessageDb({ id: planId, role: "user", content: SPEC_GENERATION_PROMPT });
+    const specPrompt = "Generate implementation spec based on answers";
+    await addMessageDb({ id: planId, role: "user", content: specPrompt });
+    setDisplayMessages((prev) => [...prev, { role: "user", content: specPrompt }]);
 
-    systemPromptRef.current = `Generate an implementation spec based on the conversation. Output ONLY valid JSON with this structure:
-{
-  "title": "Feature title",
-  "description": "Feature description",
-  "tasks": [
-    {"title": "Task 1", "description": "What to do", "dependencies": []},
-    {"title": "Task 2", "description": "What to do", "dependencies": [1]}
-  ]
-}`;
-
-    sendMessage({ parts: [{ type: "text", text: SPEC_GENERATION_PROMPT }] });
+    submitSpec({
+      featureDescription: rawInput,
+      answers,
+    });
   };
 
   const handleClearChat = async () => {
+    stopQuestion();
     await clearMessagesDb({ id: planId });
-    setMessages([]);
+    setDisplayMessages([]);
     setQuestionCount(0);
     setHasStarted(false);
-    setCurrentQuestion(null);
+    setAnswers([]);
   };
 
   const canGenerateSpec = questionCount >= maxQuestions;
+  const showQuestion = questionObject && !isSpecLoading && questionCount <= maxQuestions;
 
   if (!hasStarted && !isLocked) {
     return (
@@ -254,52 +232,58 @@ Respond with ONLY a JSON object in this format:
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-3 p-4">
-        {messages.map((m, i) => {
-          const content = getMessageContent(m);
-          const isLast = i === messages.length - 1;
-          const question = m.role === "assistant" ? parseQuestionFromMessage(content) : null;
-
-          if (question && !isLast) {
-            return (
-              <ChatMessage
-                key={m.id}
-                role="assistant"
-                content={`Q: ${question.question}`}
-              />
-            );
+        {displayMessages.map((m, i) => {
+          if (m.role === "assistant") {
+            try {
+              const parsed = JSON.parse(m.content);
+              if (parsed.question) {
+                return (
+                  <ChatMessage
+                    key={`msg-${i}`}
+                    role="assistant"
+                    content={`Q: ${parsed.question}`}
+                  />
+                );
+              }
+              if (parsed.title && parsed.tasks) {
+                return (
+                  <ChatMessage
+                    key={`msg-${i}`}
+                    role="assistant"
+                    content={`Generated spec: ${parsed.title}`}
+                  />
+                );
+              }
+            } catch {
+              return <ChatMessage key={`msg-${i}`} role="assistant" content={m.content} />;
+            }
           }
-
-          if (isLast && m.role === "assistant" && question) {
-            return null;
-          }
-
-          return (
-            <ChatMessage
-              key={m.id}
-              role={m.role as "user" | "assistant"}
-              content={content}
-            />
-          );
+          return <ChatMessage key={`msg-${i}`} role="user" content={m.content} />;
         })}
         {isLoading && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
-            <span className="text-sm text-default-500">Thinking...</span>
+            <span className="text-sm text-default-500">
+              {isSpecLoading ? "Generating plan..." : "Generating question..."}
+            </span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">
-        {currentQuestion && !isLocked && questionCount <= maxQuestions && (
-          <MultipleChoiceQuestion
-            question={currentQuestion.question}
-            options={currentQuestion.options}
-            onAnswer={handleAnswer}
-            isLoading={isLoading}
-            questionNumber={questionCount}
-            totalQuestions={maxQuestions}
-          />
-        )}
+        {showQuestion &&
+          questionObject.question &&
+          questionObject.options &&
+          questionObject.options.every((o): o is string => typeof o === "string") && (
+            <MultipleChoiceQuestion
+              question={questionObject.question}
+              options={questionObject.options.filter((o): o is string => typeof o === "string")}
+              onAnswer={handleAnswer}
+              isLoading={isLoading}
+              questionNumber={questionCount}
+              totalQuestions={maxQuestions}
+            />
+          )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
             Questions: {questionCount}/{maxQuestions}
@@ -311,7 +295,7 @@ Respond with ONLY a JSON object in this format:
               color="danger"
               startContent={<IconTrash size={16} />}
               onPress={handleClearChat}
-              isDisabled={isLoading || isLocked || messages.length === 0}
+              isDisabled={isLoading || isLocked || displayMessages.length === 0}
             >
               Clear
             </Button>

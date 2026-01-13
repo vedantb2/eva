@@ -15,9 +15,7 @@ interface SimpleMessage {
   content: string;
 }
 
-function isUIMessage(
-  msg: SimpleMessage | UIMessage
-): msg is UIMessage {
+function isUIMessage(msg: SimpleMessage | UIMessage): msg is UIMessage {
   return "parts" in msg || "id" in msg;
 }
 
@@ -33,7 +31,10 @@ export async function POST(req: Request) {
 
   const modelMessages = isUIMessage(messages[0])
     ? convertToModelMessages(messages)
-    : messages.map((m: SimpleMessage) => ({ role: m.role, content: m.content }));
+    : messages.map((m: SimpleMessage) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
   const result = streamText({
     model: openrouter.chat("openai/gpt-4.1-nano"),

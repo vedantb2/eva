@@ -33,31 +33,21 @@ Guidelines:
 
 Only output the JSON object, nothing else.`;
 
-export const MC_INITIAL_QUESTIONS = [
-  "What is the primary goal of this feature?",
-  "Who are the main users of this feature?",
-  "What is the scope of this feature?",
-  "What priority level is this feature?",
-  "Are there external dependencies or integrations?",
-  "What are the security or privacy requirements?",
-  "What testing approach should be used?",
-  "Are there specific performance requirements?",
-  "What error handling approach should be used?",
-  "What is the success criteria for this feature?",
+export const IMPLEMENTATION_QUESTION_CATEGORIES = [
+  "state_management",
+  "data_persistence",
+  "component_architecture",
+  "api_design",
+  "edge_case_handling",
+  "initialization_behavior",
+  "error_handling",
+  "runtime_behavior",
+  "integration_points",
+  "validation_strategy",
 ];
 
-export const MC_FOLLOWUP_QUESTIONS = [
-  "What edge cases need to be handled?",
-  "How should validation be implemented?",
-  "What loading states are needed?",
-  "How should errors be displayed to users?",
-  "What analytics or logging is needed?",
-  "Are there accessibility requirements?",
-  "What mobile considerations are there?",
-  "How should this integrate with existing features?",
-  "What documentation is needed?",
-  "Are there any UI/UX constraints?",
-];
+export const MC_INITIAL_QUESTIONS = IMPLEMENTATION_QUESTION_CATEGORIES;
+export const MC_FOLLOWUP_QUESTIONS = IMPLEMENTATION_QUESTION_CATEGORIES;
 
 export const SPEC_GENERATION_PROMPT = `Based on our conversation, generate a detailed implementation spec for this feature.
 

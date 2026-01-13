@@ -12,11 +12,12 @@ const openrouter = createOpenRouter({
 });
 
 const questionSchema = z.object({
-  question: z.string().describe("The multiple choice question to ask the user"),
+  question: z.string().describe("The implementation decision question"),
   options: z
     .array(z.string())
-    .length(4)
-    .describe("Exactly 4 answer options for the question"),
+    .min(3)
+    .max(5)
+    .describe("3-5 concrete implementation options"),
 });
 
 interface CodebaseContext {
@@ -38,49 +39,122 @@ interface CodebaseContext {
   };
 }
 
-function buildSystemPrompt(codebaseContext: CodebaseContext | null): string {
-  if (!codebaseContext) {
-    return `You are helping gather requirements for a software feature. Generate specific, relevant multiple choice questions with 4 practical options.`;
-  }
+interface PreviousAnswer {
+  question: string;
+  answer: string;
+}
 
-  const keyFilesList = codebaseContext.keyFiles
-    .slice(0, 5)
-    .map((f) => `- ${f.path}: ${f.purpose}`)
-    .join("\n");
+const SYSTEM_PROMPT = `You are a senior software architect helping a developer make concrete implementation decisions for a feature. Your job is to ask ONE question that will directly influence how the code is written.
 
-  return `You are helping gather requirements for a software feature in a ${codebaseContext.techStack.language}/${codebaseContext.techStack.framework} project.
+## Your Goal
+Identify an implementation decision that has multiple valid approaches, and ask the developer to choose one. The answer must directly affect the code structure, APIs used, or behavior.
 
-Project context:
-${codebaseContext.summary}
+## Question Types You Should Ask
 
-Tech stack: ${codebaseContext.techStack.language}, ${codebaseContext.techStack.framework}
-Component pattern: ${codebaseContext.patterns.componentPattern}
-State management: ${codebaseContext.patterns.stateManagement}
-API pattern: ${codebaseContext.patterns.apiPattern}
+1. **Architecture & State Questions**
+   - Where should state live? (localStorage, sessionStorage, React Context, URL params, database)
+   - Should this use a hook, provider, utility module, or class?
+   - Should the component be controlled or uncontrolled?
+   - Should this be client-side or server-side?
 
-Key files that may be relevant:
+2. **Data & Persistence Questions**
+   - How should data be stored/cached?
+   - What should happen if stored data is invalid or missing?
+   - Should changes persist immediately or require explicit save?
+
+3. **Edge Case & Behavior Questions**
+   - What happens on first load with no existing data?
+   - What happens if the operation fails?
+   - Should the UI update automatically when external state changes?
+   - How should conflicts be resolved?
+
+4. **API & Integration Questions**
+   - Which existing pattern/component should this extend?
+   - Should this be a new endpoint or extend an existing one?
+   - What format should the API accept/return?
+
+## Rules
+- Ask exactly ONE question per response
+- Provide 3-5 concrete options that represent real implementation choices
+- Each option should result in different code
+- Options should be mutually exclusive
+- DO NOT ask about:
+  - General product questions ("who is the user?")
+  - Vague requirements ("what is the priority?")
+  - Non-technical preferences
+  - Things that don't change the implementation`;
+
+function buildPrompt(
+  featureDescription: string,
+  questionCategory: string,
+  previousAnswers: PreviousAnswer[],
+  codebaseContext: CodebaseContext | null
+): string {
+  let prompt = `## Feature to Implement
+"${featureDescription}"
+
+`;
+
+  if (codebaseContext) {
+    const keyFilesList = codebaseContext.keyFiles
+      .slice(0, 5)
+      .map((f) => `- ${f.path}: ${f.purpose}`)
+      .join("\n");
+
+    prompt += `## Project Context
+Tech Stack: ${codebaseContext.techStack.language}/${codebaseContext.techStack.framework}
+State Management: ${codebaseContext.patterns.stateManagement}
+Component Pattern: ${codebaseContext.patterns.componentPattern}
+API Pattern: ${codebaseContext.patterns.apiPattern}
+
+Key Files:
 ${keyFilesList}
 
-Generate specific, relevant multiple choice questions with 4 practical options. Make questions specific to this project's tech stack and patterns when appropriate.`;
+`;
+  }
+
+  if (previousAnswers.length > 0) {
+    prompt += `## Decisions Already Made\n`;
+    previousAnswers.forEach((a, i) => {
+      prompt += `${i + 1}. Q: ${a.question}\n   A: ${a.answer}\n`;
+    });
+    prompt += "\n";
+  }
+
+  prompt += `## Question Category
+Focus on: ${questionCategory.replace(/_/g, " ")}
+
+Generate a concrete implementation question about this category. The question should:
+- Present 3-5 specific implementation options
+- Each option should result in different code
+- Be specific to this feature (not generic)
+- Build on the decisions already made`;
+
+  return prompt;
 }
 
 export async function POST(req: Request) {
-  const { featureDescription, questionTopic, previousAnswer, codebaseContext } =
-    await req.json();
+  const {
+    featureDescription,
+    questionTopic,
+    previousAnswers = [],
+    codebaseContext,
+  } = await req.json();
 
-  const prompt = previousAnswer
-    ? `Feature: "${featureDescription}"
-Previous answer: "${previousAnswer}"
-Generate a question about: "${questionTopic}"`
-    : `Feature: "${featureDescription}"
-Generate a question about: "${questionTopic}"`;
+  const prompt = buildPrompt(
+    featureDescription,
+    questionTopic,
+    previousAnswers,
+    codebaseContext
+  );
 
   const result = streamObject({
     model: openrouter.chat("openai/gpt-5-nano"),
     schema: questionSchema,
-    schemaName: "MultipleChoiceQuestion",
-    schemaDescription: "A multiple choice question with exactly 4 options",
-    system: buildSystemPrompt(codebaseContext),
+    schemaName: "ImplementationQuestion",
+    schemaDescription:
+      "A concrete implementation decision question with 3-5 options",
+    system: SYSTEM_PROMPT,
     prompt,
   });
 

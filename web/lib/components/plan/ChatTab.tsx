@@ -185,7 +185,7 @@ export function ChatTab({
   }, []);
 
   const askQuestion = useCallback(
-    async (questionIndex: number, previousAnswer?: string) => {
+    async (questionIndex: number, currentAnswers: AnswerRecord[]) => {
       if (questionIndex >= maxQuestions) return;
 
       const questionTemplate = questionList[questionIndex % questionList.length];
@@ -193,7 +193,7 @@ export function ChatTab({
       submitQuestion({
         featureDescription: rawInput,
         questionTopic: questionTemplate,
-        previousAnswer,
+        previousAnswers: currentAnswers,
         codebaseContext: parsedCodebaseIndex,
       });
     },
@@ -204,19 +204,21 @@ export function ChatTab({
     setHasStarted(true);
     await addMessageDb({ id: planId, role: "user", content: rawInput });
     setDisplayMessages([{ role: "user", content: rawInput }]);
-    askQuestion(0);
+    askQuestion(0, []);
   };
 
   const handleAnswer = async (answer: string) => {
     const currentQuestion = questionObject?.question || "";
-    setAnswers((prev) => [...prev, { question: currentQuestion, answer }]);
+    const newAnswer = { question: currentQuestion, answer };
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
 
     await addMessageDb({ id: planId, role: "user", content: answer });
     setDisplayMessages((prev) => [...prev, { role: "user", content: answer }]);
 
     const nextQuestionIndex = questionCount;
     if (nextQuestionIndex < maxQuestions) {
-      askQuestion(nextQuestionIndex, answer);
+      askQuestion(nextQuestionIndex, updatedAnswers);
     }
   };
 

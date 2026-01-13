@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import {
   IconBrain,
   IconBrandGithub,
@@ -36,6 +36,7 @@ export function Sidebar() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const repos = useQuery(api.githubRepos.list);
+  const { user } = useUser();
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(/^\/([^/]+)\/(plan|features|quick-tasks)/);
@@ -238,14 +239,9 @@ export function Sidebar() {
                   },
                 }}
               />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                  Account
-                </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  Manage settings
-                </p>
-              </div>
+              <p className="flex-1 min-w-0 text-sm font-medium text-neutral-900 dark:text-white truncate">
+                {user?.fullName || user?.firstName || "User"}
+              </p>
             </div>
           </div>
         </div>

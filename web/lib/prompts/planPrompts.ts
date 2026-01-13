@@ -64,10 +64,16 @@ Output as JSON with this structure:
   ]
 }
 
-Generate 3-10 tasks that logically break down the implementation. Tasks should be:
-- Specific and actionable
-- Ordered by dependency (tasks that others depend on come first)
-- Sized appropriately (not too large, not too granular)
+Generate 2-5 tasks that represent ownership boundaries in the codebase. Each task should:
+- Represent a complete area of responsibility (e.g., "backend infrastructure" or "UI integration")
+- Encompass ALL related changes within that boundary (multiple file edits expected)
+- Be comprehensive enough that completing the task means that entire area is done
+
+Examples of good task splits:
+- "Dark theme toggle": Task 1 = Theme infrastructure (context, CSS vars, persistence), Task 2 = Toggle UI and settings integration
+- "Search feature": Task 1 = Search backend (indexing, API, ranking), Task 2 = Search UI (input, results, filters)
+
+Avoid micro-tasks like "Create context", "Add CSS variables", "Wire up component" - these should be combined into ownership-boundary tasks.
 
 Only output the JSON, no other text.`;
 

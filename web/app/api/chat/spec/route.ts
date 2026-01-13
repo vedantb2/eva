@@ -50,9 +50,37 @@ interface CodebaseContext {
   };
 }
 
+const TASK_PHILOSOPHY = `
+TASK GRANULARITY RULES:
+- Each task should represent ONE ownership boundary in the codebase
+- A task should encompass all related changes within that boundary (multiple file edits are expected)
+- Think in terms of: "core capability/infrastructure" vs "user-facing integration/UI"
+- Aim for 2-5 tasks total, NOT 10+ micro-tasks
+
+Examples of GOOD task breakdowns:
+- "Add dark theme toggle": 2 tasks
+  1. Theme infrastructure (context, CSS variables, persistence)
+  2. Toggle UI component and integration into settings
+- "Add user notifications": 3 tasks
+  1. Notification data model and API endpoints
+  2. Real-time notification delivery system
+  3. Notification UI components and user preferences
+- "Add search functionality": 2 tasks
+  1. Search backend (indexing, query API, ranking)
+  2. Search UI (input, results display, filters)
+
+Examples of BAD task breakdowns (too granular):
+- "Create ThemeContext" (too small - combine with other theme work)
+- "Add CSS variables" (too small - part of theme infrastructure)
+- "Create toggle button" (too small - part of UI task)
+- "Wire up toggle to context" (too small - part of UI task)
+
+Each task description should specify ALL the changes needed within that ownership boundary.`;
+
 function buildSystemPrompt(codebaseContext: CodebaseContext | null): string {
   if (!codebaseContext) {
-    return `You are a technical architect. Based on the feature description and interview answers, create a detailed implementation plan with specific, actionable tasks ordered by dependency.`;
+    return `You are a technical architect. Based on the feature description and interview answers, create a detailed implementation plan.
+${TASK_PHILOSOPHY}`;
   }
 
   const keyFilesList = codebaseContext.keyFiles
@@ -88,7 +116,9 @@ Conventions:
 - Naming: ${codebaseContext.conventions.naming}
 - File structure: ${codebaseContext.conventions.fileStructure}
 
-Based on the feature description and interview answers, create a detailed implementation plan with specific, actionable tasks ordered by dependency. Reference actual file paths and follow the project's existing patterns and conventions.`;
+${TASK_PHILOSOPHY}
+
+Reference actual file paths and follow the project's existing patterns and conventions.`;
 }
 
 export async function POST(req: Request) {
@@ -106,7 +136,7 @@ export async function POST(req: Request) {
 Interview answers:
 ${answersText}
 
-Generate an implementation spec with 3-10 tasks.`;
+Generate an implementation spec with 2-5 tasks. Each task should represent a complete ownership boundary (e.g., "backend infrastructure" or "UI integration"), not a single micro-edit. Tasks should be comprehensive enough that completing one task means that entire area of the codebase is done.`;
 
   const result = streamObject({
     model: openrouter.chat("openai/gpt-5-nano"),

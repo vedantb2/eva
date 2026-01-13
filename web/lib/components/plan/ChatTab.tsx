@@ -10,7 +10,7 @@ import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
 import { ChatMessage } from "./ChatMessage";
 import { MC_INITIAL_QUESTIONS, MC_FOLLOWUP_QUESTIONS } from "@/lib/prompts/planPrompts";
-import { IconSparkles, IconTrash, IconPlayerPlay } from "@tabler/icons-react";
+import { IconSparkles, IconTrash, IconPlayerPlay, IconCode } from "@tabler/icons-react";
 import { z } from "zod";
 
 interface ConversationMessage {
@@ -19,12 +19,39 @@ interface ConversationMessage {
 }
 
 type PlanState = "draft" | "finalized" | "feature_created";
+type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
+
+interface CodebaseIndex {
+  summary: string;
+  techStack: {
+    language: string;
+    framework: string;
+    other: string[];
+  };
+  structure: {
+    entryPoints: string[];
+    keyDirectories: { path: string; purpose: string }[];
+  };
+  patterns: {
+    componentPattern: string;
+    stateManagement: string;
+    apiPattern: string;
+  };
+  keyFiles: { path: string; purpose: string; exports: string[] }[];
+  conventions: {
+    naming: string;
+    fileStructure: string;
+    imports: string;
+  };
+}
 
 interface ChatTabProps {
   planId: Id<"plans">;
   planState: PlanState;
   initialMessages: ConversationMessage[];
   rawInput: string;
+  codebaseIndex: string | undefined;
+  indexingStatus: IndexingStatus;
   onSpecGenerated?: (spec: string) => void;
   isInterview?: boolean;
 }
@@ -56,6 +83,8 @@ export function ChatTab({
   planState,
   initialMessages,
   rawInput,
+  codebaseIndex,
+  indexingStatus,
   onSpecGenerated,
   isInterview = false,
 }: ChatTabProps) {
@@ -71,6 +100,16 @@ export function ChatTab({
   const minQuestions = 3;
   const maxQuestions = 10;
   const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
+  const isIndexing = indexingStatus === "pending" || indexingStatus === "indexing";
+
+  const parsedCodebaseIndex: CodebaseIndex | null = (() => {
+    if (!codebaseIndex) return null;
+    try {
+      return JSON.parse(codebaseIndex);
+    } catch {
+      return null;
+    }
+  })();
 
   const {
     object: questionObject,
@@ -155,9 +194,10 @@ export function ChatTab({
         featureDescription: rawInput,
         questionTopic: questionTemplate,
         previousAnswer,
+        codebaseContext: parsedCodebaseIndex,
       });
     },
-    [rawInput, submitQuestion, questionList]
+    [rawInput, submitQuestion, questionList, parsedCodebaseIndex]
   );
 
   const handleStartInterview = async () => {
@@ -188,6 +228,7 @@ export function ChatTab({
     submitSpec({
       featureDescription: rawInput,
       answers,
+      codebaseContext: parsedCodebaseIndex,
     });
   };
 
@@ -202,6 +243,48 @@ export function ChatTab({
 
   const canGenerateSpec = questionCount >= minQuestions;
   const showQuestion = questionObject && !isSpecLoading && questionCount <= maxQuestions;
+
+  if (isIndexing && !hasStarted && !isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-default-100 flex items-center justify-center mb-4">
+          <IconCode size={32} className="text-default-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-default-700 mb-2">
+          Indexing Codebase
+        </h3>
+        <p className="text-sm text-default-500 mb-6 max-w-md">
+          Analyzing your codebase to provide context-aware questions. This usually takes 30-60 seconds.
+        </p>
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (indexingStatus === "error" && !hasStarted && !isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center mb-4">
+          <IconCode size={32} className="text-danger-600 dark:text-danger-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-default-700 mb-2">
+          Indexing Failed
+        </h3>
+        <p className="text-sm text-default-500 mb-6 max-w-md">
+          We couldn&apos;t analyze your codebase. You can still start the interview with generic questions.
+        </p>
+        <Button
+          color="primary"
+          size="lg"
+          startContent={<IconPlayerPlay size={20} />}
+          onPress={handleStartInterview}
+          isLoading={isLoading}
+        >
+          Start Interview Anyway
+        </Button>
+      </div>
+    );
+  }
 
   if (!hasStarted && !isLocked) {
     return (

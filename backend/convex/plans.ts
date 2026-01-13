@@ -81,6 +81,7 @@ export const create = mutation({
       title: args.title,
       rawInput: args.rawInput,
       state: "draft",
+      indexingStatus: "pending",
       conversationHistory: [
         {
           role: "user",
@@ -227,6 +228,48 @@ export const setCodebaseIndex = mutation({
     if (!userId) {
       throw new Error("Not authenticated");
     }
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    await ctx.db.patch(args.id, {
+      codebaseIndex: args.codebaseIndex,
+      indexingStatus: "complete",
+    });
+    return null;
+  },
+});
+
+export const setIndexingStatusNoAuth = mutation({
+  args: {
+    id: v.id("plans"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const plan = await ctx.db.get(args.id);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+    await ctx.db.patch(args.id, {
+      indexingStatus: args.status,
+    });
+    return null;
+  },
+});
+
+export const setCodebaseIndexNoAuth = mutation({
+  args: {
+    id: v.id("plans"),
+    codebaseIndex: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const plan = await ctx.db.get(args.id);
     if (!plan) {
       throw new Error("Plan not found");

@@ -103,6 +103,8 @@ export function PlanTabs({
             planState={planState}
             initialMessages={conversationHistory}
             rawInput={rawInput}
+            codebaseIndex={codebaseIndex}
+            indexingStatus={indexingStatus}
             onSpecGenerated={handleSpecGenerated}
             isInterview={isInterview}
           />

@@ -19,8 +19,53 @@ const questionSchema = z.object({
     .describe("Exactly 4 answer options for the question"),
 });
 
+interface CodebaseContext {
+  summary: string;
+  techStack: {
+    language: string;
+    framework: string;
+    other: string[];
+  };
+  patterns: {
+    componentPattern: string;
+    stateManagement: string;
+    apiPattern: string;
+  };
+  keyFiles: { path: string; purpose: string }[];
+  conventions: {
+    naming: string;
+    fileStructure: string;
+  };
+}
+
+function buildSystemPrompt(codebaseContext: CodebaseContext | null): string {
+  if (!codebaseContext) {
+    return `You are helping gather requirements for a software feature. Generate specific, relevant multiple choice questions with 4 practical options.`;
+  }
+
+  const keyFilesList = codebaseContext.keyFiles
+    .slice(0, 5)
+    .map((f) => `- ${f.path}: ${f.purpose}`)
+    .join("\n");
+
+  return `You are helping gather requirements for a software feature in a ${codebaseContext.techStack.language}/${codebaseContext.techStack.framework} project.
+
+Project context:
+${codebaseContext.summary}
+
+Tech stack: ${codebaseContext.techStack.language}, ${codebaseContext.techStack.framework}
+Component pattern: ${codebaseContext.patterns.componentPattern}
+State management: ${codebaseContext.patterns.stateManagement}
+API pattern: ${codebaseContext.patterns.apiPattern}
+
+Key files that may be relevant:
+${keyFilesList}
+
+Generate specific, relevant multiple choice questions with 4 practical options. Make questions specific to this project's tech stack and patterns when appropriate.`;
+}
+
 export async function POST(req: Request) {
-  const { featureDescription, questionTopic, previousAnswer } =
+  const { featureDescription, questionTopic, previousAnswer, codebaseContext } =
     await req.json();
 
   const prompt = previousAnswer
@@ -35,7 +80,7 @@ Generate a question about: "${questionTopic}"`;
     schema: questionSchema,
     schemaName: "MultipleChoiceQuestion",
     schemaDescription: "A multiple choice question with exactly 4 options",
-    system: `You are helping gather requirements for a software feature. Generate specific, relevant multiple choice questions with 4 practical options.`,
+    system: buildSystemPrompt(codebaseContext),
     prompt,
   });
 

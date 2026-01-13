@@ -40,6 +40,20 @@ export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
         title: title.trim(),
         rawInput: description.trim(),
       });
+
+      await fetch("/api/inngest/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "plan/index.requested",
+          data: {
+            planId,
+            repoId: repo._id,
+            installationId: repo.installationId,
+          },
+        }),
+      });
+
       setTitle("");
       setDescription("");
       onClose();

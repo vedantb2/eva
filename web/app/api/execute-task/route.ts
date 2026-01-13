@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
 import { serverEnv } from "@/env/server";
+import { clientEnv } from "@/env/client";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const maxDuration = 300;
 
@@ -84,7 +85,10 @@ Instructions:
     }
 
     await sbx.commands.run(
-      `cd /workspace && git add -A && git commit -m "feat: ${task.title.replace(/"/g, '\\"')}" && git push -u origin ${branchName}`
+      `cd /workspace && git add -A && git commit -m "feat: ${task.title.replace(
+        /"/g,
+        '\\"'
+      )}" && git push -u origin ${branchName}`
     );
 
     await convex.mutation(api.agentRuns.appendLog, {
@@ -103,7 +107,9 @@ Instructions:
         },
         body: JSON.stringify({
           title: task.title,
-          body: `## Task\n${task.description || "No description"}\n\n---\n*Implemented by Conductor AI Agent*`,
+          body: `## Task\n${
+            task.description || "No description"
+          }\n\n---\n*Implemented by Conductor AI Agent*`,
           head: branchName,
           base: "main",
         }),

@@ -32,6 +32,7 @@
     "dayjs": "^1.11.13",
     "e2b": "^2.10.1",
     "framer-motion": "^12.12.1",
+    "inngest": "^3.49.1",
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^3.8.4",
     "next": "15.5.7",

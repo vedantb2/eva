@@ -76,42 +76,23 @@ export const trigger = internalAction({
     const appUrl = process.env.SITE_URL;
     if (!appUrl) throw new Error("SITE_URL not configured");
 
-    const tokenResponse = await fetch(
-      `${appUrl}/api/github/installation-token`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installationId: repo.installationId }),
-      }
-    );
-
-    if (!tokenResponse.ok) {
-      throw new Error(
-        `Failed to get installation token: ${tokenResponse.statusText}`
-      );
-    }
-
-    const { token } = await tokenResponse.json();
-
-    await ctx.runMutation(internal.agentExecution.updateRunStatusInternal, {
-      id: args.runId,
-      status: "running",
-    });
-
-    const executeResponse = await fetch(`${appUrl}/api/execute-task`, {
+    const inngestResponse = await fetch(`${appUrl}/api/inngest/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        runId: args.runId,
-        taskId: run.taskId,
-        repoId: task.repoId,
-        githubToken: token,
+        name: "task/execute.requested",
+        data: {
+          runId: args.runId,
+          taskId: run.taskId,
+          repoId: task.repoId,
+          installationId: repo.installationId,
+        },
       }),
     });
 
-    if (!executeResponse.ok) {
+    if (!inngestResponse.ok) {
       throw new Error(
-        `Failed to trigger execution: ${executeResponse.statusText}`
+        `Failed to trigger Inngest execution: ${inngestResponse.statusText}`
       );
     }
   },

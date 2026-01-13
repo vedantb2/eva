@@ -142,3 +142,23 @@ export async function listInstallationRepos(installationId: number) {
     url: repo.html_url,
   }));
 }
+
+export async function listBranches(params: {
+  installationId: number;
+  owner: string;
+  repo: string;
+}) {
+  const { installationId, owner, repo } = params;
+  const octokit = await getInstallationOctokit(installationId);
+
+  const branches = await octokit.rest.repos.listBranches({
+    owner,
+    repo,
+    per_page: 100,
+  });
+
+  return branches.data.map((branch) => ({
+    name: branch.name,
+    protected: branch.protected,
+  }));
+}

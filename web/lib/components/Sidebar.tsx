@@ -17,6 +17,7 @@ import {
 import { useState, useMemo } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import {
@@ -130,7 +131,7 @@ export function Sidebar() {
             <div>
               {repoSlug && repoFullName && (
                 <>
-                  <div className="mb-4">
+                  <div className="mb-4 space-y-2">
                     <Dropdown>
                     <DropdownTrigger>
                       <button
@@ -172,6 +173,13 @@ export function Sidebar() {
                       })}
                     </DropdownMenu>
                   </Dropdown>
+                  {repo && (
+                    <BranchSelector
+                      owner={repo.owner}
+                      repoName={repo.name}
+                      installationId={repo.installationId}
+                    />
+                  )}
                 </div>
                 <div className="space-y-1">
                   {repoNavigation.map((item) => {

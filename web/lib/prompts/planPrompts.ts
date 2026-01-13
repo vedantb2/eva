@@ -15,6 +15,50 @@ Guidelines:
 
 Respond conversationally. Don't use markdown headers in your responses.`;
 
+export const MC_SYSTEM_PROMPT = `You are a skilled product manager conducting a structured interview to understand a feature request. Ask ONE multiple choice question at a time to gather requirements.
+
+IMPORTANT: You must respond with a JSON object in this exact format:
+{
+  "question": "Your question text here?",
+  "options": ["Option A", "Option B", "Option C", "Option D"]
+}
+
+Guidelines:
+- Ask exactly ONE question per response
+- Provide 3-4 clear, distinct options
+- Options should cover the most common cases
+- Keep questions focused and specific
+- Build on previous answers to refine understanding
+- After receiving answers, you will be asked to generate a spec
+
+Only output the JSON object, nothing else.`;
+
+export const MC_INITIAL_QUESTIONS = [
+  "What is the primary goal of this feature?",
+  "Who are the main users of this feature?",
+  "What is the scope of this feature?",
+  "What priority level is this feature?",
+  "Are there external dependencies or integrations?",
+  "What are the security or privacy requirements?",
+  "What testing approach should be used?",
+  "Are there specific performance requirements?",
+  "What error handling approach should be used?",
+  "What is the success criteria for this feature?",
+];
+
+export const MC_FOLLOWUP_QUESTIONS = [
+  "What edge cases need to be handled?",
+  "How should validation be implemented?",
+  "What loading states are needed?",
+  "How should errors be displayed to users?",
+  "What analytics or logging is needed?",
+  "Are there accessibility requirements?",
+  "What mobile considerations are there?",
+  "How should this integrate with existing features?",
+  "What documentation is needed?",
+  "Are there any UI/UX constraints?",
+];
+
 export const SPEC_GENERATION_PROMPT = `Based on our conversation, generate a detailed implementation spec for this feature.
 
 Output as JSON with this structure:

@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
-import { PlanConversation } from "@/lib/components/plan/PlanConversation";
-import { PlanFinalizationModal } from "@/lib/components/plan/PlanFinalizationModal";
+import { PlanTabs } from "@/lib/components/plan/PlanTabs";
+import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 
 interface PlanDetailClientProps {
@@ -20,13 +19,6 @@ export function PlanDetailClient({ planId }: PlanDetailClientProps) {
   const typedPlanId = planId as Id<"plans">;
 
   const plan = useQuery(api.plans.get, { id: typedPlanId });
-  const [generatedSpec, setGeneratedSpec] = useState<string | null>(null);
-  const [showFinalizationModal, setShowFinalizationModal] = useState(false);
-
-  const handleSpecGenerated = (spec: string) => {
-    setGeneratedSpec(spec);
-    setShowFinalizationModal(true);
-  };
 
   if (plan === undefined) {
     return (
@@ -48,24 +40,20 @@ export function PlanDetailClient({ planId }: PlanDetailClientProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title={plan.title} />
+      <PageHeader
+        title={plan.title}
+        headerRight={<PlanStatusBadge state={plan.state} />}
+      />
       <div className="flex-1 overflow-hidden">
-        <PlanConversation
+        <PlanTabs
           planId={typedPlanId}
           planState={plan.state}
-          initialMessages={plan.conversationHistory}
-          onSpecGenerated={handleSpecGenerated}
-        />
-      </div>
-      {generatedSpec && (
-        <PlanFinalizationModal
-          isOpen={showFinalizationModal}
-          onClose={() => setShowFinalizationModal(false)}
-          planId={typedPlanId}
-          spec={generatedSpec}
+          rawInput={plan.rawInput}
+          generatedSpec={plan.generatedSpec}
+          conversationHistory={plan.conversationHistory}
           repoSlug={encodeRepoSlug(fullName)}
         />
-      )}
+      </div>
     </div>
   );
 }

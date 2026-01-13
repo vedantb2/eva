@@ -9,6 +9,7 @@ import { PageHeader } from "@/lib/components/PageHeader";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
 import {
   Modal,
   ModalContent,
@@ -16,10 +17,22 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { IconLayoutKanban, IconChevronRight, IconGitBranch, IconTrash } from "@tabler/icons-react";
+import {
+  IconLayoutKanban,
+  IconChevronRight,
+  IconGitBranch,
+  IconTrash,
+  IconFilter,
+  IconSortAscending,
+  IconSortDescending,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
+type FeatureStatus = "planning" | "active" | "completed" | "archived";
+type SortField = "created" | "title" | "status";
+type SortDirection = "asc" | "desc";
 
 const statusColors = {
   planning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -37,6 +50,33 @@ export function FeaturesClient() {
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<FeatureStatus | "all">("all");
+  const [sortField, setSortField] = useState<SortField>("created");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const filteredAndSortedFeatures = useMemo(() => {
+    if (!features) return [];
+    let result = [...features];
+    if (statusFilter !== "all") {
+      result = result.filter((f) => f.status === statusFilter);
+    }
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case "created":
+          comparison = a._creationTime - b._creationTime;
+          break;
+        case "title":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "status":
+          comparison = a.status.localeCompare(b.status);
+          break;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+    return result;
+  }, [features, statusFilter, sortField, sortDirection]);
 
   const handleDelete = async () => {
     if (!featureToDelete) return;
@@ -64,8 +104,59 @@ export function FeaturesClient() {
             description="Features are created from finalized plans. Create a plan first to get started."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {features.map((feature) => (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Dropdown>
+                <DropdownTrigger>
+                  <Button variant="flat" size="sm" startContent={<IconFilter size={16} />}>
+                    {statusFilter === "all" ? "All Status" : statusFilter}
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  aria-label="Filter by status"
+                  selectionMode="single"
+                  selectedKeys={new Set([statusFilter])}
+                  onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as FeatureStatus | "all")}
+                >
+                  <DropdownItem key="all">All Status</DropdownItem>
+                  <DropdownItem key="planning">Planning</DropdownItem>
+                  <DropdownItem key="active">Active</DropdownItem>
+                  <DropdownItem key="completed">Completed</DropdownItem>
+                  <DropdownItem key="archived">Archived</DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+              <Dropdown>
+                <DropdownTrigger>
+                  <Button
+                    variant="flat"
+                    size="sm"
+                    startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                  >
+                    {sortField === "created" ? "Date" : sortField === "title" ? "Title" : "Status"}
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  aria-label="Sort by"
+                  selectionMode="single"
+                  selectedKeys={new Set([sortField])}
+                  onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                >
+                  <DropdownItem key="created">Date Created</DropdownItem>
+                  <DropdownItem key="title">Title</DropdownItem>
+                  <DropdownItem key="status">Status</DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+              <Button
+                variant="flat"
+                size="sm"
+                isIconOnly
+                onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+              >
+                {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {filteredAndSortedFeatures.map((feature) => (
               <div
                 key={feature._id}
                 className="p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-md transition-all group"
@@ -118,6 +209,7 @@ export function FeaturesClient() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
       </Container>

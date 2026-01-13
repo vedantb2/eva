@@ -107,6 +107,14 @@ export const get = query({
   },
 });
 
+export const getNoAuth = query({
+  args: { id: v.id("agentTasks") },
+  returns: v.union(agentTaskValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 export const create = mutation({
   args: {
     columnId: v.id("columns"),
@@ -501,7 +509,12 @@ export const createQuickTask = mutation({
 
 export const startExecution = mutation({
   args: { id: v.id("agentTasks") },
-  returns: v.id("agentRuns"),
+  returns: v.object({
+    runId: v.id("agentRuns"),
+    taskId: v.id("agentTasks"),
+    repoId: v.id("githubRepos"),
+    installationId: v.number(),
+  }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -517,6 +530,10 @@ export const startExecution = mutation({
     }
     if (!task.repoId) {
       throw new Error("Task has no associated repository");
+    }
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) {
+      throw new Error("Repository not found");
     }
     const existingRuns = await ctx.db
       .query("agentRuns")
@@ -534,11 +551,15 @@ export const startExecution = mutation({
       logs: [],
       startedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(0, internal.agentExecution.trigger, { runId });
     await ctx.db.patch(args.id, {
       status: "in_progress",
       updatedAt: Date.now(),
     });
-    return runId;
+    return {
+      runId,
+      taskId: args.id,
+      repoId: task.repoId,
+      installationId: repo.installationId,
+    };
   },
 });

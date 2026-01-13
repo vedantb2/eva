@@ -69,7 +69,10 @@ export async function POST(request: NextRequest) {
 
     if (!planId || !repoOwner || !repoName || !githubToken) {
       return NextResponse.json(
-        { error: "Missing required fields: planId, repoOwner, repoName, or githubToken" },
+        {
+          error:
+            "Missing required fields: planId, repoOwner, repoName, or githubToken",
+        },
         { status: 400 }
       );
     }
@@ -82,14 +85,18 @@ export async function POST(request: NextRequest) {
     const repoUrl = `https://x-access-token:${githubToken}@github.com/${repoOwner}/${repoName}.git`;
     const workDir = "/home/user/repo";
 
-    const cloneResult = await sbx.commands.run(`git clone --depth 1 "${repoUrl}" ${workDir}`, {
-      timeoutMs: 120000,
-    });
+    const cloneResult = await sbx.commands.run(
+      `git clone --depth 1 "${repoUrl}" ${workDir}`,
+      {
+        timeoutMs: 120000,
+      }
+    );
     if (cloneResult.exitCode !== 0) {
-      const sanitizedOutput = (cloneResult.stderr || cloneResult.stdout || "").replace(
-        new RegExp(githubToken, "g"),
-        "[REDACTED]"
-      );
+      const sanitizedOutput = (
+        cloneResult.stderr ||
+        cloneResult.stdout ||
+        ""
+      ).replace(new RegExp(githubToken, "g"), "[REDACTED]");
       throw new Error(`Git clone failed: ${sanitizedOutput}`);
     }
 
@@ -124,7 +131,7 @@ ${readme}
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       messages: [{ role: "user", content: contextPrompt }],
     });
@@ -136,7 +143,9 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
 
     const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error(`Failed to extract JSON from output: ${textContent.text.slice(0, 500)}`);
+      throw new Error(
+        `Failed to extract JSON from output: ${textContent.text.slice(0, 500)}`
+      );
     }
 
     const codebaseIndex = jsonMatch[0];
@@ -147,11 +156,18 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
       codebaseIndex,
     });
 
-    return NextResponse.json({ success: true, index: JSON.parse(codebaseIndex) });
+    return NextResponse.json({
+      success: true,
+      index: JSON.parse(codebaseIndex),
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     console.error("Index codebase error:", errorMessage);
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
   } finally {
     if (sbx) {
       await sbx.kill();

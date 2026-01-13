@@ -33,6 +33,14 @@ export const get = query({
   },
 });
 
+export const getNoAuth = query({
+  args: { id: v.id("githubRepos") },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 export const getByOwnerAndName = query({
   args: { owner: v.string(), name: v.string() },
   returns: v.union(githubRepoValidator, v.null()),

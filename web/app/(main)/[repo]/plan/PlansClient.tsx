@@ -7,7 +7,6 @@ import { GenericId as Id } from "convex/values";
 import { Container } from "@/lib/components/ui/Container";
 import { PageHeader } from "@/lib/components/PageHeader";
 import { Button } from "@heroui/button";
-import { Chip } from "@heroui/chip";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewPlanModal } from "@/lib/components/plans/NewPlanModal";
 import { PlanInterviewModal } from "@/lib/components/plans/PlanInterviewModal";
@@ -21,6 +20,9 @@ import {
   IconSortDescending,
   IconTrash,
   IconSearch,
+  IconNotes,
+  IconCheck,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { Input } from "@heroui/input";
 import Link from "next/link";
@@ -42,10 +44,10 @@ type SortDirection = "asc" | "desc";
 
 const ALL_STATES: PlanState[] = ["draft", "finalized", "feature_created"];
 
-const stateConfig: Record<PlanState, { label: string; chipColor: "default" | "secondary" | "warning" | "success"; cardBg: string }> = {
-  draft: { label: "Draft", chipColor: "default", cardBg: "bg-neutral-50 dark:bg-neutral-800" },
-  finalized: { label: "Finalized", chipColor: "warning", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
-  feature_created: { label: "Feature Created", chipColor: "success", cardBg: "bg-green-50 dark:bg-green-900/20" },
+const stateConfig: Record<PlanState, { label: string; badgeBg: string; badgeText: string; cardBg: string; icon: typeof IconNotes }> = {
+  draft: { label: "Draft", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-neutral-50 dark:bg-neutral-800", icon: IconNotes },
+  finalized: { label: "Finalized", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-yellow-50 dark:bg-yellow-900/20", icon: IconCheck },
+  feature_created: { label: "Feature Created", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-green-50 dark:bg-green-900/20", icon: IconCircleCheck },
 };
 
 export function PlansClient() {
@@ -201,10 +203,14 @@ export function PlansClient() {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
+                      {(() => {
+                        const Icon = stateConfig[state].icon;
+                        return <Icon size={16} className={stateConfig[state].badgeText} />;
+                      })()}
                       <span className="font-medium text-sm">{stateConfig[state].label}</span>
-                      <Chip size="sm" variant="flat" color={stateConfig[state].chipColor}>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${stateConfig[state].badgeBg} ${stateConfig[state].badgeText}`}>
                         {plansByState[state]?.length ?? 0}
-                      </Chip>
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-2">

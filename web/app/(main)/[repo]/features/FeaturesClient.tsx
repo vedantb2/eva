@@ -26,6 +26,9 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconSearch,
+  IconNotes,
+  IconClock,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { Input } from "@heroui/input";
 import Link from "next/link";
@@ -38,10 +41,10 @@ type SortDirection = "asc" | "desc";
 
 const ALL_STATUSES: FeatureStatus[] = ["planning", "active", "completed"];
 
-const statusConfig: Record<FeatureStatus, { label: string; badgeBg: string; badgeText: string; cardBg: string }> = {
-  planning: { label: "Planning", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-neutral-50 dark:bg-neutral-800" },
-  active: { label: "Active", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-yellow-50 dark:bg-yellow-900/20" },
-  completed: { label: "Completed", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-green-50 dark:bg-green-900/20" },
+const statusConfig: Record<FeatureStatus, { label: string; badgeBg: string; badgeText: string; cardBg: string; icon: typeof IconNotes }> = {
+  planning: { label: "Planning", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-neutral-50 dark:bg-neutral-800", icon: IconNotes },
+  active: { label: "Active", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-yellow-50 dark:bg-yellow-900/20", icon: IconClock },
+  completed: { label: "Completed", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-green-50 dark:bg-green-900/20", icon: IconCircleCheck },
 };
 
 export function FeaturesClient() {
@@ -188,6 +191,10 @@ export function FeaturesClient() {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
+                      {(() => {
+                        const Icon = statusConfig[status].icon;
+                        return <Icon size={16} className={statusConfig[status].badgeText} />;
+                      })()}
                       <span className="font-medium text-sm">{statusConfig[status].label}</span>
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusConfig[status].badgeBg} ${statusConfig[status].badgeText}`}>
                         {featuresByStatus[status]?.length ?? 0}

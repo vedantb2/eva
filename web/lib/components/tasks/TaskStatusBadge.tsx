@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
+import { IconCircle, IconClock, IconEye, IconCircleCheck } from "@tabler/icons-react";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -12,31 +13,31 @@ interface TaskStatusBadgeProps {
 
 const statusConfig: Record<
   TaskStatus,
-  { bg: string; text: string; dot: string; label: string }
+  { bg: string; text: string; label: string; icon: typeof IconCircle }
 > = {
   todo: {
     bg: "bg-neutral-100 dark:bg-neutral-700",
     text: "text-neutral-600 dark:text-neutral-300",
-    dot: "bg-neutral-500",
     label: "To Do",
+    icon: IconCircle,
   },
   in_progress: {
     bg: "bg-yellow-100 dark:bg-yellow-900/30",
     text: "text-yellow-700 dark:text-yellow-400",
-    dot: "bg-yellow-500 animate-pulse",
     label: "In Progress",
+    icon: IconClock,
   },
   code_review: {
     bg: "bg-purple-100 dark:bg-purple-900/30",
     text: "text-purple-700 dark:text-purple-400",
-    dot: "bg-purple-500",
     label: "Code Review",
+    icon: IconEye,
   },
   done: {
     bg: "bg-green-100 dark:bg-green-900/30",
     text: "text-green-700 dark:text-green-400",
-    dot: "bg-green-500",
     label: "Done",
+    icon: IconCircleCheck,
   },
 };
 
@@ -46,6 +47,7 @@ export function TaskStatusBadge({
   className,
 }: TaskStatusBadgeProps) {
   const config = statusConfig[status];
+  const Icon = config.icon;
 
   return (
     <span
@@ -57,7 +59,7 @@ export function TaskStatusBadge({
         className
       )}
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
+      <Icon size={size === "sm" ? 12 : 14} />
       {config.label}
     </span>
   );

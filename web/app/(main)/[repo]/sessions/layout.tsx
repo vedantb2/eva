@@ -7,6 +7,7 @@ import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
+import { Chip } from "@heroui/chip";
 import {
   Modal,
   ModalContent,
@@ -19,6 +20,7 @@ import {
   IconArchive,
   IconSearch,
   IconPlus,
+  IconCircleDot,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -176,15 +178,26 @@ export default function SessionsLayout({
                   >
                     <Link href={baseUrl + "/" + session._id} className="block">
                       <div className="flex items-center justify-between gap-2">
-                        <h3
-                          className={`text-sm font-medium truncate flex-1 ${
-                            isSelected
-                              ? "text-pink-600 dark:text-pink-400"
-                              : "text-neutral-900 dark:text-white"
-                          }`}
-                        >
-                          {session.title}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <h3
+                            className={`text-sm font-medium truncate flex-1 ${
+                              isSelected
+                                ? "text-pink-600 dark:text-pink-400"
+                                : "text-neutral-900 dark:text-white"
+                            }`}
+                          >
+                            {session.title}
+                          </h3>
+                          <Chip
+                            startContent={<IconCircleDot className="w-2 h-2" />}
+                            size="sm"
+                            color={session.status === "active" ? "success" : "default"}
+                            variant="flat"
+                            className="flex-shrink-0"
+                          >
+                            {session.status === "active" ? "Active" : "Inactive"}
+                          </Chip>
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-neutral-500 flex-shrink-0">
                             {getLastActivity(session)}

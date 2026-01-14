@@ -4,3 +4,4 @@ export { indexCodebase } from "./functions/index-codebase";
 export { executeSessionTask } from "./functions/execute-session-task";
 export { cleanupSession } from "./functions/cleanup-session";
 export { createSessionPr } from "./functions/create-session-pr";
+export { startSandbox } from "./functions/start-sandbox";

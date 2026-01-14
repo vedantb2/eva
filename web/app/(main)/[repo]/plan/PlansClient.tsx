@@ -28,7 +28,7 @@ import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { Tooltip } from "@heroui/tooltip";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
 import {
   Modal,
@@ -37,6 +37,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { useQueryState, useQueryStates } from "nuqs";
 
 type PlanState = "draft" | "finalized" | "feature_created";
 type SortField = "created" | "title";
@@ -54,14 +55,24 @@ export function PlansClient() {
   const { repo, fullName } = useRepo();
   const plans = useQuery(api.plans.list, { repoId: repo._id });
   const deletePlan = useMutation(api.plans.deleteCascade);
+
+  // Query state management with nuqs
+  const [sortField, setSortField] = useQueryState<SortField>("sortField", { defaultValue: "created" });
+  const [sortDirection, setSortDirection] = useQueryState<SortDirection>("sortDirection", { defaultValue: "desc" });
+  const [searchQuery, setSearchQuery] = useQueryState("search", { defaultValue: "" });
+  const [statesStr, setStatesStr] = useQueryState("states", { defaultValue: "" });
+
+  // Local UI state
   const [isCreating, setIsCreating] = useState(false);
   const [interviewPlanId, setInterviewPlanId] = useState<Id<"plans"> | null>(null);
-  const [visibleStates, setVisibleStates] = useState<Set<PlanState>>(new Set(ALL_STATES));
-  const [sortField, setSortField] = useState<SortField>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [planToDelete, setPlanToDelete] = useState<{ id: Id<"plans">; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // Parse visible states from query string
+  const visibleStates = useMemo(() => {
+    if (!statesStr) return new Set(ALL_STATES);
+    return new Set(statesStr.split(",").filter(s => ALL_STATES.includes(s as PlanState)) as PlanState[]);
+  }, [statesStr]);
 
   const plansByState = useMemo(() => {
     if (!plans) return {} as Record<PlanState, typeof plans>;
@@ -104,7 +115,7 @@ export function PlansClient() {
   const handleStateToggle = (keys: Set<string>) => {
     const newStates = new Set(Array.from(keys) as PlanState[]);
     if (newStates.size === 0) return;
-    setVisibleStates(newStates);
+    setStatesStr(Array.from(newStates).join(","));
   };
 
   return (

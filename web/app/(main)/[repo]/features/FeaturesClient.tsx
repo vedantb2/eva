@@ -34,6 +34,7 @@ import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { useQueryState } from "nuqs";
 
 type FeatureStatus = "planning" | "active" | "completed";
 type SortField = "created" | "title";
@@ -51,15 +52,25 @@ export function FeaturesClient() {
   const { repo, fullName } = useRepo();
   const features = useQuery(api.features.list, { repoId: repo._id });
   const deleteFeature = useMutation(api.features.deleteCascade);
+
+  // Query state management with nuqs
+  const [sortField, setSortField] = useQueryState<SortField>("sortField", { defaultValue: "created" });
+  const [sortDirection, setSortDirection] = useQueryState<SortDirection>("sortDirection", { defaultValue: "desc" });
+  const [searchQuery, setSearchQuery] = useQueryState("search", { defaultValue: "" });
+  const [statusesStr, setStatusesStr] = useQueryState("statuses", { defaultValue: "" });
+
+  // Local UI state
   const [featureToDelete, setFeatureToDelete] = useState<{
     id: Id<"features">;
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<FeatureStatus>>(new Set(ALL_STATUSES));
-  const [sortField, setSortField] = useState<SortField>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // Parse visible statuses from query string
+  const visibleStatuses = useMemo(() => {
+    if (!statusesStr) return new Set(ALL_STATUSES);
+    return new Set(statusesStr.split(",").filter(s => ALL_STATUSES.includes(s as FeatureStatus)) as FeatureStatus[]);
+  }, [statusesStr]);
 
   const featuresByStatus = useMemo(() => {
     if (!features) return {} as Record<FeatureStatus, typeof features>;
@@ -102,7 +113,7 @@ export function FeaturesClient() {
   const handleStatusToggle = (keys: Set<string>) => {
     const newStatuses = new Set(Array.from(keys) as FeatureStatus[]);
     if (newStatuses.size === 0) return;
-    setVisibleStatuses(newStatuses);
+    setStatusesStr(Array.from(newStatuses).join(","));
   };
 
   return (

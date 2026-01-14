@@ -102,7 +102,11 @@ const schema = defineSchema({
     logs: v.array(
       v.object({
         timestamp: v.number(),
-        level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+        level: v.union(
+          v.literal("info"),
+          v.literal("warn"),
+          v.literal("error")
+        ),
         message: v.string(),
       })
     ),
@@ -189,6 +193,24 @@ const schema = defineSchema({
   })
     .index("by_task", ["taskId"])
     .index("by_dependency", ["dependsOnId"]),
+  sessions: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    branchName: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
+    status: v.union(v.literal("active"), v.literal("closed")),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"])
+    .index("by_repo_and_status", ["repoId", "status"]),
 });
 
 export default schema;

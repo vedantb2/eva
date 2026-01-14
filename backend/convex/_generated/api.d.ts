@@ -18,6 +18,7 @@ import type * as features from "../features.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as plans from "../plans.js";
 import type * as projects from "../projects.js";
+import type * as sessions from "../sessions.js";
 import type * as specs from "../specs.js";
 import type * as subtasks from "../subtasks.js";
 import type * as taskComments from "../taskComments.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   githubRepos: typeof githubRepos;
   plans: typeof plans;
   projects: typeof projects;
+  sessions: typeof sessions;
   specs: typeof specs;
   subtasks: typeof subtasks;
   taskComments: typeof taskComments;

@@ -2,7 +2,8 @@
 
 import { Avatar } from "@heroui/avatar";
 import { Card, CardBody } from "@heroui/card";
-import { IconRobot, IconUser } from "@tabler/icons-react";
+import { IconUser } from "@tabler/icons-react";
+import Image from "next/image";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -15,7 +16,7 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
   return (
     <div className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <Avatar
-        icon={isUser ? <IconUser size={20} /> : <IconRobot size={20} />}
+        icon={isUser ? <IconUser size={20} /> : <Image src="/icon.png" alt="Assistant" width={20} height={20} />}
         classNames={{
           base: isUser ? "bg-primary" : "bg-default-200",
           icon: isUser ? "text-primary-foreground" : "text-default-600",

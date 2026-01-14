@@ -132,7 +132,7 @@ export const executeTask = inngest.createFunction(
         message: "AI agent executing task...",
       });
 
-      const prompt = `IMPORTANT: You are in IMPLEMENTATION MODE, not planning mode. Do NOT create plan files or markdown documentation. DIRECTLY edit the actual source code files.
+      const prompt = `IMPORTANT: You are in IMPLEMENTATION MODE, not planning mode. Do NOT create plan files or markdown documentation. DIRECTLY edit the actual source code files. Spend some time thinking about the changes you need to make before you start so you don't make mistakes.
 
 ## Task: ${task.title}
 

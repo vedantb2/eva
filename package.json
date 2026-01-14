@@ -12,6 +12,7 @@
     "turbo": "npm run turbo --prefix ./web",
     "convex": "npm run dev --prefix ./backend",
     "convex:deploy": "npm run deploy --prefix ./backend",
-    "api:web": "npm run api --prefix ./web"
+    "api:web": "npm run api --prefix ./web",
+    "inngest": "npm run inngest --prefix ./web"
   }
 }

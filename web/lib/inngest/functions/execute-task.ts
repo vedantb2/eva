@@ -69,7 +69,7 @@ export const executeTask = inngest.createFunction(
     const sandboxData = await step.run("create-sandbox-and-clone", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      const sbx = await Sandbox.create("base", {
+      const sbx = await Sandbox.create("anthropic-claude-code", {
         apiKey: serverEnv.E2B_API_KEY,
         envs: {
           ANTHROPIC_API_KEY: serverEnv.ANTHROPIC_API_KEY,
@@ -92,15 +92,20 @@ export const executeTask = inngest.createFunction(
       } catch (err) {
         const error = err as { stderr?: string; message?: string };
         throw new Error(
-          `Git clone failed: ${error.stderr || error.message || "Unknown error"}`
+          `Git clone failed: ${
+            error.stderr || error.message || "Unknown error"
+          }`
         );
       }
 
       const branchName =
         task.branchName || `conductor/task-${task.taskNumber || Date.now()}`;
-      await sbx.commands.run(`cd ~/workspace && git checkout -b ${branchName}`, {
-        timeoutMs: 30000,
-      });
+      await sbx.commands.run(
+        `cd ~/workspace && git checkout -b ${branchName}`,
+        {
+          timeoutMs: 30000,
+        }
+      );
 
       await sbx.commands.run(
         'git config --global user.name "Conductor Agent" && git config --global user.email "agent@conductor.dev"',
@@ -124,16 +129,6 @@ export const executeTask = inngest.createFunction(
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
         level: "info",
-        message: "Installing Claude Agent SDK...",
-      });
-
-      await sbx.commands.run("mkdir -p ~/agent-runner && cd ~/agent-runner && npm init -y && npm install @anthropic-ai/claude-agent-sdk", {
-        timeoutMs: 180000,
-      });
-
-      await convex.mutation(api.agentRuns.appendLogNoAuth, {
-        id: runId as Id<"agentRuns">,
-        level: "info",
         message: "AI agent executing task...",
       });
 
@@ -152,9 +147,21 @@ export const executeTask = inngest.createFunction(
 3. Run: git add -A && git commit -m "feat: ${task.title}"
 4. Run: git push -u origin ${sandboxData.branchName}
 5. Run this curl command to create a PR:
-   curl -X POST "https://api.github.com/repos/${repo.owner}/${repo.name}/pulls" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -d '{"title":"${task.title.replace(/'/g, "\\'")}","body":"## Task\\n${(task.description || "No description").replace(/\n/g, "\\n").replace(/'/g, "\\'")}\\n\\n---\\n*Implemented by Conductor AI Agent*","head":"${sandboxData.branchName}","base":"main"}'
+   curl -X POST "https://api.github.com/repos/${repo.owner}/${
+        repo.name
+      }/pulls" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -d '{"title":"${task.title.replace(
+        /'/g,
+        "\\'"
+      )}","body":"## Task\\n${(task.description || "No description")
+        .replace(/\n/g, "\\n")
+        .replace(
+          /'/g,
+          "\\'"
+        )}\\n\\n---\\n*Implemented by Conductor AI Agent*","head":"${
+        sandboxData.branchName
+      }","base":"main"}'
 6. Extract the "html_url" from the curl response - that is the PR URL
-7. Output: {"success": true, "prUrl": "<PR_URL>"}
+7. Output ONLY this JSON at the very end: {"success": true, "prUrl": "<PR_URL>"}
 
 ## CRITICAL RULES:
 - Do NOT create any .md files or plan files
@@ -163,56 +170,22 @@ export const executeTask = inngest.createFunction(
 - Make minimal, focused changes to existing files
 - The GITHUB_TOKEN environment variable is already set for git push and curl`;
 
-      const agentScript = `
-import { query } from "@anthropic-ai/claude-agent-sdk";
-
-async function runAgent() {
-  const prompt = ${JSON.stringify(prompt)};
-
-  let resultText = "";
-  for await (const message of query({
-    prompt,
-    options: {
-      cwd: "/home/user/workspace",
-      allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-      permissionMode: "bypassPermissions",
-    },
-  })) {
-    if ("result" in message) {
-      resultText = message.result;
-    }
-  }
-
-  const prUrlMatch = resultText.match(/"html_url":\\s*"(https:\\/\\/github\\.com\\/[^"]+\\/pull\\/\\d+)"/);
-  if (prUrlMatch) {
-    console.log(JSON.stringify({ success: true, prUrl: prUrlMatch[1] }));
-    process.exit(0);
-  }
-
-  const jsonMatch = resultText.match(/\\{"success":\\s*(true|false)[^}]*\\}/);
-  if (jsonMatch) {
-    console.log(jsonMatch[0]);
-  } else {
-    console.log(JSON.stringify({ success: false, error: "No PR URL found in agent output" }));
-  }
-}
-
-runAgent().catch(err => {
-  console.log(JSON.stringify({ success: false, error: err.message }));
-  process.exit(1);
-});
-`;
-
-      await sbx.files.write("/home/user/agent-runner/runner.mjs", agentScript);
+      const escapedPrompt = prompt.replace(/'/g, "'\\''");
 
       let result;
       try {
-        result = await sbx.commands.run("cd ~/agent-runner && node runner.mjs", {
-          timeoutMs: 0,
-        });
+        result = await sbx.commands.run(
+          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model claude-haiku-4-5-20251001 --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
+          { timeoutMs: 0 }
+        );
       } catch (err) {
-        const error = err as { stderr?: string; stdout?: string; message?: string };
-        const errorDetails = error.stderr || error.stdout || error.message || "Unknown error";
+        const error = err as {
+          stderr?: string;
+          stdout?: string;
+          message?: string;
+        };
+        const errorDetails =
+          error.stderr || error.stdout || error.message || "Unknown error";
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",
@@ -225,11 +198,25 @@ runAgent().catch(err => {
 
       let agentOutput: AgentOutput = { success: false, error: "Unknown error" };
       try {
-        const lines = output.trim().split("\n");
-        const lastLine = lines[lines.length - 1];
-        agentOutput = JSON.parse(lastLine);
+        const jsonResponse = JSON.parse(output);
+        const resultText = jsonResponse.result || "";
+        const prUrlMatch = resultText.match(
+          /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
+        );
+        if (prUrlMatch) {
+          agentOutput = { success: true, prUrl: prUrlMatch[1] };
+        } else {
+          const jsonMatch = resultText.match(
+            /\{"success":\s*(true|false)[^}]*"prUrl":\s*"([^"]+)"[^}]*\}/
+          );
+          if (jsonMatch && jsonMatch[2]) {
+            agentOutput = { success: true, prUrl: jsonMatch[2] };
+          }
+        }
       } catch {
-        const prUrlMatch = output.match(/"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/);
+        const prUrlMatch = output.match(
+          /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
+        );
         if (prUrlMatch) {
           agentOutput = { success: true, prUrl: prUrlMatch[1] };
         }
@@ -241,7 +228,9 @@ runAgent().catch(err => {
           level: "error",
           message: `Agent output: ${output.slice(-1000)}`,
         });
-        throw new Error(`Agent failed: ${agentOutput.error || "No PR URL found in output"}`);
+        throw new Error(
+          `Agent failed: ${agentOutput.error || "No PR URL found in output"}`
+        );
       }
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {

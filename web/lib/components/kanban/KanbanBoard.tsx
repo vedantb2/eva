@@ -28,6 +28,11 @@ import {
   DropdownItem,
 } from "@heroui/dropdown";
 import { IconFilter, IconSearch } from "@tabler/icons-react";
+import { useQueryStates } from "nuqs";
+import {
+  kanbanSearchQueryParser,
+  kanbanVisibleStatusesParser,
+} from "@/lib/searchParams";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -94,10 +99,25 @@ export function KanbanBoard<T extends BaseTask>({
   heightClass = "h-[calc(100vh-250px)] sm:h-[calc(100vh-170px)]",
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<TaskStatus>>(
-    new Set(KANBAN_STATUSES)
+
+  // URL-based query state using nuqs
+  const [queryState, setQueryState] = useQueryStates({
+    searchQuery: kanbanSearchQueryParser,
+    visibleStatuses: kanbanVisibleStatusesParser,
+  }, { shallow: false });
+
+  // Parse visible statuses from comma-separated string
+  const visibleStatuses = new Set<TaskStatus>(
+    queryState.visibleStatuses.split(",").filter(Boolean) as TaskStatus[]
   );
+
+  const setSearchQuery = (value: string) => setQueryState({ searchQuery: value });
+
+  const handleStatusToggle = (keys: Set<string>) => {
+    const newStatuses = new Set(Array.from(keys) as TaskStatus[]);
+    if (newStatuses.size === 0) return;
+    setQueryState({ visibleStatuses: Array.from(newStatuses).join(",") });
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -108,14 +128,14 @@ export function KanbanBoard<T extends BaseTask>({
   );
 
   const filteredItems = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
+    const query = queryState.searchQuery.toLowerCase().trim();
     if (!query) return items;
     return items.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query)
     );
-  }, [items, searchQuery]);
+  }, [items, queryState.searchQuery]);
 
   const itemsByStatus = useMemo(() => {
     return KANBAN_STATUSES.reduce((acc, status) => {
@@ -123,12 +143,6 @@ export function KanbanBoard<T extends BaseTask>({
       return acc;
     }, {} as Record<TaskStatus, T[]>);
   }, [filteredItems]);
-
-  const handleStatusToggle = (keys: Set<string>) => {
-    const newStatuses = new Set(Array.from(keys) as TaskStatus[]);
-    if (newStatuses.size === 0) return;
-    setVisibleStatuses(newStatuses);
-  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = items.find((i) => i._id === event.active.id);
@@ -204,7 +218,7 @@ export function KanbanBoard<T extends BaseTask>({
           size="sm"
           className="w-48"
           startContent={<IconSearch size={16} className="text-default-400" />}
-          value={searchQuery}
+          value={queryState.searchQuery}
           onValueChange={setSearchQuery}
           isClearable
           onClear={() => setSearchQuery("")}

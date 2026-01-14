@@ -37,6 +37,13 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { useQueryStates } from "nuqs";
+import {
+  plansSortFieldParser,
+  plansSortDirectionParser,
+  plansVisibleStatesParser,
+  plansSearchQueryParser,
+} from "@/lib/searchParams";
 
 type PlanState = "draft" | "finalized" | "feature_created";
 type SortField = "created" | "title";
@@ -56,16 +63,38 @@ export function PlansClient() {
   const deletePlan = useMutation(api.plans.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
   const [interviewPlanId, setInterviewPlanId] = useState<Id<"plans"> | null>(null);
-  const [visibleStates, setVisibleStates] = useState<Set<PlanState>>(new Set(ALL_STATES));
-  const [sortField, setSortField] = useState<SortField>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [planToDelete, setPlanToDelete] = useState<{ id: Id<"plans">; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // URL-based query state using nuqs
+  const [sortField, setSortField] = useQueryStates({
+    sortField: plansSortFieldParser,
+    sortDirection: plansSortDirectionParser,
+    visibleStates: plansVisibleStatesParser,
+    searchQuery: plansSearchQueryParser,
+  }, { shallow: false });
+
+  // Parse visible states from comma-separated string
+  const visibleStates = new Set<PlanState>(
+    sortField.visibleStates.split(",").filter(Boolean) as PlanState[]
+  );
+
+  const setSortDirection = (value: SortDirection | ((prev: SortDirection) => SortDirection)) => {
+    const newValue = typeof value === "function" ? value(sortField.sortDirection as SortDirection) : value;
+    setSortField({ sortDirection: newValue });
+  };
+
+  const setSearchQuery = (value: string) => setSortField({ searchQuery: value });
+
+  const handleSetSortField = (value: SortField) => setSortField({ sortField: value });
+
+  const handleSetVisibleStates = (states: Set<PlanState>) => {
+    setSortField({ visibleStates: Array.from(states).join(",") });
+  };
 
   const plansByState = useMemo(() => {
     if (!plans) return {} as Record<PlanState, typeof plans>;
-    const query = searchQuery.toLowerCase().trim();
+    const query = sortField.searchQuery.toLowerCase().trim();
     const grouped = ALL_STATES.reduce((acc, state) => {
       acc[state] = plans
         .filter((p) => p.state === state)
@@ -75,7 +104,7 @@ export function PlansClient() {
         })
         .sort((a, b) => {
           let comparison = 0;
-          switch (sortField) {
+          switch (sortField.sortField) {
             case "created":
               comparison = a._creationTime - b._creationTime;
               break;
@@ -83,12 +112,12 @@ export function PlansClient() {
               comparison = a.title.localeCompare(b.title);
               break;
           }
-          return sortDirection === "asc" ? comparison : -comparison;
+          return sortField.sortDirection === "asc" ? comparison : -comparison;
         });
       return acc;
     }, {} as Record<PlanState, typeof plans>);
     return grouped;
-  }, [plans, sortField, sortDirection, searchQuery]);
+  }, [plans, sortField]);
 
   const handleDelete = async () => {
     if (!planToDelete) return;
@@ -104,7 +133,7 @@ export function PlansClient() {
   const handleStateToggle = (keys: Set<string>) => {
     const newStates = new Set(Array.from(keys) as PlanState[]);
     if (newStates.size === 0) return;
-    setVisibleStates(newStates);
+    handleSetVisibleStates(newStates);
   };
 
   return (
@@ -160,16 +189,16 @@ export function PlansClient() {
                     <Button
                       variant="flat"
                       size="sm"
-                      startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                      startContent={sortField.sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                     >
-                      {sortField === "created" ? "Date" : "Title"}
+                      {sortField.sortField === "created" ? "Date" : "Title"}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
                     aria-label="Sort by"
                     selectionMode="single"
-                    selectedKeys={new Set([sortField])}
-                    onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                    selectedKeys={new Set([sortField.sortField])}
+                    onSelectionChange={(keys) => handleSetSortField(Array.from(keys)[0] as SortField)}
                   >
                     <DropdownItem key="created">Date Created</DropdownItem>
                     <DropdownItem key="title">Title</DropdownItem>
@@ -181,7 +210,7 @@ export function PlansClient() {
                   isIconOnly
                   onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
                 >
-                  {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                  {sortField.sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                 </Button>
               </div>
               <Input
@@ -189,7 +218,7 @@ export function PlansClient() {
                 size="sm"
                 className="w-48"
                 startContent={<IconSearch size={16} className="text-default-400" />}
-                value={searchQuery}
+                value={sortField.searchQuery}
                 onValueChange={setSearchQuery}
                 isClearable
                 onClear={() => setSearchQuery("")}

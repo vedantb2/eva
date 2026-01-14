@@ -34,6 +34,13 @@ import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { useQueryStates } from "nuqs";
+import {
+  featuresSortFieldParser,
+  featuresSortDirectionParser,
+  featuresVisibleStatusesParser,
+  featuresSearchQueryParser,
+} from "@/lib/searchParams";
 
 type FeatureStatus = "planning" | "active" | "completed";
 type SortField = "created" | "title";
@@ -56,14 +63,36 @@ export function FeaturesClient() {
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<FeatureStatus>>(new Set(ALL_STATUSES));
-  const [sortField, setSortField] = useState<SortField>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // URL-based query state using nuqs
+  const [sortField, setSortField] = useQueryStates({
+    sortField: featuresSortFieldParser,
+    sortDirection: featuresSortDirectionParser,
+    visibleStatuses: featuresVisibleStatusesParser,
+    searchQuery: featuresSearchQueryParser,
+  }, { shallow: false });
+
+  // Parse visible statuses from comma-separated string
+  const visibleStatuses = new Set<FeatureStatus>(
+    sortField.visibleStatuses.split(",").filter(Boolean) as FeatureStatus[]
+  );
+
+  const setSortDirection = (value: SortDirection | ((prev: SortDirection) => SortDirection)) => {
+    const newValue = typeof value === "function" ? value(sortField.sortDirection as SortDirection) : value;
+    setSortField({ sortDirection: newValue });
+  };
+
+  const setSearchQuery = (value: string) => setSortField({ searchQuery: value });
+
+  const handleSetSortField = (value: SortField) => setSortField({ sortField: value });
+
+  const handleSetVisibleStatuses = (statuses: Set<FeatureStatus>) => {
+    setSortField({ visibleStatuses: Array.from(statuses).join(",") });
+  };
 
   const featuresByStatus = useMemo(() => {
     if (!features) return {} as Record<FeatureStatus, typeof features>;
-    const query = searchQuery.toLowerCase().trim();
+    const query = sortField.searchQuery.toLowerCase().trim();
     const grouped = ALL_STATUSES.reduce((acc, status) => {
       acc[status] = features
         .filter((f) => f.status === status)
@@ -73,7 +102,7 @@ export function FeaturesClient() {
         })
         .sort((a, b) => {
           let comparison = 0;
-          switch (sortField) {
+          switch (sortField.sortField) {
             case "created":
               comparison = a._creationTime - b._creationTime;
               break;
@@ -81,12 +110,12 @@ export function FeaturesClient() {
               comparison = a.title.localeCompare(b.title);
               break;
           }
-          return sortDirection === "asc" ? comparison : -comparison;
+          return sortField.sortDirection === "asc" ? comparison : -comparison;
         });
       return acc;
     }, {} as Record<FeatureStatus, typeof features>);
     return grouped;
-  }, [features, sortField, sortDirection, searchQuery]);
+  }, [features, sortField]);
 
   const handleDelete = async () => {
     if (!featureToDelete) return;
@@ -102,7 +131,7 @@ export function FeaturesClient() {
   const handleStatusToggle = (keys: Set<string>) => {
     const newStatuses = new Set(Array.from(keys) as FeatureStatus[]);
     if (newStatuses.size === 0) return;
-    setVisibleStatuses(newStatuses);
+    handleSetVisibleStatuses(newStatuses);
   };
 
   return (
@@ -148,16 +177,16 @@ export function FeaturesClient() {
                     <Button
                       variant="flat"
                       size="sm"
-                      startContent={sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                      startContent={sortField.sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                     >
-                      {sortField === "created" ? "Date" : "Title"}
+                      {sortField.sortField === "created" ? "Date" : "Title"}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
                     aria-label="Sort by"
                     selectionMode="single"
-                    selectedKeys={new Set([sortField])}
-                    onSelectionChange={(keys) => setSortField(Array.from(keys)[0] as SortField)}
+                    selectedKeys={new Set([sortField.sortField])}
+                    onSelectionChange={(keys) => handleSetSortField(Array.from(keys)[0] as SortField)}
                   >
                     <DropdownItem key="created">Date Created</DropdownItem>
                     <DropdownItem key="title">Title</DropdownItem>
@@ -169,7 +198,7 @@ export function FeaturesClient() {
                   isIconOnly
                   onPress={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
                 >
-                  {sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
+                  {sortField.sortDirection === "asc" ? <IconSortAscending size={16} /> : <IconSortDescending size={16} />}
                 </Button>
               </div>
               <Input
@@ -177,7 +206,7 @@ export function FeaturesClient() {
                 size="sm"
                 className="w-48"
                 startContent={<IconSearch size={16} className="text-default-400" />}
-                value={searchQuery}
+                value={sortField.searchQuery}
                 onValueChange={setSearchQuery}
                 isClearable
                 onClear={() => setSearchQuery("")}

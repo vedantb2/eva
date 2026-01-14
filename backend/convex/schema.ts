@@ -202,6 +202,7 @@ const schema = defineSchema({
     sandboxId: v.optional(v.string()),
     lastActivityAt: v.optional(v.number()),
     status: v.union(v.literal("active"), v.literal("closed")),
+    archived: v.optional(v.boolean()),
     messages: v.array(
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),

@@ -107,6 +107,11 @@ export const startSandbox = inngest.createFunction(
         branchName,
       });
 
+      await convex.mutation(api.sessions.updateStatusNoAuth, {
+        id: sessionId as Id<"sessions">,
+        status: "active",
+      });
+
       return { sandboxId: sbx.sandboxId, branchName, isNew: true };
     });
 
@@ -115,8 +120,8 @@ export const startSandbox = inngest.createFunction(
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: sandboxData.isNew
-          ? `✅ Sandbox started successfully! Ready to execute tasks on branch \`${sandboxData.branchName}\`.`
-          : `✅ Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`,
+          ? `Sandbox started successfully! Ready to execute tasks on branch \`${sandboxData.branchName}\`.`
+          : `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`,
       });
     });
 

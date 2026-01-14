@@ -231,7 +231,23 @@ export const clearSandboxNoAuth = mutation({
     if (!session) {
       throw new Error("Session not found");
     }
-    await ctx.db.patch(args.id, { sandboxId: undefined });
+    await ctx.db.patch(args.id, { sandboxId: undefined, status: "closed" });
+    return null;
+  },
+});
+
+export const updateStatusNoAuth = mutation({
+  args: {
+    id: v.id("sessions"),
+    status: v.union(v.literal("active"), v.literal("closed")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    await ctx.db.patch(args.id, { status: args.status });
     return null;
   },
 });

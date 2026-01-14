@@ -44,13 +44,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "start") {
-    // Update session status to active to indicate sandbox should be started
-    await convex.mutation(api.sessions.updateStatus, {
-      id: sessionId as Id<"sessions">,
-      status: "active",
-    });
-
-    // Send task to start sandbox (this will create a sandbox when next message is processed)
     await inngest.send({
       name: "session/sandbox.start",
       data: {
@@ -60,13 +53,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } else {
-    // Update session status to closed to indicate sandbox should be stopped
-    await convex.mutation(api.sessions.updateStatus, {
+    await convex.mutation(api.sessions.updateStatusNoAuth, {
       id: sessionId as Id<"sessions">,
       status: "closed",
     });
 
-    // If there's an active sandbox, clean it up
     if (session.sandboxId) {
       await inngest.send({
         name: "session/cleanup.requested",

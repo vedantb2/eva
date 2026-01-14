@@ -39,6 +39,11 @@ export const cleanupSession = inngest.createFunction(
           await convex.mutation(api.sessions.clearSandboxNoAuth, {
             id: sessionId as Id<"sessions">,
           });
+          await convex.mutation(api.sessions.addMessageNoAuth, {
+            id: sessionId as Id<"sessions">,
+            role: "assistant",
+            content: "Sandbox stopped. Start the sandbox to continue working.",
+          });
         } catch {
           // Session may already be deleted
         }

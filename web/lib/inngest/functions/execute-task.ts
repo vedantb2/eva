@@ -142,11 +142,12 @@ export const executeTask = inngest.createFunction(
 ## Branch: ${sandboxData.branchName}
 
 ## Required Steps (execute ALL of these):
-1. Use Glob and Read tools to explore the codebase and find relevant files
+1. Read the CLAUDE.md file to understand the codebase - use Glob and Read tools to explore the codebase and find relevant files if CLAUDE.md is not available
 2. Use Edit or Write tools to DIRECTLY modify the actual source code files (NOT create .md files)
-3. Run: git add -A && git commit -m "feat: ${task.title}"
-4. Run: git push -u origin ${sandboxData.branchName}
-5. Run this curl command to create a PR:
+3. Update the CLAUDE.md file to reflect any major changes you made to the codebase
+4. Run: git add -A && git commit -m "feat: ${task.title}"
+5. Run: git push -u origin ${sandboxData.branchName}
+6. Run this curl command to create a PR:
    curl -X POST "https://api.github.com/repos/${repo.owner}/${
         repo.name
       }/pulls" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -d '{"title":"${task.title.replace(
@@ -160,13 +161,15 @@ export const executeTask = inngest.createFunction(
         )}\\n\\n---\\n*Implemented by Conductor AI Agent*","head":"${
         sandboxData.branchName
       }","base":"main"}'
-6. Extract the "html_url" from the curl response - that is the PR URL
-7. Output ONLY this JSON at the very end: {"success": true, "prUrl": "<PR_URL>"}
+7. Extract the "html_url" from the curl response - that is the PR URL
+8. Output ONLY this JSON at the very end: {"success": true, "prUrl": "<PR_URL>"}
 
 ## CRITICAL RULES:
 - Do NOT create any .md files or plan files
+- Do NOT run any build, lint, test, or dev commands
 - Do NOT ask questions - make reasonable assumptions and implement
 - DIRECTLY edit source code files (.ts, .js, .py, .tsx, .jsx, etc.)
+- Do NOT default to npm. Use the repository’s lockfile (pnpm-lock.yaml, yarn.lock, package-lock.json, or bun.lockb) to determine the correct package manager
 - Make minimal, focused changes to existing files
 - The GITHUB_TOKEN environment variable is already set for git push and curl`;
 

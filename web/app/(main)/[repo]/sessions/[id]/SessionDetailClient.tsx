@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
@@ -23,7 +23,6 @@ interface SessionDetailClientProps {
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
-  const addMessage = useMutation(api.sessions.addMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -38,11 +37,14 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     setInput("");
     setIsSending(true);
     try {
-      await addMessage({
-        id: typedSessionId,
-        role: "user",
-        content,
+      const response = await fetch("/api/sessions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, message: content }),
       });
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
     } finally {
       setIsSending(false);
     }

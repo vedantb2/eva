@@ -62,6 +62,17 @@ export default function SessionsLayout({
     if (!sessionToDelete) return;
     setIsDeleting(true);
     try {
+      const sessionData = sessions?.find((s) => s._id === sessionToDelete.id);
+      if (sessionData?.sandboxId) {
+        await fetch("/api/sessions/cleanup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sandboxId: sessionData.sandboxId,
+            sessionId: sessionToDelete.id,
+          }),
+        });
+      }
       await deleteSession({ id: sessionToDelete.id });
       setSessionToDelete(null);
       if (currentSessionId === sessionToDelete.id) {

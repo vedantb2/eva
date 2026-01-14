@@ -199,6 +199,8 @@ const schema = defineSchema({
     title: v.string(),
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
+    lastActivityAt: v.optional(v.number()),
     status: v.union(v.literal("active"), v.literal("closed")),
     messages: v.array(
       v.object({

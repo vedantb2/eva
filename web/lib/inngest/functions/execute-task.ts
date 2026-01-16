@@ -72,8 +72,8 @@ export const executeTask = inngest.createFunction(
       const sbx = await Sandbox.create("anthropic-claude-code", {
         apiKey: serverEnv.E2B_API_KEY,
         envs: {
-          ANTHROPIC_API_KEY: serverEnv.ANTHROPIC_API_KEY,
           GITHUB_TOKEN: freshToken,
+          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
         },
         timeoutMs: 60 * 60 * 1000,
       });
@@ -178,7 +178,7 @@ export const executeTask = inngest.createFunction(
       let result;
       try {
         result = await sbx.commands.run(
-          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model claude-haiku-4-5-20251001 --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
+          `cd ~/workspace && npx -y npm@11.7.0 install && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
           { timeoutMs: 0 }
         );
       } catch (err) {
@@ -187,38 +187,58 @@ export const executeTask = inngest.createFunction(
           stdout?: string;
           message?: string;
         };
-        const errorDetails =
-          error.stderr || error.stdout || error.message || "Unknown error";
+        const stderr = (error.stderr || "")
+          .replace(/npm notice[\s\S]*?npm notice\n?/g, "")
+          .trim();
+        const stdout = (error.stdout || "").trim();
+        const combined = [
+          stdout && `stdout: ${stdout.slice(-500)}`,
+          stderr && `stderr: ${stderr.slice(-500)}`,
+        ]
+          .filter(Boolean)
+          .join(" | ");
+        const errorDetails = combined || error.message || "Unknown error";
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",
-          message: `Claude agent error: ${errorDetails.slice(0, 500)}`,
+          message: `Claude agent error: ${errorDetails.slice(0, 1000)}`,
         });
         throw new Error(`Claude agent failed: ${errorDetails}`);
       }
 
       const output = result.stdout || "";
 
-      let agentOutput: AgentOutput = { success: false, error: "Unknown error" };
+      let agentOutput: AgentOutput = {
+        success: false,
+        error: "No PR URL found",
+      };
+
+      const jsonStartIndex = output.indexOf('{"type":"result"');
+      const jsonStr =
+        jsonStartIndex >= 0 ? output.slice(jsonStartIndex) : output;
+
       try {
-        const jsonResponse = JSON.parse(output);
+        const jsonResponse = JSON.parse(jsonStr);
         const resultText = jsonResponse.result || "";
+        if (jsonResponse.is_error) {
+          agentOutput.error = resultText || "Claude returned an error";
+        }
         const prUrlMatch = resultText.match(
-          /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
+          /"?prUrl"?\s*:\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
         );
         if (prUrlMatch) {
           agentOutput = { success: true, prUrl: prUrlMatch[1] };
         } else {
-          const jsonMatch = resultText.match(
-            /\{"success":\s*(true|false)[^}]*"prUrl":\s*"([^"]+)"[^}]*\}/
+          const htmlUrlMatch = resultText.match(
+            /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
           );
-          if (jsonMatch && jsonMatch[2]) {
-            agentOutput = { success: true, prUrl: jsonMatch[2] };
+          if (htmlUrlMatch) {
+            agentOutput = { success: true, prUrl: htmlUrlMatch[1] };
           }
         }
       } catch {
         const prUrlMatch = output.match(
-          /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
+          /"prUrl":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
         );
         if (prUrlMatch) {
           agentOutput = { success: true, prUrl: prUrlMatch[1] };
@@ -226,13 +246,17 @@ export const executeTask = inngest.createFunction(
       }
 
       if (!agentOutput.success || !agentOutput.prUrl) {
+        const truncatedOutput = output.slice(-1500);
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",
-          message: `Agent output: ${output.slice(-1000)}`,
+          message: `Agent output: ${truncatedOutput}`,
         });
         throw new Error(
-          `Agent failed: ${agentOutput.error || "No PR URL found in output"}`
+          `Agent failed: ${agentOutput.error} | Output: ${truncatedOutput.slice(
+            0,
+            500
+          )}`
         );
       }
 

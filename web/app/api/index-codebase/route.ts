@@ -7,7 +7,9 @@ import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
-const anthropic = new Anthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({
+  authToken: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+});
 
 export const maxDuration = 300;
 
@@ -131,7 +133,7 @@ ${readme}
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-opus-4-5",
       max_tokens: 4096,
       messages: [{ role: "user", content: contextPrompt }],
     });

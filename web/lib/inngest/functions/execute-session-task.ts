@@ -83,8 +83,8 @@ export const executeSessionTask = inngest.createFunction(
       const sbx = await Sandbox.create("anthropic-claude-code", {
         apiKey: serverEnv.E2B_API_KEY,
         envs: {
-          ANTHROPIC_API_KEY: serverEnv.ANTHROPIC_API_KEY,
           GITHUB_TOKEN: freshToken,
+          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
         },
         timeoutMs: 60 * 60 * 1000,
       });
@@ -168,14 +168,20 @@ ${messageContent}
       let output = "";
       try {
         const cmdResult = await sbx.commands.run(
-          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model claude-sonnet-4-20250514 --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
+          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
           { timeoutMs: 0 }
         );
         output = cmdResult.stdout || "";
       } catch (err) {
-        const error = err as { stderr?: string; stdout?: string; message?: string };
+        const error = err as {
+          stderr?: string;
+          stdout?: string;
+          message?: string;
+        };
         throw new Error(
-          `Claude agent failed: ${error.stderr || error.stdout || error.message || "Unknown error"}`
+          `Claude agent failed: ${
+            error.stderr || error.stdout || error.message || "Unknown error"
+          }`
         );
       }
 

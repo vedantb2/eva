@@ -6,6 +6,9 @@ const messageValidator = v.object({
   role: v.union(v.literal("user"), v.literal("assistant")),
   content: v.string(),
   timestamp: v.number(),
+  mode: v.optional(
+    v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+  ),
 });
 
 const sessionValidator = v.object({
@@ -178,6 +181,9 @@ export const addMessageNoAuth = mutation({
     id: v.id("sessions"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    mode: v.optional(
+      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -188,7 +194,12 @@ export const addMessageNoAuth = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...session.messages,
-        { role: args.role, content: args.content, timestamp: Date.now() },
+        {
+          role: args.role,
+          content: args.content,
+          timestamp: Date.now(),
+          mode: args.mode,
+        },
       ],
       lastActivityAt: Date.now(),
     });

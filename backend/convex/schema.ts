@@ -208,6 +208,9 @@ const schema = defineSchema({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
         timestamp: v.number(),
+        mode: v.optional(
+          v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+        ),
       })
     ),
   })

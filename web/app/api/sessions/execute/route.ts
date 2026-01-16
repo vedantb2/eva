@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { sessionId, message } = await request.json();
+  const { sessionId, message, mode = "execute", generatePlan = false } =
+    await request.json();
   if (!sessionId || !message) {
     return NextResponse.json(
       { error: "Missing sessionId or message" },
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
     id: sessionId as Id<"sessions">,
     role: "user",
     content: message,
+    mode,
   });
 
   const isPrCommand =
@@ -48,13 +50,34 @@ export async function POST(request: NextRequest) {
     message.toLowerCase().includes("open pr") ||
     message.toLowerCase().includes("make pr");
 
-  if (isPrCommand) {
+  if (isPrCommand && mode === "execute") {
     await inngest.send({
       name: "session/pr.create",
       data: {
         sessionId,
         repoId: session.repoId,
         installationId: repo.installationId,
+      },
+    });
+  } else if (mode === "ask") {
+    await inngest.send({
+      name: "session/ask.execute",
+      data: {
+        sessionId,
+        messageContent: message,
+        repoId: session.repoId,
+        installationId: repo.installationId,
+      },
+    });
+  } else if (mode === "plan") {
+    await inngest.send({
+      name: "session/plan.execute",
+      data: {
+        sessionId,
+        messageContent: message,
+        repoId: session.repoId,
+        installationId: repo.installationId,
+        generatePlan,
       },
     });
   } else {

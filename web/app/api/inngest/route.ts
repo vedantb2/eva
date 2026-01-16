@@ -7,6 +7,8 @@ import {
   cleanupSession,
   createSessionPr,
   startSandbox,
+  askSession,
+  planSession,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -18,5 +20,7 @@ export const { GET, POST, PUT } = serve({
     cleanupSession,
     createSessionPr,
     startSandbox,
+    askSession,
+    planSession,
   ],
 });

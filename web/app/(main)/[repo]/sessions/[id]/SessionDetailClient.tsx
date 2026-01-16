@@ -16,6 +16,10 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconCircleDot,
+  IconCode,
+  IconMessageQuestion,
+  IconClipboardList,
+  IconFileText,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -24,6 +28,8 @@ interface SessionDetailClientProps {
   sessionId: string;
 }
 
+type SessionMode = "execute" | "ask" | "plan";
+
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
@@ -31,12 +37,13 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
+  const [mode, setMode] = useState<SessionMode>("execute");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [session?.messages]);
 
-  const handleSend = async () => {
+  const handleSend = async (generatePlan = false) => {
     if (!input.trim()) return;
     const content = input.trim();
     setInput("");
@@ -45,10 +52,31 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
       const response = await fetch("/api/sessions/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message: content }),
+        body: JSON.stringify({ sessionId, message: content, mode, generatePlan }),
       });
       if (!response.ok) {
         throw new Error("Failed to send message");
+      }
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleGeneratePlan = async () => {
+    setIsSending(true);
+    try {
+      const response = await fetch("/api/sessions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          message: "Generate the implementation plan based on our conversation.",
+          mode: "plan",
+          generatePlan: true,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to generate plan");
       }
     } finally {
       setIsSending(false);
@@ -176,6 +204,29 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                     : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                 }`}
               >
+                {message.mode && message.role === "user" && (
+                  <div className="flex items-center gap-1 mb-1">
+                    <Chip size="sm" variant="flat" className="h-5 text-[10px]">
+                      {message.mode === "execute" && (
+                        <>
+                          <IconCode className="w-2.5 h-2.5 mr-0.5" /> Execute
+                        </>
+                      )}
+                      {message.mode === "ask" && (
+                        <>
+                          <IconMessageQuestion className="w-2.5 h-2.5 mr-0.5" />{" "}
+                          Ask
+                        </>
+                      )}
+                      {message.mode === "plan" && (
+                        <>
+                          <IconClipboardList className="w-2.5 h-2.5 mr-0.5" />{" "}
+                          Plan
+                        </>
+                      )}
+                    </Chip>
+                  </div>
+                )}
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>
               {message.role === "user" && (
@@ -195,6 +246,49 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-neutral-200 dark:border-neutral-800 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-neutral-500 mr-1">Mode:</span>
+          <Button
+            size="sm"
+            variant={mode === "execute" ? "solid" : "flat"}
+            color={mode === "execute" ? "primary" : "default"}
+            onPress={() => setMode("execute")}
+            startContent={<IconCode className="w-3 h-3" />}
+          >
+            Execute
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "ask" ? "solid" : "flat"}
+            color={mode === "ask" ? "primary" : "default"}
+            onPress={() => setMode("ask")}
+            startContent={<IconMessageQuestion className="w-3 h-3" />}
+          >
+            Ask
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "plan" ? "solid" : "flat"}
+            color={mode === "plan" ? "primary" : "default"}
+            onPress={() => setMode("plan")}
+            startContent={<IconClipboardList className="w-3 h-3" />}
+          >
+            Plan
+          </Button>
+          {mode === "plan" && session.messages.some((m) => m.mode === "plan") && (
+            <Button
+              size="sm"
+              variant="flat"
+              color="success"
+              onPress={handleGeneratePlan}
+              isLoading={isSending}
+              isDisabled={isInputDisabled}
+              startContent={<IconFileText className="w-3 h-3" />}
+            >
+              Generate Plan
+            </Button>
+          )}
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -206,9 +300,13 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
-                isSandboxActive
-                  ? "Type your message or command..."
-                  : "Start the sandbox to begin chatting..."
+                !isSandboxActive
+                  ? "Start the sandbox to begin chatting..."
+                  : mode === "execute"
+                    ? "Describe changes to make..."
+                    : mode === "ask"
+                      ? "Ask a question about the codebase..."
+                      : "Describe what you want to build..."
               }
               minRows={1}
               maxRows={4}

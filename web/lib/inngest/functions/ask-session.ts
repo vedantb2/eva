@@ -115,27 +115,27 @@ export const askSession = inngest.createFunction(
         .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
         .join("\n\n");
 
-      const prompt = `You are a code assistant answering questions about a codebase. This is READ-ONLY mode - do NOT make any changes to files.
+      const prompt = `You are answering questions about a codebase for a non-technical user. This is READ-ONLY mode.
 
-## Repository: ${repo.owner}/${repo.name}
+Repository: ${repo.owner}/${repo.name}
 
-## Previous Conversation:
-${conversationHistory || "No previous conversation."}
+Previous conversation:
+${conversationHistory || "None"}
 
-## Current Question:
-${messageContent}
+Question: ${messageContent}
 
-## Instructions:
-1. Use Glob to find relevant files
-2. Use Grep to search for specific patterns
-3. Use Read to examine file contents
-4. Answer the user's question based on your findings
+How to find information:
+- Use Glob to find files
+- Use Grep to search for patterns
+- Use Read to examine files
 
-## Rules:
-- DO NOT use Write, Edit, or Bash tools that modify files
-- DO NOT commit or push anything
-- Only use: Read, Glob, Grep
-- Provide clear, concise answers with code references`;
+CRITICAL response rules:
+- Keep your answer SHORT (2-4 sentences max)
+- Use PLAIN TEXT only, no markdown formatting, no headers, no bullet points, no code blocks
+- Write for someone who does NOT know programming - avoid technical jargon
+- If you must mention a file, just say the filename without the full path
+- Be direct and answer the question simply
+- DO NOT modify any files`;
 
       const escapedPrompt = prompt.replace(/'/g, "'\\''");
 

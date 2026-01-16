@@ -216,9 +216,9 @@ export function Sidebar() {
                     })}
                   </div>
 
-                  {repo && (
+                  {repo && repoSlug && (
                     <div className="mt-6">
-                      <ActiveTasksAccordion repoId={repo._id} />
+                      <ActiveTasksAccordion repoId={repo._id} repoSlug={repoSlug} />
                     </div>
                   )}
                 </>

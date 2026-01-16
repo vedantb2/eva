@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface SessionDetailClientProps {
   sessionId: string;
@@ -33,6 +34,7 @@ type SessionMode = "execute" | "ask" | "plan";
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
+  const { repo } = useRepo();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -158,19 +160,21 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
             </Button>
           </div>
           {session.branchName && (
-            <div className="flex items-center gap-1 text-sm text-neutral-500">
-              <IconGitBranch className="w-4 h-4" />
-              <span className="hidden sm:inline">{session.branchName}</span>
-            </div>
-          )}
-          {session.prUrl && (
             <Link
-              href={session.prUrl}
+              href={
+                session.prUrl ||
+                `https://github.com/${repo.owner}/${repo.name}/tree/${session.branchName}`
+              }
               target="_blank"
               className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600"
             >
-              <IconExternalLink className="w-4 h-4" />
-              <span className="hidden sm:inline">View PR</span>
+              <IconGitBranch className="w-4 h-4" />
+              <span className="hidden sm:inline">{session.branchName}</span>
+              {session.prUrl && (
+                <Chip size="sm" color="success" variant="flat" className="ml-1">
+                  PR
+                </Chip>
+              )}
             </Link>
           )}
         </div>
@@ -247,7 +251,6 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
       </div>
       <div className="border-t border-neutral-200 dark:border-neutral-800 p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-neutral-500 mr-1">Mode:</span>
           <Button
             size="sm"
             variant={mode === "execute" ? "solid" : "flat"}

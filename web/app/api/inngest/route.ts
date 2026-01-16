@@ -6,6 +6,7 @@ import {
   executeSessionTask,
   cleanupSession,
   createSessionPr,
+  startSandbox,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -16,5 +17,6 @@ export const { GET, POST, PUT } = serve({
     executeSessionTask,
     cleanupSession,
     createSessionPr,
+    startSandbox,
   ],
 });

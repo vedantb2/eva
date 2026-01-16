@@ -6,12 +6,16 @@ import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
+import { Chip } from "@heroui/chip";
 import {
   IconSend,
   IconGitBranch,
   IconExternalLink,
   IconUser,
   IconRobot,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconCircleDot,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -26,6 +30,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSandboxToggling, setIsSandboxToggling] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,6 +55,25 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     }
   };
 
+  const handleSandboxToggle = async (action: "start" | "stop") => {
+    setIsSandboxToggling(true);
+    try {
+      const response = await fetch("/api/sessions/sandbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, action }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to toggle sandbox");
+      }
+    } finally {
+      setIsSandboxToggling(false);
+    }
+  };
+
+  const isSandboxActive = session?.status === "active";
+  const isInputDisabled = !isSandboxActive || isSending;
+
   if (session === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -73,10 +97,38 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-        <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
-          {session.title}
-        </h1>
         <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
+            {session.title}
+          </h1>
+          <Chip
+            startContent={<IconCircleDot className="w-3 h-3" />}
+            size="sm"
+            color={isSandboxActive ? "success" : "default"}
+            variant="flat"
+          >
+            {isSandboxActive ? "Active" : "Inactive"}
+          </Chip>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              color={isSandboxActive ? "danger" : "success"}
+              variant="flat"
+              onPress={() => handleSandboxToggle(isSandboxActive ? "stop" : "start")}
+              isLoading={isSandboxToggling}
+              startContent={
+                isSandboxActive ? (
+                  <IconPlayerStop className="w-4 h-4" />
+                ) : (
+                  <IconPlayerPlay className="w-4 h-4" />
+                )
+              }
+            >
+              {isSandboxActive ? "Stop" : "Start"}
+            </Button>
+          </div>
           {session.branchName && (
             <div className="flex items-center gap-1 text-sm text-neutral-500">
               <IconGitBranch className="w-4 h-4" />
@@ -98,7 +150,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {session.messages.length === 0 ? (
           <div className="text-center py-12 text-neutral-500">
-            <p>No messages yet. Start the conversation!</p>
+            <p>
+              {isSandboxActive
+                ? "No messages yet. Start the conversation!"
+                : "Sandbox is inactive. Start the sandbox to begin chatting."}
+            </p>
           </div>
         ) : (
           session.messages.map((message, index) => (
@@ -149,7 +205,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message or command..."
+              placeholder={
+                isSandboxActive
+                  ? "Type your message or command..."
+                  : "Start the sandbox to begin chatting..."
+              }
               minRows={1}
               maxRows={4}
               onKeyDown={(e) => {
@@ -159,13 +219,14 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                 }
               }}
               className="flex-1"
+              isDisabled={isInputDisabled}
             />
             <Button
               type="submit"
               isIconOnly
               color="primary"
               isLoading={isSending}
-              isDisabled={!input.trim()}
+              isDisabled={isInputDisabled || !input.trim()}
             >
               <IconSend size={18} />
             </Button>

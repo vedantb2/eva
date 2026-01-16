@@ -7,6 +7,7 @@ import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
+import { Chip } from "@heroui/chip";
 import {
   Modal,
   ModalContent,
@@ -16,9 +17,10 @@ import {
 } from "@heroui/modal";
 import {
   IconTerminal2,
-  IconTrash,
+  IconArchive,
   IconSearch,
   IconPlus,
+  IconCircleDot,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -35,12 +37,12 @@ export default function SessionsLayout({
   const pathname = usePathname();
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
   const createSession = useMutation(api.sessions.create);
-  const deleteSession = useMutation(api.sessions.remove);
-  const [sessionToDelete, setSessionToDelete] = useState<{
+  const archiveSession = useMutation(api.sessions.archive);
+  const [sessionToArchive, setSessionToArchive] = useState<{
     id: Id<"sessions">;
     title: string;
   } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSessionTitle, setNewSessionTitle] = useState("");
@@ -58,28 +60,28 @@ export default function SessionsLayout({
     return sessions.filter((s) => s.title.toLowerCase().includes(query));
   }, [sessions, searchQuery]);
 
-  const handleDelete = async () => {
-    if (!sessionToDelete) return;
-    setIsDeleting(true);
+  const handleArchive = async () => {
+    if (!sessionToArchive) return;
+    setIsArchiving(true);
     try {
-      const sessionData = sessions?.find((s) => s._id === sessionToDelete.id);
+      const sessionData = sessions?.find((s) => s._id === sessionToArchive.id);
       if (sessionData?.sandboxId) {
         await fetch("/api/sessions/cleanup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sandboxId: sessionData.sandboxId,
-            sessionId: sessionToDelete.id,
+            sessionId: sessionToArchive.id,
           }),
         });
       }
-      await deleteSession({ id: sessionToDelete.id });
-      setSessionToDelete(null);
-      if (currentSessionId === sessionToDelete.id) {
+      await archiveSession({ id: sessionToArchive.id });
+      setSessionToArchive(null);
+      if (currentSessionId === sessionToArchive.id) {
         router.push(baseUrl);
       }
     } finally {
-      setIsDeleting(false);
+      setIsArchiving(false);
     }
   };
 
@@ -176,33 +178,44 @@ export default function SessionsLayout({
                   >
                     <Link href={baseUrl + "/" + session._id} className="block">
                       <div className="flex items-center justify-between gap-2">
-                        <h3
-                          className={`text-sm font-medium truncate flex-1 ${
-                            isSelected
-                              ? "text-pink-600 dark:text-pink-400"
-                              : "text-neutral-900 dark:text-white"
-                          }`}
-                        >
-                          {session.title}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <h3
+                            className={`text-sm font-medium truncate flex-1 ${
+                              isSelected
+                                ? "text-pink-600 dark:text-pink-400"
+                                : "text-neutral-900 dark:text-white"
+                            }`}
+                          >
+                            {session.title}
+                          </h3>
+                          <Chip
+                            startContent={<IconCircleDot className="w-2 h-2" />}
+                            size="sm"
+                            color={session.status === "active" ? "success" : "default"}
+                            variant="flat"
+                            className="flex-shrink-0"
+                          >
+                            {session.status === "active" ? "Active" : "Inactive"}
+                          </Chip>
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-neutral-500 flex-shrink-0">
                             {getLastActivity(session)}
                           </span>
-                          <Tooltip content="Delete session">
+                          <Tooltip content="Archive session">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                setSessionToDelete({
+                                setSessionToArchive({
                                   id: session._id,
                                   title: session.title,
                                 });
                               }}
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-warning-100 dark:hover:bg-warning-900/30 text-neutral-400 hover:text-warning-500"
                             >
-                              <IconTrash size={14} />
+                              <IconArchive size={14} />
                             </button>
                           </Tooltip>
                         </div>
@@ -218,30 +231,31 @@ export default function SessionsLayout({
       <div className="flex-1 overflow-hidden">{children}</div>
 
       <Modal
-        isOpen={!!sessionToDelete}
-        onClose={() => setSessionToDelete(null)}
+        isOpen={!!sessionToArchive}
+        onClose={() => setSessionToArchive(null)}
       >
         <ModalContent>
-          <ModalHeader>Delete Session</ModalHeader>
+          <ModalHeader>Archive Session</ModalHeader>
           <ModalBody>
             <p className="text-default-600">
-              Are you sure you want to delete{" "}
-              <strong>{sessionToDelete?.title}</strong>?
+              Are you sure you want to archive{" "}
+              <strong>{sessionToArchive?.title}</strong>?
             </p>
             <p className="text-sm text-default-500 mt-3">
-              This action cannot be undone.
+              This will stop the sandbox and remove the session from the active list.
+              The session data will be preserved but no longer accessible.
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setSessionToDelete(null)}>
+            <Button variant="flat" onPress={() => setSessionToArchive(null)}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDelete}
-              isLoading={isDeleting}
+              color="warning"
+              onPress={handleArchive}
+              isLoading={isArchiving}
             >
-              Delete Session
+              Archive Session
             </Button>
           </ModalFooter>
         </ModalContent>

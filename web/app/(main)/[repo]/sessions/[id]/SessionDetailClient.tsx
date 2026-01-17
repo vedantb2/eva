@@ -10,7 +10,6 @@ import { Chip } from "@heroui/chip";
 import {
   IconSend,
   IconGitBranch,
-  IconExternalLink,
   IconUser,
   IconPlayerPlay,
   IconPlayerStop,
@@ -21,6 +20,7 @@ import {
   IconEye,
   IconGitPullRequest,
 } from "@tabler/icons-react";
+import { Tabs, Tab } from "@heroui/tabs";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -243,8 +243,56 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-neutral-200 dark:border-neutral-800 p-4">
-        {(session.sandboxId || session.branchName || session.prUrl) && (
-          <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Tabs
+              size="sm"
+              selectedKey={mode}
+              onSelectionChange={(key) => setMode(key as SessionMode)}
+            >
+              <Tab
+                key="execute"
+                title={
+                  <div className="flex items-center gap-1">
+                    <IconCode className="w-3 h-3" />
+                    <span>Execute</span>
+                  </div>
+                }
+              />
+              <Tab
+                key="ask"
+                title={
+                  <div className="flex items-center gap-1">
+                    <IconMessageQuestion className="w-3 h-3" />
+                    <span>Ask</span>
+                  </div>
+                }
+              />
+              <Tab
+                key="plan"
+                title={
+                  <div className="flex items-center gap-1">
+                    <IconClipboardList className="w-3 h-3" />
+                    <span>Plan</span>
+                  </div>
+                }
+              />
+            </Tabs>
+            {mode === "plan" && session.messages.some((m) => m.mode === "plan") && (
+              <Button
+                size="sm"
+                variant="flat"
+                color="success"
+                onPress={handleGeneratePlan}
+                isLoading={isSending}
+                isDisabled={isInputDisabled}
+                startContent={<IconFileText className="w-3 h-3" />}
+              >
+                Generate Plan
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             {session.sandboxId && (
               <Button
                 as={Link}
@@ -254,7 +302,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                 variant="flat"
                 startContent={<IconEye className="w-3 h-3" />}
               >
-                View Preview
+                Preview
               </Button>
             )}
             {session.prUrl && (
@@ -266,7 +314,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                 variant="flat"
                 startContent={<IconGitPullRequest className="w-3 h-3" />}
               >
-                View PR
+                PR
               </Button>
             )}
             {session.branchName && (
@@ -278,52 +326,10 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                 variant="flat"
                 startContent={<IconGitBranch className="w-3 h-3" />}
               >
-                View Branch
+                Branch
               </Button>
             )}
           </div>
-        )}
-        <div className="flex items-center gap-2 mb-3">
-          <Button
-            size="sm"
-            variant={mode === "execute" ? "solid" : "flat"}
-            color={mode === "execute" ? "primary" : "default"}
-            onPress={() => setMode("execute")}
-            startContent={<IconCode className="w-3 h-3" />}
-          >
-            Execute
-          </Button>
-          <Button
-            size="sm"
-            variant={mode === "ask" ? "solid" : "flat"}
-            color={mode === "ask" ? "primary" : "default"}
-            onPress={() => setMode("ask")}
-            startContent={<IconMessageQuestion className="w-3 h-3" />}
-          >
-            Ask
-          </Button>
-          <Button
-            size="sm"
-            variant={mode === "plan" ? "solid" : "flat"}
-            color={mode === "plan" ? "primary" : "default"}
-            onPress={() => setMode("plan")}
-            startContent={<IconClipboardList className="w-3 h-3" />}
-          >
-            Plan
-          </Button>
-          {mode === "plan" && session.messages.some((m) => m.mode === "plan") && (
-            <Button
-              size="sm"
-              variant="flat"
-              color="success"
-              onPress={handleGeneratePlan}
-              isLoading={isSending}
-              isDisabled={isInputDisabled}
-              startContent={<IconFileText className="w-3 h-3" />}
-            >
-              Generate Plan
-            </Button>
-          )}
         </div>
         <form
           onSubmit={(e) => {

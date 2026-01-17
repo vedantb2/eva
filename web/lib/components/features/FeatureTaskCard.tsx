@@ -6,7 +6,8 @@ import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { IconGitBranch, IconSubtask } from "@tabler/icons-react";
+import { IconGitBranch, IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import Link from "next/link";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -37,6 +38,8 @@ export function FeatureTaskCard({
   onClick,
 }: FeatureTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
+  const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   return (
     <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
@@ -48,7 +51,20 @@ export function FeatureTaskCard({
             </span>
             <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
           </div>
-          <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
+          <div className="flex items-center gap-2">
+            {latestPrUrl && (
+              <Link
+                href={latestPrUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex-shrink-0 p-1 rounded hover:bg-default-200 transition-colors"
+              >
+                <IconGitPullRequest size={14} className="text-success-500" />
+              </Link>
+            )}
+            <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
+          </div>
         </div>
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>

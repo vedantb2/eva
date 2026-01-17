@@ -3,7 +3,10 @@
 import { Card, CardBody } from "@heroui/card";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
-import { IconSubtask } from "@tabler/icons-react";
+import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import { useQuery } from "convex/react";
+import { api } from "@/api";
+import Link from "next/link";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -29,10 +32,26 @@ export function QuickTaskCard({
   status,
   onClick,
 }: QuickTaskCardProps) {
+  const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+
   return (
     <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
       <CardBody className="p-3 gap-2">
-        <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
+          {latestPrUrl && (
+            <Link
+              href={latestPrUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex-shrink-0 p-1 rounded hover:bg-default-200 transition-colors"
+            >
+              <IconGitPullRequest size={14} className="text-success-500" />
+            </Link>
+          )}
+        </div>
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}

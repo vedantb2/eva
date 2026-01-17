@@ -94,10 +94,10 @@ export function Sidebar() {
     : [];
 
   const bottomNavigation = [
-    { name: "Repositories", href: "/repos", icon: IconBrandGithub },
     ...(repoSlug
       ? [{ name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar }]
       : []),
+    { name: "Repositories", href: "/repos", icon: IconBrandGithub },
     { name: "Settings", href: "/settings", icon: IconSettings },
   ];
 

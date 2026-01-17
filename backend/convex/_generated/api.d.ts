@@ -15,6 +15,7 @@ import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
+import type * as docs from "../docs.js";
 import type * as features from "../features.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as plans from "../plans.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   boards: typeof boards;
   columns: typeof columns;
+  docs: typeof docs;
   features: typeof features;
   githubRepos: typeof githubRepos;
   plans: typeof plans;

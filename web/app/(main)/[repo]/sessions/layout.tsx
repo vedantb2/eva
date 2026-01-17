@@ -132,7 +132,7 @@ export default function SessionsLayout({
       <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+            <h2 className="text-3xl font-semibold text-neutral-900 dark:text-white">
               Sessions
             </h2>
             <Button

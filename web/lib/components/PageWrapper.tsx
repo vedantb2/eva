@@ -28,11 +28,14 @@ export function PageWrapper({
             onClick={onBack ?? (() => router.back())}
             className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex-shrink-0"
           >
-            <IconArrowLeft size={20} className="text-neutral-600 dark:text-neutral-400" />
+            <IconArrowLeft
+              size={20}
+              className="text-neutral-600 dark:text-neutral-400"
+            />
           </button>
         )}
         {title && (
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+          <h1 className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {title}
           </h1>
         )}

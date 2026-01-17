@@ -217,7 +217,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex gap-2 sm:gap-4 overflow-x-auto pb-4 ${heightClass}`}
+          className={`flex gap-2 sm:gap-4 overflow-x-auto p-4 pb-4 ${heightClass}`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (

@@ -34,6 +34,7 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
+      shadow="none"
       className={`min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] h-full flex-shrink-0 transition-colors ${
         isOver ? "bg-pink-50 dark:bg-pink-900/20" : ""
       }`}

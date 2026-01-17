@@ -30,7 +30,7 @@ export function QuickTaskCard({
   onClick,
 }: QuickTaskCardProps) {
   return (
-    <Card isPressable={!!onClick} onPress={onClick} className={`w-full ${statusCardBg[status]}`}>
+    <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
       <CardBody className="p-3 gap-2">
         <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
         {description && (

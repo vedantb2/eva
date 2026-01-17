@@ -31,11 +31,6 @@ import {
   DropdownItem,
 } from "@heroui/react";
 
-const mainNavigation = [
-  { name: "Repositories", href: "/repos", icon: IconBrandGithub },
-  { name: "Settings", href: "/settings", icon: IconSettings },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -89,13 +84,16 @@ export function Sidebar() {
           href: `/${repoSlug}/sessions`,
           icon: IconTerminal2,
         },
-        {
-          name: "Analytics",
-          href: `/${repoSlug}/analytics`,
-          icon: IconChartBar,
-        },
       ]
     : [];
+
+  const bottomNavigation = [
+    { name: "Repositories", href: "/repos", icon: IconBrandGithub },
+    ...(repoSlug
+      ? [{ name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar }]
+      : []),
+    { name: "Settings", href: "/settings", icon: IconSettings },
+  ];
 
   return (
     <>
@@ -232,7 +230,7 @@ export function Sidebar() {
             </div>
 
             <div className="space-y-1">
-              {mainNavigation.map((item) => {
+              {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <Link

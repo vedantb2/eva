@@ -39,7 +39,7 @@ export function FeatureTaskCard({
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
 
   return (
-    <Card isPressable={!!onClick} onPress={onClick} className={`w-full ${statusCardBg[status]}`}>
+    <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">

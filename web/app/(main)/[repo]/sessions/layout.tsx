@@ -7,7 +7,6 @@ import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
-import { Chip } from "@heroui/chip";
 import {
   Modal,
   ModalContent,
@@ -20,7 +19,6 @@ import {
   IconArchive,
   IconSearch,
   IconPlus,
-  IconCircleDot,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -53,11 +51,16 @@ export default function SessionsLayout({
     ? pathname.slice(baseUrl.length + 1)
     : null;
 
-  const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
+  const { activeSessions, inactiveSessions } = useMemo(() => {
+    if (!sessions) return { activeSessions: [], inactiveSessions: [] };
     const query = searchQuery.toLowerCase().trim();
-    if (!query) return sessions;
-    return sessions.filter((s) => s.title.toLowerCase().includes(query));
+    const filtered = query
+      ? sessions.filter((s) => s.title.toLowerCase().includes(query))
+      : sessions;
+    return {
+      activeSessions: filtered.filter((s) => s.status === "active"),
+      inactiveSessions: filtered.filter((s) => s.status !== "active"),
+    };
   }, [sessions, searchQuery]);
 
   const handleArchive = async () => {
@@ -156,7 +159,7 @@ export default function SessionsLayout({
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
             </div>
-          ) : filteredSessions.length === 0 ? (
+          ) : activeSessions.length === 0 && inactiveSessions.length === 0 ? (
             <div className="p-4 text-center">
               <IconTerminal2 className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
               <p className="text-sm text-neutral-500">
@@ -164,66 +167,127 @@ export default function SessionsLayout({
               </p>
             </div>
           ) : (
-            <div className="p-2 space-y-1">
-              {filteredSessions.map((session) => {
-                const isSelected = currentSessionId === session._id;
-                return (
-                  <div
-                    key={session._id}
-                    className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
-                      isSelected
-                        ? "bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800"
-                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    }`}
-                  >
-                    <Link href={baseUrl + "/" + session._id} className="block">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <h3
-                            className={`text-sm font-medium truncate flex-1 ${
-                              isSelected
-                                ? "text-pink-600 dark:text-pink-400"
-                                : "text-neutral-900 dark:text-white"
-                            }`}
-                          >
-                            {session.title}
-                          </h3>
-                          <Chip
-                            startContent={<IconCircleDot className="w-2 h-2" />}
-                            size="sm"
-                            color={session.status === "active" ? "success" : "default"}
-                            variant="flat"
-                            className="flex-shrink-0"
-                          >
-                            {session.status === "active" ? "Active" : "Inactive"}
-                          </Chip>
+            <div className="p-2 space-y-4">
+              {activeSessions.length > 0 && (
+                <div>
+                  <p className="px-2 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                    Active
+                  </p>
+                  <div className="space-y-1">
+                    {activeSessions.map((session) => {
+                      const isSelected = currentSessionId === session._id;
+                      return (
+                        <div
+                          key={session._id}
+                          className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
+                            isSelected
+                              ? "bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800"
+                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                          }`}
+                        >
+                          <Link href={baseUrl + "/" + session._id} className="block">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" />
+                                <h3
+                                  className={`text-sm font-medium truncate flex-1 ${
+                                    isSelected
+                                      ? "text-pink-600 dark:text-pink-400"
+                                      : "text-neutral-900 dark:text-white"
+                                  }`}
+                                >
+                                  {session.title}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-neutral-500 flex-shrink-0">
+                                  {getLastActivity(session)}
+                                </span>
+                                <Tooltip content="Archive session">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setSessionToArchive({
+                                        id: session._id,
+                                        title: session.title,
+                                      });
+                                    }}
+                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-warning-100 dark:hover:bg-warning-900/30 text-neutral-400 hover:text-warning-500"
+                                  >
+                                    <IconArchive size={14} />
+                                  </button>
+                                </Tooltip>
+                              </div>
+                            </div>
+                          </Link>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-500 flex-shrink-0">
-                            {getLastActivity(session)}
-                          </span>
-                          <Tooltip content="Archive session">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setSessionToArchive({
-                                  id: session._id,
-                                  title: session.title,
-                                });
-                              }}
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-warning-100 dark:hover:bg-warning-900/30 text-neutral-400 hover:text-warning-500"
-                            >
-                              <IconArchive size={14} />
-                            </button>
-                          </Tooltip>
-                        </div>
-                      </div>
-                    </Link>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              )}
+              {inactiveSessions.length > 0 && (
+                <div>
+                  <p className="px-2 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                    Inactive
+                  </p>
+                  <div className="space-y-1">
+                    {inactiveSessions.map((session) => {
+                      const isSelected = currentSessionId === session._id;
+                      return (
+                        <div
+                          key={session._id}
+                          className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
+                            isSelected
+                              ? "bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800"
+                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                          }`}
+                        >
+                          <Link href={baseUrl + "/" + session._id} className="block">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-2.5 h-2.5 rounded-full bg-neutral-300 dark:bg-neutral-600 flex-shrink-0" />
+                                <h3
+                                  className={`text-sm font-medium truncate flex-1 ${
+                                    isSelected
+                                      ? "text-pink-600 dark:text-pink-400"
+                                      : "text-neutral-900 dark:text-white"
+                                  }`}
+                                >
+                                  {session.title}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-neutral-500 flex-shrink-0">
+                                  {getLastActivity(session)}
+                                </span>
+                                <Tooltip content="Archive session">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setSessionToArchive({
+                                        id: session._id,
+                                        title: session.title,
+                                      });
+                                    }}
+                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-warning-100 dark:hover:bg-warning-900/30 text-neutral-400 hover:text-warning-500"
+                                  >
+                                    <IconArchive size={14} />
+                                  </button>
+                                </Tooltip>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

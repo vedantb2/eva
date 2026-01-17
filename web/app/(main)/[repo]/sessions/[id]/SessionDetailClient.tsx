@@ -12,17 +12,18 @@ import {
   IconGitBranch,
   IconExternalLink,
   IconUser,
-  IconRobot,
   IconPlayerPlay,
   IconPlayerStop,
-  IconCircleDot,
   IconCode,
   IconMessageQuestion,
   IconClipboardList,
   IconFileText,
+  IconEye,
+  IconGitPullRequest,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface SessionDetailClientProps {
@@ -131,34 +132,12 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
             {session.title}
           </h1>
-          <Chip
-            startContent={<IconCircleDot className="w-3 h-3" />}
-            size="sm"
-            color={isSandboxActive ? "success" : "default"}
-            variant="flat"
-          >
-            {isSandboxActive ? "Active" : "Inactive"}
-          </Chip>
+          <div
+            className={`w-3 h-3 rounded-full ${isSandboxActive ? "bg-green-500" : "bg-neutral-300 dark:bg-neutral-600"}`}
+            title={isSandboxActive ? "Active" : "Inactive"}
+          />
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              color={isSandboxActive ? "danger" : "success"}
-              variant="flat"
-              onPress={() => handleSandboxToggle(isSandboxActive ? "stop" : "start")}
-              isLoading={isSandboxToggling}
-              startContent={
-                isSandboxActive ? (
-                  <IconPlayerStop className="w-4 h-4" />
-                ) : (
-                  <IconPlayerPlay className="w-4 h-4" />
-                )
-              }
-            >
-              {isSandboxActive ? "Stop" : "Start"}
-            </Button>
-          </div>
           {session.branchName && (
             <Link
               href={
@@ -177,6 +156,22 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
               )}
             </Link>
           )}
+          <Button
+            size="sm"
+            color={isSandboxActive ? "danger" : "success"}
+            variant="flat"
+            onPress={() => handleSandboxToggle(isSandboxActive ? "stop" : "start")}
+            isLoading={isSandboxToggling}
+            startContent={
+              isSandboxActive ? (
+                <IconPlayerStop className="w-4 h-4" />
+              ) : (
+                <IconPlayerPlay className="w-4 h-4" />
+              )
+            }
+          >
+            {isSandboxActive ? "Stop" : "Start"}
+          </Button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -197,41 +192,39 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
               }`}
             >
               {message.role === "assistant" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
-                  <IconRobot className="w-4 h-4 text-pink-600" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden">
+                  <Image src="/icon.png" alt="Assistant" width={32} height={32} />
                 </div>
               )}
-              <div
-                className={`max-w-[80%] px-4 py-2 rounded-xl ${
-                  message.role === "user"
-                    ? "bg-pink-600 text-white"
-                    : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-                }`}
-              >
+              <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+                <div
+                  className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                    message.role === "user"
+                      ? "bg-pink-600 text-white"
+                      : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                </div>
                 {message.mode && message.role === "user" && (
-                  <div className="flex items-center gap-1 mb-1">
-                    <Chip size="sm" variant="flat" className="h-5 text-[10px]">
-                      {message.mode === "execute" && (
-                        <>
-                          <IconCode className="w-2.5 h-2.5 mr-0.5" /> Execute
-                        </>
-                      )}
-                      {message.mode === "ask" && (
-                        <>
-                          <IconMessageQuestion className="w-2.5 h-2.5 mr-0.5" />{" "}
-                          Ask
-                        </>
-                      )}
-                      {message.mode === "plan" && (
-                        <>
-                          <IconClipboardList className="w-2.5 h-2.5 mr-0.5" />{" "}
-                          Plan
-                        </>
-                      )}
-                    </Chip>
+                  <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
+                    {message.mode === "execute" && (
+                      <>
+                        <IconCode className="w-3 h-3" /> Execute
+                      </>
+                    )}
+                    {message.mode === "ask" && (
+                      <>
+                        <IconMessageQuestion className="w-3 h-3" /> Ask
+                      </>
+                    )}
+                    {message.mode === "plan" && (
+                      <>
+                        <IconClipboardList className="w-3 h-3" /> Plan
+                      </>
+                    )}
                   </div>
                 )}
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>
               {message.role === "user" && (
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
@@ -250,6 +243,46 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-neutral-200 dark:border-neutral-800 p-4">
+        {(session.sandboxId || session.branchName || session.prUrl) && (
+          <div className="flex items-center gap-2 mb-3">
+            {session.sandboxId && (
+              <Button
+                as={Link}
+                href={`https://${session.sandboxId}.e2b.dev`}
+                target="_blank"
+                size="sm"
+                variant="flat"
+                startContent={<IconEye className="w-3 h-3" />}
+              >
+                View Preview
+              </Button>
+            )}
+            {session.prUrl && (
+              <Button
+                as={Link}
+                href={session.prUrl}
+                target="_blank"
+                size="sm"
+                variant="flat"
+                startContent={<IconGitPullRequest className="w-3 h-3" />}
+              >
+                View PR
+              </Button>
+            )}
+            {session.branchName && (
+              <Button
+                as={Link}
+                href={`https://github.com/${repo.owner}/${repo.name}/tree/${session.branchName}`}
+                target="_blank"
+                size="sm"
+                variant="flat"
+                startContent={<IconGitBranch className="w-3 h-3" />}
+              >
+                View Branch
+              </Button>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-2 mb-3">
           <Button
             size="sm"
@@ -298,7 +331,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
             handleSend();
           }}
         >
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -311,8 +344,8 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                       ? "Ask a question about the codebase..."
                       : "Describe what you want to build..."
               }
-              minRows={1}
-              maxRows={4}
+              minRows={3}
+              maxRows={6}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

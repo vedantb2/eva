@@ -185,7 +185,7 @@ export function PlanTab({
         </div>
 
         {showIndexButton && (
-          <Card className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+          <Card shadow="none" className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
             <CardBody className="flex flex-row items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center flex-shrink-0">
                 <IconFolderSearch size={20} className="text-primary-600 dark:text-primary-400" />
@@ -211,7 +211,7 @@ export function PlanTab({
         )}
 
         {isCurrentlyIndexing && (
-          <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
+          <Card shadow="none" className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
             <CardBody className="flex flex-row items-center gap-4">
               <Spinner size="sm" color="warning" />
               <div>
@@ -227,7 +227,7 @@ export function PlanTab({
         )}
 
         {(indexingStatus === "error" || indexError) && (
-          <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+          <Card shadow="none" className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
             <CardBody className="space-y-3">
               <div className="flex items-start gap-3">
                 <IconAlertCircle size={24} className="text-danger-500 flex-shrink-0 mt-0.5" />
@@ -256,80 +256,38 @@ export function PlanTab({
         )}
 
         {parsedIndex && (
-          <Card>
-            <CardBody className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <IconCode size={20} className="text-success" />
-                  <h3 className="font-semibold">Codebase Context</h3>
-                  <Chip size="sm" color="success" variant="flat">
-                    Indexed
-                  </Chip>
-                </div>
-                <Button
-                  variant="flat"
-                  size="sm"
-                  startContent={<IconEye size={16} />}
-                  onPress={() => setShowIndexModal(true)}
-                >
-                  View Index
-                </Button>
-              </div>
-              <p className="text-sm text-default-600">{parsedIndex.summary}</p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-default-400 mb-1">Tech Stack</p>
-                  <p className="font-medium">
-                    {parsedIndex.techStack.language} / {parsedIndex.techStack.framework}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-default-400 mb-1">Key Files</p>
-                  <p className="font-medium">{parsedIndex.keyFiles.length} identified</p>
-                </div>
-              </div>
-              {parsedIndex.keyFiles.length > 0 && (
-                <div>
-                  <p className="text-default-400 mb-2 text-sm">Key Files to Modify</p>
-                  <div className="flex flex-wrap gap-1">
-                    {parsedIndex.keyFiles.slice(0, 5).map((file, i) => (
-                      <Chip key={i} size="sm" variant="flat">
-                        {file.path}
-                      </Chip>
-                    ))}
-                    {parsedIndex.keyFiles.length > 5 && (
-                      <Chip size="sm" variant="flat" color="default">
-                        +{parsedIndex.keyFiles.length - 5} more
-                      </Chip>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardBody>
-          </Card>
+          <div className="flex items-center justify-between p-3 bg-success-50 dark:bg-success-900/20 rounded-lg">
+            <div className="flex items-center gap-3 text-sm">
+              <IconCode size={18} className="text-success-600" />
+              <span className="text-success-700 dark:text-success-400">
+                {parsedIndex.techStack.language} / {parsedIndex.techStack.framework}
+              </span>
+              <span className="text-success-600 dark:text-success-500">
+                {parsedIndex.keyFiles.length} key files
+              </span>
+            </div>
+            <Button
+              variant="flat"
+              size="sm"
+              onPress={() => setShowIndexModal(true)}
+            >
+              View Index
+            </Button>
+          </div>
         )}
 
         <div>
           <h3 className="font-semibold mb-3">Tasks ({parsedSpec.tasks.length})</h3>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {parsedSpec.tasks.map((task, i) => (
-              <div key={i} className="p-3 bg-default-100 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-600 text-sm font-medium flex items-center justify-center">
-                    {i + 1}
+              <div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-default-100">
+                <span className="text-default-400 font-mono text-sm w-6">{i + 1}.</span>
+                <span className="text-sm flex-1">{task.title}</span>
+                {task.dependencies.length > 0 && (
+                  <span className="text-xs text-default-400">
+                    after {task.dependencies.join(", ")}
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{task.title}</p>
-                    {task.description && (
-                      <p className="text-sm text-default-500 mt-1">{task.description}</p>
-                    )}
-                    {task.dependencies.length > 0 && (
-                      <p className="text-xs text-default-400 mt-2">
-                        Depends on: {task.dependencies.map((d) => `Task ${d}`).join(", ")}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </div>

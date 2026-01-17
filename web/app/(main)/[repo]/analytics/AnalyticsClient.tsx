@@ -4,8 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { StatCard } from "@/lib/components/analytics/StatCard";
 import { TaskStatusChart } from "@/lib/components/analytics/TaskStatusChart";
 import { RunSuccessChart } from "@/lib/components/analytics/RunSuccessChart";
@@ -81,63 +80,60 @@ export function AnalyticsClient() {
     leaderboard === undefined;
 
   return (
-    <>
-      <PageHeader
-        title="Analytics"
-        headerRight={<TimeRangeFilter value={timeRange} onChange={setTimeRange} />}
-      />
-      <Container>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+    <PageWrapper
+      title="Analytics"
+      headerRight={<TimeRangeFilter value={timeRange} onChange={setTimeRange} />}
+    >
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              icon={IconChecklist}
+              label="Total Tasks"
+              value={taskStats.total}
+              color="pink"
+            />
+            <StatCard
+              icon={IconPercentage}
+              label="Run Success Rate"
+              value={`${runStats.successRate}%`}
+              color="green"
+            />
+            <StatCard
+              icon={IconTerminal2}
+              label="Active Sessions"
+              value={sessionStats.active}
+              color="yellow"
+            />
+            <StatCard
+              icon={IconGitPullRequest}
+              label="PRs Created"
+              value={runStats.prsCreated}
+              color="blue"
+            />
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard
-                icon={IconChecklist}
-                label="Total Tasks"
-                value={taskStats.total}
-                color="pink"
-              />
-              <StatCard
-                icon={IconPercentage}
-                label="Run Success Rate"
-                value={`${runStats.successRate}%`}
-                color="green"
-              />
-              <StatCard
-                icon={IconTerminal2}
-                label="Active Sessions"
-                value={sessionStats.active}
-                color="yellow"
-              />
-              <StatCard
-                icon={IconGitPullRequest}
-                label="PRs Created"
-                value={runStats.prsCreated}
-                color="blue"
-              />
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <TaskStatusChart data={taskStats.byStatus} />
-              <RunSuccessChart
-                timeline={timeline}
-                successCount={runStats.byStatus.success}
-                errorCount={runStats.byStatus.error}
-              />
-              <SessionActivityChart
-                timeline={timeline}
-                messagesByMode={sessionStats.messagesByMode}
-              />
-              <FeatureProgressChart features={featureStats.topFeatures} />
-            </div>
-
-            <Leaderboard entries={leaderboard} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TaskStatusChart data={taskStats.byStatus} />
+            <RunSuccessChart
+              timeline={timeline}
+              successCount={runStats.byStatus.success}
+              errorCount={runStats.byStatus.error}
+            />
+            <SessionActivityChart
+              timeline={timeline}
+              messagesByMode={sessionStats.messagesByMode}
+            />
+            <FeatureProgressChart features={featureStats.topFeatures} />
           </div>
-        )}
-      </Container>
-    </>
+
+          <Leaderboard entries={leaderboard} />
+        </div>
+      )}
+    </PageWrapper>
   );
 }

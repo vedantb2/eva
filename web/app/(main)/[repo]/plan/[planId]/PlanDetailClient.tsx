@@ -4,8 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { PlanTabs } from "@/lib/components/plan/PlanTabs";
 import { PlanStatusBadge } from "@/lib/components/plans/PlanStatusBadge";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -30,34 +29,31 @@ export function PlanDetailClient({ planId }: PlanDetailClientProps) {
 
   if (plan === null) {
     return (
-      <Container>
+      <PageWrapper>
         <div className="py-12 text-center">
           <p className="text-neutral-500">Plan not found</p>
         </div>
-      </Container>
+      </PageWrapper>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <PageHeader
-        title={plan.title}
-        headerRight={<PlanStatusBadge state={plan.state} />}
+    <PageWrapper
+      title={plan.title}
+      headerRight={<PlanStatusBadge state={plan.state} />}
+    >
+      <PlanTabs
+        planId={typedPlanId}
+        planState={plan.state}
+        rawInput={plan.rawInput}
+        generatedSpec={plan.generatedSpec}
+        codebaseIndex={plan.codebaseIndex}
+        indexingStatus={plan.indexingStatus}
+        conversationHistory={plan.conversationHistory}
+        repoSlug={encodeRepoSlug(fullName)}
+        repoOwner={repo.owner}
+        repoName={repo.name}
       />
-      <div className="flex-1 overflow-hidden">
-        <PlanTabs
-          planId={typedPlanId}
-          planState={plan.state}
-          rawInput={plan.rawInput}
-          generatedSpec={plan.generatedSpec}
-          codebaseIndex={plan.codebaseIndex}
-          indexingStatus={plan.indexingStatus}
-          conversationHistory={plan.conversationHistory}
-          repoSlug={encodeRepoSlug(fullName)}
-          repoOwner={repo.owner}
-          repoName={repo.name}
-        />
-      </div>
-    </div>
+    </PageWrapper>
   );
 }

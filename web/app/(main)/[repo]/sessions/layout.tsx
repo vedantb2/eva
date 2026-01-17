@@ -132,7 +132,7 @@ export default function SessionsLayout({
       <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
               Sessions
             </h2>
             <Button
@@ -185,7 +185,10 @@ export default function SessionsLayout({
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
-                          <Link href={baseUrl + "/" + session._id} className="block">
+                          <Link
+                            href={baseUrl + "/" + session._id}
+                            className="block"
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" />
@@ -245,7 +248,10 @@ export default function SessionsLayout({
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
-                          <Link href={baseUrl + "/" + session._id} className="block">
+                          <Link
+                            href={baseUrl + "/" + session._id}
+                            className="block"
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-neutral-300 dark:bg-neutral-600 flex-shrink-0" />
@@ -306,8 +312,8 @@ export default function SessionsLayout({
               <strong>{sessionToArchive?.title}</strong>?
             </p>
             <p className="text-sm text-default-500 mt-3">
-              This will stop the sandbox and remove the session from the active list.
-              The session data will be preserved but no longer accessible.
+              This will stop the sandbox and remove the session from the active
+              list. The session data will be preserved but no longer accessible.
             </p>
           </ModalBody>
           <ModalFooter>

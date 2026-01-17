@@ -17,6 +17,7 @@ import {
   IconTerminal2,
   IconChartBar,
   IconFileText,
+  IconShield,
 } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -41,7 +42,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(plan|features|quick-tasks|sessions|analytics|docs)/
+      /^\/([^/]+)\/(plan|features|quick-tasks|sessions|analytics|docs|admin)/
     );
     if (match) {
       return match[1];
@@ -95,7 +96,10 @@ export function Sidebar() {
 
   const bottomNavigation = [
     ...(repoSlug
-      ? [{ name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar }]
+      ? [
+          { name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar },
+          { name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield },
+        ]
       : []),
     { name: "Repositories", href: "/repos", icon: IconBrandGithub },
     { name: "Settings", href: "/settings", icon: IconSettings },

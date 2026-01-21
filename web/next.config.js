@@ -17,10 +17,6 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "projectv.uk",
-      },
-      {
-        protocol: "https",
         hostname: "imgur.com",
       },
     ],

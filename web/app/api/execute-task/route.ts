@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const sbx = await Sandbox.create("anthropic-claude-code", {
     apiKey: serverEnv.E2B_API_KEY,
     envs: {
-      ANTHROPIC_API_KEY: serverEnv.ANTHROPIC_API_KEY,
+      CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
     },
   });
 

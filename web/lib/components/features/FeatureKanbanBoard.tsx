@@ -56,7 +56,7 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
           />
         )}
         renderOverlay={(task) => (
-          <Card className="w-[240px] sm:w-[280px]">
+          <Card shadow="none" className="w-[240px] sm:w-[280px]">
             <CardBody className="p-3">
               <span className="text-default-400 font-mono text-sm">
                 #{task.taskNumber}

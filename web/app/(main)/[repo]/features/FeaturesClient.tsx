@@ -4,8 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
@@ -107,8 +106,7 @@ export function FeaturesClient() {
 
   return (
     <>
-      <PageHeader title="Features" />
-      <Container>
+      <PageWrapper title="Features">
         {features === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
@@ -257,7 +255,7 @@ export function FeaturesClient() {
             </div>
           </div>
         )}
-      </Container>
+      </PageWrapper>
       <Modal isOpen={!!featureToDelete} onClose={() => setFeatureToDelete(null)}>
         <ModalContent>
           <ModalHeader>Delete Feature</ModalHeader>

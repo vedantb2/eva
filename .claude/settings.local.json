@@ -2,11 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(test:*)",
-      "Skill(flow-next-setup)",
-      "Skill(flow-next-plan)",
       "Bash(xargs:*)",
-      "Bash(FLOWCTL=\"C:\\\\Users\\\\vedan\\\\.claude\\\\plugins\\\\cache\\\\gmickel-claude-marketplace\\\\flow-next\\\\0.5.3/scripts/flowctl\")",
-      "Bash($FLOWCTL init --json)",
       "Bash(python:*)",
       "WebSearch",
       "WebFetch(domain:docs.convex.dev)",
@@ -23,12 +19,10 @@
       "WebFetch(domain:apps.apple.com)",
       "WebFetch(domain:www.producthunt.com)",
       "Bash(pnpm run api:*)",
-      "Skill(flow-next-work)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(echo:*)",
-      "Skill(flow-next:flow-next-plan)",
-      "Skill(flow-next:flow-next-work)"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }

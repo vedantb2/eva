@@ -25,6 +25,7 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
         className="flex-shrink-0"
       />
       <Card
+        shadow="none"
         className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
       >
         <CardBody className="py-2 px-2 sm:px-3">

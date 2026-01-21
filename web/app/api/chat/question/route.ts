@@ -12,12 +12,12 @@ const openrouter = createOpenRouter({
 });
 
 const questionSchema = z.object({
-  question: z.string().describe("The implementation decision question"),
+  question: z.string().describe("Short question, max 15 words"),
   options: z
     .array(z.string())
-    .min(3)
-    .max(5)
-    .describe("3-5 concrete implementation options"),
+    .min(2)
+    .max(4)
+    .describe("2-4 concise options, each max 15 words"),
 });
 
 interface CodebaseContext {
@@ -44,45 +44,36 @@ interface PreviousAnswer {
   answer: string;
 }
 
-const SYSTEM_PROMPT = `You are a senior software architect helping a developer make concrete implementation decisions for a feature. Your job is to ask ONE question that will directly influence how the code is written.
+const SYSTEM_PROMPT = `You ask short, concrete implementation questions. Each question must affect how code is written.
 
-## Your Goal
-Identify an implementation decision that has multiple valid approaches, and ask the developer to choose one. The answer must directly affect the code structure, APIs used, or behavior.
+## Format Rules (CRITICAL)
+- Question: MAX 15 words, direct and simple
+- Options: MAX 15 words each, start with the technical choice (not generic)
 
-## Question Types You Should Ask
+## Good Examples
+Question: "Where should theme state be stored?"
+Options: ["localStorage", "React Context", "URL parameter", "System preference"]
 
-1. **Architecture & State Questions**
-   - Where should state live? (localStorage, sessionStorage, React Context, URL params, database)
-   - Should this use a hook, provider, utility module, or class?
-   - Should the component be controlled or uncontrolled?
-   - Should this be client-side or server-side?
+Question: "What happens if stored theme is invalid?"
+Options: ["Fall back to light theme", "Fall back to system preference", "Show error and prompt user"]
 
-2. **Data & Persistence Questions**
-   - How should data be stored/cached?
-   - What should happen if stored data is invalid or missing?
-   - Should changes persist immediately or require explicit save?
+Question: "Should theme sync across browser tabs?"
+Options: ["Yes, sync via storage event", "No, each tab independent"]
 
-3. **Edge Case & Behavior Questions**
-   - What happens on first load with no existing data?
-   - What happens if the operation fails?
-   - Should the UI update automatically when external state changes?
-   - How should conflicts be resolved?
+## Bad Examples (TOO VERBOSE - DO NOT DO THIS)
+- "When the user first visits the application and no theme preference exists, what should happen?"
+- "localStorage with automatic persistence and validation of stored values"
 
-4. **API & Integration Questions**
-   - Which existing pattern/component should this extend?
-   - Should this be a new endpoint or extend an existing one?
-   - What format should the API accept/return?
+## Question Topics
+- State storage (localStorage, context, URL, database)
+- Component type (hook, provider, utility, controlled/uncontrolled)
+- Edge cases (missing data, invalid data, first load)
+- Sync behavior (tabs, external changes, real-time)
+- Error handling (fallback, retry, user prompt)
 
-## Rules
-- Ask exactly ONE question per response
-- Provide 3-5 concrete options that represent real implementation choices
-- Each option should result in different code
-- Options should be mutually exclusive
-- DO NOT ask about:
-  - General product questions ("who is the user?")
-  - Vague requirements ("what is the priority?")
-  - Non-technical preferences
-  - Things that don't change the implementation`;
+## DO NOT ask about
+- Users, priority, goals, success criteria
+- Anything that doesn't change code`;
 
 function buildPrompt(
   featureDescription: string,
@@ -121,14 +112,9 @@ ${keyFilesList}
     prompt += "\n";
   }
 
-  prompt += `## Question Category
-Focus on: ${questionCategory.replace(/_/g, " ")}
+  prompt += `## Category: ${questionCategory.replace(/_/g, " ")}
 
-Generate a concrete implementation question about this category. The question should:
-- Present 3-5 specific implementation options
-- Each option should result in different code
-- Be specific to this feature (not generic)
-- Build on the decisions already made`;
+Ask ONE short question (max 15 words) with 2-4 concise options (max 15 words each).`;
 
   return prompt;
 }

@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "@/api";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { IconBrandGithub, IconPlus, IconRefresh } from "@tabler/icons-react";
@@ -33,34 +32,32 @@ export function ReposClient() {
   const hasRepos = repos && repos.length > 0;
 
   return (
-    <>
-      <PageHeader
-        title="Repositories"
-        headerRight={
-          <div className="flex items-center gap-1 sm:gap-2">
-            {hasRepos && (
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
-              >
-                <IconRefresh className={"w-4 h-4" + (syncing ? " animate-spin" : "")} />
-                <span className="hidden sm:inline">Sync</span>
-              </button>
-            )}
-            <a
-              href={hasRepos ? configureUrl : connectUrl}
-              target={hasRepos ? "_blank" : undefined}
-              rel={hasRepos ? "noopener noreferrer" : undefined}
-              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs sm:text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+    <PageWrapper
+      title="Repositories"
+      headerRight={
+        <div className="flex items-center gap-1 sm:gap-2">
+          {hasRepos && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
             >
-              <IconPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">{hasRepos ? "Add Repos" : "Connect GitHub"}</span>
-            </a>
-          </div>
-        }
-      />
-      <Container>
+              <IconRefresh className={"w-4 h-4" + (syncing ? " animate-spin" : "")} />
+              <span className="hidden sm:inline">Sync</span>
+            </button>
+          )}
+          <a
+            href={hasRepos ? configureUrl : connectUrl}
+            target={hasRepos ? "_blank" : undefined}
+            rel={hasRepos ? "noopener noreferrer" : undefined}
+            className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs sm:text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+          >
+            <IconPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">{hasRepos ? "Add Repos" : "Connect GitHub"}</span>
+          </a>
+        </div>
+      }
+    >
         {repos === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
@@ -105,7 +102,6 @@ export function ReposClient() {
             ))}
           </div>
         )}
-      </Container>
-    </>
+    </PageWrapper>
   );
 }

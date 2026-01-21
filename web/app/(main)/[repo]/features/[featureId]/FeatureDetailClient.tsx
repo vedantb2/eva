@@ -4,8 +4,7 @@ import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { FeatureKanbanBoard } from "@/lib/components/features/FeatureKanbanBoard";
 import { IconGitBranch, IconArrowLeft } from "@tabler/icons-react";
 import Link from "next/link";
@@ -40,7 +39,7 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
 
   if (feature === null) {
     return (
-      <Container>
+      <PageWrapper>
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
             Feature not found
@@ -53,37 +52,34 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
             Back to features
           </Link>
         </div>
-      </Container>
+      </PageWrapper>
     );
   }
 
   return (
-    <>
-      <PageHeader
-        title={feature.title}
-        showBack
-        headerRight={
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span
-              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs sm:text-sm font-medium rounded-full ${statusColors[feature.status]}`}
-            >
-              {feature.status}
-            </span>
-            <span className="hidden sm:flex items-center gap-1 text-sm text-neutral-500 max-w-[150px] truncate">
-              <IconGitBranch className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{feature.branchName}</span>
-            </span>
-          </div>
-        }
-      />
-      <Container>
-        {feature.description && (
-          <p className="mb-4 sm:mb-6 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
-            {feature.description}
-          </p>
-        )}
-        <FeatureKanbanBoard featureId={typedFeatureId} />
-      </Container>
-    </>
+    <PageWrapper
+      title={feature.title}
+      showBack
+      headerRight={
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span
+            className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs sm:text-sm font-medium rounded-full ${statusColors[feature.status]}`}
+          >
+            {feature.status}
+          </span>
+          <span className="hidden sm:flex items-center gap-1 text-sm text-neutral-500 max-w-[150px] truncate">
+            <IconGitBranch className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">{feature.branchName}</span>
+          </span>
+        </div>
+      }
+    >
+      {feature.description && (
+        <p className="mb-4 sm:mb-6 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
+          {feature.description}
+        </p>
+      )}
+      <FeatureKanbanBoard featureId={typedFeatureId} />
+    </PageWrapper>
   );
 }

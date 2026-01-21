@@ -112,7 +112,7 @@ export function ContextTab({
       <div className="h-full overflow-y-auto p-4">
         <div className="space-y-4">
           {isCurrentlyIndexing ? (
-            <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
+            <Card shadow="none" className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
               <CardBody className="flex flex-row items-center gap-4 py-8">
                 <Spinner size="lg" color="warning" />
                 <div>
@@ -151,7 +151,7 @@ export function ContextTab({
           )}
 
           {(indexingStatus === "error" || indexError) && (
-            <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+            <Card shadow="none" className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
               <CardBody className="space-y-3">
                 <div className="flex items-start gap-3">
                   <IconAlertCircle size={24} className="text-danger-500 flex-shrink-0" />
@@ -204,13 +204,13 @@ export function ContextTab({
           </Button>
         </div>
 
-        <Card>
+        <Card shadow="none">
           <CardBody>
             <p className="text-default-700">{parsedIndex.summary}</p>
           </CardBody>
         </Card>
 
-        <Card>
+        <Card shadow="none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <IconStack size={20} className="text-primary" />
@@ -247,7 +247,7 @@ export function ContextTab({
           </CardBody>
         </Card>
 
-        <Card>
+        <Card shadow="none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <IconFolders size={20} className="text-primary" />
@@ -287,7 +287,7 @@ export function ContextTab({
           </CardBody>
         </Card>
 
-        <Card>
+        <Card shadow="none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <IconBraces size={20} className="text-primary" />
@@ -340,7 +340,7 @@ export function ContextTab({
           </CardBody>
         </Card>
 
-        <Card>
+        <Card shadow="none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <IconFileText size={20} className="text-primary" />
@@ -375,7 +375,7 @@ export function ContextTab({
           </CardBody>
         </Card>
 
-        <Card>
+        <Card shadow="none">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <IconCode size={20} className="text-default-400" />

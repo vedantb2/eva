@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Container } from "@/lib/components/ui/Container";
-import { PageHeader } from "@/lib/components/PageHeader";
+import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
@@ -22,7 +21,7 @@ export function QuickTasksClient() {
 
   return (
     <>
-      <PageHeader
+      <PageWrapper
         title="Quick Tasks"
         headerRight={
           <Button onPress={() => setIsCreating(true)}>
@@ -30,8 +29,7 @@ export function QuickTasksClient() {
             New Task
           </Button>
         }
-      />
-      <Container>
+      >
         {tasks === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
@@ -47,7 +45,7 @@ export function QuickTasksClient() {
         ) : (
           <QuickTasksKanbanBoard repoId={repo._id} />
         )}
-      </Container>
+      </PageWrapper>
       <QuickTaskModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}

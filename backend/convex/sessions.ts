@@ -6,6 +6,9 @@ const messageValidator = v.object({
   role: v.union(v.literal("user"), v.literal("assistant")),
   content: v.string(),
   timestamp: v.number(),
+  mode: v.optional(
+    v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+  ),
 });
 
 const sessionValidator = v.object({
@@ -19,6 +22,7 @@ const sessionValidator = v.object({
   sandboxId: v.optional(v.string()),
   lastActivityAt: v.optional(v.number()),
   status: v.union(v.literal("active"), v.literal("closed")),
+  archived: v.optional(v.boolean()),
   messages: v.array(messageValidator),
 });
 
@@ -30,10 +34,12 @@ export const list = query({
     if (!userId) {
       return [];
     }
-    return await ctx.db
+    const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+    // Filter out archived sessions
+    return sessions.filter((session) => !session.archived);
   },
 });
 
@@ -142,7 +148,7 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const archive = mutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -157,7 +163,7 @@ export const remove = mutation({
     if (session.userId !== userId) {
       throw new Error("Not authorized");
     }
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, { archived: true });
     return null;
   },
 });
@@ -175,6 +181,9 @@ export const addMessageNoAuth = mutation({
     id: v.id("sessions"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    mode: v.optional(
+      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -185,7 +194,12 @@ export const addMessageNoAuth = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...session.messages,
-        { role: args.role, content: args.content, timestamp: Date.now() },
+        {
+          role: args.role,
+          content: args.content,
+          timestamp: Date.now(),
+          mode: args.mode,
+        },
       ],
       lastActivityAt: Date.now(),
     });
@@ -228,7 +242,23 @@ export const clearSandboxNoAuth = mutation({
     if (!session) {
       throw new Error("Session not found");
     }
-    await ctx.db.patch(args.id, { sandboxId: undefined });
+    await ctx.db.patch(args.id, { sandboxId: undefined, status: "closed" });
+    return null;
+  },
+});
+
+export const updateStatusNoAuth = mutation({
+  args: {
+    id: v.id("sessions"),
+    status: v.union(v.literal("active"), v.literal("closed")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    await ctx.db.patch(args.id, { status: args.status });
     return null;
   },
 });

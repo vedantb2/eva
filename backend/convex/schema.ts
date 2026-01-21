@@ -202,17 +202,28 @@ const schema = defineSchema({
     sandboxId: v.optional(v.string()),
     lastActivityAt: v.optional(v.number()),
     status: v.union(v.literal("active"), v.literal("closed")),
+    archived: v.optional(v.boolean()),
     messages: v.array(
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
         timestamp: v.number(),
+        mode: v.optional(
+          v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+        ),
       })
     ),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"]),
+  docs: defineTable({
+    repoId: v.id("githubRepos"),
+    title: v.string(),
+    content: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_repo", ["repoId"]),
 });
 
 export default schema;

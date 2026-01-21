@@ -9,7 +9,9 @@ import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const anthropic = new Anthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({
+  authToken: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+});
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 
@@ -116,7 +118,9 @@ export const indexCodebase = inngest.createFunction(
         );
         if (cloneResult.exitCode !== 0) {
           const sanitizedOutput = (
-            cloneResult.stderr || cloneResult.stdout || ""
+            cloneResult.stderr ||
+            cloneResult.stdout ||
+            ""
           ).replace(new RegExp(githubToken, "g"), "[REDACTED]");
           throw new Error(`Git clone failed: ${sanitizedOutput}`);
         }
@@ -152,12 +156,14 @@ ${readme}
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
         const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-opus-4-5",
           max_tokens: 4096,
           messages: [{ role: "user", content: contextPrompt }],
         });
 
-        const textContent = response.content.find((block) => block.type === "text");
+        const textContent = response.content.find(
+          (block) => block.type === "text"
+        );
         if (!textContent || textContent.type !== "text") {
           throw new Error("No text response from Claude");
         }
@@ -165,7 +171,10 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
         const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           throw new Error(
-            `Failed to extract JSON from output: ${textContent.text.slice(0, 500)}`
+            `Failed to extract JSON from output: ${textContent.text.slice(
+              0,
+              500
+            )}`
           );
         }
 

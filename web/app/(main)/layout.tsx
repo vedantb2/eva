@@ -8,9 +8,7 @@ export default function MainLayout({
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <Sidebar />
-      <div className="lg:pl-64">
-        <main className="pt-14 lg:pt-0 p-2 sm:p-4 lg:p-6">{children}</main>
-      </div>
+      <div className="lg:pl-64">{children}</div>
     </div>
   );
 }

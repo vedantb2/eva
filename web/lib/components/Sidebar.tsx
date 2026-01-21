@@ -15,6 +15,9 @@ import {
   IconChecklist,
   IconSelector,
   IconTerminal2,
+  IconChartBar,
+  IconFileText,
+  IconShield,
 } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -30,11 +33,6 @@ import {
   DropdownItem,
 } from "@heroui/react";
 
-const mainNavigation = [
-  { name: "Repositories", href: "/repos", icon: IconBrandGithub },
-  { name: "Settings", href: "/settings", icon: IconSettings },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -44,7 +42,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(plan|features|quick-tasks|sessions)/
+      /^\/([^/]+)\/(plan|features|quick-tasks|sessions|analytics|docs|admin)/
     );
     if (match) {
       return match[1];
@@ -88,8 +86,24 @@ export function Sidebar() {
           href: `/${repoSlug}/sessions`,
           icon: IconTerminal2,
         },
+        {
+          name: "Docs",
+          href: `/${repoSlug}/docs`,
+          icon: IconFileText,
+        },
       ]
     : [];
+
+  const bottomNavigation = [
+    ...(repoSlug
+      ? [
+          { name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar },
+          { name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield },
+        ]
+      : []),
+    { name: "Repositories", href: "/repos", icon: IconBrandGithub },
+    { name: "Settings", href: "/settings", icon: IconSettings },
+  ];
 
   return (
     <>
@@ -101,7 +115,7 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Conductor" width={24} height={24} />
+          <Image src="/icon.png" alt="Conductor" width={24} height={24} className="rounded-full" />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
             Conductor
           </span>
@@ -124,7 +138,7 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between h-16 px-4 border-b border-neutral-200 dark:border-neutral-800">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/icon.png" alt="Conductor" width={32} height={32} />
+              <Image src="/icon.png" alt="Conductor" width={32} height={32} className="rounded-full" />
               <span className="text-lg font-semibold text-neutral-900 dark:text-white">
                 Conductor
               </span>
@@ -216,9 +230,9 @@ export function Sidebar() {
                     })}
                   </div>
 
-                  {repo && (
+                  {repo && repoSlug && (
                     <div className="mt-6">
-                      <ActiveTasksAccordion repoId={repo._id} />
+                      <ActiveTasksAccordion repoId={repo._id} repoSlug={repoSlug} />
                     </div>
                   )}
                 </>
@@ -226,7 +240,7 @@ export function Sidebar() {
             </div>
 
             <div className="space-y-1">
-              {mainNavigation.map((item) => {
+              {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <Link

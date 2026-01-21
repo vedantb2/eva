@@ -1,0 +1,200 @@
+import { inngest } from "../client";
+import { Daytona } from "@daytonaio/sdk";
+import { ConvexHttpClient } from "convex/browser";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
+import { clientEnv } from "@/env/client";
+import { serverEnv } from "@/env/server";
+
+const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+const daytona = new Daytona();
+
+interface QueryContext {
+  repoId: Id<"githubRepos">;
+  taskStats: {
+    total: number;
+    byStatus: { todo: number; in_progress: number; code_review: number; done: number };
+  };
+  runStats: {
+    total: number;
+    byStatus: { queued: number; running: number; success: number; error: number };
+    successRate: number;
+    prsCreated: number;
+  };
+  sessionStats: {
+    total: number;
+    active: number;
+    messagesByMode: { execute: number; ask: number; plan: number };
+  };
+  featureStats: {
+    total: number;
+    byStatus: { planning: number; active: number; completed: number; archived: number };
+    topFeatures: Array<{ id: Id<"features">; title: string; tasksTotal: number; tasksDone: number }>;
+  };
+}
+
+async function gatherContext(repoId: Id<"githubRepos">): Promise<QueryContext> {
+  const [taskStats, runStats, sessionStats, featureStats] = await Promise.all([
+    convex.query(api.analytics.getTaskStats, { repoId }),
+    convex.query(api.analytics.getRunStats, { repoId }),
+    convex.query(api.analytics.getSessionStats, { repoId }),
+    convex.query(api.analytics.getFeatureStats, { repoId }),
+  ]);
+
+  return {
+    repoId,
+    taskStats,
+    runStats,
+    sessionStats,
+    featureStats,
+  };
+}
+
+function formatContextForPrompt(context: QueryContext): string {
+  return `## Current Project Data
+
+### Task Statistics
+- Total tasks: ${context.taskStats.total}
+- By status:
+  - Todo: ${context.taskStats.byStatus.todo}
+  - In Progress: ${context.taskStats.byStatus.in_progress}
+  - Code Review: ${context.taskStats.byStatus.code_review}
+  - Done: ${context.taskStats.byStatus.done}
+
+### Agent Run Statistics
+- Total runs: ${context.runStats.total}
+- By status:
+  - Queued: ${context.runStats.byStatus.queued}
+  - Running: ${context.runStats.byStatus.running}
+  - Success: ${context.runStats.byStatus.success}
+  - Error: ${context.runStats.byStatus.error}
+- Success rate: ${context.runStats.successRate}%
+- PRs created: ${context.runStats.prsCreated}
+
+### Session Statistics
+- Total sessions: ${context.sessionStats.total}
+- Active sessions: ${context.sessionStats.active}
+- Messages by mode:
+  - Execute: ${context.sessionStats.messagesByMode.execute}
+  - Ask: ${context.sessionStats.messagesByMode.ask}
+  - Plan: ${context.sessionStats.messagesByMode.plan}
+
+### Feature Statistics
+- Total features: ${context.featureStats.total}
+- By status:
+  - Planning: ${context.featureStats.byStatus.planning}
+  - Active: ${context.featureStats.byStatus.active}
+  - Completed: ${context.featureStats.byStatus.completed}
+  - Archived: ${context.featureStats.byStatus.archived}
+${context.featureStats.topFeatures.length > 0 ? `- Top features:\n${context.featureStats.topFeatures.map((f) => `  - ${f.title}: ${f.tasksDone}/${f.tasksTotal} tasks done`).join("\n")}` : ""}`;
+}
+
+function formatDataSummary(context: QueryContext): string {
+  return `**Data Queried:**
+- Task stats: ${context.taskStats.total} total tasks
+- Run stats: ${context.runStats.total} total runs (${context.runStats.successRate}% success rate)
+- Session stats: ${context.sessionStats.total} sessions (${context.sessionStats.active} active)
+- Feature stats: ${context.featureStats.total} features`;
+}
+
+export const executeResearchQuery = inngest.createFunction(
+  {
+    id: "execute-research-query",
+    retries: 1,
+    onFailure: async ({ event, error }) => {
+      const eventData = event.data as unknown as {
+        event: { data: { queryId: string } };
+      };
+      const queryId = eventData.event.data.queryId as Id<"researchQueries">;
+      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+        id: queryId,
+        role: "assistant",
+        content: `Error processing query: ${error.message}`,
+      });
+    },
+  },
+  { event: "research/query.execute" },
+  async ({ event, step }) => {
+    const { queryId, question, repoId } = event.data;
+
+    await step.run("add-processing-message", async () => {
+      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+        id: queryId as Id<"researchQueries">,
+        role: "assistant",
+        content: "Gathering data from analytics...",
+      });
+    });
+
+    const context = await step.run("gather-context", async () => {
+      return await gatherContext(repoId as Id<"githubRepos">);
+    });
+
+    const answer = await step.run("generate-answer", async () => {
+      const sandbox = await daytona.create({
+        envVars: {
+          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+        },
+        autoStopInterval: 5,
+      });
+
+      try {
+        const prompt = `You are a data analyst assistant answering questions about a software development project.
+
+${formatContextForPrompt(context)}
+
+## Question
+${question}
+
+## Instructions
+- Be concise and direct
+- Use the provided data to give accurate answers
+- If the data doesn't contain what's needed, say so
+- Format numbers nicely (e.g., "5 tasks" not "5.0 tasks")
+- Don't make up data that isn't provided`;
+
+        const escapedPrompt = prompt.replace(/'/g, "'\\''");
+
+        const cmdResult = await sandbox.process.executeCommand(
+          `echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --output-format json`,
+          "/",
+          undefined,
+          60
+        );
+
+        const output = cmdResult.result || "";
+
+        let result = "I couldn't generate a response.";
+        try {
+          const jsonResponse = JSON.parse(output);
+          if (jsonResponse.result) {
+            result = jsonResponse.result;
+          }
+        } catch {
+          if (output.length > 0) {
+            result = output.slice(-2000);
+          }
+        }
+
+        return result;
+      } finally {
+        await sandbox.delete();
+      }
+    });
+
+    const fullResponse = `${formatDataSummary(context)}
+
+---
+
+${answer}`;
+
+    await step.run("save-response", async () => {
+      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+        id: queryId as Id<"researchQueries">,
+        role: "assistant",
+        content: fullResponse,
+      });
+    });
+
+    return { success: true };
+  }
+);

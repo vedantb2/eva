@@ -23,6 +23,7 @@ import {
   IconCheck,
   IconCircleCheck,
 } from "@tabler/icons-react";
+import { KanbanColumn, ColumnConfig } from "@/lib/components/kanban/KanbanColumn";
 import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -48,35 +49,26 @@ type SortDirection = "asc" | "desc";
 
 const ALL_STATES: PlanState[] = ["draft", "finalized", "feature_created"];
 
-const stateConfig: Record<
-  PlanState,
-  {
-    label: string;
-    badgeBg: string;
-    badgeText: string;
-    cardBg: string;
-    icon: typeof IconNotes;
-  }
-> = {
+const stateConfig: Record<PlanState, ColumnConfig & { cardBg: string }> = {
   draft: {
     label: "Draft",
     badgeBg: "bg-neutral-100 dark:bg-neutral-700",
     badgeText: "text-neutral-600 dark:text-neutral-300",
-    cardBg: "bg-neutral-50 dark:bg-neutral-800",
+    cardBg: "bg-white dark:bg-neutral-900",
     icon: IconNotes,
   },
   finalized: {
     label: "Finalized",
     badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
     badgeText: "text-yellow-700 dark:text-yellow-400",
-    cardBg: "bg-yellow-50 dark:bg-yellow-900/20",
+    cardBg: "bg-white dark:bg-neutral-900",
     icon: IconCheck,
   },
   feature_created: {
     label: "Feature Created",
     badgeBg: "bg-green-100 dark:bg-green-900/30",
     badgeText: "text-green-700 dark:text-green-400",
-    cardBg: "bg-green-50 dark:bg-green-900/20",
+    cardBg: "bg-white dark:bg-neutral-900",
     icon: IconCircleCheck,
   },
 };
@@ -262,109 +254,89 @@ export function PlansClient() {
             <div className="flex gap-4 overflow-x-auto pb-4">
               {ALL_STATES.filter((state) => visibleStates.has(state)).map(
                 (state) => (
-                  <div
+                  <KanbanColumn
                     key={state}
-                    className="min-w-[280px] max-w-[320px] flex-shrink-0 bg-neutral-50 dark:bg-neutral-900 rounded-xl p-3"
+                    id={state}
+                    config={stateConfig[state]}
+                    count={plansByState[state]?.length ?? 0}
+                    droppable={false}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const Icon = stateConfig[state].icon;
-                          return (
-                            <Icon
-                              size={16}
-                              className={stateConfig[state].badgeText}
-                            />
-                          );
-                        })()}
-                        <span className="font-medium text-sm">
-                          {stateConfig[state].label}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 text-xs font-medium rounded-full ${stateConfig[state].badgeBg} ${stateConfig[state].badgeText}`}
+                    {plansByState[state]?.map((plan) => {
+                      const canInterview = plan.state !== "feature_created";
+                      const planUrl =
+                        "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
+                      return (
+                        <div
+                          key={plan._id}
+                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${stateConfig[state].cardBg}`}
                         >
-                          {plansByState[state]?.length ?? 0}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {plansByState[state]?.map((plan) => {
-                        const canInterview = plan.state !== "feature_created";
-                        const planUrl =
-                          "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
-                        return (
-                          <div
-                            key={plan._id}
-                            className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${stateConfig[state].cardBg}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <Link href={planUrl} className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
-                                  {plan.title}
-                                </h3>
-                                {plan.rawInput && (
-                                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                                    {plan.rawInput}
-                                  </p>
-                                )}
-                              </Link>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <Tooltip
-                                  content={
+                          <div className="flex items-start justify-between gap-2">
+                            <Link href={planUrl} className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                                {plan.title}
+                              </h3>
+                              {plan.rawInput && (
+                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                                  {plan.rawInput}
+                                </p>
+                              )}
+                            </Link>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Tooltip
+                                content={
+                                  canInterview
+                                    ? "Interview to refine requirements"
+                                    : "Feature already created - plan is locked"
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (canInterview)
+                                      setInterviewPlanId(plan._id);
+                                  }}
+                                  disabled={!canInterview}
+                                  className={`p-1 rounded-lg transition-colors ${
                                     canInterview
-                                      ? "Interview to refine requirements"
-                                      : "Feature already created - plan is locked"
-                                  }
+                                      ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-400 hover:text-pink-600"
+                                      : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
+                                  }`}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (canInterview)
-                                        setInterviewPlanId(plan._id);
-                                    }}
-                                    disabled={!canInterview}
-                                    className={`p-1 rounded-lg transition-colors ${
-                                      canInterview
-                                        ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-400 hover:text-pink-600"
-                                        : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
-                                    }`}
-                                  >
-                                    <IconMessageQuestion size={16} />
-                                  </button>
-                                </Tooltip>
-                                <Tooltip content="Delete plan">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPlanToDelete({
-                                        id: plan._id,
-                                        title: plan.title,
-                                      });
-                                    }}
-                                    className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                                  >
-                                    <IconTrash size={16} />
-                                  </button>
-                                </Tooltip>
-                                <Link
-                                  href={planUrl}
-                                  className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                                  <IconMessageQuestion size={16} />
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Delete plan">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPlanToDelete({
+                                      id: plan._id,
+                                      title: plan.title,
+                                    });
+                                  }}
+                                  className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
                                 >
-                                  <IconChevronRight size={18} />
-                                </Link>
-                              </div>
+                                  <IconTrash size={16} />
+                                </button>
+                              </Tooltip>
+                              <Link
+                                href={planUrl}
+                                className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                              >
+                                <IconChevronRight size={18} />
+                              </Link>
                             </div>
                           </div>
-                        );
-                      })}
-                      {(plansByState[state]?.length ?? 0) === 0 && (
-                        <p className="text-xs text-neutral-400 text-center py-4">
-                          No plans
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                        </div>
+                      );
+                    })}
+                    {(plansByState[state]?.length ?? 0) === 0 && (
+                      <p className="text-xs text-neutral-400 text-center py-4">
+                        No plans
+                      </p>
+                    )}
+                  </KanbanColumn>
                 )
               )}
             </div>

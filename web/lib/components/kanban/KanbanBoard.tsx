@@ -11,7 +11,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
-import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
+import { KanbanColumn, KANBAN_STATUSES, TASK_STATUS_CONFIG } from "./KanbanColumn";
 import { Card, CardBody } from "@heroui/card";
 import {
   SortableContext,
@@ -217,13 +217,14 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex gap-2 sm:gap-4 overflow-x-auto p-4 pb-4 ${heightClass}`}
+          className={`flex gap-2 sm:gap-4 overflow-x-auto pb-4 ${heightClass}`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (
               <KanbanColumn
                 key={status}
-                status={status}
+                id={status}
+                config={TASK_STATUS_CONFIG[status]}
                 count={itemsByStatus[status]?.length ?? 0}
               >
                 <SortableContext

@@ -30,6 +30,7 @@ import {
   IconCircleCheck,
 } from "@tabler/icons-react";
 import { Input } from "@heroui/input";
+import { KanbanColumn, ColumnConfig } from "@/lib/components/kanban/KanbanColumn";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
@@ -40,10 +41,10 @@ type SortDirection = "asc" | "desc";
 
 const ALL_STATUSES: FeatureStatus[] = ["planning", "active", "completed"];
 
-const statusConfig: Record<FeatureStatus, { label: string; badgeBg: string; badgeText: string; cardBg: string; icon: typeof IconNotes }> = {
-  planning: { label: "Planning", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-neutral-50 dark:bg-neutral-800", icon: IconNotes },
-  active: { label: "Active", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-yellow-50 dark:bg-yellow-900/20", icon: IconClock },
-  completed: { label: "Completed", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-green-50 dark:bg-green-900/20", icon: IconCircleCheck },
+const statusConfig: Record<FeatureStatus, ColumnConfig & { cardBg: string }> = {
+  planning: { label: "Planning", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", cardBg: "bg-white dark:bg-neutral-900", icon: IconNotes },
+  active: { label: "Active", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", cardBg: "bg-white dark:bg-neutral-900", icon: IconClock },
+  completed: { label: "Completed", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", cardBg: "bg-white dark:bg-neutral-900", icon: IconCircleCheck },
 };
 
 export function FeaturesClient() {
@@ -183,74 +184,63 @@ export function FeaturesClient() {
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4">
               {ALL_STATUSES.filter((status) => visibleStatuses.has(status)).map((status) => (
-                <div
+                <KanbanColumn
                   key={status}
-                  className="min-w-[280px] max-w-[320px] flex-shrink-0 bg-neutral-50 dark:bg-neutral-900 rounded-xl p-3"
+                  id={status}
+                  config={statusConfig[status]}
+                  count={featuresByStatus[status]?.length ?? 0}
+                  droppable={false}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const Icon = statusConfig[status].icon;
-                        return <Icon size={16} className={statusConfig[status].badgeText} />;
-                      })()}
-                      <span className="font-medium text-sm">{statusConfig[status].label}</span>
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusConfig[status].badgeBg} ${statusConfig[status].badgeText}`}>
-                        {featuresByStatus[status]?.length ?? 0}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {featuresByStatus[status]?.map((feature) => (
-                      <div
-                        key={feature._id}
-                        className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${statusConfig[status].cardBg}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
+                  {featuresByStatus[status]?.map((feature) => (
+                    <div
+                      key={feature._id}
+                      className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${statusConfig[status].cardBg}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
+                          className="flex-1 min-w-0"
+                        >
+                          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                            {feature.title}
+                          </h3>
+                          {feature.description && (
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                              {feature.description}
+                            </p>
+                          )}
+                          <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
+                            <IconGitBranch className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{feature.branchName}</span>
+                          </div>
+                        </Link>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Tooltip content="Delete feature">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFeatureToDelete({ id: feature._id, title: feature.title });
+                              }}
+                              className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                            >
+                              <IconTrash size={16} />
+                            </button>
+                          </Tooltip>
                           <Link
                             href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
-                            className="flex-1 min-w-0"
+                            className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
                           >
-                            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
-                              {feature.title}
-                            </h3>
-                            {feature.description && (
-                              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                                {feature.description}
-                              </p>
-                            )}
-                            <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
-                              <IconGitBranch className="w-3 h-3 flex-shrink-0" />
-                              <span className="truncate">{feature.branchName}</span>
-                            </div>
+                            <IconChevronRight size={18} />
                           </Link>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Tooltip content="Delete feature">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setFeatureToDelete({ id: feature._id, title: feature.title });
-                                }}
-                                className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                              >
-                                <IconTrash size={16} />
-                              </button>
-                            </Tooltip>
-                            <Link
-                              href={"/" + encodeRepoSlug(fullName) + "/features/" + feature._id}
-                              className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
-                            >
-                              <IconChevronRight size={18} />
-                            </Link>
-                          </div>
                         </div>
                       </div>
-                    ))}
-                    {(featuresByStatus[status]?.length ?? 0) === 0 && (
-                      <p className="text-xs text-neutral-400 text-center py-4">No features</p>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  ))}
+                  {(featuresByStatus[status]?.length ?? 0) === 0 && (
+                    <p className="text-xs text-neutral-400 text-center py-4">No features</p>
+                  )}
+                </KanbanColumn>
               ))}
             </div>
           </div>

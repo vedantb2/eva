@@ -224,6 +224,22 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
+  researchQueries: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"]),
 });
 
 export default schema;

@@ -45,7 +45,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <IconBrain className="w-8 h-8 text-pink-600" />
               <span className="text-xl font-semibold text-neutral-900 dark:text-white">
-                Conductor
+                Pulse
               </span>
             </div>
             <LandingAuthNav />
@@ -131,7 +131,7 @@ export default function LandingPage() {
 
       <footer className="py-8 px-4 border-t border-neutral-200 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto text-center text-sm text-neutral-500 dark:text-neutral-400">
-          <p>© {new Date().getFullYear()} Conductor. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Pulse. All rights reserved.</p>
         </div>
       </footer>
     </div>

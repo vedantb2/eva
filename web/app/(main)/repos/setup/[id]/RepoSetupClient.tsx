@@ -116,7 +116,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
           GitHub App Installed
         </h1>
         <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mb-4 sm:mb-6">
-          Select which repositories you want to add to Conductor.
+          Select which repositories you want to add to Pulse.
         </p>
 
         <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">

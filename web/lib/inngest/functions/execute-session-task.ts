@@ -114,7 +114,7 @@ export const executeSessionTask = inngest.createFunction(
       }
 
       await sbx.commands.run(
-        'git config --global user.name "Conductor Agent" && git config --global user.email "agent@conductor.dev"',
+        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
         { timeoutMs: 10000 }
       );
 

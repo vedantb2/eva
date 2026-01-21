@@ -22,9 +22,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        instrumentSans: ["var(--font-instrument-sans)"],
-        instrumentSerif: "var(--font-instrument-serif)",
-        michroma: "var(--font-michroma)",
+        inter: ["var(--font-inter)"],
       },
       colors: {
         border: "hsl(var(--border))",

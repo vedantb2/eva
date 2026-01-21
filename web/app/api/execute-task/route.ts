@@ -109,7 +109,7 @@ Instructions:
           title: task.title,
           body: `## Task\n${
             task.description || "No description"
-          }\n\n---\n*Implemented by Conductor AI Agent*`,
+          }\n\n---\n*Implemented by Pulse AI Agent*`,
           head: branchName,
           base: "main",
         }),

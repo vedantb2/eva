@@ -115,9 +115,9 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Conductor" width={24} height={24} className="rounded-full" />
+          <Image src="/icon.png" alt="Pulse" width={24} height={24} className="rounded-full" />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
-            Conductor
+            Pulse
           </span>
         </Link>
         <ThemeToggleClient />
@@ -138,9 +138,9 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between h-16 px-4 border-b border-neutral-200 dark:border-neutral-800">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/icon.png" alt="Conductor" width={32} height={32} className="rounded-full" />
-              <span className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Conductor
+              <Image src="/icon.png" alt="Pulse" width={32} height={32} className="rounded-full" />
+              <span className="text-xl font-semibold text-neutral-900 dark:text-white">
+                Pulse
               </span>
             </Link>
             <button

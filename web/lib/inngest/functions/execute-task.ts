@@ -108,7 +108,7 @@ export const executeTask = inngest.createFunction(
       );
 
       await sbx.commands.run(
-        'git config --global user.name "Conductor Agent" && git config --global user.email "agent@conductor.dev"',
+        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
         { timeoutMs: 10000 }
       );
 
@@ -158,7 +158,7 @@ export const executeTask = inngest.createFunction(
         .replace(
           /'/g,
           "\\'"
-        )}\\n\\n---\\n*Implemented by Conductor AI Agent*","head":"${
+        )}\\n\\n---\\n*Implemented by Pulse AI Agent*","head":"${
         sandboxData.branchName
       }","base":"main"}'
 7. Extract the "html_url" from the curl response - that is the PR URL

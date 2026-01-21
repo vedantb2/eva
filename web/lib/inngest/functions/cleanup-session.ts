@@ -1,12 +1,12 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
+import { Daytona } from "@daytonaio/sdk";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+const daytona = new Daytona();
 
 export const cleanupSession = inngest.createFunction(
   {
@@ -23,10 +23,8 @@ export const cleanupSession = inngest.createFunction(
       }
 
       try {
-        const sbx = await Sandbox.connect(sandboxId, {
-          apiKey: serverEnv.E2B_API_KEY,
-        });
-        await sbx.kill();
+        const sandbox = await daytona.get(sandboxId);
+        await sandbox.delete();
         return { success: true, message: "Sandbox killed successfully" };
       } catch {
         return { success: true, message: "Sandbox already terminated" };

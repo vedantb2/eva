@@ -17,7 +17,6 @@ import {
   IconMessageQuestion,
   IconClipboardList,
   IconFileText,
-  IconEye,
   IconGitPullRequest,
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
@@ -293,18 +292,6 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {session.sandboxId && (
-              <Button
-                as={Link}
-                href={`https://${session.sandboxId}.e2b.dev`}
-                target="_blank"
-                size="sm"
-                variant="flat"
-                startContent={<IconEye className="w-3 h-3" />}
-              >
-                Preview
-              </Button>
-            )}
             {session.prUrl && (
               <Button
                 as={Link}

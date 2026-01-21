@@ -1,5 +1,5 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
+import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
@@ -9,6 +9,7 @@ import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+const daytona = new Daytona();
 const anthropic = new Anthropic({
   authToken: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
 });
@@ -103,42 +104,51 @@ export const indexCodebase = inngest.createFunction(
     const codebaseIndex = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sbx = await Sandbox.create("base", {
-        apiKey: serverEnv.E2B_API_KEY,
-        timeoutMs: 5 * 60 * 1000,
+      const sandbox = await daytona.create({
+        autoStopInterval: 5,
       });
 
       try {
         const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
         const workDir = "/home/user/repo";
 
-        const cloneResult = await sbx.commands.run(
+        const cloneResult = await sandbox.process.executeCommand(
           `git clone --depth 1 "${repoUrl}" ${workDir}`,
-          { timeoutMs: 120000 }
+          "/",
+          undefined,
+          120
         );
         if (cloneResult.exitCode !== 0) {
-          const sanitizedOutput = (
-            cloneResult.stderr ||
-            cloneResult.stdout ||
-            ""
-          ).replace(new RegExp(githubToken, "g"), "[REDACTED]");
+          const sanitizedOutput = (cloneResult.result || "").replace(
+            new RegExp(githubToken, "g"),
+            "[REDACTED]"
+          );
           throw new Error(`Git clone failed: ${sanitizedOutput}`);
         }
 
-        const treeResult = await sbx.commands.run(
-          `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`
+        const treeResult = await sandbox.process.executeCommand(
+          `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
+          "/",
+          undefined,
+          30
         );
-        const fileList = treeResult.stdout || "";
+        const fileList = treeResult.result || "";
 
-        const packageJsonResult = await sbx.commands.run(
-          `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`
+        const packageJsonResult = await sandbox.process.executeCommand(
+          `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`,
+          "/",
+          undefined,
+          10
         );
-        const packageJson = packageJsonResult.stdout || "{}";
+        const packageJson = packageJsonResult.result || "{}";
 
-        const readmeResult = await sbx.commands.run(
-          `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`
+        const readmeResult = await sandbox.process.executeCommand(
+          `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`,
+          "/",
+          undefined,
+          10
         );
-        const readme = readmeResult.stdout?.slice(0, 2000) || "";
+        const readme = readmeResult.result?.slice(0, 2000) || "";
 
         const contextPrompt = `${INDEX_PROMPT}
 
@@ -181,7 +191,7 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
         JSON.parse(jsonMatch[0]);
         return jsonMatch[0];
       } finally {
-        await sbx.kill();
+        await sandbox.delete();
       }
     });
 

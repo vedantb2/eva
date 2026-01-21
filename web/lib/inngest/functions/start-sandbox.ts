@@ -1,5 +1,5 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
+import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
@@ -8,6 +8,7 @@ import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+const daytona = new Daytona();
 
 async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -45,13 +46,10 @@ export const startSandbox = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      // Check if sandbox already exists and is alive
       if (session.sandboxId) {
         try {
-          const sbx = await Sandbox.connect(session.sandboxId, {
-            apiKey: serverEnv.E2B_API_KEY,
-          });
-          await sbx.commands.run("echo 'sandbox alive'", { timeoutMs: 5000 });
+          const sandbox = await daytona.get(session.sandboxId);
+          await sandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
@@ -62,48 +60,57 @@ export const startSandbox = inngest.createFunction(
         }
       }
 
-      // Create new sandbox
-      const sbx = await Sandbox.create("anthropic-claude-code", {
-        apiKey: serverEnv.E2B_API_KEY,
-        envs: {
+      const sandbox = await daytona.create({
+        envVars: {
           CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
           GITHUB_TOKEN: freshToken,
         },
-        timeoutMs: 60 * 60 * 1000,
+        autoStopInterval: 60,
       });
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sbx.commands.run(`git clone ${repoUrl} ~/workspace`, {
-        timeoutMs: 120000,
-      });
+      await sandbox.process.executeCommand(
+        `git clone ${repoUrl} ~/workspace`,
+        "/",
+        undefined,
+        120
+      );
 
       const branchName = session.branchName || `session/${sessionId}`;
 
-      const branchCheckResult = await sbx.commands.run(
+      const branchCheckResult = await sandbox.process.executeCommand(
         `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
-        { timeoutMs: 30000 }
+        "/",
+        undefined,
+        30
       );
 
-      if (branchCheckResult.stdout?.includes(branchName)) {
-        await sbx.commands.run(
+      if (branchCheckResult.result?.includes(branchName)) {
+        await sandbox.process.executeCommand(
           `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
-          { timeoutMs: 30000 }
+          "/",
+          undefined,
+          30
         );
       } else {
-        await sbx.commands.run(
+        await sandbox.process.executeCommand(
           `cd ~/workspace && git checkout -b ${branchName}`,
-          { timeoutMs: 30000 }
+          "/",
+          undefined,
+          30
         );
       }
 
-      await sbx.commands.run(
+      await sandbox.process.executeCommand(
         'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
-        { timeoutMs: 10000 }
+        "/",
+        undefined,
+        10
       );
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
-        sandboxId: sbx.sandboxId,
+        sandboxId: sandbox.id,
         branchName,
       });
 
@@ -112,7 +119,7 @@ export const startSandbox = inngest.createFunction(
         status: "active",
       });
 
-      return { sandboxId: sbx.sandboxId, branchName, isNew: true };
+      return { sandboxId: sandbox.id, branchName, isNew: true };
     });
 
     await step.run("add-startup-message", async () => {

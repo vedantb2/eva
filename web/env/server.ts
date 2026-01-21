@@ -10,8 +10,8 @@ export const serverEnv = createEnv({
     CLERK_SECRET_KEY: z.string().min(1),
     NEXT_OPENROUTER_API_KEY: z.string().min(1),
     ALLOWED_ORIGINS: z.string().optional().default("http://localhost:3000"),
-    E2B_API_KEY: z.string().min(1),
     CLAUDE_CODE_OAUTH_TOKEN: z.string().min(1),
+    DAYTONA_API_KEY: z.string().min(1),
   },
   experimental__runtimeEnv: process.env,
 });

@@ -25,6 +25,7 @@ import { useState, useMemo } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
@@ -39,7 +40,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebar();
   const repos = useQuery(api.githubRepos.list);
   const { user } = useUser();
 

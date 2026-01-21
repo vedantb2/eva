@@ -23,6 +23,7 @@ export function QuickTasksClient() {
     <>
       <PageWrapper
         title="Quick Tasks"
+        fillHeight
         headerRight={
           <Button onPress={() => setIsCreating(true)}>
             <IconPlus size={16} className="mr-1" />

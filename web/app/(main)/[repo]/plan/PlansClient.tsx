@@ -144,6 +144,7 @@ export function PlansClient() {
     <>
       <PageWrapper
         title="Plan"
+        fillHeight
         headerRight={
           <Button onPress={() => setIsCreating(true)}>
             <IconPlus size={16} className="sm:mr-1" />
@@ -164,8 +165,8 @@ export function PlansClient() {
             onAction={() => setIsCreating(true)}
           />
         ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex flex-col flex-1 min-h-0 gap-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Dropdown>
                   <DropdownTrigger>
@@ -251,7 +252,7 @@ export function PlansClient() {
                 onClear={() => setSearchQuery("")}
               />
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="flex items-stretch gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
               {ALL_STATES.filter((state) => visibleStates.has(state)).map(
                 (state) => (
                   <KanbanColumn

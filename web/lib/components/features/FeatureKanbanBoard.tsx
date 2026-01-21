@@ -44,7 +44,7 @@ export function FeatureKanbanBoard({ featureId }: FeatureKanbanBoardProps) {
         items={tasks}
         onStatusChange={handleStatusChange}
         onItemClick={setSelectedTask}
-        heightClass="min-h-[400px] sm:min-h-[500px] h-[calc(100vh-250px)] sm:h-[calc(100vh-230px)]"
+        fillHeight
         renderCard={(task) => (
           <FeatureTaskCard
             id={task._id}

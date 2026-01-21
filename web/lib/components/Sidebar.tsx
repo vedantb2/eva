@@ -149,7 +149,7 @@ export function Sidebar() {
             <Link href="/" className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
               <Image src="/icon.png" alt="Pulse" width={32} height={32} className="rounded-full" />
               {!collapsed && (
-                <span className="text-xl font-semibold text-neutral-900 dark:text-white">
+                <span className="text-2xl tracking-tighter font-semibold text-neutral-900 dark:text-white">
                   Pulse
                 </span>
               )}

@@ -104,7 +104,7 @@ export default function ResearchLayout({
   };
 
   return (
-    <div className="flex h-[calc(100vh-1.5rem)]">
+    <div className="flex h-screen">
       <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between mb-3">

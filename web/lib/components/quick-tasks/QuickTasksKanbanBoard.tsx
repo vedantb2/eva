@@ -52,6 +52,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
         items={tasks}
         onStatusChange={handleStatusChange}
         onItemClick={setSelectedTask}
+        fillHeight
         renderCard={(task) => (
           <QuickTaskCard
             id={task._id}

@@ -8,6 +8,7 @@ interface PageWrapperProps {
   headerRight?: React.ReactNode;
   showBack?: boolean;
   onBack?: () => void;
+  fillHeight?: boolean;
   children: React.ReactNode;
 }
 
@@ -16,6 +17,7 @@ export function PageWrapper({
   headerRight,
   showBack = false,
   onBack,
+  fillHeight = false,
   children,
 }: PageWrapperProps) {
   const router = useRouter();
@@ -45,8 +47,8 @@ export function PageWrapper({
           </div>
         )}
       </div>
-      <div className="flex-1 bg-neutral-50 dark:bg-neutral-900 overflow-auto">
-        <div className="flex flex-col gap-4 md:gap-6 px-4 pt-2 pb-6 md:pb-8 min-h-full">
+      <div className={`flex-1 bg-neutral-50 dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}>
+        <div className={`flex flex-col gap-4 md:gap-6 px-4 pt-2 ${fillHeight ? "flex-1 min-h-0 overflow-hidden pb-4" : "pb-6 md:pb-8 min-h-full"}`}>
           {children}
         </div>
       </div>

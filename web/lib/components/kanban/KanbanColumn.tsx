@@ -42,13 +42,13 @@ export function KanbanColumn({
     <Card
       ref={setNodeRef}
       shadow="none"
-      className={`min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] h-full flex-shrink-0 transition-colors ${
+      className={`min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] h-full flex-shrink-0 transition-colors flex flex-col ${
         isOver
           ? "bg-neutral-200 dark:bg-neutral-700"
           : "bg-neutral-100 dark:bg-neutral-800"
       }`}
     >
-      <CardHeader className="flex justify-between items-center pb-2">
+      <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           <config.icon size={16} className={config.badgeText} />
           <span className="font-medium">{config.label}</span>
@@ -59,7 +59,7 @@ export function KanbanColumn({
           </span>
         </div>
       </CardHeader>
-      <CardBody className="pt-0 overflow-y-auto space-y-2">{children}</CardBody>
+      <CardBody className="pt-0 overflow-y-auto space-y-2 flex-1 min-h-0">{children}</CardBody>
     </Card>
   );
 }

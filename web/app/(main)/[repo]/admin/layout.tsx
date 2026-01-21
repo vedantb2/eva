@@ -21,7 +21,7 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="flex h-[calc(100vh-1.5rem)]">
+    <div className="flex h-screen">
       <div className="w-64 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">

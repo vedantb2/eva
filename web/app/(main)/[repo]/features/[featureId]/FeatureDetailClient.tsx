@@ -60,6 +60,7 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
     <PageWrapper
       title={feature.title}
       showBack
+      fillHeight
       headerRight={
         <div className="flex items-center gap-2 sm:gap-3">
           <span

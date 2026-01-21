@@ -107,7 +107,7 @@ export function FeaturesClient() {
 
   return (
     <>
-      <PageWrapper title="Features">
+      <PageWrapper title="Features" fillHeight>
         {features === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
@@ -119,8 +119,8 @@ export function FeaturesClient() {
             description="Features are created from finalized plans. Create a plan first to get started."
           />
         ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex flex-col flex-1 min-h-0 gap-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Dropdown>
                   <DropdownTrigger>
@@ -182,7 +182,7 @@ export function FeaturesClient() {
                 onClear={() => setSearchQuery("")}
               />
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="flex items-stretch gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
               {ALL_STATUSES.filter((status) => visibleStatuses.has(status)).map((status) => (
                 <KanbanColumn
                   key={status}
@@ -194,7 +194,7 @@ export function FeaturesClient() {
                   {featuresByStatus[status]?.map((feature) => (
                     <div
                       key={feature._id}
-                      className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${statusConfig[status].cardBg}`}
+                      className={`p-3 rounded-lg hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${statusConfig[status].cardBg}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <Link

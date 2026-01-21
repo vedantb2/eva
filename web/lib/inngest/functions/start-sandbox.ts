@@ -108,6 +108,20 @@ export const startSandbox = inngest.createFunction(
         10
       );
 
+      await sandbox.process.executeCommand(
+        "npm install -g pnpm",
+        "/",
+        undefined,
+        60
+      );
+
+      await sandbox.process.executeCommand(
+        "pnpm install",
+        "/home/daytona/workspace",
+        undefined,
+        300
+      );
+
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
         sandboxId: sandbox.id,
@@ -127,7 +141,7 @@ export const startSandbox = inngest.createFunction(
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: sandboxData.isNew
-          ? `Sandbox started successfully! Ready to execute tasks on branch \`${sandboxData.branchName}\`.`
+          ? `Sandbox started and dependencies installed! Ready to execute tasks on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`
           : `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`,
       });
     });

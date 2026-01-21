@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from "next/server";
+import { ConvexHttpClient } from "convex/browser";
+import { Daytona } from "@daytonaio/sdk";
+import { api } from "@/api";
+import { clientEnv } from "@/env/client";
+import { auth } from "@clerk/nextjs/server";
+import { GenericId as Id } from "convex/values";
+
+const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+const daytona = new Daytona();
+
+export async function GET(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const searchParams = request.nextUrl.searchParams;
+  const sessionId = searchParams.get("sessionId");
+  const port = parseInt(searchParams.get("port") || "3000", 10);
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
+  }
+
+  const session = await convex.query(api.sessions.getNoAuth, {
+    id: sessionId as Id<"sessions">,
+  });
+  if (!session) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  if (!session.sandboxId) {
+    return NextResponse.json(
+      { error: "Sandbox not active" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const sandbox = await daytona.get(session.sandboxId);
+    const preview = await sandbox.getPreviewLink(port);
+
+    return NextResponse.json({
+      url: preview.url,
+      token: preview.token,
+      port,
+    });
+  } catch (error) {
+    console.error("Failed to get preview link:", error);
+    return NextResponse.json(
+      { error: "Failed to get preview link" },
+      { status: 500 }
+    );
+  }
+}

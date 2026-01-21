@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "turbo": "npm run api && next dev --turbopack",
-    "build": "npm run api:prod && next build",
+    "dev": "next dev --turbopack",
+    "turbo": "convex-helpers ts-api-spec --output-file api && next dev --turbopack",
+    "build": "convex-helpers ts-api-spec --prod --output-file api && next build",
     "start": "next start",
     "lint": "next lint",
-    "api": "npx convex-helpers ts-api-spec --output-file api",
-    "api:prod": "npx convex-helpers ts-api-spec --prod --output-file api",
-    "inngest": "npx inngest-cli dev"
+    "api": "convex-helpers ts-api-spec --output-file api",
+    "api:prod": "convex-helpers ts-api-spec --prod --output-file api",
+    "inngest": "inngest-cli dev"
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.30",
@@ -30,6 +31,9 @@
     "@tiptap/react": "^3.15.3",
     "@tiptap/starter-kit": "^3.15.3",
     "@vercel/analytics": "^1.5.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "ai": "^5.0.30",
     "chart.js": "^4.4.8",
     "clsx": "^2.1.1",

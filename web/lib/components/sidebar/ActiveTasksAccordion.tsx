@@ -58,7 +58,7 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
             <Link key={task._id} href={getTaskLink(task)}>
               <div className="flex items-center justify-between p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-neutral-900 dark:text-white truncate">
+                  <p className="text-xs text-neutral-900 dark:text-white truncate">
                     {task.title}
                   </p>
                   {task.taskNumber && (

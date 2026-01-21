@@ -39,7 +39,7 @@ export function QuickTaskCard({
     <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
+          <h4 className="font-medium text-xs line-clamp-1">{title}</h4>
           {latestPrUrl && (
             <Link
               href={latestPrUrl}

@@ -35,7 +35,7 @@ export function PageWrapper({
           </button>
         )}
         {title && (
-          <h1 className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {title}
           </h1>
         )}

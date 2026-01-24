@@ -28,8 +28,8 @@ interface QueryContext {
   };
   projectStats: {
     total: number;
-    byStatus: { planning: number; active: number; completed: number; archived: number };
-    topFeatures: Array<{ id: Id<"features">; title: string; tasksTotal: number; tasksDone: number }>;
+    byPhase: { draft: number; finalized: number; active: number; completed: number };
+    topProjects: Array<{ id: Id<"projects">; title: string; tasksTotal: number; tasksDone: number }>;
   };
 }
 
@@ -79,14 +79,14 @@ function formatContextForPrompt(context: QueryContext): string {
   - Ask: ${context.sessionStats.messagesByMode.ask}
   - Plan: ${context.sessionStats.messagesByMode.plan}
 
-### Feature Statistics
-- Total features: ${context.featureStats.total}
-- By status:
-  - Planning: ${context.featureStats.byStatus.planning}
-  - Active: ${context.featureStats.byStatus.active}
-  - Completed: ${context.featureStats.byStatus.completed}
-  - Archived: ${context.featureStats.byStatus.archived}
-${context.featureStats.topFeatures.length > 0 ? `- Top features:\n${context.featureStats.topFeatures.map((f) => `  - ${f.title}: ${f.tasksDone}/${f.tasksTotal} tasks done`).join("\n")}` : ""}`;
+### Project Statistics
+- Total projects: ${context.projectStats.total}
+- By phase:
+  - Draft: ${context.projectStats.byPhase.draft}
+  - Finalized: ${context.projectStats.byPhase.finalized}
+  - Active: ${context.projectStats.byPhase.active}
+  - Completed: ${context.projectStats.byPhase.completed}
+${context.projectStats.topProjects.length > 0 ? `- Top projects:\n${context.projectStats.topProjects.map((p) => `  - ${p.title}: ${p.tasksDone}/${p.tasksTotal} tasks done`).join("\n")}` : ""}`;
 }
 
 function formatDataSummary(context: QueryContext): string {
@@ -94,7 +94,7 @@ function formatDataSummary(context: QueryContext): string {
 - Task stats: ${context.taskStats.total} total tasks
 - Run stats: ${context.runStats.total} total runs (${context.runStats.successRate}% success rate)
 - Session stats: ${context.sessionStats.total} sessions (${context.sessionStats.active} active)
-- Feature stats: ${context.featureStats.total} features`;
+- Project stats: ${context.projectStats.total} projects`;
 }
 
 export const executeResearchQuery = inngest.createFunction(

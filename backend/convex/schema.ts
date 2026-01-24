@@ -202,6 +202,28 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  evaluationReports: defineTable({
+    repoId: v.id("githubRepos"),
+    docId: v.id("docs"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("error")
+    ),
+    requirementsMet: v.array(
+      v.object({ requirement: v.string(), evidence: v.string() })
+    ),
+    requirementsNotMet: v.array(
+      v.object({ requirement: v.string(), reason: v.string() })
+    ),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_doc", ["docId"]),
 });
 
 export default schema;

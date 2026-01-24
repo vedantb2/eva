@@ -104,3 +104,11 @@ export const remove = mutation({
     return null;
   },
 });
+
+export const getNoAuth = query({
+  args: { id: v.id("docs") },
+  returns: v.union(docValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});

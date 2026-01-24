@@ -10,6 +10,7 @@ import {
   askSession,
   planSession,
   executeResearchQuery,
+  evaluateDoc,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -24,5 +25,6 @@ export const { GET, POST, PUT } = serve({
     askSession,
     planSession,
     executeResearchQuery,
+    evaluateDoc,
   ],
 });

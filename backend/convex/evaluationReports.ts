@@ -1,0 +1,172 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { getCurrentUserId } from "./auth";
+
+const requirementMetValidator = v.object({
+  requirement: v.string(),
+  evidence: v.string(),
+});
+
+const requirementNotMetValidator = v.object({
+  requirement: v.string(),
+  reason: v.string(),
+});
+
+const reportValidator = v.object({
+  _id: v.id("evaluationReports"),
+  _creationTime: v.number(),
+  repoId: v.id("githubRepos"),
+  docId: v.id("docs"),
+  status: v.union(
+    v.literal("pending"),
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("error")
+  ),
+  requirementsMet: v.array(requirementMetValidator),
+  requirementsNotMet: v.array(requirementNotMetValidator),
+  summary: v.optional(v.string()),
+  error: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export const listByDoc = query({
+  args: { docId: v.id("docs") },
+  returns: v.array(reportValidator),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+    const reports = await ctx.db
+      .query("evaluationReports")
+      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .collect();
+    return reports.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const get = query({
+  args: { id: v.id("evaluationReports") },
+  returns: v.union(reportValidator, v.null()),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const create = mutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    docId: v.id("docs"),
+  },
+  returns: v.id("evaluationReports"),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const now = Date.now();
+    return await ctx.db.insert("evaluationReports", {
+      repoId: args.repoId,
+      docId: args.docId,
+      status: "pending",
+      requirementsMet: [],
+      requirementsNotMet: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const createNoAuth = mutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    docId: v.id("docs"),
+  },
+  returns: v.id("evaluationReports"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return await ctx.db.insert("evaluationReports", {
+      repoId: args.repoId,
+      docId: args.docId,
+      status: "pending",
+      requirementsMet: [],
+      requirementsNotMet: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const updateStatusNoAuth = mutation({
+  args: {
+    id: v.id("evaluationReports"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) {
+      throw new Error("Report not found");
+    }
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const completeNoAuth = mutation({
+  args: {
+    id: v.id("evaluationReports"),
+    requirementsMet: v.array(requirementMetValidator),
+    requirementsNotMet: v.array(requirementNotMetValidator),
+    summary: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) {
+      throw new Error("Report not found");
+    }
+    await ctx.db.patch(args.id, {
+      status: "completed",
+      requirementsMet: args.requirementsMet,
+      requirementsNotMet: args.requirementsNotMet,
+      summary: args.summary,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const failNoAuth = mutation({
+  args: {
+    id: v.id("evaluationReports"),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) {
+      throw new Error("Report not found");
+    }
+    await ctx.db.patch(args.id, {
+      status: "error",
+      error: args.error,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});

@@ -124,9 +124,9 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Pulse" width={24} height={24} className="rounded-full" />
+          <Image src="/icon.png" alt="Eva" width={24} height={24} className="rounded-full" />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
-            Pulse
+            Eva
           </span>
         </Link>
         <ThemeToggleClient />
@@ -147,10 +147,10 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className={`flex items-center h-16 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}>
             <Link href="/" className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
-              <Image src="/icon.png" alt="Pulse" width={32} height={32} className="rounded-full" />
+              <Image src="/icon.png" alt="Eva" width={32} height={32} className="rounded-full" />
               {!collapsed && (
                 <span className="text-2xl tracking-tighter font-semibold text-neutral-900 dark:text-white">
-                  Pulse
+                  Eva
                 </span>
               )}
             </Link>

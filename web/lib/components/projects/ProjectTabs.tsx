@@ -6,7 +6,6 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { ProjectChatTab } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
-import { ProjectFinalizationModal } from "./ProjectFinalizationModal";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -42,7 +41,6 @@ export function ProjectTabs({
   installationId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
   const [isInterview, setIsInterview] = useState(false);
   const updateProject = useMutation(api.projects.update);
 
@@ -50,14 +48,9 @@ export function ProjectTabs({
     async (spec: string) => {
       setPendingSpec(spec);
       await updateProject({ id: projectId, generatedSpec: spec, phase: "finalized" });
-      setShowModal(true);
     },
     [projectId, updateProject]
   );
-
-  const handleModalClose = useCallback(() => {
-    setShowModal(false);
-  }, []);
 
   const handleStartInterview = useCallback(() => {
     setIsInterview(true);
@@ -117,15 +110,6 @@ export function ProjectTabs({
           onStartInterview={handleStartInterview}
         />
       </div>
-      {pendingSpec && (
-        <ProjectFinalizationModal
-          isOpen={showModal}
-          onClose={handleModalClose}
-          projectId={projectId}
-          spec={pendingSpec}
-          repoSlug={repoSlug}
-        />
-      )}
     </div>
   );
 }

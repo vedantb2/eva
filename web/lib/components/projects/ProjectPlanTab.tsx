@@ -95,7 +95,14 @@ export function ProjectPlanTab({
   const parsedIndex: CodebaseIndex | null = (() => {
     if (!codebaseIndex) return null;
     try {
-      return JSON.parse(codebaseIndex);
+      const parsed = JSON.parse(codebaseIndex);
+      if (parsed.type === "result" && parsed.result) {
+        const jsonMatch = parsed.result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -252,10 +259,10 @@ export function ProjectPlanTab({
             <div className="flex items-center gap-3 text-sm">
               <IconCode size={18} className="text-success-600" />
               <span className="text-success-700 dark:text-success-400">
-                {parsedIndex.techStack.language} / {parsedIndex.techStack.framework}
+                {parsedIndex.techStack?.language ?? "Unknown"} / {parsedIndex.techStack?.framework ?? "Unknown"}
               </span>
               <span className="text-success-600 dark:text-success-500">
-                {parsedIndex.keyFiles.length} key files
+                {parsedIndex.keyFiles?.length ?? 0} key files
               </span>
             </div>
             <Button

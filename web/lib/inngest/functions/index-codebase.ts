@@ -1,18 +1,13 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
-import Anthropic from "@anthropic-ai/sdk";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const daytona = new Daytona();
-const anthropic = new Anthropic({
-  authToken: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-});
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 
@@ -103,10 +98,7 @@ export const indexCodebase = inngest.createFunction(
 
     const codebaseIndex = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
-
-      const sandbox = await daytona.create({
-        autoStopInterval: 5,
-      });
+      const sandbox = await createSandbox(githubToken);
 
       try {
         const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
@@ -165,27 +157,32 @@ ${readme}
 
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
-        const response = await anthropic.messages.create({
-          model: "claude-opus-4-5",
-          max_tokens: 4096,
-          messages: [{ role: "user", content: contextPrompt }],
-        });
+        const escapedPrompt = contextPrompt.replace(/'/g, "'\\''");
 
-        const textContent = response.content.find(
-          (block) => block.type === "text"
+        const claudeResult = await sandbox.process.executeCommand(
+          `cd ${workDir} && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --output-format json`,
+          "/",
+          undefined,
+          300
         );
-        if (!textContent || textContent.type !== "text") {
-          throw new Error("No text response from Claude");
+
+        const output = claudeResult.result || "";
+
+        let responseText = "";
+        try {
+          const jsonResponse = JSON.parse(output);
+          if (jsonResponse.result) {
+            responseText = jsonResponse.result;
+          }
+        } catch {
+          if (output.length > 0) {
+            responseText = output;
+          }
         }
 
-        const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error(
-            `Failed to extract JSON from output: ${textContent.text.slice(
-              0,
-              500
-            )}`
-          );
+          throw new Error(`Failed to extract JSON from output: ${responseText.slice(0, 500)}`);
         }
 
         JSON.parse(jsonMatch[0]);

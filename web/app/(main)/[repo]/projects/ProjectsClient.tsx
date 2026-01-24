@@ -257,7 +257,7 @@ export function ProjectsClient() {
                 onClear={() => setSearchQuery("")}
               />
             </div>
-            <div className="flex items-stretch gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
+            <div className="flex items-stretch gap-2 overflow-x-auto flex-1 min-h-0">
               {ALL_PHASES.filter((phase) => visiblePhases.has(phase)).map(
                 (phase) => (
                   <KanbanColumn

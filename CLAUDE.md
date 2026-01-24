@@ -43,30 +43,36 @@ This is a monorepo with three apps:
 
 **Backend:** Convex (database + mutations/queries), Resend (email), Inngest (background jobs)
 
-**Key Integrations:** GitHub API via Octokit, Claude Code SDK, E2B for code execution
+**Key Integrations:** GitHub API via Octokit, Claude Code SDK, Daytona SDK for sandbox code execution
 
 ### Code Organization
 
 ```
 web/
 ├── app/              # Next.js App Router pages
-│   ├── (main)/       # Protected routes (Kanban, Features, Plans, Sessions)
+│   ├── (main)/       # Protected routes requiring auth
+│   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analytics, admin)
+│   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
-│   └── api/          # Route handlers (chat, execute-task, github)
+│   └── api/          # Route handlers (chat, execute-task, github, inngest)
 ├── lib/
 │   ├── components/   # Reusable UI components
-│   ├── contexts/     # React contexts (Theme, Repo)
+│   ├── contexts/     # React contexts (Theme, Repo, Sidebar)
 │   ├── hooks/        # Custom hooks
 │   ├── github/       # GitHub API utilities
+│   ├── inngest/      # Background job definitions
 │   └── prompts/      # AI system prompts
+├── env/
+│   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
+│   └── server.ts     # Server-side env vars
 
 backend/convex/
 ├── schema.ts         # Database schema
 ├── agentTasks.ts     # Task CRUD operations
 ├── agentRuns.ts      # Execution tracking
-├── features.ts       # Feature branch management
-├── plans.ts          # Planning workflows
-└── sessions.ts       # Chat sessions
+├── projects.ts       # Project management
+├── sessions.ts       # Chat sessions
+└── analytics.ts      # Stats queries
 ```
 
 ### Key Data Models
@@ -75,9 +81,22 @@ backend/convex/
 - **columns** - Board columns (todo, in_progress, code_review, done)
 - **agentTasks** - Work items with status, branch names, GitHub links
 - **agentRuns** - Task execution history with logs
-- **features** - GitHub feature branches (planning → active → completed)
-- **plans** - Development plans with conversation history
-- **sessions** - Interactive chat sessions
+- **projects** - Development projects with phases (draft → finalized → active → completed)
+- **sessions** - Interactive Claude Code chat sessions with sandbox
+- **docs** - Repository documentation
+- **researchQueries** - Analytics queries with AI-generated insights
+
+### Inngest Background Jobs
+
+Located in `web/lib/inngest/functions/`:
+- **execute-task** - Runs agent tasks in Daytona sandbox
+- **execute-session-task** - Executes commands within a session sandbox
+- **ask-session** / **plan-session** - Session AI interactions
+- **start-sandbox** - Initializes Daytona sandbox for sessions
+- **cleanup-session** - Tears down inactive sessions
+- **create-session-pr** - Creates GitHub PRs from session changes
+- **index-codebase** - Indexes repo for project planning
+- **execute-research-query** - Runs analytics queries with AI
 
 ## Conventions
 
@@ -85,3 +104,4 @@ backend/convex/
 - Convex queries/mutations use validators - always use `.withIndex()` for efficient queries
 - Forms use React Hook Form + Zod validation
 - Dark mode via next-themes with HSL CSS variables
+- Environment variables validated with @t3-oss/env-nextjs and Zod

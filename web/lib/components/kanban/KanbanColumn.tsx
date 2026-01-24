@@ -42,7 +42,7 @@ export function KanbanColumn({
     <Card
       ref={setNodeRef}
       shadow="none"
-      className={`min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] h-full flex-shrink-0 transition-colors flex flex-col ${
+      className={`flex-1 min-w-0 h-full transition-colors flex flex-col ${
         isOver
           ? "bg-neutral-200 dark:bg-neutral-700"
           : "bg-neutral-100 dark:bg-neutral-800"

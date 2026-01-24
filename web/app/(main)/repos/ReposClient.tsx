@@ -82,7 +82,7 @@ export function ReposClient() {
             {repos.map((repo) => (
               <Link
                 key={repo._id}
-                href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name) + "/plan"}
+                href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name) + "/projects"}
                 className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 transition-all group"
               >
                 <div className="flex items-start gap-3">

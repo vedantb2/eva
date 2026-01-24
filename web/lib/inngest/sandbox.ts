@@ -1,6 +1,7 @@
 import { Daytona, Sandbox } from "@daytonaio/sdk";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { getSnapshot, getSnapshotName } from "./snapshots";
 
 const daytona = new Daytona();
 
@@ -18,14 +19,37 @@ export function getSandboxEnvVars(githubToken: string): Record<string, string> {
   };
 }
 
-export async function createSandbox(
-  githubToken: string,
-): Promise<Sandbox> {
+export async function createSandbox(githubToken: string): Promise<Sandbox> {
   const sandbox = await daytona.create({
     envVars: getSandboxEnvVars(githubToken),
     autoStopInterval: 60,
   });
   return sandbox;
+}
+
+export async function createSandboxFromSnapshot(
+  githubToken: string,
+  repoOwner: string,
+  repoName: string,
+  branch: string
+): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
+  const snapshotName = getSnapshotName(repoOwner, repoName, branch);
+  const snapshot = await getSnapshot(snapshotName);
+
+  if (snapshot) {
+    const sandbox = await daytona.create({
+      snapshot: snapshotName,
+      envVars: getSandboxEnvVars(githubToken),
+      autoStopInterval: 60,
+    });
+    return { sandbox, usedSnapshot: true };
+  }
+
+  const sandbox = await daytona.create({
+    envVars: getSandboxEnvVars(githubToken),
+    autoStopInterval: 60,
+  });
+  return { sandbox, usedSnapshot: false };
 }
 
 export async function getSandbox(sandboxId: string): Promise<Sandbox> {

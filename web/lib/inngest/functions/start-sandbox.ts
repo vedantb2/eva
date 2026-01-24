@@ -5,7 +5,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
-import { createSandbox, getSandbox } from "../sandbox";
+import { createSandbox, createSandboxFromSnapshot, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -58,74 +58,92 @@ export const startSandbox = inngest.createFunction(
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
             isNew: false,
+            usedSnapshot: false,
           };
         } catch {
           // Sandbox expired or dead, create new one
         }
       }
 
-      const sandbox = await createSandbox(freshToken);
+      const branchName = session.branchName || "main";
 
-      const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sandbox.process.executeCommand(
-        `git clone ${repoUrl} ~/workspace`,
-        "/",
-        undefined,
-        120,
+      const { sandbox, usedSnapshot } = await createSandboxFromSnapshot(
+        freshToken,
+        repo.owner,
+        repo.name,
+        branchName
       );
 
-      const branchName = session.branchName || `session/${sessionId}`;
-
-      const branchCheckResult = await sandbox.process.executeCommand(
-        `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
-        "/",
-        undefined,
-        30,
-      );
-
-      if (branchCheckResult.result?.includes(branchName)) {
+      if (usedSnapshot) {
         await sandbox.process.executeCommand(
-          `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
+          'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+          "/home/daytona/workspace",
+          undefined,
+          10,
+        );
+
+        const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
+        await sandbox.process.executeCommand(
+          `cd /home/daytona/workspace && git remote set-url origin ${repoUrl} && git fetch origin && git reset --hard origin/${branchName}`,
           "/",
           undefined,
-          30,
+          60,
         );
       } else {
+        const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
         await sandbox.process.executeCommand(
-          `cd ~/workspace && git checkout -b ${branchName}`,
+          `git clone ${repoUrl} ~/workspace`,
           "/",
           undefined,
-          30,
+          120,
+        );
+
+        if (branchName !== "main" && branchName !== "master") {
+          const branchCheckResult = await sandbox.process.executeCommand(
+            `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
+            "/",
+            undefined,
+            30,
+          );
+
+          if (branchCheckResult.result?.includes(branchName)) {
+            await sandbox.process.executeCommand(
+              `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
+              "/",
+              undefined,
+              30,
+            );
+          } else {
+            await sandbox.process.executeCommand(
+              `cd ~/workspace && git checkout -b ${branchName}`,
+              "/",
+              undefined,
+              30,
+            );
+          }
+        }
+
+        await sandbox.process.executeCommand(
+          'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+          "/",
+          undefined,
+          10,
+        );
+
+        await sandbox.process.executeCommand(
+          "npm install -g pnpm",
+          "/",
+          undefined,
+          60,
+        );
+
+        await sandbox.process.executeCommand(
+          "pnpm install",
+          "/home/daytona/workspace",
+          undefined,
+          300,
         );
       }
-
-      await sandbox.process.executeCommand(
-        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
-        "/",
-        undefined,
-        10,
-      );
-
-      await sandbox.process.executeCommand(
-        "npm install -g pnpm",
-        "/",
-        undefined,
-        60,
-      );
-
-      await sandbox.process.executeCommand(
-        "npm install convex-helpers@latest",
-        "/home/daytona/workspace",
-        undefined,
-        60,
-      );
-
-      await sandbox.process.executeCommand(
-        "pnpm install",
-        "/home/daytona/workspace",
-        undefined,
-        300,
-      );
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
@@ -138,16 +156,23 @@ export const startSandbox = inngest.createFunction(
         status: "active",
       });
 
-      return { sandboxId: sandbox.id, branchName, isNew: true };
+      return { sandboxId: sandbox.id, branchName, isNew: true, usedSnapshot };
     });
 
     await step.run("add-startup-message", async () => {
+      let content: string;
+      if (!sandboxData.isNew) {
+        content = `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`;
+      } else if (sandboxData.usedSnapshot) {
+        content = `Sandbox started from snapshot! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`;
+      } else {
+        content = `Sandbox started and dependencies installed! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`;
+      }
+
       await convex.mutation(api.sessions.addMessageNoAuth, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
-        content: sandboxData.isNew
-          ? `Sandbox started and dependencies installed! Ready to execute tasks on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`
-          : `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`,
+        content,
       });
     });
 

@@ -126,7 +126,7 @@ export const planSession = inngest.createFunction(
       }
 
       await sandbox.process.executeCommand(
-        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
+        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
         "/",
         undefined,
         10

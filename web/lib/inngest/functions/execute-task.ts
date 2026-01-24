@@ -109,7 +109,7 @@ export const executeTask = inngest.createFunction(
       );
 
       await sandbox.process.executeCommand(
-        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
+        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
         "/",
         undefined,
         10
@@ -159,7 +159,7 @@ export const executeTask = inngest.createFunction(
         .replace(
           /'/g,
           "\\'"
-        )}\\n\\n---\\n*Implemented by Pulse AI Agent*","head":"${
+        )}\\n\\n---\\n*Implemented by Eva AI Agent*","head":"${
         sandboxData.branchName
       }","base":"main"}'
 7. Extract the "html_url" from the curl response - that is the PR URL

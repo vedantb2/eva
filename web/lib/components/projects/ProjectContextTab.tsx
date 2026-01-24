@@ -6,10 +6,7 @@ import { Spinner } from "@heroui/spinner";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Accordion, AccordionItem } from "@heroui/accordion";
-import { useMutation } from "convex/react";
-import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { useGitHubToken } from "@/lib/hooks/useGitHubToken";
 import {
   IconCode,
   IconFolderSearch,
@@ -48,25 +45,23 @@ interface CodebaseIndex {
   };
 }
 
-interface ContextTabProps {
-  planId: Id<"plans">;
+interface ProjectContextTabProps {
+  projectId: Id<"projects">;
   codebaseIndex: string | undefined;
   indexingStatus: IndexingStatus;
-  repoOwner: string;
-  repoName: string;
+  repoId: Id<"githubRepos">;
+  installationId: number;
 }
 
-export function ContextTab({
-  planId,
+export function ProjectContextTab({
+  projectId,
   codebaseIndex,
   indexingStatus,
-  repoOwner,
-  repoName,
-}: ContextTabProps) {
-  const setIndexingStatus = useMutation(api.plans.setIndexingStatus);
+  repoId,
+  installationId,
+}: ProjectContextTabProps) {
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
-  const { getToken } = useGitHubToken();
 
   const parsedIndex: CodebaseIndex | null = (() => {
     if (!codebaseIndex) return null;
@@ -81,25 +76,22 @@ export function ContextTab({
     setIsIndexing(true);
     setIndexError(null);
     try {
-      await setIndexingStatus({ id: planId, status: "indexing" });
-      const githubToken = await getToken();
-
-      const response = await fetch("/api/index-codebase", {
+      await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, repoOwner, repoName, githubToken }),
+        body: JSON.stringify({
+          name: "project/index.requested",
+          data: {
+            projectId,
+            repoId,
+            installationId,
+          },
+        }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to index codebase");
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error("Indexing error:", errorMessage);
       setIndexError(errorMessage);
-      await setIndexingStatus({ id: planId, status: "error" });
     } finally {
       setIsIndexing(false);
     }

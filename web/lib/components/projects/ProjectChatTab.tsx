@@ -7,8 +7,8 @@ import { Spinner } from "@heroui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
-import { ChatMessage } from "./ChatMessage";
+import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
+import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { MC_INITIAL_QUESTIONS, MC_FOLLOWUP_QUESTIONS } from "@/lib/prompts/planPrompts";
 import { IconSparkles, IconTrash, IconPlayerPlay, IconCode } from "@tabler/icons-react";
 import { z } from "zod";
@@ -18,7 +18,7 @@ interface ConversationMessage {
   content: string;
 }
 
-type PlanState = "draft" | "finalized" | "feature_created";
+type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface CodebaseIndex {
@@ -45,9 +45,9 @@ interface CodebaseIndex {
   };
 }
 
-interface ChatTabProps {
-  planId: Id<"plans">;
-  planState: PlanState;
+interface ProjectChatTabProps {
+  projectId: Id<"projects">;
+  projectPhase: ProjectPhase;
   initialMessages: ConversationMessage[];
   rawInput: string;
   codebaseIndex: string | undefined;
@@ -78,25 +78,25 @@ const specSchema = z.object({
   ),
 });
 
-export function ChatTab({
-  planId,
-  planState,
+export function ProjectChatTab({
+  projectId,
+  projectPhase,
   initialMessages,
   rawInput,
   codebaseIndex,
   indexingStatus,
   onSpecGenerated,
   isInterview = false,
-}: ChatTabProps) {
-  const addMessageDb = useMutation(api.plans.addMessage);
-  const clearMessagesDb = useMutation(api.plans.clearMessages);
+}: ProjectChatTabProps) {
+  const addMessageDb = useMutation(api.projects.addMessage);
+  const clearMessagesDb = useMutation(api.projects.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [questionCount, setQuestionCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(initialMessages.length > 1);
   const [displayMessages, setDisplayMessages] = useState<ConversationMessage[]>(initialMessages);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
 
-  const isLocked = planState === "feature_created";
+  const isLocked = projectPhase === "active" || projectPhase === "completed";
   const minQuestions = 3;
   const maxQuestions = 10;
   const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
@@ -122,7 +122,7 @@ export function ChatTab({
     onFinish: async ({ object }) => {
       if (object) {
         const content = JSON.stringify(object);
-        await addMessageDb({ id: planId, role: "assistant", content });
+        await addMessageDb({ id: projectId, role: "assistant", content });
         setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
         setQuestionCount((prev) => prev + 1);
       }
@@ -142,7 +142,7 @@ export function ChatTab({
     onFinish: async ({ object }) => {
       if (object) {
         const content = JSON.stringify(object);
-        await addMessageDb({ id: planId, role: "assistant", content });
+        await addMessageDb({ id: projectId, role: "assistant", content });
         setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
         onSpecGenerated?.(content);
       }
@@ -202,7 +202,7 @@ export function ChatTab({
 
   const handleStartInterview = async () => {
     setHasStarted(true);
-    await addMessageDb({ id: planId, role: "user", content: rawInput });
+    await addMessageDb({ id: projectId, role: "user", content: rawInput });
     setDisplayMessages([{ role: "user", content: rawInput }]);
     askQuestion(0, []);
   };
@@ -213,7 +213,7 @@ export function ChatTab({
     const updatedAnswers = [...answers, newAnswer];
     setAnswers(updatedAnswers);
 
-    await addMessageDb({ id: planId, role: "user", content: answer });
+    await addMessageDb({ id: projectId, role: "user", content: answer });
     setDisplayMessages((prev) => [...prev, { role: "user", content: answer }]);
 
     const nextQuestionIndex = questionCount;
@@ -224,7 +224,7 @@ export function ChatTab({
 
   const handleGenerateSpec = async () => {
     const specPrompt = "Generate implementation spec based on answers";
-    await addMessageDb({ id: planId, role: "user", content: specPrompt });
+    await addMessageDb({ id: projectId, role: "user", content: specPrompt });
     setDisplayMessages((prev) => [...prev, { role: "user", content: specPrompt }]);
 
     submitSpec({
@@ -236,7 +236,7 @@ export function ChatTab({
 
   const handleClearChat = async () => {
     stopQuestion();
-    await clearMessagesDb({ id: planId });
+    await clearMessagesDb({ id: projectId });
     setDisplayMessages([]);
     setQuestionCount(0);
     setHasStarted(false);
@@ -298,7 +298,7 @@ export function ChatTab({
           Ready to Start Interview
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
-          Click the button below to start answering questions about your feature. The AI
+          Click the button below to start answering questions about your project. The AI
           will ask up to {maxQuestions} multiple choice questions to understand your
           requirements. You can generate a plan after {minQuestions} questions.
         </p>

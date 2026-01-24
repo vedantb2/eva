@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useState, useMemo } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
-import { FeatureTaskCard } from "./FeatureTaskCard";
+import { FeatureTaskCard } from "@/lib/components/features/FeatureTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import {
   IconCircle,
@@ -54,12 +54,12 @@ const STATUS_CONFIG: Record<
 
 const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "code_review", "done"];
 
-interface TaskListPanelProps {
-  featureId: Id<"features">;
+interface ProjectTaskListPanelProps {
+  projectId: Id<"projects">;
 }
 
-export function TaskListPanel({ featureId }: TaskListPanelProps) {
-  const tasks = useQuery(api.agentTasks.listByFeature, { featureId });
+export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
+  const tasks = useQuery(api.agentTasks.listByProject, { projectId });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const groupedTasks = useMemo(() => {

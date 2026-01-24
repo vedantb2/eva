@@ -28,7 +28,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const tasks = allTasks?.filter((t) => !t.featureId) ?? [];
+  const tasks = allTasks?.filter((t) => !t.projectId) ?? [];
 
   if (allTasks === undefined) {
     return (

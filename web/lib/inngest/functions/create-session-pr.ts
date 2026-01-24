@@ -1,5 +1,4 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";

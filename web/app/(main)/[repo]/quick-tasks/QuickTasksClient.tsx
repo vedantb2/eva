@@ -16,7 +16,7 @@ export function QuickTasksClient() {
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
 
-  const quickTasks = tasks?.filter((t) => !t.featureId) ?? [];
+  const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
 
   return (

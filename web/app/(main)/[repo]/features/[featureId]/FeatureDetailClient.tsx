@@ -5,10 +5,15 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { FeatureKanbanBoard } from "@/lib/components/features/FeatureKanbanBoard";
-import { IconGitBranch, IconArrowLeft } from "@tabler/icons-react";
+import { TaskListPanel } from "@/lib/components/features/TaskListPanel";
+import {
+  IconGitBranch,
+  IconArrowLeft,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { Badge, Tooltip } from "@heroui/react";
 
 interface FeatureDetailClientProps {
   featureId: string;
@@ -63,11 +68,10 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
       fillHeight
       headerRight={
         <div className="flex items-center gap-2 sm:gap-3">
-          <span
-            className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs sm:text-sm font-medium rounded-full ${statusColors[feature.status]}`}
-          >
-            {feature.status}
-          </span>
+          <Tooltip content={feature.description}>
+            <IconInfoCircle size={18} />
+          </Tooltip>
+          <Badge>{feature.status}</Badge>
           <span className="hidden sm:flex items-center gap-1 text-sm text-neutral-500 max-w-[150px] truncate">
             <IconGitBranch className="w-4 h-4 flex-shrink-0" />
             <span className="truncate">{feature.branchName}</span>
@@ -75,12 +79,17 @@ export function FeatureDetailClient({ featureId }: FeatureDetailClientProps) {
         </div>
       }
     >
-      {feature.description && (
-        <p className="mb-4 sm:mb-6 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
-          {feature.description}
-        </p>
-      )}
-      <FeatureKanbanBoard featureId={typedFeatureId} />
+      <div className="flex flex-1 min-h-0 border rounded-lg overflow-hidden dark:border-neutral-700 -m-5">
+        <div className="w-1/4 border-r dark:border-neutral-700 overflow-auto">
+          <TaskListPanel featureId={typedFeatureId} />
+        </div>
+        <div className="w-1/2 flex items-center justify-center">
+          <p className="text-neutral-400">Sandbox (coming soon)</p>
+        </div>
+        <div className="w-1/4 border-r dark:border-neutral-700 flex items-center justify-center">
+          <p className="text-neutral-400">Chat (coming soon)</p>
+        </div>
+      </div>
     </PageWrapper>
   );
 }

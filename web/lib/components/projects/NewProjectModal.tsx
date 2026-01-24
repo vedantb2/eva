@@ -16,26 +16,26 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 
-interface NewPlanModalProps {
+interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
+export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const { repo, fullName } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const createPlan = useMutation(api.plans.create);
+  const createProject = useMutation(api.projects.create);
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !repo) return;
 
     setIsLoading(true);
     try {
-      const planId = await createPlan({
+      const projectId = await createProject({
         repoId: repo._id,
         title: title.trim(),
         rawInput: description.trim(),
@@ -45,9 +45,9 @@ export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: "plan/index.requested",
+          name: "project/index.requested",
           data: {
-            planId,
+            projectId,
             repoId: repo._id,
             installationId: repo.installationId,
           },
@@ -57,7 +57,7 @@ export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
       setTitle("");
       setDescription("");
       onClose();
-      router.push("/" + encodeRepoSlug(fullName) + "/plan/" + planId);
+      router.push("/" + encodeRepoSlug(fullName) + "/projects/" + projectId);
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +66,12 @@ export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <ModalContent>
-        <ModalHeader>New Plan</ModalHeader>
+        <ModalHeader>New Project</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
             <Input
               label="Title"
-              placeholder="Name your feature or plan"
+              placeholder="Name your project"
               value={title}
               onValueChange={setTitle}
               autoFocus
@@ -95,7 +95,7 @@ export function NewPlanModal({ isOpen, onClose }: NewPlanModalProps) {
             isLoading={isLoading}
             isDisabled={!title.trim() || !description.trim()}
           >
-            Create Plan
+            Create Project
           </Button>
         </ModalFooter>
       </ModalContent>

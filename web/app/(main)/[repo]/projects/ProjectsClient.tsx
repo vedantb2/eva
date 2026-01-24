@@ -7,13 +7,12 @@ import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { NewPlanModal } from "@/lib/components/plans/NewPlanModal";
-import { PlanInterviewModal } from "@/lib/components/plans/PlanInterviewModal";
+import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
-  IconSparkles,
+  IconLayoutKanban,
   IconPlus,
   IconChevronRight,
-  IconMessageQuestion,
+  IconGitBranch,
   IconFilter,
   IconSortAscending,
   IconSortDescending,
@@ -21,6 +20,7 @@ import {
   IconSearch,
   IconNotes,
   IconCheck,
+  IconClock,
   IconCircleCheck,
 } from "@tabler/icons-react";
 import { KanbanColumn, ColumnConfig } from "@/lib/components/kanban/KanbanColumn";
@@ -42,14 +42,15 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 
-type PlanState = "draft" | "finalized" | "feature_created";
+type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
 
-const ALL_STATES: PlanState[] = ["draft", "finalized", "feature_created"];
+const ALL_PHASES: ProjectPhase[] = ["draft", "finalized", "active", "completed"];
 
-const stateConfig: Record<PlanState, ColumnConfig & { cardBg: string }> = {
+const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
   draft: {
     label: "Draft",
     badgeBg: "bg-neutral-100 dark:bg-neutral-700",
@@ -59,13 +60,20 @@ const stateConfig: Record<PlanState, ColumnConfig & { cardBg: string }> = {
   },
   finalized: {
     label: "Finalized",
-    badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
-    badgeText: "text-yellow-700 dark:text-yellow-400",
+    badgeBg: "bg-blue-100 dark:bg-blue-900/30",
+    badgeText: "text-blue-700 dark:text-blue-400",
     cardBg: "bg-white dark:bg-neutral-900",
     icon: IconCheck,
   },
-  feature_created: {
-    label: "Feature Created",
+  active: {
+    label: "Active",
+    badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
+    badgeText: "text-yellow-700 dark:text-yellow-400",
+    cardBg: "bg-white dark:bg-neutral-900",
+    icon: IconClock,
+  },
+  completed: {
+    label: "Completed",
     badgeBg: "bg-green-100 dark:bg-green-900/30",
     badgeText: "text-green-700 dark:text-green-400",
     cardBg: "bg-white dark:bg-neutral-900",
@@ -73,37 +81,35 @@ const stateConfig: Record<PlanState, ColumnConfig & { cardBg: string }> = {
   },
 };
 
-export function PlansClient() {
+export function ProjectsClient() {
   const { repo, fullName } = useRepo();
-  const plans = useQuery(api.plans.list, { repoId: repo._id });
-  const deletePlan = useMutation(api.plans.deleteCascade);
+  const projects = useQuery(api.projects.list, { repoId: repo._id });
+  const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [interviewPlanId, setInterviewPlanId] = useState<Id<"plans"> | null>(
-    null
-  );
-  const [visibleStates, setVisibleStates] = useState<Set<PlanState>>(
-    new Set(ALL_STATES)
+  const [visiblePhases, setVisiblePhases] = useState<Set<ProjectPhase>>(
+    new Set(ALL_PHASES)
   );
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [planToDelete, setPlanToDelete] = useState<{
-    id: Id<"plans">;
+  const [projectToDelete, setProjectToDelete] = useState<{
+    id: Id<"projects">;
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const plansByState = useMemo(() => {
-    if (!plans) return {} as Record<PlanState, typeof plans>;
+  const projectsByPhase = useMemo(() => {
+    if (!projects) return {} as Record<ProjectPhase, typeof projects>;
     const query = searchQuery.toLowerCase().trim();
-    const grouped = ALL_STATES.reduce((acc, state) => {
-      acc[state] = plans
-        .filter((p) => p.state === state)
+    const grouped = ALL_PHASES.reduce((acc, phase) => {
+      acc[phase] = projects
+        .filter((p) => p.phase === phase)
         .filter((p) => {
           if (!query) return true;
           return (
             p.title.toLowerCase().includes(query) ||
-            p.rawInput?.toLowerCase().includes(query)
+            p.rawInput?.toLowerCase().includes(query) ||
+            p.description?.toLowerCase().includes(query)
           );
         })
         .sort((a, b) => {
@@ -119,49 +125,49 @@ export function PlansClient() {
           return sortDirection === "asc" ? comparison : -comparison;
         });
       return acc;
-    }, {} as Record<PlanState, typeof plans>);
+    }, {} as Record<ProjectPhase, typeof projects>);
     return grouped;
-  }, [plans, sortField, sortDirection, searchQuery]);
+  }, [projects, sortField, sortDirection, searchQuery]);
 
   const handleDelete = async () => {
-    if (!planToDelete) return;
+    if (!projectToDelete) return;
     setIsDeleting(true);
     try {
-      await deletePlan({ id: planToDelete.id });
-      setPlanToDelete(null);
+      await deleteProject({ id: projectToDelete.id });
+      setProjectToDelete(null);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleStateToggle = (keys: Set<string>) => {
-    const newStates = new Set(Array.from(keys) as PlanState[]);
-    if (newStates.size === 0) return;
-    setVisibleStates(newStates);
+  const handlePhaseToggle = (keys: Set<string>) => {
+    const newPhases = new Set(Array.from(keys) as ProjectPhase[]);
+    if (newPhases.size === 0) return;
+    setVisiblePhases(newPhases);
   };
 
   return (
     <>
       <PageWrapper
-        title="Plan"
+        title="Projects"
         fillHeight
         headerRight={
           <Button onPress={() => setIsCreating(true)}>
             <IconPlus size={16} className="sm:mr-1" />
-            <span className="hidden sm:inline">New Plan</span>
+            <span className="hidden sm:inline">New Project</span>
           </Button>
         }
       >
-        {plans === undefined ? (
+        {projects === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
           </div>
-        ) : plans.length === 0 ? (
+        ) : projects.length === 0 ? (
           <EmptyState
-            icon={IconSparkles}
-            title="No plans yet"
-            description="Create a plan to describe a feature and let AI help you break it down into tasks"
-            actionLabel="Create Plan"
+            icon={IconLayoutKanban}
+            title="No projects yet"
+            description="Create a project to describe a feature and let AI help you break it down into tasks"
+            actionLabel="Create Project"
             onAction={() => setIsCreating(true)}
           />
         ) : (
@@ -175,25 +181,24 @@ export function PlansClient() {
                       size="sm"
                       startContent={<IconFilter size={16} />}
                     >
-                      {visibleStates.size === ALL_STATES.length
+                      {visiblePhases.size === ALL_PHASES.length
                         ? "All Columns"
-                        : `${visibleStates.size} Columns`}
+                        : `${visiblePhases.size} Columns`}
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu
                     aria-label="Toggle columns"
                     selectionMode="multiple"
-                    selectedKeys={visibleStates}
+                    selectedKeys={visiblePhases}
                     onSelectionChange={(keys) =>
-                      handleStateToggle(keys as Set<string>)
+                      handlePhaseToggle(keys as Set<string>)
                     }
                     closeOnSelect={false}
                   >
                     <DropdownItem key="draft">Draft</DropdownItem>
                     <DropdownItem key="finalized">Finalized</DropdownItem>
-                    <DropdownItem key="feature_created">
-                      Feature Created
-                    </DropdownItem>
+                    <DropdownItem key="active">Active</DropdownItem>
+                    <DropdownItem key="completed">Completed</DropdownItem>
                   </DropdownMenu>
                 </Dropdown>
                 <Dropdown>
@@ -240,7 +245,7 @@ export function PlansClient() {
                 </Button>
               </div>
               <Input
-                placeholder="Search plans..."
+                placeholder="Search projects..."
                 size="sm"
                 className="w-48"
                 startContent={
@@ -253,67 +258,55 @@ export function PlansClient() {
               />
             </div>
             <div className="flex items-stretch gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
-              {ALL_STATES.filter((state) => visibleStates.has(state)).map(
-                (state) => (
+              {ALL_PHASES.filter((phase) => visiblePhases.has(phase)).map(
+                (phase) => (
                   <KanbanColumn
-                    key={state}
-                    id={state}
-                    config={stateConfig[state]}
-                    count={plansByState[state]?.length ?? 0}
+                    key={phase}
+                    id={phase}
+                    config={phaseConfig[phase]}
+                    count={projectsByPhase[phase]?.length ?? 0}
                     droppable={false}
                   >
-                    {plansByState[state]?.map((plan) => {
-                      const canInterview = plan.state !== "feature_created";
-                      const planUrl =
-                        "/" + encodeRepoSlug(fullName) + "/plan/" + plan._id;
+                    {projectsByPhase[phase]?.map((project) => {
+                      const projectUrl =
+                        "/" + encodeRepoSlug(fullName) + "/projects/" + project._id;
                       return (
                         <div
-                          key={plan._id}
-                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${stateConfig[state].cardBg}`}
+                          key={project._id}
+                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${phaseConfig[phase].cardBg}`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <Link href={planUrl} className="flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
-                                {plan.title}
-                              </h3>
-                              {plan.rawInput && (
-                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                                  {plan.rawInput}
+                            <Link href={projectUrl} className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                                  {project.title}
+                                </h3>
+                              </div>
+                              {project.description ? (
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                                  {project.description}
                                 </p>
+                              ) : project.rawInput ? (
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                                  {project.rawInput}
+                                </p>
+                              ) : null}
+                              {project.branchName && (
+                                <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
+                                  <IconGitBranch className="w-3 h-3 flex-shrink-0" />
+                                  <span className="truncate">{project.branchName}</span>
+                                </div>
                               )}
                             </Link>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <Tooltip
-                                content={
-                                  canInterview
-                                    ? "Interview to refine requirements"
-                                    : "Feature already created - plan is locked"
-                                }
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (canInterview)
-                                      setInterviewPlanId(plan._id);
-                                  }}
-                                  disabled={!canInterview}
-                                  className={`p-1 rounded-lg transition-colors ${
-                                    canInterview
-                                      ? "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-400 hover:text-pink-600"
-                                      : "text-neutral-300 dark:text-neutral-600 cursor-not-allowed"
-                                  }`}
-                                >
-                                  <IconMessageQuestion size={16} />
-                                </button>
-                              </Tooltip>
-                              <Tooltip content="Delete plan">
+                              <Tooltip content="Delete project">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setPlanToDelete({
-                                      id: plan._id,
-                                      title: plan.title,
+                                    setProjectToDelete({
+                                      id: project._id,
+                                      title: project.title,
                                     });
                                   }}
                                   className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
@@ -322,7 +315,7 @@ export function PlansClient() {
                                 </button>
                               </Tooltip>
                               <Link
-                                href={planUrl}
+                                href={projectUrl}
                                 className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
                               >
                                 <IconChevronRight size={18} />
@@ -332,9 +325,9 @@ export function PlansClient() {
                         </div>
                       );
                     })}
-                    {(plansByState[state]?.length ?? 0) === 0 && (
+                    {(projectsByPhase[phase]?.length ?? 0) === 0 && (
                       <p className="text-xs text-neutral-400 text-center py-4">
-                        No plans
+                        No projects
                       </p>
                     )}
                   </KanbanColumn>
@@ -344,26 +337,25 @@ export function PlansClient() {
           </div>
         )}
       </PageWrapper>
-      <NewPlanModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
-      {interviewPlanId && (
-        <PlanInterviewModal
-          isOpen={!!interviewPlanId}
-          onClose={() => setInterviewPlanId(null)}
-          planId={interviewPlanId}
-        />
-      )}
-      <Modal isOpen={!!planToDelete} onClose={() => setPlanToDelete(null)}>
+      <NewProjectModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
+      <Modal isOpen={!!projectToDelete} onClose={() => setProjectToDelete(null)}>
         <ModalContent>
-          <ModalHeader>Delete Plan</ModalHeader>
+          <ModalHeader>Delete Project</ModalHeader>
           <ModalBody>
             <p className="text-default-600">
               Are you sure you want to delete{" "}
-              <strong>{planToDelete?.title}</strong>? This will also delete all
-              associated messages. This action cannot be undone.
+              <strong>{projectToDelete?.title}</strong>?
             </p>
+            <div className="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
+              <p className="text-sm text-warning-700 dark:text-warning-300">
+                This will permanently delete the project and all associated tasks, subtasks,
+                agent runs, and dependencies.
+              </p>
+            </div>
+            <p className="text-sm text-default-500 mt-3">This action cannot be undone.</p>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setPlanToDelete(null)}>
+            <Button variant="flat" onPress={() => setProjectToDelete(null)}>
               Cancel
             </Button>
             <Button
@@ -371,7 +363,7 @@ export function PlansClient() {
               onPress={handleDelete}
               isLoading={isDeleting}
             >
-              Delete
+              Delete Project
             </Button>
           </ModalFooter>
         </ModalContent>

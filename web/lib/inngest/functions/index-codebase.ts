@@ -71,18 +71,18 @@ export const indexCodebase = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event }) => {
       const eventData = event.data as unknown as {
-        event: { data: { planId: string } };
+        event: { data: { projectId: string } };
       };
-      const planId = eventData.event.data.planId as Id<"plans">;
-      await convex.mutation(api.plans.setIndexingStatusNoAuth, {
-        id: planId,
+      const projectId = eventData.event.data.projectId as Id<"projects">;
+      await convex.mutation(api.projects.setIndexingStatusNoAuth, {
+        id: projectId,
         status: "error",
       });
     },
   },
-  { event: "plan/index.requested" },
+  { event: "project/index.requested" },
   async ({ event, step }) => {
-    const { planId, repoId, installationId } = event.data;
+    const { projectId, repoId, installationId } = event.data;
 
     const repo = await step.run("fetch-repo", async () => {
       const repoData = await convex.query(api.githubRepos.getNoAuth, {
@@ -95,8 +95,8 @@ export const indexCodebase = inngest.createFunction(
     });
 
     await step.run("set-indexing-status", async () => {
-      await convex.mutation(api.plans.setIndexingStatusNoAuth, {
-        id: planId as Id<"plans">,
+      await convex.mutation(api.projects.setIndexingStatusNoAuth, {
+        id: projectId as Id<"projects">,
         status: "indexing",
       });
     });
@@ -110,7 +110,7 @@ export const indexCodebase = inngest.createFunction(
 
       try {
         const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-        const workDir = "/home/user/repo";
+        const workDir = "/home/daytona/workspace/repo";
 
         const cloneResult = await sandbox.process.executeCommand(
           `git clone --depth 1 "${repoUrl}" ${workDir}`,
@@ -196,8 +196,8 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
     });
 
     await step.run("save-index", async () => {
-      await convex.mutation(api.plans.setCodebaseIndexNoAuth, {
-        id: planId as Id<"plans">,
+      await convex.mutation(api.projects.setCodebaseIndexNoAuth, {
+        id: projectId as Id<"projects">,
         codebaseIndex,
       });
     });

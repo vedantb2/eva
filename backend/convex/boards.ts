@@ -28,7 +28,7 @@ const agentTaskValidator = v.object({
   description: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   branchName: v.optional(v.string()),
-  featureId: v.optional(v.id("features")),
+  projectId: v.optional(v.id("projects")),
   taskNumber: v.optional(v.number()),
   status: v.union(
     v.literal("todo"),

@@ -99,6 +99,11 @@ export default function SessionsLayout({
       setNewSessionTitle("");
       setIsCreateModalOpen(false);
       router.push(baseUrl + "/" + id);
+      fetch("/api/sessions/sandbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: id, action: "start" }),
+      });
     } finally {
       setIsCreating(false);
     }
@@ -129,7 +134,7 @@ export default function SessionsLayout({
 
   return (
     <div className="flex h-screen">
-      <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
+      <div className="w-72 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-3xl font-semibold text-neutral-900 dark:text-white">

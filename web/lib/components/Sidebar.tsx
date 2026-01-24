@@ -11,7 +11,6 @@ import {
   IconSettings,
   IconMenu2,
   IconX,
-  IconSparkles,
   IconChecklist,
   IconSelector,
   IconTerminal2,
@@ -46,7 +45,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(plan|features|quick-tasks|sessions|analytics|docs|admin|research)/
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|analytics|docs|admin|research)/
     );
     if (match) {
       return match[1];
@@ -59,7 +58,7 @@ export function Sidebar() {
 
   const handleRepoSelect = (selectedFullName: string) => {
     if (selectedFullName !== repoFullName) {
-      router.push(`/${encodeRepoSlug(selectedFullName)}/plan`);
+      router.push(`/${encodeRepoSlug(selectedFullName)}/projects`);
     }
   };
 
@@ -71,13 +70,8 @@ export function Sidebar() {
   const repoNavigation = repoSlug
     ? [
         {
-          name: "Plan",
-          href: `/${repoSlug}/plan`,
-          icon: IconSparkles,
-        },
-        {
-          name: "Features",
-          href: `/${repoSlug}/features`,
+          name: "Projects",
+          href: `/${repoSlug}/projects`,
           icon: IconLayoutKanban,
         },
         {

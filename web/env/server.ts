@@ -12,6 +12,7 @@ export const serverEnv = createEnv({
     ALLOWED_ORIGINS: z.string().optional().default("http://localhost:3000"),
     CLAUDE_CODE_OAUTH_TOKEN: z.string().min(1),
     DAYTONA_API_KEY: z.string().min(1),
+    CONVEX_DEPLOYMENT: z.string().min(1),
   },
   experimental__runtimeEnv: process.env,
 });

@@ -1,14 +1,13 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const daytona = new Daytona();
 
 async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -69,8 +68,8 @@ export const askSession = inngest.createFunction(
 
       if (session.sandboxId) {
         try {
-          const sandbox = await daytona.get(session.sandboxId);
-          await sandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
+          const existingSandbox = await getSandbox(session.sandboxId);
+          await existingSandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || "main",
@@ -81,13 +80,7 @@ export const askSession = inngest.createFunction(
         }
       }
 
-      const sandbox = await daytona.create({
-        envVars: {
-          GITHUB_TOKEN: freshToken,
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        autoStopInterval: 60,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
       await sandbox.process.executeCommand(
@@ -106,7 +99,7 @@ export const askSession = inngest.createFunction(
     });
 
     const result = await step.run("ask-question", async () => {
-      const sandbox = await daytona.get(sandboxData.sandboxId);
+      const sandbox = await getSandbox(sandboxData.sandboxId);
 
       const conversationHistory = session.messages
         .filter((m) => m.mode === "ask")

@@ -44,36 +44,63 @@ interface PreviousAnswer {
   answer: string;
 }
 
-const SYSTEM_PROMPT = `You ask short, concrete implementation questions. Each question must affect how code is written.
+const SYSTEM_PROMPT = `You help users think through their feature by asking clarifying questions about edge cases and scenarios they may not have considered.
 
-## Format Rules (CRITICAL)
-- Question: MAX 15 words, direct and simple
-- Options: MAX 15 words each, start with the technical choice (not generic)
+## Your Role
+- Surface edge cases the user probably hasn't thought about
+- Ask "what should happen when..." questions
+- Use simple, everyday language - NO technical jargon
+- Help the user make decisions that will affect how the feature works
+
+## Format Rules
+- Question: MAX 15 words, simple and clear
+- Options: MAX 15 words each, describe the behavior in plain language
+- NO technical terms like "localStorage", "context", "API", "state", "sync", "fallback"
 
 ## Good Examples
-Question: "Where should theme state be stored?"
-Options: ["localStorage", "React Context", "URL parameter", "System preference"]
+Question: "Should the app remember your theme choice after you close it?"
+Options: ["Yes, remember forever", "No, reset each visit", "Only remember for this device"]
 
-Question: "What happens if stored theme is invalid?"
-Options: ["Fall back to light theme", "Fall back to system preference", "Show error and prompt user"]
+Question: "If you change the theme in one tab, should other open tabs update too?"
+Options: ["Yes, update all tabs", "No, each tab stays independent"]
 
-Question: "Should theme sync across browser tabs?"
-Options: ["Yes, sync via storage event", "No, each tab independent"]
+Question: "What if someone has 100+ items? Should we show all at once?"
+Options: ["Show all of them", "Show 20 at a time with a 'load more' button", "Show 50 max"]
 
-## Bad Examples (TOO VERBOSE - DO NOT DO THIS)
-- "When the user first visits the application and no theme preference exists, what should happen?"
-- "localStorage with automatic persistence and validation of stored values"
+Question: "What happens if the user tries to delete something by accident?"
+Options: ["Delete immediately, no undo", "Ask 'Are you sure?' first", "Allow undo for 5 seconds"]
 
-## Question Topics
-- State storage (localStorage, context, URL, database)
-- Component type (hook, provider, utility, controlled/uncontrolled)
-- Edge cases (missing data, invalid data, first load)
-- Sync behavior (tabs, external changes, real-time)
-- Error handling (fallback, retry, user prompt)
+Question: "What should new users see the first time they use this?"
+Options: ["Empty screen with a hint to get started", "Pre-filled example data", "Quick tutorial walkthrough"]
+
+## Bad Examples (DO NOT DO THIS)
+- "Where should theme state be stored?" (too technical)
+- "localStorage with automatic persistence" (jargon-heavy option)
+- "Should we use optimistic updates?" (developer speak)
+
+## Focus Areas
+- First-time experience: What do new users see?
+- Edge cases: What if there's nothing there? What if there's too much?
+- Mistakes: What if users do something by accident?
+- Failures: What if something goes wrong?
+- Conflicts: What if two things happen at once?
+- Limits: Is there a maximum? What happens at the limit?
+- Memory: Should the app remember choices? For how long?
 
 ## DO NOT ask about
-- Users, priority, goals, success criteria
-- Anything that doesn't change code`;
+- Technical implementation details
+- Developer-facing decisions
+- Anything using programming terminology`;
+
+const CATEGORY_MAP: Record<string, string> = {
+  data_flow: "what happens with the data",
+  error_handling: "what happens when something goes wrong",
+  user_experience: "how it should feel to use",
+  edge_cases: "unusual situations or edge cases",
+  permissions: "who can do what",
+  notifications: "keeping users informed",
+  default: "an important detail",
+};
 
 function buildPrompt(
   featureDescription: string,
@@ -81,40 +108,32 @@ function buildPrompt(
   previousAnswers: PreviousAnswer[],
   codebaseContext: CodebaseContext | null
 ): string {
-  let prompt = `## Feature to Implement
+  let prompt = `## Feature Request
 "${featureDescription}"
 
 `;
 
   if (codebaseContext) {
-    const keyFilesList = codebaseContext.keyFiles
-      .slice(0, 5)
-      .map((f) => `- ${f.path}: ${f.purpose}`)
-      .join("\n");
-
-    prompt += `## Project Context
-Tech Stack: ${codebaseContext.techStack.language}/${codebaseContext.techStack.framework}
-State Management: ${codebaseContext.patterns.stateManagement}
-Component Pattern: ${codebaseContext.patterns.componentPattern}
-API Pattern: ${codebaseContext.patterns.apiPattern}
-
-Key Files:
-${keyFilesList}
+    prompt += `## App Info
+This is a ${codebaseContext.techStack.framework} app.
 
 `;
   }
 
   if (previousAnswers.length > 0) {
-    prompt += `## Decisions Already Made\n`;
+    prompt += `## Already Decided\n`;
     previousAnswers.forEach((a, i) => {
-      prompt += `${i + 1}. Q: ${a.question}\n   A: ${a.answer}\n`;
+      prompt += `${i + 1}. ${a.question} → ${a.answer}\n`;
     });
     prompt += "\n";
   }
 
-  prompt += `## Category: ${questionCategory.replace(/_/g, " ")}
+  const categoryDescription = CATEGORY_MAP[questionCategory] || CATEGORY_MAP.default;
 
-Ask ONE short question (max 15 words) with 2-4 concise options (max 15 words each).`;
+  prompt += `## Your Task
+Think of an edge case or scenario the user probably hasn't considered about ${categoryDescription}.
+Ask ONE simple question (max 15 words) with 2-4 clear options (max 15 words each).
+Use everyday language. No technical jargon.`;
 
   return prompt;
 }

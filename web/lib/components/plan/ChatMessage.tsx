@@ -16,9 +16,21 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
   return (
     <div className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <Avatar
-        icon={isUser ? <IconUser size={20} /> : <Image src="/icon.png" alt="Assistant" width={20} height={20} />}
+        icon={
+          isUser ? (
+            <IconUser size={20} />
+          ) : (
+            <Image
+              src="/icon.png"
+              alt="Assistant"
+              width={24}
+              height={24}
+              className="rounded-full"
+            />
+          )
+        }
         classNames={{
-          base: isUser ? "bg-primary" : "bg-default-200",
+          base: isUser ? "bg-primary" : "bg-neutral-200",
           icon: isUser ? "text-primary-foreground" : "text-default-600",
         }}
         size="sm"

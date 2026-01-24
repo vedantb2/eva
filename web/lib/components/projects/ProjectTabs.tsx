@@ -67,7 +67,6 @@ export function ProjectTabs({
 
   if (!hasSpec) {
     return (
-      <div className="h-full -m-5 overflow-y-auto">
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
@@ -78,7 +77,6 @@ export function ProjectTabs({
           onSpecGenerated={handleSpecGenerated}
           isInterview={isInterview}
         />
-      </div>
     );
   }
 

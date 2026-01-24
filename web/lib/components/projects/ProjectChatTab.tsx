@@ -327,7 +327,7 @@ export function ProjectChatTab({
                   <ChatMessage
                     key={`msg-${i}`}
                     role="assistant"
-                    content={`Q: ${parsed.question}`}
+                    content={`${parsed.question}`}
                   />
                 );
               }

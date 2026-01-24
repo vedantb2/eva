@@ -1,14 +1,13 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const daytona = new Daytona();
 
 async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -48,8 +47,13 @@ export const startSandbox = inngest.createFunction(
 
       if (session.sandboxId) {
         try {
-          const sandbox = await daytona.get(session.sandboxId);
-          await sandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
+          const existingSandbox = await getSandbox(session.sandboxId);
+          await existingSandbox.process.executeCommand(
+            "echo 'sandbox alive'",
+            "/",
+            undefined,
+            5,
+          );
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
@@ -60,20 +64,14 @@ export const startSandbox = inngest.createFunction(
         }
       }
 
-      const sandbox = await daytona.create({
-        envVars: {
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-          GITHUB_TOKEN: freshToken,
-        },
-        autoStopInterval: 60,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
       await sandbox.process.executeCommand(
         `git clone ${repoUrl} ~/workspace`,
         "/",
         undefined,
-        120
+        120,
       );
 
       const branchName = session.branchName || `session/${sessionId}`;
@@ -82,7 +80,7 @@ export const startSandbox = inngest.createFunction(
         `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
         "/",
         undefined,
-        30
+        30,
       );
 
       if (branchCheckResult.result?.includes(branchName)) {
@@ -90,14 +88,14 @@ export const startSandbox = inngest.createFunction(
           `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
           "/",
           undefined,
-          30
+          30,
         );
       } else {
         await sandbox.process.executeCommand(
           `cd ~/workspace && git checkout -b ${branchName}`,
           "/",
           undefined,
-          30
+          30,
         );
       }
 
@@ -105,21 +103,28 @@ export const startSandbox = inngest.createFunction(
         'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
         "/",
         undefined,
-        10
+        10,
       );
 
       await sandbox.process.executeCommand(
         "npm install -g pnpm",
         "/",
         undefined,
-        60
+        60,
+      );
+
+      await sandbox.process.executeCommand(
+        "npm install convex-helpers@latest",
+        "/home/daytona/workspace",
+        undefined,
+        60,
       );
 
       await sandbox.process.executeCommand(
         "pnpm install",
         "/home/daytona/workspace",
         undefined,
-        300
+        300,
       );
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
@@ -147,5 +152,5 @@ export const startSandbox = inngest.createFunction(
     });
 
     return { success: true, sandboxId: sandboxData.sandboxId };
-  }
+  },
 );

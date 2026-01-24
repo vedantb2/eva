@@ -24,7 +24,7 @@ export function PageWrapper({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+      <div className="p-4 pb-2 flex items-center gap-3">
         {showBack && (
           <button
             onClick={onBack ?? (() => router.back())}
@@ -37,7 +37,7 @@ export function PageWrapper({
           </button>
         )}
         {title && (
-          <h1 className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {title}
           </h1>
         )}
@@ -51,7 +51,7 @@ export function PageWrapper({
         className={`flex-1 bg-neutral-50 dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
       >
         <div
-          className={`flex flex-col gap-4 p-2 ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+          className={`flex flex-col gap-4 p-4 ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
         >
           {children}
         </div>

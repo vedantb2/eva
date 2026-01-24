@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
@@ -8,15 +8,16 @@ import { Textarea } from "@heroui/input";
 import { IconSend, IconUser } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface QueryDetailClientProps {
   queryId: string;
 }
 
 export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
+  const { repo } = useRepo();
   const typedQueryId = queryId as Id<"researchQueries">;
   const query = useQuery(api.researchQueries.get, { id: typedQueryId });
-  const addMessage = useMutation(api.researchQueries.addMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -31,15 +32,14 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     setInput("");
     setIsSending(true);
     try {
-      await addMessage({
-        id: typedQueryId,
-        role: "user",
-        content,
-      });
-      await addMessage({
-        id: typedQueryId,
-        role: "assistant",
-        content: "This is a placeholder response. AI integration coming soon.",
+      await fetch("/api/research/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          queryId: typedQueryId,
+          question: content,
+          repoId: repo._id,
+        }),
       });
     } finally {
       setIsSending(false);

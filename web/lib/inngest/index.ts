@@ -7,3 +7,4 @@ export { createSessionPr } from "./functions/create-session-pr";
 export { startSandbox } from "./functions/start-sandbox";
 export { askSession } from "./functions/ask-session";
 export { planSession } from "./functions/plan-session";
+export { executeResearchQuery } from "./functions/execute-research-query";

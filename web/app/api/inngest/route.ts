@@ -9,6 +9,7 @@ import {
   startSandbox,
   askSession,
   planSession,
+  executeResearchQuery,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -22,5 +23,6 @@ export const { GET, POST, PUT } = serve({
     startSandbox,
     askSession,
     planSession,
+    executeResearchQuery,
   ],
 });

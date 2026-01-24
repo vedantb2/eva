@@ -1,10 +1,9 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
+import { getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -23,10 +22,8 @@ export const cleanupSession = inngest.createFunction(
       }
 
       try {
-        const sbx = await Sandbox.connect(sandboxId, {
-          apiKey: serverEnv.E2B_API_KEY,
-        });
-        await sbx.kill();
+        const sandbox = await getSandbox(sandboxId);
+        await sandbox.delete();
         return { success: true, message: "Sandbox killed successfully" };
       } catch {
         return { success: true, message: "Sandbox already terminated" };

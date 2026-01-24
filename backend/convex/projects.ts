@@ -1,52 +1,118 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import { getCurrentUserId } from "./auth";
+
+const conversationMessageValidator = v.object({
+  role: v.union(v.literal("user"), v.literal("assistant")),
+  content: v.string(),
+});
+
+const phaseValidator = v.union(
+  v.literal("draft"),
+  v.literal("finalized"),
+  v.literal("active"),
+  v.literal("completed")
+);
+
+const projectValidator = v.object({
+  _id: v.id("projects"),
+  _creationTime: v.number(),
+  repoId: v.id("githubRepos"),
+  userId: v.id("users"),
+  title: v.string(),
+  description: v.optional(v.string()),
+  branchName: v.optional(v.string()),
+  phase: phaseValidator,
+  rawInput: v.string(),
+  generatedSpec: v.optional(v.string()),
+  codebaseIndex: v.optional(v.string()),
+  indexingStatus: v.optional(
+    v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    )
+  ),
+  conversationHistory: v.array(conversationMessageValidator),
+});
 
 export const list = query({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("projects"),
-      _creationTime: v.number(),
-      name: v.string(),
-      description: v.optional(v.string()),
-      userId: v.string(),
-      createdAt: v.number(),
-    })
-  ),
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(projectValidator),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
       return [];
     }
-    const userId = identity.subject;
-    return await ctx.db
+    const projects = await ctx.db
       .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+    const result = [];
+    for (const project of projects) {
+      if (project.phase === "active" || project.phase === "completed") {
+        const tasks = await ctx.db
+          .query("agentTasks")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
+        if (tasks.length > 0) {
+          const allDone = tasks.every((t) => t.status === "done");
+          const anyActive = tasks.some(
+            (t) =>
+              t.status === "todo" ||
+              t.status === "in_progress" ||
+              t.status === "code_review"
+          );
+          if (allDone && project.phase === "active") {
+            result.push({ ...project, phase: "completed" as const });
+            continue;
+          }
+          if (anyActive && project.phase === "completed") {
+            result.push({ ...project, phase: "active" as const });
+            continue;
+          }
+        }
+      }
+      result.push(project);
+    }
+    return result;
   },
 });
 
 export const get = query({
   args: { id: v.id("projects") },
-  returns: v.union(
-    v.object({
-      _id: v.id("projects"),
-      _creationTime: v.number(),
-      name: v.string(),
-      description: v.optional(v.string()),
-      userId: v.string(),
-      createdAt: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.union(projectValidator, v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
       return null;
     }
     const project = await ctx.db.get(args.id);
-    if (!project || project.userId !== identity.subject) {
+    if (!project) {
       return null;
+    }
+    if (project.phase === "active" || project.phase === "completed") {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.id))
+        .collect();
+      if (tasks.length > 0) {
+        const allDone = tasks.every((t) => t.status === "done");
+        const anyActive = tasks.some(
+          (t) =>
+            t.status === "todo" ||
+            t.status === "in_progress" ||
+            t.status === "code_review"
+        );
+        if (allDone && project.phase === "active") {
+          return { ...project, phase: "completed" as const };
+        }
+        if (anyActive && project.phase === "completed") {
+          return { ...project, phase: "active" as const };
+        }
+      }
     }
     return project;
   },
@@ -54,20 +120,29 @@ export const get = query({
 
 export const create = mutation({
   args: {
-    name: v.string(),
-    description: v.optional(v.string()),
+    repoId: v.id("githubRepos"),
+    title: v.string(),
+    rawInput: v.string(),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
       throw new Error("Not authenticated");
     }
     return await ctx.db.insert("projects", {
-      name: args.name,
-      description: args.description,
-      userId: identity.subject,
-      createdAt: Date.now(),
+      repoId: args.repoId,
+      userId,
+      title: args.title,
+      rawInput: args.rawInput,
+      phase: "draft",
+      indexingStatus: "pending",
+      conversationHistory: [
+        {
+          role: "user",
+          content: args.rawInput,
+        },
+      ],
     });
   },
 });
@@ -75,23 +150,62 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("projects"),
-    name: v.optional(v.string()),
+    title: v.optional(v.string()),
     description: v.optional(v.string()),
+    branchName: v.optional(v.string()),
+    generatedSpec: v.optional(v.string()),
+    phase: v.optional(phaseValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
       throw new Error("Not authenticated");
     }
     const project = await ctx.db.get(args.id);
-    if (!project || project.userId !== identity.subject) {
+    if (!project) {
       throw new Error("Project not found");
     }
-    const updates: { name?: string; description?: string } = {};
-    if (args.name !== undefined) updates.name = args.name;
+    const updates: {
+      title?: string;
+      description?: string;
+      branchName?: string;
+      generatedSpec?: string;
+      phase?: "draft" | "finalized" | "active" | "completed";
+    } = {};
+    if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.branchName !== undefined) updates.branchName = args.branchName;
+    if (args.generatedSpec !== undefined)
+      updates.generatedSpec = args.generatedSpec;
+    if (args.phase !== undefined) updates.phase = args.phase;
     await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
+export const addMessage = mutation({
+  args: {
+    id: v.id("projects"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      conversationHistory: [
+        ...project.conversationHistory,
+        { role: args.role, content: args.content },
+      ],
+    });
     return null;
   },
 });
@@ -100,22 +214,334 @@ export const remove = mutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const deleteCascade = mutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    if (project.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.id))
+      .collect();
+    for (const task of tasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const run of runs) {
+        await ctx.db.delete(run._id);
+      }
+      const dependencies = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const dep of dependencies) {
+        await ctx.db.delete(dep._id);
+      }
+      const dependents = await ctx.db
+        .query("taskDependencies")
+        .withIndex("by_dependency", (q) => q.eq("dependsOnId", task._id))
+        .collect();
+      for (const dep of dependents) {
+        await ctx.db.delete(dep._id);
+      }
+      const subtasks = await ctx.db
+        .query("subtasks")
+        .withIndex("by_parent", (q) => q.eq("parentTaskId", task._id))
+        .collect();
+      for (const subtask of subtasks) {
+        await ctx.db.delete(subtask._id);
+      }
+      await ctx.db.delete(task._id);
+    }
+    await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const clearMessages = mutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      conversationHistory: [],
+    });
+    return null;
+  },
+});
+
+export const setIndexingStatus = mutation({
+  args: {
+    id: v.id("projects"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      indexingStatus: args.status,
+    });
+    return null;
+  },
+});
+
+export const setCodebaseIndex = mutation({
+  args: {
+    id: v.id("projects"),
+    codebaseIndex: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      codebaseIndex: args.codebaseIndex,
+      indexingStatus: "complete",
+    });
+    return null;
+  },
+});
+
+export const setIndexingStatusNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      indexingStatus: args.status,
+    });
+    return null;
+  },
+});
+
+export const setCodebaseIndexNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    codebaseIndex: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      codebaseIndex: args.codebaseIndex,
+      indexingStatus: "complete",
+    });
+    return null;
+  },
+});
+
+export const getTaskCount = query({
+  args: { projectId: v.id("projects") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return 0;
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    return tasks.length;
+  },
+});
+
+interface ParsedTask {
+  title: string;
+  description: string;
+  dependencies: number[];
+}
+
+interface ParsedSpec {
+  title: string;
+  description: string;
+  tasks: ParsedTask[];
+}
+
+function parseSpec(specJson: string): ParsedSpec {
+  const parsed = JSON.parse(specJson);
+  return {
+    title: parsed.title ?? "",
+    description: parsed.description ?? "",
+    tasks: (parsed.tasks ?? []).map(
+      (t: { title?: string; description?: string; dependencies?: number[] }) => ({
+        title: t.title ?? "",
+        description: t.description ?? "",
+        dependencies: t.dependencies ?? [],
+      })
+    ),
+  };
+}
+
+export const startDevelopment = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const project = await ctx.db.get(args.id);
-    if (!project || project.userId !== identity.subject) {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
       throw new Error("Project not found");
     }
-    const tasks = await ctx.db
-      .query("tasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.id))
-      .collect();
-    for (const task of tasks) {
-      await ctx.db.delete(task._id);
+    if (project.phase !== "finalized") {
+      throw new Error("Project must be finalized before starting development");
     }
-    await ctx.db.delete(args.id);
+    if (!project.generatedSpec) {
+      throw new Error("Project has no generated spec");
+    }
+    const spec = parseSpec(project.generatedSpec);
+    const slugify = (text: string) =>
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 50);
+    const branchName = `conductor/project-${slugify(spec.title)}`;
+    let board = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", project.repoId))
+      .first();
+    if (!board) {
+      const boardId = await ctx.db.insert("boards", {
+        name: "Project Tasks",
+        ownerId: identity.subject,
+        repoId: project.repoId,
+        createdAt: Date.now(),
+      });
+      board = await ctx.db.get(boardId);
+    }
+    if (!board) {
+      throw new Error("Failed to get or create board");
+    }
+    let column = await ctx.db
+      .query("columns")
+      .withIndex("by_board", (q) => q.eq("boardId", board._id))
+      .first();
+    if (!column) {
+      const columnId = await ctx.db.insert("columns", {
+        boardId: board._id,
+        name: "Backlog",
+        order: 0,
+        isRunColumn: false,
+      });
+      column = await ctx.db.get(columnId);
+    }
+    if (!column) {
+      throw new Error("Failed to get or create column");
+    }
+    const taskIdMap = new Map<number, Id<"agentTasks">>();
+    const now = Date.now();
+    for (let i = 0; i < spec.tasks.length; i++) {
+      const task = spec.tasks[i];
+      const taskNumber = i + 1;
+      const taskBranchName = `${branchName}-${taskNumber}`;
+      const taskId = await ctx.db.insert("agentTasks", {
+        boardId: board._id,
+        columnId: column._id,
+        title: task.title,
+        description: task.description,
+        branchName: taskBranchName,
+        repoId: project.repoId,
+        projectId: args.projectId,
+        taskNumber,
+        status: "todo",
+        order: i,
+        createdAt: now,
+        updatedAt: now,
+      });
+      taskIdMap.set(taskNumber, taskId);
+    }
+    for (let i = 0; i < spec.tasks.length; i++) {
+      const task = spec.tasks[i];
+      const taskNumber = i + 1;
+      const taskId = taskIdMap.get(taskNumber);
+      if (!taskId) continue;
+      for (const depNumber of task.dependencies) {
+        const depTaskId = taskIdMap.get(depNumber);
+        if (depTaskId) {
+          await ctx.db.insert("taskDependencies", {
+            taskId,
+            dependsOnId: depTaskId,
+          });
+        }
+      }
+    }
+    await ctx.db.patch(args.projectId, {
+      phase: "active",
+      branchName,
+      description: spec.description,
+    });
     return null;
   },
 });

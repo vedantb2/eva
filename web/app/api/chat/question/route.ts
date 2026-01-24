@@ -7,7 +7,7 @@ const openrouter = createOpenRouter({
   apiKey: serverEnv.NEXT_OPENROUTER_API_KEY,
   headers: {
     "HTTP-Referer": "https://conductor-lake.vercel.app",
-    "X-Title": "Pulse",
+    "X-Title": "Eva",
   },
 });
 

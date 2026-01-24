@@ -25,7 +25,7 @@ export async function GET() {
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Pulse - Authentication</title>
+    <title>Eva - Authentication</title>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

@@ -37,6 +37,7 @@ export function DocsClient() {
   return (
     <PageWrapper
       title="Docs"
+      fillHeight
       headerRight={
         <Button
           color="primary"
@@ -48,15 +49,15 @@ export function DocsClient() {
         </Button>
       }
     >
-      <div className="grid grid-cols-3 gap-4 h-[calc(100vh-140px)]">
-        <div className="col-span-1">
+      <div className="grid grid-cols-3 grid-rows-[1fr] gap-4 flex-1 min-h-0">
+        <div className="col-span-1 h-full overflow-hidden">
           <DocsList
             docs={docs}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
         </div>
-        <div className="col-span-2">
+        <div className="col-span-2 h-full overflow-hidden">
           <DocViewer doc={selectedDoc} onSelect={setSelectedId} />
         </div>
       </div>

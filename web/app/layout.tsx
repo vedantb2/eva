@@ -6,7 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  title: "Pulse - Kanban for AI Agents",
+  title: "Eva - Kanban for AI Agents",
   description:
     "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
   keywords:
@@ -25,15 +25,15 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Pulse",
+    title: "Eva",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: "website",
-    siteName: "Pulse",
-    title: "Pulse - Kanban for AI Agents",
+    siteName: "Eva",
+    title: "Eva - Kanban for AI Agents",
     description:
       "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
   },
@@ -52,7 +52,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <body suppressHydrationWarning className="font-inter tracking-tight">
+      <body suppressHydrationWarning className="font-inter">
         <ClerkProvider>
           <ClientProvider>{children}</ClientProvider>
         </ClerkProvider>

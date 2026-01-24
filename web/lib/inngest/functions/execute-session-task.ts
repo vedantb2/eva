@@ -1,11 +1,11 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -66,10 +66,8 @@ export const executeSessionTask = inngest.createFunction(
 
       if (session.sandboxId) {
         try {
-          const sbx = await Sandbox.connect(session.sandboxId, {
-            apiKey: serverEnv.E2B_API_KEY,
-          });
-          await sbx.commands.run("echo 'sandbox alive'", { timeoutMs: 5000 });
+          const existingSandbox = await getSandbox(session.sandboxId);
+          await existingSandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
@@ -80,63 +78,67 @@ export const executeSessionTask = inngest.createFunction(
         }
       }
 
-      const sbx = await Sandbox.create("anthropic-claude-code", {
-        apiKey: serverEnv.E2B_API_KEY,
-        envs: {
-          GITHUB_TOKEN: freshToken,
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        timeoutMs: 60 * 60 * 1000,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sbx.commands.run(`git clone ${repoUrl} ~/workspace`, {
-        timeoutMs: 120000,
-      });
+      await sandbox.process.executeCommand(
+        `git clone ${repoUrl} ~/workspace`,
+        "/",
+        undefined,
+        120
+      );
 
       const branchName = session.branchName || `session/${sessionId}`;
 
-      const branchCheckResult = await sbx.commands.run(
+      const branchCheckResult = await sandbox.process.executeCommand(
         `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
-        { timeoutMs: 30000 }
+        "/",
+        undefined,
+        30
       );
 
-      if (branchCheckResult.stdout?.includes(branchName)) {
-        await sbx.commands.run(
+      if (branchCheckResult.result?.includes(branchName)) {
+        await sandbox.process.executeCommand(
           `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
-          { timeoutMs: 30000 }
+          "/",
+          undefined,
+          30
         );
       } else {
-        await sbx.commands.run(
+        await sandbox.process.executeCommand(
           `cd ~/workspace && git checkout -b ${branchName}`,
-          { timeoutMs: 30000 }
+          "/",
+          undefined,
+          30
         );
       }
 
-      await sbx.commands.run(
-        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
-        { timeoutMs: 10000 }
+      await sandbox.process.executeCommand(
+        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+        "/",
+        undefined,
+        10
       );
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
-        sandboxId: sbx.sandboxId,
+        sandboxId: sandbox.id,
         branchName,
       });
 
-      return { sandboxId: sbx.sandboxId, branchName, isNew: true };
+      return { sandboxId: sandbox.id, branchName, isNew: true };
     });
 
     const result = await step.run("execute-task", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      const sbx = await Sandbox.connect(sandboxData.sandboxId, {
-        apiKey: serverEnv.E2B_API_KEY,
-      });
+      const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      await sbx.commands.run(
+      await sandbox.process.executeCommand(
         `cd ~/workspace && git remote set-url origin https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`,
-        { timeoutMs: 10000 }
+        "/",
+        undefined,
+        10
       );
 
       const commitMessage = messageContent.slice(0, 50).replace(/"/g, '\\"');
@@ -167,20 +169,21 @@ ${messageContent}
 
       let output = "";
       try {
-        const cmdResult = await sbx.commands.run(
+        const cmdResult = await sandbox.process.executeCommand(
           `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
-          { timeoutMs: 0 }
+          "/",
+          undefined,
+          0
         );
-        output = cmdResult.stdout || "";
+        output = cmdResult.result || "";
       } catch (err) {
         const error = err as {
-          stderr?: string;
-          stdout?: string;
+          result?: string;
           message?: string;
         };
         throw new Error(
           `Claude agent failed: ${
-            error.stderr || error.stdout || error.message || "Unknown error"
+            error.result || error.message || "Unknown error"
           }`
         );
       }

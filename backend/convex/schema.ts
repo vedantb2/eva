@@ -29,27 +29,38 @@ const schema = defineSchema({
     .index("by_email", ["email"]),
 
   projects: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-  }).index("by_user", ["userId"]),
-
-  tasks: defineTable({
-    projectId: v.id("projects"),
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
     title: v.string(),
     description: v.optional(v.string()),
-    status: v.union(
-      v.literal("todo"),
-      v.literal("in_progress"),
-      v.literal("done")
+    branchName: v.optional(v.string()),
+    phase: v.union(
+      v.literal("draft"),
+      v.literal("finalized"),
+      v.literal("active"),
+      v.literal("completed")
     ),
-    order: v.number(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
+    rawInput: v.string(),
+    generatedSpec: v.optional(v.string()),
+    codebaseIndex: v.optional(v.string()),
+    indexingStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("indexing"),
+        v.literal("complete"),
+        v.literal("error")
+      )
+    ),
+    conversationHistory: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+      })
+    ),
   })
-    .index("by_project", ["projectId"])
-    .index("by_project_and_status", ["projectId", "status"]),
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"])
+    .index("by_repo_and_phase", ["repoId", "phase"]),
 
   boards: defineTable({
     name: v.string(),
@@ -74,7 +85,7 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
-    featureId: v.optional(v.id("features")),
+    projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
     status: v.union(
       v.literal("todo"),
@@ -88,8 +99,8 @@ const schema = defineSchema({
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
-    .index("by_feature", ["featureId"])
-    .index("by_feature_and_status", ["featureId", "status"]),
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),
@@ -137,56 +148,6 @@ const schema = defineSchema({
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 
-  plans: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    title: v.string(),
-    rawInput: v.string(),
-    generatedSpec: v.optional(v.string()),
-    codebaseIndex: v.optional(v.string()),
-    indexingStatus: v.optional(
-      v.union(
-        v.literal("pending"),
-        v.literal("indexing"),
-        v.literal("complete"),
-        v.literal("error")
-      )
-    ),
-    state: v.union(
-      v.literal("draft"),
-      v.literal("finalized"),
-      v.literal("feature_created")
-    ),
-    conversationHistory: v.array(
-      v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
-        content: v.string(),
-      })
-    ),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_user", ["userId"])
-    .index("by_repo_and_state", ["repoId", "state"]),
-
-  features: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    planId: v.optional(v.id("plans")),
-    title: v.string(),
-    description: v.optional(v.string()),
-    branchName: v.string(),
-    status: v.union(
-      v.literal("planning"),
-      v.literal("active"),
-      v.literal("completed"),
-      v.literal("archived")
-    ),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_user", ["userId"])
-    .index("by_repo_and_status", ["repoId", "status"])
-    .index("by_plan", ["planId"]),
-
   taskDependencies: defineTable({
     taskId: v.id("agentTasks"),
     dependsOnId: v.id("agentTasks"),
@@ -200,6 +161,7 @@ const schema = defineSchema({
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
+    ptySessionId: v.optional(v.string()),
     lastActivityAt: v.optional(v.number()),
     status: v.union(v.literal("active"), v.literal("closed")),
     archived: v.optional(v.boolean()),
@@ -224,6 +186,22 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
+  researchQueries: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"]),
 });
 
 export default schema;

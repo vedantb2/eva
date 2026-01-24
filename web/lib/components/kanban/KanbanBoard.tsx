@@ -11,7 +11,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
-import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
+import { KanbanColumn, KANBAN_STATUSES, TASK_STATUS_CONFIG } from "./KanbanColumn";
 import { Card, CardBody } from "@heroui/card";
 import {
   SortableContext,
@@ -44,7 +44,7 @@ interface KanbanBoardProps<T extends BaseTask> {
   renderCard: (item: T) => ReactNode;
   renderOverlay: (item: T) => ReactNode;
   onItemClick: (item: T) => void;
-  heightClass?: string;
+  fillHeight?: boolean;
 }
 
 function SortableItem<T extends BaseTask>({
@@ -91,7 +91,7 @@ export function KanbanBoard<T extends BaseTask>({
   renderCard,
   renderOverlay,
   onItemClick,
-  heightClass = "h-[calc(100vh-250px)] sm:h-[calc(100vh-170px)]",
+  fillHeight = false,
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,8 +170,8 @@ export function KanbanBoard<T extends BaseTask>({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+    <div className={fillHeight ? "flex flex-col flex-1 min-h-0 gap-4" : "space-y-4"}>
+      <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
         <Dropdown>
           <DropdownTrigger>
             <Button
@@ -217,13 +217,14 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex gap-2 sm:gap-4 overflow-x-auto p-4 pb-4 ${heightClass}`}
+          className={`flex items-stretch gap-2 sm:gap-4 overflow-x-auto pb-4 ${fillHeight ? "flex-1 min-h-0" : ""}`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (
               <KanbanColumn
                 key={status}
-                status={status}
+                id={status}
+                config={TASK_STATUS_CONFIG[status]}
                 count={itemsByStatus[status]?.length ?? 0}
               >
                 <SortableContext

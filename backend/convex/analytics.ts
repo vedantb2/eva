@@ -146,22 +146,22 @@ export const getSessionStats = query({
   },
 });
 
-export const getFeatureStats = query({
+export const getProjectStats = query({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
   },
   returns: v.object({
     total: v.number(),
-    byStatus: v.object({
-      planning: v.number(),
+    byPhase: v.object({
+      draft: v.number(),
+      finalized: v.number(),
       active: v.number(),
       completed: v.number(),
-      archived: v.number(),
     }),
-    topFeatures: v.array(
+    topProjects: v.array(
       v.object({
-        id: v.id("features"),
+        id: v.id("projects"),
         title: v.string(),
         tasksTotal: v.number(),
         tasksDone: v.number(),
@@ -173,35 +173,35 @@ export const getFeatureStats = query({
     if (!userId) {
       return {
         total: 0,
-        byStatus: { planning: 0, active: 0, completed: 0, archived: 0 },
-        topFeatures: [],
+        byPhase: { draft: 0, finalized: 0, active: 0, completed: 0 },
+        topProjects: [],
       };
     }
-    const features = await ctx.db
-      .query("features")
+    const projects = await ctx.db
+      .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
     const filtered = args.startTime
-      ? features.filter((f) => f._creationTime >= args.startTime!)
-      : features;
-    const byStatus = { planning: 0, active: 0, completed: 0, archived: 0 };
-    for (const feature of filtered) {
-      byStatus[feature.status]++;
+      ? projects.filter((p) => p._creationTime >= args.startTime!)
+      : projects;
+    const byPhase = { draft: 0, finalized: 0, active: 0, completed: 0 };
+    for (const project of filtered) {
+      byPhase[project.phase]++;
     }
-    const topFeatures = [];
-    for (const feature of filtered.slice(0, 5)) {
+    const topProjects = [];
+    for (const project of filtered.slice(0, 5)) {
       const tasks = await ctx.db
         .query("agentTasks")
-        .withIndex("by_feature", (q) => q.eq("featureId", feature._id))
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
         .collect();
-      topFeatures.push({
-        id: feature._id,
-        title: feature.title,
+      topProjects.push({
+        id: project._id,
+        title: project.title,
         tasksTotal: tasks.length,
         tasksDone: tasks.filter((t) => t.status === "done").length,
       });
     }
-    return { total: filtered.length, byStatus, topFeatures };
+    return { total: filtered.length, byPhase, topProjects };
   },
 });
 

@@ -1,11 +1,11 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -68,10 +68,8 @@ export const askSession = inngest.createFunction(
 
       if (session.sandboxId) {
         try {
-          const sbx = await Sandbox.connect(session.sandboxId, {
-            apiKey: serverEnv.E2B_API_KEY,
-          });
-          await sbx.commands.run("echo 'sandbox alive'", { timeoutMs: 5000 });
+          const existingSandbox = await getSandbox(session.sandboxId);
+          await existingSandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || "main",
@@ -82,32 +80,26 @@ export const askSession = inngest.createFunction(
         }
       }
 
-      const sbx = await Sandbox.create("anthropic-claude-code", {
-        apiKey: serverEnv.E2B_API_KEY,
-        envs: {
-          GITHUB_TOKEN: freshToken,
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        timeoutMs: 60 * 60 * 1000,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sbx.commands.run(`git clone ${repoUrl} ~/workspace`, {
-        timeoutMs: 120000,
-      });
+      await sandbox.process.executeCommand(
+        `git clone ${repoUrl} ~/workspace`,
+        "/",
+        undefined,
+        120
+      );
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
-        sandboxId: sbx.sandboxId,
+        sandboxId: sandbox.id,
       });
 
-      return { sandboxId: sbx.sandboxId, branchName: "main", isNew: true };
+      return { sandboxId: sandbox.id, branchName: "main", isNew: true };
     });
 
     const result = await step.run("ask-question", async () => {
-      const sbx = await Sandbox.connect(sandboxData.sandboxId, {
-        apiKey: serverEnv.E2B_API_KEY,
-      });
+      const sandbox = await getSandbox(sandboxData.sandboxId);
 
       const conversationHistory = session.messages
         .filter((m) => m.mode === "ask")
@@ -141,20 +133,21 @@ CRITICAL response rules:
 
       let output = "";
       try {
-        const cmdResult = await sbx.commands.run(
+        const cmdResult = await sandbox.process.executeCommand(
           `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Glob,Grep" --output-format json`,
-          { timeoutMs: 0 }
+          "/",
+          undefined,
+          0
         );
-        output = cmdResult.stdout || "";
+        output = cmdResult.result || "";
       } catch (err) {
         const error = err as {
-          stderr?: string;
-          stdout?: string;
+          result?: string;
           message?: string;
         };
         throw new Error(
           `Claude agent failed: ${
-            error.stderr || error.stdout || error.message || "Unknown error"
+            error.result || error.message || "Unknown error"
           }`
         );
       }

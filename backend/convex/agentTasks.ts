@@ -19,7 +19,7 @@ const agentTaskValidator = v.object({
   description: v.optional(v.string()),
   branchName: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
-  featureId: v.optional(v.id("features")),
+  projectId: v.optional(v.id("projects")),
   taskNumber: v.optional(v.number()),
   status: taskStatusValidator,
   order: v.number(),
@@ -70,8 +70,8 @@ export const listByColumn = query({
   },
 });
 
-export const listByFeature = query({
-  args: { featureId: v.id("features") },
+export const listByProject = query({
+  args: { projectId: v.id("projects") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -80,7 +80,7 @@ export const listByFeature = query({
     }
     return await ctx.db
       .query("agentTasks")
-      .withIndex("by_feature", (q) => q.eq("featureId", args.featureId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
   },
 });
@@ -120,7 +120,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
-    featureId: v.optional(v.id("features")),
+    projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
     status: v.optional(taskStatusValidator),
   },
@@ -151,7 +151,7 @@ export const create = mutation({
       description: args.description,
       branchName: args.branchName,
       repoId: args.repoId,
-      featureId: args.featureId,
+      projectId: args.projectId,
       taskNumber: args.taskNumber,
       status: args.status ?? "todo",
       order: maxOrder + 1,
@@ -168,7 +168,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
-    featureId: v.optional(v.id("features")),
+    projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
   },
   returns: v.null(),
@@ -190,7 +190,7 @@ export const update = mutation({
     if (args.description !== undefined) updates.description = args.description;
     if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.repoId !== undefined) updates.repoId = args.repoId;
-    if (args.featureId !== undefined) updates.featureId = args.featureId;
+    if (args.projectId !== undefined) updates.projectId = args.projectId;
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     await ctx.db.patch(args.id, updates);
     return null;
@@ -335,23 +335,23 @@ export const updateStatus = mutation({
       status: args.status,
       updatedAt: Date.now(),
     });
-    if (task.featureId) {
-      const feature = await ctx.db.get(task.featureId);
-      if (feature) {
+    if (task.projectId) {
+      const project = await ctx.db.get(task.projectId);
+      if (project) {
         if (args.status === "done") {
-          const featureTasks = await ctx.db
+          const projectTasks = await ctx.db
             .query("agentTasks")
-            .withIndex("by_feature", (q) => q.eq("featureId", task.featureId))
+            .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
             .collect();
-          const allDone = featureTasks.every(
+          const allDone = projectTasks.every(
             (t) => t._id === args.id ? true : t.status === "done"
           );
-          if (allDone && feature.status !== "completed") {
-            await ctx.db.patch(task.featureId, { status: "completed" });
+          if (allDone && project.phase !== "completed") {
+            await ctx.db.patch(task.projectId, { phase: "completed" });
           }
         } else {
-          if (feature.status === "planning") {
-            await ctx.db.patch(task.featureId, { status: "active" });
+          if (project.phase === "finalized") {
+            await ctx.db.patch(task.projectId, { phase: "active" });
           }
         }
       }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Sandbox } from "e2b";
+import { Daytona } from "@daytonaio/sdk";
 import { auth } from "@clerk/nextjs/server";
-import { serverEnv } from "@/env/server";
+
+const daytona = new Daytona();
 
 export async function GET() {
   const { userId } = await auth();
@@ -9,12 +10,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const paginator = Sandbox.list({ apiKey: serverEnv.E2B_API_KEY });
-  const sandboxes = await paginator.nextItems();
+  const sandboxes = await daytona.list();
 
   return NextResponse.json({
     sandboxes,
-    hasMore: paginator.hasNext,
+    hasMore: false,
   });
 }
 
@@ -38,20 +38,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const sandbox = await daytona.get(sandboxId);
     switch (action) {
       case "pause": {
-        const sbx = await Sandbox.connect(sandboxId, {
-          apiKey: serverEnv.E2B_API_KEY,
-        });
-        await sbx.betaPause();
+        await daytona.stop(sandbox);
         break;
       }
       case "resume": {
-        await Sandbox.connect(sandboxId, { apiKey: serverEnv.E2B_API_KEY });
+        await daytona.start(sandbox);
         break;
       }
       case "kill": {
-        await Sandbox.kill(sandboxId, { apiKey: serverEnv.E2B_API_KEY });
+        await sandbox.delete();
         break;
       }
       default:

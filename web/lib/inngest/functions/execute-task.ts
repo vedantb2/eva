@@ -1,11 +1,11 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -69,14 +69,7 @@ export const executeTask = inngest.createFunction(
     const sandboxData = await step.run("create-sandbox-and-clone", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      const sbx = await Sandbox.create("anthropic-claude-code", {
-        apiKey: serverEnv.E2B_API_KEY,
-        envs: {
-          GITHUB_TOKEN: freshToken,
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        timeoutMs: 60 * 60 * 1000,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
@@ -86,30 +79,33 @@ export const executeTask = inngest.createFunction(
 
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
       try {
-        await sbx.commands.run(`git clone ${repoUrl} ~/workspace`, {
-          timeoutMs: 120000,
-        });
+        await sandbox.process.executeCommand(
+          `git clone ${repoUrl} ~/workspace`,
+          "/",
+          undefined,
+          120
+        );
       } catch (err) {
-        const error = err as { stderr?: string; message?: string };
+        const error = err as { result?: string; message?: string };
         throw new Error(
-          `Git clone failed: ${
-            error.stderr || error.message || "Unknown error"
-          }`
+          `Git clone failed: ${error.result || error.message || "Unknown error"}`
         );
       }
 
       const branchName =
         task.branchName || `conductor/task-${task.taskNumber || Date.now()}`;
-      await sbx.commands.run(
+      await sandbox.process.executeCommand(
         `cd ~/workspace && git checkout -b ${branchName}`,
-        {
-          timeoutMs: 30000,
-        }
+        "/",
+        undefined,
+        30
       );
 
-      await sbx.commands.run(
-        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
-        { timeoutMs: 10000 }
+      await sandbox.process.executeCommand(
+        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+        "/",
+        undefined,
+        10
       );
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
@@ -118,13 +114,11 @@ export const executeTask = inngest.createFunction(
         message: `Created branch: ${branchName}`,
       });
 
-      return { sandboxId: sbx.sandboxId, branchName };
+      return { sandboxId: sandbox.id, branchName };
     });
 
     const agentResult = await step.run("run-autonomous-agent", async () => {
-      const sbx = await Sandbox.connect(sandboxData.sandboxId, {
-        apiKey: serverEnv.E2B_API_KEY,
-      });
+      const sandbox = await getSandbox(sandboxData.sandboxId);
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
@@ -158,7 +152,7 @@ export const executeTask = inngest.createFunction(
         .replace(
           /'/g,
           "\\'"
-        )}\\n\\n---\\n*Implemented by Pulse AI Agent*","head":"${
+        )}\\n\\n---\\n*Implemented by Eva AI Agent*","head":"${
         sandboxData.branchName
       }","base":"main"}'
 7. Extract the "html_url" from the curl response - that is the PR URL
@@ -169,7 +163,7 @@ export const executeTask = inngest.createFunction(
 - Do NOT run any build, lint, test, or dev commands
 - Do NOT ask questions - make reasonable assumptions and implement
 - DIRECTLY edit source code files (.ts, .js, .py, .tsx, .jsx, etc.)
-- Do NOT default to npm. Use the repository’s lockfile (pnpm-lock.yaml, yarn.lock, package-lock.json, or bun.lockb) to determine the correct package manager
+- Do NOT default to npm. Use the repository's lockfile (pnpm-lock.yaml, yarn.lock, package-lock.json, or bun.lockb) to determine the correct package manager
 - Make minimal, focused changes to existing files
 - The GITHUB_TOKEN environment variable is already set for git push and curl`;
 
@@ -177,27 +171,19 @@ export const executeTask = inngest.createFunction(
 
       let result;
       try {
-        result = await sbx.commands.run(
+        result = await sandbox.process.executeCommand(
           `cd ~/workspace && npx -y npm@11.7.0 install && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
-          { timeoutMs: 0 }
+          "/",
+          undefined,
+          0
         );
       } catch (err) {
         const error = err as {
-          stderr?: string;
-          stdout?: string;
+          result?: string;
           message?: string;
         };
-        const stderr = (error.stderr || "")
-          .replace(/npm notice[\s\S]*?npm notice\n?/g, "")
-          .trim();
-        const stdout = (error.stdout || "").trim();
-        const combined = [
-          stdout && `stdout: ${stdout.slice(-500)}`,
-          stderr && `stderr: ${stderr.slice(-500)}`,
-        ]
-          .filter(Boolean)
-          .join(" | ");
-        const errorDetails = combined || error.message || "Unknown error";
+        const errorOutput = (error.result || "").trim();
+        const errorDetails = errorOutput.slice(-500) || error.message || "Unknown error";
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",
@@ -206,7 +192,7 @@ export const executeTask = inngest.createFunction(
         throw new Error(`Claude agent failed: ${errorDetails}`);
       }
 
-      const output = result.stdout || "";
+      const output = result.result || "";
 
       let agentOutput: AgentOutput = {
         success: false,
@@ -286,10 +272,8 @@ export const executeTask = inngest.createFunction(
 
     await step.run("cleanup-sandbox", async () => {
       try {
-        const sbx = await Sandbox.connect(sandboxData.sandboxId, {
-          apiKey: serverEnv.E2B_API_KEY,
-        });
-        await sbx.kill();
+        const sandbox = await getSandbox(sandboxData.sandboxId);
+        await sandbox.delete();
       } catch {
         // Sandbox may already be terminated
       }

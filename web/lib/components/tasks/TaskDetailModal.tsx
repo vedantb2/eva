@@ -282,7 +282,7 @@ export function TaskDetailModal({
               isLoading={isStarting}
               isDisabled={isBlocked || hasActiveRun}
             >
-              {hasActiveRun ? "Running..." : "Run Agent"}
+              {hasActiveRun ? "Running..." : "Run Eva"}
             </Button>
           )}
         </ModalFooter>

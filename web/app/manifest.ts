@@ -2,8 +2,8 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Pulse - Kanban for AI Agents",
-    short_name: "Pulse",
+    name: "Eva - Kanban for AI Agents",
+    short_name: "Eva",
     description:
       "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
     start_url: "/",

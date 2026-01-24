@@ -1,5 +1,4 @@
 import { inngest } from "../client";
-import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
@@ -68,7 +67,7 @@ export const createSessionPr = inngest.createFunction(
       const freshToken = await getGitHubToken(installationId);
 
       const prTitle = title || session.title;
-      const prBody = description || `Session: ${session.title}\n\n---\n*Created by Pulse AI Agent*`;
+      const prBody = description || `Session: ${session.title}\n\n---\n*Created by Eva AI Agent*`;
 
       const response = await fetch(
         `https://api.github.com/repos/${repo.owner}/${repo.name}/pulls`,

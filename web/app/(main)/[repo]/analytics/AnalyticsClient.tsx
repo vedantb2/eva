@@ -9,7 +9,7 @@ import { StatCard } from "@/lib/components/analytics/StatCard";
 import { TaskStatusChart } from "@/lib/components/analytics/TaskStatusChart";
 import { RunSuccessChart } from "@/lib/components/analytics/RunSuccessChart";
 import { SessionActivityChart } from "@/lib/components/analytics/SessionActivityChart";
-import { FeatureProgressChart } from "@/lib/components/analytics/FeatureProgressChart";
+import { ProjectProgressChart } from "@/lib/components/analytics/ProjectProgressChart";
 import {
   TimeRangeFilter,
   TimeRange,
@@ -55,7 +55,7 @@ export function AnalyticsClient() {
     startTime,
   });
 
-  const featureStats = useQuery(api.analytics.getFeatureStats, {
+  const projectStats = useQuery(api.analytics.getProjectStats, {
     repoId: repo._id,
     startTime,
   });
@@ -75,7 +75,7 @@ export function AnalyticsClient() {
     taskStats === undefined ||
     runStats === undefined ||
     sessionStats === undefined ||
-    featureStats === undefined ||
+    projectStats === undefined ||
     timeline === undefined ||
     leaderboard === undefined;
 
@@ -128,7 +128,7 @@ export function AnalyticsClient() {
               timeline={timeline}
               messagesByMode={sessionStats.messagesByMode}
             />
-            <FeatureProgressChart features={featureStats.topFeatures} />
+            <ProjectProgressChart projects={projectStats.topProjects} />
           </div>
 
           <Leaderboard entries={leaderboard} />

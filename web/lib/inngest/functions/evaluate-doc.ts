@@ -134,30 +134,28 @@ ${doc.content}
         const escapedSchema = JSON.stringify(jsonSchema).replace(/'/g, "'\\''");
 
         const cmdResult = await sandbox.process.executeCommand(
-          `echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --output-format json --allowedTools "Read,Glob,Grep" --json-schema '${escapedSchema}'`,
+          `echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --allowedTools "Read,Glob,Grep" --json-schema '${escapedSchema}'`,
           "/home/daytona/workspace",
           undefined,
           1800
         );
 
-        const output = cmdResult.result || "";
+        const output = (cmdResult.result || "").trim();
 
         let parsed: Partial<EvaluationResult> = {};
         let parseError = "";
 
+        const lines = output.split("\n");
+        const lastLine = lines[lines.length - 1];
+
         try {
-          const jsonResponse = JSON.parse(output);
-          if (jsonResponse.result) {
-            if (typeof jsonResponse.result === "object") {
-              parsed = jsonResponse.result;
-            } else if (typeof jsonResponse.result === "string") {
-              parsed = JSON.parse(jsonResponse.result);
-            }
-          } else {
-            parseError = `No result field: ${output.slice(0, 500)}`;
+          parsed = JSON.parse(lastLine);
+        } catch {
+          try {
+            parsed = JSON.parse(output);
+          } catch (e) {
+            parseError = `Parse failed: ${e}. Last line: ${lastLine.slice(0, 200)}. Full output: ${output.slice(0, 300)}`;
           }
-        } catch (e) {
-          parseError = `Parse failed: ${e}. Output: ${output.slice(0, 500)}`;
         }
 
         return {

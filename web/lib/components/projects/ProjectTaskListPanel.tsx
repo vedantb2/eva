@@ -22,7 +22,6 @@ interface Task {
   description?: string;
   status: TaskStatus;
   taskNumber?: number;
-  branchName?: string;
   order: number;
 }
 
@@ -126,7 +125,6 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                     title={task.title}
                     description={task.description}
                     status={task.status}
-                    branchName={task.branchName}
                     onClick={() => setSelectedTask(task)}
                   />
                 ))
@@ -144,7 +142,6 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
           title={selectedTask.title}
           description={selectedTask.description}
           status={selectedTask.status}
-          branchName={selectedTask.branchName}
         />
       )}
     </div>

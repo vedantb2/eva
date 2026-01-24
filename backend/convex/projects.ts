@@ -23,6 +23,7 @@ const projectValidator = v.object({
   title: v.string(),
   description: v.optional(v.string()),
   branchName: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
   phase: phaseValidator,
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
@@ -467,7 +468,7 @@ export const startDevelopment = mutation({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 50);
-    const branchName = `conductor/project-${slugify(spec.title)}`;
+    const branchName = `conductor/${slugify(spec.title)}`;
     let board = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", project.repoId))
@@ -505,13 +506,11 @@ export const startDevelopment = mutation({
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];
       const taskNumber = i + 1;
-      const taskBranchName = `${branchName}-${taskNumber}`;
       const taskId = await ctx.db.insert("agentTasks", {
         boardId: board._id,
         columnId: column._id,
         title: task.title,
         description: task.description,
-        branchName: taskBranchName,
         repoId: project.repoId,
         projectId: args.projectId,
         taskNumber,
@@ -542,6 +541,22 @@ export const startDevelopment = mutation({
       branchName,
       description: spec.description,
     });
+    return null;
+  },
+});
+
+export const updatePrUrlNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    prUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, { prUrl: args.prUrl });
     return null;
   },
 });

@@ -17,7 +17,6 @@ const agentTaskValidator = v.object({
   columnId: v.id("columns"),
   title: v.string(),
   description: v.optional(v.string()),
-  branchName: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   projectId: v.optional(v.id("projects")),
   taskNumber: v.optional(v.number()),
@@ -118,7 +117,6 @@ export const create = mutation({
     columnId: v.id("columns"),
     title: v.string(),
     description: v.optional(v.string()),
-    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
@@ -149,7 +147,6 @@ export const create = mutation({
       columnId: args.columnId,
       title: args.title,
       description: args.description,
-      branchName: args.branchName,
       repoId: args.repoId,
       projectId: args.projectId,
       taskNumber: args.taskNumber,
@@ -166,7 +163,6 @@ export const update = mutation({
     id: v.id("agentTasks"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
@@ -188,7 +184,6 @@ export const update = mutation({
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.repoId !== undefined) updates.repoId = args.repoId;
     if (args.projectId !== undefined) updates.projectId = args.projectId;
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
@@ -532,6 +527,9 @@ export const startExecution = mutation({
     taskId: v.id("agentTasks"),
     repoId: v.id("githubRepos"),
     installationId: v.number(),
+    projectId: v.optional(v.id("projects")),
+    branchName: v.optional(v.string()),
+    isFirstTaskOnBranch: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -563,6 +561,43 @@ export const startExecution = mutation({
     if (activeRun) {
       throw new Error("Task already has an active execution");
     }
+
+    let project = null;
+    let isFirstTaskOnBranch = true;
+
+    if (task.projectId) {
+      project = await ctx.db.get(task.projectId);
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      const projectTasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
+        .collect();
+
+      for (const pt of projectTasks) {
+        if (pt._id === args.id) continue;
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
+          .collect();
+        if (runs.some((r) => r.status === "queued" || r.status === "running")) {
+          throw new Error("Another task in this project is already running");
+        }
+      }
+
+      const allRuns: { status: string }[] = [];
+      for (const pt of projectTasks) {
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
+          .collect();
+        allRuns.push(...runs);
+      }
+      isFirstTaskOnBranch = !allRuns.some((r) => r.status === "success");
+    }
+
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.id,
       status: "queued",
@@ -578,6 +613,9 @@ export const startExecution = mutation({
       taskId: args.id,
       repoId: task.repoId,
       installationId: repo.installationId,
+      projectId: task.projectId,
+      branchName: project?.branchName,
+      isFirstTaskOnBranch,
     };
   },
 });

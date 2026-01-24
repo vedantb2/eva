@@ -6,7 +6,7 @@ import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { IconGitBranch, IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
@@ -24,7 +24,6 @@ interface ProjectTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
-  branchName?: string;
   onClick?: () => void;
 }
 
@@ -34,7 +33,6 @@ export function ProjectTaskCard({
   title,
   description,
   status,
-  branchName,
   onClick,
 }: ProjectTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
@@ -75,12 +73,6 @@ export function ProjectTaskCard({
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
         <div className="flex items-center gap-3 text-xs text-default-400">
-          {branchName && (
-            <div className="flex items-center gap-1">
-              <IconGitBranch size={12} />
-              <span className="font-mono truncate">{branchName}</span>
-            </div>
-          )}
           <div className="flex items-center gap-1">
             <IconSubtask size={12} />
             <SubtaskProgress taskId={id} />

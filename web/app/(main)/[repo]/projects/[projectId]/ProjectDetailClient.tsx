@@ -9,7 +9,8 @@ import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconGitBranch } from "@tabler/icons-react";
+import { IconGitBranch, IconGitPullRequest } from "@tabler/icons-react";
+import Link from "next/link";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -39,7 +40,8 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     );
   }
 
-  const isDraftOrFinalized = project.phase === "draft" || project.phase === "finalized";
+  const isDraftOrFinalized =
+    project.phase === "draft" || project.phase === "finalized";
 
   return (
     <PageWrapper
@@ -47,13 +49,28 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       showBack
       fillHeight
       headerRight={
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center justify-between">
           <ProjectPhaseBadge phase={project.phase} />
-          {project.branchName && (
-            <span className="hidden sm:flex items-center gap-1 text-sm text-neutral-500 max-w-[150px] truncate">
-              <IconGitBranch className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{project.branchName}</span>
-            </span>
+          {(project.branchName || project.prUrl) && (
+            <div className="flex items-center gap-3 text-sm ml-10">
+              {project.branchName && (
+                <div className="flex items-center gap-1 text-default-500">
+                  <IconGitBranch size={14} />
+                  {project.branchName}
+                </div>
+              )}
+              {project.prUrl && (
+                <Link
+                  href={project.prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-success-500 hover:underline"
+                >
+                  <IconGitPullRequest size={14} />
+                  <span className="text-xs">View PR</span>
+                </Link>
+              )}
+            </div>
           )}
         </div>
       }

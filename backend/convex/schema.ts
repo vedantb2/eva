@@ -34,6 +34,7 @@ const schema = defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
     phase: v.union(
       v.literal("draft"),
       v.literal("finalized"),
@@ -83,7 +84,6 @@ const schema = defineSchema({
     columnId: v.id("columns"),
     title: v.string(),
     description: v.optional(v.string()),
-    branchName: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),

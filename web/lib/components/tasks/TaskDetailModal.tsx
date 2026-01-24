@@ -14,7 +14,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { IconGitBranch, IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullRequest } from "@tabler/icons-react";
+import { IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullRequest } from "@tabler/icons-react";
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 
@@ -28,7 +28,6 @@ interface TaskDetailModalProps {
   title: string;
   description?: string;
   status: TaskStatus;
-  branchName?: string;
 }
 
 export function TaskDetailModal({
@@ -39,7 +38,6 @@ export function TaskDetailModal({
   title,
   description,
   status,
-  branchName,
 }: TaskDetailModalProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
@@ -70,6 +68,9 @@ export function TaskDetailModal({
             taskId: result.taskId,
             repoId: result.repoId,
             installationId: result.installationId,
+            projectId: result.projectId,
+            branchName: result.branchName,
+            isFirstTaskOnBranch: result.isFirstTaskOnBranch,
           },
         }),
       });
@@ -128,20 +129,6 @@ export function TaskDetailModal({
                 <p className="text-sm text-default-600 whitespace-pre-wrap">
                   {description}
                 </p>
-              </div>
-            )}
-
-            {branchName && (
-              <div>
-                <h4 className="text-sm font-medium text-default-700 mb-2">
-                  Branch
-                </h4>
-                <div className="flex items-center gap-2 text-sm text-default-500">
-                  <IconGitBranch size={16} />
-                  <code className="bg-default-100 px-2 py-1 rounded text-xs sm:text-sm break-all">
-                    {branchName}
-                  </code>
-                </div>
               </div>
             )}
 

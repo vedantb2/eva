@@ -1,11 +1,10 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 import { createSandbox } from "../sandbox";
+import { getGitHubToken, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -49,17 +48,6 @@ Focus on understanding:
 
 Analyze the codebase thoroughly before generating the index.`;
 
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
-
 export const indexCodebase = inngest.createFunction(
   {
     id: "index-codebase",
@@ -99,11 +87,10 @@ export const indexCodebase = inngest.createFunction(
     const codebaseIndex = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
       const sandbox = await createSandbox(githubToken);
+      const workDir = "/home/daytona/workspace/repo";
 
       try {
         const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-        const workDir = "/home/daytona/workspace/repo";
-
         const cloneResult = await sandbox.process.executeCommand(
           `git clone --depth 1 "${repoUrl}" ${workDir}`,
           "/",
@@ -111,11 +98,8 @@ export const indexCodebase = inngest.createFunction(
           120
         );
         if (cloneResult.exitCode !== 0) {
-          const sanitizedOutput = (cloneResult.result || "").replace(
-            new RegExp(githubToken, "g"),
-            "[REDACTED]"
-          );
-          throw new Error(`Git clone failed: ${sanitizedOutput}`);
+          const sanitized = (cloneResult.result || "").replace(new RegExp(githubToken, "g"), "[REDACTED]");
+          throw new Error(`Git clone failed: ${sanitized}`);
         }
 
         const treeResult = await sandbox.process.executeCommand(
@@ -124,7 +108,6 @@ export const indexCodebase = inngest.createFunction(
           undefined,
           30
         );
-        const fileList = treeResult.result || "";
 
         const packageJsonResult = await sandbox.process.executeCommand(
           `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`,
@@ -132,7 +115,6 @@ export const indexCodebase = inngest.createFunction(
           undefined,
           10
         );
-        const packageJson = packageJsonResult.result || "{}";
 
         const readmeResult = await sandbox.process.executeCommand(
           `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`,
@@ -140,53 +122,34 @@ export const indexCodebase = inngest.createFunction(
           undefined,
           10
         );
-        const readme = readmeResult.result?.slice(0, 2000) || "";
 
         const contextPrompt = `${INDEX_PROMPT}
 
 Here's information about the codebase:
 
 ## File List
-${fileList}
+${treeResult.result || ""}
 
 ## package.json
-${packageJson}
+${packageJsonResult.result || "{}"}
 
 ## README (excerpt)
-${readme}
+${readmeResult.result?.slice(0, 2000) || ""}
 
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
-        const escapedPrompt = contextPrompt.replace(/'/g, "'\\''");
+        const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
+          model: "sonnet",
+          workDir,
+          timeout: 300,
+        });
 
-        const claudeResult = await sandbox.process.executeCommand(
-          `cd ${workDir} && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --output-format json`,
-          "/",
-          undefined,
-          300
-        );
-
-        const output = claudeResult.result || "";
-
-        let responseText = "";
-        try {
-          const jsonResponse = JSON.parse(output);
-          if (jsonResponse.result) {
-            responseText = jsonResponse.result;
-          }
-        } catch {
-          if (output.length > 0) {
-            responseText = output;
-          }
+        const jsonStr = extractJsonFromText(claudeResult.result);
+        if (!jsonStr) {
+          throw new Error(`Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`);
         }
 
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error(`Failed to extract JSON from output: ${responseText.slice(0, 500)}`);
-        }
-
-        JSON.parse(jsonMatch[0]);
-        return jsonMatch[0];
+        return jsonStr;
       } finally {
         await sandbox.delete();
       }

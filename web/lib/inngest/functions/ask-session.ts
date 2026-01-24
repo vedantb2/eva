@@ -1,24 +1,12 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 import { createSandbox, getSandbox } from "../sandbox";
+import { getGitHubToken, cloneRepo, runClaudeCLI } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
 
 export const askSession = inngest.createFunction(
   {
@@ -81,14 +69,7 @@ export const askSession = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-
-      const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sandbox.process.executeCommand(
-        `git clone ${repoUrl} ~/workspace`,
-        "/",
-        undefined,
-        120
-      );
+      await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
@@ -129,42 +110,12 @@ CRITICAL response rules:
 - Be direct and answer the question simply
 - DO NOT modify any files`;
 
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
+      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        model: "opus",
+        allowedTools: ["Read", "Glob", "Grep"],
+      });
 
-      let output = "";
-      try {
-        const cmdResult = await sandbox.process.executeCommand(
-          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Glob,Grep" --output-format json`,
-          "/",
-          undefined,
-          0
-        );
-        output = cmdResult.result || "";
-      } catch (err) {
-        const error = err as {
-          result?: string;
-          message?: string;
-        };
-        throw new Error(
-          `Claude agent failed: ${
-            error.result || error.message || "Unknown error"
-          }`
-        );
-      }
-
-      let answer = "I couldn't find an answer to your question.";
-      try {
-        const jsonResponse = JSON.parse(output);
-        if (jsonResponse.result) {
-          answer = jsonResponse.result;
-        }
-      } catch {
-        if (output.length > 0) {
-          answer = output.slice(-2000);
-        }
-      }
-
-      return { answer };
+      return { answer: claudeResult.result || "I couldn't find an answer to your question." };
     });
 
     await step.run("update-session", async () => {

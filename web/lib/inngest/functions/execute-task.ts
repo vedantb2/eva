@@ -1,11 +1,10 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
-import { createSandbox, getSandbox } from "../sandbox";
+import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
+import { getGitHubToken, configureGit, parseClaudeOutput } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -14,27 +13,6 @@ interface AgentOutput {
   prUrl?: string;
   error?: string;
   completedSubtasks?: number[];
-}
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
-
-async function isSandboxAlive(sandboxId: string): Promise<boolean> {
-  try {
-    const sandbox = await getSandbox(sandboxId);
-    await sandbox.process.executeCommand("echo alive", "/", undefined, 10);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export const executeTask = inngest.createFunction(
@@ -58,21 +36,13 @@ export const executeTask = inngest.createFunction(
     const { runId, taskId, repoId, installationId, projectId, branchName, isFirstTaskOnBranch } = event.data;
 
     const { task, repo, project, subtasks } = await step.run("fetch-task-data", async () => {
-      const taskData = await convex.query(api.agentTasks.getNoAuth, {
-        id: taskId,
-      });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
-        id: repoId,
-      });
+      const taskData = await convex.query(api.agentTasks.getNoAuth, { id: taskId });
+      const repoData = await convex.query(api.githubRepos.getNoAuth, { id: repoId });
       if (!taskData || !repoData) {
         throw new Error("Task or repo not found");
       }
-      const projectData = projectId
-        ? await convex.query(api.projects.getNoAuth, { id: projectId })
-        : null;
-      const subtaskData = await convex.query(api.subtasks.listByTaskNoAuth, {
-        parentTaskId: taskId,
-      });
+      const projectData = projectId ? await convex.query(api.projects.getNoAuth, { id: projectId }) : null;
+      const subtaskData = await convex.query(api.subtasks.listByTaskNoAuth, { parentTaskId: taskId });
       return { task: taskData, repo: repoData, project: projectData, subtasks: subtaskData };
     });
 
@@ -122,26 +92,14 @@ export const executeTask = inngest.createFunction(
       });
 
       try {
-        await sandbox.process.executeCommand(
-          `git clone ${repoUrl} ~/workspace`,
-          "/",
-          undefined,
-          120
-        );
+        await sandbox.process.executeCommand(`git clone ${repoUrl} ~/workspace`, "/", undefined, 120);
       } catch (err) {
         const error = err as { result?: string; message?: string };
-        throw new Error(
-          `Git clone failed: ${error.result || error.message || "Unknown error"}`
-        );
+        throw new Error(`Git clone failed: ${error.result || error.message || "Unknown error"}`);
       }
 
       if (isFirstTaskOnBranch) {
-        await sandbox.process.executeCommand(
-          `cd ~/workspace && git checkout -b ${taskBranchName}`,
-          "/",
-          undefined,
-          30
-        );
+        await sandbox.process.executeCommand(`cd ~/workspace && git checkout -b ${taskBranchName}`, "/", undefined, 30);
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "info",
@@ -161,12 +119,7 @@ export const executeTask = inngest.createFunction(
         });
       }
 
-      await sandbox.process.executeCommand(
-        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
-        "/",
-        undefined,
-        10
-      );
+      await configureGit(sandbox);
 
       if (projectId) {
         await convex.mutation(api.projects.updateSandboxNoAuth, {
@@ -238,10 +191,7 @@ ${prInstructions}
           0
         );
       } catch (err) {
-        const error = err as {
-          result?: string;
-          message?: string;
-        };
+        const error = err as { result?: string; message?: string };
         const errorOutput = (error.result || "").trim();
         const errorDetails = errorOutput.slice(-500) || error.message || "Unknown error";
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
@@ -253,67 +203,38 @@ ${prInstructions}
       }
 
       const output = result.result || "";
+      const claudeResult = parseClaudeOutput(output);
 
       let agentOutput: AgentOutput = {
         success: false,
         error: sandboxData.isFirstTaskOnBranch ? "No PR URL found" : "Task failed",
       };
 
-      const jsonStartIndex = output.indexOf('{"type":"result"');
-      const jsonStr =
-        jsonStartIndex >= 0 ? output.slice(jsonStartIndex) : output;
+      const resultText = claudeResult.result;
 
-      try {
-        const jsonResponse = JSON.parse(jsonStr);
-        const resultText = jsonResponse.result || "";
-        if (jsonResponse.is_error) {
-          agentOutput.error = resultText || "Claude returned an error";
-        } else if (sandboxData.isFirstTaskOnBranch) {
-          const prUrlMatch = resultText.match(
-            /"?prUrl"?\s*:\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
-          );
-          if (prUrlMatch) {
-            agentOutput = { success: true, prUrl: prUrlMatch[1] };
-          } else {
-            const htmlUrlMatch = resultText.match(
-              /"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
-            );
-            if (htmlUrlMatch) {
-              agentOutput = { success: true, prUrl: htmlUrlMatch[1] };
-            }
-          }
+      if (claudeResult.isError) {
+        agentOutput.error = resultText || "Claude returned an error";
+      } else if (sandboxData.isFirstTaskOnBranch) {
+        const prUrlMatch = resultText.match(/"?prUrl"?\s*:\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/);
+        if (prUrlMatch) {
+          agentOutput = { success: true, prUrl: prUrlMatch[1] };
         } else {
-          const successMatch = resultText.match(/"success"\s*:\s*true/);
-          if (successMatch) {
-            agentOutput = { success: true };
+          const htmlUrlMatch = resultText.match(/"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/);
+          if (htmlUrlMatch) {
+            agentOutput = { success: true, prUrl: htmlUrlMatch[1] };
           }
         }
+      } else {
+        const successMatch = resultText.match(/"success"\s*:\s*true/);
+        if (successMatch) {
+          agentOutput = { success: true };
+        }
+      }
 
-        const completedMatch = resultText.match(/"completedSubtasks"\s*:\s*\[([^\]]*)\]/);
-        if (completedMatch && completedMatch[1]) {
-          const indices = completedMatch[1].split(",").map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n));
-          agentOutput.completedSubtasks = indices;
-        }
-      } catch {
-        if (sandboxData.isFirstTaskOnBranch) {
-          const prUrlMatch = output.match(
-            /"prUrl":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/
-          );
-          if (prUrlMatch) {
-            agentOutput = { success: true, prUrl: prUrlMatch[1] };
-          }
-        } else {
-          const successMatch = output.match(/"success"\s*:\s*true/);
-          if (successMatch) {
-            agentOutput = { success: true };
-          }
-        }
-
-        const completedMatch = output.match(/"completedSubtasks"\s*:\s*\[([^\]]*)\]/);
-        if (completedMatch && completedMatch[1]) {
-          const indices = completedMatch[1].split(",").map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n));
-          agentOutput.completedSubtasks = indices;
-        }
+      const completedMatch = resultText.match(/"completedSubtasks"\s*:\s*\[([^\]]*)\]/);
+      if (completedMatch && completedMatch[1]) {
+        const indices = completedMatch[1].split(",").map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n));
+        agentOutput.completedSubtasks = indices;
       }
 
       if (!agentOutput.success) {
@@ -323,9 +244,7 @@ ${prInstructions}
           level: "error",
           message: `Agent output: ${truncatedOutput}`,
         });
-        throw new Error(
-          `Agent failed: ${agentOutput.error} | Output: ${truncatedOutput.slice(0, 500)}`
-        );
+        throw new Error(`Agent failed: ${agentOutput.error} | Output: ${truncatedOutput.slice(0, 500)}`);
       }
 
       if (sandboxData.isFirstTaskOnBranch && !agentOutput.prUrl) {
@@ -402,9 +321,7 @@ ${prInstructions}
       await convex.mutation(api.agentRuns.completeNoAuth, {
         id: runId as Id<"agentRuns">,
         success: true,
-        resultSummary: agentResult.isFirstTaskOnBranch
-          ? "Created project PR"
-          : "Pushed commit to project branch",
+        resultSummary: agentResult.isFirstTaskOnBranch ? "Created project PR" : "Pushed commit to project branch",
       });
     });
 

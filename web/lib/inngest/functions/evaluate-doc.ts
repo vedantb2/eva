@@ -1,24 +1,12 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 import { createSandbox, getSandbox } from "../sandbox";
+import { getGitHubToken, cloneRepo, extractJsonFromText } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
 
 interface EvaluationResult {
   requirementsMet: Array<{ requirement: string; evidence: string }>;
@@ -53,12 +41,8 @@ export const evaluateDoc = inngest.createFunction(
     });
 
     const { doc, repo } = await step.run("fetch-data", async () => {
-      const docData = await convex.query(api.docs.getNoAuth, {
-        id: docId as Id<"docs">,
-      });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
-        id: repoId as Id<"githubRepos">,
-      });
+      const docData = await convex.query(api.docs.getNoAuth, { id: docId as Id<"docs"> });
+      const repoData = await convex.query(api.githubRepos.getNoAuth, { id: repoId as Id<"githubRepos"> });
       if (!docData || !repoData) {
         throw new Error("Doc or repo not found");
       }
@@ -75,15 +59,7 @@ export const evaluateDoc = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(repo.installationId);
       const sandbox = await createSandbox(githubToken);
-
-      const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sandbox.process.executeCommand(
-        `git clone ${repoUrl} ~/workspace`,
-        "/",
-        undefined,
-        120
-      );
-
+      await cloneRepo(sandbox, githubToken, repo.owner, repo.name);
       return { sandboxId: sandbox.id };
     });
 
@@ -141,19 +117,8 @@ ${doc.content}
         required: ["requirementsMet", "requirementsNotMet", "summary"],
       };
 
-      await sandbox.process.executeCommand(
-        `cat << 'EOF' > /tmp/prompt.txt
-${prompt}
-EOF`,
-        "/",
-      );
-
-      await sandbox.process.executeCommand(
-        `cat << 'EOF' > /tmp/schema.json
-${JSON.stringify(jsonSchema, null, 2)}
-EOF`,
-        "/",
-      );
+      await sandbox.process.executeCommand(`cat << 'EOF' > /tmp/prompt.txt\n${prompt}\nEOF`, "/");
+      await sandbox.process.executeCommand(`cat << 'EOF' > /tmp/schema.json\n${JSON.stringify(jsonSchema, null, 2)}\nEOF`, "/");
 
       let output = "";
       try {
@@ -176,9 +141,9 @@ EOF`,
         const cliJson = JSON.parse(output);
         if (cliJson.result) {
           if (typeof cliJson.result === "string") {
-            const jsonMatch = cliJson.result.match(/\{[\s\S]*"requirementsMet"[\s\S]*\}/);
-            if (jsonMatch) {
-              parsed = JSON.parse(jsonMatch[0]);
+            const jsonStr = extractJsonFromText(cliJson.result);
+            if (jsonStr) {
+              parsed = JSON.parse(jsonStr);
             }
           } else if (cliJson.result?.content?.[0]?.text) {
             parsed = JSON.parse(cliJson.result.content[0].text);
@@ -214,5 +179,5 @@ EOF`,
     });
 
     return { success: true };
-  },
+  }
 );

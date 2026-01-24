@@ -1,24 +1,12 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 import { createSandbox, getSandbox } from "../sandbox";
+import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
 
 export const planSession = inngest.createFunction(
   {
@@ -39,8 +27,7 @@ export const planSession = inngest.createFunction(
   },
   { event: "session/plan.execute" },
   async ({ event, step }) => {
-    const { sessionId, messageContent, repoId, installationId, generatePlan } =
-      event.data;
+    const { sessionId, messageContent, repoId, installationId, generatePlan } = event.data;
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
       const sessionData = await convex.query(api.sessions.getNoAuth, {
@@ -59,9 +46,7 @@ export const planSession = inngest.createFunction(
       await convex.mutation(api.sessions.addMessageNoAuth, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
-        content: generatePlan
-          ? "Generating implementation plan..."
-          : "Thinking...",
+        content: generatePlan ? "Generating implementation plan..." : "Thinking...",
         mode: "plan",
       });
     });
@@ -84,46 +69,11 @@ export const planSession = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-
-      const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sandbox.process.executeCommand(
-        `git clone ${repoUrl} ~/workspace`,
-        "/",
-        undefined,
-        120
-      );
+      await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
       const branchName = session.branchName || `session/${sessionId}`;
-
-      const branchCheckResult = await sandbox.process.executeCommand(
-        `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
-        "/",
-        undefined,
-        30
-      );
-
-      if (branchCheckResult.result?.includes(branchName)) {
-        await sandbox.process.executeCommand(
-          `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
-          "/",
-          undefined,
-          30
-        );
-      } else {
-        await sandbox.process.executeCommand(
-          `cd ~/workspace && git checkout -b ${branchName}`,
-          "/",
-          undefined,
-          30
-        );
-      }
-
-      await sandbox.process.executeCommand(
-        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
-        "/",
-        undefined,
-        10
-      );
+      await setupBranch(sandbox, branchName);
+      await configureGit(sandbox);
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
@@ -136,15 +86,9 @@ export const planSession = inngest.createFunction(
 
     const result = await step.run("plan-conversation", async () => {
       const freshToken = await getGitHubToken(installationId);
-
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      await sandbox.process.executeCommand(
-        `cd ~/workspace && git remote set-url origin https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`,
-        "/",
-        undefined,
-        10
-      );
+      await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
 
       const conversationHistory = session.messages
         .filter((m) => m.mode === "plan")
@@ -153,7 +97,7 @@ export const planSession = inngest.createFunction(
         .join("\n\n");
 
       let prompt: string;
-      let allowedTools: string;
+      let allowedTools: ("Read" | "Write" | "Edit" | "Bash" | "Glob" | "Grep")[];
 
       if (generatePlan) {
         prompt = `You are creating a detailed implementation plan based on a planning conversation.
@@ -183,7 +127,7 @@ ${messageContent}
 - Use Markdown formatting in the plan
 - Be specific about file paths and changes`;
 
-        allowedTools = "Read,Write,Edit,Bash,Glob,Grep";
+        allowedTools = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"];
       } else {
         prompt = `You are a planning assistant helping design an implementation approach. This is the PLANNING phase - gather requirements and discuss approach before implementing.
 
@@ -207,47 +151,15 @@ ${messageContent}
 - Suggest approaches and explain trade-offs
 - When ready, tell the user to click "Generate Plan" to create plan.md`;
 
-        allowedTools = "Read,Glob,Grep";
+        allowedTools = ["Read", "Glob", "Grep"];
       }
 
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
+      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        model: "opus",
+        allowedTools,
+      });
 
-      let output = "";
-      try {
-        const cmdResult = await sandbox.process.executeCommand(
-          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "${allowedTools}" --output-format json`,
-          "/",
-          undefined,
-          0
-        );
-        output = cmdResult.result || "";
-      } catch (err) {
-        const error = err as {
-          result?: string;
-          message?: string;
-        };
-        throw new Error(
-          `Claude agent failed: ${
-            error.result || error.message || "Unknown error"
-          }`
-        );
-      }
-
-      let response = generatePlan
-        ? "Plan created successfully."
-        : "I couldn't process your message.";
-      try {
-        const jsonResponse = JSON.parse(output);
-        if (jsonResponse.result) {
-          response = jsonResponse.result;
-        }
-      } catch {
-        if (output.length > 0) {
-          response = output.slice(-2000);
-        }
-      }
-
-      return { response };
+      return { response: claudeResult.result || (generatePlan ? "Plan created successfully." : "I couldn't process your message.") };
     });
 
     await step.run("update-session", async () => {

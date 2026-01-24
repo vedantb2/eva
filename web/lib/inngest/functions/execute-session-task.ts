@@ -1,24 +1,12 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
 import { createSandbox, getSandbox } from "../sandbox";
+import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
 
 export const executeSessionTask = inngest.createFunction(
   {
@@ -79,46 +67,11 @@ export const executeSessionTask = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-
-      const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      await sandbox.process.executeCommand(
-        `git clone ${repoUrl} ~/workspace`,
-        "/",
-        undefined,
-        120
-      );
+      await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
       const branchName = session.branchName || `session/${sessionId}`;
-
-      const branchCheckResult = await sandbox.process.executeCommand(
-        `cd ~/workspace && git ls-remote --heads origin ${branchName}`,
-        "/",
-        undefined,
-        30
-      );
-
-      if (branchCheckResult.result?.includes(branchName)) {
-        await sandbox.process.executeCommand(
-          `cd ~/workspace && git fetch origin ${branchName} && git checkout ${branchName}`,
-          "/",
-          undefined,
-          30
-        );
-      } else {
-        await sandbox.process.executeCommand(
-          `cd ~/workspace && git checkout -b ${branchName}`,
-          "/",
-          undefined,
-          30
-        );
-      }
-
-      await sandbox.process.executeCommand(
-        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
-        "/",
-        undefined,
-        10
-      );
+      await setupBranch(sandbox, branchName);
+      await configureGit(sandbox);
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {
         id: sessionId as Id<"sessions">,
@@ -131,15 +84,9 @@ export const executeSessionTask = inngest.createFunction(
 
     const result = await step.run("execute-task", async () => {
       const freshToken = await getGitHubToken(installationId);
-
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      await sandbox.process.executeCommand(
-        `cd ~/workspace && git remote set-url origin https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`,
-        "/",
-        undefined,
-        10
-      );
+      await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
 
       const commitMessage = messageContent.slice(0, 50).replace(/"/g, '\\"');
       const prompt = `You are working on an ongoing session. The user has requested the following task:
@@ -165,42 +112,12 @@ ${messageContent}
 - Use the repository's lockfile to determine the correct package manager
 - The GITHUB_TOKEN environment variable is set for git operations`;
 
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
+      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        model: "opus",
+        allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+      });
 
-      let output = "";
-      try {
-        const cmdResult = await sandbox.process.executeCommand(
-          `cd ~/workspace && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
-          "/",
-          undefined,
-          0
-        );
-        output = cmdResult.result || "";
-      } catch (err) {
-        const error = err as {
-          result?: string;
-          message?: string;
-        };
-        throw new Error(
-          `Claude agent failed: ${
-            error.result || error.message || "Unknown error"
-          }`
-        );
-      }
-
-      let summary = "Task completed successfully.";
-      try {
-        const jsonResponse = JSON.parse(output);
-        if (jsonResponse.result) {
-          summary = jsonResponse.result;
-        }
-      } catch {
-        if (output.length > 0) {
-          summary = output.slice(-2000);
-        }
-      }
-
-      return { summary };
+      return { summary: claudeResult.result || "Task completed successfully." };
     });
 
     await step.run("update-session", async () => {

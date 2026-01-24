@@ -5,6 +5,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { runClaudeCLI } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 const daytona = new Daytona();
@@ -41,13 +42,7 @@ async function gatherContext(repoId: Id<"githubRepos">): Promise<QueryContext> {
     convex.query(api.analytics.getProjectStats, { repoId }),
   ]);
 
-  return {
-    repoId,
-    taskStats,
-    runStats,
-    sessionStats,
-    projectStats,
-  };
+  return { repoId, taskStats, runStats, sessionStats, projectStats };
 }
 
 function formatContextForPrompt(context: QueryContext): string {
@@ -131,9 +126,7 @@ export const executeResearchQuery = inngest.createFunction(
 
     const answer = await step.run("generate-answer", async () => {
       const sandbox = await daytona.create({
-        envVars: {
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
+        envVars: { CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN },
         autoStopInterval: 5,
       });
 
@@ -152,30 +145,14 @@ ${question}
 - Format numbers nicely (e.g., "5 tasks" not "5.0 tasks")
 - Don't make up data that isn't provided`;
 
-        const escapedPrompt = prompt.replace(/'/g, "'\\''");
+        const claudeResult = await runClaudeCLI(sandbox, prompt, {
+          model: "sonnet",
+          allowedTools: [],
+          workDir: "/",
+          timeout: 60,
+        });
 
-        const cmdResult = await sandbox.process.executeCommand(
-          `echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --output-format json`,
-          "/",
-          undefined,
-          60
-        );
-
-        const output = cmdResult.result || "";
-
-        let result = "I couldn't generate a response.";
-        try {
-          const jsonResponse = JSON.parse(output);
-          if (jsonResponse.result) {
-            result = jsonResponse.result;
-          }
-        } catch {
-          if (output.length > 0) {
-            result = output.slice(-2000);
-          }
-        }
-
-        return result;
+        return claudeResult.result || "I couldn't generate a response.";
       } finally {
         await sandbox.delete();
       }

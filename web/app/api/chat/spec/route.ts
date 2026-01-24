@@ -23,6 +23,9 @@ const specSchema = z.object({
       dependencies: z
         .array(z.number())
         .describe("Task numbers this depends on, e.g. [1, 2]"),
+      subtasks: z
+        .array(z.string())
+        .describe("3-7 discrete checklist items for the agent to complete"),
     })
   ),
 });
@@ -56,6 +59,16 @@ TASK GRANULARITY RULES:
 - A task should encompass all related changes within that boundary (multiple file edits are expected)
 - Think in terms of: "core capability/infrastructure" vs "user-facing integration/UI"
 - Aim for 2-5 tasks total, NOT 10+ micro-tasks
+
+SUBTASKS:
+- Each task MUST have 3-7 subtasks that serve as a checklist for the agent
+- Subtasks should be discrete, actionable items the agent will mark as complete
+- Examples of good subtasks for "Theme infrastructure":
+  - "Create ThemeContext with light/dark state"
+  - "Add CSS custom properties for colors"
+  - "Implement localStorage persistence"
+  - "Add useTheme hook for consuming context"
+- Subtasks should be specific enough that completion is unambiguous
 
 Examples of GOOD task breakdowns:
 - "Add dark theme toggle": 2 tasks

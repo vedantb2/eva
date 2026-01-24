@@ -24,6 +24,8 @@ const projectValidator = v.object({
   description: v.optional(v.string()),
   branchName: v.optional(v.string()),
   prUrl: v.optional(v.string()),
+  sandboxId: v.optional(v.string()),
+  lastSandboxActivity: v.optional(v.number()),
   phase: phaseValidator,
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
@@ -414,6 +416,7 @@ interface ParsedTask {
   title: string;
   description: string;
   dependencies: number[];
+  subtasks: string[];
 }
 
 interface ParsedSpec {
@@ -428,10 +431,11 @@ function parseSpec(specJson: string): ParsedSpec {
     title: parsed.title ?? "",
     description: parsed.description ?? "",
     tasks: (parsed.tasks ?? []).map(
-      (t: { title?: string; description?: string; dependencies?: number[] }) => ({
+      (t: { title?: string; description?: string; dependencies?: number[]; subtasks?: string[] }) => ({
         title: t.title ?? "",
         description: t.description ?? "",
         dependencies: t.dependencies ?? [],
+        subtasks: t.subtasks ?? [],
       })
     ),
   };
@@ -520,6 +524,14 @@ export const startDevelopment = mutation({
         updatedAt: now,
       });
       taskIdMap.set(taskNumber, taskId);
+      for (let j = 0; j < task.subtasks.length; j++) {
+        await ctx.db.insert("subtasks", {
+          parentTaskId: taskId,
+          title: task.subtasks[j],
+          completed: false,
+          order: j,
+        });
+      }
     }
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];
@@ -557,6 +569,62 @@ export const updatePrUrlNoAuth = mutation({
       throw new Error("Project not found");
     }
     await ctx.db.patch(args.id, { prUrl: args.prUrl });
+    return null;
+  },
+});
+
+export const getNoAuth = query({
+  args: { id: v.id("projects") },
+  returns: v.union(projectValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const updateSandboxNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    sandboxId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      sandboxId: args.sandboxId,
+      lastSandboxActivity: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const clearSandboxNoAuth = mutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      sandboxId: undefined,
+      lastSandboxActivity: undefined,
+    });
+    return null;
+  },
+});
+
+export const updateLastSandboxActivityNoAuth = mutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, { lastSandboxActivity: Date.now() });
     return null;
   },
 });

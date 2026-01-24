@@ -11,6 +11,7 @@ import {
   planSession,
   executeResearchQuery,
   evaluateDoc,
+  cleanupProjectSandbox,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -26,5 +27,6 @@ export const { GET, POST, PUT } = serve({
     planSession,
     executeResearchQuery,
     evaluateDoc,
+    cleanupProjectSandbox,
   ],
 });

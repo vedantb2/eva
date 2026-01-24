@@ -9,3 +9,4 @@ export { askSession } from "./functions/ask-session";
 export { planSession } from "./functions/plan-session";
 export { executeResearchQuery } from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
+export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";

@@ -34,6 +34,39 @@ export const listByTask = query({
   },
 });
 
+export const listByTaskNoAuth = query({
+  args: { parentTaskId: v.id("agentTasks") },
+  returns: v.array(subtaskValidator),
+  handler: async (ctx, args) => {
+    const subtasks = await ctx.db
+      .query("subtasks")
+      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
+      .collect();
+    return subtasks.sort((a, b) => a.order - b.order);
+  },
+});
+
+export const markCompletedNoAuth = mutation({
+  args: {
+    parentTaskId: v.id("agentTasks"),
+    completedIndices: v.array(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const subtasks = await ctx.db
+      .query("subtasks")
+      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
+      .collect();
+    const sorted = subtasks.sort((a, b) => a.order - b.order);
+    for (const index of args.completedIndices) {
+      if (index >= 0 && index < sorted.length) {
+        await ctx.db.patch(sorted[index]._id, { completed: true });
+      }
+    }
+    return null;
+  },
+});
+
 export const create = mutation({
   args: {
     parentTaskId: v.id("agentTasks"),

@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useState, useMemo } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
-import { FeatureTaskCard } from "@/lib/components/features/FeatureTaskCard";
+import { ProjectTaskCard } from "./ProjectTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import {
   IconCircle,
@@ -119,7 +119,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                 <p className="text-sm text-default-400 py-2">No tasks</p>
               ) : (
                 statusTasks.map((task) => (
-                  <FeatureTaskCard
+                  <ProjectTaskCard
                     key={task._id}
                     id={task._id}
                     taskNumber={task.taskNumber ?? 0}

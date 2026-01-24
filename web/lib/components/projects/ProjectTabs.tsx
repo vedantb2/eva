@@ -63,6 +63,25 @@ export function ProjectTabs({
     setIsInterview(true);
   }, []);
 
+  const hasSpec = pendingSpec || generatedSpec;
+
+  if (!hasSpec) {
+    return (
+      <div className="h-full -m-5 overflow-y-auto">
+        <ProjectChatTab
+          projectId={projectId}
+          projectPhase={projectPhase}
+          initialMessages={conversationHistory}
+          rawInput={rawInput}
+          codebaseIndex={codebaseIndex}
+          indexingStatus={indexingStatus}
+          onSpecGenerated={handleSpecGenerated}
+          isInterview={isInterview}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full grid grid-cols-2 -m-5">
       <div className="border-r border-divider overflow-y-auto">
@@ -91,7 +110,7 @@ export function ProjectTabs({
         <ProjectPlanTab
           projectId={projectId}
           projectPhase={projectPhase}
-          generatedSpec={pendingSpec || generatedSpec}
+          generatedSpec={hasSpec}
           codebaseIndex={codebaseIndex}
           indexingStatus={indexingStatus}
           repoSlug={repoSlug}

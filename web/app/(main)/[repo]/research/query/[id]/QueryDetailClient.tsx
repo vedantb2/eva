@@ -32,7 +32,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     setInput("");
     setIsSending(true);
     try {
-      await fetch("/api/research/query", {
+      await fetch("/api/analyse/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

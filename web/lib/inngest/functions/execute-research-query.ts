@@ -26,7 +26,7 @@ interface QueryContext {
     active: number;
     messagesByMode: { execute: number; ask: number; plan: number };
   };
-  featureStats: {
+  projectStats: {
     total: number;
     byStatus: { planning: number; active: number; completed: number; archived: number };
     topFeatures: Array<{ id: Id<"features">; title: string; tasksTotal: number; tasksDone: number }>;
@@ -34,11 +34,11 @@ interface QueryContext {
 }
 
 async function gatherContext(repoId: Id<"githubRepos">): Promise<QueryContext> {
-  const [taskStats, runStats, sessionStats, featureStats] = await Promise.all([
+  const [taskStats, runStats, sessionStats, projectStats] = await Promise.all([
     convex.query(api.analytics.getTaskStats, { repoId }),
     convex.query(api.analytics.getRunStats, { repoId }),
     convex.query(api.analytics.getSessionStats, { repoId }),
-    convex.query(api.analytics.getFeatureStats, { repoId }),
+    convex.query(api.analytics.getProjectStats, { repoId }),
   ]);
 
   return {
@@ -46,7 +46,7 @@ async function gatherContext(repoId: Id<"githubRepos">): Promise<QueryContext> {
     taskStats,
     runStats,
     sessionStats,
-    featureStats,
+    projectStats,
   };
 }
 

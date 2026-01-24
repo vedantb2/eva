@@ -45,7 +45,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|analytics|docs|admin|research)/
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|analytics|docs|admin|analyse)/
     );
     if (match) {
       return match[1];
@@ -85,8 +85,8 @@ export function Sidebar() {
           icon: IconTerminal2,
         },
         {
-          name: "Research",
-          href: `/${repoSlug}/research`,
+          name: "Analyse",
+          href: `/${repoSlug}/analyse`,
           icon: IconBrain,
         },
         {

@@ -18,7 +18,7 @@ const statusCardBg: Record<TaskStatus, string> = {
   done: "bg-green-50 dark:bg-green-900/20",
 };
 
-interface FeatureTaskCardProps {
+interface ProjectTaskCardProps {
   id: Id<"agentTasks">;
   taskNumber: number;
   title: string;
@@ -28,7 +28,7 @@ interface FeatureTaskCardProps {
   onClick?: () => void;
 }
 
-export function FeatureTaskCard({
+export function ProjectTaskCard({
   id,
   taskNumber,
   title,
@@ -36,13 +36,18 @@ export function FeatureTaskCard({
   status,
   branchName,
   onClick,
-}: FeatureTaskCardProps) {
+}: ProjectTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   return (
-    <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]}`}>
+    <Card
+      isPressable={!!onClick}
+      onPress={onClick}
+      shadow="none"
+      className={`w-full ${statusCardBg[status]}`}
+    >
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">

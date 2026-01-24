@@ -47,7 +47,7 @@ export default function ResearchLayout({
   const [newQueryTitle, setNewQueryTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const baseUrl = "/" + encodeRepoSlug(fullName) + "/research";
+  const baseUrl = "/" + encodeRepoSlug(fullName) + "/analyse";
   const currentQueryId = pathname.includes("/query/")
     ? pathname.split("/query/")[1]?.split("/")[0]
     : null;

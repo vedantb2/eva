@@ -18,8 +18,8 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
   const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 
   const getTaskLink = (task: NonNullable<typeof allTasks>[number]) => {
-    if (task.featureId) {
-      return `/${repoSlug}/features/${task.featureId}`;
+    if (task.projectId) {
+      return `/${repoSlug}/projects/${task.projectId}`;
     }
     return `/${repoSlug}/quick-tasks`;
   };

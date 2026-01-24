@@ -1,14 +1,13 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const daytona = new Daytona();
 
 interface AgentOutput {
   success: boolean;
@@ -70,13 +69,7 @@ export const executeTask = inngest.createFunction(
     const sandboxData = await step.run("create-sandbox-and-clone", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      const sandbox = await daytona.create({
-        envVars: {
-          GITHUB_TOKEN: freshToken,
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        autoStopInterval: 60,
-      });
+      const sandbox = await createSandbox(freshToken);
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
@@ -109,7 +102,7 @@ export const executeTask = inngest.createFunction(
       );
 
       await sandbox.process.executeCommand(
-        'git config --global user.name "Pulse Agent" && git config --global user.email "agent@pulse.dev"',
+        'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
         "/",
         undefined,
         10
@@ -125,7 +118,7 @@ export const executeTask = inngest.createFunction(
     });
 
     const agentResult = await step.run("run-autonomous-agent", async () => {
-      const sandbox = await daytona.get(sandboxData.sandboxId);
+      const sandbox = await getSandbox(sandboxData.sandboxId);
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
@@ -159,7 +152,7 @@ export const executeTask = inngest.createFunction(
         .replace(
           /'/g,
           "\\'"
-        )}\\n\\n---\\n*Implemented by Pulse AI Agent*","head":"${
+        )}\\n\\n---\\n*Implemented by Eva AI Agent*","head":"${
         sandboxData.branchName
       }","base":"main"}'
 7. Extract the "html_url" from the curl response - that is the PR URL
@@ -279,7 +272,7 @@ export const executeTask = inngest.createFunction(
 
     await step.run("cleanup-sandbox", async () => {
       try {
-        const sandbox = await daytona.get(sandboxData.sandboxId);
+        const sandbox = await getSandbox(sandboxData.sandboxId);
         await sandbox.delete();
       } catch {
         // Sandbox may already be terminated

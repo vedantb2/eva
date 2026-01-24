@@ -20,6 +20,7 @@ const sessionValidator = v.object({
   branchName: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
+  ptySessionId: v.optional(v.string()),
   lastActivityAt: v.optional(v.number()),
   status: v.union(v.literal("active"), v.literal("closed")),
   archived: v.optional(v.boolean()),
@@ -259,6 +260,25 @@ export const updateStatusNoAuth = mutation({
       throw new Error("Session not found");
     }
     await ctx.db.patch(args.id, { status: args.status });
+    return null;
+  },
+});
+
+export const updatePtySessionNoAuth = mutation({
+  args: {
+    id: v.id("sessions"),
+    ptySessionId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    await ctx.db.patch(args.id, {
+      ptySessionId: args.ptySessionId,
+      lastActivityAt: Date.now(),
+    });
     return null;
   },
 });

@@ -1,9 +1,9 @@
-import { Sandbox } from "e2b";
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { serverEnv } from "@/env/server";
 import { clientEnv } from "@/env/client";
+import { createSandbox } from "@/lib/inngest/sandbox";
+import { Sandbox } from "@daytonaio/sdk";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -22,14 +22,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repo not found" }, { status: 404 });
   }
 
-  const sbx = await Sandbox.create("anthropic-claude-code", {
-    apiKey: serverEnv.E2B_API_KEY,
-    envs: {
-      CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-    },
-  });
+  let sandbox: Sandbox | null = null;
 
   try {
+    sandbox = await createSandbox(githubToken);
+
     await convex.mutation(api.agentRuns.appendLog, {
       id: runId,
       level: "info",
@@ -37,11 +34,21 @@ export async function POST(request: NextRequest) {
     });
 
     const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-    await sbx.commands.run(`git clone ${repoUrl} /workspace`);
+    await sandbox.process.executeCommand(
+      `git clone ${repoUrl} /home/daytona/workspace`,
+      "/",
+      undefined,
+      120
+    );
 
     const branchName =
       task.branchName || `conductor/task-${task.taskNumber || Date.now()}`;
-    await sbx.commands.run(`cd /workspace && git checkout -b ${branchName}`);
+    await sandbox.process.executeCommand(
+      `git checkout -b ${branchName}`,
+      "/home/daytona/workspace",
+      undefined,
+      30
+    );
 
     await convex.mutation(api.agentRuns.appendLog, {
       id: runId,
@@ -66,29 +73,37 @@ Instructions:
 4. Make minimal, focused changes`;
 
     const escapedPrompt = prompt.replace(/'/g, "'\\''");
-    const result = await sbx.commands.run(
-      `cd /workspace && echo '${escapedPrompt}' | claude -p --dangerously-skip-permissions`,
-      { timeoutMs: 0 }
+    const result = await sandbox.process.executeCommand(
+      `echo '${escapedPrompt}' | claude -p --dangerously-skip-permissions`,
+      "/home/daytona/workspace",
+      undefined,
+      0
     );
 
     await convex.mutation(api.agentRuns.appendLog, {
       id: runId,
       level: "info",
-      message: result.stdout?.slice(0, 500) || "Agent completed",
+      message: result.result?.slice(0, 500) || "Agent completed",
     });
 
-    const status = await sbx.commands.run(
-      `cd /workspace && git status --porcelain`
+    const status = await sandbox.process.executeCommand(
+      "git status --porcelain",
+      "/home/daytona/workspace",
+      undefined,
+      30
     );
-    if (!status.stdout?.trim()) {
+    if (!status.result?.trim()) {
       throw new Error("No changes made by agent");
     }
 
-    await sbx.commands.run(
-      `cd /workspace && git add -A && git commit -m "feat: ${task.title.replace(
+    await sandbox.process.executeCommand(
+      `git add -A && git commit -m "feat: ${task.title.replace(
         /"/g,
         '\\"'
-      )}" && git push -u origin ${branchName}`
+      )}" && git push -u origin ${branchName}`,
+      "/home/daytona/workspace",
+      undefined,
+      120
     );
 
     await convex.mutation(api.agentRuns.appendLog, {
@@ -109,7 +124,7 @@ Instructions:
           title: task.title,
           body: `## Task\n${
             task.description || "No description"
-          }\n\n---\n*Implemented by Pulse AI Agent*`,
+          }\n\n---\n*Implemented by Eva AI Agent*`,
           head: branchName,
           base: "main",
         }),
@@ -151,6 +166,8 @@ Instructions:
 
     return NextResponse.json({ success: false, error: errorMessage });
   } finally {
-    await sbx.kill();
+    if (sandbox) {
+      await sandbox.delete();
+    }
   }
 }

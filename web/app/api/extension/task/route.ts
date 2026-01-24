@@ -1,13 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { NextResponse } from "next/server";
+import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 interface CreateTaskPayload {
-  repoId: string;
+  repoId: Id<"githubRepos">;
   title: string;
   description: string;
   extensionContext: {
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     const taskId = await convex.mutation(api.agentTasks.createQuickTask, {
-      repoId: body.repoId as ReturnType<typeof api.agentTasks.createQuickTask>["args"]["repoId"],
+      repoId: body.repoId,
       title: body.title,
       description: fullDescription,
     });

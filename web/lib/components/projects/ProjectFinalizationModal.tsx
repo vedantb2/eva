@@ -16,24 +16,24 @@ import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { IconFileText, IconRocket, IconCircleCheck } from "@tabler/icons-react";
 
-interface PlanFinalizationModalProps {
+interface ProjectFinalizationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  planId: Id<"plans">;
+  projectId: Id<"projects">;
   spec: string;
   repoSlug: string;
 }
 
-export function PlanFinalizationModal({
+export function ProjectFinalizationModal({
   isOpen,
   onClose,
-  planId,
+  projectId,
   spec,
   repoSlug,
-}: PlanFinalizationModalProps) {
+}: ProjectFinalizationModalProps) {
   const router = useRouter();
-  const updatePlan = useMutation(api.plans.update);
-  const createFromPlan = useMutation(api.features.createFromPlan);
+  const updateProject = useMutation(api.projects.update);
+  const startDevelopment = useMutation(api.projects.startDevelopment);
   const [isLoading, setIsLoading] = useState(false);
 
   const parsedSpec = (() => {
@@ -47,10 +47,10 @@ export function PlanFinalizationModal({
   const handleSaveDraft = async () => {
     setIsLoading(true);
     try {
-      await updatePlan({
-        id: planId,
+      await updateProject({
+        id: projectId,
         generatedSpec: spec,
-        state: "finalized",
+        phase: "finalized",
       });
       onClose();
     } finally {
@@ -58,15 +58,16 @@ export function PlanFinalizationModal({
     }
   };
 
-  const handleCreateFeature = async () => {
+  const handleStartDevelopment = async () => {
     setIsLoading(true);
     try {
-      await updatePlan({
-        id: planId,
+      await updateProject({
+        id: projectId,
         generatedSpec: spec,
+        phase: "finalized",
       });
-      const featureId = await createFromPlan({ planId });
-      router.push(`/${repoSlug}/features/${featureId}`);
+      await startDevelopment({ projectId });
+      router.push(`/${repoSlug}/projects/${projectId}`);
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +83,7 @@ export function PlanFinalizationModal({
         <ModalHeader className="flex flex-col gap-1">
           <span className="flex items-center gap-2 text-sm sm:text-base">
             <IconCircleCheck size={20} className="text-success flex-shrink-0" />
-            Spec Generated
+            Plan Generated
           </span>
         </ModalHeader>
         <ModalBody>
@@ -130,12 +131,12 @@ export function PlanFinalizationModal({
           </Button>
           <Button
             color="primary"
-            onPress={handleCreateFeature}
+            onPress={handleStartDevelopment}
             isLoading={isLoading}
             startContent={<IconRocket size={16} />}
             className="w-full sm:w-auto"
           >
-            Create Feature
+            Start Development
           </Button>
         </ModalFooter>
       </ModalContent>

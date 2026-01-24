@@ -4,13 +4,11 @@ import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Spinner } from "@heroui/spinner";
 import { Card, CardBody } from "@heroui/card";
-import { Chip } from "@heroui/chip";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import { useGitHubToken } from "@/lib/hooks/useGitHubToken";
 import {
   Modal,
   ModalContent,
@@ -24,11 +22,10 @@ import {
   IconCode,
   IconFolderSearch,
   IconAlertCircle,
-  IconEye,
 } from "@tabler/icons-react";
-import { ContextTab } from "./ContextTab";
+import { ProjectContextTab } from "./ProjectContextTab";
 
-type PlanState = "draft" | "finalized" | "feature_created";
+type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface CodebaseIndex {
@@ -55,38 +52,36 @@ interface CodebaseIndex {
   };
 }
 
-interface PlanTabProps {
-  planId: Id<"plans">;
-  planState: PlanState;
+interface ProjectPlanTabProps {
+  projectId: Id<"projects">;
+  projectPhase: ProjectPhase;
   generatedSpec: string | undefined;
   codebaseIndex: string | undefined;
   indexingStatus: IndexingStatus;
   repoSlug: string;
-  repoOwner: string;
-  repoName: string;
+  repoId: Id<"githubRepos">;
+  installationId: number;
   onStartInterview: () => void;
 }
 
-export function PlanTab({
-  planId,
-  planState,
+export function ProjectPlanTab({
+  projectId,
+  projectPhase,
   generatedSpec,
   codebaseIndex,
   indexingStatus,
   repoSlug,
-  repoOwner,
-  repoName,
+  repoId,
+  installationId,
   onStartInterview,
-}: PlanTabProps) {
+}: ProjectPlanTabProps) {
   const router = useRouter();
-  const createFromPlan = useMutation(api.features.createFromPlan);
-  const updatePlan = useMutation(api.plans.update);
-  const setIndexingStatus = useMutation(api.plans.setIndexingStatus);
+  const startDevelopment = useMutation(api.projects.startDevelopment);
+  const updateProject = useMutation(api.projects.update);
   const [isLoading, setIsLoading] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
   const [showIndexModal, setShowIndexModal] = useState(false);
-  const { getToken } = useGitHubToken();
 
   const parsedSpec = (() => {
     if (!generatedSpec) return null;
@@ -106,45 +101,42 @@ export function PlanTab({
     }
   })();
 
-  const isLocked = planState === "feature_created";
+  const isLocked = projectPhase === "active" || projectPhase === "completed";
 
   const handleIndexCodebase = async () => {
     setIsIndexing(true);
     setIndexError(null);
     try {
-      await setIndexingStatus({ id: planId, status: "indexing" });
-      const githubToken = await getToken();
-
-      const response = await fetch("/api/index-codebase", {
+      await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, repoOwner, repoName, githubToken }),
+        body: JSON.stringify({
+          name: "project/index.requested",
+          data: {
+            projectId,
+            repoId,
+            installationId,
+          },
+        }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to index codebase");
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error("Indexing error:", errorMessage);
       setIndexError(errorMessage);
-      await setIndexingStatus({ id: planId, status: "error" });
     } finally {
       setIsIndexing(false);
     }
   };
 
-  const handleCreateFeature = async () => {
+  const handleStartDevelopment = async () => {
     if (!generatedSpec) return;
     setIsLoading(true);
     try {
-      if (planState === "draft") {
-        await updatePlan({ id: planId, generatedSpec, state: "finalized" });
+      if (projectPhase === "draft") {
+        await updateProject({ id: projectId, generatedSpec, phase: "finalized" });
       }
-      const featureId = await createFromPlan({ planId });
-      router.push(`/${repoSlug}/features/${featureId}`);
+      await startDevelopment({ projectId });
+      router.push(`/${repoSlug}/projects/${projectId}`);
     } finally {
       setIsLoading(false);
     }
@@ -306,17 +298,17 @@ export function PlanTab({
             <Button
               color="primary"
               startContent={<IconRocket size={18} />}
-              onPress={handleCreateFeature}
+              onPress={handleStartDevelopment}
               isLoading={isLoading}
             >
-              Create Feature
+              Start Development
             </Button>
           </div>
         )}
         {isLocked && (
           <div className="p-4 bg-success-50 dark:bg-success-900/20 rounded-lg">
             <p className="text-sm text-success-700 dark:text-success-400">
-              Feature has been created from this plan. The plan is now locked.
+              Development has started on this project. The plan is now locked.
             </p>
           </div>
         )}
@@ -330,12 +322,12 @@ export function PlanTab({
         <ModalContent>
           <ModalHeader>Codebase Index</ModalHeader>
           <ModalBody className="p-0">
-            <ContextTab
-              planId={planId}
+            <ProjectContextTab
+              projectId={projectId}
               codebaseIndex={codebaseIndex}
               indexingStatus={indexingStatus}
-              repoOwner={repoOwner}
-              repoName={repoName}
+              repoId={repoId}
+              installationId={installationId}
             />
           </ModalBody>
         </ModalContent>

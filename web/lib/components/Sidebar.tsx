@@ -11,7 +11,6 @@ import {
   IconSettings,
   IconMenu2,
   IconX,
-  IconSparkles,
   IconChecklist,
   IconSelector,
   IconTerminal2,
@@ -46,7 +45,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(plan|features|quick-tasks|sessions|analytics|docs|admin|research)/
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|analytics|docs|admin|research)/
     );
     if (match) {
       return match[1];
@@ -59,7 +58,7 @@ export function Sidebar() {
 
   const handleRepoSelect = (selectedFullName: string) => {
     if (selectedFullName !== repoFullName) {
-      router.push(`/${encodeRepoSlug(selectedFullName)}/plan`);
+      router.push(`/${encodeRepoSlug(selectedFullName)}/projects`);
     }
   };
 
@@ -71,13 +70,8 @@ export function Sidebar() {
   const repoNavigation = repoSlug
     ? [
         {
-          name: "Plan",
-          href: `/${repoSlug}/plan`,
-          icon: IconSparkles,
-        },
-        {
-          name: "Features",
-          href: `/${repoSlug}/features`,
+          name: "Projects",
+          href: `/${repoSlug}/projects`,
           icon: IconLayoutKanban,
         },
         {
@@ -124,9 +118,9 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Pulse" width={24} height={24} className="rounded-full" />
+          <Image src="/icon.png" alt="Eva" width={24} height={24} className="rounded-full" />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
-            Pulse
+            Eva
           </span>
         </Link>
         <ThemeToggleClient />
@@ -147,10 +141,10 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className={`flex items-center h-16 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}>
             <Link href="/" className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
-              <Image src="/icon.png" alt="Pulse" width={32} height={32} className="rounded-full" />
+              <Image src="/icon.png" alt="Eva" width={32} height={32} className="rounded-full" />
               {!collapsed && (
                 <span className="text-2xl tracking-tighter font-semibold text-neutral-900 dark:text-white">
-                  Pulse
+                  Eva
                 </span>
               )}
             </Link>

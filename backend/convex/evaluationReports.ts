@@ -170,3 +170,22 @@ export const failNoAuth = mutation({
     return null;
   },
 });
+
+export const updateSummaryNoAuth = mutation({
+  args: {
+    id: v.id("evaluationReports"),
+    summary: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) {
+      throw new Error("Report not found");
+    }
+    await ctx.db.patch(args.id, {
+      summary: args.summary,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});

@@ -33,7 +33,7 @@ export function ProjectActiveLayout({
   const [showPlanContext, setShowPlanContext] = useState(false);
 
   return (
-    <div className="flex flex-1 min-h-0 border rounded-lg overflow-hidden dark:border-neutral-700 -m-5">
+    <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden bg-neutral-100">
       <div className="w-1/4 border-r dark:border-neutral-700 overflow-auto flex flex-col">
         <div className="flex-1 overflow-auto">
           <ProjectTaskListPanel projectId={projectId} />

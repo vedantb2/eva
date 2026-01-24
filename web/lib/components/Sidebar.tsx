@@ -91,7 +91,7 @@ export function Sidebar() {
           icon: IconBrain,
         },
         {
-          name: "Docs",
+          name: "Documents",
           href: `/${repoSlug}/docs`,
           icon: IconFileText,
         },

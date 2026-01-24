@@ -90,7 +90,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   const defaultExpandedKeys = nonEmptyStatuses.filter((s) => s !== "done");
 
   return (
-    <div className="p-4">
+    <div className="px-4">
       <Accordion
         selectionMode="multiple"
         defaultExpandedKeys={defaultExpandedKeys}

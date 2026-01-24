@@ -1,14 +1,13 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox } from "../sandbox";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-const daytona = new Daytona();
 
 async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -66,27 +65,39 @@ export const evaluateDoc = inngest.createFunction(
       return { doc: docData, repo: repoData };
     });
 
-    const result = await step.run("evaluate-in-sandbox", async () => {
-      const githubToken = await getGitHubToken(repo.installationId);
-
-      const sandbox = await daytona.create({
-        envVars: {
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-          GITHUB_TOKEN: githubToken,
-        },
-        autoStopInterval: 10,
+    await step.run("add-processing-message", async () => {
+      await convex.mutation(api.evaluationReports.updateSummaryNoAuth, {
+        id: reportId as Id<"evaluationReports">,
+        summary: "Setting up sandbox...",
       });
+    });
 
-      try {
-        const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-        await sandbox.process.executeCommand(
-          `git clone ${repoUrl} ~/workspace`,
-          "/",
-          undefined,
-          120
-        );
+    const sandboxData = await step.run("setup-sandbox", async () => {
+      const githubToken = await getGitHubToken(repo.installationId);
+      const sandbox = await createSandbox(githubToken);
 
-        const prompt = `You are evaluating a codebase against requirements from a document.
+      const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
+      await sandbox.process.executeCommand(
+        `git clone ${repoUrl} ~/workspace`,
+        "/",
+        undefined,
+        120
+      );
+
+      return { sandboxId: sandbox.id };
+    });
+
+    await step.run("update-cloning-status", async () => {
+      await convex.mutation(api.evaluationReports.updateSummaryNoAuth, {
+        id: reportId as Id<"evaluationReports">,
+        summary: "Analyzing codebase...",
+      });
+    });
+
+    const result = await step.run("run-evaluation", async () => {
+      const sandbox = await getSandbox(sandboxData.sandboxId);
+
+      const prompt = `You are evaluating a codebase against requirements from a document.
 
 ## Document: ${doc.title}
 
@@ -100,71 +111,96 @@ ${doc.content}
 4. Use plain business language in your output (no file paths or code references)
 5. If there are no requirements in the document, return empty arrays and a summary stating that`;
 
-        const jsonSchema = {
-          type: "object",
-          properties: {
-            requirementsMet: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  requirement: { type: "string" },
-                  evidence: { type: "string" }
-                },
-                required: ["requirement", "evidence"]
-              }
+      const jsonSchema = {
+        type: "object",
+        properties: {
+          requirementsMet: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                requirement: { type: "string" },
+                evidence: { type: "string" },
+              },
+              required: ["requirement", "evidence"],
             },
-            requirementsNotMet: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  requirement: { type: "string" },
-                  reason: { type: "string" }
-                },
-                required: ["requirement", "reason"]
-              }
-            },
-            summary: { type: "string" }
           },
-          required: ["requirementsMet", "requirementsNotMet", "summary"]
-        };
+          requirementsNotMet: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                requirement: { type: "string" },
+                reason: { type: "string" },
+              },
+              required: ["requirement", "reason"],
+            },
+          },
+          summary: { type: "string" },
+        },
+        required: ["requirementsMet", "requirementsNotMet", "summary"],
+      };
 
-        const escapedPrompt = prompt.replace(/'/g, "'\\''");
-        const escapedSchema = JSON.stringify(jsonSchema).replace(/'/g, "'\\''");
+      await sandbox.process.executeCommand(
+        `cat << 'EOF' > /tmp/prompt.txt
+${prompt}
+EOF`,
+        "/",
+      );
 
+      await sandbox.process.executeCommand(
+        `cat << 'EOF' > /tmp/schema.json
+${JSON.stringify(jsonSchema, null, 2)}
+EOF`,
+        "/",
+      );
+
+      let output = "";
+      try {
         const cmdResult = await sandbox.process.executeCommand(
-          `echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --allowedTools "Read,Glob,Grep" --json-schema '${escapedSchema}'`,
-          "/home/daytona/workspace",
+          `cd ~/workspace && cat /tmp/prompt.txt | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --allowedTools "Read,Glob,Grep" --output-format json --json-schema /tmp/schema.json`,
+          "/",
           undefined,
-          1800
+          0
         );
+        output = cmdResult.result || "";
+      } catch (err) {
+        const error = err as { result?: string; message?: string };
+        throw new Error(`Claude agent failed: ${error.result || error.message || "Unknown error"}`);
+      }
 
-        const output = (cmdResult.result || "").trim();
+      let parsed: Partial<EvaluationResult> = {};
+      let parseError = "";
 
-        let parsed: Partial<EvaluationResult> = {};
-        let parseError = "";
-
-        const lines = output.split("\n");
-        const lastLine = lines[lines.length - 1];
-
-        try {
-          parsed = JSON.parse(lastLine);
-        } catch {
-          try {
-            parsed = JSON.parse(output);
-          } catch (e) {
-            parseError = `Parse failed: ${e}. Last line: ${lastLine.slice(0, 200)}. Full output: ${output.slice(0, 300)}`;
+      try {
+        const cliJson = JSON.parse(output);
+        if (cliJson.result) {
+          if (typeof cliJson.result === "string") {
+            const jsonMatch = cliJson.result.match(/\{[\s\S]*"requirementsMet"[\s\S]*\}/);
+            if (jsonMatch) {
+              parsed = JSON.parse(jsonMatch[0]);
+            }
+          } else if (cliJson.result?.content?.[0]?.text) {
+            parsed = JSON.parse(cliJson.result.content[0].text);
           }
         }
+      } catch (e) {
+        parseError = `Parse failed: ${e}. Raw output: ${output.slice(0, 500)}`;
+      }
 
-        return {
-          requirementsMet: Array.isArray(parsed.requirementsMet) ? parsed.requirementsMet : [],
-          requirementsNotMet: Array.isArray(parsed.requirementsNotMet) ? parsed.requirementsNotMet : [],
-          summary: typeof parsed.summary === "string" ? parsed.summary : (parseError || "Failed to parse evaluation results"),
-        };
-      } finally {
+      return {
+        requirementsMet: Array.isArray(parsed.requirementsMet) ? parsed.requirementsMet : [],
+        requirementsNotMet: Array.isArray(parsed.requirementsNotMet) ? parsed.requirementsNotMet : [],
+        summary: typeof parsed.summary === "string" ? parsed.summary : parseError || "Failed to parse evaluation results",
+      };
+    });
+
+    await step.run("cleanup-sandbox", async () => {
+      try {
+        const sandbox = await getSandbox(sandboxData.sandboxId);
         await sandbox.delete();
+      } catch {
+        // Ignore cleanup errors
       }
     });
 
@@ -178,5 +214,5 @@ ${doc.content}
     });
 
     return { success: true };
-  }
+  },
 );

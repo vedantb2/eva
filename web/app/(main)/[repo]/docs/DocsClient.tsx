@@ -36,7 +36,7 @@ export function DocsClient() {
 
   return (
     <PageWrapper
-      title="Docs"
+      title="Documents"
       fillHeight
       headerRight={
         <Button

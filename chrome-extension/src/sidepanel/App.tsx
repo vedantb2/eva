@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { AuthGate } from "./components/AuthGate";
 import { ChatPanel } from "./components/ChatPanel";
+import { Button } from "@/components/ui/button";
+import { Zap, LogOut } from "lucide-react";
 import type { ExtractedContext, RepoInfo, UserInfo } from "@/shared/types";
 
 export default function App() {
@@ -91,8 +93,8 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -102,36 +104,21 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900 text-white">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+    <div className="flex flex-col h-screen bg-background text-foreground">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <svg
-            className="w-6 h-6 text-blue-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-          <span className="font-semibold">Conductor</span>
+          <Zap className="w-6 h-6 text-primary" />
+          <span className="font-semibold">Eva Assist</span>
         </div>
         <div className="flex items-center gap-2">
           {user && (
-            <span className="text-sm text-slate-400 truncate max-w-[120px]">
+            <span className="text-sm text-muted-foreground truncate max-w-[120px]">
               {user.email}
             </span>
           )}
-          <button
-            onClick={handleLogout}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            Logout
-          </button>
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
       </header>
 

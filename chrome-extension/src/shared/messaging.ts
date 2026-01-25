@@ -1,4 +1,9 @@
-import type { ExtractedContext, RepoInfo, UserInfo } from "./types";
+import type {
+  ExtractedContext,
+  RepoInfo,
+  SessionInfo,
+  UserInfo,
+} from "./types";
 
 export type MessageType =
   | "START_SELECTION"
@@ -12,7 +17,9 @@ export type MessageType =
   | "LOGOUT"
   | "AUTH_SUCCESS"
   | "GET_CAPTURED_CONTEXT"
-  | "CLEAR_CONTEXT";
+  | "CLEAR_CONTEXT"
+  | "GET_SESSION"
+  | "ASK_QUESTION";
 
 export interface StartSelectionMessage {
   type: "START_SELECTION";
@@ -95,6 +102,32 @@ export interface ClearContextMessage {
   type: "CLEAR_CONTEXT";
 }
 
+export interface GetSessionMessage {
+  type: "GET_SESSION";
+  payload: {
+    repoId: string;
+  };
+}
+
+export interface GetSessionResponse {
+  success: boolean;
+  session?: SessionInfo;
+  error?: string;
+}
+
+export interface AskQuestionMessage {
+  type: "ASK_QUESTION";
+  payload: {
+    sessionId: string;
+    message: string;
+  };
+}
+
+export interface AskQuestionResponse {
+  success: boolean;
+  error?: string;
+}
+
 export type ExtensionMessage =
   | StartSelectionMessage
   | StopSelectionMessage
@@ -107,7 +140,9 @@ export type ExtensionMessage =
   | LogoutMessage
   | AuthSuccessMessage
   | GetCapturedContextMessage
-  | ClearContextMessage;
+  | ClearContextMessage
+  | GetSessionMessage
+  | AskQuestionMessage;
 
 export const CONDUCTOR_URL =
   typeof chrome !== "undefined" &&

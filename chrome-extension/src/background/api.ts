@@ -1,4 +1,4 @@
-import type { ExtractedContext, RepoInfo } from "@/shared/types";
+import type { ExtractedContext, RepoInfo, SessionInfo } from "@/shared/types";
 import { getToken } from "./auth";
 import { CONDUCTOR_URL } from "@/shared/messaging";
 
@@ -50,4 +50,38 @@ export async function createTask(params: {
   }
 
   return response.json();
+}
+
+export async function getOrCreateSession(
+  repoId: string
+): Promise<SessionInfo> {
+  const response = await fetchWithAuth(
+    `/api/extension/session?repoId=${encodeURIComponent(repoId)}`
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get session: ${error}`);
+  }
+
+  return response.json();
+}
+
+export async function askQuestion(params: {
+  sessionId: string;
+  message: string;
+}): Promise<void> {
+  const response = await fetchWithAuth("/api/sessions/execute", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: params.sessionId,
+      message: params.message,
+      mode: "ask",
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to ask question: ${error}`);
+  }
 }

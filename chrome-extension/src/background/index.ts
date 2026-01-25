@@ -2,7 +2,7 @@ import type { ExtensionMessage } from "@/shared/messaging";
 import { CONDUCTOR_URL } from "@/shared/messaging";
 import type { ExtractedContext } from "@/shared/types";
 import { clearAuth, getToken, getUser, isAuthenticated, setAuth } from "./auth";
-import { createTask, fetchRepos } from "./api";
+import { askQuestion, createTask, fetchRepos, getOrCreateSession } from "./api";
 
 let capturedContext: ExtractedContext | null = null;
 
@@ -109,6 +109,32 @@ async function handleMessage(
     case "CLEAR_CONTEXT": {
       capturedContext = null;
       sendResponse({ success: true });
+      break;
+    }
+
+    case "GET_SESSION": {
+      try {
+        const session = await getOrCreateSession(message.payload.repoId);
+        sendResponse({ success: true, session });
+      } catch (error) {
+        sendResponse({
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+      break;
+    }
+
+    case "ASK_QUESTION": {
+      try {
+        await askQuestion(message.payload);
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
       break;
     }
 

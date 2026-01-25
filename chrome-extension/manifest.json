@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Conductor",
+  "name": "Eva Assist",
   "version": "1.0.0",
-  "description": "Capture React component context and create development tasks",
+  "description": "AI-powered assistant for asking questions and flagging issues in your codebase",
   "permissions": [
     "activeTab",
     "storage",
@@ -27,7 +27,7 @@
       "48": "icons/icon48.svg",
       "128": "icons/icon128.svg"
     },
-    "default_title": "Open Conductor"
+    "default_title": "Open Eva Assist"
   },
   "icons": {
     "16": "icons/icon16.svg",

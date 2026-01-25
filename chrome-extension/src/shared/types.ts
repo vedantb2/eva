@@ -50,3 +50,14 @@ export interface ExtensionSettings {
   defaultRepoId: string | null;
   conductorUrl: string;
 }
+
+export interface SessionMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface SessionInfo {
+  id: string;
+  repoId: string;
+  messages: SessionMessage[];
+}

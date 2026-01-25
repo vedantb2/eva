@@ -1,2 +1,6 @@
 node_modules/
 dist/
+.env.chrome
+.env.development
+.env
+.env.production

@@ -9,10 +9,48 @@ import {
 } from "@clerk/chrome-extension";
 import { ChatPanel } from "./components/ChatPanel";
 import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import type { ExtractedContext, RepoInfo } from "@/shared/types";
 
-const PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY;
+function useTheme() {
+  const [theme, setThemeState] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    chrome.storage.local.get(["theme"], (result) => {
+      const savedTheme = result.theme === "light" ? "light" : "dark";
+      setThemeState(savedTheme);
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    });
+  }, []);
+
+  const setTheme = (newTheme: "light" | "dark") => {
+    setThemeState(newTheme);
+    chrome.storage.local.set({ theme: newTheme });
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  return { theme, toggleTheme };
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <Button variant="ghost" size="icon" onClick={toggleTheme}>
+      {theme === "dark" ? (
+        <Sun className="w-5 h-5" />
+      ) : (
+        <Moon className="w-5 h-5" />
+      )}
+    </Button>
+  );
+}
+
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment");
@@ -95,10 +133,7 @@ function AuthenticatedApp() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Zap className="w-6 h-6 text-primary" />
-          <span className="font-semibold">Eva Assist</span>
-        </div>
+        <ThemeToggle />
         <UserButton afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`} />
       </header>
 

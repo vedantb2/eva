@@ -3,7 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { createSandbox, getSandbox } from "../sandbox";
+import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
 import { getGitHubToken, cloneRepo, runClaudeCLI } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
@@ -54,18 +54,12 @@ export const askSession = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const freshToken = await getGitHubToken(installationId);
 
-      if (session.sandboxId) {
-        try {
-          const existingSandbox = await getSandbox(session.sandboxId);
-          await existingSandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
-          return {
-            sandboxId: session.sandboxId,
-            branchName: session.branchName || "main",
-            isNew: false,
-          };
-        } catch {
-          // Sandbox expired or dead, create new one
-        }
+      if (session.sandboxId && await isSandboxAlive(session.sandboxId)) {
+        return {
+          sandboxId: session.sandboxId,
+          branchName: session.branchName || "main",
+          isNew: false,
+        };
       }
 
       const sandbox = await createSandbox(freshToken);

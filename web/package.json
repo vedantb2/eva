@@ -25,6 +25,7 @@
     "@hookform/resolvers": "^4.1.2",
     "@octokit/auth-app": "^8.1.2",
     "@openrouter/ai-sdk-provider": "^1.1.2",
+    "@solvers-hub/llm-json": "^0.1.8",
     "@t3-oss/env-nextjs": "^0.13.8",
     "@tabler/icons-react": "^3.33.0",
     "@tiptap/pm": "^3.15.3",
@@ -52,6 +53,7 @@
     "react-dom": "19.2.1",
     "react-hook-form": "^7.54.2",
     "resend": "^4.5.1",
+    "shell-quote": "^1.8.3",
     "tailwind-merge": "^2.6.0",
     "zod": "^4.1.5"
   },

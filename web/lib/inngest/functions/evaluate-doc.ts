@@ -70,35 +70,47 @@ export const evaluateDoc = inngest.createFunction(
       });
     });
 
-    const result = await step.run("run-evaluation", async () => {
+    await step.run("explore-codebase", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      const prompt = `You are evaluating a codebase against requirements from a document.
+      const explorationPrompt = `You are analyzing a codebase to evaluate it against requirements.
 
 ## Document: ${doc.title}
 
 ${doc.content}
 
-## Instructions
+Explore the repository and determine:
+- What features exist in the codebase
+- What functionality is implemented
+- What requirements from the document are met or not met
 
-1. Extract all requirements explicitly stated in the document above
-2. For each requirement, determine if it is met or not met based on the codebase functionality
-3. Focus on business/functional requirements, not code structure
-4. Use plain business language in your output (no file paths or code references)
-5. If there are no requirements in the document, return empty arrays and a summary stating that
+Do NOT output JSON. Just reason and gather facts about what you find.`;
 
-You MUST output ONLY valid JSON with this exact structure:
+      await runClaudeCLI(sandbox, explorationPrompt, {
+        model: "opus",
+        allowedTools: ["Read", "Glob", "Grep"],
+      });
+    });
+
+    const result = await step.run("generate-evaluation", async () => {
+      const sandbox = await getSandbox(sandboxData.sandboxId);
+
+      const jsonPrompt = `Using everything you discovered about the repository, produce the final evaluation.
+
+Focus on business/functional requirements, not code structure.
+Use plain, non-technical language. No file paths or code references.
+
+You MUST output ONLY valid JSON. No markdown. No explanations. No text outside JSON.
+
 {
   "requirementsMet": [{"requirement": "string", "evidence": "string"}],
   "requirementsNotMet": [{"requirement": "string", "reason": "string"}],
   "summary": "string"
 }`;
 
-      const claudeResult = await runClaudeCLI(sandbox, prompt, {
-        model: "sonnet",
-        allowedTools: ["Read", "Glob", "Grep"],
-        workDir: "~/workspace",
-        timeout: 0,
+      const claudeResult = await runClaudeCLI(sandbox, jsonPrompt, {
+        model: "opus",
+        allowedTools: [],
       });
 
       if (claudeResult.isError) {

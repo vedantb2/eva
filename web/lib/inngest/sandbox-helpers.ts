@@ -1,6 +1,7 @@
 import { Sandbox } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
 import { serverEnv } from "@/env/server";
+import { createSandbox, getSandbox, isSandboxAlive } from "./sandbox";
 
 export async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -100,7 +101,6 @@ interface ClaudeCLIOptions {
 }
 
 interface ClaudeCLIResult {
-  raw: string;
   result: string;
   isError: boolean;
 }
@@ -114,7 +114,7 @@ export async function runClaudeCLI(
     model = "sonnet",
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = "~/workspace",
-    timeout = 0,
+    timeout = 300,
   } = options;
 
   const escapedPrompt = prompt.replace(/'/g, "'\\''");
@@ -132,78 +132,49 @@ export async function runClaudeCLI(
 }
 
 export function parseClaudeOutput(output: string): ClaudeCLIResult {
-  const trimmed = output.trim();
-
   try {
-    const jsonResponse = JSON.parse(trimmed);
-    if (jsonResponse.type === "result" && typeof jsonResponse.result === "string") {
-      return {
-        raw: output,
-        result: jsonResponse.result,
-        isError: jsonResponse.is_error || false,
-      };
+    const json = JSON.parse(output.trim());
+    const messages = Array.isArray(json) ? json : [json];
+    const resultMsg = messages.find((m: Record<string, unknown>) => m.type === "result");
+
+    if (resultMsg) {
+      const result = resultMsg.result ?? "";
+      return { result: typeof result === "string" ? result : JSON.stringify(result), isError: Boolean(resultMsg.is_error) };
     }
-    return {
-      raw: output,
-      result: trimmed,
-      isError: false,
-    };
   } catch {
-    return {
-      raw: output,
-      result: trimmed,
-      isError: false,
-    };
+    // Fall through
   }
+  return { result: output.trim(), isError: false };
 }
 
 export function extractJsonFromText(text: string): string | null {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
   try {
-    const parsed = JSON.parse(text);
-    if (parsed.type === "result" && typeof parsed.result === "string") {
-      return extractJsonFromText(parsed.result);
-    }
-    if (parsed.question || parsed.title || parsed.requirementsMet || parsed.summary || parsed.tasks) {
-      return text;
-    }
+    JSON.parse(match[0]);
+    return match[0];  
   } catch {
-    // Not valid JSON, continue
+    return null;
   }
+}
 
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    const content = codeBlockMatch[1].trim();
-    try {
-      JSON.parse(content);
-      return content;
-    } catch {
-      // Continue to other methods
+export async function ensureProjectSandbox(
+  projectSandboxId: string | undefined,
+  githubToken: string,
+  repoOwner: string,
+  repoName: string,
+  workDir: string,
+  onSandboxCreated: (sandboxId: string) => Promise<void>
+): Promise<Sandbox> {
+  if (projectSandboxId) {
+    const alive = await isSandboxAlive(projectSandboxId);
+    if (alive) {
+      return getSandbox(projectSandboxId);
     }
   }
 
-  const braceStart = text.indexOf("{");
-  const braceEnd = text.lastIndexOf("}");
-  if (braceStart !== -1 && braceEnd > braceStart) {
-    const candidate = text.slice(braceStart, braceEnd + 1);
-    try {
-      const parsed = JSON.parse(candidate);
-      if (typeof parsed === "object" && parsed !== null) {
-        return candidate;
-      }
-    } catch {
-      // Continue
-    }
-  }
-
-  const jsonMatch = text.match(/\{\s*"(?:question|title|requirementsMet|summary|tasks)"[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      JSON.parse(jsonMatch[0]);
-      return jsonMatch[0];
-    } catch {
-      // Continue
-    }
-  }
-
-  return null;
+  const sandbox = await createSandbox(githubToken);
+  await cloneRepo(sandbox, githubToken, repoOwner, repoName, workDir);
+  await onSandboxCreated(sandbox.id);
+  return sandbox;
 }

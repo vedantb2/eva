@@ -1,23 +1,11 @@
 import { inngest } from "../client";
-import { createAppAuth } from "@octokit/auth-app";
 import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { serverEnv } from "@/env/server";
+import { getGitHubToken } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
-async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
-}
 
 export const createSessionPr = inngest.createFunction(
   {

@@ -3,8 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
-import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, extractJsonFromText, cloneRepo } from "../sandbox-helpers";
+import { getGitHubToken, runClaudeCLI, extractJsonFromText, ensureProjectSandbox } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -186,29 +185,19 @@ export const interviewSpec = inngest.createFunction(
       const githubToken = await getGitHubToken(installationId);
       const workDir = "/home/daytona/workspace/repo";
 
-      let sandbox;
-      let needsClone = false;
-
-      if (project.sandboxId) {
-        const alive = await isSandboxAlive(project.sandboxId);
-        if (alive) {
-          sandbox = await getSandbox(project.sandboxId);
-        } else {
-          sandbox = await createSandbox(githubToken);
-          needsClone = true;
+      const sandbox = await ensureProjectSandbox(
+        project.sandboxId,
+        githubToken,
+        repo.owner,
+        repo.name,
+        workDir,
+        async (sandboxId) => {
+          await convex.mutation(api.projects.updateSandboxNoAuth, {
+            id: projectId as Id<"projects">,
+            sandboxId,
+          });
         }
-      } else {
-        sandbox = await createSandbox(githubToken);
-        needsClone = true;
-      }
-
-      if (needsClone) {
-        await cloneRepo(sandbox, githubToken, repo.owner, repo.name, workDir);
-        await convex.mutation(api.projects.updateSandboxNoAuth, {
-          id: projectId as Id<"projects">,
-          sandboxId: sandbox.id,
-        });
-      }
+      );
 
       const answersText = (answers as Answer[])
         .map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`)

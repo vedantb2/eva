@@ -29,13 +29,19 @@ npx convex dev       # Dev server with hot reload
 npx convex deploy    # Deploy to production
 ```
 
+**Type checking (from /web):**
+
+```bash
+npx tsc              # TypeScript type check
+```
+
 ## Architecture
 
 This is a monorepo with three apps:
 
 - **web/** - Next.js 15 frontend (App Router, Turbopack)
 - **backend/** - Convex serverless backend (real-time database + API)
-- **mobile/** - Expo/React Native app
+- **mobile/** - Expo/React Native app (NativeWind for styling)
 
 ### Tech Stack
 
@@ -54,20 +60,21 @@ web/
 │   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analytics, admin)
 │   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
-│   └── api/          # Route handlers (chat, execute-task, github, inngest)
+│   └── api/          # Route handlers (chat, execute-task, github, inngest, sessions)
 ├── lib/
 │   ├── components/   # Reusable UI components
 │   ├── contexts/     # React contexts (Theme, Repo, Sidebar)
 │   ├── hooks/        # Custom hooks
 │   ├── github/       # GitHub API utilities
-│   ├── inngest/      # Background job definitions
+│   ├── inngest/      # Background job definitions and sandbox helpers
 │   └── prompts/      # AI system prompts
+├── api.ts            # Generated Convex API types (from pnpm api:web)
 ├── env/
 │   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
 │   └── server.ts     # Server-side env vars
 
 backend/convex/
-├── schema.ts         # Database schema
+├── schema.ts         # Database schema with all table definitions
 ├── agentTasks.ts     # Task CRUD operations
 ├── agentRuns.ts      # Execution tracking
 ├── projects.ts       # Project management
@@ -85,6 +92,7 @@ backend/convex/
 - **sessions** - Interactive Claude Code chat sessions with sandbox
 - **docs** - Repository documentation
 - **researchQueries** - Analytics queries with AI-generated insights
+- **evaluationReports** - Doc evaluation results with requirements tracking
 
 ### Inngest Background Jobs
 
@@ -93,15 +101,27 @@ Located in `web/lib/inngest/functions/`:
 - **execute-session-task** - Executes commands within a session sandbox
 - **ask-session** / **plan-session** - Session AI interactions
 - **start-sandbox** - Initializes Daytona sandbox for sessions
-- **cleanup-session** - Tears down inactive sessions
+- **cleanup-session** / **cleanup-project-sandbox** - Tears down inactive sandboxes
 - **create-session-pr** - Creates GitHub PRs from session changes
 - **index-codebase** - Indexes repo for project planning
 - **execute-research-query** - Runs analytics queries with AI
+- **interview-question** / **interview-spec** / **interview-chat** - Project interview workflow
+- **evaluate-doc** - Evaluates documentation against requirements
+
+### Sandbox Execution
+
+The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona sandbox operations:
+- `getGitHubToken()` - Gets installation token from GitHub App
+- `cloneRepo()` / `setupBranch()` - Git operations in sandbox
+- `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
+- `ensureProjectSandbox()` - Create or reuse existing sandbox
 
 ## Conventions
 
 - Use `@/*` import alias (maps to web root)
 - Convex queries/mutations use validators - always use `.withIndex()` for efficient queries
+- Use `FunctionReturnType` from Convex to derive types instead of manually defining interfaces
 - Forms use React Hook Form + Zod validation
 - Dark mode via next-themes with HSL CSS variables
-- Environment variables validated with @t3-oss/env-nextjs and Zod
+- Environment variables validated with @t3-oss/env-nextjs and Zod (import from `@/env/server` or `@/env/client`)
+- Default to Server Components; only use Client Components (`*Client.tsx`) for interactive elements requiring hooks, events, or browser APIs

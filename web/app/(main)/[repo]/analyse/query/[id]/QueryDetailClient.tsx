@@ -68,7 +68,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex items-center p-4 border-b border-neutral-200 dark:border-neutral-800">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
           {query.title}
         </h1>

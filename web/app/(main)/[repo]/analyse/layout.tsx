@@ -106,20 +106,18 @@ export default function ResearchLayout({
   return (
     <div className="flex h-screen">
       <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
-        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-              Analyse
-            </h2>
-            <Button
-              size="sm"
-              color="primary"
-              isIconOnly
-              onPress={() => setIsCreateModalOpen(true)}
-            >
-              <IconPlus size={16} />
-            </Button>
-          </div>
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
+          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+            Analyse
+          </h2>
+          <Button
+            size="sm"
+            color="primary"
+            isIconOnly
+            onPress={() => setIsCreateModalOpen(true)}
+          >
+            <IconPlus size={16} />
+          </Button>
         </div>
         <Input
           placeholder="Search queries..."

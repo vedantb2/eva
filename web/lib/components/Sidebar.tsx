@@ -46,7 +46,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|analytics|docs|admin|analyse|testing-arena)/
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena)/
     );
     if (match) {
       return match[1];
@@ -106,7 +106,7 @@ export function Sidebar() {
   const bottomNavigation = [
     ...(repoSlug
       ? [
-          { name: "Analytics", href: `/${repoSlug}/analytics`, icon: IconChartBar },
+          { name: "Stats", href: `/${repoSlug}/stats`, icon: IconChartBar },
           { name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield },
         ]
       : []),

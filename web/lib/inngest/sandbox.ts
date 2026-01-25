@@ -14,7 +14,6 @@ export function getSandboxEnvVars(githubToken: string): Record<string, string> {
       clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_ENV: clientEnv.NEXT_PUBLIC_ENV,
     CLERK_SECRET_KEY: serverEnv.CLERK_SECRET_KEY,
-    NEXT_OPENROUTER_API_KEY: serverEnv.NEXT_OPENROUTER_API_KEY,
     CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
   };
 }

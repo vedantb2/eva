@@ -49,7 +49,7 @@ export function ChatPanel({
 
   const session = useQuery(
     api.sessions.list,
-    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip"
+    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip",
   );
 
   const activeSession = session?.[0];
@@ -67,7 +67,7 @@ export function ChatPanel({
           role: m.role,
           content: m.content,
           timestamp: m.timestamp,
-        }))
+        })),
       );
     }
   }, [activeSession, mode]);
@@ -88,14 +88,25 @@ export function ChatPanel({
 
     if (mode === "flag") {
       try {
+        const [tab] = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        const pageUrl = tab?.url || "";
+
         let fullDescription = input;
+
+        if (pageUrl) {
+          fullDescription += `\n\n**This issue must be resolved on the following page:** ${pageUrl} 
+          
+Please review all components and files used on this page before implementing the fix.`;
+        }
 
         if (capturedContext) {
           fullDescription += `\n\n---\n**Captured React Context**\n`;
           fullDescription += `- Component: \`${capturedContext.tree.name || "Unknown"}\`\n`;
           fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
           fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n`;
-          fullDescription += `- Source URL: ${capturedContext.metadata.sourceUrl}\n`;
           fullDescription += `- Element selector: \`${capturedContext.metadata.elementSelector}\`\n\n`;
           fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.tree, null, 2)}\n\`\`\`\n</details>`;
         }
@@ -135,7 +146,8 @@ export function ChatPanel({
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "Ask mode requires the session API. This feature is coming soon.",
+          content:
+            "Ask mode requires the session API. This feature is coming soon.",
           timestamp: Date.now(),
         },
       ]);
@@ -270,7 +282,9 @@ export function ChatPanel({
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || !selectedRepoId || isLoading || isLoadingSession}
+            disabled={
+              !input.trim() || !selectedRepoId || isLoading || isLoadingSession
+            }
             size="icon"
           >
             <IconSend size={16} />

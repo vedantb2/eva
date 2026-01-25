@@ -282,3 +282,67 @@ export const updatePtySessionNoAuth = mutation({
     return null;
   },
 });
+
+export const getOrCreateExtensionSession = mutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    clerkId: v.string(),
+  },
+  returns: v.object({
+    id: v.string(),
+    repoId: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const existingSession = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), user._id),
+          q.eq(q.field("title"), "Extension Session"),
+          q.neq(q.field("archived"), true)
+        )
+      )
+      .first();
+
+    if (existingSession) {
+      return {
+        id: existingSession._id,
+        repoId: existingSession.repoId,
+        messages: existingSession.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      };
+    }
+
+    const sessionId = await ctx.db.insert("sessions", {
+      repoId: args.repoId,
+      userId: user._id,
+      title: "Extension Session",
+      status: "active",
+      messages: [],
+    });
+
+    return {
+      id: sessionId,
+      repoId: args.repoId,
+      messages: [],
+    };
+  },
+});

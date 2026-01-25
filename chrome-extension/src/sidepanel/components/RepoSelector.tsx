@@ -1,8 +1,11 @@
 import { Select } from "@/components/ui/select";
-import type { RepoInfo } from "@/shared/types";
 
 interface RepoSelectorProps {
-  repos: RepoInfo[];
+  repos: Array<{
+    _id: string;
+    owner: string;
+    name: string;
+  }>;
   selectedRepoId: string | null;
   onRepoChange: (repoId: string) => void;
 }

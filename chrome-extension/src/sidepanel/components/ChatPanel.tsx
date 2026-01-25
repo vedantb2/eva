@@ -1,12 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/api";
 import { RepoSelector } from "./RepoSelector";
 import { SelectionTool } from "./SelectionTool";
 import { ContextPreview } from "./ContextPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Send, Flag, MessageCircle } from "lucide-react";
-import type { ExtractedContext, RepoInfo, SessionInfo } from "@/shared/types";
+import { IconSend, IconFlag, IconMessageCircle } from "@tabler/icons-react";
+import type { ExtractedContext } from "@/shared/types";
+import { GenericId as Id } from "convex/values";
 
 interface Message {
   id: string;
@@ -18,12 +21,15 @@ interface Message {
 type Mode = "ask" | "flag";
 
 interface ChatPanelProps {
-  repos: RepoInfo[];
+  repos: Array<{
+    _id: Id<"githubRepos">;
+    owner: string;
+    name: string;
+  }>;
   selectedRepoId: string | null;
   onRepoChange: (repoId: string) => void;
   capturedContext: ExtractedContext | null;
   onClearContext: () => void;
-  getToken: () => Promise<string | null>;
 }
 
 export function ChatPanel({
@@ -32,113 +38,42 @@ export function ChatPanel({
   onRepoChange,
   capturedContext,
   onClearContext,
-  getToken,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+
+  const session = useQuery(
+    api.sessions.list,
+    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip"
+  );
+
+  const activeSession = session?.[0];
+  const isLoadingSession = session === undefined && selectedRepoId !== null;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const loadSession = useCallback(async () => {
-    if (!selectedRepoId || mode !== "ask") return;
-
-    const token = await getToken();
-    if (!token) return;
-
-    setIsLoadingSession(true);
-    chrome.runtime.sendMessage(
-      { type: "GET_SESSION", payload: { token, repoId: selectedRepoId } },
-      (response: { success: boolean; session?: SessionInfo; error?: string }) => {
-        setIsLoadingSession(false);
-        if (response?.success && response.session) {
-          setSessionId(response.session.id);
-          setMessages(
-            response.session.messages.map((m, i) => ({
-              id: `session-${i}`,
-              role: m.role,
-              content: m.content,
-              timestamp: Date.now(),
-            }))
-          );
-        }
-      }
-    );
-  }, [selectedRepoId, mode, getToken]);
-
   useEffect(() => {
-    loadSession();
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, [loadSession]);
-
-  const pollForResponse = useCallback(
-    async (currentSessionId: string, messageCount: number) => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-
-      const token = await getToken();
-      if (!token) return;
-
-      pollIntervalRef.current = setInterval(async () => {
-        const currentToken = await getToken();
-        if (!currentToken) return;
-
-        chrome.runtime.sendMessage(
-          { type: "GET_SESSION", payload: { token: currentToken, repoId: selectedRepoId } },
-          (response: { success: boolean; session?: SessionInfo }) => {
-            if (response?.success && response.session) {
-              if (response.session.messages.length > messageCount) {
-                const newMessages = response.session.messages.slice(messageCount);
-                const assistantMessages = newMessages.filter((m) => m.role === "assistant");
-                if (assistantMessages.length > 0) {
-                  setMessages((prev) => [
-                    ...prev.filter((m) => m.role !== "assistant" || !m.id.startsWith("loading")),
-                    ...assistantMessages.map((m, i) => ({
-                      id: `response-${Date.now()}-${i}`,
-                      role: m.role,
-                      content: m.content,
-                      timestamp: Date.now(),
-                    })),
-                  ]);
-                  setIsLoading(false);
-                  if (pollIntervalRef.current) {
-                    clearInterval(pollIntervalRef.current);
-                  }
-                }
-              }
-            }
-          }
-        );
-      }, 2000);
-
-      setTimeout(() => {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          setIsLoading(false);
-        }
-      }, 120000);
-    },
-    [getToken, selectedRepoId]
-  );
+    if (activeSession && mode === "ask") {
+      setMessages(
+        activeSession.messages.map((m, i) => ({
+          id: `session-${i}`,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }))
+      );
+    }
+  }, [activeSession, mode]);
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
-
-    const token = await getToken();
-    if (!token) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -153,42 +88,34 @@ export function ChatPanel({
 
     if (mode === "flag") {
       try {
-        const response = await new Promise<{ success: boolean; taskId?: string; error?: string }>(
-          (resolve) => {
-            chrome.runtime.sendMessage(
-              {
-                type: "CREATE_TASK",
-                payload: {
-                  token,
-                  repoId: selectedRepoId,
-                  title: input.slice(0, 100),
-                  description: input,
-                  extensionContext: capturedContext,
-                  sourceUrl: capturedContext?.metadata.sourceUrl || window.location.href,
-                },
-              },
-              resolve
-            );
-          }
-        );
+        let fullDescription = input;
 
-        let assistantContent: string;
-        if (response.success && response.taskId) {
-          assistantContent = `Issue flagged successfully!${capturedContext ? "\n\nI've attached the captured React component context to the task." : ""}`;
-          onClearContext();
-        } else {
-          assistantContent = `Failed to flag issue: ${response.error || "Unknown error"}`;
+        if (capturedContext) {
+          fullDescription += `\n\n---\n**Captured React Context**\n`;
+          fullDescription += `- Component: \`${capturedContext.tree.name || "Unknown"}\`\n`;
+          fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
+          fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n`;
+          fullDescription += `- Source URL: ${capturedContext.metadata.sourceUrl}\n`;
+          fullDescription += `- Element selector: \`${capturedContext.metadata.elementSelector}\`\n\n`;
+          fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.tree, null, 2)}\n\`\`\`\n</details>`;
         }
+
+        await createQuickTask({
+          repoId: selectedRepoId as Id<"githubRepos">,
+          title: input.slice(0, 100),
+          description: fullDescription,
+        });
 
         setMessages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: assistantContent,
+            content: `Issue flagged successfully!${capturedContext ? "\n\nI've attached the captured React component context to the task." : ""}`,
             timestamp: Date.now(),
           },
         ]);
+        onClearContext();
       } catch (error) {
         setMessages((prev) => [
           ...prev,
@@ -203,59 +130,16 @@ export function ChatPanel({
         setIsLoading(false);
       }
     } else {
-      if (!sessionId) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: "Session not available. Please try again.",
-            timestamp: Date.now(),
-          },
-        ]);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const currentMessageCount = messages.length + 1;
-        const response = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-          chrome.runtime.sendMessage(
-            {
-              type: "ASK_QUESTION",
-              payload: { token, sessionId, message: input },
-            },
-            resolve
-          );
-        });
-
-        if (!response.success) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: `Failed to send question: ${response.error || "Unknown error"}`,
-              timestamp: Date.now(),
-            },
-          ]);
-          setIsLoading(false);
-          return;
-        }
-
-        pollForResponse(sessionId, currentMessageCount);
-      } catch (error) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            timestamp: Date.now(),
-          },
-        ]);
-        setIsLoading(false);
-      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Ask mode requires the session API. This feature is coming soon.",
+          timestamp: Date.now(),
+        },
+      ]);
+      setIsLoading(false);
     }
   };
 
@@ -299,9 +183,9 @@ export function ChatPanel({
           <div className="text-center text-muted-foreground mt-8">
             <div className="mb-4">
               {mode === "ask" ? (
-                <MessageCircle className="w-12 h-12 mx-auto opacity-50" />
+                <IconMessageCircle size={48} className="mx-auto opacity-50" />
               ) : (
-                <Flag className="w-12 h-12 mx-auto opacity-50" />
+                <IconFlag size={48} className="mx-auto opacity-50" />
               )}
             </div>
             <p className="mb-2">
@@ -389,7 +273,7 @@ export function ChatPanel({
             disabled={!input.trim() || !selectedRepoId || isLoading || isLoadingSession}
             size="icon"
           >
-            <Send className="w-4 h-4" />
+            <IconSend size={16} />
           </Button>
         </div>
       </div>

@@ -1,16 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   ClerkProvider,
   SignedIn,
   SignedOut,
   SignInButton,
   UserButton,
-  useAuth,
 } from "@clerk/chrome-extension";
+import { useQuery } from "convex/react";
+import { api } from "@/api";
+import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
 import { Button } from "@/components/ui/button";
 import { IconSun, IconMoon, IconBolt } from "@tabler/icons-react";
-import type { ExtractedContext, RepoInfo } from "@/shared/types";
+import type { ExtractedContext } from "@/shared/types";
 
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
@@ -55,40 +57,25 @@ if (!PUBLISHABLE_KEY) {
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
 function AuthenticatedApp() {
-  const { getToken } = useAuth();
-  const [repos, setRepos] = useState<RepoInfo[]>([]);
+  const repos = useQuery(api.githubRepos.list) ?? [];
+  const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [capturedContext, setCapturedContext] =
     useState<ExtractedContext | null>(null);
-  const [isLoadingRepos, setIsLoadingRepos] = useState(true);
-
-  const fetchRepos = useCallback(async () => {
-    const token = await getToken();
-    if (!token) return;
-
-    chrome.runtime.sendMessage(
-      { type: "GET_REPOS", payload: { token } },
-      (response: { success: boolean; repos?: RepoInfo[] }) => {
-        setIsLoadingRepos(false);
-        if (response?.success && response.repos) {
-          setRepos(response.repos);
-          if (!selectedRepoId && response.repos.length > 0) {
-            setSelectedRepoId(response.repos[0]._id);
-          }
-        }
-      }
-    );
-  }, [getToken, selectedRepoId]);
 
   useEffect(() => {
-    fetchRepos();
-
     chrome.storage.local.get(["defaultRepoId"], (result) => {
       if (result.defaultRepoId) {
         setSelectedRepoId(result.defaultRepoId);
       }
     });
-  }, [fetchRepos]);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRepoId && repos.length > 0) {
+      setSelectedRepoId(repos[0]._id);
+    }
+  }, [repos, selectedRepoId]);
 
   useEffect(() => {
     const listener = (
@@ -139,7 +126,6 @@ function AuthenticatedApp() {
         onRepoChange={handleRepoChange}
         capturedContext={capturedContext}
         onClearContext={handleClearContext}
-        getToken={getToken}
       />
     </div>
   );
@@ -177,12 +163,14 @@ export default function App() {
       signInFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
       signUpFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
     >
-      <SignedOut>
-        <SignInScreen />
-      </SignedOut>
-      <SignedIn>
-        <AuthenticatedApp />
-      </SignedIn>
+      <ConvexProvider>
+        <SignedOut>
+          <SignInScreen />
+        </SignedOut>
+        <SignedIn>
+          <AuthenticatedApp />
+        </SignedIn>
+      </ConvexProvider>
     </ClerkProvider>
   );
 }

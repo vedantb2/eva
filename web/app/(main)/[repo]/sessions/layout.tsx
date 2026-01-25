@@ -136,8 +136,8 @@ export default function SessionsLayout({
     <div className="flex h-screen">
       <div className="w-72 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-3xl font-semibold text-neutral-900 dark:text-white">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
               Sessions
             </h2>
             <Button
@@ -149,16 +149,16 @@ export default function SessionsLayout({
               <IconPlus size={16} />
             </Button>
           </div>
-          <Input
-            placeholder="Search sessions..."
-            size="sm"
-            startContent={<IconSearch size={16} className="text-default-400" />}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            isClearable
-            onClear={() => setSearchQuery("")}
-          />
         </div>
+        <Input
+          placeholder="Search sessions..."
+          startContent={<IconSearch size={16} className="text-default-400" />}
+          className="p-4"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          isClearable
+          onClear={() => setSearchQuery("")}
+        />
         <div className="flex-1 overflow-y-auto">
           {sessions === undefined ? (
             <div className="flex items-center justify-center py-12">

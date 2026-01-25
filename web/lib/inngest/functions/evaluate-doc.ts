@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
+import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -59,6 +59,7 @@ export const evaluateDoc = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(repo.installationId);
       const sandbox = await createSandbox(githubToken);
+      await installClaudeCode(sandbox);
       await cloneRepo(sandbox, githubToken, repo.owner, repo.name);
       return { sandboxId: sandbox.id };
     });
@@ -128,9 +129,16 @@ You MUST output ONLY valid JSON. No markdown. No explanations. No text outside J
 
       const parsed: Partial<EvaluationResult> = JSON.parse(jsonStr);
 
+      const requirementsNotMet = Array.isArray(parsed.requirementsNotMet)
+        ? parsed.requirementsNotMet.map((item: Record<string, string>) => ({
+            requirement: item.requirement || "",
+            reason: item.reason || item.evidence || "",
+          }))
+        : [];
+
       return {
         requirementsMet: Array.isArray(parsed.requirementsMet) ? parsed.requirementsMet : [],
-        requirementsNotMet: Array.isArray(parsed.requirementsNotMet) ? parsed.requirementsNotMet : [],
+        requirementsNotMet,
         summary: typeof parsed.summary === "string" ? parsed.summary : "Evaluation completed",
       };
     });

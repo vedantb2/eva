@@ -51,7 +51,7 @@ export function PageWrapper({
         className={`flex-1 bg-neutral-50 dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
       >
         <div
-          className={`flex flex-col gap-4 p-4 ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+          className={`flex flex-col gap-4 px-4 py-2 ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
         >
           {children}
         </div>

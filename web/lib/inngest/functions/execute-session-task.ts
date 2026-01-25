@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
+import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -67,6 +67,7 @@ export const executeSessionTask = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
+      await installClaudeCode(sandbox);
       await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
       const branchName = session.branchName || `session/${sessionId}`;

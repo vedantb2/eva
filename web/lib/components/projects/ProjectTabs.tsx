@@ -76,13 +76,8 @@ export function ProjectTabs({
   }
 
   return (
-    <div className="h-full grid grid-cols-2 -m-5">
+    <div className="h-full grid grid-cols-2">
       <div className="border-r border-divider overflow-y-auto">
-        <div className="p-4 border-b border-divider">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
-            Chat
-          </h3>
-        </div>
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
@@ -97,11 +92,6 @@ export function ProjectTabs({
         />
       </div>
       <div className="overflow-y-auto">
-        <div className="p-4 border-b border-divider">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
-            Plan
-          </h3>
-        </div>
         <ProjectPlanTab
           projectId={projectId}
           projectPhase={projectPhase}

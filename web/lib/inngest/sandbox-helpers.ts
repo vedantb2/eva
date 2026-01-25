@@ -1,7 +1,12 @@
 import { Sandbox } from "@daytonaio/sdk";
 import { createAppAuth } from "@octokit/auth-app";
+// @ts-ignore
+import { quote } from "shell-quote";
+import { LlmJson } from "@solvers-hub/llm-json";
 import { serverEnv } from "@/env/server";
 import { createSandbox, getSandbox, isSandboxAlive } from "./sandbox";
+
+const llmJson = new LlmJson({ attemptCorrection: true });
 
 export async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
@@ -20,6 +25,15 @@ export async function configureGit(sandbox: Sandbox): Promise<void> {
     "/",
     undefined,
     10
+  );
+}
+
+export async function installClaudeCode(sandbox: Sandbox): Promise<void> {
+  await sandbox.process.executeCommand(
+    "npm install -g @anthropic-ai/claude-code",
+    "/",
+    undefined,
+    120
   );
 }
 
@@ -98,6 +112,7 @@ interface ClaudeCLIOptions {
   allowedTools?: ClaudeTool[];
   workDir?: string;
   timeout?: number;
+  preCommand?: string;
 }
 
 interface ClaudeCLIResult {
@@ -115,13 +130,15 @@ export async function runClaudeCLI(
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = "~/workspace",
     timeout = 300,
+    preCommand,
   } = options;
 
-  const escapedPrompt = prompt.replace(/'/g, "'\\''");
+  const escapedPrompt = quote([prompt]);
   const toolsArg = allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
+  const preCmd = preCommand ? `${preCommand} && ` : "";
 
   const cmdResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
+    `cd ${workDir} && ${preCmd}echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
     "/",
     undefined,
     timeout
@@ -148,14 +165,9 @@ export function parseClaudeOutput(output: string): ClaudeCLIResult {
 }
 
 export function extractJsonFromText(text: string): string | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    JSON.parse(match[0]);
-    return match[0];  
-  } catch {
-    return null;
-  }
+  const { json } = llmJson.extract(text);
+  if (json.length === 0) return null;
+  return JSON.stringify(json[0]);
 }
 
 export async function ensureProjectSandbox(
@@ -174,6 +186,7 @@ export async function ensureProjectSandbox(
   }
 
   const sandbox = await createSandbox(githubToken);
+  await installClaudeCode(sandbox);
   await cloneRepo(sandbox, githubToken, repoOwner, repoName, workDir);
   await onSandboxCreated(sandbox.id);
   return sandbox;

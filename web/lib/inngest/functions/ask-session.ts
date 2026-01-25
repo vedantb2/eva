@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, cloneRepo, runClaudeCLI } from "../sandbox-helpers";
+import { getGitHubToken, cloneRepo, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -42,15 +42,6 @@ export const askSession = inngest.createFunction(
       return { session: sessionData, repo: repoData };
     });
 
-    await step.run("add-processing-message", async () => {
-      await convex.mutation(api.sessions.addMessageNoAuth, {
-        id: sessionId as Id<"sessions">,
-        role: "assistant",
-        content: "Analyzing codebase...",
-        mode: "ask",
-      });
-    });
-
     const sandboxData = await step.run("setup-sandbox", async () => {
       const freshToken = await getGitHubToken(installationId);
 
@@ -63,6 +54,7 @@ export const askSession = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
+      await installClaudeCode(sandbox);
       await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
       await convex.mutation(api.sessions.updateSandboxNoAuth, {

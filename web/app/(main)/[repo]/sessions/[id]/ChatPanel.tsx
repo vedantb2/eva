@@ -106,7 +106,7 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}

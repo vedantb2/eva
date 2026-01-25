@@ -12,14 +12,17 @@ interface SandboxPanelProps {
   isActive: boolean;
 }
 
-export function SandboxPanel({ sessionId, sandboxId, isActive }: SandboxPanelProps) {
+export function SandboxPanel({
+  sessionId,
+  sandboxId,
+  isActive,
+}: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("terminal");
 
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950">
-      <div className="border-b border-neutral-200 dark:border-neutral-800 px-3 py-2">
+      <div className="border-b border-neutral-200 dark:border-neutral-800 p-3">
         <Tabs
-          size="sm"
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(key as string)}
           classNames={{

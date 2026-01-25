@@ -107,9 +107,9 @@ export default function ResearchLayout({
     <div className="flex h-screen">
       <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-3xl font-semibold text-neutral-900 dark:text-white">
-              Research
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+              Analyse
             </h2>
             <Button
               size="sm"
@@ -120,16 +120,16 @@ export default function ResearchLayout({
               <IconPlus size={16} />
             </Button>
           </div>
-          <Input
-            placeholder="Search queries..."
-            size="sm"
-            startContent={<IconSearch size={16} className="text-default-400" />}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            isClearable
-            onClear={() => setSearchQuery("")}
-          />
         </div>
+        <Input
+          placeholder="Search queries..."
+          startContent={<IconSearch size={16} className="text-default-400 " />}
+          className="p-4"
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          isClearable
+          onClear={() => setSearchQuery("")}
+        />
         <div className="flex-1 overflow-y-auto">
           {queries === undefined ? (
             <div className="flex items-center justify-center py-12">
@@ -145,7 +145,9 @@ export default function ResearchLayout({
                   <div className="p-4 text-center">
                     <IconBrain className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
                     <p className="text-sm text-neutral-500">
-                      {queries.length === 0 ? "No queries yet" : "No matches found"}
+                      {queries.length === 0
+                        ? "No queries yet"
+                        : "No matches found"}
                     </p>
                   </div>
                 ) : (
@@ -226,10 +228,7 @@ export default function ResearchLayout({
       </div>
       <div className="flex-1 overflow-hidden">{children}</div>
 
-      <Modal
-        isOpen={!!queryToDelete}
-        onClose={() => setQueryToDelete(null)}
-      >
+      <Modal isOpen={!!queryToDelete} onClose={() => setQueryToDelete(null)}>
         <ModalContent>
           <ModalHeader>Delete Query</ModalHeader>
           <ModalBody>

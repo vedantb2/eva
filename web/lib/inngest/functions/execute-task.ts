@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, configureGit, parseClaudeOutput } from "../sandbox-helpers";
+import { getGitHubToken, configureGit, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -84,6 +84,7 @@ export const executeTask = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
+      await installClaudeCode(sandbox);
 
       await convex.mutation(api.agentRuns.appendLogNoAuth, {
         id: runId as Id<"agentRuns">,
@@ -180,30 +181,13 @@ ${prInstructions}
 - The GITHUB_TOKEN environment variable is already set for git push and curl
 - Include completedSubtasks in your final JSON output with the indices of subtasks you completed`;
 
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
-
-      let result;
-      try {
-        result = await sandbox.process.executeCommand(
-          `cd ~/workspace && npx -y npm@11.7.0 install && echo '${escapedPrompt}' | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model opus --allowedTools "Read,Write,Edit,Bash,Glob,Grep" --output-format json`,
-          "/",
-          undefined,
-          0
-        );
-      } catch (err) {
-        const error = err as { result?: string; message?: string };
-        const errorOutput = (error.result || "").trim();
-        const errorDetails = errorOutput.slice(-500) || error.message || "Unknown error";
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
-          id: runId as Id<"agentRuns">,
-          level: "error",
-          message: `Claude agent error: ${errorDetails.slice(0, 1000)}`,
-        });
-        throw new Error(`Claude agent failed: ${errorDetails}`);
-      }
-
-      const output = result.result || "";
-      const claudeResult = parseClaudeOutput(output);
+      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        model: "opus",
+        allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+        workDir: "~/workspace",
+        timeout: 0,
+        preCommand: "npx -y npm@11.7.0 install",
+      });
 
       let agentOutput: AgentOutput = {
         success: false,
@@ -238,7 +222,7 @@ ${prInstructions}
       }
 
       if (!agentOutput.success) {
-        const truncatedOutput = output.slice(-1500);
+        const truncatedOutput = resultText.slice(-1500);
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",
@@ -248,7 +232,7 @@ ${prInstructions}
       }
 
       if (sandboxData.isFirstTaskOnBranch && !agentOutput.prUrl) {
-        const truncatedOutput = output.slice(-1500);
+        const truncatedOutput = resultText.slice(-1500);
         await convex.mutation(api.agentRuns.appendLogNoAuth, {
           id: runId as Id<"agentRuns">,
           level: "error",

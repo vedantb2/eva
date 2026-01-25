@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
+import { getGitHubToken, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -87,6 +87,7 @@ export const indexCodebase = inngest.createFunction(
     const { codebaseIndex, sandboxId } = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
       const sandbox = await createSandbox(githubToken);
+      await installClaudeCode(sandbox);
       const workDir = "/home/daytona/workspace/repo";
 
       const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;

@@ -1,7 +1,5 @@
 import type { ExtensionMessage } from "@/shared/messaging";
-import { CONDUCTOR_URL } from "@/shared/messaging";
 import type { ExtractedContext } from "@/shared/types";
-import { clearAuth, getToken, getUser, isAuthenticated, setAuth } from "./auth";
 import { askQuestion, createTask, fetchRepos, getOrCreateSession } from "./api";
 
 let capturedContext: ExtractedContext | null = null;
@@ -31,36 +29,9 @@ async function handleMessage(
   sendResponse: (response?: unknown) => void
 ): Promise<void> {
   switch (message.type) {
-    case "GET_AUTH_STATE": {
-      const authenticated = await isAuthenticated();
-      const user = await getUser();
-      sendResponse({ isAuthenticated: authenticated, user });
-      break;
-    }
-
-    case "LOGIN": {
-      chrome.tabs.create({ url: `${CONDUCTOR_URL}/api/extension/auth` });
-      sendResponse({ success: true });
-      break;
-    }
-
-    case "LOGOUT": {
-      await clearAuth();
-      capturedContext = null;
-      sendResponse({ success: true });
-      break;
-    }
-
-    case "AUTH_SUCCESS": {
-      await setAuth(message.payload.token, message.payload.user);
-      chrome.runtime.sendMessage({ type: "AUTH_SUCCESS" });
-      sendResponse({ success: true });
-      break;
-    }
-
     case "GET_REPOS": {
       try {
-        const repos = await fetchRepos();
+        const repos = await fetchRepos(message.payload.token);
         sendResponse({ success: true, repos });
       } catch (error) {
         sendResponse({
@@ -73,7 +44,8 @@ async function handleMessage(
 
     case "CREATE_TASK": {
       try {
-        const result = await createTask(message.payload);
+        const { token, ...params } = message.payload;
+        const result = await createTask(token, params);
         capturedContext = null;
         sendResponse({ success: true, taskId: result.taskId });
       } catch (error) {
@@ -114,7 +86,10 @@ async function handleMessage(
 
     case "GET_SESSION": {
       try {
-        const session = await getOrCreateSession(message.payload.repoId);
+        const session = await getOrCreateSession(
+          message.payload.token,
+          message.payload.repoId
+        );
         sendResponse({ success: true, session });
       } catch (error) {
         sendResponse({
@@ -127,7 +102,8 @@ async function handleMessage(
 
     case "ASK_QUESTION": {
       try {
-        await askQuestion(message.payload);
+        const { token, ...params } = message.payload;
+        await askQuestion(token, params);
         sendResponse({ success: true });
       } catch (error) {
         sendResponse({
@@ -142,19 +118,3 @@ async function handleMessage(
       sendResponse({ success: false, error: "Unknown message type" });
   }
 }
-
-chrome.runtime.onMessageExternal.addListener(
-  (message, sender, sendResponse) => {
-    if (
-      message.type === "CONDUCTOR_AUTH_SUCCESS" &&
-      sender.url?.startsWith(CONDUCTOR_URL)
-    ) {
-      setAuth(message.token, message.user).then(() => {
-        chrome.runtime.sendMessage({ type: "AUTH_SUCCESS" });
-        sendResponse({ success: true });
-      });
-      return true;
-    }
-    return false;
-  }
-);

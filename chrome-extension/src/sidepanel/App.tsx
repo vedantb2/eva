@@ -1,47 +1,60 @@
-import { useEffect, useState } from "react";
-import { AuthGate } from "./components/AuthGate";
+import { useEffect, useState, useCallback } from "react";
+import {
+  ClerkProvider,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+  useAuth,
+} from "@clerk/chrome-extension";
 import { ChatPanel } from "./components/ChatPanel";
 import { Button } from "@/components/ui/button";
-import { Zap, LogOut } from "lucide-react";
-import type { ExtractedContext, RepoInfo, UserInfo } from "@/shared/types";
+import { Zap } from "lucide-react";
+import type { ExtractedContext, RepoInfo } from "@/shared/types";
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<UserInfo | null>(null);
+const PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!PUBLISHABLE_KEY) {
+  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment");
+}
+
+const EXTENSION_URL = chrome.runtime.getURL(".");
+
+function AuthenticatedApp() {
+  const { getToken } = useAuth();
   const [repos, setRepos] = useState<RepoInfo[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [capturedContext, setCapturedContext] =
     useState<ExtractedContext | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(true);
 
-  useEffect(() => {
-    chrome.runtime.sendMessage({ type: "GET_AUTH_STATE" }, (response) => {
-      if (response) {
-        setIsAuthenticated(response.isAuthenticated);
-        setUser(response.user);
-      }
-      setIsLoading(false);
-    });
+  const fetchRepos = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return;
 
-    chrome.storage.local.get(["defaultRepoId"], (result) => {
-      if (result.defaultRepoId) {
-        setSelectedRepoId(result.defaultRepoId);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      chrome.runtime.sendMessage({ type: "GET_REPOS" }, (response) => {
+    chrome.runtime.sendMessage(
+      { type: "GET_REPOS", payload: { token } },
+      (response: { success: boolean; repos?: RepoInfo[] }) => {
+        setIsLoadingRepos(false);
         if (response?.success && response.repos) {
           setRepos(response.repos);
           if (!selectedRepoId && response.repos.length > 0) {
             setSelectedRepoId(response.repos[0]._id);
           }
         }
-      });
-    }
-  }, [isAuthenticated, selectedRepoId]);
+      }
+    );
+  }, [getToken, selectedRepoId]);
+
+  useEffect(() => {
+    fetchRepos();
+
+    chrome.storage.local.get(["defaultRepoId"], (result) => {
+      if (result.defaultRepoId) {
+        setSelectedRepoId(result.defaultRepoId);
+      }
+    });
+  }, [fetchRepos]);
 
   useEffect(() => {
     const listener = (
@@ -55,31 +68,11 @@ export default function App() {
       if (message.type === "SELECTION_CANCELLED") {
         setCapturedContext(null);
       }
-      if (message.type === "AUTH_SUCCESS") {
-        setIsAuthenticated(true);
-        chrome.runtime.sendMessage({ type: "GET_AUTH_STATE" }, (response) => {
-          if (response?.user) {
-            setUser(response.user);
-          }
-        });
-      }
     };
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
-
-  const handleLogin = () => {
-    chrome.runtime.sendMessage({ type: "LOGIN" });
-  };
-
-  const handleLogout = () => {
-    chrome.runtime.sendMessage({ type: "LOGOUT" }, () => {
-      setIsAuthenticated(false);
-      setUser(null);
-      setRepos([]);
-    });
-  };
 
   const handleRepoChange = (repoId: string) => {
     setSelectedRepoId(repoId);
@@ -91,16 +84,12 @@ export default function App() {
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
   };
 
-  if (isLoading) {
+  if (isLoadingRepos) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <AuthGate onLogin={handleLogin} />;
   }
 
   return (
@@ -110,16 +99,7 @@ export default function App() {
           <Zap className="w-6 h-6 text-primary" />
           <span className="font-semibold">Eva Assist</span>
         </div>
-        <div className="flex items-center gap-2">
-          {user && (
-            <span className="text-sm text-muted-foreground truncate max-w-[120px]">
-              {user.email}
-            </span>
-          )}
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
+        <UserButton afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`} />
       </header>
 
       <ChatPanel
@@ -128,7 +108,50 @@ export default function App() {
         onRepoChange={handleRepoChange}
         capturedContext={capturedContext}
         onClearContext={handleClearContext}
+        getToken={getToken}
       />
     </div>
+  );
+}
+
+function SignInScreen() {
+  return (
+    <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
+      <div className="flex items-center gap-3 mb-8">
+        <Zap className="w-12 h-12 text-primary" />
+        <span className="text-2xl font-bold">Eva Assist</span>
+      </div>
+
+      <p className="text-muted-foreground text-center mb-8 max-w-xs">
+        AI-powered assistant for asking questions and flagging issues in your
+        codebase.
+      </p>
+
+      <SignInButton mode="modal">
+        <Button size="lg">Sign in to continue</Button>
+      </SignInButton>
+
+      <p className="text-muted-foreground text-sm mt-6 text-center">
+        Sign in with your account to get started
+      </p>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ClerkProvider
+      publishableKey={PUBLISHABLE_KEY}
+      afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
+      signInFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
+      signUpFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
+    >
+      <SignedOut>
+        <SignInScreen />
+      </SignedOut>
+      <SignedIn>
+        <AuthenticatedApp />
+      </SignedIn>
+    </ClerkProvider>
   );
 }

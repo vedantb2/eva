@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { RepoSelector } from "./RepoSelector";
 import { SelectionTool } from "./SelectionTool";
 import { ContextPreview } from "./ContextPreview";
@@ -23,6 +23,7 @@ interface ChatPanelProps {
   onRepoChange: (repoId: string) => void;
   capturedContext: ExtractedContext | null;
   onClearContext: () => void;
+  getToken: () => Promise<string | null>;
 }
 
 export function ChatPanel({
@@ -31,6 +32,7 @@ export function ChatPanel({
   onRepoChange,
   capturedContext,
   onClearContext,
+  getToken,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -45,79 +47,98 @@ export function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (selectedRepoId && mode === "ask") {
-      setIsLoadingSession(true);
-      chrome.runtime.sendMessage(
-        { type: "GET_SESSION", payload: { repoId: selectedRepoId } },
-        (response: { success: boolean; session?: SessionInfo; error?: string }) => {
-          setIsLoadingSession(false);
-          if (response?.success && response.session) {
-            setSessionId(response.session.id);
-            setMessages(
-              response.session.messages.map((m, i) => ({
-                id: `session-${i}`,
-                role: m.role,
-                content: m.content,
-                timestamp: Date.now(),
-              }))
-            );
-          }
+  const loadSession = useCallback(async () => {
+    if (!selectedRepoId || mode !== "ask") return;
+
+    const token = await getToken();
+    if (!token) return;
+
+    setIsLoadingSession(true);
+    chrome.runtime.sendMessage(
+      { type: "GET_SESSION", payload: { token, repoId: selectedRepoId } },
+      (response: { success: boolean; session?: SessionInfo; error?: string }) => {
+        setIsLoadingSession(false);
+        if (response?.success && response.session) {
+          setSessionId(response.session.id);
+          setMessages(
+            response.session.messages.map((m, i) => ({
+              id: `session-${i}`,
+              role: m.role,
+              content: m.content,
+              timestamp: Date.now(),
+            }))
+          );
         }
-      );
-    }
+      }
+    );
+  }, [selectedRepoId, mode, getToken]);
+
+  useEffect(() => {
+    loadSession();
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [selectedRepoId, mode]);
+  }, [loadSession]);
 
-  const pollForResponse = (currentSessionId: string, messageCount: number) => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
+  const pollForResponse = useCallback(
+    async (currentSessionId: string, messageCount: number) => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
 
-    pollIntervalRef.current = setInterval(() => {
-      chrome.runtime.sendMessage(
-        { type: "GET_SESSION", payload: { repoId: selectedRepoId } },
-        (response: { success: boolean; session?: SessionInfo }) => {
-          if (response?.success && response.session) {
-            if (response.session.messages.length > messageCount) {
-              const newMessages = response.session.messages.slice(messageCount);
-              const assistantMessages = newMessages.filter((m) => m.role === "assistant");
-              if (assistantMessages.length > 0) {
-                setMessages((prev) => [
-                  ...prev.filter((m) => m.role !== "assistant" || !m.id.startsWith("loading")),
-                  ...assistantMessages.map((m, i) => ({
-                    id: `response-${Date.now()}-${i}`,
-                    role: m.role,
-                    content: m.content,
-                    timestamp: Date.now(),
-                  })),
-                ]);
-                setIsLoading(false);
-                if (pollIntervalRef.current) {
-                  clearInterval(pollIntervalRef.current);
+      const token = await getToken();
+      if (!token) return;
+
+      pollIntervalRef.current = setInterval(async () => {
+        const currentToken = await getToken();
+        if (!currentToken) return;
+
+        chrome.runtime.sendMessage(
+          { type: "GET_SESSION", payload: { token: currentToken, repoId: selectedRepoId } },
+          (response: { success: boolean; session?: SessionInfo }) => {
+            if (response?.success && response.session) {
+              if (response.session.messages.length > messageCount) {
+                const newMessages = response.session.messages.slice(messageCount);
+                const assistantMessages = newMessages.filter((m) => m.role === "assistant");
+                if (assistantMessages.length > 0) {
+                  setMessages((prev) => [
+                    ...prev.filter((m) => m.role !== "assistant" || !m.id.startsWith("loading")),
+                    ...assistantMessages.map((m, i) => ({
+                      id: `response-${Date.now()}-${i}`,
+                      role: m.role,
+                      content: m.content,
+                      timestamp: Date.now(),
+                    })),
+                  ]);
+                  setIsLoading(false);
+                  if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                  }
                 }
               }
             }
           }
-        }
-      );
-    }, 2000);
+        );
+      }, 2000);
 
-    setTimeout(() => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        setIsLoading(false);
-      }
-    }, 120000);
-  };
+      setTimeout(() => {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          setIsLoading(false);
+        }
+      }, 120000);
+    },
+    [getToken, selectedRepoId]
+  );
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
+
+    const token = await getToken();
+    if (!token) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -138,6 +159,7 @@ export function ChatPanel({
               {
                 type: "CREATE_TASK",
                 payload: {
+                  token,
                   repoId: selectedRepoId,
                   title: input.slice(0, 100),
                   description: input,
@@ -201,7 +223,7 @@ export function ChatPanel({
           chrome.runtime.sendMessage(
             {
               type: "ASK_QUESTION",
-              payload: { sessionId, message: input },
+              payload: { token, sessionId, message: input },
             },
             resolve
           );

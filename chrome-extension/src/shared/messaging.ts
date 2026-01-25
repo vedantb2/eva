@@ -1,9 +1,4 @@
-import type {
-  ExtractedContext,
-  RepoInfo,
-  SessionInfo,
-  UserInfo,
-} from "./types";
+import type { ExtractedContext, RepoInfo, SessionInfo } from "./types";
 
 export type MessageType =
   | "START_SELECTION"
@@ -12,10 +7,6 @@ export type MessageType =
   | "SELECTION_CANCELLED"
   | "CREATE_TASK"
   | "GET_REPOS"
-  | "GET_AUTH_STATE"
-  | "LOGIN"
-  | "LOGOUT"
-  | "AUTH_SUCCESS"
   | "GET_CAPTURED_CONTEXT"
   | "CLEAR_CONTEXT"
   | "GET_SESSION"
@@ -41,6 +32,7 @@ export interface SelectionCancelledMessage {
 export interface CreateTaskMessage {
   type: "CREATE_TASK";
   payload: {
+    token: string;
     repoId: string;
     title: string;
     description: string;
@@ -57,37 +49,15 @@ export interface CreateTaskResponse {
 
 export interface GetReposMessage {
   type: "GET_REPOS";
+  payload: {
+    token: string;
+  };
 }
 
 export interface GetReposResponse {
   success: boolean;
   repos?: RepoInfo[];
   error?: string;
-}
-
-export interface GetAuthStateMessage {
-  type: "GET_AUTH_STATE";
-}
-
-export interface GetAuthStateResponse {
-  isAuthenticated: boolean;
-  user: UserInfo | null;
-}
-
-export interface LoginMessage {
-  type: "LOGIN";
-}
-
-export interface LogoutMessage {
-  type: "LOGOUT";
-}
-
-export interface AuthSuccessMessage {
-  type: "AUTH_SUCCESS";
-  payload: {
-    token: string;
-    user: UserInfo;
-  };
 }
 
 export interface GetCapturedContextMessage {
@@ -105,6 +75,7 @@ export interface ClearContextMessage {
 export interface GetSessionMessage {
   type: "GET_SESSION";
   payload: {
+    token: string;
     repoId: string;
   };
 }
@@ -118,6 +89,7 @@ export interface GetSessionResponse {
 export interface AskQuestionMessage {
   type: "ASK_QUESTION";
   payload: {
+    token: string;
     sessionId: string;
     message: string;
   };
@@ -135,10 +107,6 @@ export type ExtensionMessage =
   | SelectionCancelledMessage
   | CreateTaskMessage
   | GetReposMessage
-  | GetAuthStateMessage
-  | LoginMessage
-  | LogoutMessage
-  | AuthSuccessMessage
   | GetCapturedContextMessage
   | ClearContextMessage
   | GetSessionMessage

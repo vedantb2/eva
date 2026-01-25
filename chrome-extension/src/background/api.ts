@@ -1,16 +1,11 @@
 import type { ExtractedContext, RepoInfo, SessionInfo } from "@/shared/types";
-import { getToken } from "./auth";
 import { CONDUCTOR_URL } from "@/shared/messaging";
 
-async function fetchWithAuth(
+function fetchWithAuth(
+  token: string,
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = await getToken();
-  if (!token) {
-    throw new Error("Not authenticated");
-  }
-
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Content-Type", "application/json");
@@ -21,8 +16,8 @@ async function fetchWithAuth(
   });
 }
 
-export async function fetchRepos(): Promise<RepoInfo[]> {
-  const response = await fetchWithAuth("/api/extension/repos");
+export async function fetchRepos(token: string): Promise<RepoInfo[]> {
+  const response = await fetchWithAuth(token, "/api/extension/repos");
 
   if (!response.ok) {
     throw new Error(`Failed to fetch repos: ${response.status}`);
@@ -32,14 +27,17 @@ export async function fetchRepos(): Promise<RepoInfo[]> {
   return data.repos || [];
 }
 
-export async function createTask(params: {
-  repoId: string;
-  title: string;
-  description: string;
-  extensionContext: ExtractedContext | null;
-  sourceUrl: string;
-}): Promise<{ taskId: string }> {
-  const response = await fetchWithAuth("/api/extension/task", {
+export async function createTask(
+  token: string,
+  params: {
+    repoId: string;
+    title: string;
+    description: string;
+    extensionContext: ExtractedContext | null;
+    sourceUrl: string;
+  }
+): Promise<{ taskId: string }> {
+  const response = await fetchWithAuth(token, "/api/extension/task", {
     method: "POST",
     body: JSON.stringify(params),
   });
@@ -53,9 +51,11 @@ export async function createTask(params: {
 }
 
 export async function getOrCreateSession(
+  token: string,
   repoId: string
 ): Promise<SessionInfo> {
   const response = await fetchWithAuth(
+    token,
     `/api/extension/session?repoId=${encodeURIComponent(repoId)}`
   );
 
@@ -67,11 +67,14 @@ export async function getOrCreateSession(
   return response.json();
 }
 
-export async function askQuestion(params: {
-  sessionId: string;
-  message: string;
-}): Promise<void> {
-  const response = await fetchWithAuth("/api/sessions/execute", {
+export async function askQuestion(
+  token: string,
+  params: {
+    sessionId: string;
+    message: string;
+  }
+): Promise<void> {
+  const response = await fetchWithAuth(token, "/api/sessions/execute", {
     method: "POST",
     body: JSON.stringify({
       sessionId: params.sessionId,

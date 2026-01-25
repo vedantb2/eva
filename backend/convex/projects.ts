@@ -628,3 +628,54 @@ export const updateLastSandboxActivityNoAuth = mutation({
     return null;
   },
 });
+
+export const addMessageNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      conversationHistory: [...project.conversationHistory, { role: args.role, content: args.content }],
+    });
+    return null;
+  },
+});
+
+export const updateNoAuth = mutation({
+  args: {
+    id: v.id("projects"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    branchName: v.optional(v.string()),
+    generatedSpec: v.optional(v.string()),
+    phase: v.optional(phaseValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    const updates: {
+      title?: string;
+      description?: string;
+      branchName?: string;
+      generatedSpec?: string;
+      phase?: "draft" | "finalized" | "active" | "completed";
+    } = {};
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.branchName !== undefined) updates.branchName = args.branchName;
+    if (args.generatedSpec !== undefined) updates.generatedSpec = args.generatedSpec;
+    if (args.phase !== undefined) updates.phase = args.phase;
+    await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});

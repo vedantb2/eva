@@ -10,3 +10,6 @@ export { planSession } from "./functions/plan-session";
 export { executeResearchQuery } from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
 export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";
+export { interviewQuestion } from "./functions/interview-question";
+export { interviewSpec } from "./functions/interview-spec";
+export { interviewChat } from "./functions/interview-chat";

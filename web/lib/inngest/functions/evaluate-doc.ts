@@ -4,7 +4,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, extractJsonFromText } from "../sandbox-helpers";
+import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -85,78 +85,41 @@ ${doc.content}
 2. For each requirement, determine if it is met or not met based on the codebase functionality
 3. Focus on business/functional requirements, not code structure
 4. Use plain business language in your output (no file paths or code references)
-5. If there are no requirements in the document, return empty arrays and a summary stating that`;
+5. If there are no requirements in the document, return empty arrays and a summary stating that
 
-      const jsonSchema = {
-        type: "object",
-        properties: {
-          requirementsMet: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                requirement: { type: "string" },
-                evidence: { type: "string" },
-              },
-              required: ["requirement", "evidence"],
-            },
-          },
-          requirementsNotMet: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                requirement: { type: "string" },
-                reason: { type: "string" },
-              },
-              required: ["requirement", "reason"],
-            },
-          },
-          summary: { type: "string" },
-        },
-        required: ["requirementsMet", "requirementsNotMet", "summary"],
-      };
+You MUST output ONLY valid JSON with this exact structure:
+{
+  "requirementsMet": [{"requirement": "string", "evidence": "string"}],
+  "requirementsNotMet": [{"requirement": "string", "reason": "string"}],
+  "summary": "string"
+}`;
 
-      await sandbox.process.executeCommand(`cat << 'EOF' > /tmp/prompt.txt\n${prompt}\nEOF`, "/");
-      await sandbox.process.executeCommand(`cat << 'EOF' > /tmp/schema.json\n${JSON.stringify(jsonSchema, null, 2)}\nEOF`, "/");
+      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        model: "sonnet",
+        allowedTools: ["Read", "Glob", "Grep"],
+        workDir: "~/workspace",
+        timeout: 0,
+      });
 
-      let output = "";
-      try {
-        const cmdResult = await sandbox.process.executeCommand(
-          `cd ~/workspace && cat /tmp/prompt.txt | npx -y @anthropic-ai/claude-code@latest -p --dangerously-skip-permissions --model sonnet --allowedTools "Read,Glob,Grep" --output-format json --json-schema /tmp/schema.json`,
-          "/",
-          undefined,
-          0
-        );
-        output = cmdResult.result || "";
-      } catch (err) {
-        const error = err as { result?: string; message?: string };
-        throw new Error(`Claude agent failed: ${error.result || error.message || "Unknown error"}`);
+      if (claudeResult.isError) {
+        throw new Error(`Claude agent failed: ${claudeResult.result}`);
       }
 
-      let parsed: Partial<EvaluationResult> = {};
-      let parseError = "";
-
-      try {
-        const cliJson = JSON.parse(output);
-        if (cliJson.result) {
-          if (typeof cliJson.result === "string") {
-            const jsonStr = extractJsonFromText(cliJson.result);
-            if (jsonStr) {
-              parsed = JSON.parse(jsonStr);
-            }
-          } else if (cliJson.result?.content?.[0]?.text) {
-            parsed = JSON.parse(cliJson.result.content[0].text);
-          }
-        }
-      } catch (e) {
-        parseError = `Parse failed: ${e}. Raw output: ${output.slice(0, 500)}`;
+      const jsonStr = extractJsonFromText(claudeResult.result);
+      if (!jsonStr) {
+        return {
+          requirementsMet: [],
+          requirementsNotMet: [],
+          summary: `Failed to parse evaluation results. Raw output: ${claudeResult.result.slice(0, 300)}`,
+        };
       }
+
+      const parsed: Partial<EvaluationResult> = JSON.parse(jsonStr);
 
       return {
         requirementsMet: Array.isArray(parsed.requirementsMet) ? parsed.requirementsMet : [],
         requirementsNotMet: Array.isArray(parsed.requirementsNotMet) ? parsed.requirementsNotMet : [],
-        summary: typeof parsed.summary === "string" ? parsed.summary : parseError || "Failed to parse evaluation results",
+        summary: typeof parsed.summary === "string" ? parsed.summary : "Evaluation completed",
       };
     });
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { Button } from "@heroui/button";
 import { Spinner } from "@heroui/spinner";
 import { useMutation } from "convex/react";
@@ -11,7 +10,6 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { MC_INITIAL_QUESTIONS, MC_FOLLOWUP_QUESTIONS } from "@/lib/prompts/planPrompts";
 import { IconSparkles, IconTrash, IconPlayerPlay, IconCode } from "@tabler/icons-react";
-import { z } from "zod";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -20,30 +18,6 @@ interface ConversationMessage {
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
-
-interface CodebaseIndex {
-  summary: string;
-  techStack: {
-    language: string;
-    framework: string;
-    other: string[];
-  };
-  structure: {
-    entryPoints: string[];
-    keyDirectories: { path: string; purpose: string }[];
-  };
-  patterns: {
-    componentPattern: string;
-    stateManagement: string;
-    apiPattern: string;
-  };
-  keyFiles: { path: string; purpose: string; exports: string[] }[];
-  conventions: {
-    naming: string;
-    fileStructure: string;
-    imports: string;
-  };
-}
 
 interface ProjectChatTabProps {
   projectId: Id<"projects">;
@@ -54,6 +28,8 @@ interface ProjectChatTabProps {
   indexingStatus: IndexingStatus;
   onSpecGenerated?: (spec: string) => void;
   isInterview?: boolean;
+  repoId: Id<"githubRepos">;
+  installationId: number;
 }
 
 interface AnswerRecord {
@@ -61,22 +37,10 @@ interface AnswerRecord {
   answer: string;
 }
 
-const questionSchema = z.object({
-  question: z.string(),
-  options: z.array(z.string()),
-});
-
-const specSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  tasks: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      dependencies: z.array(z.number()),
-    })
-  ),
-});
+interface ParsedQuestion {
+  question: string;
+  options: string[];
+}
 
 export function ProjectChatTab({
   projectId,
@@ -87,14 +51,18 @@ export function ProjectChatTab({
   indexingStatus,
   onSpecGenerated,
   isInterview = false,
+  repoId,
+  installationId,
 }: ProjectChatTabProps) {
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [questionCount, setQuestionCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(initialMessages.length > 1);
-  const [displayMessages, setDisplayMessages] = useState<ConversationMessage[]>(initialMessages);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pendingQuestionRequest, setPendingQuestionRequest] = useState(false);
+  const [pendingSpecRequest, setPendingSpecRequest] = useState(false);
+  const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
   const minQuestions = 3;
@@ -102,85 +70,52 @@ export function ProjectChatTab({
   const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
   const isIndexing = indexingStatus === "pending" || indexingStatus === "indexing";
 
-  const parsedCodebaseIndex: CodebaseIndex | null = (() => {
-    if (!codebaseIndex) return null;
-    try {
-      return JSON.parse(codebaseIndex);
-    } catch {
-      return null;
+  const assistantMessages = initialMessages.filter((m) => m.role === "assistant");
+  const questionCount = assistantMessages.length;
+
+  useEffect(() => {
+    if (initialMessages.length > prevMessagesLengthRef.current) {
+      const newMessage = initialMessages[initialMessages.length - 1];
+      if (newMessage.role === "assistant") {
+        setIsLoading(false);
+        setPendingQuestionRequest(false);
+
+        try {
+          const parsed = JSON.parse(newMessage.content);
+          if (parsed.title && parsed.tasks) {
+            setPendingSpecRequest(false);
+            onSpecGenerated?.(newMessage.content);
+          }
+        } catch {
+          // Not a spec, just a regular message
+        }
+      }
     }
-  })();
-
-  const {
-    object: questionObject,
-    submit: submitQuestion,
-    isLoading: isQuestionLoading,
-    stop: stopQuestion,
-  } = useObject({
-    api: "/api/chat/question",
-    schema: questionSchema,
-    onFinish: async ({ object }) => {
-      if (object) {
-        const content = JSON.stringify(object);
-        await addMessageDb({ id: projectId, role: "assistant", content });
-        setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
-        setQuestionCount((prev) => prev + 1);
-      }
-    },
-    onError: (error) => {
-      console.error("Question generation error:", error);
-    },
-  });
-
-  const {
-    object: specObject,
-    submit: submitSpec,
-    isLoading: isSpecLoading,
-  } = useObject({
-    api: "/api/chat/spec",
-    schema: specSchema,
-    onFinish: async ({ object }) => {
-      if (object) {
-        const content = JSON.stringify(object);
-        await addMessageDb({ id: projectId, role: "assistant", content });
-        setDisplayMessages((prev) => [...prev, { role: "assistant", content }]);
-        onSpecGenerated?.(content);
-      }
-    },
-    onError: (error) => {
-      console.error("Spec generation error:", error);
-    },
-  });
-
-  const isLoading = isQuestionLoading || isSpecLoading;
+    prevMessagesLengthRef.current = initialMessages.length;
+  }, [initialMessages, onSpecGenerated]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [displayMessages, questionObject]);
+  }, [initialMessages]);
 
   useEffect(() => {
     if (initialMessages.length > 0) {
-      setDisplayMessages(initialMessages);
-      const assistantMessages = initialMessages.filter((m) => m.role === "assistant");
-      setQuestionCount(assistantMessages.length);
-      if (assistantMessages.length > 0) {
-        const parsedAnswers: AnswerRecord[] = [];
-        for (let i = 0; i < initialMessages.length - 1; i++) {
-          const msg = initialMessages[i];
-          const nextMsg = initialMessages[i + 1];
-          if (msg.role === "assistant" && nextMsg?.role === "user") {
-            try {
-              const parsed = JSON.parse(msg.content);
-              if (parsed.question) {
-                parsedAnswers.push({ question: parsed.question, answer: nextMsg.content });
-              }
-            } catch {
-              continue;
+      const parsedAnswers: AnswerRecord[] = [];
+      for (let i = 0; i < initialMessages.length - 1; i++) {
+        const msg = initialMessages[i];
+        const nextMsg = initialMessages[i + 1];
+        if (msg.role === "assistant" && nextMsg?.role === "user") {
+          try {
+            const parsed = JSON.parse(msg.content);
+            if (parsed.question) {
+              parsedAnswers.push({ question: parsed.question, answer: nextMsg.content });
             }
+          } catch {
+            continue;
           }
         }
-        setAnswers(parsedAnswers);
       }
+      setAnswers(parsedAnswers);
     }
   }, []);
 
@@ -190,31 +125,48 @@ export function ProjectChatTab({
 
       const questionTemplate = questionList[questionIndex % questionList.length];
 
-      submitQuestion({
-        featureDescription: rawInput,
-        questionTopic: questionTemplate,
-        previousAnswers: currentAnswers,
-        codebaseContext: parsedCodebaseIndex,
+      setIsLoading(true);
+      setPendingQuestionRequest(true);
+
+      await fetch("/api/chat/question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          repoId,
+          installationId,
+          featureDescription: rawInput,
+          questionTopic: questionTemplate,
+          previousAnswers: currentAnswers,
+        }),
       });
     },
-    [rawInput, submitQuestion, questionList, parsedCodebaseIndex]
+    [projectId, repoId, installationId, rawInput, questionList]
   );
 
   const handleStartInterview = async () => {
     setHasStarted(true);
     await addMessageDb({ id: projectId, role: "user", content: rawInput });
-    setDisplayMessages([{ role: "user", content: rawInput }]);
     askQuestion(0, []);
   };
 
   const handleAnswer = async (answer: string) => {
-    const currentQuestion = questionObject?.question || "";
+    const lastAssistantMsg = [...initialMessages].reverse().find((m) => m.role === "assistant");
+    let currentQuestion = "";
+    if (lastAssistantMsg) {
+      try {
+        const parsed = JSON.parse(lastAssistantMsg.content) as ParsedQuestion;
+        currentQuestion = parsed.question || "";
+      } catch {
+        // ignore
+      }
+    }
+
     const newAnswer = { question: currentQuestion, answer };
     const updatedAnswers = [...answers, newAnswer];
     setAnswers(updatedAnswers);
 
     await addMessageDb({ id: projectId, role: "user", content: answer });
-    setDisplayMessages((prev) => [...prev, { role: "user", content: answer }]);
 
     const nextQuestionIndex = questionCount;
     if (nextQuestionIndex < maxQuestions) {
@@ -225,26 +177,52 @@ export function ProjectChatTab({
   const handleGenerateSpec = async () => {
     const specPrompt = "Generate implementation spec based on answers";
     await addMessageDb({ id: projectId, role: "user", content: specPrompt });
-    setDisplayMessages((prev) => [...prev, { role: "user", content: specPrompt }]);
 
-    submitSpec({
-      featureDescription: rawInput,
-      answers,
-      codebaseContext: parsedCodebaseIndex,
+    setIsLoading(true);
+    setPendingSpecRequest(true);
+
+    await fetch("/api/chat/spec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId,
+        repoId,
+        installationId,
+        featureDescription: rawInput,
+        answers,
+      }),
     });
   };
 
   const handleClearChat = async () => {
-    stopQuestion();
     await clearMessagesDb({ id: projectId });
-    setDisplayMessages([]);
-    setQuestionCount(0);
     setHasStarted(false);
     setAnswers([]);
+    setIsLoading(false);
+    setPendingQuestionRequest(false);
+    setPendingSpecRequest(false);
   };
 
   const canGenerateSpec = questionCount >= minQuestions;
-  const showQuestion = questionObject && !isSpecLoading && questionCount <= maxQuestions;
+
+  const currentQuestion: ParsedQuestion | null = (() => {
+    if (isLoading || pendingQuestionRequest || pendingSpecRequest) return null;
+    const lastAssistantMsg = [...initialMessages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistantMsg) return null;
+    try {
+      const parsed = JSON.parse(lastAssistantMsg.content);
+      if (parsed.question && parsed.options) {
+        return parsed as ParsedQuestion;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  })();
+
+  const lastUserMsg = [...initialMessages].reverse().find((m) => m.role === "user");
+  const waitingForResponse = lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
+  const showQuestion = currentQuestion && !pendingSpecRequest && questionCount <= maxQuestions && !waitingForResponse;
 
   if (isIndexing && !hasStarted && !isLocked) {
     return (
@@ -318,7 +296,7 @@ export function ProjectChatTab({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-3 p-4">
-        {displayMessages.map((m, i) => {
+        {initialMessages.map((m, i) => {
           if (m.role === "assistant") {
             try {
               const parsed = JSON.parse(m.content);
@@ -346,30 +324,27 @@ export function ProjectChatTab({
           }
           return <ChatMessage key={`msg-${i}`} role="user" content={m.content} />;
         })}
-        {isLoading && (
+        {(isLoading || waitingForResponse) && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
             <span className="text-sm text-default-500">
-              {isSpecLoading ? "Generating plan..." : "Generating question..."}
+              {pendingSpecRequest ? "Generating plan..." : "Generating question..."}
             </span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">
-        {showQuestion &&
-          questionObject.question &&
-          questionObject.options &&
-          questionObject.options.every((o): o is string => typeof o === "string") && (
-            <MultipleChoiceQuestion
-              question={questionObject.question}
-              options={questionObject.options.filter((o): o is string => typeof o === "string")}
-              onAnswer={handleAnswer}
-              isLoading={isLoading}
-              questionNumber={questionCount}
-              totalQuestions={maxQuestions}
-            />
-          )}
+        {showQuestion && currentQuestion.options.every((o): o is string => typeof o === "string") && (
+          <MultipleChoiceQuestion
+            question={currentQuestion.question}
+            options={currentQuestion.options.filter((o): o is string => typeof o === "string")}
+            onAnswer={handleAnswer}
+            isLoading={isLoading}
+            questionNumber={questionCount}
+            totalQuestions={maxQuestions}
+          />
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
             Questions: {questionCount}/{maxQuestions} (min {minQuestions})
@@ -381,7 +356,7 @@ export function ProjectChatTab({
               color="danger"
               startContent={<IconTrash size={16} />}
               onPress={handleClearChat}
-              isDisabled={isLoading || isLocked || displayMessages.length === 0}
+              isDisabled={isLoading || isLocked || initialMessages.length === 0}
             >
               Clear
             </Button>

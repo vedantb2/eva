@@ -69,6 +69,8 @@ export function ProjectTabs({
           indexingStatus={indexingStatus}
           onSpecGenerated={handleSpecGenerated}
           isInterview={isInterview}
+          repoId={repoId}
+          installationId={installationId}
         />
     );
   }
@@ -90,6 +92,8 @@ export function ProjectTabs({
           indexingStatus={indexingStatus}
           onSpecGenerated={handleSpecGenerated}
           isInterview={isInterview}
+          repoId={repoId}
+          installationId={installationId}
         />
       </div>
       <div className="overflow-y-auto">

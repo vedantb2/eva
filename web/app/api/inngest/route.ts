@@ -12,6 +12,9 @@ import {
   executeResearchQuery,
   evaluateDoc,
   cleanupProjectSandbox,
+  interviewQuestion,
+  interviewSpec,
+  interviewChat,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -28,5 +31,8 @@ export const { GET, POST, PUT } = serve({
     executeResearchQuery,
     evaluateDoc,
     cleanupProjectSandbox,
+    interviewQuestion,
+    interviewSpec,
+    interviewChat,
   ],
 });

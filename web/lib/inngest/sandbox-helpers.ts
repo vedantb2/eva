@@ -132,29 +132,78 @@ export async function runClaudeCLI(
 }
 
 export function parseClaudeOutput(output: string): ClaudeCLIResult {
+  const trimmed = output.trim();
+
   try {
-    const jsonResponse = JSON.parse(output);
+    const jsonResponse = JSON.parse(trimmed);
+    if (jsonResponse.type === "result" && typeof jsonResponse.result === "string") {
+      return {
+        raw: output,
+        result: jsonResponse.result,
+        isError: jsonResponse.is_error || false,
+      };
+    }
     return {
       raw: output,
-      result: jsonResponse.result || "",
-      isError: jsonResponse.is_error || false,
+      result: trimmed,
+      isError: false,
     };
   } catch {
     return {
       raw: output,
-      result: output,
+      result: trimmed,
       isError: false,
     };
   }
 }
 
 export function extractJsonFromText(text: string): string | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
   try {
-    JSON.parse(match[0]);
-    return match[0];
+    const parsed = JSON.parse(text);
+    if (parsed.type === "result" && typeof parsed.result === "string") {
+      return extractJsonFromText(parsed.result);
+    }
+    if (parsed.question || parsed.title || parsed.requirementsMet || parsed.summary || parsed.tasks) {
+      return text;
+    }
   } catch {
-    return null;
+    // Not valid JSON, continue
   }
+
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    const content = codeBlockMatch[1].trim();
+    try {
+      JSON.parse(content);
+      return content;
+    } catch {
+      // Continue to other methods
+    }
+  }
+
+  const braceStart = text.indexOf("{");
+  const braceEnd = text.lastIndexOf("}");
+  if (braceStart !== -1 && braceEnd > braceStart) {
+    const candidate = text.slice(braceStart, braceEnd + 1);
+    try {
+      const parsed = JSON.parse(candidate);
+      if (typeof parsed === "object" && parsed !== null) {
+        return candidate;
+      }
+    } catch {
+      // Continue
+    }
+  }
+
+  const jsonMatch = text.match(/\{\s*"(?:question|title|requirementsMet|summary|tasks)"[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      JSON.parse(jsonMatch[0]);
+      return jsonMatch[0];
+    } catch {
+      // Continue
+    }
+  }
+
+  return null;
 }

@@ -84,46 +84,45 @@ export const indexCodebase = inngest.createFunction(
       });
     });
 
-    const codebaseIndex = await step.run("index-codebase", async () => {
+    const { codebaseIndex, sandboxId } = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
       const sandbox = await createSandbox(githubToken);
       const workDir = "/home/daytona/workspace/repo";
 
-      try {
-        const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-        const cloneResult = await sandbox.process.executeCommand(
-          `git clone --depth 1 "${repoUrl}" ${workDir}`,
-          "/",
-          undefined,
-          120
-        );
-        if (cloneResult.exitCode !== 0) {
-          const sanitized = (cloneResult.result || "").replace(new RegExp(githubToken, "g"), "[REDACTED]");
-          throw new Error(`Git clone failed: ${sanitized}`);
-        }
+      const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
+      const cloneResult = await sandbox.process.executeCommand(
+        `git clone --depth 1 "${repoUrl}" ${workDir}`,
+        "/",
+        undefined,
+        120
+      );
+      if (cloneResult.exitCode !== 0) {
+        const sanitized = (cloneResult.result || "").replace(new RegExp(githubToken, "g"), "[REDACTED]");
+        throw new Error(`Git clone failed: ${sanitized}`);
+      }
 
-        const treeResult = await sandbox.process.executeCommand(
-          `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
-          "/",
-          undefined,
-          30
-        );
+      const treeResult = await sandbox.process.executeCommand(
+        `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
+        "/",
+        undefined,
+        30
+      );
 
-        const packageJsonResult = await sandbox.process.executeCommand(
-          `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`,
-          "/",
-          undefined,
-          10
-        );
+      const packageJsonResult = await sandbox.process.executeCommand(
+        `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`,
+        "/",
+        undefined,
+        10
+      );
 
-        const readmeResult = await sandbox.process.executeCommand(
-          `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`,
-          "/",
-          undefined,
-          10
-        );
+      const readmeResult = await sandbox.process.executeCommand(
+        `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`,
+        "/",
+        undefined,
+        10
+      );
 
-        const contextPrompt = `${INDEX_PROMPT}
+      const contextPrompt = `${INDEX_PROMPT}
 
 Here's information about the codebase:
 
@@ -138,27 +137,31 @@ ${readmeResult.result?.slice(0, 2000) || ""}
 
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
-        const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
-          model: "sonnet",
-          workDir,
-          timeout: 300,
-        });
+      const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
+        model: "sonnet",
+        workDir,
+        timeout: 300,
+      });
 
-        const jsonStr = extractJsonFromText(claudeResult.result);
-        if (!jsonStr) {
-          throw new Error(`Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`);
-        }
-
-        return jsonStr;
-      } finally {
-        await sandbox.delete();
+      const jsonStr = extractJsonFromText(claudeResult.result);
+      if (!jsonStr) {
+        throw new Error(`Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`);
       }
+
+      return { codebaseIndex: jsonStr, sandboxId: sandbox.id };
     });
 
     await step.run("save-index", async () => {
       await convex.mutation(api.projects.setCodebaseIndexNoAuth, {
         id: projectId as Id<"projects">,
         codebaseIndex,
+      });
+    });
+
+    await step.run("save-sandbox", async () => {
+      await convex.mutation(api.projects.updateSandboxNoAuth, {
+        id: projectId as Id<"projects">,
+        sandboxId,
       });
     });
 

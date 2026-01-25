@@ -1,0 +1,235 @@
+import { inngest } from "../client";
+import { ConvexHttpClient } from "convex/browser";
+import { GenericId as Id } from "convex/values";
+import { api } from "@/api";
+import { clientEnv } from "@/env/client";
+import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
+import { getGitHubToken, runClaudeCLI, extractJsonFromText, cloneRepo } from "../sandbox-helpers";
+
+const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+
+interface CodebaseContext {
+  summary: string;
+  techStack: {
+    language: string;
+    framework: string;
+    other: string[];
+  };
+  patterns: {
+    componentPattern: string;
+    stateManagement: string;
+    apiPattern: string;
+  };
+  keyFiles: { path: string; purpose: string }[];
+  conventions: {
+    naming: string;
+    fileStructure: string;
+  };
+}
+
+interface PreviousAnswer {
+  question: string;
+  answer: string;
+}
+
+const SYSTEM_PROMPT = `You help users think through their feature by asking clarifying questions about edge cases and scenarios they may not have considered.
+
+## Your Role
+- Surface edge cases the user probably hasn't thought about
+- Ask "what should happen when..." questions
+- Use simple, everyday language - NO technical jargon
+- Help the user make decisions that will affect how the feature works
+
+## Format Rules
+- Question: MAX 15 words, simple and clear
+- Options: MAX 15 words each, describe the behavior in plain language
+- NO technical terms like "localStorage", "context", "API", "state", "sync", "fallback"
+
+## Good Examples
+Question: "Should the app remember your theme choice after you close it?"
+Options: ["Yes, remember forever", "No, reset each visit", "Only remember for this device"]
+
+Question: "If you change the theme in one tab, should other open tabs update too?"
+Options: ["Yes, update all tabs", "No, each tab stays independent"]
+
+Question: "What if someone has 100+ items? Should we show all at once?"
+Options: ["Show all of them", "Show 20 at a time with a 'load more' button", "Show 50 max"]
+
+Question: "What happens if the user tries to delete something by accident?"
+Options: ["Delete immediately, no undo", "Ask 'Are you sure?' first", "Allow undo for 5 seconds"]
+
+Question: "What should new users see the first time they use this?"
+Options: ["Empty screen with a hint to get started", "Pre-filled example data", "Quick tutorial walkthrough"]
+
+## Bad Examples (DO NOT DO THIS)
+- "Where should theme state be stored?" (too technical)
+- "localStorage with automatic persistence" (jargon-heavy option)
+- "Should we use optimistic updates?" (developer speak)
+
+## Focus Areas
+- First-time experience: What do new users see?
+- Edge cases: What if there's nothing there? What if there's too much?
+- Mistakes: What if users do something by accident?
+- Failures: What if something goes wrong?
+- Conflicts: What if two things happen at once?
+- Limits: Is there a maximum? What happens at the limit?
+- Memory: Should the app remember choices? For how long?
+
+## DO NOT ask about
+- Technical implementation details
+- Developer-facing decisions
+- Anything using programming terminology
+
+## Output Format
+You MUST output ONLY valid JSON with this exact structure:
+{"question": "your question here", "options": ["option 1", "option 2", "option 3"]}`;
+
+const CATEGORY_MAP: Record<string, string> = {
+  data_flow: "what happens with the data",
+  error_handling: "what happens when something goes wrong",
+  user_experience: "how it should feel to use",
+  edge_cases: "unusual situations or edge cases",
+  permissions: "who can do what",
+  notifications: "keeping users informed",
+  default: "an important detail",
+};
+
+function buildPrompt(
+  featureDescription: string,
+  questionCategory: string,
+  previousAnswers: PreviousAnswer[],
+  codebaseContext: CodebaseContext | null
+): string {
+  let prompt = `## Feature Request
+"${featureDescription}"
+
+`;
+
+  if (codebaseContext?.techStack?.framework) {
+    prompt += `## App Info
+This is a ${codebaseContext.techStack.framework} app.
+
+`;
+  }
+
+  if (previousAnswers.length > 0) {
+    prompt += `## Already Decided\n`;
+    previousAnswers.forEach((a, i) => {
+      prompt += `${i + 1}. ${a.question} → ${a.answer}\n`;
+    });
+    prompt += "\n";
+  }
+
+  const categoryDescription = CATEGORY_MAP[questionCategory] || CATEGORY_MAP.default;
+
+  prompt += `## Your Task
+Think of an edge case or scenario the user probably hasn't considered about ${categoryDescription}.
+Ask ONE simple question (max 15 words) with 2-4 clear options (max 15 words each).
+Use everyday language. No technical jargon.
+
+Output ONLY valid JSON in this format:
+{"question": "your question", "options": ["option 1", "option 2"]}`;
+
+  return prompt;
+}
+
+export const interviewQuestion = inngest.createFunction(
+  {
+    id: "interview-question",
+    retries: 2,
+  },
+  { event: "project/interview.question" },
+  async ({ event, step }) => {
+    const { projectId, repoId, installationId, featureDescription, questionTopic, previousAnswers = [] } = event.data;
+
+    const project = await step.run("fetch-project", async () => {
+      const p = await convex.query(api.projects.getNoAuth, {
+        id: projectId as Id<"projects">,
+      });
+      if (!p) throw new Error("Project not found");
+      return p;
+    });
+
+    const repo = await step.run("fetch-repo", async () => {
+      const r = await convex.query(api.githubRepos.getNoAuth, {
+        id: repoId as Id<"githubRepos">,
+      });
+      if (!r) throw new Error("Repo not found");
+      return r;
+    });
+
+    const codebaseContext: CodebaseContext | null = project.codebaseIndex
+      ? JSON.parse(project.codebaseIndex)
+      : null;
+
+    const questionJson = await step.run("generate-question", async () => {
+      const githubToken = await getGitHubToken(installationId);
+      const workDir = "/home/daytona/workspace/repo";
+
+      let sandbox;
+      let needsClone = false;
+
+      if (project.sandboxId) {
+        const alive = await isSandboxAlive(project.sandboxId);
+        if (alive) {
+          sandbox = await getSandbox(project.sandboxId);
+        } else {
+          sandbox = await createSandbox(githubToken);
+          needsClone = true;
+        }
+      } else {
+        sandbox = await createSandbox(githubToken);
+        needsClone = true;
+      }
+
+      if (needsClone) {
+        await cloneRepo(sandbox, githubToken, repo.owner, repo.name, workDir);
+        await convex.mutation(api.projects.updateSandboxNoAuth, {
+          id: projectId as Id<"projects">,
+          sandboxId: sandbox.id,
+        });
+      }
+
+      const prompt = buildPrompt(
+        featureDescription,
+        questionTopic,
+        previousAnswers,
+        codebaseContext
+      );
+
+      const fullPrompt = `${SYSTEM_PROMPT}
+
+${prompt}`;
+
+      const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
+        model: "haiku",
+        allowedTools: ["Read", "Glob", "Grep"],
+        workDir,
+        timeout: 120,
+      });
+
+      const jsonStr = extractJsonFromText(claudeResult.result);
+      if (!jsonStr) {
+        throw new Error(`Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`);
+      }
+
+      return jsonStr;
+    });
+
+    await step.run("save-message", async () => {
+      await convex.mutation(api.projects.addMessageNoAuth, {
+        id: projectId as Id<"projects">,
+        role: "assistant",
+        content: questionJson,
+      });
+    });
+
+    await step.run("update-activity", async () => {
+      await convex.mutation(api.projects.updateLastSandboxActivityNoAuth, {
+        id: projectId as Id<"projects">,
+      });
+    });
+
+    return { success: true, question: questionJson };
+  }
+);

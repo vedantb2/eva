@@ -9,7 +9,7 @@ import {
 } from "@clerk/chrome-extension";
 import { ChatPanel } from "./components/ChatPanel";
 import { Button } from "@/components/ui/button";
-import { Sun, Moon } from "lucide-react";
+import { IconSun, IconMoon, IconBolt } from "@tabler/icons-react";
 import type { ExtractedContext, RepoInfo } from "@/shared/types";
 
 function useTheme() {
@@ -41,11 +41,7 @@ function ThemeToggle() {
 
   return (
     <Button variant="ghost" size="icon" onClick={toggleTheme}>
-      {theme === "dark" ? (
-        <Sun className="w-5 h-5" />
-      ) : (
-        <Moon className="w-5 h-5" />
-      )}
+      {theme === "dark" ? <IconSun size={20} /> : <IconMoon size={20} />}
     </Button>
   );
 }
@@ -153,7 +149,7 @@ function SignInScreen() {
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
       <div className="flex items-center gap-3 mb-8">
-        <Zap className="w-12 h-12 text-primary" />
+        <IconBolt size={48} className="text-primary" />
         <span className="text-2xl font-bold">Eva Assist</span>
       </div>
 

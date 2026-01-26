@@ -312,7 +312,7 @@ Please review all components and files used on this page before implementing the
         )}
 
         <div className="flex items-center gap-3">
-          <SelectionTool />
+          <SelectionTool hasCapturedContext={capturedContext !== null} />
           <div className="flex-1 flex items-center gap-1 p-1 bg-muted rounded-lg">
             <button
               onClick={() => setMode("ask")}

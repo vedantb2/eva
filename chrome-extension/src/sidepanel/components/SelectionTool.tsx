@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 
-export function SelectionTool() {
+interface SelectionToolProps {
+  hasCapturedContext?: boolean;
+}
+
+export function SelectionTool({ hasCapturedContext = false }: SelectionToolProps) {
   const [isSelecting, setIsSelecting] = useState(false);
 
   useEffect(() => {
@@ -54,6 +58,9 @@ export function SelectionTool() {
     >
       {isSelecting && (
         <span className="absolute inset-0 rounded-lg animate-ping bg-blue-500 opacity-30" />
+      )}
+      {hasCapturedContext && !isSelecting && (
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-neutral-900" />
       )}
       <svg
         className="relative w-5 h-5"

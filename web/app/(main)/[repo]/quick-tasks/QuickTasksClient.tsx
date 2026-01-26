@@ -25,8 +25,11 @@ export function QuickTasksClient() {
         title="Quick Tasks"
         fillHeight
         headerRight={
-          <Button onPress={() => setIsCreating(true)}>
-            <IconPlus size={16} className="mr-1" />
+          <Button
+            color="primary"
+            startContent={<IconPlus size={16} />}
+            onPress={() => setIsCreating(true)}
+          >
             New Task
           </Button>
         }

@@ -23,7 +23,10 @@ import {
   IconClock,
   IconCircleCheck,
 } from "@tabler/icons-react";
-import { KanbanColumn, ColumnConfig } from "@/lib/components/kanban/KanbanColumn";
+import {
+  KanbanColumn,
+  ColumnConfig,
+} from "@/lib/components/kanban/KanbanColumn";
 import { Input } from "@heroui/input";
 import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -48,7 +51,12 @@ type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
 
-const ALL_PHASES: ProjectPhase[] = ["draft", "finalized", "active", "completed"];
+const ALL_PHASES: ProjectPhase[] = [
+  "draft",
+  "finalized",
+  "active",
+  "completed",
+];
 
 const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
   draft: {
@@ -87,7 +95,7 @@ export function ProjectsClient() {
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
   const [visiblePhases, setVisiblePhases] = useState<Set<ProjectPhase>>(
-    new Set(ALL_PHASES)
+    new Set(ALL_PHASES),
   );
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -101,31 +109,34 @@ export function ProjectsClient() {
   const projectsByPhase = useMemo(() => {
     if (!projects) return {} as Record<ProjectPhase, typeof projects>;
     const query = searchQuery.toLowerCase().trim();
-    const grouped = ALL_PHASES.reduce((acc, phase) => {
-      acc[phase] = projects
-        .filter((p) => p.phase === phase)
-        .filter((p) => {
-          if (!query) return true;
-          return (
-            p.title.toLowerCase().includes(query) ||
-            p.rawInput?.toLowerCase().includes(query) ||
-            p.description?.toLowerCase().includes(query)
-          );
-        })
-        .sort((a, b) => {
-          let comparison = 0;
-          switch (sortField) {
-            case "created":
-              comparison = a._creationTime - b._creationTime;
-              break;
-            case "title":
-              comparison = a.title.localeCompare(b.title);
-              break;
-          }
-          return sortDirection === "asc" ? comparison : -comparison;
-        });
-      return acc;
-    }, {} as Record<ProjectPhase, typeof projects>);
+    const grouped = ALL_PHASES.reduce(
+      (acc, phase) => {
+        acc[phase] = projects
+          .filter((p) => p.phase === phase)
+          .filter((p) => {
+            if (!query) return true;
+            return (
+              p.title.toLowerCase().includes(query) ||
+              p.rawInput?.toLowerCase().includes(query) ||
+              p.description?.toLowerCase().includes(query)
+            );
+          })
+          .sort((a, b) => {
+            let comparison = 0;
+            switch (sortField) {
+              case "created":
+                comparison = a._creationTime - b._creationTime;
+                break;
+              case "title":
+                comparison = a.title.localeCompare(b.title);
+                break;
+            }
+            return sortDirection === "asc" ? comparison : -comparison;
+          });
+        return acc;
+      },
+      {} as Record<ProjectPhase, typeof projects>,
+    );
     return grouped;
   }, [projects, sortField, sortDirection, searchQuery]);
 
@@ -152,9 +163,12 @@ export function ProjectsClient() {
         title="Projects"
         fillHeight
         headerRight={
-          <Button onPress={() => setIsCreating(true)}>
-            <IconPlus size={16} className="sm:mr-1" />
-            <span className="hidden sm:inline">New Project</span>
+          <Button
+            color="primary"
+            startContent={<IconPlus size={16} />}
+            onPress={() => setIsCreating(true)}
+          >
+            New Project
           </Button>
         }
       >

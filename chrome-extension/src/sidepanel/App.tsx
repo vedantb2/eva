@@ -4,7 +4,6 @@ import {
   SignedIn,
   SignedOut,
   SignInButton,
-  UserButton,
   useUser,
 } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
@@ -206,8 +205,9 @@ function AuthenticatedApp() {
           selectedRepoId={selectedRepoId}
           onRepoChange={handleRepoChange}
         />
-        <ThemeToggle />
-        <UserButton afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`} />
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </header>
 
       <ChatPanel
@@ -225,6 +225,7 @@ function AuthenticatedApp() {
           currentSessionId={currentSessionId}
           onSessionSelect={setCurrentSessionId}
           onNewSession={handleNewSession}
+          afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
         />
       )}
     </div>

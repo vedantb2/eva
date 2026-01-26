@@ -34,7 +34,7 @@ export function RepoSelector({
       options={options}
       onChange={onRepoChange}
       placeholder="Select repository..."
-      className="flex-1 min-w-0"
+      className="flex-1 min-w-[200px]"
     />
   );
 }

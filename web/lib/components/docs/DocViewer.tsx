@@ -58,7 +58,7 @@ export function DocViewer({ doc, onSelect }: DocViewerProps) {
 
   if (!doc) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-100/40 dark:bg-neutral-800 rounded-lg border border-teal-700 dark:border-teal-200 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-100/40 dark:bg-neutral-800 rounded-lg text-neutral-400 border border-neutral-200 dark:border-neutral-700">
         <IconFileText size={48} className="mb-3" />
         <p>Select a document to view</p>
       </div>

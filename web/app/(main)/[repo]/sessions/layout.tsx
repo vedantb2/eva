@@ -186,7 +186,7 @@ export default function SessionsLayout({
                           key={session._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                              ? "bg-teal-50 dark:bg-teal-900/20"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
@@ -249,7 +249,7 @@ export default function SessionsLayout({
                           key={session._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                              ? "bg-teal-50 dark:bg-teal-900/20"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >

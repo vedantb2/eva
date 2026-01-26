@@ -3,6 +3,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { IconPlus, IconX, IconMessage } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { UserButton, useUser } from "@clerk/chrome-extension";
 
 interface SessionSidebarProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SessionSidebarProps {
   currentSessionId: string | null;
   onSessionSelect: (sessionId: string) => void;
   onNewSession: () => void;
+  afterSignOutUrl: string;
 }
 
 export function SessionSidebar({
@@ -20,7 +22,9 @@ export function SessionSidebar({
   currentSessionId,
   onSessionSelect,
   onNewSession,
+  afterSignOutUrl,
 }: SessionSidebarProps) {
+  const { user } = useUser();
   const sessions = useQuery(
     api.sessions.list,
     repoId ? { repoId: repoId as Id<"githubRepos"> } : "skip"
@@ -44,9 +48,8 @@ export function SessionSidebar({
 
         <div className="p-2">
           <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2"
+            size="default"
+            className="w-full justify-start gap-2 bg-teal-600 hover:bg-teal-700 text-white"
             onClick={() => {
               onNewSession();
               onClose();
@@ -86,6 +89,13 @@ export function SessionSidebar({
                 </button>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 p-3 border-t border-border">
+          <UserButton afterSignOutUrl={afterSignOutUrl} />
+          {user?.fullName && (
+            <span className="text-sm text-foreground truncate">{user.fullName}</span>
           )}
         </div>
       </div>

@@ -11,6 +11,8 @@ let overlay: HTMLDivElement | null = null;
 let infoBox: HTMLDivElement | null = null;
 let dimensionLabel: HTMLDivElement | null = null;
 let currentTheme: "light" | "dark" = "dark";
+let glowOverlay: HTMLDivElement | null = null;
+let glowStyle: HTMLStyleElement | null = null;
 
 function loadTheme(): Promise<void> {
   return new Promise((resolve) => {
@@ -248,6 +250,26 @@ function updateOverlayPosition(element: HTMLElement): void {
   infoBox.style.left = `${infoLeft}px`;
 }
 
+function hideOverlayElements(): void {
+  if (overlay) overlay.style.display = "none";
+  if (infoBox) infoBox.style.display = "none";
+  if (dimensionLabel) dimensionLabel.style.display = "none";
+}
+
+function showOverlayElements(): void {
+  if (overlay) overlay.style.display = "";
+  if (infoBox) infoBox.style.display = "";
+  if (dimensionLabel) dimensionLabel.style.display = "";
+}
+
+function handleMouseOut(e: MouseEvent): void {
+  if (!isActive) return;
+  if (e.relatedTarget === null) {
+    hoveredElement = null;
+    hideOverlayElements();
+  }
+}
+
 function handleMouseMove(e: MouseEvent): void {
   if (!isActive) return;
 
@@ -257,6 +279,7 @@ function handleMouseMove(e: MouseEvent): void {
   const element = target as HTMLElement;
   if (element === hoveredElement) return;
 
+  showOverlayElements();
   hoveredElement = element;
   updateOverlayPosition(element);
 }
@@ -406,12 +429,33 @@ export async function activate(): Promise<void> {
   document.body.appendChild(infoBox);
   document.body.appendChild(dimensionLabel);
 
-  document.documentElement.style.outline = "2px solid #3b82f6";
-  document.documentElement.style.outlineOffset = "-2px";
+  glowStyle = document.createElement("style");
+  glowStyle.textContent = `
+    @keyframes conductor-glow {
+      0% { opacity: 0.5; }
+      100% { opacity: 0.8; }
+    }
+  `;
+  document.head.appendChild(glowStyle);
+
+  glowOverlay = document.createElement("div");
+  glowOverlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2147483646;
+    border: 7px solid;
+    border-image: linear-gradient(to right, #BFDFFF, #D8C6FF) 1;
+    box-sizing: border-box;
+    filter: blur(12px);
+    animation: conductor-glow 1.5s ease-in-out infinite alternate;
+  `;
+  document.body.appendChild(glowOverlay);
 
   document.addEventListener("mousemove", handleMouseMove, true);
   document.addEventListener("click", handleClick, true);
   document.addEventListener("keydown", handleKeyDown, true);
+  document.addEventListener("mouseout", handleMouseOut, true);
 
   document.body.style.cursor = "crosshair";
 }
@@ -437,12 +481,19 @@ export function deactivate(): void {
     dimensionLabel = null;
   }
 
-  document.documentElement.style.outline = "";
-  document.documentElement.style.outlineOffset = "";
+  if (glowOverlay) {
+    glowOverlay.remove();
+    glowOverlay = null;
+  }
+  if (glowStyle) {
+    glowStyle.remove();
+    glowStyle = null;
+  }
 
   document.removeEventListener("mousemove", handleMouseMove, true);
   document.removeEventListener("click", handleClick, true);
   document.removeEventListener("keydown", handleKeyDown, true);
+  document.removeEventListener("mouseout", handleMouseOut, true);
 
   document.body.style.cursor = "";
 }

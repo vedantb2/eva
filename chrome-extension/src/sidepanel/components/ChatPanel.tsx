@@ -236,24 +236,24 @@ Please review all components and files used on this page before implementing the
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className={`flex-1 p-4 space-y-4 ${messages.length > 0 ? "overflow-y-auto" : "overflow-hidden"}`}>
         {messages.length === 0 && (
-          <div className="text-center text-muted-foreground mt-8">
-            <div className="mb-4">
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+            <div className="mb-3 rounded-full bg-muted p-4">
               {mode === "ask" ? (
-                <IconMessageCircle size={48} className="mx-auto opacity-50" />
+                <IconMessageCircle size={28} className="text-teal-500" />
               ) : (
-                <IconFlag size={48} className="mx-auto opacity-50" />
+                <IconFlag size={28} className="text-teal-500" />
               )}
             </div>
-            <p className="mb-2">
+            <p className="font-medium text-foreground text-sm mb-1">
               {mode === "ask"
                 ? "Ask questions about your codebase"
                 : capturedContext
                   ? "Describe the issue you want to flag"
                   : "Flag an issue for the team"}
             </p>
-            <p className="text-sm">
+            <p className="text-xs max-w-[200px]">
               {mode === "ask"
                 ? "Get AI-powered answers with full sandbox access"
                 : "Use the select tool to capture element context"}
@@ -279,7 +279,11 @@ Please review all components and files used on this page before implementing the
             </div>
             {message.role === "user" && message.mode && (
               <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                {message.mode === "ask" ? <IconMessageCircle size={12} /> : <IconFlag size={12} />}
+                {message.mode === "ask" ? (
+                  <IconMessageCircle size={12} />
+                ) : (
+                  <IconFlag size={12} />
+                )}
                 {message.mode === "ask" ? "Ask" : "Flag"}
               </span>
             )}
@@ -356,9 +360,9 @@ Please review all components and files used on this page before implementing the
               !input.trim() || !selectedRepoId || isLoading || isLoadingSession
             }
             size="icon"
-            className="mb-auto mr-2 mt-2"
+            className="mb-auto mr-2 mt-2 bg-teal-600 hover:bg-teal-700 text-white"
           >
-            <IconArrowUp size={16} />
+            <IconArrowUp size={18} />
           </Button>
         </div>
       </div>

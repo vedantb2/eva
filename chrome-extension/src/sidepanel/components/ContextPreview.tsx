@@ -95,7 +95,7 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
     : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
 
   return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden">
+    <div className="bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-border overflow-hidden">
       <div
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50"
         onClick={() => setIsExpanded(!isExpanded)}

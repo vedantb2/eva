@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api": "npx convex-helpers ts-api-spec --output-file src/api"
   },
   "dependencies": {
     "@clerk/chrome-extension": "^2.8.20",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.20",
+    "convex-helpers": "^0.1.111",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",

@@ -134,7 +134,7 @@ export const getSessionStats = query({
       ? sessions.filter((s) => s._creationTime >= args.startTime!)
       : sessions;
     const active = filtered.filter((s) => s.status === "active" && !s.archived).length;
-    const messagesByMode = { execute: 0, ask: 0, plan: 0 };
+    const messagesByMode = { execute: 0, ask: 0, plan: 0, flag: 0 };
     for (const session of filtered) {
       for (const msg of session.messages) {
         if (msg.mode && msg.mode in messagesByMode) {

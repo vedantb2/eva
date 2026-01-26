@@ -1,5 +1,5 @@
-import { FunctionReference, anyApi } from "convex/server";
-import { GenericId as Id } from "convex/values";
+import { type FunctionReference, anyApi } from "convex/server";
+import { type GenericId as Id } from "convex/values";
 
 export const api: PublicApiType = anyApi as unknown as PublicApiType;
 export const internal: InternalApiType = anyApi as unknown as InternalApiType;
@@ -987,7 +987,7 @@ export type PublicApiType = {
         lastActivityAt?: number;
         messages: Array<{
           content: string;
-          mode?: "execute" | "ask" | "plan";
+          mode?: "execute" | "ask" | "plan" | "flag";
           role: "user" | "assistant";
           timestamp: number;
         }>;
@@ -1012,7 +1012,7 @@ export type PublicApiType = {
         lastActivityAt?: number;
         messages: Array<{
           content: string;
-          mode?: "execute" | "ask" | "plan";
+          mode?: "execute" | "ask" | "plan" | "flag";
           role: "user" | "assistant";
           timestamp: number;
         }>;
@@ -1034,7 +1034,12 @@ export type PublicApiType = {
     addMessage: FunctionReference<
       "mutation",
       "public",
-      { content: string; id: Id<"sessions">; role: "user" | "assistant" },
+      {
+        content: string;
+        id: Id<"sessions">;
+        mode?: "execute" | "ask" | "plan" | "flag";
+        role: "user" | "assistant";
+      },
       null
     >;
     updateStatus: FunctionReference<
@@ -1072,7 +1077,7 @@ export type PublicApiType = {
         lastActivityAt?: number;
         messages: Array<{
           content: string;
-          mode?: "execute" | "ask" | "plan";
+          mode?: "execute" | "ask" | "plan" | "flag";
           role: "user" | "assistant";
           timestamp: number;
         }>;
@@ -1091,7 +1096,7 @@ export type PublicApiType = {
       {
         content: string;
         id: Id<"sessions">;
-        mode?: "execute" | "ask" | "plan";
+        mode?: "execute" | "ask" | "plan" | "flag";
         role: "user" | "assistant";
       },
       null

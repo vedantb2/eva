@@ -16,6 +16,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  mode?: Mode;
 }
 
 type Mode = "ask" | "flag";
@@ -56,17 +57,18 @@ export function ChatPanel({
   }, [messages]);
 
   useEffect(() => {
-    if (currentSession && mode === "ask") {
+    if (currentSession) {
       setMessages(
         currentSession.messages.map((m, i) => ({
           id: `session-${i}`,
           role: m.role,
           content: m.content,
           timestamp: m.timestamp,
+          mode: m.mode === "ask" || m.mode === "flag" ? m.mode : undefined,
         })),
       );
     }
-  }, [currentSession, mode]);
+  }, [currentSession]);
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
@@ -76,6 +78,7 @@ export function ChatPanel({
       role: "user",
       content: input,
       timestamp: Date.now(),
+      mode: mode,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -143,6 +146,7 @@ Please review all components and files used on this page before implementing the
             id: sessionId as Id<"sessions">,
             role: "user",
             content: input,
+            mode: "flag",
           });
           await addMessage({
             id: sessionId as Id<"sessions">,
@@ -172,7 +176,9 @@ Please review all components and files used on this page before implementing the
           currentWindow: true,
         });
         const pageUrl = tab?.url || "";
-        const fullMessage = pageUrl ? `Page URL: ${pageUrl}\n\n${input}` : input;
+        const fullMessage = pageUrl
+          ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${input}`
+          : input;
 
         const token = await getToken({ template: "convex" });
         const response = await fetch(`${API_URL}/api/extension/ask`, {
@@ -257,7 +263,7 @@ Please review all components and files used on this page before implementing the
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
           >
             <div
               className={`max-w-[85%] rounded-lg px-4 py-2 overflow-hidden ${
@@ -266,8 +272,16 @@ Please review all components and files used on this page before implementing the
                   : "bg-card border border-border text-card-foreground"
               }`}
             >
-              <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-sm">
+                {message.content}
+              </p>
             </div>
+            {message.role === "user" && message.mode && (
+              <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                {message.mode === "ask" ? <IconMessageCircle size={12} /> : <IconFlag size={12} />}
+                {message.mode === "ask" ? "Ask" : "Flag"}
+              </span>
+            )}
           </div>
         ))}
 

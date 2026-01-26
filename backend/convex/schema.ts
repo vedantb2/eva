@@ -173,7 +173,7 @@ const schema = defineSchema({
         content: v.string(),
         timestamp: v.number(),
         mode: v.optional(
-          v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"))
+          v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
         ),
       })
     ),

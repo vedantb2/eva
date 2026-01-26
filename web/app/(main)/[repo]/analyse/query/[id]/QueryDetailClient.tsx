@@ -98,7 +98,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
               </div>
               {message.role === "user" && (
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">

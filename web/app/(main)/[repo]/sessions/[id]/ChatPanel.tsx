@@ -22,7 +22,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
-type SessionMode = "execute" | "ask" | "plan";
+type SessionMode = "execute" | "ask" | "plan" | "flag";
 
 interface Message {
   role: "user" | "assistant";
@@ -160,7 +160,7 @@ export function ChatPanel({
             </p>
           </div>
         ) : (
-          messages.map((message, index) => (
+          messages.filter((m) => m.mode !== "flag").map((message, index) => (
             <div
               key={index}
               className={`flex gap-3 ${
@@ -180,7 +180,7 @@ export function ChatPanel({
                       : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
                 {message.mode && message.role === "user" && (
                   <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">

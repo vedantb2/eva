@@ -180,7 +180,7 @@ function AuthenticatedApp() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
         <p className="text-muted-foreground text-center">
-          This extension is only supported on:
+          Eva Assist is only supported on:
         </p>
         <ul className="mt-4 text-sm text-muted-foreground list-disc list-inside">
           <li>localhost:3000</li>

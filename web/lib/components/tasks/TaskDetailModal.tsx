@@ -121,16 +121,28 @@ export function TaskDetailModal({
         </ModalHeader>
         <ModalBody className="pb-6">
           <div className="space-y-6">
-            {description && (
-              <div>
-                <h4 className="text-sm font-medium text-default-700 mb-2">
-                  Description
-                </h4>
-                <p className="text-sm text-default-600 whitespace-pre-wrap">
-                  {description}
-                </p>
-              </div>
-            )}
+            {description && (() => {
+              const separatorIndex = description.indexOf("---");
+              const mainDesc = separatorIndex !== -1 ? description.slice(0, separatorIndex).trimEnd() : description;
+              const elementDetails = separatorIndex !== -1 ? description.slice(separatorIndex + 3).trimStart() : null;
+              return (
+                <div>
+                  <h4 className="text-sm font-medium text-default-700 mb-2">
+                    Description
+                  </h4>
+                  <p className="text-sm text-default-600 whitespace-pre-wrap">
+                    {mainDesc}
+                  </p>
+                  {elementDetails && (
+                    <Accordion variant="bordered" className="mt-3">
+                      <AccordionItem key="element-details" title="Element Details">
+                        <p className="text-sm text-default-600 whitespace-pre-wrap">{elementDetails}</p>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+                </div>
+              );
+            })()}
 
             {latestPrUrl && (
               <div>

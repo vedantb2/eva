@@ -45,7 +45,7 @@ export function KanbanColumn({
       className={`flex-1 min-w-0 h-full transition-colors flex flex-col ${
         isOver
           ? "bg-neutral-200 dark:bg-neutral-700"
-          : "bg-neutral-100 dark:bg-neutral-800"
+          : "bg-neutral-100 dark:bg-neutral-800/50"
       }`}
     >
       <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">

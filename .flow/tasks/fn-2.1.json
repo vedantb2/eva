@@ -1,9 +1,0 @@
-{
-  "id": "fn-2.1",
-  "epic_id": "fn-2",
-  "title": "Extend Convex schema with boards, columns, and enhanced task tables",
-  "status": "done",
-  "depends_on": [],
-  "created_at": "2026-01-11T21:00:00.000000Z",
-  "updated_at": "2026-01-11T21:00:00.000000Z"
-}

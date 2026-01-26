@@ -1,2 +1,0 @@
-- Feature cards implemented inline in features/page.tsx
-- Shows title, description, status, branch name

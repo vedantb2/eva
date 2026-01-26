@@ -119,12 +119,13 @@ export const getSessionStats = query({
       execute: v.number(),
       ask: v.number(),
       plan: v.number(),
+      flag: v.number(),
     }),
   }),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
     if (!userId) {
-      return { total: 0, active: 0, messagesByMode: { execute: 0, ask: 0, plan: 0 } };
+      return { total: 0, active: 0, messagesByMode: { execute: 0, ask: 0, plan: 0, flag: 0 } };
     }
     const sessions = await ctx.db
       .query("sessions")

@@ -129,7 +129,7 @@ export function PlanContextPanel({
                       className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                         isUser
                           ? "bg-primary-100 dark:bg-primary-900"
-                          : "bg-default-100 dark:bg-default-800"
+                          : "bg-default-100 dark:bg-default-200"
                       }`}
                     >
                       {isUser ? (
@@ -145,7 +145,7 @@ export function PlanContextPanel({
                         className={`inline-block text-left px-4 py-3 rounded-2xl ${
                           isUser
                             ? "bg-primary-500 text-white rounded-tr-sm"
-                            : "bg-default-100 dark:bg-default-800 rounded-tl-sm"
+                            : "bg-default-100 dark:bg-white rounded-tl-sm"
                         }`}
                       >
                         <p className={`text-sm whitespace-pre-wrap ${!isUser ? "text-default-900 dark:text-black" : ""}`}>{displayContent}</p>

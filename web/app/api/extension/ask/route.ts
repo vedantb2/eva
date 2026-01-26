@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { sessionId, message } = await request.json();
+  const { sessionId, message, contextMessage } = await request.json();
   if (!sessionId || !message) {
     return NextResponse.json({ error: "Missing sessionId or message" }, { status: 400, headers: corsHeaders });
   }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     name: "session/ask.execute",
     data: {
       sessionId,
-      messageContent: message,
+      messageContent: (contextMessage as string) || message,
       repoId: session.repoId,
       installationId: repo.installationId,
     },

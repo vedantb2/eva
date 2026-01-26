@@ -189,7 +189,8 @@ Please review all components and files used on this page before implementing the
           },
           body: JSON.stringify({
             sessionId: sessionId,
-            message: fullMessage,
+            message: input,
+            contextMessage: fullMessage,
           }),
         });
 

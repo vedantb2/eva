@@ -9,6 +9,7 @@ const messageValidator = v.object({
   mode: v.optional(
     v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
   ),
+  flaggedBy: v.optional(v.string()),
 });
 
 const sessionValidator = v.object({
@@ -85,6 +86,7 @@ export const addMessage = mutation({
     mode: v.optional(
       v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
     ),
+    flaggedBy: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -99,7 +101,7 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...session.messages,
-        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
+        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode, flaggedBy: args.flaggedBy },
       ],
     });
     return null;
@@ -188,6 +190,7 @@ export const addMessageNoAuth = mutation({
     mode: v.optional(
       v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
     ),
+    flaggedBy: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -203,6 +206,7 @@ export const addMessageNoAuth = mutation({
           content: args.content,
           timestamp: Date.now(),
           mode: args.mode,
+          flaggedBy: args.flaggedBy,
         },
       ],
       lastActivityAt: Date.now(),

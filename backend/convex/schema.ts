@@ -175,6 +175,7 @@ const schema = defineSchema({
         mode: v.optional(
           v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
         ),
+        flaggedBy: v.optional(v.string()),
       })
     ),
   })

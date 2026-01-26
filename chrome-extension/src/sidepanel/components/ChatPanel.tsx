@@ -17,6 +17,7 @@ interface Message {
   content: string;
   timestamp: number;
   mode?: Mode;
+  flaggedBy?: string;
 }
 
 type Mode = "ask" | "flag";
@@ -34,7 +35,7 @@ export function ChatPanel({
   capturedContext,
   onClearContext,
 }: ChatPanelProps) {
-  useUser();
+  const { user } = useUser();
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -65,6 +66,7 @@ export function ChatPanel({
           content: m.content,
           timestamp: m.timestamp,
           mode: m.mode === "ask" || m.mode === "flag" ? m.mode : undefined,
+          flaggedBy: m.flaggedBy,
         })),
       );
     }
@@ -73,12 +75,16 @@ export function ChatPanel({
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
 
+    const moderatorName = user?.fullName
+      || (user?.firstName ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}` : undefined);
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: input,
       timestamp: Date.now(),
       mode: mode,
+      flaggedBy: mode === "flag" ? moderatorName : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -147,6 +153,7 @@ Please review all components and files used on this page before implementing the
             role: "user",
             content: input,
             mode: "flag",
+            flaggedBy: moderatorName,
           });
           await addMessage({
             id: sessionId as Id<"sessions">,
@@ -280,7 +287,11 @@ Please review all components and files used on this page before implementing the
             {message.role === "user" && message.mode && (
               <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 {message.mode === "ask" ? <IconMessageCircle size={12} /> : <IconFlag size={12} />}
-                {message.mode === "ask" ? "Ask" : "Flag"}
+                {message.mode === "ask"
+                  ? "Ask"
+                  : message.flaggedBy
+                    ? `${message.flaggedBy} is here`
+                    : "Moderator is here"}
               </span>
             )}
           </div>

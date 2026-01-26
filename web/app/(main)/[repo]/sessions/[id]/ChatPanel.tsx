@@ -15,6 +15,7 @@ import {
   IconClipboardList,
   IconFileText,
   IconGitPullRequest,
+  IconFlag,
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useEffect, useRef, useState } from "react";
@@ -22,13 +23,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
-type SessionMode = "execute" | "ask" | "plan";
+type SessionMode = "execute" | "ask" | "plan" | "flag";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
   mode?: SessionMode;
+  flaggedBy?: string;
 }
 
 interface ChatPanelProps {
@@ -197,6 +199,14 @@ export function ChatPanel({
                     {message.mode === "plan" && (
                       <>
                         <IconClipboardList className="w-3 h-3" /> Plan
+                      </>
+                    )}
+                    {message.mode === "flag" && (
+                      <>
+                        <IconFlag className="w-3 h-3" />{" "}
+                        {message.flaggedBy
+                          ? `${message.flaggedBy} is here`
+                          : "Moderator is here"}
                       </>
                     )}
                   </div>

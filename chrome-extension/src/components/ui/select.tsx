@@ -46,7 +46,7 @@ export function Select({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm",
+          "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-secondary px-3 py-2 text-sm",
           "ring-offset-background placeholder:text-muted-foreground",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
@@ -68,7 +68,7 @@ export function Select({
       {isOpen && (
         <div
           className={cn(
-            "absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+            "absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-secondary text-secondary-foreground shadow-md",
             "animate-in fade-in-0 zoom-in-95"
           )}
         >

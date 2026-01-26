@@ -45,15 +45,18 @@ export function SelectionTool() {
   return (
     <button
       onClick={handleClick}
-      className={`p-2 rounded-lg transition-colors ${
+      className={`relative p-2 rounded-lg transition-all duration-200 ${
         isSelecting
-          ? "bg-neutral-600 text-white"
+          ? "bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-neutral-900"
           : "bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700"
       }`}
       title={isSelecting ? "Cancel selection" : "Select element"}
     >
+      {isSelecting && (
+        <span className="absolute inset-0 rounded-lg animate-ping bg-blue-500 opacity-30" />
+      )}
       <svg
-        className="w-5 h-5"
+        className="relative w-5 h-5"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

@@ -229,10 +229,6 @@ Please review all components and files used on this page before implementing the
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      {capturedContext && (
-        <ContextPreview context={capturedContext} onClear={onClearContext} />
-      )}
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground mt-8">
@@ -297,6 +293,10 @@ Please review all components and files used on this page before implementing the
       </div>
 
       <div className="p-4 border-t border-border space-y-3">
+        {capturedContext && (
+          <ContextPreview context={capturedContext} onClear={onClearContext} />
+        )}
+
         <div className="flex items-center gap-3">
           <SelectionTool />
           <div className="flex-1 flex items-center gap-1 p-1 bg-muted rounded-lg">

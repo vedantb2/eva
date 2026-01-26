@@ -1,4 +1,5 @@
-import { extractReactTree, isReactAvailable } from "./react-extractor";
+import { extractReactTree, isReactAvailable, generateSelector, countComponents, detectReactVersion } from "./react-extractor";
+import type { ElementInfo, ExtractedContext } from "@/shared/types";
 
 const OVERLAY_ID = "conductor-selection-overlay";
 const INFO_ID = "conductor-selection-info";
@@ -114,6 +115,36 @@ function handleMouseMove(e: MouseEvent): void {
   updateOverlayPosition(element);
 }
 
+function extractElementInfo(element: HTMLElement): ElementInfo {
+  const rect = element.getBoundingClientRect();
+  const styles = window.getComputedStyle(element);
+
+  return {
+    tagName: element.tagName.toLowerCase(),
+    id: element.id,
+    classNames: Array.from(element.classList),
+    textContent: (element.textContent || "").slice(0, 500),
+    attributes: Object.fromEntries(
+      Array.from(element.attributes).map(attr => [attr.name, attr.value])
+    ),
+    boundingRect: {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    },
+    computedStyles: {
+      color: styles.color,
+      backgroundColor: styles.backgroundColor,
+      fontSize: styles.fontSize,
+      fontFamily: styles.fontFamily,
+    },
+    selector: generateSelector(element),
+    innerHTML: element.innerHTML.slice(0, 1000),
+    outerHTML: element.outerHTML.slice(0, 1000),
+  };
+}
+
 function handleClick(e: MouseEvent): void {
   if (!isActive || !hoveredElement) return;
 
@@ -121,7 +152,21 @@ function handleClick(e: MouseEvent): void {
   e.stopPropagation();
   e.stopImmediatePropagation();
 
-  const context = extractReactTree(hoveredElement);
+  const elementInfo = extractElementInfo(hoveredElement);
+  const hasReact = isReactAvailable();
+  const reactTree = hasReact ? extractReactTree(hoveredElement) : null;
+
+  const context: ExtractedContext = {
+    element: elementInfo,
+    react: reactTree?.tree || null,
+    metadata: {
+      capturedAt: Date.now(),
+      sourceUrl: window.location.href,
+      hasReact,
+      totalComponents: reactTree ? countComponents(reactTree.tree) : 0,
+      reactVersion: hasReact ? detectReactVersion() : "N/A",
+    },
+  };
 
   chrome.runtime.sendMessage({
     type: "ELEMENT_CAPTURED",
@@ -143,14 +188,6 @@ function handleKeyDown(e: KeyboardEvent): void {
 
 export function activate(): void {
   if (isActive) return;
-
-  if (!isReactAvailable()) {
-    chrome.runtime.sendMessage({
-      type: "SELECTION_CANCELLED",
-      error: "React not detected on this page",
-    });
-    return;
-  }
 
   isActive = true;
 

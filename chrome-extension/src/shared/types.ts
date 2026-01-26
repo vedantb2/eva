@@ -14,17 +14,34 @@ export interface HookInfo {
   value: unknown;
 }
 
-export interface ExtractionMetadata {
-  reactVersion: string;
-  totalComponents: number;
-  capturedAt: number;
-  sourceUrl: string;
-  elementSelector: string;
+export interface ElementInfo {
+  tagName: string;
+  id: string;
+  classNames: string[];
+  textContent: string;
+  attributes: Record<string, string>;
+  boundingRect: { top: number; left: number; width: number; height: number };
+  computedStyles: {
+    color: string;
+    backgroundColor: string;
+    fontSize: string;
+    fontFamily: string;
+  };
+  selector: string;
+  innerHTML: string;
+  outerHTML: string;
 }
 
 export interface ExtractedContext {
-  tree: ReactComponentNode;
-  metadata: ExtractionMetadata;
+  element: ElementInfo;
+  react: ReactComponentNode | null;
+  metadata: {
+    capturedAt: number;
+    sourceUrl: string;
+    hasReact: boolean;
+    totalComponents: number;
+    reactVersion: string;
+  };
 }
 
 export interface UserInfo {

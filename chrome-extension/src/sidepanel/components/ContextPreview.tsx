@@ -62,8 +62,37 @@ function ComponentTree({
   );
 }
 
+function ElementInfoView({ context }: { context: ExtractedContext }) {
+  const { element } = context;
+
+  return (
+    <div className="font-mono text-xs space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-green-400">&lt;{element.tagName}&gt;</span>
+        {element.id && <span className="text-yellow-400">#{element.id}</span>}
+      </div>
+      {element.classNames.length > 0 && (
+        <div className="text-slate-400">
+          .{element.classNames.slice(0, 3).join(" .")}
+          {element.classNames.length > 3 && ` +${element.classNames.length - 3} more`}
+        </div>
+      )}
+      <div className="text-slate-500 truncate">
+        {element.textContent.slice(0, 100) || "(no text)"}
+      </div>
+      <div className="text-slate-600 text-[10px]">
+        {Math.round(element.boundingRect.width)}×{Math.round(element.boundingRect.height)}px
+      </div>
+    </div>
+  );
+}
+
 export function ContextPreview({ context, onClear }: ContextPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const hasReact = context.metadata.hasReact && context.react;
+  const displayName = hasReact && context.react
+    ? context.react.name
+    : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
 
   return (
     <div className="mx-4 mt-3 bg-slate-800 rounded-lg border border-slate-600 overflow-hidden">
@@ -76,10 +105,12 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
             {isExpanded ? "▼" : "▶"}
           </span>
           <span className="text-sm text-slate-300">
-            Captured: <span className="text-blue-400">{context.tree.name}</span>
+            Captured: <span className="text-blue-400">{displayName}</span>
           </span>
           <span className="text-xs text-slate-500">
-            ({context.metadata.totalComponents} components)
+            {hasReact
+              ? `(${context.metadata.totalComponents} components)`
+              : "(HTML element)"}
           </span>
         </div>
         <button
@@ -108,7 +139,11 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
 
       {isExpanded && (
         <div className="border-t border-slate-700 p-2 max-h-48 overflow-y-auto">
-          <ComponentTree node={context.tree} expanded={true} />
+          {hasReact && context.react ? (
+            <ComponentTree node={context.react} expanded={true} />
+          ) : (
+            <ElementInfoView context={context} />
+          )}
         </div>
       )}
     </div>

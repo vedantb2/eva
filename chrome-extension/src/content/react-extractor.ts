@@ -291,7 +291,7 @@ function traverseFiber(
   return node;
 }
 
-function generateSelector(element: HTMLElement): string {
+export function generateSelector(element: HTMLElement): string {
   const parts: string[] = [];
   let current: HTMLElement | null = element;
 
@@ -329,7 +329,7 @@ function generateSelector(element: HTMLElement): string {
   return parts.join(" > ");
 }
 
-function countComponents(node: ReactComponentNode): number {
+export function countComponents(node: ReactComponentNode): number {
   let count = node.type === "component" ? 1 : 0;
   for (const child of node.children) {
     count += countComponents(child);
@@ -337,7 +337,7 @@ function countComponents(node: ReactComponentNode): number {
   return count;
 }
 
-function detectReactVersion(): string {
+export function detectReactVersion(): string {
   const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook || !hook.renderers) {
     return "unknown";

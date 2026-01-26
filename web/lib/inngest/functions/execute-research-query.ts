@@ -5,92 +5,16 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
-import { runClaudeCLI } from "../sandbox-helpers";
+import {
+  cloneRepo,
+  configureGit,
+  getGitHubToken,
+  installClaudeCode,
+  runClaudeCLI,
+} from "../sandbox-helpers";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 const daytona = new Daytona();
-
-interface QueryContext {
-  repoId: Id<"githubRepos">;
-  taskStats: {
-    total: number;
-    byStatus: { todo: number; in_progress: number; code_review: number; done: number };
-  };
-  runStats: {
-    total: number;
-    byStatus: { queued: number; running: number; success: number; error: number };
-    successRate: number;
-    prsCreated: number;
-  };
-  sessionStats: {
-    total: number;
-    active: number;
-    messagesByMode: { execute: number; ask: number; plan: number };
-  };
-  projectStats: {
-    total: number;
-    byPhase: { draft: number; finalized: number; active: number; completed: number };
-    topProjects: Array<{ id: Id<"projects">; title: string; tasksTotal: number; tasksDone: number }>;
-  };
-}
-
-async function gatherContext(repoId: Id<"githubRepos">): Promise<QueryContext> {
-  const [taskStats, runStats, sessionStats, projectStats] = await Promise.all([
-    convex.query(api.analytics.getTaskStats, { repoId }),
-    convex.query(api.analytics.getRunStats, { repoId }),
-    convex.query(api.analytics.getSessionStats, { repoId }),
-    convex.query(api.analytics.getProjectStats, { repoId }),
-  ]);
-
-  return { repoId, taskStats, runStats, sessionStats, projectStats };
-}
-
-function formatContextForPrompt(context: QueryContext): string {
-  return `## Current Project Data
-
-### Task Statistics
-- Total tasks: ${context.taskStats.total}
-- By status:
-  - Todo: ${context.taskStats.byStatus.todo}
-  - In Progress: ${context.taskStats.byStatus.in_progress}
-  - Code Review: ${context.taskStats.byStatus.code_review}
-  - Done: ${context.taskStats.byStatus.done}
-
-### Agent Run Statistics
-- Total runs: ${context.runStats.total}
-- By status:
-  - Queued: ${context.runStats.byStatus.queued}
-  - Running: ${context.runStats.byStatus.running}
-  - Success: ${context.runStats.byStatus.success}
-  - Error: ${context.runStats.byStatus.error}
-- Success rate: ${context.runStats.successRate}%
-- PRs created: ${context.runStats.prsCreated}
-
-### Session Statistics
-- Total sessions: ${context.sessionStats.total}
-- Active sessions: ${context.sessionStats.active}
-- Messages by mode:
-  - Execute: ${context.sessionStats.messagesByMode.execute}
-  - Ask: ${context.sessionStats.messagesByMode.ask}
-  - Plan: ${context.sessionStats.messagesByMode.plan}
-
-### Project Statistics
-- Total projects: ${context.projectStats.total}
-- By phase:
-  - Draft: ${context.projectStats.byPhase.draft}
-  - Finalized: ${context.projectStats.byPhase.finalized}
-  - Active: ${context.projectStats.byPhase.active}
-  - Completed: ${context.projectStats.byPhase.completed}
-${context.projectStats.topProjects.length > 0 ? `- Top projects:\n${context.projectStats.topProjects.map((p) => `  - ${p.title}: ${p.tasksDone}/${p.tasksTotal} tasks done`).join("\n")}` : ""}`;
-}
-
-function formatDataSummary(context: QueryContext): string {
-  return `**Data Queried:**
-- Task stats: ${context.taskStats.total} total tasks
-- Run stats: ${context.runStats.total} total runs (${context.runStats.successRate}% success rate)
-- Session stats: ${context.sessionStats.total} sessions (${context.sessionStats.active} active)
-- Project stats: ${context.projectStats.total} projects`;
-}
 
 export const executeResearchQuery = inngest.createFunction(
   {
@@ -116,62 +40,99 @@ export const executeResearchQuery = inngest.createFunction(
       await convex.mutation(api.researchQueries.addMessageNoAuth, {
         id: queryId as Id<"researchQueries">,
         role: "assistant",
-        content: "Gathering data from analytics...",
+        content: "Analyzing your question...",
       });
-    });
-
-    const context = await step.run("gather-context", async () => {
-      return await gatherContext(repoId as Id<"githubRepos">);
     });
 
     const answer = await step.run("generate-answer", async () => {
+      const repo = await convex.query(api.githubRepos.getNoAuth, {
+        id: repoId as Id<"githubRepos">,
+      });
+      if (!repo) throw new Error("Repo not found");
+
+      const githubToken = await getGitHubToken(repo.installationId);
+
       const sandbox = await daytona.create({
-        envVars: { CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN },
-        autoStopInterval: 5,
+        envVars: {
+          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+          CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
+          CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
+        },
+        ephemeral: true,
       });
 
       try {
-        const prompt = `You are a data analyst assistant answering questions about a software development project.
+        await configureGit(sandbox);
+        await cloneRepo(sandbox, githubToken, repo.owner, repo.name, "~/workspace");
+        await sandbox.process.executeCommand(
+          "npm install -g convex",
+          "/",
+          undefined,
+          120,
+        );
+        await installClaudeCode(sandbox);
 
-${formatContextForPrompt(context)}
+        const mcpConfig = JSON.stringify({
+          type: "stdio",
+          command: "bash",
+          args: [
+            "-c",
+            `export CONVEX_DEPLOYMENT='${serverEnv.CONVEX_DEPLOYMENT}' && export CONVEX_DEPLOY_KEY='${serverEnv.CONVEX_DEPLOY_KEY}' && cd $HOME/workspace/backend && convex mcp start`,
+          ],
+        });
+        const mcpConfigBase64 = Buffer.from(mcpConfig).toString("base64");
+        await sandbox.process.executeCommand(
+          `claude mcp add-json convex "$(echo '${mcpConfigBase64}' | base64 -d)"`,
+          "/",
+          undefined,
+          30,
+        );
+
+        const prompt = `You are a data analyst with access to query a software project database via Convex MCP.
+
+## Database Schema
+- agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
+- agentRuns: _id, taskId, status (queued/running/success/error), logs[], startedAt, finishedAt, prUrl, error
+- sessions: _id, repoId, userId, title, status (active/closed), messages[], branchName, prUrl
+- projects: _id, repoId, userId, title, description, phase (draft/finalized/active/completed), branchName
+- boards: _id, name, ownerId, repoId, createdAt
+- docs: _id, repoId, title, content, createdAt, updatedAt
+
+## Current Repository ID
+repoId: "${repoId}"
 
 ## Question
 ${question}
 
 ## Instructions
-- Be concise and direct
-- Use the provided data to give accurate answers
-- If the data doesn't contain what's needed, say so
-- Format numbers nicely (e.g., "5 tasks" not "5.0 tasks")
-- Don't make up data that isn't provided`;
+- Use the runOneoffQuery MCP tool to query the Convex database
+- Write JavaScript query code that uses ctx.db.query() with proper indexes
+- Filter by repoId where applicable (e.g., sessions, projects use by_repo index)
+- For agentTasks, query boards by repoId first, then tasks by boardId
+- Analyze the results and provide insights
+- Be concise and accurate`;
 
-        const claudeResult = await runClaudeCLI(sandbox, prompt, {
+        const result = await runClaudeCLI(sandbox, prompt, {
           model: "sonnet",
           allowedTools: [],
-          workDir: "/",
-          timeout: 60,
+          workDir: "~/workspace/backend",
+          timeout: 180,
         });
 
-        return claudeResult.result || "I couldn't generate a response.";
+        return result.result || "I couldn't generate a response.";
       } finally {
         await sandbox.delete();
       }
     });
 
-    const fullResponse = `${formatDataSummary(context)}
-
----
-
-${answer}`;
-
     await step.run("save-response", async () => {
       await convex.mutation(api.researchQueries.addMessageNoAuth, {
         id: queryId as Id<"researchQueries">,
         role: "assistant",
-        content: fullResponse,
+        content: answer,
       });
     });
 
     return { success: true };
-  }
+  },
 );

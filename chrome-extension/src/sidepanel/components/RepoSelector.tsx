@@ -23,20 +23,18 @@ export function RepoSelector({
     );
   }
 
+  const options = repos.map((repo) => ({
+    value: repo._id,
+    label: `${repo.owner}/${repo.name}`,
+  }));
+
   return (
     <Select
       value={selectedRepoId || ""}
-      onChange={(e) => onRepoChange(e.target.value)}
+      options={options}
+      onChange={onRepoChange}
+      placeholder="Select repository..."
       className="flex-1"
-    >
-      <option value="" disabled>
-        Select repository...
-      </option>
-      {repos.map((repo) => (
-        <option key={repo._id} value={repo._id}>
-          {repo.owner}/{repo.name}
-        </option>
-      ))}
-    </Select>
+    />
   );
 }

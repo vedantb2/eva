@@ -5,16 +5,19 @@ import {
   SignedOut,
   SignInButton,
   UserButton,
+  useUser,
 } from "@clerk/chrome-extension";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
 import { SelectionTool } from "./components/SelectionTool";
+import { SessionSidebar } from "./components/SessionSidebar";
 import { Button } from "@/components/ui/button";
-import { IconSun, IconMoon, IconBolt } from "@tabler/icons-react";
+import { IconSun, IconMoon, IconBolt, IconList } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
+import { GenericId as Id } from "convex/values";
 
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
@@ -72,12 +75,18 @@ const isAllowedUrl = (url: string) => {
 };
 
 function AuthenticatedApp() {
+  const { user } = useUser();
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [capturedContext, setCapturedContext] =
     useState<ExtractedContext | null>(null);
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  const createSession = useMutation(api.sessions.create);
+  const getOrCreateExtensionSession = useMutation(api.sessions.getOrCreateExtensionSession);
 
   useEffect(() => {
     const checkCurrentTab = async () => {
@@ -131,14 +140,33 @@ function AuthenticatedApp() {
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
+  useEffect(() => {
+    if (selectedRepoId && user?.id) {
+      getOrCreateExtensionSession({
+        repoId: selectedRepoId as Id<"githubRepos">,
+        clerkId: user.id,
+      }).then((result) => setCurrentSessionId(result.id));
+    }
+  }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);
+
   const handleRepoChange = (repoId: string) => {
     setSelectedRepoId(repoId);
+    setCurrentSessionId(null);
     chrome.storage.local.set({ defaultRepoId: repoId });
   };
 
   const handleClearContext = () => {
     setCapturedContext(null);
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
+  };
+
+  const handleNewSession = async () => {
+    if (!selectedRepoId) return;
+    const sessionId = await createSession({
+      repoId: selectedRepoId as Id<"githubRepos">,
+      title: `Session ${new Date().toLocaleDateString()}`,
+    });
+    setCurrentSessionId(sessionId);
   };
 
   if (isValidUrl === null || isLoadingRepos) {
@@ -165,8 +193,15 @@ function AuthenticatedApp() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="relative flex flex-col h-screen bg-background text-foreground">
       <header className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <IconList size={20} />
+        </Button>
         <SelectionTool />
         <RepoSelector
           repos={repos}
@@ -180,9 +215,21 @@ function AuthenticatedApp() {
 
       <ChatPanel
         selectedRepoId={selectedRepoId}
+        sessionId={currentSessionId}
         capturedContext={capturedContext}
         onClearContext={handleClearContext}
       />
+
+      {selectedRepoId && (
+        <SessionSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          repoId={selectedRepoId}
+          currentSessionId={currentSessionId}
+          onSessionSelect={setCurrentSessionId}
+          onNewSession={handleNewSession}
+        />
+      )}
     </div>
   );
 }

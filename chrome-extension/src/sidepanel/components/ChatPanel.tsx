@@ -21,16 +21,18 @@ type Mode = "ask" | "flag";
 
 interface ChatPanelProps {
   selectedRepoId: string | null;
+  sessionId: string | null;
   capturedContext: ExtractedContext | null;
   onClearContext: () => void;
 }
 
 export function ChatPanel({
   selectedRepoId,
+  sessionId,
   capturedContext,
   onClearContext,
 }: ChatPanelProps) {
-  const { user } = useUser();
+  useUser();
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -39,25 +41,23 @@ export function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
-  const getOrCreateExtensionSession = useMutation(api.sessions.getOrCreateExtensionSession);
   const addMessage = useMutation(api.sessions.addMessage);
-  const [extensionSessionId, setExtensionSessionId] = useState<string | null>(null);
 
-  const extensionSession = useQuery(
+  const currentSession = useQuery(
     api.sessions.get,
-    extensionSessionId ? { id: extensionSessionId as Id<"sessions"> } : "skip",
+    sessionId ? { id: sessionId as Id<"sessions"> } : "skip",
   );
 
-  const isLoadingSession = extensionSessionId !== null && extensionSession === undefined;
+  const isLoadingSession = sessionId !== null && currentSession === undefined;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    if (extensionSession && mode === "ask") {
+    if (currentSession && mode === "ask") {
       setMessages(
-        extensionSession.messages.map((m, i) => ({
+        currentSession.messages.map((m, i) => ({
           id: `session-${i}`,
           role: m.role,
           content: m.content,
@@ -65,16 +65,7 @@ export function ChatPanel({
         })),
       );
     }
-  }, [extensionSession, mode]);
-
-  useEffect(() => {
-    if (selectedRepoId && user?.id) {
-      getOrCreateExtensionSession({
-        repoId: selectedRepoId as Id<"githubRepos">,
-        clerkId: user.id,
-      }).then((result) => setExtensionSessionId(result.id));
-    }
-  }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);
+  }, [currentSession, mode]);
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
@@ -146,14 +137,14 @@ Please review all components and files used on this page before implementing the
           },
         ]);
 
-        if (extensionSessionId) {
+        if (sessionId) {
           await addMessage({
-            id: extensionSessionId as Id<"sessions">,
+            id: sessionId as Id<"sessions">,
             role: "user",
             content: input,
           });
           await addMessage({
-            id: extensionSessionId as Id<"sessions">,
+            id: sessionId as Id<"sessions">,
             role: "assistant",
             content: successMessage,
           });
@@ -190,7 +181,7 @@ Please review all components and files used on this page before implementing the
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            sessionId: extensionSessionId,
+            sessionId: sessionId,
             message: fullMessage,
           }),
         });

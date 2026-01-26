@@ -20,7 +20,7 @@ const phaseConfig: Record<
     icon: IconNotes,
   },
   finalized: {
-    label: "Finalized",
+    label: "Finalised",
     bgClass: "bg-blue-100 dark:bg-blue-900/30",
     textClass: "text-blue-700 dark:text-blue-400",
     icon: IconCheck,

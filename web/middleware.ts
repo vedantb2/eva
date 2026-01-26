@@ -16,8 +16,10 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://localhost:3001",
-  "http://localhost:3001",
 ];
+
+const isExtensionRoute = (url: string) => url.includes("/api/extension/");
+const isExtensionOrigin = (origin: string) => origin.startsWith("chrome-extension://");
 
 const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -28,14 +30,11 @@ const corsHeaders = {
 
 export default clerkMiddleware(async (auth, req) => {
   const origin = req.headers.get("origin") || "";
-  const isAllowedOrigin = allowedOrigins.includes(origin);
+  const url = req.url;
+  const isAllowedOrigin = allowedOrigins.includes(origin) ||
+    (isExtensionRoute(url) && isExtensionOrigin(origin));
 
-  console.log(`🔍 Middleware: ${req.method} ${req.url}`);
-  console.log(`🌐 Origin: ${origin}, Allowed: ${isAllowedOrigin}`);
-
-  // Handle preflight OPTIONS requests immediately
   if (req.method === "OPTIONS") {
-    console.log("✈️ Handling OPTIONS preflight request");
     const headers = new Headers(corsHeaders);
     if (isAllowedOrigin) {
       headers.set("Access-Control-Allow-Origin", origin);
@@ -43,24 +42,20 @@ export default clerkMiddleware(async (auth, req) => {
     return new NextResponse(null, { status: 200, headers });
   }
 
-  // Continue with Clerk authentication for non-OPTIONS requests
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
 
-  // Create response and add CORS headers
   const response = NextResponse.next();
 
   if (isAllowedOrigin) {
     response.headers.set("Access-Control-Allow-Origin", origin);
-    console.log("✅ Added CORS Origin header");
   }
 
   Object.entries(corsHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
 
-  console.log("📤 Response headers:", Array.from(response.headers.entries()));
   return response;
 });
 

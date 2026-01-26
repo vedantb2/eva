@@ -1,9 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { NextResponse } from "next/server";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { clientEnv } from "@/env/client";
+import { validateAuth } from "../validate-auth";
 
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
@@ -25,16 +25,10 @@ interface CreateTaskPayload {
 }
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
+  const authResult = await validateAuth(request);
 
-  if (!token) {
+  if (!authResult) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { userId } = await auth();
-  if (!userId || userId !== token) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
   try {
@@ -67,7 +61,7 @@ export async function POST(request: Request) {
     console.error("Failed to create task:", error);
     return NextResponse.json(
       { error: "Failed to create task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

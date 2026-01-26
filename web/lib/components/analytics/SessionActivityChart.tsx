@@ -71,10 +71,10 @@ export function SessionActivityChart({ timeline, messagesByMode }: SessionActivi
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Session Activity</h3>
         <div className="flex items-center gap-2 text-xs">
-          <span className="px-2 py-1 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">
+          <span className="px-2 py-1 rounded bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">
             {messagesByMode.execute} execute
           </span>
-          <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+          <span className="px-2 py-1 rounded bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">
             {messagesByMode.ask} ask
           </span>
           <span className="px-2 py-1 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">

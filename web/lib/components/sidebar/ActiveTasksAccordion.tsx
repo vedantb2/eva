@@ -39,7 +39,7 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
         aria-label="Active Tasks"
         title={
           <div className="flex items-center gap-2">
-            <IconListCheck className="w-4 h-4 text-pink-600" />
+            <IconListCheck className="w-4 h-4 text-teal-600" />
             <span className="text-sm font-medium">Active Tasks</span>
             <span className="ml-auto text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
               {tasks.length}

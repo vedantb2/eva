@@ -84,7 +84,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
     return (
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
-          <IconLoader2 className="w-8 h-8 text-pink-600 animate-spin mb-4" />
+          <IconLoader2 className="w-8 h-8 text-teal-600 animate-spin mb-4" />
           <p className="text-neutral-600 dark:text-neutral-400">
             {syncing ? "Adding repositories..." : "Loading repositories..."}
           </p>
@@ -151,7 +151,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                       setAddedRepos((prev) => new Set([...prev, repo.fullName]));
                     } catch {}
                   }}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex-shrink-0"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex-shrink-0"
                 >
                   Add
                 </button>
@@ -164,7 +164,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
           <button
             onClick={handleAddAll}
             disabled={repos.length === addedRepos.size}
-            className="flex-1 px-4 py-2 bg-pink-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 bg-teal-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add All & Continue
           </button>

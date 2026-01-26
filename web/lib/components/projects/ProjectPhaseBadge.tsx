@@ -21,8 +21,8 @@ const phaseConfig: Record<
   },
   finalized: {
     label: "Finalized",
-    bgClass: "bg-blue-100 dark:bg-blue-900/30",
-    textClass: "text-blue-700 dark:text-blue-400",
+    bgClass: "bg-teal-100 dark:bg-teal-900/30",
+    textClass: "text-teal-700 dark:text-teal-400",
     icon: IconCheck,
   },
   active: {

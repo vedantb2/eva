@@ -131,7 +131,7 @@ export default function ResearchLayout({
         <div className="flex-1 overflow-y-auto">
           {queries === undefined ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
             </div>
           ) : (
             <div className="p-2 space-y-4">
@@ -157,7 +157,7 @@ export default function ResearchLayout({
                           key={query._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800"
+                              ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
@@ -169,7 +169,7 @@ export default function ResearchLayout({
                               <h3
                                 className={`text-sm font-medium truncate flex-1 ${
                                   isSelected
-                                    ? "text-pink-600 dark:text-pink-400"
+                                    ? "text-teal-600 dark:text-teal-400"
                                     : "text-neutral-900 dark:text-white"
                                 }`}
                               >
@@ -212,7 +212,7 @@ export default function ResearchLayout({
                   href={baseUrl + "/files"}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isFilesPage
-                      ? "bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400"
+                      ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400"
                       : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
                   }`}
                 >

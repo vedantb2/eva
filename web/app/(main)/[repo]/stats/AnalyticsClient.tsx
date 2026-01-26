@@ -86,7 +86,7 @@ export function AnalyticsClient() {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
         </div>
       ) : (
         <div className="space-y-6">

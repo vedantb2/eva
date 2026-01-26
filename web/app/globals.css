@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+ :root {
     --background: 0 0% 98.04%;
     --foreground: 0 0% 9.02%;
 
@@ -13,8 +13,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9.02%;
 
-    /* 🔵 SKY BLUE PRIMARY */
-    --primary: 199 89% 48%; /* SKY_500 #0ea5e9 */
+    /* 🌊 TEAL PRIMARY */
+    --primary: 173 80% 40%; /* TEAL_500 #14b8a6 */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 142 76% 36%;
@@ -32,11 +32,11 @@
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
 
-    /* focus rings now blue too */
-    --ring: 199 89% 48%; /* SKY_500 */
+    /* focus ring teal too */
+    --ring: 173 80% 40%; /* TEAL_500 */
 
     --radius: 0.75rem;
-  }
+ }
 
   .dark {
     --background: 0 0% 9.02%;
@@ -48,8 +48,8 @@
     --popover: 0 0% 14.9%;
     --popover-foreground: 0 0% 96.08%;
 
-    /* slightly brighter blue works better on dark */
-    --primary: 198 93% 60%; /* SKY_400 #38bdf8 */
+    /* brighter teal for dark UI */
+    --primary: 174 72% 56%; /* TEAL_400 #2dd4bf */
     --primary-foreground: 0 0% 9%;
 
     --secondary: 142 71% 45%;
@@ -67,6 +67,6 @@
     --border: 0 0% 25.1%;
     --input: 0 0% 25.1%;
 
-    --ring: 198 93% 60%; /* SKY_400 */
+    --ring: 174 72% 56%; /* TEAL_400 */
   }
 }

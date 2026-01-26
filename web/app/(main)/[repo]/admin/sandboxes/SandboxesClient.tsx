@@ -113,7 +113,7 @@ export function SandboxesClient() {
       >
         {isLoading && sandboxes.length === 0 ? (
           <div className="flex items-center justify-center py-24">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
           </div>
         ) : sandboxes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-neutral-400">

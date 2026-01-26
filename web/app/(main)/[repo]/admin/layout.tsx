@@ -39,12 +39,12 @@ export default function AdminLayout({
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-pink-50 dark:bg-pink-900/20 text-pink-600"
+                    ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
                     : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
               >
                 <item.icon
-                  className={`w-5 h-5 ${isActive ? "text-pink-600" : ""}`}
+                  className={`w-5 h-5 ${isActive ? "text-teal-600" : ""}`}
                 />
                 {item.name}
               </Link>

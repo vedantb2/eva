@@ -60,7 +60,7 @@ export function ReposClient() {
     >
         {repos === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
           </div>
         ) : repos.length === 0 ? (
           <EmptyState
@@ -70,7 +70,7 @@ export function ReposClient() {
             action={
               <a
                 href={connectUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <IconBrandGithub className="w-4 h-4" />
                 Connect GitHub Repository
@@ -83,11 +83,11 @@ export function ReposClient() {
               <Link
                 key={repo._id}
                 href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name) + "/projects"}
-                className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 transition-all group"
+                className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-teal-300 dark:hover:border-teal-700 transition-all group"
               >
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-lg group-hover:bg-pink-50 dark:group-hover:bg-pink-900/20 transition-colors">
-                    <IconBrandGithub className="w-5 h-5 text-neutral-600 dark:text-neutral-300 group-hover:text-pink-600 transition-colors" />
+                  <div className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-lg group-hover:bg-teal-50 dark:group-hover:bg-teal-900/20 transition-colors">
+                    <IconBrandGithub className="w-5 h-5 text-neutral-600 dark:text-neutral-300 group-hover:text-teal-600 transition-colors" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-neutral-500 dark:text-neutral-400">

@@ -19,7 +19,7 @@ export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
       </div>
     );
   }
@@ -43,7 +43,7 @@ export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
             onClick={() => onSelect(doc._id)}
             className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
               selectedId === doc._id
-                ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
                 : "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
             }`}
           >

@@ -49,7 +49,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   if (query === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
       </div>
     );
   }
@@ -99,7 +99,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               <div
                 className={`max-w-[80%] px-4 py-2 rounded-xl ${
                   message.role === "user"
-                    ? "bg-pink-600 text-white"
+                    ? "bg-teal-600 text-white"
                     : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                 }`}
               >
@@ -117,7 +117,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         )}
         {isSending && (
           <div className="flex gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-600" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600" />
             <span className="text-sm text-neutral-500">Sending...</span>
           </div>
         )}

@@ -36,7 +36,7 @@ function DocsListPanel({
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
       </div>
     );
   }
@@ -61,7 +61,7 @@ function DocsListPanel({
             onClick={() => onSelect(doc._id)}
             className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
               selectedId === doc._id
-                ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
                 : "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
             }`}
           >
@@ -77,7 +77,7 @@ function DocsListPanel({
 function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
   const styles = {
     pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
-    running: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+    running: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
     completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
     error: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
   };
@@ -106,7 +106,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
       </div>
 
       {report.status === "running" && (
-        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+        <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
           <span className="text-sm">Evaluating codebase...</span>
         </div>
@@ -251,7 +251,7 @@ function ReportsPanel({
       <div className="flex-1 overflow-y-auto p-4">
         {reports === undefined ? (
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-600" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
           </div>
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-neutral-400">

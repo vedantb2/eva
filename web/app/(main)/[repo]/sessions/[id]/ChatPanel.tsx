@@ -124,7 +124,7 @@ export function ChatPanel({
                 `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
               }
               target="_blank"
-              className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600"
+              className="flex items-center gap-1 text-sm text-teal-500 hover:text-teal-600"
             >
               <IconGitBranch className="w-4 h-4" />
               {prUrl && (
@@ -185,7 +185,7 @@ export function ChatPanel({
                   <div
                     className={`max-w-[85%] px-3 py-2 rounded-xl ${
                       message.role === "user"
-                        ? "bg-pink-600 text-white"
+                        ? "bg-teal-600 text-white"
                         : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
@@ -312,7 +312,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 rounded-lg">
+          <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}

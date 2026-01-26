@@ -60,8 +60,8 @@ const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
   },
   finalized: {
     label: "Finalized",
-    badgeBg: "bg-blue-100 dark:bg-blue-900/30",
-    badgeText: "text-blue-700 dark:text-blue-400",
+    badgeBg: "bg-teal-100 dark:bg-teal-900/30",
+    badgeText: "text-teal-700 dark:text-teal-400",
     cardBg: "bg-white dark:bg-neutral-900",
     icon: IconCheck,
   },
@@ -160,7 +160,7 @@ export function ProjectsClient() {
       >
         {projects === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
           </div>
         ) : projects.length === 0 ? (
           <EmptyState
@@ -276,12 +276,12 @@ export function ProjectsClient() {
                       return (
                         <div
                           key={project._id}
-                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-pink-300 dark:hover:border-pink-700 hover:shadow-sm transition-all group ${phaseConfig[phase].cardBg}`}
+                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-sm transition-all group ${phaseConfig[phase].cardBg}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <Link href={projectUrl} className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 transition-colors truncate">
+                                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-teal-600 transition-colors truncate">
                                   {project.title}
                                 </h3>
                               </div>
@@ -321,7 +321,7 @@ export function ProjectsClient() {
                               </Tooltip>
                               <Link
                                 href={projectUrl}
-                                className="text-neutral-400 group-hover:text-pink-600 transition-colors p-1"
+                                className="text-neutral-400 group-hover:text-teal-600 transition-colors p-1"
                               >
                                 <IconChevronRight size={18} />
                               </Link>

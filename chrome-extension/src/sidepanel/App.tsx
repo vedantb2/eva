@@ -206,7 +206,6 @@ function AuthenticatedApp() {
           selectedRepoId={selectedRepoId}
           onRepoChange={handleRepoChange}
         />
-        <div className="flex-1" />
         <ThemeToggle />
         <UserButton afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`} />
       </header>

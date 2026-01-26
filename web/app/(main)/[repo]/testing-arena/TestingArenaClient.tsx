@@ -225,7 +225,7 @@ function ReportsPanel({
 
   if (!doc) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-100/40 dark:bg-neutral-800 rounded-lg border border-teal-700 dark:border-teal-200 text-neutral-400">
         <IconFileText size={48} className="mb-3" />
         <p>Select a document to test</p>
       </div>
@@ -233,7 +233,7 @@ function ReportsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-800 rounded-lg border border-teal-700 dark:border-teal-200 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
           {doc.title}
@@ -256,7 +256,9 @@ function ReportsPanel({
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-neutral-400">
             <p className="text-sm">No test runs yet</p>
-            <p className="text-xs mt-1">Click "Run Test" to evaluate this doc</p>
+            <p className="text-xs mt-1">
+              Click "Run Test" to evaluate this doc
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -310,7 +312,7 @@ export function TestingArenaClient() {
         </Button>
       }
     >
-      <div className="grid grid-cols-3 grid-rows-[1fr] gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-3 grid-rows-[1fr] gap-2 flex-1 min-h-0">
         <div className="col-span-1 h-full overflow-hidden">
           <DocsListPanel
             docs={docs}

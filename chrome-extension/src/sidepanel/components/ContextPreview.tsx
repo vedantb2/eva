@@ -95,7 +95,7 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
     : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
 
   return (
-    <div className="bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-border overflow-hidden">
+    <div className="bg-muted rounded-lg border border-border overflow-hidden">
       <div
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -105,7 +105,7 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
             {isExpanded ? "▼" : "▶"}
           </span>
           <span className="text-sm text-foreground">
-            Captured: <span className="text-blue-600 dark:text-blue-400">{displayName}</span>
+            Captured: <span className="text-primary">{displayName}</span>
           </span>
           <span className="text-xs text-muted-foreground">
             {hasReact

@@ -239,13 +239,13 @@ export function Sidebar() {
                           title={collapsed ? item.name : undefined}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                             isActive
-                              ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
+                              ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
                               : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                           }`}
                         >
                           <item.icon
                             className={`w-5 h-5 flex-shrink-0 ${
-                              isActive ? "text-teal-600" : ""
+                              isActive ? "text-teal-800 dark:text-teal-200" : ""
                             }`}
                           />
                           {!collapsed && item.name}

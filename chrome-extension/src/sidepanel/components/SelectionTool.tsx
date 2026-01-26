@@ -51,16 +51,16 @@ export function SelectionTool({ hasCapturedContext = false }: SelectionToolProps
       onClick={handleClick}
       className={`relative p-2 rounded-lg transition-all duration-200 ${
         isSelecting
-          ? "bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-neutral-900"
-          : "bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700"
+          ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+          : "bg-muted text-muted-foreground hover:text-foreground hover:bg-accent"
       }`}
       title={isSelecting ? "Cancel selection" : "Select element"}
     >
       {isSelecting && (
-        <span className="absolute inset-0 rounded-lg animate-ping bg-blue-500 opacity-30" />
+        <span className="absolute inset-0 rounded-lg animate-ping bg-primary opacity-30" />
       )}
       {hasCapturedContext && !isSelecting && (
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-neutral-900" />
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-background" />
       )}
       <svg
         className="relative w-5 h-5"

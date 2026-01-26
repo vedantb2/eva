@@ -340,7 +340,7 @@ Please review all components and files used on this page before implementing the
           </div>
         </div>
 
-        <div className="flex gap-2 items-start">
+        <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -348,7 +348,7 @@ Please review all components and files used on this page before implementing the
             placeholder={getPlaceholder()}
             disabled={!selectedRepoId || isLoading || isLoadingSession}
             rows={3}
-            className="flex-1 min-h-[4.5rem] resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 min-h-[4.5rem] resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
           <Button
             onClick={handleSend}
@@ -356,6 +356,7 @@ Please review all components and files used on this page before implementing the
               !input.trim() || !selectedRepoId || isLoading || isLoadingSession
             }
             size="icon"
+            className="mb-auto mr-2 mt-2"
           >
             <IconArrowUp size={16} />
           </Button>

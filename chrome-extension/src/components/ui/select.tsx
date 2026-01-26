@@ -46,7 +46,7 @@ export function Select({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-secondary px-3 py-2 text-sm",
+          "flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm overflow-hidden",
           "ring-offset-background placeholder:text-muted-foreground",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
@@ -54,7 +54,7 @@ export function Select({
         )}
         aria-expanded={isOpen}
       >
-        <span className={cn("truncate", !selectedOption && "text-muted-foreground")}>
+        <span className={cn("truncate min-w-0", !selectedOption && "text-muted-foreground")}>
           {selectedOption?.label || placeholder}
         </span>
         <IconChevronDown
@@ -67,10 +67,7 @@ export function Select({
 
       {isOpen && (
         <div
-          className={cn(
-            "absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-secondary text-secondary-foreground shadow-md",
-            "animate-in fade-in-0 zoom-in-95"
-          )}
+          className="absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-neutral-200 dark:bg-neutral-800 shadow-md"
         >
           <div className="max-h-[300px] overflow-y-auto p-1">
             {options.length === 0 ? (
@@ -88,9 +85,9 @@ export function Select({
                   }}
                   className={cn(
                     "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none",
-                    "hover:bg-accent hover:text-accent-foreground",
-                    "focus:bg-accent focus:text-accent-foreground",
-                    option.value === value && "bg-accent text-accent-foreground"
+                    "hover:bg-primary/10 hover:text-primary",
+                    "focus:bg-primary/10 focus:text-primary",
+                    option.value === value && "bg-primary/10 text-primary"
                   )}
                 >
                   <span className="truncate">{option.label}</span>

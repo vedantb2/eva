@@ -38,7 +38,7 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
       />
       <Card
         shadow="none"
-        className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
+        className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100 text-default-900"}`}
       >
         <CardBody className="py-2 px-2 sm:px-3">
           <p className="text-sm whitespace-pre-wrap break-words">{content}</p>

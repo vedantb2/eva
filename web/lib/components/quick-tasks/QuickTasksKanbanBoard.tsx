@@ -8,6 +8,8 @@ import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
+import { Button } from "@heroui/button";
+import { IconPlayerPlay } from "@tabler/icons-react";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -26,7 +28,9 @@ interface QuickTasksKanbanBoardProps {
 export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const startExecution = useMutation(api.agentTasks.startExecution);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isFixingAll, setIsFixingAll] = useState(false);
 
   const tasks = allTasks?.filter((t) => !t.projectId) ?? [];
 
@@ -46,6 +50,38 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
     await updateStatus({ id: id as Id<"agentTasks">, status });
   };
 
+  const todoTasks = tasks.filter((t) => t.status === "todo");
+
+  const handleFixAll = async () => {
+    if (todoTasks.length === 0) return;
+    setIsFixingAll(true);
+    try {
+      for (const task of todoTasks) {
+        const result = await startExecution({ id: task._id });
+        await fetch("/api/inngest/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "task/execute.requested",
+            data: {
+              runId: result.runId,
+              taskId: result.taskId,
+              repoId: result.repoId,
+              installationId: result.installationId,
+              projectId: result.projectId,
+              branchName: result.branchName,
+              isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+            },
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fix all:", err);
+    } finally {
+      setIsFixingAll(false);
+    }
+  };
+
   return (
     <>
       <KanbanBoard
@@ -53,6 +89,20 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
         onStatusChange={handleStatusChange}
         onItemClick={setSelectedTask}
         fillHeight
+        columnExtra={(status) =>
+          status === "todo" && todoTasks.length > 0 ? (
+            <Button
+              size="sm"
+              variant="flat"
+              color="primary"
+              startContent={<IconPlayerPlay size={14} />}
+              onPress={handleFixAll}
+              isLoading={isFixingAll}
+            >
+              Fix All
+            </Button>
+          ) : null
+        }
         renderCard={(task) => (
           <QuickTaskCard
             id={task._id}

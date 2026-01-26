@@ -27,6 +27,7 @@ interface KanbanColumnProps {
   count: number;
   children: ReactNode;
   droppable?: boolean;
+  headerExtra?: ReactNode;
 }
 
 export function KanbanColumn({
@@ -35,6 +36,7 @@ export function KanbanColumn({
   count,
   children,
   droppable = true,
+  headerExtra,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
 
@@ -58,6 +60,7 @@ export function KanbanColumn({
             {count}
           </span>
         </div>
+        {headerExtra}
       </CardHeader>
       <CardBody className="pt-0 overflow-y-auto space-y-2 flex-1 min-h-0">{children}</CardBody>
     </Card>

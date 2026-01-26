@@ -5,7 +5,6 @@ import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Chip } from "@heroui/chip";
 import {
-  IconSend,
   IconGitBranch,
   IconUser,
   IconPlayerPlay,
@@ -15,6 +14,7 @@ import {
   IconClipboardList,
   IconFileText,
   IconGitPullRequest,
+  IconArrowUp
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useEffect, useRef, useState } from "react";
@@ -160,55 +160,66 @@ export function ChatPanel({
             </p>
           </div>
         ) : (
-          messages.filter((m) => m.mode !== "flag").map((message, index) => (
-            <div
-              key={index}
-              className={`flex gap-3 ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              {message.role === "assistant" && (
-                <div className="flex-shrink-0 w-7 h-7 rounded-full overflow-hidden">
-                  <Image src="/icon.png" alt="Assistant" width={28} height={28} />
-                </div>
-              )}
-              <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+          messages
+            .filter((m) => m.mode !== "flag")
+            .map((message, index) => (
+              <div
+                key={index}
+                className={`flex gap-3 ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {message.role === "assistant" && (
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full overflow-hidden">
+                    <Image
+                      src="/icon.png"
+                      alt="Assistant"
+                      width={28}
+                      height={28}
+                    />
+                  </div>
+                )}
                 <div
-                  className={`max-w-[85%] px-3 py-2 rounded-xl ${
-                    message.role === "user"
-                      ? "bg-pink-600 text-white"
-                      : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-                  }`}
+                  className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                  <div
+                    className={`max-w-[85%] px-3 py-2 rounded-xl ${
+                      message.role === "user"
+                        ? "bg-pink-600 text-white"
+                        : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
+                  </div>
+                  {message.mode && message.role === "user" && (
+                    <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
+                      {message.mode === "execute" && (
+                        <>
+                          <IconCode className="w-3 h-3" /> Execute
+                        </>
+                      )}
+                      {message.mode === "ask" && (
+                        <>
+                          <IconMessageQuestion className="w-3 h-3" /> Ask
+                        </>
+                      )}
+                      {message.mode === "plan" && (
+                        <>
+                          <IconClipboardList className="w-3 h-3" /> Plan
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {message.mode && message.role === "user" && (
-                  <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
-                    {message.mode === "execute" && (
-                      <>
-                        <IconCode className="w-3 h-3" /> Execute
-                      </>
-                    )}
-                    {message.mode === "ask" && (
-                      <>
-                        <IconMessageQuestion className="w-3 h-3" /> Ask
-                      </>
-                    )}
-                    {message.mode === "plan" && (
-                      <>
-                        <IconClipboardList className="w-3 h-3" /> Plan
-                      </>
-                    )}
+                {message.role === "user" && (
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                    <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
                   </div>
                 )}
               </div>
-              {message.role === "user" && (
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                  <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                </div>
-              )}
-            </div>
-          ))
+            ))
         )}
         {isSending && (
           <div className="flex gap-3">
@@ -301,7 +312,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-2 items-end bg-neutral-100 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -329,12 +340,13 @@ export function ChatPanel({
             <Button
               type="submit"
               isIconOnly
+              className="mb-auto mr-2 mt-2"
               color="primary"
               isLoading={isSending}
               isDisabled={isInputDisabled || !input.trim()}
               size="sm"
             >
-              <IconSend size={16} />
+              <IconArrowUp size={16} />
             </Button>
           </div>
         </form>

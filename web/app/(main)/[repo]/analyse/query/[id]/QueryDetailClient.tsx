@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
-import { IconSend, IconUser } from "@tabler/icons-react";
+import { IconArrowUp, IconSend, IconUser } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -88,7 +88,12 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             >
               {message.role === "assistant" && (
                 <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden">
-                  <Image src="/icon.png" alt="Assistant" width={32} height={32} />
+                  <Image
+                    src="/icon.png"
+                    alt="Assistant"
+                    width={32}
+                    height={32}
+                  />
                 </div>
               )}
               <div
@@ -98,7 +103,9 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {message.content}
+                </p>
               </div>
               {message.role === "user" && (
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
@@ -123,7 +130,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -143,10 +150,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               type="submit"
               isIconOnly
               color="primary"
+              className="mb-auto mr-2 mt-2"
               isLoading={isSending}
               isDisabled={isSending || !input.trim()}
             >
-              <IconSend size={18} />
+              <IconArrowUp size={18} />
             </Button>
           </div>
         </form>

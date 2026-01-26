@@ -30,8 +30,6 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
         >
           <ThemeProvider>
             <HeroUIProvider
-              // disableAnimation={true}
-              // skipFramerMotionAnimations={false}
               navigate={router.push}
             >
               <ToastProvider placement="top-center" />

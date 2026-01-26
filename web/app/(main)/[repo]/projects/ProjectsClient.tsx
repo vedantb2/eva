@@ -247,7 +247,7 @@ export function ProjectsClient() {
               <Input
                 placeholder="Search projects..."
                 size="sm"
-                className="w-48"
+                className="w-1/2 mx-auto"
                 startContent={
                   <IconSearch size={16} className="text-default-400" />
                 }
@@ -269,7 +269,10 @@ export function ProjectsClient() {
                   >
                     {projectsByPhase[phase]?.map((project) => {
                       const projectUrl =
-                        "/" + encodeRepoSlug(fullName) + "/projects/" + project._id;
+                        "/" +
+                        encodeRepoSlug(fullName) +
+                        "/projects/" +
+                        project._id;
                       return (
                         <div
                           key={project._id}
@@ -294,7 +297,9 @@ export function ProjectsClient() {
                               {project.branchName && (
                                 <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
                                   <IconGitBranch className="w-3 h-3 flex-shrink-0" />
-                                  <span className="truncate">{project.branchName}</span>
+                                  <span className="truncate">
+                                    {project.branchName}
+                                  </span>
                                 </div>
                               )}
                             </Link>
@@ -331,14 +336,20 @@ export function ProjectsClient() {
                       </p>
                     )}
                   </KanbanColumn>
-                )
+                ),
               )}
             </div>
           </div>
         )}
       </PageWrapper>
-      <NewProjectModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
-      <Modal isOpen={!!projectToDelete} onClose={() => setProjectToDelete(null)}>
+      <NewProjectModal
+        isOpen={isCreating}
+        onClose={() => setIsCreating(false)}
+      />
+      <Modal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+      >
         <ModalContent>
           <ModalHeader>Delete Project</ModalHeader>
           <ModalBody>
@@ -348,11 +359,13 @@ export function ProjectsClient() {
             </p>
             <div className="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
               <p className="text-sm text-warning-700 dark:text-warning-300">
-                This will permanently delete the project and all associated tasks, subtasks,
-                agent runs, and dependencies.
+                This will permanently delete the project and all associated
+                tasks, subtasks, agent runs, and dependencies.
               </p>
             </div>
-            <p className="text-sm text-default-500 mt-3">This action cannot be undone.</p>
+            <p className="text-sm text-default-500 mt-3">
+              This action cannot be undone.
+            </p>
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setProjectToDelete(null)}>

@@ -179,10 +179,10 @@ function AuthenticatedApp() {
   if (!isValidUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
-        <p className="text-muted-foreground text-center">
+        <p className="text-xl text-muted-foreground text-center">
           Eva Assist is only supported on:
         </p>
-        <ul className="mt-4 text-sm text-muted-foreground list-disc list-inside">
+        <ul className="mt-4 text-muted-foreground list-disc list-inside">
           <li>localhost:3000</li>
           <li>*.vercel.app</li>
           <li>vedantb.com</li>

@@ -14,7 +14,7 @@ export function LandingAuthNav() {
           </button>
         </SignInButton>
         <SignUpButton mode="modal">
-          <button className="px-4 py-2 text-sm font-medium bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors">
+          <button className="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
             Get Started
           </button>
         </SignUpButton>
@@ -22,7 +22,7 @@ export function LandingAuthNav() {
       <Authenticated>
         <Link
           href="/repos"
-          className="px-4 py-2 text-sm font-medium bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+          className="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
         >
           Dashboard
         </Link>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useUser } from "@clerk/chrome-extension";
+import { useUser, useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { IconArrowUp, IconFlag, IconMessageCircle } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface Message {
   id: string;
@@ -29,6 +31,7 @@ export function ChatPanel({
   onClearContext,
 }: ChatPanelProps) {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -40,22 +43,21 @@ export function ChatPanel({
   const addMessage = useMutation(api.sessions.addMessage);
   const [extensionSessionId, setExtensionSessionId] = useState<string | null>(null);
 
-  const session = useQuery(
-    api.sessions.list,
-    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip",
+  const extensionSession = useQuery(
+    api.sessions.get,
+    extensionSessionId ? { id: extensionSessionId as Id<"sessions"> } : "skip",
   );
 
-  const activeSession = session?.[0];
-  const isLoadingSession = session === undefined && selectedRepoId !== null;
+  const isLoadingSession = extensionSessionId !== null && extensionSession === undefined;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    if (activeSession && mode === "ask") {
+    if (extensionSession && mode === "ask") {
       setMessages(
-        activeSession.messages.map((m, i) => ({
+        extensionSession.messages.map((m, i) => ({
           id: `session-${i}`,
           role: m.role,
           content: m.content,
@@ -63,7 +65,7 @@ export function ChatPanel({
         })),
       );
     }
-  }, [activeSession, mode]);
+  }, [extensionSession, mode]);
 
   useEffect(() => {
     if (selectedRepoId && user?.id) {
@@ -172,17 +174,44 @@ Please review all components and files used on this page before implementing the
         setIsLoading(false);
       }
     } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content:
-            "Ask mode requires the session API. This feature is coming soon.",
-          timestamp: Date.now(),
-        },
-      ]);
-      setIsLoading(false);
+      try {
+        const [tab] = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        const pageUrl = tab?.url || "";
+        const fullMessage = pageUrl ? `Page URL: ${pageUrl}\n\n${input}` : input;
+
+        const token = await getToken({ template: "convex" });
+        const response = await fetch(`${API_URL}/api/extension/ask`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sessionId: extensionSessionId,
+            message: fullMessage,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to send message");
+        }
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

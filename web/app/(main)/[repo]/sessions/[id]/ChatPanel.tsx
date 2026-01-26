@@ -177,10 +177,10 @@ export function ChatPanel({
                   className={`max-w-[85%] px-3 py-2 rounded-xl ${
                     message.role === "user"
                       ? "bg-pink-600 text-white"
-                      : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                      : "bg-white dark:bg-default-800 border border-neutral-200 dark:border-neutral-700"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className={`text-sm whitespace-pre-wrap ${message.role === "assistant" ? "dark:text-black" : ""}`}>{message.content}</p>
                 </div>
                 {message.mode && message.role === "user" && (
                   <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">

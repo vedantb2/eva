@@ -37,8 +37,8 @@ export function SelectionTool() {
       onClick={handleClick}
       className={`p-2 rounded-lg transition-colors ${
         isSelecting
-          ? "bg-blue-600 text-white"
-          : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+          ? "bg-neutral-600 text-white"
+          : "bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700"
       }`}
       title={isSelecting ? "Cancel selection" : "Select element"}
     >

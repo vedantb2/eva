@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import { useUser } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
-import { RepoSelector } from "./RepoSelector";
-import { SelectionTool } from "./SelectionTool";
 import { ContextPreview } from "./ContextPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,24 +20,17 @@ interface Message {
 type Mode = "ask" | "flag";
 
 interface ChatPanelProps {
-  repos: Array<{
-    _id: Id<"githubRepos">;
-    owner: string;
-    name: string;
-  }>;
   selectedRepoId: string | null;
-  onRepoChange: (repoId: string) => void;
   capturedContext: ExtractedContext | null;
   onClearContext: () => void;
 }
 
 export function ChatPanel({
-  repos,
   selectedRepoId,
-  onRepoChange,
   capturedContext,
   onClearContext,
 }: ChatPanelProps) {
+  const { user } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +38,9 @@ export function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const getOrCreateExtensionSession = useMutation(api.sessions.getOrCreateExtensionSession);
+  const addMessage = useMutation(api.sessions.addMessage);
+  const [extensionSessionId, setExtensionSessionId] = useState<string | null>(null);
 
   const session = useQuery(
     api.sessions.list,
@@ -71,6 +66,15 @@ export function ChatPanel({
       );
     }
   }, [activeSession, mode]);
+
+  useEffect(() => {
+    if (selectedRepoId && user?.id) {
+      getOrCreateExtensionSession({
+        repoId: selectedRepoId as Id<"githubRepos">,
+        clerkId: user.id,
+      }).then((result) => setExtensionSessionId(result.id));
+    }
+  }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
@@ -130,15 +134,31 @@ Please review all components and files used on this page before implementing the
           description: fullDescription,
         });
 
+        const successMessage = `Issue flagged successfully!${capturedContext ? `\n\nI've attached the captured ${capturedContext.metadata.hasReact ? "React component" : "element"} context to the task.` : ""}`;
+
         setMessages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: `Issue flagged successfully!${capturedContext ? `\n\nI've attached the captured ${capturedContext.metadata.hasReact ? "React component" : "element"} context to the task.` : ""}`,
+            content: successMessage,
             timestamp: Date.now(),
           },
         ]);
+
+        if (extensionSessionId) {
+          await addMessage({
+            id: extensionSessionId as Id<"sessions">,
+            role: "user",
+            content: input,
+          });
+          await addMessage({
+            id: extensionSessionId as Id<"sessions">,
+            role: "assistant",
+            content: successMessage,
+          });
+        }
+
         onClearContext();
       } catch (error) {
         setMessages((prev) => [
@@ -190,15 +210,6 @@ Please review all components and files used on this page before implementing the
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <RepoSelector
-          repos={repos}
-          selectedRepoId={selectedRepoId}
-          onRepoChange={onRepoChange}
-        />
-        <SelectionTool />
-      </div>
-
       {capturedContext && (
         <ContextPreview context={capturedContext} onClear={onClearContext} />
       )}

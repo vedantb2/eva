@@ -17,7 +17,7 @@ function ComponentTree({
   const hasChildren = node.children.length > 0;
 
   const typeColors: Record<string, string> = {
-    component: "text-blue-400",
+    component: "text-neutral-400",
     element: "text-green-400",
     fragment: "text-purple-400",
     text: "text-slate-400",
@@ -105,7 +105,7 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
             {isExpanded ? "▼" : "▶"}
           </span>
           <span className="text-sm text-slate-300">
-            Captured: <span className="text-blue-400">{displayName}</span>
+            Captured: <span className="text-neutral-400">{displayName}</span>
           </span>
           <span className="text-xs text-slate-500">
             {hasReact

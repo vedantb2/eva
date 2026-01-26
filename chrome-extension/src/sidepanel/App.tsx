@@ -10,6 +10,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
+import { RepoSelector } from "./components/RepoSelector";
+import { SelectionTool } from "./components/SelectionTool";
 import { Button } from "@/components/ui/button";
 import { IconSun, IconMoon, IconBolt } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
@@ -115,15 +117,20 @@ function AuthenticatedApp() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <header className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <SelectionTool />
+        <RepoSelector
+          repos={repos}
+          selectedRepoId={selectedRepoId}
+          onRepoChange={handleRepoChange}
+        />
+        <div className="flex-1" />
         <ThemeToggle />
         <UserButton afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`} />
       </header>
 
       <ChatPanel
-        repos={repos}
         selectedRepoId={selectedRepoId}
-        onRepoChange={handleRepoChange}
         capturedContext={capturedContext}
         onClearContext={handleClearContext}
       />

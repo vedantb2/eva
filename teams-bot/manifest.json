@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "1.0.0",
+  "id": "{{MICROSOFT_APP_ID}}",
+  "developer": {
+    "name": "Eva",
+    "websiteUrl": "https://eva.dev",
+    "privacyUrl": "https://eva.dev/privacy",
+    "termsOfUseUrl": "https://eva.dev/terms"
+  },
+  "name": {
+    "short": "Eva",
+    "full": "Eva - Codebase Assistant"
+  },
+  "description": {
+    "short": "Ask questions about your codebase",
+    "full": "Eva is an AI assistant that can answer questions about your GitHub repositories. Set a repo with /repo owner/name, then ask anything about the codebase."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#7C3AED",
+  "bots": [
+    {
+      "botId": "{{MICROSOFT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "/repo",
+              "description": "Set the repository context (e.g., /repo owner/name)"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}

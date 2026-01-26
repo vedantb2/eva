@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function SelectionTool() {
   const [isSelecting, setIsSelecting] = useState(false);
+
+  useEffect(() => {
+    const handleMessage = (message: { type: string }) => {
+      if (message.type === "ELEMENT_CAPTURED" || message.type === "SELECTION_CANCELLED") {
+        setIsSelecting(false);
+      }
+    };
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
 
   const handleClick = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

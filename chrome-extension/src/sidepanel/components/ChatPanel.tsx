@@ -4,9 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { IconSend, IconFlag, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowUp, IconFlag, IconMessageCircle } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
 
@@ -278,31 +276,40 @@ Please review all components and files used on this page before implementing the
       </div>
 
       <div className="p-4 border-t border-border space-y-3">
-        <div className="flex items-center justify-center gap-3">
-          <span
-            className={`text-sm ${mode === "ask" ? "text-foreground font-medium" : "text-muted-foreground"}`}
+        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+          <button
+            onClick={() => setMode("ask")}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+              mode === "ask"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
+            <IconMessageCircle size={16} />
             Ask
-          </span>
-          <Switch
-            checked={mode === "flag"}
-            onCheckedChange={(checked) => setMode(checked ? "flag" : "ask")}
-          />
-          <span
-            className={`text-sm ${mode === "flag" ? "text-foreground font-medium" : "text-muted-foreground"}`}
+          </button>
+          <button
+            onClick={() => setMode("flag")}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+              mode === "flag"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
+            <IconFlag size={16} />
             Flag Issue
-          </span>
+          </button>
         </div>
 
-        <div className="flex gap-2">
-          <Input
+        <div className="flex gap-2 items-start">
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholder()}
             disabled={!selectedRepoId || isLoading || isLoadingSession}
-            className="flex-1"
+            rows={3}
+            className="flex-1 min-h-[4.5rem] resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
           <Button
             onClick={handleSend}
@@ -311,7 +318,7 @@ Please review all components and files used on this page before implementing the
             }
             size="icon"
           >
-            <IconSend size={16} />
+            <IconArrowUp size={16} />
           </Button>
         </div>
       </div>

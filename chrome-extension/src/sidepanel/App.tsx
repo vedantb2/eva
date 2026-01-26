@@ -58,12 +58,46 @@ if (!PUBLISHABLE_KEY) {
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
+const isAllowedUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.host;
+    if (host === "localhost:3000") return true;
+    if (host.endsWith(".vercel.app")) return true;
+    if (host === "vedantb.com" || host === "www.vedantb.com") return true;
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 function AuthenticatedApp() {
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [capturedContext, setCapturedContext] =
     useState<ExtractedContext | null>(null);
+  const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkCurrentTab = async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      setIsValidUrl(tab?.url ? isAllowedUrl(tab.url) : false);
+    };
+    checkCurrentTab();
+
+    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.url) {
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id === tabId) {
+            setIsValidUrl(isAllowedUrl(changeInfo.url!));
+          }
+        });
+      }
+    };
+    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+  }, []);
 
   useEffect(() => {
     chrome.storage.local.get(["defaultRepoId"], (result) => {
@@ -107,10 +141,25 @@ function AuthenticatedApp() {
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
   };
 
-  if (isLoadingRepos) {
+  if (isValidUrl === null || isLoadingRepos) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isValidUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
+        <p className="text-muted-foreground text-center">
+          This extension is only supported on:
+        </p>
+        <ul className="mt-4 text-sm text-muted-foreground list-disc list-inside">
+          <li>localhost:3000</li>
+          <li>*.vercel.app</li>
+          <li>vedantb.com</li>
+        </ul>
       </div>
     );
   }

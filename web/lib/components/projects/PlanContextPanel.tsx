@@ -145,7 +145,7 @@ export function PlanContextPanel({
                         className={`inline-block text-left px-4 py-3 rounded-2xl ${
                           isUser
                             ? "bg-primary-500 text-white rounded-tr-sm"
-                            : "bg-default-100 dark:bg-default-800 text-default-900 rounded-tl-sm"
+                            : "bg-default-100 dark:bg-default-800 text-default-900 dark:text-black rounded-tl-sm"
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">{displayContent}</p>

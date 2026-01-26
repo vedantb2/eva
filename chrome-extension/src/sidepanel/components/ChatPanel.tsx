@@ -3,6 +3,7 @@ import { useUser, useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
+import { SelectionTool } from "./SelectionTool";
 import { Button } from "@/components/ui/button";
 import { IconArrowUp, IconFlag, IconMessageCircle } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
@@ -263,13 +264,13 @@ Please review all components and files used on this page before implementing the
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] rounded-lg px-4 py-2 ${
+              className={`max-w-[85%] rounded-lg px-4 py-2 overflow-hidden ${
                 message.role === "user"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card border border-border text-card-foreground"
               }`}
             >
-              <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
             </div>
           </div>
         ))}
@@ -296,29 +297,32 @@ Please review all components and files used on this page before implementing the
       </div>
 
       <div className="p-4 border-t border-border space-y-3">
-        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-          <button
-            onClick={() => setMode("ask")}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-              mode === "ask"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <IconMessageCircle size={16} />
-            Ask
-          </button>
-          <button
-            onClick={() => setMode("flag")}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-              mode === "flag"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <IconFlag size={16} />
-            Flag Issue
-          </button>
+        <div className="flex items-center gap-3">
+          <SelectionTool />
+          <div className="flex-1 flex items-center gap-1 p-1 bg-muted rounded-lg">
+            <button
+              onClick={() => setMode("ask")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                mode === "ask"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <IconMessageCircle size={16} />
+              Ask
+            </button>
+            <button
+              onClick={() => setMode("flag")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                mode === "flag"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <IconFlag size={16} />
+              Flag Issue
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-2 items-start">

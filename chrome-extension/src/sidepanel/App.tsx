@@ -12,10 +12,9 @@ import { api } from "@/api";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
-import { SelectionTool } from "./components/SelectionTool";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { Button } from "@/components/ui/button";
-import { IconSun, IconMoon, IconBolt, IconList } from "@tabler/icons-react";
+import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
 
@@ -200,9 +199,8 @@ function AuthenticatedApp() {
           size="icon"
           onClick={() => setSidebarOpen(true)}
         >
-          <IconList size={20} />
+          <IconMenu2 size={20} />
         </Button>
-        <SelectionTool />
         <RepoSelector
           repos={repos}
           selectedRepoId={selectedRepoId}

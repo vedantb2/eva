@@ -226,12 +226,12 @@ Please review all components and files used on this page before implementing the
     if (isLoadingSession) return "Loading session...";
     if (mode === "ask") {
       return capturedContext
-        ? "Ask about this element..."
-        : "Ask a question about the codebase...";
+        ? "Ask Eva about this element..."
+        : "Ask Eva about the codebase...";
     }
     return capturedContext
-      ? "Describe the issue with this element..."
-      : "Describe an issue to flag...";
+      ? "Describe the issue to Eva with this element..."
+      : "Describe an issue to Eva to flag...";
   };
 
   return (
@@ -248,14 +248,14 @@ Please review all components and files used on this page before implementing the
             </div>
             <p className="font-medium text-foreground text-sm mb-1">
               {mode === "ask"
-                ? "Ask questions about your codebase"
+                ? "Ask Eva questions about your codebase"
                 : capturedContext
-                  ? "Describe the issue you want to flag"
-                  : "Flag an issue for the team"}
+                  ? "Describe the issue you want to flag to Eva"
+                  : "Flag an issue for Eva"}
             </p>
             <p className="text-xs max-w-[200px]">
               {mode === "ask"
-                ? "Get AI-powered answers with full sandbox access"
+                ? "Get AI-powered answers by Eva"
                 : "Use the select tool to capture element context"}
             </p>
           </div>

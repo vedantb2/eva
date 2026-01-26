@@ -20,6 +20,8 @@ import {
   IconPlus,
   IconTrash,
   IconFolder,
+  IconBookmark,
+  IconRefresh,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -52,6 +54,8 @@ export default function ResearchLayout({
     ? pathname.split("/query/")[1]?.split("/")[0]
     : null;
   const isFilesPage = pathname.endsWith("/files");
+  const isSavedQueriesPage = pathname.endsWith("/saved-queries");
+  const isRoutinesPage = pathname.endsWith("/routines");
 
   const filteredQueries = useMemo(() => {
     if (!queries) return [];
@@ -122,7 +126,7 @@ export default function ResearchLayout({
         <Input
           placeholder="Search queries..."
           startContent={<IconSearch size={16} className="text-default-400 " />}
-          className="p-4"
+          className="py-4 px-2"
           value={searchQuery}
           onValueChange={setSearchQuery}
           isClearable
@@ -157,7 +161,7 @@ export default function ResearchLayout({
                           key={query._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                              ? "bg-teal-100 dark:bg-teal-900/20"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
@@ -206,19 +210,43 @@ export default function ResearchLayout({
               </div>
               <div>
                 <p className="px-2 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                  Files
+                  Resources
                 </p>
-                <Link
-                  href={baseUrl + "/files"}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isFilesPage
-                      ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                  }`}
-                >
-                  <IconFolder size={18} />
-                  <span className="text-sm font-medium">Browse Files</span>
-                </Link>
+                <div className="space-y-1">
+                  <Link
+                    href={baseUrl + "/files"}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      isFilesPage
+                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                    }`}
+                  >
+                    <IconFolder size={18} />
+                    <span className="text-sm font-medium">Browse Files</span>
+                  </Link>
+                  <Link
+                    href={baseUrl + "/saved-queries"}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      isSavedQueriesPage
+                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                    }`}
+                  >
+                    <IconBookmark size={18} />
+                    <span className="text-sm font-medium">Saved Queries</span>
+                  </Link>
+                  <Link
+                    href={baseUrl + "/routines"}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      isRoutinesPage
+                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                    }`}
+                  >
+                    <IconRefresh size={18} />
+                    <span className="text-sm font-medium">Routines</span>
+                  </Link>
+                </div>
               </div>
             </div>
           )}

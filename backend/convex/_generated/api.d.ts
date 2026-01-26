@@ -20,6 +20,8 @@ import type * as evaluationReports from "../evaluationReports.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as projects from "../projects.js";
 import type * as researchQueries from "../researchQueries.js";
+import type * as routines from "../routines.js";
+import type * as savedQueries from "../savedQueries.js";
 import type * as sessions from "../sessions.js";
 import type * as specs from "../specs.js";
 import type * as subtasks from "../subtasks.js";
@@ -53,6 +55,8 @@ declare const fullApi: ApiFromModules<{
   githubRepos: typeof githubRepos;
   projects: typeof projects;
   researchQueries: typeof researchQueries;
+  routines: typeof routines;
+  savedQueries: typeof savedQueries;
   sessions: typeof sessions;
   specs: typeof specs;
   subtasks: typeof subtasks;

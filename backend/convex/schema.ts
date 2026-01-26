@@ -204,6 +204,30 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  savedQueries: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    query: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"]),
+  routines: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    query: v.string(),
+    schedule: v.optional(v.string()),
+    lastRunAt: v.optional(v.number()),
+    enabled: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"]),
   evaluationReports: defineTable({
     repoId: v.id("githubRepos"),
     docId: v.id("docs"),

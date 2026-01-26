@@ -1,10 +1,12 @@
 "use client";
 
+import { Button } from "@heroui/react";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
 interface PageWrapperProps {
   title?: string;
+  headerCenter?: React.ReactNode;
   headerRight?: React.ReactNode;
   showBack?: boolean;
   onBack?: () => void;
@@ -14,6 +16,7 @@ interface PageWrapperProps {
 
 export function PageWrapper({
   title,
+  headerCenter,
   headerRight,
   showBack = false,
   onBack,
@@ -24,22 +27,30 @@ export function PageWrapper({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="p-4 pb-2 flex items-center gap-3">
+      <div className="relative p-4 pb-2 flex items-center gap-3">
         {showBack && (
-          <button
-            onClick={onBack ?? (() => router.back())}
+          <Button
+            size="sm"
+            isIconOnly
+            variant="flat"
+            onPress={onBack ?? (() => router.back())}
             className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex-shrink-0"
           >
             <IconArrowLeft
               size={20}
               className="text-neutral-600 dark:text-neutral-400"
             />
-          </button>
+          </Button>
         )}
         {title && (
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {title}
           </h1>
+        )}
+        {headerCenter && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            {headerCenter}
+          </div>
         )}
         {headerRight && (
           <div className="ml-auto flex items-center gap-2 flex-shrink-0">

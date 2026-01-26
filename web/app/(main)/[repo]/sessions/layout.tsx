@@ -134,7 +134,7 @@ export default function SessionsLayout({
 
   return (
     <div className="flex h-screen">
-      <div className="w-72 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
+      <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -153,7 +153,7 @@ export default function SessionsLayout({
         <Input
           placeholder="Search sessions..."
           startContent={<IconSearch size={16} className="text-default-400" />}
-          className="p-4"
+          className="py-4 px-2"
           value={searchQuery}
           onValueChange={setSearchQuery}
           isClearable
@@ -186,7 +186,7 @@ export default function SessionsLayout({
                           key={session._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-900/20"
+                              ? "bg-teal-100 dark:bg-teal-900/20"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >
@@ -249,7 +249,7 @@ export default function SessionsLayout({
                           key={session._id}
                           className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-900/20"
+                              ? "bg-teal-100 dark:bg-teal-900/20"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                           }`}
                         >

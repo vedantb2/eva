@@ -67,7 +67,7 @@ const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
     icon: IconNotes,
   },
   finalized: {
-    label: "Finalized",
+    label: "Finalised",
     badgeBg: "bg-teal-100 dark:bg-teal-900/30",
     badgeText: "text-teal-700 dark:text-teal-400",
     cardBg: "bg-white dark:bg-neutral-900",
@@ -210,7 +210,7 @@ export function ProjectsClient() {
                     closeOnSelect={false}
                   >
                     <DropdownItem key="draft">Draft</DropdownItem>
-                    <DropdownItem key="finalized">Finalized</DropdownItem>
+                    <DropdownItem key="finalized">Finalised</DropdownItem>
                     <DropdownItem key="active">Active</DropdownItem>
                     <DropdownItem key="completed">Completed</DropdownItem>
                   </DropdownMenu>

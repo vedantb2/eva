@@ -1,6 +1,6 @@
 import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
@@ -154,5 +154,27 @@ export const ensureUserExists = mutation({
       userId,
       wasCreated: true,
     };
+  },
+});
+
+export const getTheme = query({
+  args: {},
+  returns: v.union(v.literal("light"), v.literal("dark"), v.null()),
+  handler: async (ctx) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return null;
+    const user = await ctx.db.get(userId);
+    return user?.theme ?? null;
+  },
+});
+
+export const setTheme = mutation({
+  args: { theme: v.union(v.literal("light"), v.literal("dark")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.db.patch(userId, { theme: args.theme });
+    return null;
   },
 });

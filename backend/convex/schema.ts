@@ -13,6 +13,7 @@ const schema = defineSchema({
     streak: v.optional(v.number()),
     lastPracticeDate: v.optional(v.string()),
     hearts: v.optional(v.number()),
+    theme: v.optional(v.union(v.literal("light"), v.literal("dark"))),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),

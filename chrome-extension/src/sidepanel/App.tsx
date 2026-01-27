@@ -18,25 +18,35 @@ import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
 
+function applyTheme(theme: "light" | "dark") {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  chrome.storage.local.set({ theme });
+}
+
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
+  const syncedTheme = useQuery(api.auth.getTheme);
+  const setThemeMutation = useMutation(api.auth.setTheme);
 
   useEffect(() => {
     chrome.storage.local.get(["theme"], (result) => {
-      const savedTheme = result.theme === "light" ? "light" : "dark";
-      setThemeState(savedTheme);
-      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+      const saved = result.theme === "light" ? "light" : "dark";
+      setThemeState(saved);
+      applyTheme(saved);
     });
   }, []);
 
-  const setTheme = (newTheme: "light" | "dark") => {
-    setThemeState(newTheme);
-    chrome.storage.local.set({ theme: newTheme });
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-  };
+  useEffect(() => {
+    if (syncedTheme === undefined || syncedTheme === null) return;
+    setThemeState(syncedTheme);
+    applyTheme(syncedTheme);
+  }, [syncedTheme]);
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    const next = theme === "dark" ? "light" : "dark";
+    setThemeState(next);
+    applyTheme(next);
+    setThemeMutation({ theme: next });
   };
 
   return { theme, toggleTheme };

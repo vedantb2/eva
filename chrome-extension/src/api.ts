@@ -18,11 +18,23 @@ export type PublicApiType = {
       Record<string, never>,
       { userId: Id<"users">; wasCreated: boolean }
     >;
+    getTheme: FunctionReference<
+      "query",
+      "public",
+      Record<string, never>,
+      "light" | "dark" | null
+    >;
     isCurrentUserAdmin: FunctionReference<
       "query",
       "public",
       Record<string, never>,
       boolean
+    >;
+    setTheme: FunctionReference<
+      "mutation",
+      "public",
+      { theme: "light" | "dark" },
+      null
     >;
   };
   projects: {

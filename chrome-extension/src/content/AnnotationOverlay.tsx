@@ -237,23 +237,23 @@ function InputCard({
 
   return (
     <div
-      className={`absolute rounded-xl border ${dark ? "bg-neutral-800 border-neutral-700" : "bg-white border-neutral-200"}`}
+      className={`absolute rounded-xl border ${dark ? "bg-white border-neutral-200" : "bg-neutral-800 border-neutral-700"}`}
       style={{
         left: position.x - 12,
         top: position.y + 18,
         width: 340,
         zIndex: 2147483645,
         fontFamily: FONT,
-        boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.12)",
+        boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.12)" : "0 8px 32px rgba(0,0,0,0.4)",
         pointerEvents: "auto",
       }}
     >
-      <div className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-400" : "text-neutral-500"}`}>
+      <div className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-500" : "text-neutral-400"}`}>
         <span>{isEdit ? `Annotation #${pinNumber}` : "New annotation"}</span>
         {isEdit && (
           <button
             onClick={() => onDelete(pinId)}
-            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-600"}`}
+            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-500 hover:text-red-600" : "text-red-400 hover:text-red-300"}`}
             style={{ fontFamily: "inherit", fontSize: 11 }}
           >
             <IconTrash size={12} /> Delete
@@ -264,7 +264,7 @@ function InputCard({
         <div className="px-3 pb-1">
           <button
             onClick={() => setDetailsOpen((v) => !v)}
-            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-400 hover:text-neutral-300" : "text-neutral-500 hover:text-neutral-600"}`}
+            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-500 hover:text-neutral-600" : "text-neutral-400 hover:text-neutral-300"}`}
             style={{ fontFamily: "inherit", padding: 0 }}
           >
             <IconChevronRight
@@ -275,7 +275,7 @@ function InputCard({
           </button>
           {detailsOpen && (
             <pre
-              className={`mt-1 rounded-lg border px-2.5 py-2 text-xs leading-snug overflow-auto ${dark ? "bg-neutral-900 text-neutral-300 border-neutral-700" : "bg-neutral-50 text-neutral-700 border-neutral-200"}`}
+              className={`mt-1 rounded-lg border px-2.5 py-2 text-xs leading-snug overflow-auto ${dark ? "bg-neutral-50 text-neutral-700 border-neutral-200" : "bg-neutral-900 text-neutral-300 border-neutral-700"}`}
               style={{ fontFamily: "monospace", maxHeight: 120, whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, marginTop: 4 }}
             >
               {elementHtml}
@@ -291,11 +291,11 @@ function InputCard({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500" : "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400"}`}
+          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400" : "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500"}`}
           style={{ fontFamily: "inherit", boxSizing: "border-box", display: "block" }}
         />
       </div>
-      <div className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-700" : "border-neutral-100"}`} style={{ paddingTop: 10 }}>
+      <div className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-100" : "border-neutral-700"}`} style={{ paddingTop: 10 }}>
         <button
           onClick={() => {
             if (text.trim()) onTask(pinId, text.trim());
@@ -308,7 +308,7 @@ function InputCard({
         <div className="flex gap-2">
           <button
             onClick={() => onCancel(pinId)}
-            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
             style={{ fontFamily: "inherit" }}
           >
             <IconX size={14} /> Cancel
@@ -775,7 +775,7 @@ export function AnnotationOverlay() {
 
       {tooltipPin && tooltipId && !activeInputId && (
         <div
-          className={`absolute pointer-events-none rounded-md border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
+          className={`absolute pointer-events-none rounded-md border ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
           style={{
             left: tooltipPin.x - 12,
             top: tooltipPin.y + 18,

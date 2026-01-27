@@ -47,13 +47,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404, headers: corsHeaders });
   }
 
-  await convex.mutation(api.sessions.addMessageNoAuth, {
-    id: sessionId as Id<"sessions">,
-    role: "user",
-    content: message,
-    mode: "ask",
-  });
-
   await inngest.send({
     name: "session/ask.execute",
     data: {

@@ -37,13 +37,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 });
   }
 
-  await convex.mutation(api.sessions.addMessageNoAuth, {
-    id: sessionId as Id<"sessions">,
-    role: "user",
-    content: message,
-    mode,
-  });
-
   const isPrCommand =
     message.toLowerCase().includes("create pr") ||
     message.toLowerCase().includes("create a pr") ||

@@ -81,7 +81,6 @@ const isAllowedUrl = (url: string) => {
     const host = parsed.host;
     if (host === "localhost:3000") return true;
     if (host.endsWith(".vercel.app")) return true;
-    if (host === "vedantb.com" || host === "www.vedantb.com") return true;
     return false;
   } catch {
     return false;
@@ -200,7 +199,6 @@ function AuthenticatedApp() {
         <ul className="mt-4 text-muted-foreground list-disc list-inside">
           <li>localhost:3000</li>
           <li>*.vercel.app</li>
-          <li>vedantb.com</li>
         </ul>
       </div>
     );

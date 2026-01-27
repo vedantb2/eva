@@ -17,9 +17,12 @@ import {
   IconArrowUp
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useMutation } from "convex/react";
+import { api } from "@/api";
+import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 type SessionMode = "execute" | "ask" | "plan" | "flag";
@@ -57,10 +60,39 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
+  const typedSessionId = sessionId as Id<"sessions">;
+
+  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
+    (localStore, args) => {
+      const session = localStore.getQuery(api.sessions.get, { id: args.id });
+      if (!session) return;
+      localStore.setQuery(api.sessions.get, { id: args.id }, {
+        ...session,
+        messages: [
+          ...session.messages,
+          { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
+        ],
+      });
+    },
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const sendToApi = useCallback(
+    async (message: string, sendMode: SessionMode, generatePlan = false) => {
+      const response = await fetch("/api/sessions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, message, mode: sendMode, generatePlan }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+    },
+    [sessionId],
+  );
 
   const handleSend = async (generatePlan = false) => {
     if (!input.trim()) return;
@@ -68,35 +100,19 @@ export function ChatPanel({
     setInput("");
     setIsSending(true);
     try {
-      const response = await fetch("/api/sessions/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message: content, mode, generatePlan }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
+      await addMessage({ id: typedSessionId, role: "user", content, mode });
+      await sendToApi(content, mode, generatePlan);
     } finally {
       setIsSending(false);
     }
   };
 
   const handleGeneratePlan = async () => {
+    const content = "Generate the implementation plan based on our conversation.";
     setIsSending(true);
     try {
-      const response = await fetch("/api/sessions/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          message: "Generate the implementation plan based on our conversation.",
-          mode: "plan",
-          generatePlan: true,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to generate plan");
-      }
+      await addMessage({ id: typedSessionId, role: "user", content, mode: "plan" });
+      await sendToApi(content, "plan", true);
     } finally {
       setIsSending(false);
     }

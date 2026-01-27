@@ -8,19 +8,19 @@ import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { IconArrowUp, IconFlag, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconMessageCircle } from "@tabler/icons-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-interface Message {
-  id: string;
+type SessionMessage = {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
-  mode?: Mode;
-}
+  mode?: "execute" | "ask" | "plan" | "flag";
+};
 
 type Mode = "ask" | "flag";
 
@@ -39,14 +39,26 @@ export function ChatPanel({
 }: ChatPanelProps) {
   useUser();
   const { getToken } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
-  const addMessage = useMutation(api.sessions.addMessage);
+  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
+    (localStore, args) => {
+      const session = localStore.getQuery(api.sessions.get, { id: args.id });
+      if (!session) return;
+      localStore.setQuery(api.sessions.get, { id: args.id }, {
+        ...session,
+        messages: [
+          ...session.messages,
+          { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
+        ],
+      });
+    },
+  );
 
   const currentSession = useQuery(
     api.sessions.get,
@@ -54,37 +66,38 @@ export function ChatPanel({
   );
 
   const isLoadingSession = sessionId !== null && currentSession === undefined;
+  const messages = currentSession?.messages ?? (sessionId ? [] : ephemeralMessages);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [currentSession?.messages, ephemeralMessages]);
 
   useEffect(() => {
-    if (currentSession) {
-      setMessages(
-        currentSession.messages.map((m, i) => ({
-          id: `session-${i}`,
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-          mode: m.mode === "ask" || m.mode === "flag" ? m.mode : undefined,
-        })),
-      );
+    if (!isLoading) return;
+    if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+      setIsLoading(false);
     }
-  }, [currentSession]);
+  }, [messages, isLoading]);
+
+  const appendMessage = useCallback(
+    async (msg: SessionMessage) => {
+      if (sessionId) {
+        await addMessage({
+          id: sessionId as Id<"sessions">,
+          role: msg.role,
+          content: msg.content,
+          mode: msg.mode,
+        });
+      } else {
+        setEphemeralMessages((prev) => [...prev, msg]);
+      }
+    },
+    [sessionId, addMessage],
+  );
 
   const handleSend = async () => {
     if (!input.trim() || !selectedRepoId || isLoading) return;
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: input,
-      timestamp: Date.now(),
-      mode: mode,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
@@ -96,11 +109,13 @@ export function ChatPanel({
         });
         const pageUrl = tab?.url || "";
 
+        await appendMessage({ role: "user", content: input, timestamp: Date.now(), mode: "flag" });
+
         let fullDescription = input;
 
         if (pageUrl) {
-          fullDescription += `\n\n**This issue must be resolved on the following page:** ${pageUrl} 
-          
+          fullDescription += `\n\n**This issue must be resolved on the following page:** ${pageUrl}
+
 Please review all components and files used on this page before implementing the fix.`;
         }
 
@@ -134,41 +149,14 @@ Please review all components and files used on this page before implementing the
 
         const successMessage = `Issue flagged successfully!${capturedContext ? `\n\nI've attached the captured ${capturedContext.metadata.hasReact ? "React component" : "element"} context to the task.` : ""}`;
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: successMessage,
-            timestamp: Date.now(),
-          },
-        ]);
-
-        if (sessionId) {
-          await addMessage({
-            id: sessionId as Id<"sessions">,
-            role: "user",
-            content: input,
-            mode: "flag",
-          });
-          await addMessage({
-            id: sessionId as Id<"sessions">,
-            role: "assistant",
-            content: successMessage,
-          });
-        }
-
+        await appendMessage({ role: "assistant", content: successMessage, timestamp: Date.now() });
         onClearContext();
       } catch (error) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            timestamp: Date.now(),
-          },
-        ]);
+        await appendMessage({
+          role: "assistant",
+          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          timestamp: Date.now(),
+        });
       } finally {
         setIsLoading(false);
       }
@@ -182,6 +170,8 @@ Please review all components and files used on this page before implementing the
         const fullMessage = pageUrl
           ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${input}`
           : input;
+
+        await appendMessage({ role: "user", content: input, timestamp: Date.now(), mode: "ask" });
 
         const token = await getToken({ template: "convex" });
         const response = await fetch(`${API_URL}/api/extension/ask`, {
@@ -202,16 +192,11 @@ Please review all components and files used on this page before implementing the
           throw new Error(data.error || "Failed to send message");
         }
       } catch (error) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            timestamp: Date.now(),
-          },
-        ]);
-      } finally {
+        await appendMessage({
+          role: "assistant",
+          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          timestamp: Date.now(),
+        });
         setIsLoading(false);
       }
     }
@@ -304,34 +289,53 @@ Please review all components and files used on this page before implementing the
           </div>
         )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
-          >
+        {messages.map((message, index) => {
+          const prev = index > 0 ? messages[index - 1] : undefined;
+          const isFlagResponse = message.role === "assistant" && prev?.mode === "flag";
+
+          return (
             <div
-              className={`max-w-[85%] rounded-lg px-4 py-2 overflow-hidden ${
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card border border-border text-card-foreground"
-              }`}
+              key={index}
+              className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
             >
-              <p className="whitespace-pre-wrap break-words text-sm">
-                {message.content}
-              </p>
+              {isFlagResponse && prev ? (
+                <Collapsible className="max-w-[85%] rounded-lg border border-border bg-card text-card-foreground overflow-hidden">
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
+                    <IconCheck size={16} className="text-teal-500 shrink-0" />
+                    <span className="flex-1 text-left">Issue flagged and task created</span>
+                    <IconChevronRight size={14} className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
+                    <p className="font-medium">{prev.content.slice(0, 100)}</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap break-words">{message.content}</p>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <div
+                  className={`max-w-[85%] rounded-lg px-4 py-2 overflow-hidden ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border text-card-foreground"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap break-words text-sm">
+                    {message.content}
+                  </p>
+                </div>
+              )}
+              {message.role === "user" && message.mode && (message.mode === "ask" || message.mode === "flag") && (
+                <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  {message.mode === "ask" ? (
+                    <IconMessageCircle size={12} />
+                  ) : (
+                    <IconFlag size={12} />
+                  )}
+                  {message.mode === "ask" ? "Ask" : "Flag"}
+                </span>
+              )}
             </div>
-            {message.role === "user" && message.mode && (
-              <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                {message.mode === "ask" ? (
-                  <IconMessageCircle size={12} />
-                ) : (
-                  <IconFlag size={12} />
-                )}
-                {message.mode === "ask" ? "Ask" : "Flag"}
-              </span>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && (
           <div className="flex justify-start">

@@ -1,92 +1,16 @@
 import { useState } from "react";
-import type { ExtractedContext, ReactComponentNode } from "@/shared/types";
+import type { ExtractedContext } from "@/shared/types";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import hljs from "highlight.js/lib/core";
+import xml from "highlight.js/lib/languages/xml";
+import "highlight.js/styles/github-dark.min.css";
+
+hljs.registerLanguage("xml", xml);
 
 interface ContextPreviewProps {
   context: ExtractedContext;
   onClear: () => void;
-}
-
-function ComponentTree({
-  node,
-  expanded,
-}: {
-  node: ReactComponentNode;
-  expanded: boolean;
-}) {
-  const [isExpanded, setIsExpanded] = useState(expanded && node.depth < 2);
-  const hasChildren = node.children.length > 0;
-
-  const typeColors: Record<string, string> = {
-    component: "text-blue-500 dark:text-blue-400",
-    element: "text-green-600 dark:text-green-400",
-    fragment: "text-purple-600 dark:text-purple-400",
-    text: "text-muted-foreground",
-  };
-
-  return (
-    <div className="font-mono text-xs">
-      <div
-        className={`flex items-center gap-1 py-0.5 hover:bg-muted rounded cursor-pointer ${hasChildren ? "" : "pl-4"}`}
-        onClick={() => hasChildren && setIsExpanded(!isExpanded)}
-        style={{ paddingLeft: `${node.depth * 12 + (hasChildren ? 0 : 12)}px` }}
-      >
-        {hasChildren && (
-          <span className="text-muted-foreground w-3">
-            {isExpanded ? "▼" : "▶"}
-          </span>
-        )}
-        <span className={typeColors[node.type] || "text-foreground"}>
-          {"<"}
-          {node.name}
-          {node.key && (
-            <span className="text-yellow-600 dark:text-yellow-400"> key=&quot;{node.key}&quot;</span>
-          )}
-          {Object.keys(node.props).length > 0 && (
-            <span className="text-muted-foreground">
-              {" "}
-              {Object.keys(node.props).length} props
-            </span>
-          )}
-          {node.hooks.length > 0 && (
-            <span className="text-purple-600 dark:text-purple-400"> {node.hooks.length} hooks</span>
-          )}
-          {">"}
-        </span>
-      </div>
-
-      {isExpanded &&
-        node.children.map((child, i) => (
-          <ComponentTree key={i} node={child} expanded={false} />
-        ))}
-    </div>
-  );
-}
-
-function ElementInfoView({ context }: { context: ExtractedContext }) {
-  const { element } = context;
-
-  return (
-    <div className="font-mono text-xs space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-green-600 dark:text-green-400">&lt;{element.tagName}&gt;</span>
-        {element.id && <span className="text-yellow-600 dark:text-yellow-400">#{element.id}</span>}
-      </div>
-      {element.classNames.length > 0 && (
-        <div className="text-muted-foreground">
-          .{element.classNames.slice(0, 3).join(" .")}
-          {element.classNames.length > 3 && ` +${element.classNames.length - 3} more`}
-        </div>
-      )}
-      <div className="text-muted-foreground truncate">
-        {element.textContent.slice(0, 100) || "(no text)"}
-      </div>
-      <div className="text-muted-foreground/70 text-[10px]">
-        {Math.round(element.boundingRect.width)}×{Math.round(element.boundingRect.height)}px
-      </div>
-    </div>
-  );
 }
 
 export function ContextPreview({ context, onClear }: ContextPreviewProps) {
@@ -142,11 +66,14 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
 
         <CollapsibleContent>
           <div className="border-t border-border p-2 max-h-48 overflow-y-auto">
-            {hasReact && context.react ? (
-              <ComponentTree node={context.react} expanded={true} />
-            ) : (
-              <ElementInfoView context={context} />
-            )}
+            <pre className="rounded bg-[#0d1117] p-0.5 overflow-auto">
+              <code
+                className="hljs text-xs"
+                dangerouslySetInnerHTML={{
+                  __html: hljs.highlight(context.element.outerHTML, { language: "xml" }).value,
+                }}
+              />
+            </pre>
           </div>
         </CollapsibleContent>
       </div>

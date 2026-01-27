@@ -9,6 +9,11 @@ import {
 } from "./react-extractor";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
+import hljs from "highlight.js/lib/core";
+import xml from "highlight.js/lib/languages/xml";
+import hljsCss from "highlight.js/styles/github-dark.min.css?inline";
+
+hljs.registerLanguage("xml", xml);
 
 interface ExtState {
   active: boolean;
@@ -274,12 +279,21 @@ function InputCard({
             Element Details
           </button>
           {detailsOpen && (
-            <pre
-              className={`mt-1 rounded-lg border px-2.5 py-2 text-xs leading-snug overflow-auto ${dark ? "bg-neutral-50 text-neutral-700 border-neutral-200" : "bg-neutral-900 text-neutral-300 border-neutral-700"}`}
-              style={{ fontFamily: "monospace", maxHeight: 120, whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, marginTop: 4 }}
-            >
-              {elementHtml}
-            </pre>
+            <>
+              <style>{hljsCss}</style>
+              <pre
+                className="mt-1 rounded border p-0.5 overflow-auto bg-[#0d1117] border-neutral-700"
+                style={{ fontFamily: "monospace", maxHeight: 120, margin: 0, marginTop: 4 }}
+              >
+                <code
+                  className="hljs text-xs"
+                  style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}
+                  dangerouslySetInnerHTML={{
+                    __html: hljs.highlight(elementHtml, { language: "xml" }).value,
+                  }}
+                />
+              </pre>
+            </>
           )}
         </div>
       )}

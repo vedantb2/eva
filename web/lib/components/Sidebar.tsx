@@ -17,11 +17,12 @@ import {
   IconChartBar,
   IconFileText,
   IconShield,
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconFlask,
 } from "@tabler/icons-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
@@ -43,10 +44,22 @@ export function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
   const repos = useQuery(api.githubRepos.list);
   const { user } = useUser();
+  const [expandedGroups, setExpandedGroups] = useState(
+    new Set(["BUILD", "FIX", "TEST", "DATA"]),
+  );
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena)/
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena)/,
     );
     if (match) {
       return match[1];
@@ -65,43 +78,68 @@ export function Sidebar() {
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
-    owner && name ? { owner, name } : "skip"
+    owner && name ? { owner, name } : "skip",
   );
 
   const repoNavigation = repoSlug
     ? [
         {
-          name: "Projects",
-          href: `/${repoSlug}/projects`,
-          icon: IconLayoutKanban,
+          label: "BUILD",
+          items: [
+            {
+              name: "Projects",
+              href: `/${repoSlug}/projects`,
+              icon: IconLayoutKanban,
+            },
+          ],
         },
         {
-          name: "Quick Tasks",
-          href: `/${repoSlug}/quick-tasks`,
-          icon: IconChecklist,
+          label: "FIX",
+          items: [
+            {
+              name: "Quick Tasks",
+              href: `/${repoSlug}/quick-tasks`,
+              icon: IconChecklist,
+            },
+            {
+              name: "Sessions",
+              href: `/${repoSlug}/sessions`,
+              icon: IconTerminal2,
+            },
+          ],
         },
         {
-          name: "Sessions",
-          href: `/${repoSlug}/sessions`,
-          icon: IconTerminal2,
+          label: "TEST",
+          items: [
+            {
+              name: "Documents",
+              href: `/${repoSlug}/docs`,
+              icon: IconFileText,
+            },
+            {
+              name: "Testing Arena",
+              href: `/${repoSlug}/testing-arena`,
+              icon: IconFlask,
+            },
+          ],
         },
         {
-          name: "Analyse",
-          href: `/${repoSlug}/analyse`,
-          icon: IconBrain,
-        },
-        {
-          name: "Documents",
-          href: `/${repoSlug}/docs`,
-          icon: IconFileText,
-        },
-        {
-          name: "Testing Arena",
-          href: `/${repoSlug}/testing-arena`,
-          icon: IconFlask,
+          label: "DATA",
+          items: [
+            { name: "Analyse", href: `/${repoSlug}/analyse`, icon: IconBrain },
+          ],
         },
       ]
     : [];
+
+  useEffect(() => {
+    const activeGroup = repoNavigation.find((g) =>
+      g.items.some((item) => pathname.startsWith(item.href)),
+    );
+    if (activeGroup && !expandedGroups.has(activeGroup.label)) {
+      setExpandedGroups((prev) => new Set(prev).add(activeGroup.label));
+    }
+  }, [pathname, repoNavigation, expandedGroups]);
 
   const bottomNavigation = [
     ...(repoSlug
@@ -124,7 +162,13 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Eva" width={24} height={24} className="rounded-full" />
+          <Image
+            src="/icon.png"
+            alt="Eva"
+            width={24}
+            height={24}
+            className="rounded-full"
+          />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
             Eva
           </span>
@@ -145,9 +189,20 @@ export function Sidebar() {
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
         <div className="flex flex-col h-full">
-          <div className={`flex items-center h-16 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}>
-            <Link href="/" className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
-              <Image src="/icon.png" alt="Eva" width={32} height={32} className="rounded-full" />
+          <div
+            className={`flex items-center h-16 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
+          >
+            <Link
+              href="/"
+              className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}
+            >
+              <Image
+                src="/icon.png"
+                alt="Eva"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
               {!collapsed && (
                 <span className="text-2xl tracking-tight font-semibold text-neutral-900 dark:text-white">
                   Eva
@@ -172,7 +227,9 @@ export function Sidebar() {
             </button>
           </div>
 
-          <nav className={`flex-1 py-4 overflow-y-auto flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}>
+          <nav
+            className={`flex-1 py-4 overflow-y-auto flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
+          >
             <div>
               {repoSlug && repoFullName && (
                 <>
@@ -228,35 +285,61 @@ export function Sidebar() {
                       )}
                     </div>
                   )}
-                  <div className="space-y-1">
-                    {repoNavigation.map((item) => {
-                      const isActive = pathname.startsWith(item.href);
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          title={collapsed ? item.name : undefined}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
-                            isActive
-                              ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
-                              : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
-                          }`}
-                        >
-                          <item.icon
-                            className={`w-5 h-5 flex-shrink-0 ${
-                              isActive ? "text-teal-800 dark:text-teal-200" : ""
-                            }`}
-                          />
-                          {!collapsed && item.name}
-                        </Link>
-                      );
-                    })}
+                  <div className="space-y-3">
+                    {repoNavigation.map((group) => (
+                      <div key={group.label}>
+                        {!collapsed && (
+                          <button
+                            onClick={() => toggleGroup(group.label)}
+                            className="flex items-center gap-1 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-neutral-400 dark:text-neutral-500 uppercase hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                          >
+                            <IconChevronDown
+                              className={`w-3 h-3 transition-transform ${expandedGroups.has(group.label) ? "" : "-rotate-90"}`}
+                            />
+                            {group.label}
+                          </button>
+                        )}
+                        {(collapsed || expandedGroups.has(group.label)) && (
+                          <div
+                            className={`space-y-0.5 ${collapsed ? "" : "pl-2"}`}
+                          >
+                            {group.items.map((item) => {
+                              const isActive = pathname.startsWith(item.href);
+                              return (
+                                <Link
+                                  key={item.name}
+                                  href={item.href}
+                                  onClick={() => setMobileOpen(false)}
+                                  title={collapsed ? item.name : undefined}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                                    isActive
+                                      ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
+                                      : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
+                                  }`}
+                                >
+                                  <item.icon
+                                    className={`w-5 h-5 flex-shrink-0 ${
+                                      isActive
+                                        ? "text-teal-800 dark:text-teal-200"
+                                        : ""
+                                    }`}
+                                  />
+                                  {!collapsed && item.name}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
                   {!collapsed && repo && repoSlug && (
                     <div className="mt-6">
-                      <ActiveTasksAccordion repoId={repo._id} repoSlug={repoSlug} />
+                      <ActiveTasksAccordion
+                        repoId={repo._id}
+                        repoSlug={repoSlug}
+                      />
                     </div>
                   )}
                 </>
@@ -288,8 +371,12 @@ export function Sidebar() {
             </div>
           </nav>
 
-          <div className={`border-t border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:p-2 p-4" : "p-4"}`}>
-            <div className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}>
+          <div
+            className={`border-t border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:p-2 p-4" : "p-4"}`}
+          >
+            <div
+              className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}
+            >
               <UserButton
                 appearance={{
                   elements: {

@@ -59,10 +59,14 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
   }, []);
 
   useEffect(() => {
-    if (savedPins === undefined || !isAnnotating) return;
+    lastPushedRef.current = null;
+  }, [tabUrl]);
+
+  useEffect(() => {
+    if (savedPins === undefined) return;
     const pins: Record<string, StoredPin> = savedPins ? JSON.parse(savedPins) : {};
     pushToContentScript(pins);
-  }, [savedPins, pushToContentScript, isAnnotating]);
+  }, [savedPins, pushToContentScript]);
 
   useEffect(() => {
     const handleMessage = (message: { type: string; payload?: AnnotationPayload | { pageUrl: string; pins: Record<string, StoredPin> } }) => {
@@ -81,10 +85,15 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
           saveAnnotations({ pageUrl: url, pins: JSON.stringify(pins) });
         }
       }
+      if (message.type === "REQUEST_ANNOTATIONS" && savedPins !== undefined) {
+        lastPushedRef.current = null;
+        const pins: Record<string, StoredPin> = savedPins ? JSON.parse(savedPins) : {};
+        pushToContentScript(pins);
+      }
     };
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
-  }, [onAnnotationTask, saveAnnotations, removeAnnotations]);
+  }, [onAnnotationTask, saveAnnotations, removeAnnotations, savedPins, pushToContentScript]);
 
   const handleClick = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

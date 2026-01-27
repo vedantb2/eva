@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
-import { IconTrash, IconX, IconDeviceFloppy, IconCheckbox } from "@tabler/icons-react";
+import { IconTrash, IconX, IconDeviceFloppy, IconCheckbox, IconChevronRight } from "@tabler/icons-react";
 import {
   extractReactTree,
   isReactAvailable,
@@ -193,6 +193,8 @@ interface InputCardProps {
   pinId: string;
   position: { x: number; y: number };
   initialText: string;
+  pinNumber: number;
+  elementHtml: string;
   isEdit: boolean;
   onSave: (pinId: string, text: string) => void;
   onTask: (pinId: string, text: string) => void;
@@ -204,6 +206,8 @@ function InputCard({
   pinId,
   position,
   initialText,
+  pinNumber,
+  elementHtml,
   isEdit,
   onSave,
   onTask,
@@ -211,6 +215,7 @@ function InputCard({
   onDelete,
 }: InputCardProps) {
   const [text, setText] = useState(initialText);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dark = isDark();
 
@@ -244,17 +249,40 @@ function InputCard({
       }}
     >
       <div className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-400" : "text-neutral-500"}`}>
-        <span>{isEdit ? `Annotation ${initialText ? "#" : ""}` : "New annotation"}</span>
+        <span>{isEdit ? `Annotation #${pinNumber}` : "New annotation"}</span>
         {isEdit && (
           <button
             onClick={() => onDelete(pinId)}
             className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-600"}`}
             style={{ fontFamily: "inherit", fontSize: 11 }}
           >
-            <IconTrash size={12} /> Remove
+            <IconTrash size={12} /> Delete
           </button>
         )}
       </div>
+      {elementHtml && (
+        <div className="px-3 pb-1">
+          <button
+            onClick={() => setDetailsOpen((v) => !v)}
+            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-400 hover:text-neutral-300" : "text-neutral-500 hover:text-neutral-600"}`}
+            style={{ fontFamily: "inherit", padding: 0 }}
+          >
+            <IconChevronRight
+              size={12}
+              style={{ transition: "transform 0.15s", transform: detailsOpen ? "rotate(90deg)" : "none" }}
+            />
+            Element Details
+          </button>
+          {detailsOpen && (
+            <pre
+              className={`mt-1 rounded-lg border px-2.5 py-2 text-xs leading-snug overflow-auto ${dark ? "bg-neutral-900 text-neutral-300 border-neutral-700" : "bg-neutral-50 text-neutral-700 border-neutral-200"}`}
+              style={{ fontFamily: "monospace", maxHeight: 120, whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, marginTop: 4 }}
+            >
+              {elementHtml}
+            </pre>
+          )}
+        </div>
+      )}
       <div className="px-3 pb-2">
         <textarea
           ref={textareaRef}
@@ -267,23 +295,7 @@ function InputCard({
           style={{ fontFamily: "inherit", boxSizing: "border-box", display: "block" }}
         />
       </div>
-      <div className={`flex gap-2 px-3 pb-3 justify-end border-t ${dark ? "border-neutral-700" : "border-neutral-100"}`} style={{ paddingTop: 10 }}>
-        <button
-          onClick={() => onCancel(pinId)}
-          className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
-          style={{ fontFamily: "inherit" }}
-        >
-          <IconX size={14} /> Cancel
-        </button>
-        <button
-          onClick={() => {
-            if (text.trim()) onSave(pinId, text.trim());
-          }}
-          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
-          style={{ fontFamily: "inherit" }}
-        >
-          <IconDeviceFloppy size={14} /> Save
-        </button>
+      <div className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-700" : "border-neutral-100"}`} style={{ paddingTop: 10 }}>
         <button
           onClick={() => {
             if (text.trim()) onTask(pinId, text.trim());
@@ -291,8 +303,26 @@ function InputCard({
           className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white bg-teal-700 hover:bg-teal-600 border-none cursor-pointer transition-colors"
           style={{ fontFamily: "inherit" }}
         >
-          <IconCheckbox size={14} /> Add Task
+          <IconCheckbox size={14} /> Create Task
         </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onCancel(pinId)}
+            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+            style={{ fontFamily: "inherit" }}
+          >
+            <IconX size={14} /> Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (text.trim()) onSave(pinId, text.trim());
+            }}
+            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
+            style={{ fontFamily: "inherit" }}
+          >
+            <IconDeviceFloppy size={14} /> Save
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -467,6 +497,11 @@ export function AnnotationOverlay() {
 
   const handlePinClick = useCallback(
     (id: string) => {
+      if (activeInputIdRef.current === id) {
+        setActiveInputId(null);
+        setHighlight(null);
+        return;
+      }
       setTooltipId(null);
       setActiveInputId(id);
       setActiveInputIsEdit(true);
@@ -740,7 +775,7 @@ export function AnnotationOverlay() {
 
       {tooltipPin && tooltipId && !activeInputId && (
         <div
-          className={`absolute pointer-events-none rounded-md border ${dark ? "bg-slate-800 text-slate-100 border-slate-700" : "bg-white text-slate-800 border-slate-200"}`}
+          className={`absolute pointer-events-none rounded-md border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
           style={{
             left: tooltipPin.x - 12,
             top: tooltipPin.y + 18,
@@ -762,6 +797,8 @@ export function AnnotationOverlay() {
           pinId={activeInputId}
           position={{ x: activePin.x, y: activePin.y }}
           initialText={activePin.text}
+          pinNumber={activePin.number}
+          elementHtml={pinContextsRef.current.get(activeInputId)?.element.outerHTML ?? ""}
           isEdit={activeInputIsEdit}
           onSave={handleInputSave}
           onTask={handleInputTask}

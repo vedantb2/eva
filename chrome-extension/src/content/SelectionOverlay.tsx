@@ -117,8 +117,8 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
       const w = Math.round(rect.width);
       const h = Math.round(rect.height);
 
-      let infoTop = rect.top - 80;
-      if (infoTop < 4) infoTop = rect.bottom + 24;
+      let infoTop = rect.top - 44;
+      if (infoTop < 4) infoTop = rect.bottom + 8;
       let infoLeft = rect.left;
       if (infoLeft + 300 > window.innerWidth) infoLeft = window.innerWidth - 310;
       if (infoLeft < 4) infoLeft = 4;
@@ -311,7 +311,7 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
       {infoData && (
         <div
           ref={infoRef}
-          className={`fixed pointer-events-none rounded-lg border flex flex-col gap-1 ${dark ? "bg-slate-800 text-slate-100 border-slate-700" : "bg-white text-slate-800 border-slate-200"}`}
+          className={`fixed pointer-events-none rounded-lg border flex flex-col gap-1 ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
           style={{
             zIndex: 2147483647,
             top: infoData.infoTop,
@@ -320,26 +320,26 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
             padding: "8px 12px",
             fontFamily: FONT,
             fontSize: 12,
-            boxShadow: dark ? "0 2px 8px rgba(0,0,0,0.6)" : "0 2px 8px rgba(0,0,0,0.2)",
+            boxShadow: dark ? "0 2px 12px rgba(255,255,255,0.15)" : "0 2px 12px rgba(0,0,0,0.25)",
           }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-blue-500 font-medium">
+            <span className="text-teal-500 font-medium">
               &lt;{infoData.componentName}&gt;
             </span>
-            <span className={`text-[11px] ${dark ? "text-slate-400" : "text-slate-500"}`}>
+            <span className={`text-[11px] ${dark ? "text-neutral-400" : "text-neutral-500"}`}>
               {infoData.width}×{infoData.height}
             </span>
           </div>
           {infoData.parentChain.length > 0 && (
             <div
-              className={`text-[11px] whitespace-nowrap overflow-hidden text-ellipsis ${dark ? "text-slate-500" : "text-slate-400"}`}
+              className={`text-[11px] whitespace-nowrap overflow-hidden text-ellipsis ${dark ? "text-neutral-500" : "text-neutral-400"}`}
             >
               {infoData.parentChain.join(" › ")} › {infoData.componentName}
             </div>
           )}
           {hasReactInfo && (
-            <div className={`text-[10px] ${dark ? "text-slate-400" : "text-slate-500"}`}>
+            <div className={`text-[10px] ${dark ? "text-neutral-400" : "text-neutral-500"}`}>
               {[
                 infoData.propsCount > 0 ? `${infoData.propsCount} props` : "",
                 infoData.hooksCount > 0 ? `${infoData.hooksCount} hooks` : "",
@@ -348,9 +348,6 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
                 .join(" · ")}
             </div>
           )}
-          <div className={`text-[10px] mt-0.5 ${dark ? "text-slate-500" : "text-slate-400"}`}>
-            ↑↓←→ navigate · Enter select · Esc cancel
-          </div>
         </div>
       )}
     </>

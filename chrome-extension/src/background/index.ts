@@ -71,6 +71,12 @@ chrome.runtime.onMessage.addListener(
         break;
       }
 
+      case "REQUEST_ANNOTATIONS": {
+        chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
+        sendResponse({ success: true });
+        break;
+      }
+
       default:
         sendResponse({ success: false, error: "Unknown message type" });
     }

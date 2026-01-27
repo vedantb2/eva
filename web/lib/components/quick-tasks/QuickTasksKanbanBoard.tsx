@@ -9,6 +9,14 @@ import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+} from "@heroui/modal";
 import { IconPlayerPlay } from "@tabler/icons-react";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
@@ -31,6 +39,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
   const tasks = allTasks?.filter((t) => !t.projectId) ?? [];
 
@@ -96,7 +105,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
               variant="flat"
               color="primary"
               startContent={<IconPlayerPlay size={14} />}
-              onPress={handleFixAll}
+              onPress={onOpen}
               isLoading={isFixingAll}
             >
               Fix All
@@ -119,6 +128,42 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
           </Card>
         )}
       />
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>Run All Tasks</ModalHeader>
+              <ModalBody className="text-sm text-default-600 space-y-2">
+                <p>
+                  Eva will run and complete all {todoTasks.length} task
+                  {todoTasks.length !== 1 && "s"}.
+                </p>
+                <p>
+                  If there is an issue, Eva will return the task to To Do with a
+                  red border.
+                </p>
+                <p>
+                  If successful, she will move it to Code Review.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  color="primary"
+                  onPress={() => {
+                    onClose();
+                    handleFixAll();
+                  }}
+                >
+                  Run All
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
       {selectedTask && (
         <TaskDetailModal
           isOpen={!!selectedTask}

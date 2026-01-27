@@ -1,5 +1,7 @@
-import { defineConfig } from "vite";
+import { defineConfig, build as viteBuild } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 
@@ -23,8 +25,47 @@ function copyStaticFiles() {
   };
 }
 
+function buildContentScript() {
+  return {
+    name: "build-content-script",
+    async closeBundle() {
+      await viteBuild({
+        configFile: false,
+        root: resolve(__dirname),
+        plugins: [react()],
+        resolve: {
+          alias: { "@": resolve(__dirname, "src") },
+        },
+        css: {
+          postcss: {
+            plugins: [
+              tailwindcss({ config: resolve(__dirname, "tailwind.config.js") }),
+              autoprefixer(),
+            ],
+          },
+        },
+        logLevel: "warn",
+        build: {
+          write: true,
+          outDir: resolve(__dirname, "dist"),
+          emptyOutDir: false,
+          rollupOptions: {
+            input: { content: resolve(__dirname, "src/content/index.ts") },
+            output: {
+              format: "iife",
+              dir: resolve(__dirname, "dist"),
+              entryFileNames: "[name].js",
+              inlineDynamicImports: true,
+            },
+          },
+        },
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), copyStaticFiles()],
+  plugins: [react(), copyStaticFiles(), buildContentScript()],
   base: "",
   resolve: {
     alias: {
@@ -39,7 +80,6 @@ export default defineConfig({
       input: {
         sidepanel: resolve(__dirname, "sidepanel.html"),
         background: resolve(__dirname, "src/background/index.ts"),
-        content: resolve(__dirname, "src/content/index.ts"),
       },
       output: {
         entryFileNames: "[name].js",

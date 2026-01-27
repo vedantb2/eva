@@ -56,6 +56,21 @@ chrome.runtime.onMessage.addListener(
         break;
       }
 
+      case "ANNOTATIONS_CHANGED": {
+        chrome.runtime.sendMessage({
+          type: "ANNOTATIONS_CHANGED",
+          payload: message.payload,
+        });
+        sendResponse({ success: true });
+        break;
+      }
+
+      case "STOP_ANNOTATION": {
+        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" });
+        sendResponse({ success: true });
+        break;
+      }
+
       default:
         sendResponse({ success: false, error: "Unknown message type" });
     }

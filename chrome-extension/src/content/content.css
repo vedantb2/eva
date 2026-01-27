@@ -1,0 +1,15 @@
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+}
+
+@keyframes conductor-glow {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}

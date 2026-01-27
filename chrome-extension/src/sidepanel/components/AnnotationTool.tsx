@@ -59,10 +59,10 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
   }, []);
 
   useEffect(() => {
-    if (savedPins === undefined) return;
+    if (savedPins === undefined || !isAnnotating) return;
     const pins: Record<string, StoredPin> = savedPins ? JSON.parse(savedPins) : {};
     pushToContentScript(pins);
-  }, [savedPins, pushToContentScript]);
+  }, [savedPins, pushToContentScript, isAnnotating]);
 
   useEffect(() => {
     const handleMessage = (message: { type: string; payload?: AnnotationPayload | { pageUrl: string; pins: Record<string, StoredPin> } }) => {
@@ -94,6 +94,7 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
       chrome.tabs.sendMessage(tab.id, { type: "STOP_ANNOTATION" });
       setIsAnnotating(false);
     } else {
+      lastPushedRef.current = null;
       chrome.tabs.sendMessage(tab.id, { type: "START_ANNOTATION" }, (response) => {
         if (chrome.runtime.lastError) {
           console.error("Failed to start annotation:", chrome.runtime.lastError);

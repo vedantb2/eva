@@ -1,5 +1,4 @@
 import type {
-  ExtractedContext,
   HookInfo,
   ReactComponentNode,
 } from "@/shared/types";
@@ -325,7 +324,7 @@ export function generateSelector(element: HTMLElement): string {
     let selector = current.tagName.toLowerCase();
 
     if (current.id) {
-      selector += `#${current.id}`;
+      selector += `#${CSS.escape(current.id)}`;
       parts.unshift(selector);
       break;
     }
@@ -333,7 +332,7 @@ export function generateSelector(element: HTMLElement): string {
     if (current.className && typeof current.className === "string") {
       const classes = current.className.trim().split(/\s+/).slice(0, 2);
       if (classes.length > 0 && classes[0]) {
-        selector += `.${classes.join(".")}`;
+        selector += `.${classes.map((c) => CSS.escape(c)).join(".")}`;
       }
     }
 
@@ -383,9 +382,20 @@ export function isReactAvailable(): boolean {
   return !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__?.supportsFiber;
 }
 
+export interface ReactTreeResult {
+  tree: ReactComponentNode;
+  metadata: {
+    reactVersion: string;
+    totalComponents: number;
+    capturedAt: number;
+    sourceUrl: string;
+    elementSelector: string;
+  };
+}
+
 export function extractReactTree(
   element: HTMLElement
-): ExtractedContext | null {
+): ReactTreeResult | null {
   if (!isReactAvailable()) {
     return null;
   }

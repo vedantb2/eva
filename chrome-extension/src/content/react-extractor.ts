@@ -4,7 +4,7 @@ import type {
   ReactComponentNode,
 } from "@/shared/types";
 
-interface FiberNode {
+export interface FiberNode {
   type: unknown;
   key: string | null;
   memoizedProps: Record<string, unknown>;
@@ -40,7 +40,7 @@ const FIBER_TAGS = {
   SimpleMemoComponent: 15,
 };
 
-function getComponentName(fiber: FiberNode): string {
+export function getComponentName(fiber: FiberNode): string {
   const { type, tag } = fiber;
 
   if (tag === FIBER_TAGS.HostText) {
@@ -291,6 +291,32 @@ function traverseFiber(
   return node;
 }
 
+export function getFiber(element: HTMLElement): FiberNode | null {
+  const fiberKey = Object.keys(element).find(
+    (key) =>
+      key.startsWith("__reactFiber$") ||
+      key.startsWith("__reactInternalInstance$")
+  );
+  if (!fiberKey) return null;
+  return (element as unknown as Record<string, FiberNode>)[fiberKey] || null;
+}
+
+export function countFiberHooks(fiber: FiberNode | null): number {
+  if (!fiber) return 0;
+  let count = 0;
+  let hook = fiber.memoizedState as { next?: unknown } | null;
+  while (hook && typeof hook === "object") {
+    count++;
+    hook = hook.next as { next?: unknown } | null;
+  }
+  return count;
+}
+
+export function countFiberProps(fiber: FiberNode | null): number {
+  if (!fiber || !fiber.memoizedProps) return 0;
+  return Object.keys(fiber.memoizedProps).filter(k => k !== "children").length;
+}
+
 export function generateSelector(element: HTMLElement): string {
   const parts: string[] = [];
   let current: HTMLElement | null = element;
@@ -364,17 +390,7 @@ export function extractReactTree(
     return null;
   }
 
-  const fiberKey = Object.keys(element).find(
-    (key) =>
-      key.startsWith("__reactFiber$") ||
-      key.startsWith("__reactInternalInstance$")
-  );
-
-  if (!fiberKey) {
-    return null;
-  }
-
-  const fiber = (element as unknown as Record<string, FiberNode>)[fiberKey];
+  const fiber = getFiber(element);
   if (!fiber) {
     return null;
   }

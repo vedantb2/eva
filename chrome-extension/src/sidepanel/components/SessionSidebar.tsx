@@ -1,8 +1,9 @@
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { IconPlus, IconX, IconMessage } from "@tabler/icons-react";
+import { IconPlus, IconMessage } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { UserButton, useUser } from "@clerk/chrome-extension";
 
 interface SessionSidebarProps {
@@ -30,20 +31,11 @@ export function SessionSidebar({
     repoId ? { repoId: repoId as Id<"githubRepos"> } : "skip"
   );
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      <div
-        className="absolute inset-0 bg-black/50 z-40"
-        onClick={onClose}
-      />
-      <div className="absolute left-0 top-0 bottom-0 w-64 bg-background border-r border-border z-50 flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="fixed left-0 top-0 h-full w-64 translate-x-0 translate-y-0 rounded-none border-r border-border p-0 flex flex-col data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left">
         <div className="flex items-center justify-between p-3 border-b border-border">
-          <span className="font-medium text-sm">Sessions</span>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <IconX size={16} />
-          </Button>
+          <DialogTitle className="font-medium text-sm">Sessions</DialogTitle>
         </div>
 
         <div className="p-2">
@@ -98,7 +90,7 @@ export function SessionSidebar({
             <span className="text-sm text-foreground truncate">{user.fullName}</span>
           )}
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }

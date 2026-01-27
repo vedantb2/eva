@@ -797,6 +797,18 @@ export type PublicApiType = {
         owner: string;
       }>
     >;
+    getByOwnerAndNameNoAuth: FunctionReference<
+      "query",
+      "public",
+      { name: string; owner: string },
+      {
+        _creationTime: number;
+        _id: Id<"githubRepos">;
+        installationId: number;
+        name: string;
+        owner: string;
+      } | null
+    >;
     getByOwnerAndName: FunctionReference<
       "query",
       "public",
@@ -1178,7 +1190,12 @@ export type PublicApiType = {
       { repoId: Id<"githubRepos">; startTime?: number },
       {
         active: number;
-        messagesByMode: { ask: number; execute: number; plan: number };
+        messagesByMode: {
+          ask: number;
+          execute: number;
+          flag: number;
+          plan: number;
+        };
         total: number;
       }
     >;
@@ -1466,6 +1483,142 @@ export type PublicApiType = {
       "mutation",
       "public",
       { id: Id<"evaluationReports">; summary: string },
+      null
+    >;
+  };
+  savedQueries: {
+    list: FunctionReference<
+      "query",
+      "public",
+      { repoId: Id<"githubRepos"> },
+      Array<{
+        _creationTime: number;
+        _id: Id<"savedQueries">;
+        createdAt: number;
+        query: string;
+        repoId: Id<"githubRepos">;
+        title: string;
+        updatedAt: number;
+        userId: Id<"users">;
+      }>
+    >;
+    get: FunctionReference<
+      "query",
+      "public",
+      { id: Id<"savedQueries"> },
+      {
+        _creationTime: number;
+        _id: Id<"savedQueries">;
+        createdAt: number;
+        query: string;
+        repoId: Id<"githubRepos">;
+        title: string;
+        updatedAt: number;
+        userId: Id<"users">;
+      } | null
+    >;
+    create: FunctionReference<
+      "mutation",
+      "public",
+      { query: string; repoId: Id<"githubRepos">; title: string },
+      Id<"savedQueries">
+    >;
+    update: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"savedQueries">; query?: string; title?: string },
+      null
+    >;
+    remove: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"savedQueries"> },
+      null
+    >;
+  };
+  routines: {
+    list: FunctionReference<
+      "query",
+      "public",
+      { repoId: Id<"githubRepos"> },
+      Array<{
+        _creationTime: number;
+        _id: Id<"routines">;
+        createdAt: number;
+        description?: string;
+        enabled: boolean;
+        lastRunAt?: number;
+        query: string;
+        repoId: Id<"githubRepos">;
+        schedule?: string;
+        title: string;
+        updatedAt: number;
+        userId: Id<"users">;
+      }>
+    >;
+    get: FunctionReference<
+      "query",
+      "public",
+      { id: Id<"routines"> },
+      {
+        _creationTime: number;
+        _id: Id<"routines">;
+        createdAt: number;
+        description?: string;
+        enabled: boolean;
+        lastRunAt?: number;
+        query: string;
+        repoId: Id<"githubRepos">;
+        schedule?: string;
+        title: string;
+        updatedAt: number;
+        userId: Id<"users">;
+      } | null
+    >;
+    create: FunctionReference<
+      "mutation",
+      "public",
+      {
+        description?: string;
+        query: string;
+        repoId: Id<"githubRepos">;
+        schedule?: string;
+        title: string;
+      },
+      Id<"routines">
+    >;
+    update: FunctionReference<
+      "mutation",
+      "public",
+      {
+        description?: string;
+        enabled?: boolean;
+        id: Id<"routines">;
+        query?: string;
+        schedule?: string;
+        title?: string;
+      },
+      null
+    >;
+    remove: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"routines"> },
+      null
+    >;
+  };
+  annotations: {
+    getByUrl: FunctionReference<
+      "query",
+      "public",
+      { pageUrl: string },
+      string | null
+    >;
+    remove: FunctionReference<"mutation", "public", { pageUrl: string }, null>;
+    save: FunctionReference<
+      "mutation",
+      "public",
+      { pageUrl: string; pins: string },
       null
     >;
   };

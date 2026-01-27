@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
+import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { IconArrowUp, IconFlag, IconMessageCircle } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -221,6 +224,46 @@ Please review all components and files used on this page before implementing the
     }
   };
 
+  const handleAnnotationTask = useCallback(
+    async (payload: { title: string; pageUrl: string; position: { x: number; y: number }; pinId: string; elementContext?: ExtractedContext }) => {
+      if (!selectedRepoId) return;
+      try {
+        let description = `${payload.title}\n\n**Page:** ${payload.pageUrl}`;
+
+        if (payload.elementContext) {
+          const ctx = payload.elementContext;
+          description += `\n\n---\n**Captured Element Context**\n`;
+          description += `- Element: \`<${ctx.element.tagName}>\`\n`;
+          description += `- Selector: \`${ctx.element.selector}\`\n`;
+          if (ctx.element.id) {
+            description += `- ID: \`${ctx.element.id}\`\n`;
+          }
+          if (ctx.element.classNames.length > 0) {
+            description += `- Classes: \`${ctx.element.classNames.join(", ")}\`\n`;
+          }
+          if (ctx.metadata.hasReact && ctx.react) {
+            description += `\n**React Context**\n`;
+            description += `- Component: \`${ctx.react.name || "Unknown"}\`\n`;
+            description += `- Total components: ${ctx.metadata.totalComponents}\n`;
+            description += `- React version: ${ctx.metadata.reactVersion}\n\n`;
+            description += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(ctx.react, null, 2)}\n\`\`\`\n</details>`;
+          } else {
+            description += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`json\n${JSON.stringify(ctx.element, null, 2)}\n\`\`\`\n</details>`;
+          }
+        }
+
+        await createQuickTask({
+          repoId: selectedRepoId as Id<"githubRepos">,
+          title: payload.title.slice(0, 100),
+          description,
+        });
+      } catch (error) {
+        console.error("Failed to create annotation task:", error);
+      }
+    },
+    [selectedRepoId, createQuickTask],
+  );
+
   const getPlaceholder = () => {
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
@@ -318,30 +361,19 @@ Please review all components and files used on this page before implementing the
 
         <div className="flex items-center gap-3">
           <SelectionTool hasCapturedContext={capturedContext !== null} />
-          <div className="flex-1 flex items-center gap-1 p-1 bg-muted rounded-lg">
-            <button
-              onClick={() => setMode("ask")}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                mode === "ask"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <IconMessageCircle size={16} />
-              Ask
-            </button>
-            <button
-              onClick={() => setMode("flag")}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                mode === "flag"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <IconFlag size={16} />
-              Flag Issue
-            </button>
-          </div>
+          <AnnotationTool onAnnotationTask={handleAnnotationTask} />
+          <Tabs value={mode} onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")} className="flex-1">
+            <TabsList className="w-full">
+              <TabsTrigger value="ask" className="flex-1 gap-1.5">
+                <IconMessageCircle size={16} />
+                Ask
+              </TabsTrigger>
+              <TabsTrigger value="flag" className="flex-1 gap-1.5">
+                <IconFlag size={16} />
+                Flag
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
@@ -354,16 +386,21 @@ Please review all components and files used on this page before implementing the
             rows={3}
             className="flex-1 min-h-[4.5rem] resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Button
-            onClick={handleSend}
-            disabled={
-              !input.trim() || !selectedRepoId || isLoading || isLoadingSession
-            }
-            size="icon"
-            className="mb-auto mr-2 mt-2 bg-teal-600 hover:bg-teal-700 text-white"
-          >
-            <IconArrowUp size={18} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleSend}
+                disabled={
+                  !input.trim() || !selectedRepoId || isLoading || isLoadingSession
+                }
+                size="icon"
+                className="mb-auto mr-2 mt-2 bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                <IconArrowUp size={18} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Send message</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

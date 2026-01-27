@@ -10,7 +10,12 @@ export type MessageType =
   | "GET_CAPTURED_CONTEXT"
   | "CLEAR_CONTEXT"
   | "GET_SESSION"
-  | "ASK_QUESTION";
+  | "ASK_QUESTION"
+  | "START_ANNOTATION"
+  | "STOP_ANNOTATION"
+  | "SAVE_ANNOTATION_TASK"
+  | "ANNOTATIONS_LOADED"
+  | "ANNOTATIONS_CHANGED";
 
 export interface StartSelectionMessage {
   type: "START_SELECTION";
@@ -100,6 +105,48 @@ export interface AskQuestionResponse {
   error?: string;
 }
 
+export interface StartAnnotationMessage {
+  type: "START_ANNOTATION";
+}
+
+export interface StopAnnotationMessage {
+  type: "STOP_ANNOTATION";
+}
+
+export interface SaveAnnotationTaskMessage {
+  type: "SAVE_ANNOTATION_TASK";
+  payload: {
+    title: string;
+    pageUrl: string;
+    position: { x: number; y: number };
+    pinId: string;
+    elementContext?: ExtractedContext;
+  };
+}
+
+export interface StoredPin {
+  x: number;
+  y: number;
+  text: string;
+  number: number;
+  selector: string;
+}
+
+export interface AnnotationsLoadedMessage {
+  type: "ANNOTATIONS_LOADED";
+  payload: {
+    pins: Record<string, StoredPin>;
+  };
+}
+
+export interface AnnotationsChangedMessage {
+  type: "ANNOTATIONS_CHANGED";
+  payload: {
+    pageUrl: string;
+    pins: Record<string, StoredPin>;
+  };
+}
+
 export type ExtensionMessage =
   | StartSelectionMessage
   | StopSelectionMessage
@@ -110,7 +157,12 @@ export type ExtensionMessage =
   | GetCapturedContextMessage
   | ClearContextMessage
   | GetSessionMessage
-  | AskQuestionMessage;
+  | AskQuestionMessage
+  | StartAnnotationMessage
+  | StopAnnotationMessage
+  | SaveAnnotationTaskMessage
+  | AnnotationsLoadedMessage
+  | AnnotationsChangedMessage;
 
 export const CONDUCTOR_URL =
   typeof chrome !== "undefined" &&

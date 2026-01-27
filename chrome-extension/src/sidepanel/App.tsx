@@ -13,6 +13,7 @@ import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -45,9 +46,14 @@ function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme}>
-      {theme === "dark" ? <IconSun size={20} /> : <IconMoon size={20} />}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+          {theme === "dark" ? <IconSun size={20} /> : <IconMoon size={20} />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Toggle theme</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -193,13 +199,18 @@ function AuthenticatedApp() {
   return (
     <div className="relative flex flex-col h-screen bg-background text-foreground">
       <header className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSidebarOpen(true)}
-        >
-          <IconMenu2 size={20} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <IconMenu2 size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Sessions</TooltipContent>
+        </Tooltip>
         <RepoSelector
           repos={repos}
           selectedRepoId={selectedRepoId}
@@ -265,12 +276,14 @@ export default function App() {
       signUpFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
     >
       <ConvexProvider>
-        <SignedOut>
-          <SignInScreen />
-        </SignedOut>
-        <SignedIn>
-          <AuthenticatedApp />
-        </SignedIn>
+        <TooltipProvider>
+          <SignedOut>
+            <SignInScreen />
+          </SignedOut>
+          <SignedIn>
+            <AuthenticatedApp />
+          </SignedIn>
+        </TooltipProvider>
       </ConvexProvider>
     </ClerkProvider>
   );

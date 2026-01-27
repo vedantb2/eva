@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import { cn } from "@/lib/utils";
 import { IconChevronDown, IconCheck } from "@tabler/icons-react";
 
@@ -22,86 +22,59 @@ export function Select({
   placeholder = "Select...",
   className,
 }: SelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((opt) => opt.value === value);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
+    <SelectPrimitive.Root value={value || undefined} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
         className={cn(
           "flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm overflow-hidden",
           "ring-offset-background placeholder:text-muted-foreground",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "[&>span]:line-clamp-1"
+          "[&>span]:line-clamp-1",
+          className,
         )}
-        aria-expanded={isOpen}
       >
-        <span className={cn("truncate min-w-0", !selectedOption && "text-muted-foreground")}>
-          {selectedOption?.label || placeholder}
-        </span>
-        <IconChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 opacity-50 transition-transform duration-200",
-            isOpen && "rotate-180"
-          )}
-        />
-      </button>
+        <SelectPrimitive.Value placeholder={placeholder} />
+        <SelectPrimitive.Icon asChild>
+          <IconChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
 
-      {isOpen && (
-        <div
-          className="absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-neutral-200 dark:bg-neutral-800 shadow-md"
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-neutral-200 dark:bg-neutral-800 shadow-md"
+          position="popper"
+          sideOffset={4}
         >
-          <div className="max-h-[300px] overflow-y-auto p-1">
+          <SelectPrimitive.Viewport className="max-h-[300px] p-1">
             {options.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 No options
               </div>
             ) : (
               options.map((option) => (
-                <button
+                <SelectPrimitive.Item
                   key={option.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(option.value);
-                    setIsOpen(false);
-                  }}
+                  value={option.value}
                   className={cn(
                     "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none",
                     "hover:bg-primary/10 hover:text-primary",
                     "focus:bg-primary/10 focus:text-primary",
-                    option.value === value && "bg-primary/10 text-primary"
+                    "data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary",
                   )}
                 >
-                  <span className="truncate">{option.label}</span>
-                  {option.value === value && (
-                    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                      <IconCheck className="h-4 w-4" />
-                    </span>
-                  )}
-                </button>
+                  <SelectPrimitive.ItemText>
+                    {option.label}
+                  </SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+                    <IconCheck className="h-4 w-4" />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
               ))
             )}
-          </div>
-        </div>
-      )}
-    </div>
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }

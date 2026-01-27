@@ -12,6 +12,7 @@ import type * as agentExecution from "../agentExecution.js";
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
+import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;
+  annotations: typeof annotations;
   auth: typeof auth;
   boards: typeof boards;
   columns: typeof columns;

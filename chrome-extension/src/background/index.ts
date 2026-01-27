@@ -1,6 +1,4 @@
-import type { ExtractedContext } from "@/shared/types";
-
-let capturedContext: ExtractedContext | null = null;
+let capturedContext: unknown = null;
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (tab.id) {
@@ -12,7 +10,7 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 interface ExtensionMessage {
   type: string;
-  payload?: ExtractedContext;
+  payload?: unknown;
 }
 
 chrome.runtime.onMessage.addListener(
@@ -45,6 +43,15 @@ chrome.runtime.onMessage.addListener(
 
       case "CLEAR_CONTEXT": {
         capturedContext = null;
+        sendResponse({ success: true });
+        break;
+      }
+
+      case "SAVE_ANNOTATION_TASK": {
+        chrome.runtime.sendMessage({
+          type: "SAVE_ANNOTATION_TASK",
+          payload: message.payload,
+        });
         sendResponse({ success: true });
         break;
       }

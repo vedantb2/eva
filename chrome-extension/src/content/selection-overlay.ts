@@ -1,4 +1,4 @@
-import { extractReactTree, isReactAvailable, generateSelector, countComponents, detectReactVersion } from "./react-extractor";
+import { extractReactTree, isReactAvailable, generateSelector, countComponents, detectReactVersion, getFiber, getComponentName, countFiberHooks, countFiberProps } from "./react-extractor";
 import type { ElementInfo, ExtractedContext } from "@/shared/types";
 
 const OVERLAY_ID = "conductor-selection-overlay";
@@ -113,37 +113,10 @@ function createInfoBox(): HTMLDivElement {
   return el;
 }
 
-interface FiberNode {
-  type?: unknown;
-  return?: FiberNode;
-  memoizedState?: unknown;
-  memoizedProps?: Record<string, unknown>;
-}
-
-function getFiber(element: HTMLElement): FiberNode | null {
-  const fiberKey = Object.keys(element).find(
-    (key) =>
-      key.startsWith("__reactFiber$") ||
-      key.startsWith("__reactInternalInstance$")
-  );
-  if (!fiberKey) return null;
-  return (element as Record<string, FiberNode>)[fiberKey] || null;
-}
-
-function getComponentName(fiber: FiberNode | null, element: HTMLElement): string {
-  if (!fiber) return element.tagName.toLowerCase();
-
-  const type = fiber.type;
-  if (typeof type === "function") {
-    const fn = type as { displayName?: string; name?: string };
-    return fn.displayName || fn.name || "Component";
-  }
-  if (typeof type === "string") return type;
-  return element.tagName.toLowerCase();
-}
-
 function getComponentInfo(element: HTMLElement): string {
-  return getComponentName(getFiber(element), element);
+  const fiber = getFiber(element);
+  if (!fiber) return element.tagName.toLowerCase();
+  return getComponentName(fiber);
 }
 
 function getParentChain(element: HTMLElement, maxDepth = 3): string[] {
@@ -152,7 +125,7 @@ function getParentChain(element: HTMLElement, maxDepth = 3): string[] {
 
   while (current && chain.length < maxDepth && current !== document.body) {
     const fiber = getFiber(current);
-    const name = getComponentName(fiber, current);
+    const name = fiber ? getComponentName(fiber) : current.tagName.toLowerCase();
     if (name && !name.startsWith("div") && !name.startsWith("span")) {
       chain.unshift(name);
     }
@@ -160,22 +133,6 @@ function getParentChain(element: HTMLElement, maxDepth = 3): string[] {
   }
 
   return chain;
-}
-
-function countHooks(fiber: FiberNode | null): number {
-  if (!fiber) return 0;
-  let count = 0;
-  let hook = fiber.memoizedState as { next?: unknown } | null;
-  while (hook && typeof hook === "object") {
-    count++;
-    hook = hook.next as { next?: unknown } | null;
-  }
-  return count;
-}
-
-function countProps(fiber: FiberNode | null): number {
-  if (!fiber || !fiber.memoizedProps) return 0;
-  return Object.keys(fiber.memoizedProps).filter(k => k !== "children").length;
 }
 
 function updateOverlayPosition(element: HTMLElement): void {
@@ -196,10 +153,10 @@ function updateOverlayPosition(element: HTMLElement): void {
   dimensionLabel.style.transform = "translateX(-50%)";
 
   const fiber = getFiber(element);
-  const componentName = getComponentName(fiber, element);
+  const componentName = getComponentInfo(element);
   const parentChain = getParentChain(element);
-  const propsCount = countProps(fiber);
-  const hooksCount = countHooks(fiber);
+  const propsCount = countFiberProps(fiber);
+  const hooksCount = countFiberHooks(fiber);
   const hasReactInfo = fiber && (propsCount > 0 || hooksCount > 0);
 
   infoBox.innerHTML = "";
@@ -432,8 +389,8 @@ export async function activate(): Promise<void> {
   glowStyle = document.createElement("style");
   glowStyle.textContent = `
     @keyframes conductor-glow {
-      0% { opacity: 0.5; }
-      100% { opacity: 0.8; }
+      0% { opacity: 0.3; }
+      100% { opacity: 1.0; }
     }
   `;
   document.head.appendChild(glowStyle);
@@ -444,11 +401,11 @@ export async function activate(): Promise<void> {
     inset: 0;
     pointer-events: none;
     z-index: 2147483646;
-    border: 7px solid;
-    border-image: linear-gradient(to right, #BFDFFF, #D8C6FF) 1;
+    border: 10px solid;
+    border-image: linear-gradient(to right, #0d9488, #14b8a6) 1;
     box-sizing: border-box;
-    filter: blur(12px);
-    animation: conductor-glow 1.5s ease-in-out infinite alternate;
+    filter: blur(18px);
+    animation: conductor-glow 1s ease-in-out infinite alternate;
   `;
   document.body.appendChild(glowOverlay);
 

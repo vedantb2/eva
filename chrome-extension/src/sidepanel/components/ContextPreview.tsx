@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { ExtractedContext, ReactComponentNode } from "@/shared/types";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 interface ContextPreviewProps {
   context: ExtractedContext;
@@ -95,57 +97,59 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
     : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
 
   return (
-    <div className="bg-muted rounded-lg border border-border overflow-hidden">
-      <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">
-            {isExpanded ? "▼" : "▶"}
-          </span>
-          <span className="text-sm text-foreground">
-            Captured: <span className="text-primary">{displayName}</span>
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {hasReact
-              ? `(${context.metadata.totalComponents} components)`
-              : "(HTML element)"}
-          </span>
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <div className="bg-muted rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 flex-1">
+              <span className="text-muted-foreground text-sm">
+                {isExpanded ? "▼" : "▶"}
+              </span>
+              <span className="text-sm text-foreground">
+                Captured: <span className="text-primary">{displayName}</span>
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {hasReact
+                  ? `(${context.metadata.totalComponents} components)`
+                  : "(HTML element)"}
+              </span>
+            </div>
+          </CollapsibleTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onClear}
+                className="text-muted-foreground hover:text-foreground p-1"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Clear context</TooltipContent>
+          </Tooltip>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          className="text-muted-foreground hover:text-foreground p-1"
-          title="Clear context"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
 
-      {isExpanded && (
-        <div className="border-t border-border p-2 max-h-48 overflow-y-auto">
-          {hasReact && context.react ? (
-            <ComponentTree node={context.react} expanded={true} />
-          ) : (
-            <ElementInfoView context={context} />
-          )}
-        </div>
-      )}
-    </div>
+        <CollapsibleContent>
+          <div className="border-t border-border p-2 max-h-48 overflow-y-auto">
+            {hasReact && context.react ? (
+              <ComponentTree node={context.react} expanded={true} />
+            ) : (
+              <ElementInfoView context={context} />
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }

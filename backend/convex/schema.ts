@@ -228,6 +228,13 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  annotations: defineTable({
+    userId: v.id("users"),
+    pageUrl: v.string(),
+    pins: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user_and_url", ["userId", "pageUrl"]),
+
   evaluationReports: defineTable({
     repoId: v.id("githubRepos"),
     docId: v.id("docs"),

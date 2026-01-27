@@ -180,16 +180,16 @@ export function ChatPanel({
                   </div>
                 )}
                 <div
-                  className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
+                  className={`flex flex-col min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] px-3 py-2 rounded-xl ${
+                    className={`max-w-[85%] px-3 py-2 rounded-xl overflow-hidden ${
                       message.role === "user"
                         ? "bg-teal-600 text-white"
                         : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
+                    <p className="text-sm whitespace-pre-wrap break-words break-all">
                       {message.content}
                     </p>
                   </div>

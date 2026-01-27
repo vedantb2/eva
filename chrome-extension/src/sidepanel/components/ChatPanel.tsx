@@ -43,6 +43,7 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
+  const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
@@ -249,6 +250,14 @@ Please review all components and files used on this page before implementing the
     [selectedRepoId, createQuickTask],
   );
 
+  const handleSelectionActiveChange = useCallback((active: boolean) => {
+    setActiveTool(active ? "select" : null);
+  }, []);
+
+  const handleAnnotationActiveChange = useCallback((active: boolean) => {
+    setActiveTool(active ? "annotate" : null);
+  }, []);
+
   const getPlaceholder = () => {
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
@@ -364,8 +373,16 @@ Please review all components and files used on this page before implementing the
         )}
 
         <div className="flex items-center gap-3">
-          <SelectionTool hasCapturedContext={capturedContext !== null} />
-          <AnnotationTool onAnnotationTask={handleAnnotationTask} />
+          <SelectionTool
+            hasCapturedContext={capturedContext !== null}
+            isActive={activeTool === "select"}
+            onActiveChange={handleSelectionActiveChange}
+          />
+          <AnnotationTool
+            onAnnotationTask={handleAnnotationTask}
+            isActive={activeTool === "annotate"}
+            onActiveChange={handleAnnotationActiveChange}
+          />
           <Tabs value={mode} onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")} className="flex-1">
             <TabsList className="w-full">
               <TabsTrigger value="ask" className="flex-1 gap-1.5">

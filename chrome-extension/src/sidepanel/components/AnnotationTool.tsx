@@ -16,12 +16,14 @@ interface AnnotationPayload {
 
 interface AnnotationToolProps {
   onAnnotationTask: (payload: AnnotationPayload) => void;
+  isActive: boolean;
+  onActiveChange: (active: boolean) => void;
 }
 
-export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
-  const [isAnnotating, setIsAnnotating] = useState(false);
+export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: AnnotationToolProps) {
   const [tabUrl, setTabUrl] = useState<string | null>(null);
   const lastPushedRef = useRef<string | null>(null);
+  const prevActiveRef = useRef(isActive);
 
   const pageUrl = tabUrl ? new URL(tabUrl).origin + new URL(tabUrl).pathname : null;
 
@@ -74,7 +76,7 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
         onAnnotationTask(message.payload as AnnotationPayload);
       }
       if (message.type === "STOP_ANNOTATION") {
-        setIsAnnotating(false);
+        onActiveChange(false);
       }
       if (message.type === "ANNOTATIONS_CHANGED" && message.payload) {
         const { pageUrl: url, pins } = message.payload as { pageUrl: string; pins: Record<string, StoredPin> };
@@ -93,27 +95,34 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
     };
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
-  }, [onAnnotationTask, saveAnnotations, removeAnnotations, savedPins, pushToContentScript]);
+  }, [onAnnotationTask, onActiveChange, saveAnnotations, removeAnnotations, savedPins, pushToContentScript]);
 
-  const handleClick = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-
-    if (isAnnotating) {
-      chrome.tabs.sendMessage(tab.id, { type: "STOP_ANNOTATION" });
-      setIsAnnotating(false);
-    } else {
-      lastPushedRef.current = null;
-      chrome.tabs.sendMessage(tab.id, { type: "START_ANNOTATION" }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Failed to start annotation:", chrome.runtime.lastError);
-          return;
-        }
-        if (response?.success) {
-          setIsAnnotating(true);
-        }
+  useEffect(() => {
+    if (prevActiveRef.current && !isActive) {
+      chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+        if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_ANNOTATION" });
       });
     }
+    prevActiveRef.current = isActive;
+  }, [isActive]);
+
+  const handleClick = async () => {
+    if (isActive) {
+      onActiveChange(false);
+      return;
+    }
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    lastPushedRef.current = null;
+    chrome.tabs.sendMessage(tab.id, { type: "START_ANNOTATION" }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Failed to start annotation:", chrome.runtime.lastError);
+        return;
+      }
+      if (response?.success) {
+        onActiveChange(true);
+      }
+    });
   };
 
   return (
@@ -122,18 +131,18 @@ export function AnnotationTool({ onAnnotationTask }: AnnotationToolProps) {
         <button
           onClick={handleClick}
           className={`relative p-2 rounded-lg transition-all duration-200 ${
-            isAnnotating
+            isActive
               ? "bg-teal-600 text-white ring-2 ring-teal-500 ring-offset-2 ring-offset-background"
               : "bg-muted text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
-          {isAnnotating && (
+          {isActive && (
             <span className="absolute inset-0 rounded-lg animate-ping bg-teal-500 opacity-30" />
           )}
           <IconMapPin className="relative w-5 h-5" />
         </button>
       </TooltipTrigger>
-      <TooltipContent>{isAnnotating ? "Stop annotating" : "Annotate page"}</TooltipContent>
+      <TooltipContent>{isActive ? "Stop annotating" : "Annotate page"}</TooltipContent>
     </Tooltip>
   );
 }

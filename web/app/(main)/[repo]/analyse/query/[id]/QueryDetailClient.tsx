@@ -123,7 +123,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="shadow-medium p-2">
+      <div className="px-5 pb-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -134,7 +134,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Eva a data question..."
+              placeholder="Ask Eva to perform an analysis..."
               minRows={4}
               maxRows={6}
               onKeyDown={(e) => {

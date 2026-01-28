@@ -37,7 +37,7 @@ export function ProjectTaskCard({
       onPress={onClick}
       shadow="none"
       radius="sm"
-      className={`w-full ${statusCardBg[status]}`}
+      className={`w-full shadow ${statusCardBg[status]}`}
     >
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">

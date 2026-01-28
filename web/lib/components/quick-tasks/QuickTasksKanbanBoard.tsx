@@ -128,7 +128,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
           </Card>
         )}
       />
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal backdrop="blur" isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
           {(onClose) => (
             <>

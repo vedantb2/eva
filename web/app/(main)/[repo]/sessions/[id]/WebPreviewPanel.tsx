@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Spinner } from "@heroui/spinner";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { IconRefresh, IconWorld, IconExternalLink, IconTerminal2 } from "@tabler/icons-react";
+import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
 
 interface WebPreviewPanelProps {
   sessionId: string;
@@ -18,7 +18,11 @@ interface PreviewInfo {
   port: number;
 }
 
-export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPanelProps) {
+export function WebPreviewPanel({
+  sessionId,
+  sandboxId,
+  isActive,
+}: WebPreviewPanelProps) {
   const [port, setPort] = useState("3000");
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +37,7 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
 
     try {
       const response = await fetch(
-        `/api/sessions/preview?sessionId=${sessionId}&port=${portToFetch}`
+        `/api/sessions/preview?sessionId=${sessionId}&port=${portToFetch}`,
       );
 
       if (!response.ok) {
@@ -72,7 +76,9 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
       <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
         <IconWorld className="w-12 h-12 opacity-50" />
         <p className="text-sm">
-          {!isActive ? "Start the sandbox to preview your app" : "Waiting for sandbox..."}
+          {!isActive
+            ? "Start the sandbox to preview your app"
+            : "Waiting for sandbox..."}
         </p>
       </div>
     );
@@ -80,7 +86,7 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+      <div className="flex items-center gap-2 px-3 pb-2 bg-white dark:bg-neutral-950">
         <Input
           type="number"
           value={port}
@@ -149,32 +155,6 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
               title="Preview"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
-            <div className="p-2 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-              <p className="text-xs text-neutral-500 flex items-center gap-1.5">
-                <IconTerminal2 className="w-3.5 h-3.5" />
-                Run{" "}
-                <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">
-                  pnpm dev
-                </code>{" "}
-                in Terminal to start dev server
-              </p>
-            </div>
-          </div>
-        )}
-        {!previewInfo && !isLoading && !error && (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-4 p-4">
-            <IconWorld className="w-12 h-12 opacity-50" />
-            <div className="text-center space-y-2">
-              <p className="text-sm">Enter a port number and press Enter</p>
-              <p className="text-xs text-neutral-400 flex items-center gap-1.5 justify-center">
-                <IconTerminal2 className="w-3.5 h-3.5" />
-                First run{" "}
-                <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">
-                  pnpm dev
-                </code>{" "}
-                in Terminal
-              </p>
-            </div>
           </div>
         )}
       </div>

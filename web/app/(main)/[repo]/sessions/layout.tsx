@@ -14,12 +14,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import {
-  IconTerminal2,
-  IconArchive,
-  IconSearch,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconTerminal2, IconArchive, IconSearch } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -120,7 +115,7 @@ export default function SessionsLayout({
   };
 
   const getLastActivity = (
-    session: NonNullable<typeof sessions>[number]
+    session: NonNullable<typeof sessions>[number],
   ): string => {
     if (session.messages.length === 0) {
       return formatTime(session._creationTime);

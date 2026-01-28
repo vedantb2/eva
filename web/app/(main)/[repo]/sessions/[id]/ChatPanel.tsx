@@ -15,6 +15,7 @@ import {
   IconFileText,
   IconGitPullRequest,
   IconArrowUp,
+  IconWorld,
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,7 +25,6 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Badge } from "@heroui/react";
 
 type SessionMode = "execute" | "ask" | "plan" | "flag";
 
@@ -143,7 +143,7 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 shadow-medium z-50">
+      <div className="flex items-center justify-between p-4 border border-neutral-200 dark:border-neutral-700 z-50">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}
@@ -154,23 +154,6 @@ export function ChatPanel({
           />
         </div>
         <div className="flex items-center gap-2">
-          {branchName && (
-            <Link
-              href={
-                prUrl ||
-                `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
-              }
-              target="_blank"
-              className="flex items-center gap-1 text-sm text-teal-500 hover:text-teal-600"
-            >
-              <IconGitBranch className="w-4 h-4" />
-              {prUrl && (
-                <Chip size="sm" color="success" variant="flat">
-                  PR
-                </Chip>
-              )}
-            </Link>
-          )}
           <Button
             size="sm"
             color={isSandboxActive ? "danger" : "success"}
@@ -266,7 +249,7 @@ export function ChatPanel({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="shadow-medium p-3">
+      <div className="px-3 pb-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <Tabs
@@ -317,33 +300,31 @@ export function ChatPanel({
             )}
           </div>
           <div className="flex items-center gap-1">
-            {prUrl && (
-              <Button
-                as={Link}
-                href={prUrl}
-                target="_blank"
-                size="sm"
-                variant="light"
-                isIconOnly
-              >
-                <IconGitPullRequest className="w-4 h-4" />
-              </Button>
-            )}
-            {branchName && (
-              <Button
-                as={Link}
-                href={`https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`}
-                target="_blank"
-                size="sm"
-                variant="light"
-                isIconOnly
-              >
-                <IconGitBranch className="w-4 h-4" />
-              </Button>
-            )}
-            <Badge variant="flat">
-              hi
-            </Badge>
+            <Chip
+              variant="faded"
+              size="sm"
+              startContent={<IconGitPullRequest size={12} className="ml-1" />}
+              as={Link}
+              href={
+                prUrl ??
+                `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
+              }
+              target="_blank"
+            >
+              View PR
+            </Chip>
+            <Chip
+              variant="faded"
+              size="sm"
+              startContent={<IconWorld size={12} className="ml-1" />}
+              as={Link}
+              href={
+                prUrl ??
+                `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
+              }
+            >
+              View Preview
+            </Chip>
           </div>
         </div>
         <form

@@ -51,7 +51,12 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "code_review", "done"];
+const STATUS_ORDER: TaskStatus[] = [
+  "todo",
+  "in_progress",
+  "code_review",
+  "done",
+];
 
 interface ProjectTaskListPanelProps {
   projectId: Id<"projects">;
@@ -84,7 +89,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   }
 
   const nonEmptyStatuses = STATUS_ORDER.filter(
-    (status) => groupedTasks[status].length > 0
+    (status) => groupedTasks[status].length > 0,
   );
   const defaultExpandedKeys = nonEmptyStatuses.filter((s) => s !== "done");
 

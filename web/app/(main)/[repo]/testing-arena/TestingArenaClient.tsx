@@ -6,10 +6,24 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
-import { IconPlayerPlay, IconFileText, IconCheck, IconX, IconChevronDown, IconChevronRight, IconSearch } from "@tabler/icons-react";
+import {
+  IconPlayerPlay,
+  IconFileText,
+  IconCheck,
+  IconX,
+  IconChevronDown,
+  IconChevronRight,
+  IconSearch,
+} from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { Input } from "@heroui/input";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 
 interface Doc {
   _id: Id<"docs">;
@@ -40,7 +54,9 @@ function DocsListPanel({
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
     const query = searchQuery.toLowerCase().trim();
-    return query ? docs.filter((d) => d.title.toLowerCase().includes(query)) : docs;
+    return query
+      ? docs.filter((d) => d.title.toLowerCase().includes(query))
+      : docs;
   }, [docs, searchQuery]);
 
   if (docs === undefined) {
@@ -102,14 +118,18 @@ function DocsListPanel({
 
 function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
   const styles = {
-    pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
+    pending:
+      "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
     running: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
-    completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+    completed:
+      "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
     error: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
   };
 
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status]}`}>
+    <span
+      className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status]}`}
+    >
       {status}
     </span>
   );
@@ -170,7 +190,11 @@ function ReportCard({ report }: { report: EvaluationReport }) {
                 onClick={() => setExpandedMet(!expandedMet)}
                 className="flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400 hover:underline"
               >
-                {expandedMet ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                {expandedMet ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
                 Requirements Met ({metCount})
               </button>
               {expandedMet && (
@@ -197,7 +221,11 @@ function ReportCard({ report }: { report: EvaluationReport }) {
                 onClick={() => setExpandedNotMet(!expandedNotMet)}
                 className="flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400 hover:underline"
               >
-                {expandedNotMet ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                {expandedNotMet ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
                 Requirements Not Met ({notMetCount})
               </button>
               {expandedNotMet && (
@@ -231,7 +259,7 @@ function ReportsPanel({
 }) {
   const reports = useQuery(
     api.evaluationReports.listByDoc,
-    doc ? { docId: doc._id } : "skip"
+    doc ? { docId: doc._id } : "skip",
   );
   const [isRunning, setIsRunning] = useState(false);
 
@@ -355,15 +383,20 @@ export function TestingArenaClient() {
           </div>
         </div>
       </PageWrapper>
-      <Modal isOpen={showTestAllModal} onClose={() => setShowTestAllModal(false)}>
+      <Modal
+        isOpen={showTestAllModal}
+        onClose={() => setShowTestAllModal(false)}
+      >
         <ModalContent>
           <ModalHeader>Test All Documents</ModalHeader>
           <ModalBody>
             <p className="text-default-600">
-              Are you sure you want to run tests on all {docs?.length ?? 0} documents?
+              Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
+              documents?
             </p>
             <p className="text-sm text-default-500 mt-2">
-              This will evaluate each document against your codebase sequentially.
+              This will evaluate each document against your codebase
+              sequentially.
             </p>
           </ModalBody>
           <ModalFooter>
@@ -371,7 +404,7 @@ export function TestingArenaClient() {
               Cancel
             </Button>
             <Button color="primary" onPress={handleTestAll}>
-              Test All
+              Yes save me Eva
             </Button>
           </ModalFooter>
         </ModalContent>

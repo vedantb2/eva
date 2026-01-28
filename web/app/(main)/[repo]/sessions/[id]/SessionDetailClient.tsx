@@ -56,7 +56,14 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
 
   return (
     <div className="flex h-full">
-      <div className="w-1/2 border-r border-neutral-200 dark:border-neutral-800">
+      <div className="w-3/5 shadow-small">
+        <SandboxPanel
+          sessionId={sessionId}
+          sandboxId={session.sandboxId}
+          isActive={isSandboxActive}
+        />
+      </div>
+      <div className="w-2/5">
         <ChatPanel
           sessionId={sessionId}
           title={session.title}
@@ -66,13 +73,6 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxToggling}
           onSandboxToggle={handleSandboxToggle}
-        />
-      </div>
-      <div className="w-1/2">
-        <SandboxPanel
-          sessionId={sessionId}
-          sandboxId={session.sandboxId}
-          isActive={isSandboxActive}
         />
       </div>
     </div>

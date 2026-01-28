@@ -20,8 +20,8 @@ export function SandboxPanel({
   const [activeTab, setActiveTab] = useState<string>("terminal");
 
   return (
-    <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950">
-      <div className="border-b border-neutral-200 dark:border-neutral-800 p-3">
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-950">
+      <div className="p-3">
         <Tabs
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(key as string)}
@@ -29,15 +29,6 @@ export function SandboxPanel({
             tabList: "gap-2",
           }}
         >
-          <Tab
-            key="terminal"
-            title={
-              <div className="flex items-center gap-1.5">
-                <IconTerminal2 className="w-4 h-4" />
-                <span>Terminal</span>
-              </div>
-            }
-          />
           <Tab
             key="preview"
             title={
@@ -47,18 +38,27 @@ export function SandboxPanel({
               </div>
             }
           />
+          <Tab
+            key="terminal"
+            title={
+              <div className="flex items-center gap-1.5">
+                <IconTerminal2 className="w-4 h-4" />
+                <span>Terminal</span>
+              </div>
+            }
+          />
         </Tabs>
       </div>
       <div className="flex-1 overflow-hidden relative">
-        <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
-          <TerminalPanel
+        <div className={activeTab === "preview" ? "h-full" : "hidden"}>
+          <WebPreviewPanel
             sessionId={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}
           />
         </div>
-        <div className={activeTab === "preview" ? "h-full" : "hidden"}>
-          <WebPreviewPanel
+        <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
+          <TerminalPanel
             sessionId={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}

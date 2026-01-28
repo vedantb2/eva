@@ -7,6 +7,7 @@ import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import Link from "next/link";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 export type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -22,6 +23,7 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  createdBy?: Id<"users">;
   onClick?: () => void;
 }
 
@@ -30,9 +32,14 @@ export function QuickTaskCard({
   title,
   description,
   status,
+  createdBy,
   onClick,
 }: QuickTaskCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const creator = useQuery(
+    api.users.get,
+    createdBy ? { id: createdBy } : "skip"
+  );
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
 
@@ -62,9 +69,17 @@ export function QuickTaskCard({
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
-        <div className="flex items-center gap-1 text-xs text-default-400">
-          <IconSubtask size={12} />
-          <SubtaskProgress taskId={id} />
+        <div className="flex items-center justify-between mt-2">
+          {creator && (
+            <UserInitials
+              firstName={creator.firstName}
+              lastName={creator.lastName}
+            />
+          )}
+          <div className="flex items-center gap-1 text-xs text-default-400">
+            <IconSubtask size={12} />
+            <SubtaskProgress taskId={id} />
+          </div>
         </div>
       </CardBody>
     </Card>

@@ -23,6 +23,7 @@ interface Task {
   status: TaskStatus;
   taskNumber?: number;
   order: number;
+  createdBy?: Id<"users">;
 }
 
 const STATUS_CONFIG: Record<
@@ -131,6 +132,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                     title={task.title}
                     description={task.description}
                     status={task.status}
+                    createdBy={task.createdBy}
                     onClick={() => setSelectedTask(task)}
                   />
                 ))

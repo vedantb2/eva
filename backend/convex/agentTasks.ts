@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { getCurrentUserId } from "./auth";
 
 const taskStatusValidator = v.union(
   v.literal("todo"),
@@ -24,6 +25,7 @@ const agentTaskValidator = v.object({
   order: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),
+  createdBy: v.optional(v.id("users")),
 });
 
 export const listByBoard = query({
@@ -128,6 +130,7 @@ export const create = mutation({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    const userId = await getCurrentUserId(ctx);
     const column = await ctx.db.get(args.columnId);
     if (!column) {
       throw new Error("Column not found");
@@ -154,6 +157,7 @@ export const create = mutation({
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
+      createdBy: userId ?? undefined,
     });
   },
 });
@@ -462,6 +466,7 @@ export const createQuickTask = mutation({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    const userId = await getCurrentUserId(ctx);
     let board = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -516,6 +521,7 @@ export const createQuickTask = mutation({
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
+      createdBy: userId ?? undefined,
     });
   },
 });

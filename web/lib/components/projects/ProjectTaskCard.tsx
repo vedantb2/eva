@@ -9,6 +9,7 @@ import { api } from "@/api";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
 import { TaskStatus, statusCardBg } from "../quick-tasks/QuickTaskCard";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 interface ProjectTaskCardProps {
   id: Id<"agentTasks">;
@@ -16,6 +17,7 @@ interface ProjectTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  createdBy?: Id<"users">;
   onClick?: () => void;
 }
 
@@ -25,10 +27,15 @@ export function ProjectTaskCard({
   title,
   description,
   status,
+  createdBy,
   onClick,
 }: ProjectTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const creator = useQuery(
+    api.users.get,
+    createdBy ? { id: createdBy } : "skip"
+  );
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   return (
@@ -65,11 +72,17 @@ export function ProjectTaskCard({
         {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
-        <div className="flex items-center gap-3 text-xs text-default-400">
+        <div className="flex items-center justify-between text-xs text-default-400">
           <div className="flex items-center gap-1">
             <IconSubtask size={12} />
             <SubtaskProgress taskId={id} />
           </div>
+          {creator && (
+            <UserInitials
+              firstName={creator.firstName}
+              lastName={creator.lastName}
+            />
+          )}
         </div>
       </CardBody>
     </Card>

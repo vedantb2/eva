@@ -28,6 +28,7 @@ import type * as specs from "../specs.js";
 import type * as subtasks from "../subtasks.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   subtasks: typeof subtasks;
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
+  users: typeof users;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

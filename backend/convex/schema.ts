@@ -9,10 +9,6 @@ const schema = defineSchema({
     lastName: v.optional(v.string()),
     fullName: v.optional(v.string()),
     isAdmin: v.optional(v.boolean()),
-    xp: v.optional(v.number()),
-    streak: v.optional(v.number()),
-    lastPracticeDate: v.optional(v.string()),
-    hearts: v.optional(v.number()),
     theme: v.optional(v.union(v.literal("light"), v.literal("dark"))),
   })
     .index("by_clerk_id", ["clerkId"])
@@ -99,6 +95,7 @@ const schema = defineSchema({
     order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    createdBy: v.optional(v.id("users")),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])

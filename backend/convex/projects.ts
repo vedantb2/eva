@@ -522,6 +522,7 @@ export const startDevelopment = mutation({
         order: i,
         createdAt: now,
         updatedAt: now,
+        createdBy: userId,
       });
       taskIdMap.set(taskNumber, taskId);
       for (let j = 0; j < task.subtasks.length; j++) {

@@ -11,12 +11,9 @@ import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
   IconLayoutKanban,
   IconPlus,
-  IconChevronRight,
-  IconGitBranch,
   IconFilter,
   IconSortAscending,
   IconSortDescending,
-  IconTrash,
   IconSearch,
   IconNotes,
   IconCheck,
@@ -28,9 +25,7 @@ import {
   ColumnConfig,
 } from "@/lib/components/kanban/KanbanColumn";
 import { Input } from "@heroui/input";
-import Link from "next/link";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { Tooltip } from "@heroui/tooltip";
 import { useState, useMemo } from "react";
 import {
   Dropdown,
@@ -45,7 +40,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
+import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type SortField = "created" | "title";
@@ -281,69 +276,25 @@ export function ProjectsClient() {
                     count={projectsByPhase[phase]?.length ?? 0}
                     droppable={false}
                   >
-                    {projectsByPhase[phase]?.map((project) => {
-                      const projectUrl =
-                        "/" +
-                        encodeRepoSlug(fullName) +
-                        "/projects/" +
-                        project._id;
-                      return (
-                        <div
-                          key={project._id}
-                          className={`p-3 rounded-md shadow transition-all group ${phaseConfig[phase].cardBg}`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <Link href={projectUrl} className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-teal-600 transition-colors truncate">
-                                  {project.title}
-                                </h3>
-                              </div>
-                              {project.description ? (
-                                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                                  {project.description}
-                                </p>
-                              ) : project.rawInput ? (
-                                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                                  {project.rawInput}
-                                </p>
-                              ) : null}
-                              {project.branchName && (
-                                <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500 truncate">
-                                  <IconGitBranch className="w-3 h-3 flex-shrink-0" />
-                                  <span className="truncate">
-                                    {project.branchName}
-                                  </span>
-                                </div>
-                              )}
-                            </Link>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <Tooltip content="Delete project">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setProjectToDelete({
-                                      id: project._id,
-                                      title: project.title,
-                                    });
-                                  }}
-                                  className="p-1 rounded-lg transition-colors hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                                >
-                                  <IconTrash size={16} />
-                                </button>
-                              </Tooltip>
-                              <Link
-                                href={projectUrl}
-                                className="text-neutral-400 group-hover:text-teal-600 transition-colors p-1"
-                              >
-                                <IconChevronRight size={18} />
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {projectsByPhase[phase]?.map((project) => (
+                      <ProjectCard
+                        key={project._id}
+                        projectId={project._id}
+                        userId={project.userId}
+                        title={project.title}
+                        description={project.description}
+                        rawInput={project.rawInput}
+                        branchName={project.branchName}
+                        projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
+                        cardBg={phaseConfig[phase].cardBg}
+                        onDelete={() =>
+                          setProjectToDelete({
+                            id: project._id,
+                            title: project.title,
+                          })
+                        }
+                      />
+                    ))}
                     {(projectsByPhase[phase]?.length ?? 0) === 0 && (
                       <p className="text-xs text-neutral-400 text-center py-4">
                         No projects

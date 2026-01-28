@@ -27,6 +27,8 @@ interface Task {
   description?: string;
   status: TaskStatus;
   order: number;
+  createdBy?: Id<"users">;
+  updatedAt: number;
 }
 
 interface QuickTasksKanbanBoardProps {
@@ -41,7 +43,9 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const [isFixingAll, setIsFixingAll] = useState(false);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  const tasks = allTasks?.filter((t) => !t.projectId) ?? [];
+  const tasks = (allTasks?.filter((t) => !t.projectId) ?? []).sort(
+    (a, b) => b.updatedAt - a.updatedAt,
+  );
 
   if (allTasks === undefined) {
     return (
@@ -118,6 +122,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             title={task.title}
             description={task.description}
             status={task.status}
+            createdBy={task.createdBy}
           />
         )}
         renderOverlay={(task) => (
@@ -132,7 +137,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader>Run All Tasks</ModalHeader>
+              <ModalHeader>Complete All Tasks</ModalHeader>
               <ModalBody className="text-sm text-default-600 space-y-2">
                 <p>
                   Eva will run and complete all {todoTasks.length} task
@@ -142,9 +147,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
                   If there is an issue, Eva will return the task to To Do with a
                   red border.
                 </p>
-                <p>
-                  If successful, she will move it to Code Review.
-                </p>
+                <p>If successful, she will move it to Code Review.</p>
               </ModalBody>
               <ModalFooter>
                 <Button variant="light" onPress={onClose}>
@@ -157,7 +160,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
                     handleFixAll();
                   }}
                 >
-                  Run All
+                  Complete All
                 </Button>
               </ModalFooter>
             </>

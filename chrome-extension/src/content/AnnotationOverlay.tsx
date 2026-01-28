@@ -707,7 +707,7 @@ export function AnnotationOverlay() {
       return;
     }
 
-    document.body.style.cursor = "crosshair";
+    document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z' fill='%2314b8a6' stroke='white' stroke-width='1.5'/><path d='M16 10v8M12 14h8' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>") 16 16, crosshair`;
     let mouseDownPos: { x: number; y: number } | null = null;
 
     function handleMouseDown(e: MouseEvent) {

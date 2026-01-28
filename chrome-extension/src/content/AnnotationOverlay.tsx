@@ -870,10 +870,10 @@ export function AnnotationOverlay() {
       {ext.active && (
         <>
           <div
-            className="fixed inset-0 pointer-events-none"
+            className="fixed inset-0 pointer-events-none rounded-md"
             style={{
               zIndex: 2147483644,
-              border: "2px solid #14b8a6",
+              border: "1px solid #14b8a6",
               boxSizing: "border-box",
             }}
           />

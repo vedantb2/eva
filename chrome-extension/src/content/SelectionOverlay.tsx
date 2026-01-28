@@ -277,17 +277,27 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
 
   return (
     <>
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          zIndex: 2147483646,
-          border: "10px solid",
-          borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
-          boxSizing: "border-box",
-          filter: "blur(18px)",
-          animation: "conductor-glow 1s ease-in-out infinite alternate",
-        }}
-      />
+      <>
+        <div
+          className="fixed inset-0 pointer-events-none rounded-md"
+          style={{
+            zIndex: 2147483644,
+            border: "1px solid #14b8a6",
+            boxSizing: "border-box",
+          }}
+        />
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            zIndex: 2147483644,
+            border: "11px solid",
+            borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
+            boxSizing: "border-box",
+            filter: "blur(20px)",
+            animation: "conductor-glow 0.8s ease-in-out infinite alternate",
+          }}
+        />
+      </>
 
       {hoverRect && (
         <>
@@ -303,7 +313,12 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
               transition: "all 0.05s ease",
               boxSizing: "border-box",
               ...(capturing
-                ? { transform: "scale(1.03)", opacity: 0.8, transition: "transform 0.15s ease-out, opacity 0.15s ease-out" }
+                ? {
+                    transform: "scale(1.03)",
+                    opacity: 0.8,
+                    transition:
+                      "transform 0.15s ease-out, opacity 0.15s ease-out",
+                  }
                 : {}),
             }}
           >
@@ -313,7 +328,13 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
                 <div
                   key={pos}
                   className="absolute bg-blue-500"
-                  style={{ width: 8, height: 8, borderRadius: 1, [v ?? "top"]: -4, [h ?? "left"]: -4 }}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 1,
+                    [v ?? "top"]: -4,
+                    [h ?? "left"]: -4,
+                  }}
                 />
               );
             })}
@@ -328,7 +349,8 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
               transform: "translateX(-50%)",
               padding: "2px 6px",
               borderRadius: 4,
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace",
+              fontFamily:
+                "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace",
               fontSize: 10,
               boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
             }}
@@ -350,14 +372,18 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
             padding: "8px 12px",
             fontFamily: FONT,
             fontSize: 12,
-            boxShadow: dark ? "0 2px 12px rgba(0,0,0,0.25)" : "0 2px 12px rgba(255,255,255,0.15)",
+            boxShadow: dark
+              ? "0 2px 12px rgba(0,0,0,0.25)"
+              : "0 2px 12px rgba(255,255,255,0.15)",
           }}
         >
           <div className="flex items-center gap-2">
             <span className="text-teal-500 font-medium">
               &lt;{infoData.componentName}&gt;
             </span>
-            <span className={`text-[11px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}>
+            <span
+              className={`text-[11px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}
+            >
               {infoData.width}×{infoData.height}
             </span>
           </div>
@@ -369,7 +395,9 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
             </div>
           )}
           {hasReactInfo && (
-            <div className={`text-[10px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}>
+            <div
+              className={`text-[10px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}
+            >
               {[
                 infoData.propsCount > 0 ? `${infoData.propsCount} props` : "",
                 infoData.hooksCount > 0 ? `${infoData.hooksCount} hooks` : "",

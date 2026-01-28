@@ -1,7 +1,9 @@
 "use client";
 
 import { GenericId as Id } from "convex/values";
-import { IconFile, IconFileText } from "@tabler/icons-react";
+import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
+import { Input } from "@heroui/input";
+import { useState, useMemo } from "react";
 
 interface Doc {
   _id: Id<"docs">;
@@ -16,6 +18,14 @@ interface DocsListProps {
 }
 
 export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredDocs = useMemo(() => {
+    if (!docs) return [];
+    const query = searchQuery.toLowerCase().trim();
+    return query ? docs.filter((d) => d.title.toLowerCase().includes(query)) : docs;
+  }, [docs, searchQuery]);
+
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -34,23 +44,37 @@ export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-      <div className="p-2 space-y-1">
-        {docs.map((doc) => (
-          <button
-            key={doc._id}
-            type="button"
-            onClick={() => onSelect(doc._id)}
-            className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              selectedId === doc._id
-                ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
-            }`}
-          >
-            <IconFileText size={16} className="flex-shrink-0" />
-            <span className="truncate text-sm">{doc.title}</span>
-          </button>
-        ))}
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+      <div className="px-4 py-2">
+        <Input
+          placeholder="Search docs..."
+          startContent={<IconSearch size={14} className="text-default-400" />}
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          isClearable
+          onClear={() => setSearchQuery("")}
+        />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {filteredDocs.length === 0 ? (
+          <div className="p-4 text-center text-sm text-neutral-400">No matches found</div>
+        ) : (
+          filteredDocs.map((doc) => (
+            <button
+              key={doc._id}
+              type="button"
+              onClick={() => onSelect(doc._id)}
+              className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-2 ${
+                selectedId === doc._id
+                  ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+              }`}
+            >
+              <IconFileText size={16} className="flex-shrink-0" />
+              <span className="truncate text-sm">{doc.title}</span>
+            </button>
+          ))
+        )}
       </div>
     </div>
   );

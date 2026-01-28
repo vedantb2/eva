@@ -79,7 +79,7 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
   }
 
   return (
-    <div className="h-full flex flex-col bg-neutral-100 dark:bg-neutral-900">
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-900">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
         <Input
           type="number"
@@ -152,7 +152,11 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
             <div className="p-2 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
               <p className="text-xs text-neutral-500 flex items-center gap-1.5">
                 <IconTerminal2 className="w-3.5 h-3.5" />
-                Run <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">pnpm dev</code> in Terminal to start dev server
+                Run{" "}
+                <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">
+                  pnpm dev
+                </code>{" "}
+                in Terminal to start dev server
               </p>
             </div>
           </div>
@@ -164,7 +168,11 @@ export function WebPreviewPanel({ sessionId, sandboxId, isActive }: WebPreviewPa
               <p className="text-sm">Enter a port number and press Enter</p>
               <p className="text-xs text-neutral-400 flex items-center gap-1.5 justify-center">
                 <IconTerminal2 className="w-3.5 h-3.5" />
-                First run <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">pnpm dev</code> in Terminal
+                First run{" "}
+                <code className="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-[10px]">
+                  pnpm dev
+                </code>{" "}
+                in Terminal
               </p>
             </div>
           </div>

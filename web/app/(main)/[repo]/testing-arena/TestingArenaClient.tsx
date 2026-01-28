@@ -6,8 +6,9 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
-import { IconPlayerPlay, IconFileText, IconCheck, IconX, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconPlayerPlay, IconFileText, IconCheck, IconX, IconChevronDown, IconChevronRight, IconSearch } from "@tabler/icons-react";
+import { useState, useMemo } from "react";
+import { Input } from "@heroui/input";
 
 interface Doc {
   _id: Id<"docs">;
@@ -33,6 +34,14 @@ function DocsListPanel({
   selectedId: Id<"docs"> | null;
   onSelect: (id: Id<"docs">) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredDocs = useMemo(() => {
+    if (!docs) return [];
+    const query = searchQuery.toLowerCase().trim();
+    return query ? docs.filter((d) => d.title.toLowerCase().includes(query)) : docs;
+  }, [docs, searchQuery]);
+
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -52,23 +61,39 @@ function DocsListPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-      <div className="p-2 space-y-1">
-        {docs.map((doc) => (
-          <button
-            key={doc._id}
-            type="button"
-            onClick={() => onSelect(doc._id)}
-            className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              selectedId === doc._id
-                ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
-            }`}
-          >
-            <IconFileText size={16} className="flex-shrink-0" />
-            <span className="truncate text-sm">{doc.title}</span>
-          </button>
-        ))}
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+      <div className="px-4 py-2">
+        <Input
+          placeholder="Search docs..."
+          startContent={<IconSearch size={14} className="text-default-400" />}
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          isClearable
+          onClear={() => setSearchQuery("")}
+        />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {filteredDocs.length === 0 ? (
+          <div className="p-4 text-center text-sm text-neutral-400">
+            No matches found
+          </div>
+        ) : (
+          filteredDocs.map((doc) => (
+            <button
+              key={doc._id}
+              type="button"
+              onClick={() => onSelect(doc._id)}
+              className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-2 ${
+                selectedId === doc._id
+                  ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+              }`}
+            >
+              <IconFileText size={16} className="flex-shrink-0" />
+              <span className="truncate text-sm">{doc.title}</span>
+            </button>
+          ))
+        )}
       </div>
     </div>
   );
@@ -225,7 +250,7 @@ function ReportsPanel({
 
   if (!doc) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-100/40 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-400">
         <IconFileText size={48} className="mb-3" />
         <p>Select a document to test</p>
       </div>
@@ -233,7 +258,7 @@ function ReportsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-800 rounded-lg border border-teal-700 dark:border-teal-200 overflow-hidden">
+    <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
           {doc.title}
@@ -299,6 +324,7 @@ export function TestingArenaClient() {
   return (
     <PageWrapper
       title="Testing Arena"
+      childPadding={false}
       fillHeight
       headerRight={
         <Button
@@ -312,7 +338,7 @@ export function TestingArenaClient() {
         </Button>
       }
     >
-      <div className="grid grid-cols-3 grid-rows-[1fr] gap-2 flex-1 min-h-0">
+      <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
         <div className="col-span-1 h-full overflow-hidden">
           <DocsListPanel
             docs={docs}

@@ -328,7 +328,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+          <div className="flex gap-2 items-end bg-white dark:bg-neutral-800 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}

@@ -27,6 +27,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 
 export default function ResearchLayout({
   children,
@@ -107,152 +108,147 @@ export default function ResearchLayout({
     return `${days}d ago`;
   };
 
-  return (
-    <div className="flex h-screen">
-      <div className="w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-            Analyse
-          </h2>
-          <Button
-            size="sm"
-            color="primary"
-            isIconOnly
-            onPress={() => setIsCreateModalOpen(true)}
-          >
-            <IconPlus size={16} />
-          </Button>
-        </div>
+  const sidebar = (
+    <>
+      <div className="px-3 pt-6 pb-3">
         <Input
           placeholder="Search queries..."
-          startContent={<IconSearch size={16} className="text-default-400 " />}
-          className="py-4 px-2"
+          startContent={<IconSearch size={16} className="text-default-400" />}
           value={searchQuery}
           onValueChange={setSearchQuery}
           isClearable
           onClear={() => setSearchQuery("")}
         />
-        <div className="flex-1 overflow-y-auto">
-          {queries === undefined ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
-            </div>
-          ) : (
-            <div className="p-2 space-y-4">
-              <div>
-                <p className="px-2 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                  Queries
-                </p>
-                {filteredQueries.length === 0 ? (
-                  <div className="p-4 text-center">
-                    <IconBrain className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
-                    <p className="text-sm text-neutral-500">
-                      {queries.length === 0
-                        ? "No queries yet"
-                        : "No matches found"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredQueries.map((query) => {
-                      const isSelected = currentQueryId === query._id;
-                      return (
-                        <div
-                          key={query._id}
-                          className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${
-                            isSelected
-                              ? "bg-teal-100 dark:bg-teal-900/20"
-                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                          }`}
-                        >
-                          <Link
-                            href={baseUrl + "/query/" + query._id}
-                            className="block"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <h3
-                                className={`text-sm font-medium truncate flex-1 ${
-                                  isSelected
-                                    ? "text-teal-600 dark:text-teal-400"
-                                    : "text-neutral-900 dark:text-white"
-                                }`}
-                              >
-                                {query.title}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-neutral-500 flex-shrink-0">
-                                  {formatTime(query.updatedAt)}
-                                </span>
-                                <Tooltip content="Delete query">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setQueryToDelete({
-                                        id: query._id,
-                                        title: query.title,
-                                      });
-                                    }}
-                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                                  >
-                                    <IconTrash size={14} />
-                                  </button>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="px-2 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                  Resources
-                </p>
-                <div className="space-y-1">
-                  <Link
-                    href={baseUrl + "/files"}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                      isFilesPage
-                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
-                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                    }`}
-                  >
-                    <IconFolder size={18} />
-                    <span className="text-sm font-medium">Browse Files</span>
-                  </Link>
-                  <Link
-                    href={baseUrl + "/saved-queries"}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                      isSavedQueriesPage
-                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
-                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                    }`}
-                  >
-                    <IconBookmark size={18} />
-                    <span className="text-sm font-medium">Saved Queries</span>
-                  </Link>
-                  <Link
-                    href={baseUrl + "/routines"}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                      isRoutinesPage
-                        ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
-                        : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                    }`}
-                  >
-                    <IconRefresh size={18} />
-                    <span className="text-sm font-medium">Routines</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
-      <div className="flex-1 overflow-hidden">{children}</div>
+      <div className="flex-1 overflow-y-auto">
+        {queries === undefined ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+          </div>
+        ) : (
+          <div className="py-2 space-y-8">
+            <div>
+              <p className="px-4 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                Queries
+              </p>
+              {filteredQueries.length === 0 ? (
+                <div className="p-4 text-center">
+                  <IconBrain className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
+                  <p className="text-sm text-neutral-500">
+                    {queries.length === 0
+                      ? "No queries yet"
+                      : "No matches found"}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {filteredQueries.map((query) => {
+                    const isSelected = currentQueryId === query._id;
+                    return (
+                      <div
+                        key={query._id}
+                        className={`px-4 py-3 cursor-pointer transition-all group ${
+                          isSelected
+                            ? "bg-teal-100 dark:bg-teal-900/20"
+                            : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        <Link
+                          href={baseUrl + "/query/" + query._id}
+                          className="block"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <h3
+                              className={`text-sm font-medium truncate flex-1 ${
+                                isSelected
+                                  ? "text-teal-600 dark:text-teal-400"
+                                  : "text-neutral-900 dark:text-white"
+                              }`}
+                            >
+                              {query.title}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-neutral-500 flex-shrink-0">
+                                {formatTime(query.updatedAt)}
+                              </span>
+                              <Tooltip content="Delete query">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setQueryToDelete({
+                                      id: query._id,
+                                      title: query.title,
+                                    });
+                                  }}
+                                  className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
+                                >
+                                  <IconTrash size={14} />
+                                </button>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="px-4 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                Resources
+              </p>
+              <div>
+                <Link
+                  href={baseUrl + "/files"}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    isFilesPage
+                      ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                  }`}
+                >
+                  <IconFolder size={14} />
+                  <span className="text-sm font-medium">Browse Files</span>
+                </Link>
+                <Link
+                  href={baseUrl + "/saved-queries"}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    isSavedQueriesPage
+                      ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                  }`}
+                >
+                  <IconBookmark size={14} />
+                  <span className="text-sm font-medium">Saved Queries</span>
+                </Link>
+                <Link
+                  href={baseUrl + "/routines"}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    isRoutinesPage
+                      ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                  }`}
+                >
+                  <IconRefresh size={14} />
+                  <span className="text-sm font-medium">Routines</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <SidebarLayoutWrapper
+      title="Analyse"
+      onAdd={() => setIsCreateModalOpen(true)}
+      sidebar={sidebar}
+    >
+      {children}
 
       <Modal isOpen={!!queryToDelete} onClose={() => setQueryToDelete(null)}>
         <ModalContent>
@@ -326,6 +322,6 @@ export default function ResearchLayout({
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </div>
+    </SidebarLayoutWrapper>
   );
 }

@@ -174,10 +174,18 @@ export function TaskDetailModal({
                           {mainDesc}
                         </p>
                         {elementDetails && (
-                          <Accordion isCompact variant="light" className="mt-2 px-0">
+                          <Accordion
+                            isCompact
+                            variant="light"
+                            className="mt-2 px-0"
+                          >
                             <AccordionItem
                               key="element-details"
-                              title={<span className="text-xs text-default-500">Element Details</span>}
+                              title={
+                                <span className="text-xs text-default-500">
+                                  Element Details
+                                </span>
+                              }
                             >
                               <p className="text-xs text-default-500 whitespace-pre-wrap">
                                 {elementDetails}
@@ -345,7 +353,7 @@ export function TaskDetailModal({
                 </div>
                 <form
                   onSubmit={handleAddComment}
-                  className="flex gap-2 items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg"
+                  className="flex gap-2 items-center bg-white dark:bg-neutral-800 rounded-lg"
                 >
                   <Textarea
                     minRows={2}

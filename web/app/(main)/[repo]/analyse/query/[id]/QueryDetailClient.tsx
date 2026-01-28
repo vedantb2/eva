@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
-import { IconArrowUp, IconSend, IconUser } from "@tabler/icons-react";
+import { IconArrowUp, IconUser } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -68,7 +68,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center p-4 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="p-[16px] border-b border-neutral-200 dark:border-neutral-800">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
           {query.title}
         </h1>
@@ -130,7 +130,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+          <div className="flex gap-2 items-end bg-white dark:bg-neutral-800 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}

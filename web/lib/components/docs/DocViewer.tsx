@@ -58,7 +58,7 @@ export function DocViewer({ doc, onSelect }: DocViewerProps) {
 
   if (!doc) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-100/40 dark:bg-neutral-800 rounded-lg text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-400">
         <IconFileText size={48} className="mb-3" />
         <p>Select a document to view</p>
       </div>
@@ -99,7 +99,7 @@ export function DocViewer({ doc, onSelect }: DocViewerProps) {
 
   return (
     <>
-      <div className="h-full flex flex-col bg-neutral-100/40  dark:bg-neutral-800 rounded-lg border border-teal-700 dark:border-teal-200 overflow-hidden">
+      <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
           {isEditing ? (
             <Input

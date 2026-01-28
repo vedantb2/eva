@@ -37,6 +37,7 @@ export function DocsClient() {
   return (
     <PageWrapper
       title="Documents"
+      childPadding={false}
       fillHeight
       headerRight={
         <Button
@@ -49,7 +50,7 @@ export function DocsClient() {
         </Button>
       }
     >
-      <div className="grid grid-cols-3 grid-rows-[1fr] gap-2 flex-1 min-h-0">
+      <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
         <div className="col-span-1 h-full overflow-hidden">
           <DocsList
             docs={docs}

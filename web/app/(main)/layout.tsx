@@ -19,7 +19,7 @@ export default function MainLayout({
 }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <div className="min-h-screen bg-white dark:bg-neutral-900">
         <Sidebar />
         <MainContent>{children}</MainContent>
       </div>

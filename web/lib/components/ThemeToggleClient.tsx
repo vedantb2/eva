@@ -10,7 +10,7 @@ export function ThemeToggleClient() {
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800"
+        className="p-2 rounded-lg bg-white dark:bg-neutral-800"
         aria-label="Toggle theme"
         disabled
       >

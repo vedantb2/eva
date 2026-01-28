@@ -165,8 +165,8 @@ export function Sidebar() {
           <Image
             src="/icon.png"
             alt="Eva"
-            width={24}
-            height={24}
+            width={22}
+            height={22}
             className="rounded-full"
           />
           <span className="text-base font-semibold text-neutral-900 dark:text-white">
@@ -184,7 +184,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
@@ -199,8 +199,8 @@ export function Sidebar() {
               <Image
                 src="/icon.png"
                 alt="Eva"
-                width={32}
-                height={32}
+                width={30}
+                height={30}
                 className="rounded-full"
               />
               {!collapsed && (
@@ -311,7 +311,7 @@ export function Sidebar() {
                                   href={item.href}
                                   onClick={() => setMobileOpen(false)}
                                   title={collapsed ? item.name : undefined}
-                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
                                       ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
                                       : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
@@ -355,7 +355,7 @@ export function Sidebar() {
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     title={collapsed ? item.name : undefined}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
                         ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"

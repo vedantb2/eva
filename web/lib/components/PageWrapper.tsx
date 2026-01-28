@@ -12,6 +12,7 @@ interface PageWrapperProps {
   onBack?: () => void;
   fillHeight?: boolean;
   children: React.ReactNode;
+  childPadding?: boolean;
 }
 
 export function PageWrapper({
@@ -22,11 +23,12 @@ export function PageWrapper({
   onBack,
   fillHeight = false,
   children,
+  childPadding = true,
 }: PageWrapperProps) {
   const router = useRouter();
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
       <div className="relative p-4 pb-2 flex items-center gap-3">
         {showBack && (
           <Button
@@ -59,10 +61,10 @@ export function PageWrapper({
         )}
       </div>
       <div
-        className={`flex-1 bg-neutral-50 dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
+        className={`flex-1 bg-white dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
       >
         <div
-          className={`flex flex-col gap-4 px-4 py-2 ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+          className={`flex flex-col gap-4 ${childPadding ? "px-4 py-2" : ""}  ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
         >
           {children}
         </div>

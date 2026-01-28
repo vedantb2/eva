@@ -35,6 +35,7 @@ export interface ElementInfo {
 export interface ExtractedContext {
   element: ElementInfo;
   react: ReactComponentNode | null;
+  selectedText?: string;
   metadata: {
     capturedAt: number;
     sourceUrl: string;

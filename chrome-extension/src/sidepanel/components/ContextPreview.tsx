@@ -16,9 +16,11 @@ interface ContextPreviewProps {
 export function ContextPreview({ context, onClear }: ContextPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasReact = context.metadata.hasReact && context.react;
-  const displayName = hasReact && context.react
-    ? context.react.name
-    : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
+  const displayName = context.selectedText
+    ? `"${context.selectedText.slice(0, 40)}${context.selectedText.length > 40 ? "..." : ""}"`
+    : hasReact && context.react
+      ? context.react.name
+      : `<${context.element.tagName}>${context.element.id ? `#${context.element.id}` : ""}`;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -33,9 +35,11 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
                 Captured: <span className="text-primary">{displayName}</span>
               </span>
               <span className="text-xs text-muted-foreground">
-                {hasReact
-                  ? `(${context.metadata.totalComponents} components)`
-                  : "(HTML element)"}
+                {context.selectedText
+                  ? "(text selection)"
+                  : hasReact
+                    ? `(${context.metadata.totalComponents} components)`
+                    : "(HTML element)"}
               </span>
             </div>
           </CollapsibleTrigger>
@@ -66,14 +70,20 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
 
         <CollapsibleContent>
           <div className="border-t border-border p-2 max-h-48 overflow-y-auto">
-            <pre className="rounded bg-[#0d1117] p-0.5 overflow-auto">
-              <code
-                className="hljs text-xs"
-                dangerouslySetInnerHTML={{
-                  __html: hljs.highlight(context.element.outerHTML, { language: "xml" }).value,
-                }}
-              />
-            </pre>
+            {context.selectedText ? (
+              <p className="text-sm italic text-muted-foreground px-1">
+                &ldquo;{context.selectedText}&rdquo;
+              </p>
+            ) : (
+              <pre className="rounded bg-[#0d1117] p-0.5 overflow-auto">
+                <code
+                  className="hljs text-xs"
+                  dangerouslySetInnerHTML={{
+                    __html: hljs.highlight(context.element.outerHTML, { language: "xml" }).value,
+                  }}
+                />
+              </pre>
+            )}
           </div>
         </CollapsibleContent>
       </div>

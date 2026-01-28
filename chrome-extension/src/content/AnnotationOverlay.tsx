@@ -53,6 +53,8 @@ interface PinData {
   text: string;
   number: number;
   saved: boolean;
+  type: "element" | "text";
+  selectedText?: string;
 }
 
 function isDark() {
@@ -200,6 +202,7 @@ interface InputCardProps {
   initialText: string;
   pinNumber: number;
   elementHtml: string;
+  selectedText?: string;
   isEdit: boolean;
   onSave: (pinId: string, text: string) => void;
   onTask: (pinId: string, text: string) => void;
@@ -213,6 +216,7 @@ function InputCard({
   initialText,
   pinNumber,
   elementHtml,
+  selectedText,
   isEdit,
   onSave,
   onTask,
@@ -265,7 +269,14 @@ function InputCard({
           </button>
         )}
       </div>
-      {elementHtml && (
+      {selectedText ? (
+        <div className="px-3 pb-1">
+          <p className={`text-xs ${dark ? "text-neutral-500" : "text-neutral-400"}`} style={{ margin: 0 }}>Selected Text</p>
+          <p className={`text-sm mt-1 italic ${dark ? "text-neutral-700" : "text-neutral-200"}`} style={{ margin: "4px 0 0" }}>
+            &ldquo;{selectedText.length > 200 ? `${selectedText.slice(0, 200)}...` : selectedText}&rdquo;
+          </p>
+        </div>
+      ) : elementHtml ? (
         <div className="px-3 pb-1">
           <button
             onClick={() => setDetailsOpen((v) => !v)}
@@ -296,7 +307,7 @@ function InputCard({
             </>
           )}
         </div>
-      )}
+      ) : null}
       <div className="px-3 pb-2">
         <textarea
           ref={textareaRef}
@@ -395,6 +406,37 @@ function HighlightOverlay({ rect }: { rect: { top: number; left: number; width: 
   );
 }
 
+function findTextRange(searchText: string, ancestorSelector: string): Range | null {
+  const ancestor = ancestorSelector ? document.querySelector(ancestorSelector) : document.body;
+  if (!ancestor) return null;
+  const walker = document.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const idx = node.textContent?.indexOf(searchText) ?? -1;
+    if (idx >= 0) {
+      const range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + searchText.length);
+      return range;
+    }
+  }
+  return null;
+}
+
+function TextHighlightOverlay({ rects }: { rects: DOMRect[] }) {
+  return (
+    <>
+      {rects.map((r, i) => (
+        <div
+          key={i}
+          className="fixed pointer-events-none bg-teal-500/25 rounded-sm"
+          style={{ zIndex: 2147483647, top: r.top, left: r.left, width: r.width, height: r.height }}
+        />
+      ))}
+    </>
+  );
+}
+
 export function AnnotationOverlay() {
   const ext = useSyncExternalStore(
     (cb) => {
@@ -416,12 +458,14 @@ export function AnnotationOverlay() {
     width: number;
     height: number;
   } | null>(null);
+  const [textHighlightRects, setTextHighlightRects] = useState<DOMRect[]>([]);
 
   const hoveredRef = useRef<HTMLElement | null>(null);
   const pinCounterRef = useRef(0);
   const pinContextsRef = useRef(new Map<string, ExtractedContext>());
   const pinElementsRef = useRef(new Map<string, HTMLElement>());
   const pinSelectorsRef = useRef(new Map<string, string>());
+  const pinTextRef = useRef(new Map<string, string>());
   const pinsRef = useRef(pins);
   const activeInputIdRef = useRef(activeInputId);
 
@@ -439,6 +483,7 @@ export function AnnotationOverlay() {
     pinContextsRef.current.clear();
     pinElementsRef.current.clear();
     pinSelectorsRef.current.clear();
+    pinTextRef.current.clear();
     let maxNum = 0;
     for (const [id, data] of Object.entries(ext.remotePins)) {
       newPins.set(id, {
@@ -447,12 +492,18 @@ export function AnnotationOverlay() {
         text: data.text,
         number: data.number,
         saved: true,
+        type: data.type || "element",
+        selectedText: data.selectedText,
       });
       if (data.number > maxNum) maxNum = data.number;
-      if (data.selector) {
-        pinSelectorsRef.current.set(id, data.selector);
+      if (data.selectedText) {
+        pinTextRef.current.set(id, data.selectedText);
+      }
+      const selectorForElement = data.type === "text" ? data.ancestorSelector : data.selector;
+      if (selectorForElement) {
+        pinSelectorsRef.current.set(id, selectorForElement);
         try {
-          const el = document.querySelector(data.selector);
+          const el = document.querySelector(selectorForElement);
           if (el instanceof HTMLElement) {
             pinElementsRef.current.set(id, el);
             pinContextsRef.current.set(id, captureContext(el));
@@ -464,7 +515,7 @@ export function AnnotationOverlay() {
     setPins(newPins);
     setActiveInputId(null);
     setTooltipId(null);
-    setHighlight(null);
+    setHighlight(null); setTextHighlightRects([]);
   }, [ext.remotePins]);
 
   const persistAnnotations = useCallback(
@@ -478,6 +529,9 @@ export function AnnotationOverlay() {
           text: pin.text,
           number: pin.number,
           selector: pinSelectorsRef.current.get(id) || "",
+          type: pin.type,
+          selectedText: pin.type === "text" ? pinTextRef.current.get(id) : undefined,
+          ancestorSelector: pin.type === "text" ? pinSelectorsRef.current.get(id) : undefined,
         };
       }
       chrome.runtime.sendMessage({
@@ -489,10 +543,20 @@ export function AnnotationOverlay() {
   );
 
   const showPinHighlight = useCallback((pinId: string) => {
+    const pinSelectedText = pinTextRef.current.get(pinId);
+    if (pinSelectedText) {
+      const range = findTextRange(pinSelectedText, pinSelectorsRef.current.get(pinId) || "");
+      if (range) {
+        setTextHighlightRects(Array.from(range.getClientRects()));
+        setHighlight(null);
+        return;
+      }
+    }
     const el = pinElementsRef.current.get(pinId);
     if (!el || !el.isConnected) return;
     const rect = el.getBoundingClientRect();
     setHighlight({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    setTextHighlightRects([]);
   }, []);
 
   const handlePinDragEnd = useCallback(
@@ -513,13 +577,13 @@ export function AnnotationOverlay() {
     (id: string) => {
       if (activeInputIdRef.current === id) {
         setActiveInputId(null);
-        setHighlight(null);
+        setHighlight(null); setTextHighlightRects([]);
         return;
       }
       setTooltipId(null);
       setActiveInputId(id);
       setActiveInputIsEdit(true);
-      setHighlight(null);
+      setHighlight(null); setTextHighlightRects([]);
       showPinHighlight(id);
     },
     [showPinHighlight],
@@ -536,7 +600,7 @@ export function AnnotationOverlay() {
 
   const handlePinLeave = useCallback(() => {
     setTooltipId(null);
-    if (!activeInputIdRef.current) setHighlight(null);
+    if (!activeInputIdRef.current) setHighlight(null); setTextHighlightRects([]);
   }, []);
 
   const handleInputSave = useCallback(
@@ -555,7 +619,7 @@ export function AnnotationOverlay() {
         return next;
       });
       setActiveInputId(null);
-      setHighlight(null);
+      setHighlight(null); setTextHighlightRects([]);
     },
     [persistAnnotations],
   );
@@ -582,8 +646,9 @@ export function AnnotationOverlay() {
       pinContextsRef.current.delete(pinId);
       pinElementsRef.current.delete(pinId);
       pinSelectorsRef.current.delete(pinId);
+      pinTextRef.current.delete(pinId);
       setActiveInputId(null);
-      setHighlight(null);
+      setHighlight(null); setTextHighlightRects([]);
     },
     [persistAnnotations],
   );
@@ -599,9 +664,10 @@ export function AnnotationOverlay() {
       pinContextsRef.current.delete(pinId);
       pinElementsRef.current.delete(pinId);
       pinSelectorsRef.current.delete(pinId);
+      pinTextRef.current.delete(pinId);
     }
     setActiveInputId(null);
-    setHighlight(null);
+    setHighlight(null); setTextHighlightRects([]);
   }, []);
 
   const handleInputDelete = useCallback(
@@ -615,8 +681,9 @@ export function AnnotationOverlay() {
       pinContextsRef.current.delete(pinId);
       pinElementsRef.current.delete(pinId);
       pinSelectorsRef.current.delete(pinId);
+      pinTextRef.current.delete(pinId);
       setActiveInputId(null);
-      setHighlight(null);
+      setHighlight(null); setTextHighlightRects([]);
     },
     [persistAnnotations],
   );
@@ -635,15 +702,84 @@ export function AnnotationOverlay() {
         }
         setActiveInputId(null);
       }
-      setHighlight(null);
+      setHighlight(null); setTextHighlightRects([]);
       document.body.style.cursor = "";
       return;
     }
 
     document.body.style.cursor = "crosshair";
+    let mouseDownPos: { x: number; y: number } | null = null;
+
+    function handleMouseDown(e: MouseEvent) {
+      if (activeInputIdRef.current) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("[data-conductor-overlay]")) return;
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+    }
+
+    function handleMouseUp(e: MouseEvent) {
+      if (activeInputIdRef.current) { mouseDownPos = null; return; }
+      if (!mouseDownPos) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("[data-conductor-overlay]")) { mouseDownPos = null; return; }
+
+      const selection = window.getSelection();
+      const selText = selection?.toString().trim() || "";
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const pinId = crypto.randomUUID();
+
+      if (selText.length > 0 && selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const x = rect.left + rect.width / 2 + window.scrollX;
+        const y = rect.top + window.scrollY;
+
+        const ancestor = range.commonAncestorContainer instanceof HTMLElement
+          ? range.commonAncestorContainer
+          : range.commonAncestorContainer.parentElement;
+        if (ancestor) {
+          pinSelectorsRef.current.set(pinId, generateSelector(ancestor));
+          pinElementsRef.current.set(pinId, ancestor);
+          pinContextsRef.current.set(pinId, captureContext(ancestor));
+        }
+        pinTextRef.current.set(pinId, selText);
+
+        setPins((prev) => {
+          const next = new Map(prev);
+          next.set(pinId, { x, y, text: "", number: 0, saved: false, type: "text", selectedText: selText });
+          return next;
+        });
+        selection.removeAllRanges();
+      } else {
+        const x = e.pageX;
+        const y = e.pageY;
+        const newPin: PinData = { x, y, text: "", number: 0, saved: false, type: "element" };
+
+        if (hoveredRef.current) {
+          pinContextsRef.current.set(pinId, captureContext(hoveredRef.current));
+          pinElementsRef.current.set(pinId, hoveredRef.current);
+          pinSelectorsRef.current.set(pinId, generateSelector(hoveredRef.current));
+        }
+
+        setPins((prev) => {
+          const next = new Map(prev);
+          next.set(pinId, newPin);
+          return next;
+        });
+      }
+
+      setHighlight(null); setTextHighlightRects([]);
+      setActiveInputId(pinId);
+      setActiveInputIsEdit(false);
+      mouseDownPos = null;
+    }
 
     function handleMouseMove(e: MouseEvent) {
       if (activeInputIdRef.current) return;
+      if (mouseDownPos) return;
       const target = document.elementFromPoint(e.clientX, e.clientY);
       if (!target || !(target instanceof HTMLElement)) return;
       if (target.closest("[data-conductor-overlay]")) return;
@@ -656,46 +792,18 @@ export function AnnotationOverlay() {
     function handleMouseOut(e: MouseEvent) {
       if (e.relatedTarget === null) {
         hoveredRef.current = null;
-        setHighlight(null);
+        setHighlight(null); setTextHighlightRects([]);
       }
     }
 
-    function handleClick(e: MouseEvent) {
-      if (activeInputIdRef.current) return;
-      const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const pinId = crypto.randomUUID();
-      const x = e.pageX;
-      const y = e.pageY;
-
-      const newPin: PinData = { x, y, text: "", number: 0, saved: false };
-
-      if (hoveredRef.current) {
-        pinContextsRef.current.set(pinId, captureContext(hoveredRef.current));
-        pinElementsRef.current.set(pinId, hoveredRef.current);
-        pinSelectorsRef.current.set(pinId, generateSelector(hoveredRef.current));
-      }
-
-      setPins((prev) => {
-        const next = new Map(prev);
-        next.set(pinId, newPin);
-        return next;
-      });
-      setHighlight(null);
-      setActiveInputId(pinId);
-      setActiveInputIsEdit(false);
-    }
-
-    document.addEventListener("click", handleClick, true);
+    document.addEventListener("mousedown", handleMouseDown, true);
+    document.addEventListener("mouseup", handleMouseUp, true);
     document.addEventListener("mousemove", handleMouseMove, true);
     document.addEventListener("mouseout", handleMouseOut, true);
 
     return () => {
-      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("mousedown", handleMouseDown, true);
+      document.removeEventListener("mouseup", handleMouseUp, true);
       document.removeEventListener("mousemove", handleMouseMove, true);
       document.removeEventListener("mouseout", handleMouseOut, true);
       document.body.style.cursor = "";
@@ -718,7 +826,7 @@ export function AnnotationOverlay() {
           });
         }
         setActiveInputId(null);
-        setHighlight(null);
+        setHighlight(null); setTextHighlightRects([]);
       }
     }
 
@@ -734,7 +842,7 @@ export function AnnotationOverlay() {
           });
         }
         setActiveInputId(null);
-        setHighlight(null);
+        setHighlight(null); setTextHighlightRects([]);
         e.preventDefault();
         return;
       }
@@ -774,6 +882,7 @@ export function AnnotationOverlay() {
       )}
 
       {highlight && <HighlightOverlay rect={highlight} />}
+      {textHighlightRects.length > 0 && <TextHighlightOverlay rects={textHighlightRects} />}
 
       {Array.from(pins.entries()).map(([id, pin]) => (
         <PinComponent
@@ -813,6 +922,7 @@ export function AnnotationOverlay() {
           initialText={activePin.text}
           pinNumber={activePin.number}
           elementHtml={pinContextsRef.current.get(activeInputId)?.element.outerHTML ?? ""}
+          selectedText={pinTextRef.current.get(activeInputId)}
           isEdit={activeInputIsEdit}
           onSave={handleInputSave}
           onTask={handleInputTask}

@@ -122,6 +122,9 @@ Please review all components and files used on this page before implementing the
 
         if (capturedContext) {
           fullDescription += `\n\n---\n**Captured Element Context**\n`;
+          if (capturedContext.selectedText) {
+            fullDescription += `- Selected Text: "${capturedContext.selectedText}"\n`;
+          }
           fullDescription += `- Element: \`<${capturedContext.element.tagName}>\`\n`;
           fullDescription += `- Selector: \`${capturedContext.element.selector}\`\n`;
           if (capturedContext.element.id) {

@@ -129,7 +129,63 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
   );
 
   useEffect(() => {
+    let mouseDownPos: { x: number; y: number } | null = null;
+
+    function captureElement(element: HTMLElement, selectedText?: string) {
+      const elementInfo = extractElementInfo(element);
+      const hasReact = isReactAvailable();
+      const reactTree = hasReact ? extractReactTree(element) : null;
+      const context: ExtractedContext = {
+        element: elementInfo,
+        react: reactTree?.tree || null,
+        selectedText,
+        metadata: {
+          capturedAt: Date.now(),
+          sourceUrl: window.location.href,
+          hasReact,
+          totalComponents: reactTree ? countComponents(reactTree.tree) : 0,
+          reactVersion: hasReact ? detectReactVersion() : "N/A",
+        },
+      };
+      setCapturing(true);
+      setTimeout(() => onCapture(context), 200);
+    }
+
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("[data-conductor-overlay]")) return;
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+    }
+
+    function handleMouseUp(e: MouseEvent) {
+      if (!mouseDownPos) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("[data-conductor-overlay]")) { mouseDownPos = null; return; }
+
+      const selection = window.getSelection();
+      const selText = selection?.toString().trim() || "";
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      if (selText.length > 0 && selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const ancestor = range.commonAncestorContainer instanceof HTMLElement
+          ? range.commonAncestorContainer
+          : range.commonAncestorContainer.parentElement;
+        if (ancestor) {
+          captureElement(ancestor, selText);
+        }
+        selection.removeAllRanges();
+      } else if (hoveredRef.current) {
+        captureElement(hoveredRef.current);
+      }
+      mouseDownPos = null;
+    }
+
     function handleMouseMove(e: MouseEvent) {
+      if (mouseDownPos) return;
       const target = document.elementFromPoint(e.clientX, e.clientY);
       if (
         !target ||
@@ -154,34 +210,6 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
       }
     }
 
-    function handleClick(e: MouseEvent) {
-      if (!hoveredRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      const element = hoveredRef.current;
-      const elementInfo = extractElementInfo(element);
-      const hasReact = isReactAvailable();
-      const reactTree = hasReact ? extractReactTree(element) : null;
-      const context: ExtractedContext = {
-        element: elementInfo,
-        react: reactTree?.tree || null,
-        metadata: {
-          capturedAt: Date.now(),
-          sourceUrl: window.location.href,
-          hasReact,
-          totalComponents: reactTree ? countComponents(reactTree.tree) : 0,
-          reactVersion: hasReact ? detectReactVersion() : "N/A",
-        },
-      };
-
-      setCapturing(true);
-      setTimeout(() => {
-        onCapture(context);
-      }, 200);
-    }
-
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -190,7 +218,7 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
       }
       if (e.key === "Enter" && hoveredRef.current) {
         e.preventDefault();
-        handleClick(e as unknown as MouseEvent);
+        captureElement(hoveredRef.current);
         return;
       }
       if (!hoveredRef.current) return;
@@ -229,14 +257,16 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
       }
     }
 
+    document.addEventListener("mousedown", handleMouseDown, true);
+    document.addEventListener("mouseup", handleMouseUp, true);
     document.addEventListener("mousemove", handleMouseMove, true);
-    document.addEventListener("click", handleClick, true);
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("mouseout", handleMouseOut, true);
 
     return () => {
+      document.removeEventListener("mousedown", handleMouseDown, true);
+      document.removeEventListener("mouseup", handleMouseUp, true);
       document.removeEventListener("mousemove", handleMouseMove, true);
-      document.removeEventListener("click", handleClick, true);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("mouseout", handleMouseOut, true);
     };

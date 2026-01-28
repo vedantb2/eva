@@ -130,6 +130,9 @@ export interface StoredPin {
   text: string;
   number: number;
   selector: string;
+  type?: "element" | "text";
+  selectedText?: string;
+  ancestorSelector?: string;
 }
 
 export interface AnnotationsLoadedMessage {

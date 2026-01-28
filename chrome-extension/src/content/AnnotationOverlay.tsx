@@ -868,17 +868,27 @@ export function AnnotationOverlay() {
   return (
     <>
       {ext.active && (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            zIndex: 2147483644,
-            border: "10px solid",
-            borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
-            boxSizing: "border-box",
-            filter: "blur(18px)",
-            animation: "conductor-glow 0.8s ease-in-out infinite alternate",
-          }}
-        />
+        <>
+          <div
+            className="fixed inset-0 pointer-events-none"
+            style={{
+              zIndex: 2147483644,
+              border: "2px solid #14b8a6",
+              boxSizing: "border-box",
+            }}
+          />
+          <div
+            className="fixed inset-0 pointer-events-none"
+            style={{
+              zIndex: 2147483644,
+              border: "11px solid",
+              borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
+              boxSizing: "border-box",
+              filter: "blur(20px)",
+              animation: "conductor-glow 0.8s ease-in-out infinite alternate",
+            }}
+          />
+        </>
       )}
 
       {highlight && <HighlightOverlay rect={highlight} />}

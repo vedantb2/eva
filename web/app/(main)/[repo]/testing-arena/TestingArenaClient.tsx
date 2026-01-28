@@ -9,6 +9,7 @@ import { Button } from "@heroui/button";
 import { IconPlayerPlay, IconFileText, IconCheck, IconX, IconChevronDown, IconChevronRight, IconSearch } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { Input } from "@heroui/input";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 
 interface Doc {
   _id: Id<"docs">;
@@ -83,7 +84,7 @@ function DocsListPanel({
               key={doc._id}
               type="button"
               onClick={() => onSelect(doc._id)}
-              className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-2 ${
+              className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
                 selectedId === doc._id
                   ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
                   : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
@@ -302,11 +303,13 @@ export function TestingArenaClient() {
   const docs = useQuery(api.docs.list, { repoId: repo._id });
   const [selectedId, setSelectedId] = useState<Id<"docs"> | null>(null);
   const [isTestingAll, setIsTestingAll] = useState(false);
+  const [showTestAllModal, setShowTestAllModal] = useState(false);
 
   const selectedDoc = docs?.find((d) => d._id === selectedId);
 
   const handleTestAll = async () => {
     if (!docs || docs.length === 0) return;
+    setShowTestAllModal(false);
     setIsTestingAll(true);
     try {
       for (const doc of docs) {
@@ -322,34 +325,57 @@ export function TestingArenaClient() {
   };
 
   return (
-    <PageWrapper
-      title="Testing Arena"
-      childPadding={false}
-      fillHeight
-      headerRight={
-        <Button
-          color="primary"
-          startContent={<IconPlayerPlay size={16} />}
-          onPress={handleTestAll}
-          isLoading={isTestingAll}
-          isDisabled={!docs || docs.length === 0}
-        >
-          Test All Docs
-        </Button>
-      }
-    >
-      <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
-        <div className="col-span-1 h-full overflow-hidden">
-          <DocsListPanel
-            docs={docs}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+    <>
+      <PageWrapper
+        title="Testing Arena"
+        childPadding={false}
+        fillHeight
+        headerRight={
+          <Button
+            color="primary"
+            startContent={<IconPlayerPlay size={16} />}
+            onPress={() => setShowTestAllModal(true)}
+            isLoading={isTestingAll}
+            isDisabled={!docs || docs.length === 0}
+          >
+            Test All Docs
+          </Button>
+        }
+      >
+        <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
+          <div className="col-span-1 h-full overflow-hidden">
+            <DocsListPanel
+              docs={docs}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </div>
+          <div className="col-span-2 h-full overflow-hidden">
+            <ReportsPanel doc={selectedDoc} repoId={repo._id} />
+          </div>
         </div>
-        <div className="col-span-2 h-full overflow-hidden">
-          <ReportsPanel doc={selectedDoc} repoId={repo._id} />
-        </div>
-      </div>
-    </PageWrapper>
+      </PageWrapper>
+      <Modal isOpen={showTestAllModal} onClose={() => setShowTestAllModal(false)}>
+        <ModalContent>
+          <ModalHeader>Test All Documents</ModalHeader>
+          <ModalBody>
+            <p className="text-default-600">
+              Are you sure you want to run tests on all {docs?.length ?? 0} documents?
+            </p>
+            <p className="text-sm text-default-500 mt-2">
+              This will evaluate each document against your codebase sequentially.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setShowTestAllModal(false)}>
+              Cancel
+            </Button>
+            <Button color="primary" onPress={handleTestAll}>
+              Test All
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   );
 }

@@ -68,7 +68,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-[16px] border-b border-neutral-200 dark:border-neutral-800">
+      <div className="p-[16px] shadow-medium">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
           {query.title}
         </h1>
@@ -123,19 +123,19 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-neutral-200 dark:border-neutral-800 p-4">
+      <div className="shadow-medium p-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-white dark:bg-neutral-800 rounded-lg">
+          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about your data..."
-              minRows={2}
+              placeholder="Ask Eva a data question..."
+              minRows={4}
               maxRows={6}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -144,6 +144,10 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                 }
               }}
               className="flex-1"
+              classNames={{
+                inputWrapper:
+                  "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
+              }}
               isDisabled={isSending}
             />
             <Button

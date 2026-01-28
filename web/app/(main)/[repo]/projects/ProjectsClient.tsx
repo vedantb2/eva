@@ -290,7 +290,7 @@ export function ProjectsClient() {
                       return (
                         <div
                           key={project._id}
-                          className={`p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-sm transition-all group ${phaseConfig[phase].cardBg}`}
+                          className={`p-3 rounded-md shadow transition-all group ${phaseConfig[phase].cardBg}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <Link href={projectUrl} className="flex-1 min-w-0">

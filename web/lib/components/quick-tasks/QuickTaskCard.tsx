@@ -8,12 +8,12 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import Link from "next/link";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+export type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
-const statusCardBg: Record<TaskStatus, string> = {
-  todo: "bg-neutral-200/50 dark:bg-neutral-800",
+export const statusCardBg: Record<TaskStatus, string> = {
+  todo: "bg-neutral-200/40 dark:bg-neutral-800",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
-  code_review: "bg-purple-100 dark:bg-purple-900/20",
+  code_review: "bg-purple-100/60 dark:bg-purple-900/20",
   done: "bg-green-50 dark:bg-green-900/20",
 };
 
@@ -37,7 +37,13 @@ export function QuickTaskCard({
   const hasError = runs?.[0]?.status === "error";
 
   return (
-    <Card isPressable={!!onClick} onPress={onClick} shadow="none" className={`w-full ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""}`}>
+    <Card
+      isPressable={!!onClick}
+      onPress={onClick}
+      shadow="none"
+      radius="sm"
+      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""}`}
+    >
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-medium text-sm line-clamp-1">{title}</h4>

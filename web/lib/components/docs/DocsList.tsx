@@ -64,7 +64,7 @@ export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
               key={doc._id}
               type="button"
               onClick={() => onSelect(doc._id)}
-              className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-2 ${
+              className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
                 selectedId === doc._id
                   ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
                   : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"

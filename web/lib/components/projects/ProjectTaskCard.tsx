@@ -8,15 +8,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
-
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
-
-const statusCardBg: Record<TaskStatus, string> = {
-  todo: "bg-neutral-50 dark:bg-neutral-800",
-  in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
-  code_review: "bg-purple-50 dark:bg-purple-900/20",
-  done: "bg-green-50 dark:bg-green-900/20",
-};
+import { TaskStatus, statusCardBg } from "../quick-tasks/QuickTaskCard";
 
 interface ProjectTaskCardProps {
   id: Id<"agentTasks">;
@@ -44,6 +36,7 @@ export function ProjectTaskCard({
       isPressable={!!onClick}
       onPress={onClick}
       shadow="none"
+      radius="sm"
       className={`w-full ${statusCardBg[status]}`}
     >
       <CardBody className="p-3 gap-2">

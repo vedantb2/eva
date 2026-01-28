@@ -29,7 +29,7 @@ export function PageWrapper({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
-      <div className="relative p-4 pb-2 flex items-center gap-3">
+      <div className="relative p-4 pb-[18px] flex items-center gap-3">
         {showBack && (
           <Button
             size="sm"

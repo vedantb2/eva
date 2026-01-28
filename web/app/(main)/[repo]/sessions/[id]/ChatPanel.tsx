@@ -14,7 +14,7 @@ import {
   IconClipboardList,
   IconFileText,
   IconGitPullRequest,
-  IconArrowUp
+  IconArrowUp,
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,6 +24,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { Badge } from "@heroui/react";
 
 type SessionMode = "execute" | "ask" | "plan" | "flag";
 
@@ -66,13 +67,22 @@ export function ChatPanel({
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
       if (!session) return;
-      localStore.setQuery(api.sessions.get, { id: args.id }, {
-        ...session,
-        messages: [
-          ...session.messages,
-          { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
-        ],
-      });
+      localStore.setQuery(
+        api.sessions.get,
+        { id: args.id },
+        {
+          ...session,
+          messages: [
+            ...session.messages,
+            {
+              role: args.role,
+              content: args.content,
+              timestamp: Date.now(),
+              mode: args.mode,
+            },
+          ],
+        },
+      );
     },
   );
 
@@ -85,7 +95,12 @@ export function ChatPanel({
       const response = await fetch("/api/sessions/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message, mode: sendMode, generatePlan }),
+        body: JSON.stringify({
+          sessionId,
+          message,
+          mode: sendMode,
+          generatePlan,
+        }),
       });
       if (!response.ok) {
         throw new Error("Failed to send message");
@@ -108,10 +123,16 @@ export function ChatPanel({
   };
 
   const handleGeneratePlan = async () => {
-    const content = "Generate the implementation plan based on our conversation.";
+    const content =
+      "Generate the implementation plan based on our conversation.";
     setIsSending(true);
     try {
-      await addMessage({ id: typedSessionId, role: "user", content, mode: "plan" });
+      await addMessage({
+        id: typedSessionId,
+        role: "user",
+        content,
+        mode: "plan",
+      });
       await sendToApi(content, "plan", true);
     } finally {
       setIsSending(false);
@@ -122,7 +143,7 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex items-center justify-between p-4 shadow-medium z-50">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}
@@ -245,7 +266,7 @@ export function ChatPanel({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-neutral-200 dark:border-neutral-800 p-3">
+      <div className="shadow-medium p-3">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <Tabs
@@ -320,6 +341,9 @@ export function ChatPanel({
                 <IconGitBranch className="w-4 h-4" />
               </Button>
             )}
+            <Badge variant="flat">
+              hi
+            </Badge>
           </div>
         </div>
         <form
@@ -328,7 +352,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-white dark:bg-neutral-800 rounded-lg">
+          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -336,22 +360,24 @@ export function ChatPanel({
                 !isSandboxActive
                   ? "Start the sandbox to begin chatting..."
                   : mode === "execute"
-                    ? "Describe changes to make..."
+                    ? "Describe the changes to make to Eva..."
                     : mode === "ask"
-                      ? "Ask a question about the codebase..."
-                      : "Describe what you want to build..."
+                      ? "Ask Eva a question about the codebase..."
+                      : "Describe what you want to build to Eva..."
               }
-              minRows={2}
-              maxRows={4}
+              minRows={4}
+              maxRows={6}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              className="flex-1"
+              classNames={{
+                inputWrapper:
+                  "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
+              }}
               isDisabled={isInputDisabled}
-              size="sm"
             />
             <Button
               type="submit"

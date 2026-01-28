@@ -86,14 +86,16 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         </div>
       }
       headerRight={
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<IconHammer size={16} />}
-          onPress={() => setIsBuildModalOpen(true)}
-        >
-          Build Project
-        </Button>
+        !isDraftOrFinalized ? (
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<IconHammer size={16} />}
+            onPress={() => setIsBuildModalOpen(true)}
+          >
+            Build Project
+          </Button>
+        ) : null
       }
     >
       <div className="flex-1 flex flex-col min-h-0 border-t border-neutral-200 dark:border-neutral-700 md:mt-3">
@@ -118,39 +120,38 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           />
         )}
       </div>
-      {!isDraftOrFinalized ? (
-        <Modal
-          isOpen={isBuildModalOpen}
-          onClose={() => setIsBuildModalOpen(false)}
-        >
-          <ModalContent>
-            <ModalHeader>Build Project</ModalHeader>
-            <ModalBody>
-              <p className="text-default-600">
-                This will allow Eva to autonomously work through all tasks in
-                sequence until the project is fully built.
-              </p>
-              <p className="text-sm text-default-500 mt-2">
-                Best suited for projects with well-defined requirements. If Eva
-                makes an error on an earlier task, it may carry forward into
-                subsequent tasks.
-              </p>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="flat" onPress={() => setIsBuildModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                color="primary"
-                startContent={<IconHammer size={16} />}
-                onPress={() => setIsBuildModalOpen(false)}
-              >
-                Cook Eva, Cook
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-      ) : null}
+
+      <Modal
+        isOpen={isBuildModalOpen}
+        onClose={() => setIsBuildModalOpen(false)}
+      >
+        <ModalContent>
+          <ModalHeader>Build Project</ModalHeader>
+          <ModalBody>
+            <p className="text-default-600">
+              This will allow Eva to autonomously work through all tasks in
+              sequence until the project is fully built.
+            </p>
+            <p className="text-sm text-default-500 mt-2">
+              Best suited for projects with well-defined requirements. If Eva
+              makes an error on an earlier task, it may carry forward into
+              subsequent tasks.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setIsBuildModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="primary"
+              startContent={<IconHammer size={16} />}
+              onPress={() => setIsBuildModalOpen(false)}
+            >
+              Cook Eva, Cook
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </PageWrapper>
   );
 }

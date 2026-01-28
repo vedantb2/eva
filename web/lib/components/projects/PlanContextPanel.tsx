@@ -42,7 +42,7 @@ export function PlanContextPanel({
 
   return (
     <>
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex justify-between gap-2 px-3 py-5">
         <Button
           size="sm"
           variant="flat"

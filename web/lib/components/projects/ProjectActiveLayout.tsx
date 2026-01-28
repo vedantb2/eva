@@ -48,9 +48,9 @@ export function ProjectActiveLayout({
     }
   }, [project.phase, project.sandboxId, project._id]);
   return (
-    <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden bg-white dark:bg-neutral-800/40">
-      <div className="w-1/4 border-r dark:border-neutral-700 overflow-auto flex flex-col">
-        <div className="flex-1 overflow-auto">
+    <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-neutral-800/40">
+      <div className="w-1/4 h-full border-r dark:border-neutral-700 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <ProjectTaskListPanel projectId={projectId} />
         </div>
         {project.generatedSpec && (

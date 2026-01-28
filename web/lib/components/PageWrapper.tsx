@@ -61,7 +61,7 @@ export function PageWrapper({
         )}
       </div>
       <div
-        className={`flex-1 bg-white dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
+        className={`flex-1 min-h-0 bg-white dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto"}`}
       >
         <div
           className={`flex flex-col gap-4 ${childPadding ? "px-4 py-2" : ""}  ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}

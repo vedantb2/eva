@@ -62,6 +62,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       title={project.title}
       showBack
       fillHeight
+      childPadding={false}
       headerCenter={
         <div className="flex items-center gap-3">
           <ProjectPhaseBadge phase={project.phase} />
@@ -95,60 +96,61 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         </Button>
       }
     >
-      {isDraftOrFinalized ? (
-        <ProjectTabs
-          projectId={typedProjectId}
-          projectPhase={project.phase}
-          rawInput={project.rawInput}
-          generatedSpec={project.generatedSpec}
-          codebaseIndex={project.codebaseIndex}
-          indexingStatus={project.indexingStatus}
-          conversationHistory={project.conversationHistory}
-          repoSlug={encodeRepoSlug(fullName)}
-          repoId={repo._id}
-          installationId={repo.installationId}
-        />
-      ) : (
-        <ProjectActiveLayout
-          projectId={typedProjectId}
-          project={project}
-          repoSlug={encodeRepoSlug(fullName)}
-        />
-      )}
-      <Modal
-        isOpen={isBuildModalOpen}
-        onClose={() => setIsBuildModalOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader>Build Project</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
-              This will allow Eva to autonomously work through all tasks in
-              sequence until the project is fully built.
-            </p>
-            <p className="text-sm text-default-500 mt-2">
-              Best suited for projects with well-defined requirements. If Eva
-              makes an error on an earlier task, it may carry forward into
-              subsequent tasks.
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              variant="flat"
-              onPress={() => setIsBuildModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              color="primary"
-              startContent={<IconHammer size={16} />}
-              onPress={() => setIsBuildModalOpen(false)}
-            >
-              Start Build
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <div className="flex-1 flex flex-col min-h-0 border-t border-neutral-200 dark:border-neutral-700 md:mt-3">
+        {isDraftOrFinalized ? (
+          <ProjectTabs
+            projectId={typedProjectId}
+            projectPhase={project.phase}
+            rawInput={project.rawInput}
+            generatedSpec={project.generatedSpec}
+            codebaseIndex={project.codebaseIndex}
+            indexingStatus={project.indexingStatus}
+            conversationHistory={project.conversationHistory}
+            repoSlug={encodeRepoSlug(fullName)}
+            repoId={repo._id}
+            installationId={repo.installationId}
+          />
+        ) : (
+          <ProjectActiveLayout
+            projectId={typedProjectId}
+            project={project}
+            repoSlug={encodeRepoSlug(fullName)}
+          />
+        )}
+      </div>
+      {!isDraftOrFinalized ? (
+        <Modal
+          isOpen={isBuildModalOpen}
+          onClose={() => setIsBuildModalOpen(false)}
+        >
+          <ModalContent>
+            <ModalHeader>Build Project</ModalHeader>
+            <ModalBody>
+              <p className="text-default-600">
+                This will allow Eva to autonomously work through all tasks in
+                sequence until the project is fully built.
+              </p>
+              <p className="text-sm text-default-500 mt-2">
+                Best suited for projects with well-defined requirements. If Eva
+                makes an error on an earlier task, it may carry forward into
+                subsequent tasks.
+              </p>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={() => setIsBuildModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                startContent={<IconHammer size={16} />}
+                onPress={() => setIsBuildModalOpen(false)}
+              >
+                Start Build
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      ) : null}
     </PageWrapper>
   );
 }

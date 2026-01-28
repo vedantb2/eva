@@ -89,11 +89,11 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   const defaultExpandedKeys = nonEmptyStatuses.filter((s) => s !== "done");
 
   return (
-    <div className="px-4">
+    <div className="h-full overflow-y-auto">
       <Accordion
         selectionMode="multiple"
+        className="px-0 [&_hr]:bg-neutral-100 dark:[&_hr]:bg-neutral-800"
         defaultExpandedKeys={defaultExpandedKeys}
-        className="px-0"
       >
         {STATUS_ORDER.map((status) => {
           const config = STATUS_CONFIG[status];
@@ -111,7 +111,8 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                 </div>
               }
               classNames={{
-                content: "flex flex-col gap-2 pb-2",
+                trigger: "px-3",
+                content: "flex flex-col gap-2 px-4",
               }}
             >
               {statusTasks.length === 0 ? (

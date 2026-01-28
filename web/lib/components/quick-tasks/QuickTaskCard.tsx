@@ -11,7 +11,7 @@ import Link from "next/link";
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 const statusCardBg: Record<TaskStatus, string> = {
-  todo: "bg-neutral-50 dark:bg-neutral-800",
+  todo: "bg-neutral-200/50 dark:bg-neutral-800",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
   code_review: "bg-purple-100 dark:bg-purple-900/20",
   done: "bg-green-50 dark:bg-green-900/20",

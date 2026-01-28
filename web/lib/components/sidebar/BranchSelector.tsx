@@ -149,7 +149,7 @@ export function BranchSelector({ owner, repoName, installationId }: BranchSelect
               handleBranchChange(selected);
             }
           }}
-          className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg max-h-64 overflow-auto"
+          className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg max-h-64 overflow-auto scrollbar"
         >
           {branches.map((branch) => (
             <DropdownItem

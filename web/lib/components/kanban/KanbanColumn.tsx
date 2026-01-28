@@ -15,7 +15,7 @@ export interface ColumnConfig {
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
 export const TASK_STATUS_CONFIG: Record<TaskStatus, ColumnConfig> = {
-  todo: { label: "To Do", badgeBg: "bg-neutral-100 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", icon: IconCircle },
+  todo: { label: "To Do", badgeBg: "bg-neutral-200 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", icon: IconCircle },
   in_progress: { label: "In Progress", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", icon: IconClock },
   code_review: { label: "Code Review", badgeBg: "bg-purple-100 dark:bg-purple-900/30", badgeText: "text-purple-700 dark:text-purple-400", icon: IconEye },
   done: { label: "Done", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", icon: IconCircleCheck },
@@ -46,8 +46,8 @@ export function KanbanColumn({
       shadow="none"
       className={`flex-1 min-w-0 h-full transition-colors flex flex-col ${
         isOver
-          ? "bg-neutral-200 dark:bg-neutral-700"
-          : "bg-neutral-100 dark:bg-neutral-800/50"
+          ? "bg-neutral-100 dark:bg-neutral-700"
+          : "bg-neutral-50 dark:bg-neutral-800/50"
       }`}
     >
       <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">
@@ -62,7 +62,7 @@ export function KanbanColumn({
         </div>
         {headerExtra}
       </CardHeader>
-      <CardBody className="pt-0 overflow-y-auto space-y-2 flex-1 min-h-0">{children}</CardBody>
+      <CardBody className="pt-0 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">{children}</CardBody>
     </Card>
   );
 }

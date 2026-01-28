@@ -173,7 +173,7 @@ export function ProjectPlanTab({
   const isCurrentlyIndexing = indexingStatus === "indexing" || isIndexing;
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto scrollbar p-4">
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">

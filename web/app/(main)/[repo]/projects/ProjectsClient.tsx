@@ -61,7 +61,7 @@ const ALL_PHASES: ProjectPhase[] = [
 const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
   draft: {
     label: "Draft",
-    badgeBg: "bg-neutral-100 dark:bg-neutral-700",
+    badgeBg: "bg-neutral-200 dark:bg-neutral-700",
     badgeText: "text-neutral-600 dark:text-neutral-300",
     cardBg: "bg-white dark:bg-neutral-900",
     icon: IconNotes,
@@ -271,7 +271,7 @@ export function ProjectsClient() {
                 onClear={() => setSearchQuery("")}
               />
             </div>
-            <div className="flex items-stretch gap-2 overflow-x-auto flex-1 min-h-0">
+            <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
               {ALL_PHASES.filter((phase) => visiblePhases.has(phase)).map(
                 (phase) => (
                   <KanbanColumn

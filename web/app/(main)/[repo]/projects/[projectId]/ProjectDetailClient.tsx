@@ -145,7 +145,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 startContent={<IconHammer size={16} />}
                 onPress={() => setIsBuildModalOpen(false)}
               >
-                Start Build
+                Cook Eva, Cook
               </Button>
             </ModalFooter>
           </ModalContent>

@@ -141,7 +141,7 @@ export default function SessionsLayout({
           onClear={() => setSearchQuery("")}
         />
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar">
         {sessions === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />

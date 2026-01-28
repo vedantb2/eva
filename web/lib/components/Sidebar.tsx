@@ -228,7 +228,7 @@ export function Sidebar() {
           </div>
 
           <nav
-            className={`flex-1 py-4 overflow-y-auto flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
+            className={`flex-1 py-4 overflow-y-auto scrollbar flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
           >
             <div>
               {repoSlug && repoFullName && (

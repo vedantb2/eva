@@ -153,7 +153,7 @@ export function TaskDetailModal({
           </ModalHeader>
           <ModalBody className="pb-6">
             <div className="grid grid-cols-2 gap-6 min-h-[400px]">
-              <div className="space-y-6 overflow-y-auto pr-2">
+              <div className="space-y-6 overflow-y-auto scrollbar pr-2">
                 {description &&
                   (() => {
                     const separatorIndex = description.indexOf("---");
@@ -283,7 +283,7 @@ export function TaskDetailModal({
                                 <p className="text-xs text-default-400 mb-1">
                                   Logs
                                 </p>
-                                <div className="bg-default-100 rounded p-2 max-h-60 overflow-y-auto font-mono text-xs space-y-1">
+                                <div className="bg-default-100 rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
                                   {run.logs.map((log, i) => (
                                     <div
                                       key={i}
@@ -321,7 +321,7 @@ export function TaskDetailModal({
                   Comments{" "}
                   {comments && comments.length > 0 && `(${comments.length})`}
                 </h4>
-                <div className="flex-1 overflow-y-auto space-y-3 mb-3">
+                <div className="flex-1 overflow-y-auto scrollbar space-y-3 mb-3">
                   {(!comments || comments.length === 0) && (
                     <p className="text-sm text-default-400">No comments yet.</p>
                   )}

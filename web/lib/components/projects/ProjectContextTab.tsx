@@ -108,7 +108,7 @@ export function ProjectContextTab({
 
   if (!parsedIndex) {
     return (
-      <div className="h-full overflow-y-auto p-4">
+      <div className="h-full overflow-y-auto scrollbar p-4">
         <div className="space-y-4">
           {isCurrentlyIndexing ? (
             <Card shadow="none" className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
@@ -182,7 +182,7 @@ export function ProjectContextTab({
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto scrollbar p-4">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -382,7 +382,7 @@ export function ProjectContextTab({
             </div>
           </CardHeader>
           <CardBody className="pt-0">
-            <pre className="text-xs bg-default-100 p-4 rounded-lg overflow-x-auto">
+            <pre className="text-xs bg-default-100 p-4 rounded-lg overflow-x-auto scrollbar">
               {JSON.stringify(parsedIndex, null, 2)}
             </pre>
           </CardBody>

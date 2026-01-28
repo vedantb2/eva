@@ -77,7 +77,7 @@ export function ProjectTabs({
 
   return (
     <div className="h-full grid grid-cols-2">
-      <div className="border-r border-divider overflow-y-auto">
+      <div className="border-r border-divider overflow-y-auto scrollbar">
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
@@ -91,7 +91,7 @@ export function ProjectTabs({
           installationId={installationId}
         />
       </div>
-      <div className="overflow-y-auto">
+      <div className="overflow-y-auto scrollbar">
         <ProjectPlanTab
           projectId={projectId}
           projectPhase={projectPhase}

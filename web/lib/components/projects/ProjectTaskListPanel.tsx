@@ -89,7 +89,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   const defaultExpandedKeys = nonEmptyStatuses.filter((s) => s !== "done");
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar">
       <Accordion
         selectionMode="multiple"
         className="px-0 [&_hr]:bg-neutral-100 dark:[&_hr]:bg-neutral-800"

@@ -72,7 +72,7 @@ function DocsListPanel({
           onClear={() => setSearchQuery("")}
         />
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (
           <div className="p-4 text-center text-sm text-neutral-400">
             No matches found
@@ -273,7 +273,7 @@ function ReportsPanel({
           Run Test
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto scrollbar p-4">
         {reports === undefined ? (
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />

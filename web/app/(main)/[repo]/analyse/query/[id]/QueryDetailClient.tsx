@@ -73,7 +73,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           {query.title}
         </h1>
       </div>
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-4">
         {query.messages.length === 0 ? (
           <div className="text-center py-12 text-neutral-500">
             <p>No messages yet. Start the conversation!</p>

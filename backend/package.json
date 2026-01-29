@@ -11,7 +11,9 @@
   "description": "",
   "dependencies": {
     "@convex-dev/presence": "^0.3.0",
+    "@convex-dev/prosemirror-sync": "^0.2.1",
     "convex": "^1.24.5",
+    "convex-timeline": "^0.1.2",
     "resend": "^4.6.0"
   },
   "devDependencies": {

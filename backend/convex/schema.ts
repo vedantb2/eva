@@ -10,6 +10,7 @@ const schema = defineSchema({
     fullName: v.optional(v.string()),
     isAdmin: v.optional(v.boolean()),
     theme: v.optional(v.union(v.literal("light"), v.literal("dark"))),
+    lastSeenAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),

@@ -1,7 +1,7 @@
-// convex/convex.config.ts
 import { defineApp } from "convex/server";
+import presence from "@convex-dev/presence/convex.config.js";
 
 const app = defineApp();
-// other components
+app.use(presence);
 
 export default app;

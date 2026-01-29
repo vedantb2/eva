@@ -1,7 +1,11 @@
 "use client";
 
+import { api } from "@/api";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
+import usePresence from "@convex-dev/presence/react";
+import { useQuery } from "convex/react";
+import { GenericId as Id } from "convex/values";
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
@@ -10,6 +14,17 @@ function MainContent({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+
+function PresenceHeartbeat() {
+  const userId = useQuery(api.auth.me);
+  if (!userId) return null;
+  return <PresenceInner userId={userId} />;
+}
+
+function PresenceInner({ userId }: { userId: Id<"users"> }) {
+  usePresence(api.presence, "platform", userId);
+  return null;
 }
 
 export default function MainLayout({
@@ -22,6 +37,7 @@ export default function MainLayout({
       <div className="min-h-screen bg-white dark:bg-neutral-900">
         <Sidebar />
         <MainContent>{children}</MainContent>
+        <PresenceHeartbeat />
       </div>
     </SidebarProvider>
   );

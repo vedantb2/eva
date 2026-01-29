@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@convex-dev/presence": "^0.3.0",
     "convex": "^1.24.5",
     "resend": "^4.6.0"
   },

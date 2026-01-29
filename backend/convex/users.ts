@@ -7,12 +7,13 @@ export const get = query({
     v.object({
       firstName: v.optional(v.string()),
       lastName: v.optional(v.string()),
+      lastSeenAt: v.optional(v.number()),
     }),
     v.null()
   ),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.id);
     if (!user) return null;
-    return { firstName: user.firstName, lastName: user.lastName };
+    return { firstName: user.firstName, lastName: user.lastName, lastSeenAt: user.lastSeenAt };
   },
 });

@@ -400,14 +400,22 @@ export function TaskDetailModal({
             </div>
           </ModalBody>
           <ModalFooter className="justify-between">
-            <Button
-              color="danger"
-              variant="flat"
-              startContent={<IconTrash size={18} />}
-              onPress={() => setShowDeleteConfirm(true)}
+            <Tooltip
+              content="Only the task owner can delete"
+              isDisabled={isOwner}
             >
-              Delete
-            </Button>
+              <div>
+                <Button
+                  color="danger"
+                  variant="flat"
+                  startContent={<IconTrash size={18} />}
+                  onPress={() => setShowDeleteConfirm(true)}
+                  isDisabled={!isOwner}
+                >
+                  Delete
+                </Button>
+              </div>
+            </Tooltip>
             {status === "code_review" || status === "done" ? (
               latestPrUrl ? (
                 <Button

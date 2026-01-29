@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
+import { Tooltip } from "@heroui/tooltip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -35,6 +36,8 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner = project ? currentUserId === project.userId : false;
 
   if (project === undefined) {
     return (
@@ -87,14 +90,22 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       }
       headerRight={
         !isDraftOrFinalized ? (
-          <Button
-            color="primary"
-            size="sm"
-            startContent={<IconHammer size={16} />}
-            onPress={() => setIsBuildModalOpen(true)}
+          <Tooltip
+            content="Only the project owner can build"
+            isDisabled={isOwner}
           >
-            Build Project
-          </Button>
+            <div>
+              <Button
+                color="primary"
+                size="sm"
+                startContent={<IconHammer size={16} />}
+                onPress={() => setIsBuildModalOpen(true)}
+                isDisabled={!isOwner}
+              >
+                Build Project
+              </Button>
+            </div>
+          </Tooltip>
         ) : null
       }
     >

@@ -1,6 +1,8 @@
 "use client";
 
 import { GenericId as Id } from "convex/values";
+import { useQuery } from "convex/react";
+import { api } from "@/api";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
 import { IconGitBranch, IconDotsVertical, IconTrash } from "@tabler/icons-react";
@@ -12,11 +14,6 @@ import {
 } from "@heroui/dropdown";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
-
-interface ProjectCardCreatorProps {
-  userId: Id<"users">;
-}
-
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -40,6 +37,8 @@ export function ProjectCard({
   cardBg,
   onDelete,
 }: ProjectCardProps) {
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner = currentUserId === userId;
   return (
     <div className={`p-3 rounded-md shadow transition-all group ${cardBg}`}>
       <div className="flex items-start justify-between gap-2">
@@ -87,12 +86,16 @@ export function ProjectCard({
               <IconDotsVertical size={16} />
             </Button>
           </DropdownTrigger>
-          <DropdownMenu aria-label="Project actions">
+          <DropdownMenu
+            aria-label="Project actions"
+            disabledKeys={isOwner ? [] : ["delete"]}
+          >
             <DropdownItem
               key="delete"
               className="text-danger"
               color="danger"
               startContent={<IconTrash size={16} />}
+              description={!isOwner ? "Only the project owner can delete" : undefined}
               onPress={onDelete}
             >
               Delete

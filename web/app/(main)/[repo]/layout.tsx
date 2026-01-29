@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import { RepoProvider } from "@/lib/contexts/RepoContext";
+import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 
 export default function RepoLayout({
   children,
@@ -12,5 +13,10 @@ export default function RepoLayout({
 }) {
   const { repo } = use(params);
 
-  return <RepoProvider repoSlug={repo}>{children}</RepoProvider>;
+  return (
+    <RepoProvider repoSlug={repo}>
+      {children}
+      <SpotlightSearch />
+    </RepoProvider>
+  );
 }

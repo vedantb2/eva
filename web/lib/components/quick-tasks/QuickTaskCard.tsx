@@ -4,6 +4,7 @@ import { Card, CardBody } from "@heroui/card";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import dayjs from "@/lib/dates";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import Link from "next/link";
@@ -23,6 +24,7 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  createdAt: number;
   createdBy?: Id<"users">;
   onClick?: () => void;
 }
@@ -32,6 +34,7 @@ export function QuickTaskCard({
   title,
   description,
   status,
+  createdAt,
   createdBy,
   onClick,
 }: QuickTaskCardProps) {
@@ -50,27 +53,27 @@ export function QuickTaskCard({
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
-          {latestPrUrl && (
-            <Link
-              href={latestPrUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="flex-shrink-0 p-1 rounded hover:bg-default-200 transition-colors"
-            >
-              <IconGitPullRequest size={14} className="text-success-500" />
-            </Link>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {latestPrUrl && (
+              <Link
+                href={latestPrUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 rounded hover:bg-default-200 transition-colors"
+              >
+                <IconGitPullRequest size={14} className="text-success-500" />
+              </Link>
+            )}
+            <div className="flex items-center gap-1 text-xs text-default-400">
+              <IconSubtask size={12} />
+              <SubtaskProgress taskId={id} />
+            </div>
+          </div>
         </div>
-        {/* {description && (
-          <p className="text-xs text-default-500 line-clamp-2">{description}</p>
-        )} */}
         <div className="flex items-center justify-between mt-1">
           {createdBy && <UserInitials userId={createdBy} />}
-          <div className="flex items-center gap-1 text-xs text-default-400">
-            <IconSubtask size={12} />
-            <SubtaskProgress taskId={id} />
-          </div>
+          <span className="text-xs text-default-400 ml-auto">{dayjs(createdAt).fromNow()}</span>
         </div>
       </CardBody>
     </Card>

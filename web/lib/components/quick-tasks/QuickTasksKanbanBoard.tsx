@@ -127,6 +127,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             title={task.title}
             description={task.description}
             status={task.status}
+            createdAt={task.createdAt}
             createdBy={task.createdBy}
           />
         )}

@@ -69,11 +69,11 @@ export function ProjectTaskCard({
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
         <div className="flex items-center justify-between text-xs text-default-400">
+          {createdBy && <UserInitials userId={createdBy} />}
           <div className="flex items-center gap-1">
             <IconSubtask size={12} />
             <SubtaskProgress taskId={id} />
           </div>
-          {createdBy && <UserInitials userId={createdBy} />}
         </div>
       </CardBody>
     </Card>

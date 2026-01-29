@@ -23,7 +23,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@/lib/dates";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface TaskDetailModalProps {
   isOpen: boolean;

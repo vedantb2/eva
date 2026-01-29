@@ -10,11 +10,12 @@ import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import {
   IconCircle,
   IconProgress,
+  IconClipboardCheck,
   IconEye,
   IconCircleCheck,
 } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface Task {
   _id: Id<"agentTasks">;
@@ -40,6 +41,11 @@ const STATUS_CONFIG: Record<
     icon: <IconProgress size={16} />,
     color: "text-yellow-500",
   },
+  business_review: {
+    label: "Business Review",
+    icon: <IconClipboardCheck size={16} />,
+    color: "text-orange-500",
+  },
   code_review: {
     label: "Code Review",
     icon: <IconEye size={16} />,
@@ -55,6 +61,7 @@ const STATUS_CONFIG: Record<
 const STATUS_ORDER: TaskStatus[] = [
   "todo",
   "in_progress",
+  "business_review",
   "code_review",
   "done",
 ];
@@ -72,6 +79,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
     const groups: Record<TaskStatus, Task[]> = {
       todo: [],
       in_progress: [],
+      business_review: [],
       code_review: [],
       done: [],
     };

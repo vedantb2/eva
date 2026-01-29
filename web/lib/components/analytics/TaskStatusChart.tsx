@@ -9,6 +9,7 @@ interface TaskStatusChartProps {
   data: {
     todo: number;
     in_progress: number;
+    business_review: number;
     code_review: number;
     done: number;
   };
@@ -16,19 +17,21 @@ interface TaskStatusChartProps {
 
 export function TaskStatusChart({ data }: TaskStatusChartProps) {
   const chartData = {
-    labels: ["Todo", "In Progress", "Code Review", "Done"],
+    labels: ["Todo", "In Progress", "Business Review", "Code Review", "Done"],
     datasets: [
       {
-        data: [data.todo, data.in_progress, data.code_review, data.done],
+        data: [data.todo, data.in_progress, data.business_review, data.code_review, data.done],
         backgroundColor: [
           "rgba(115, 115, 115, 0.8)",
           "rgba(234, 179, 8, 0.8)",
+          "rgba(249, 115, 22, 0.8)",
           "rgba(168, 85, 247, 0.8)",
           "rgba(34, 197, 94, 0.8)",
         ],
         borderColor: [
           "rgb(115, 115, 115)",
           "rgb(234, 179, 8)",
+          "rgb(249, 115, 22)",
           "rgb(168, 85, 247)",
           "rgb(34, 197, 94)",
         ],

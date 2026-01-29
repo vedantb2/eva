@@ -12,6 +12,7 @@ export const getTaskStats = query({
     byStatus: v.object({
       todo: v.number(),
       in_progress: v.number(),
+      business_review: v.number(),
       code_review: v.number(),
       done: v.number(),
     }),
@@ -19,7 +20,7 @@ export const getTaskStats = query({
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
     if (!userId) {
-      return { total: 0, byStatus: { todo: 0, in_progress: 0, code_review: 0, done: 0 } };
+      return { total: 0, byStatus: { todo: 0, in_progress: 0, business_review: 0, code_review: 0, done: 0 } };
     }
     const boards = await ctx.db
       .query("boards")
@@ -36,7 +37,7 @@ export const getTaskStats = query({
     const filtered = args.startTime
       ? tasks.filter((t) => t.createdAt >= args.startTime!)
       : tasks;
-    const byStatus = { todo: 0, in_progress: 0, code_review: 0, done: 0 };
+    const byStatus = { todo: 0, in_progress: 0, business_review: 0, code_review: 0, done: 0 };
     for (const task of filtered) {
       byStatus[task.status]++;
     }

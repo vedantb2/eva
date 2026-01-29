@@ -7,6 +7,7 @@ import { getCurrentUserId } from "./auth";
 const taskStatusValidator = v.union(
   v.literal("todo"),
   v.literal("in_progress"),
+  v.literal("business_review"),
   v.literal("code_review"),
   v.literal("done")
 );
@@ -307,7 +308,7 @@ export const updateStatus = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
-    const workStatuses = ["todo", "in_progress", "code_review"];
+    const workStatuses = ["todo", "in_progress", "business_review", "code_review"];
     if (workStatuses.includes(args.status)) {
       const dependencies = await ctx.db
         .query("taskDependencies")
@@ -371,7 +372,7 @@ export const getActiveTasks = query({
         .withIndex("by_board", (q) => q.eq("boardId", board._id))
         .collect();
       const active = tasks.filter(
-        (t) => t.status === "todo" || t.status === "in_progress" || t.status === "code_review"
+        (t) => t.status === "todo" || t.status === "in_progress" || t.status === "business_review" || t.status === "code_review"
       );
       activeTasks.push(...active);
     }

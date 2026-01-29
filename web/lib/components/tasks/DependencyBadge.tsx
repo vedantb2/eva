@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils/cn";
 import { IconLock, IconLockOpen } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface DependencyBadgeProps {
   isBlocked: boolean;

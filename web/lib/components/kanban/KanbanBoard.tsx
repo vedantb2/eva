@@ -29,7 +29,7 @@ import {
 } from "@heroui/dropdown";
 import { IconFilter, IconSearch } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface BaseTask {
   _id: string;
@@ -197,6 +197,7 @@ export function KanbanBoard<T extends BaseTask>({
           >
             <DropdownItem key="todo">To Do</DropdownItem>
             <DropdownItem key="in_progress">In Progress</DropdownItem>
+            <DropdownItem key="business_review">Business Review</DropdownItem>
             <DropdownItem key="code_review">Code Review</DropdownItem>
             <DropdownItem key="done">Done</DropdownItem>
           </DropdownMenu>

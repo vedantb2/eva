@@ -10,11 +10,12 @@ import { api } from "@/api";
 import Link from "next/link";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 
-export type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+export type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 export const statusCardBg: Record<TaskStatus, string> = {
   todo: "bg-neutral-200/40 dark:bg-neutral-800",
   in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
+  business_review: "bg-orange-50 dark:bg-orange-900/20",
   code_review: "bg-purple-100/60 dark:bg-purple-900/20",
   done: "bg-green-50 dark:bg-green-900/20",
 };

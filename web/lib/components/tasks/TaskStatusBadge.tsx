@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { IconCircle, IconClock, IconEye, IconCircleCheck } from "@tabler/icons-react";
+import { IconCircle, IconClock, IconClipboardCheck, IconEye, IconCircleCheck } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface TaskStatusBadgeProps {
   status: TaskStatus;
@@ -26,6 +26,12 @@ const statusConfig: Record<
     text: "text-yellow-700 dark:text-yellow-400",
     label: "In Progress",
     icon: IconClock,
+  },
+  business_review: {
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+    text: "text-orange-700 dark:text-orange-400",
+    label: "Business Review",
+    icon: IconClipboardCheck,
   },
   code_review: {
     bg: "bg-purple-100 dark:bg-purple-900/30",

@@ -3,7 +3,7 @@
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
-import { IconCircle, IconClock, IconEye, IconCircleCheck } from "@tabler/icons-react";
+import { IconCircle, IconClock, IconClipboardCheck, IconEye, IconCircleCheck } from "@tabler/icons-react";
 
 export interface ColumnConfig {
   label: string;
@@ -12,11 +12,12 @@ export interface ColumnConfig {
   icon: typeof IconCircle;
 }
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 export const TASK_STATUS_CONFIG: Record<TaskStatus, ColumnConfig> = {
   todo: { label: "To Do", badgeBg: "bg-neutral-200 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", icon: IconCircle },
   in_progress: { label: "In Progress", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", icon: IconClock },
+  business_review: { label: "Business Review", badgeBg: "bg-orange-100 dark:bg-orange-900/30", badgeText: "text-orange-700 dark:text-orange-400", icon: IconClipboardCheck },
   code_review: { label: "Code Review", badgeBg: "bg-purple-100 dark:bg-purple-900/30", badgeText: "text-purple-700 dark:text-purple-400", icon: IconEye },
   done: { label: "Done", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", icon: IconCircleCheck },
 };
@@ -70,6 +71,7 @@ export function KanbanColumn({
 export const KANBAN_STATUSES: TaskStatus[] = [
   "todo",
   "in_progress",
+  "business_review",
   "code_review",
   "done",
 ];
@@ -77,6 +79,7 @@ export const KANBAN_STATUSES: TaskStatus[] = [
 export const ALL_STATUSES: TaskStatus[] = [
   "todo",
   "in_progress",
+  "business_review",
   "code_review",
   "done",
 ];

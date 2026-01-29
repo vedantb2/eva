@@ -19,7 +19,7 @@ import {
 } from "@heroui/modal";
 import { IconPlayerPlay } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
+type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
 interface Task {
   _id: Id<"agentTasks">;

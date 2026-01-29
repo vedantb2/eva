@@ -90,6 +90,7 @@ const schema = defineSchema({
     status: v.union(
       v.literal("todo"),
       v.literal("in_progress"),
+      v.literal("business_review"),
       v.literal("code_review"),
       v.literal("done")
     ),

@@ -9,7 +9,7 @@ import { GenericId as Id } from "convex/values";
 const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 const daytona = new Daytona();
 
-const activePtyHandles = new Map<string, ReturnType<typeof createPtyConnection>>();
+const activePtyHandles = new Map<string, Awaited<ReturnType<typeof createPtyConnection>>>();
 
 async function createPtyConnection(sandbox: Awaited<ReturnType<typeof daytona.get>>, ptyId: string, cols: number, rows: number) {
   const outputBuffer: string[] = [];

@@ -195,7 +195,24 @@ export function SpotlightSearch() {
                     >
                       <IconFileText className="w-4 h-4 flex-shrink-0" />
                       <span className="flex-1 truncate">{d.title}</span>
-                      <span className="text-xs text-neutral-400">Document</span>
+                      <span className="text-xs text-neutral-400">Doc</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {search && docs && docs.length > 0 && (
+                <Command.Group heading="Testing Arena" className={headingClass}>
+                  {docs.map((d) => (
+                    <Command.Item
+                      key={`test-${d._id}`}
+                      value={`test ${d.title}`}
+                      className={itemClass}
+                      onSelect={() => handleSelect(`/${repoSlug}/testing-arena/${d._id}`)}
+                    >
+                      <IconFlask className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1 truncate">{d.title}</span>
+                      <span className="text-xs text-neutral-400">Test</span>
                     </Command.Item>
                   ))}
                 </Command.Group>

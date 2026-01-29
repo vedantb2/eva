@@ -12,7 +12,7 @@ const phaseValidator = v.union(
   v.literal("draft"),
   v.literal("finalized"),
   v.literal("active"),
-  v.literal("completed")
+  v.literal("completed"),
 );
 
 const projectValidator = v.object({
@@ -35,8 +35,8 @@ const projectValidator = v.object({
       v.literal("pending"),
       v.literal("indexing"),
       v.literal("complete"),
-      v.literal("error")
-    )
+      v.literal("error"),
+    ),
   ),
   conversationHistory: v.array(conversationMessageValidator),
 });
@@ -66,7 +66,7 @@ export const list = query({
             (t) =>
               t.status === "todo" ||
               t.status === "in_progress" ||
-              t.status === "code_review"
+              t.status === "code_review",
           );
           if (allDone && project.phase === "active") {
             result.push({ ...project, phase: "completed" as const });
@@ -107,7 +107,7 @@ export const get = query({
           (t) =>
             t.status === "todo" ||
             t.status === "in_progress" ||
-            t.status === "code_review"
+            t.status === "code_review",
         );
         if (allDone && project.phase === "active") {
           return { ...project, phase: "completed" as const };
@@ -311,7 +311,7 @@ export const setIndexingStatus = mutation({
       v.literal("pending"),
       v.literal("indexing"),
       v.literal("complete"),
-      v.literal("error")
+      v.literal("error"),
     ),
   },
   returns: v.null(),
@@ -354,7 +354,6 @@ export const setCodebaseIndex = mutation({
   },
 });
 
-
 export const getTaskCount = query({
   args: { projectId: v.id("projects") },
   returns: v.number(),
@@ -370,6 +369,32 @@ export const getTaskCount = query({
     return tasks.length;
   },
 });
+
+const AUDIT_TASKS = [
+  {
+    title: "Accessibility Audit",
+    description:
+      "Review all changes for WCAG 2.2 compliance (https://www.w3.org/TR/WCAG22/). Check semantic HTML, ARIA attributes, keyboard navigation, color contrast, focus management, and screen reader support.",
+    subtasks: [
+      "Check semantic HTML elements and landmark regions",
+      "Verify ARIA attributes and roles are correct",
+      "Check form labels, error messages, and input associations",
+      "Verify images have appropriate alt text",
+    ],
+  },
+  {
+    title: "Testing Audit",
+    description:
+      "Review all diffs in the branch/PR and verify that tests are correct, complete, and aligned with the project requirements. Check test coverage, edge cases, assertions, and that tests actually validate the described behavior.",
+    subtasks: [
+      "Verify tests exist for all new/changed functionality",
+      "Check test assertions match the project requirements",
+      "Validate edge cases and error paths are covered",
+      "Ensure tests are not trivially passing (false positives)",
+      "Check mocks and test data are realistic",
+    ],
+  },
+];
 
 interface ParsedTask {
   title: string;
@@ -390,12 +415,17 @@ function parseSpec(specJson: string): ParsedSpec {
     title: parsed.title ?? "",
     description: parsed.description ?? "",
     tasks: (parsed.tasks ?? []).map(
-      (t: { title?: string; description?: string; dependencies?: number[]; subtasks?: string[] }) => ({
+      (t: {
+        title?: string;
+        description?: string;
+        dependencies?: number[];
+        subtasks?: string[];
+      }) => ({
         title: t.title ?? "",
         description: t.description ?? "",
         dependencies: t.dependencies ?? [],
         subtasks: t.subtasks ?? [],
-      })
+      }),
     ),
   };
 }
@@ -506,6 +536,39 @@ export const startDevelopment = mutation({
             dependsOnId: depTaskId,
           });
         }
+      }
+    }
+    const specTaskIds = [...taskIdMap.values()];
+    for (let i = 0; i < AUDIT_TASKS.length; i++) {
+      const audit = AUDIT_TASKS[i];
+      const taskNumber = spec.tasks.length + i + 1;
+      const auditTaskId = await ctx.db.insert("agentTasks", {
+        boardId: board._id,
+        columnId: column._id,
+        title: audit.title,
+        description: audit.description,
+        repoId: project.repoId,
+        projectId: args.projectId,
+        taskNumber,
+        status: "todo",
+        order: spec.tasks.length + i,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userId,
+      });
+      for (let j = 0; j < audit.subtasks.length; j++) {
+        await ctx.db.insert("subtasks", {
+          parentTaskId: auditTaskId,
+          title: audit.subtasks[j],
+          completed: false,
+          order: j,
+        });
+      }
+      for (const depId of specTaskIds) {
+        await ctx.db.insert("taskDependencies", {
+          taskId: auditTaskId,
+          dependsOnId: depId,
+        });
       }
     }
     await ctx.db.patch(args.projectId, {

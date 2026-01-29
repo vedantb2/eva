@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dayjs from "@/lib/dates";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import {
@@ -91,9 +92,7 @@ export function SandboxesClient() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
-  };
+  const formatDate = (dateStr: string) => dayjs(dateStr).format("M/D/YYYY, h:mm:ss A");
 
   return (
     <>

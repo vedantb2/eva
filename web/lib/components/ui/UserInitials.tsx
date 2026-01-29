@@ -1,17 +1,8 @@
 import { api } from "@/api";
+import dayjs from "@/lib/dates";
 import { Badge, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 export function UserInitials({ userId }: { userId: Id<"users"> }) {
   const user = useQuery(api.users.get, { id: userId });
@@ -24,7 +15,7 @@ export function UserInitials({ userId }: { userId: Id<"users"> }) {
   const tooltip = online
     ? `${name} · Online`
     : user.lastSeenAt
-      ? `${name} · Active ${formatRelativeTime(user.lastSeenAt)}`
+      ? `${name} · Active ${dayjs(user.lastSeenAt).fromNow()}`
       : name;
   return (
     <Tooltip content={tooltip}>

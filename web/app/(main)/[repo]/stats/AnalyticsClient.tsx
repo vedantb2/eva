@@ -23,20 +23,18 @@ import {
   IconTerminal2,
   IconGitPullRequest,
 } from "@tabler/icons-react";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import dayjs from "@/lib/dates";
 
 export function AnalyticsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
 
   const { startTime, bucketSize, timelineStart } = useMemo(() => {
-    const now = Date.now();
     const start = getStartTime(timeRange);
     return {
       startTime: start,
       bucketSize: getBucketSize(timeRange),
-      timelineStart: start ?? now - 90 * DAY_MS,
+      timelineStart: start ?? dayjs().subtract(90, "day").valueOf(),
     };
   }, [timeRange]);
 

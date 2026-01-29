@@ -21,6 +21,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import dayjs from "@/lib/dates";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -33,17 +34,6 @@ interface TaskDetailModalProps {
   description?: string;
   status: TaskStatus;
   createdBy?: Id<"users">;
-}
-
-function formatRelativeTime(timestamp: number) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 export function TaskDetailModal({
@@ -268,7 +258,7 @@ export function TaskDetailModal({
                               </Chip>
                               <span className="text-xs text-default-400">
                                 {run.startedAt
-                                  ? new Date(run.startedAt).toLocaleString()
+                                  ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
                                   : "Queued"}
                               </span>
                             </div>
@@ -313,9 +303,7 @@ export function TaskDetailModal({
                                       }`}
                                     >
                                       <span className="text-default-400 flex-shrink-0">
-                                        {new Date(
-                                          log.timestamp,
-                                        ).toLocaleTimeString()}
+                                        {dayjs(log.timestamp).format("h:mm:ss A")}
                                       </span>
                                       <span className="break-all">
                                         {log.message}
@@ -349,7 +337,7 @@ export function TaskDetailModal({
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-default-400">
-                          {formatRelativeTime(comment.createdAt)}
+                          {dayjs(comment.createdAt).fromNow()}
                         </span>
                         <Button
                           isIconOnly

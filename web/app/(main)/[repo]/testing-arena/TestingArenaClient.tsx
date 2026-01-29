@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/api";
+import dayjs from "@/lib/dates";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -146,7 +147,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
     <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-neutral-500 dark:text-neutral-400">
-          {new Date(report.createdAt).toLocaleString()}
+          {dayjs(report.createdAt).format("M/D/YYYY, h:mm:ss A")}
         </div>
         <StatusBadge status={report.status} />
       </div>

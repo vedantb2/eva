@@ -21,6 +21,7 @@ import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
+import dayjs from "@/lib/dates";
 
 export default function SessionsLayout({
   children,
@@ -102,27 +103,14 @@ export default function SessionsLayout({
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  };
-
   const getLastActivity = (
     session: NonNullable<typeof sessions>[number],
   ): string => {
     if (session.messages.length === 0) {
-      return formatTime(session._creationTime);
+      return dayjs(session._creationTime).fromNow();
     }
     const lastMessage = session.messages[session.messages.length - 1];
-    return formatTime(lastMessage.timestamp);
+    return dayjs(lastMessage.timestamp).fromNow();
   };
 
   const sidebar = (

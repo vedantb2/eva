@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dayjs from "@/lib/dates";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
@@ -222,10 +223,7 @@ export default function AdminSnapshotsPage() {
     return `${mb.toFixed(2)} MB`;
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleString();
-  };
+  const formatDate = (dateStr?: string) => dateStr ? dayjs(dateStr).format("M/D/YYYY, h:mm:ss A") : "N/A";
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

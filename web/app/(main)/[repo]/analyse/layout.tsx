@@ -28,6 +28,7 @@ import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
+import dayjs from "@/lib/dates";
 
 export default function ResearchLayout({
   children,
@@ -95,19 +96,6 @@ export default function ResearchLayout({
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  };
-
   const sidebar = (
     <>
       <div className="px-3 pt-6 pb-3">
@@ -169,7 +157,7 @@ export default function ResearchLayout({
                             </h3>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-neutral-500 flex-shrink-0">
-                                {formatTime(query.updatedAt)}
+                                {dayjs(query.updatedAt).fromNow()}
                               </span>
                               <Tooltip content="Delete query">
                                 <button

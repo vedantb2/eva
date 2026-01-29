@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs, Tab } from "@heroui/tabs";
+import dayjs from "@/lib/dates";
 
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -9,32 +10,16 @@ interface TimeRangeFilterProps {
   onChange: (value: TimeRange) => void;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 86_400_000;
 
 export function getStartTime(range: TimeRange): number | undefined {
   if (range === "all") return undefined;
-  const now = Date.now();
-  switch (range) {
-    case "7d":
-      return now - 7 * DAY_MS;
-    case "30d":
-      return now - 30 * DAY_MS;
-    case "90d":
-      return now - 90 * DAY_MS;
-  }
+  const days = { "7d": 7, "30d": 30, "90d": 90 } as const;
+  return dayjs().subtract(days[range], "day").valueOf();
 }
 
 export function getBucketSize(range: TimeRange): number {
-  switch (range) {
-    case "7d":
-      return DAY_MS;
-    case "30d":
-      return DAY_MS;
-    case "90d":
-      return 7 * DAY_MS;
-    case "all":
-      return 7 * DAY_MS;
-  }
+  return range === "7d" || range === "30d" ? DAY_MS : 7 * DAY_MS;
 }
 
 export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {

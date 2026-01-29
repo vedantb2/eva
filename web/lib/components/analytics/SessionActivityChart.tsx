@@ -12,6 +12,8 @@ import {
   Legend,
 } from "chart.js";
 
+import dayjs from "@/lib/dates";
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 interface TimelineEntry {
@@ -29,10 +31,7 @@ interface SessionActivityChartProps {
 }
 
 export function SessionActivityChart({ timeline, messagesByMode }: SessionActivityChartProps) {
-  const labels = timeline.map((entry) => {
-    const date = new Date(entry.date);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
-  });
+  const labels = timeline.map((entry) => dayjs(entry.date).format("M/D"));
 
   const chartData = {
     labels,

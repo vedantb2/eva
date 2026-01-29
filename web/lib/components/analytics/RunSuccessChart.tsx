@@ -10,6 +10,8 @@ import {
   Legend,
 } from "chart.js";
 
+import dayjs from "@/lib/dates";
+
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 interface TimelineEntry {
@@ -24,10 +26,7 @@ interface RunSuccessChartProps {
 }
 
 export function RunSuccessChart({ timeline, successCount, errorCount }: RunSuccessChartProps) {
-  const labels = timeline.map((entry) => {
-    const date = new Date(entry.date);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
-  });
+  const labels = timeline.map((entry) => dayjs(entry.date).format("M/D"));
 
   const chartData = {
     labels,

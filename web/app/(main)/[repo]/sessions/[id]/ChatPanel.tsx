@@ -1,11 +1,11 @@
 "use client";
 
+import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Chip } from "@heroui/chip";
 import {
-  IconGitBranch,
   IconUser,
   IconPlayerPlay,
   IconPlayerStop,
@@ -16,6 +16,7 @@ import {
   IconGitPullRequest,
   IconArrowUp,
   IconWorld,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -40,6 +41,7 @@ interface ChatPanelProps {
   title: string;
   branchName?: string;
   prUrl?: string;
+  summary?: string[];
   messages: Message[];
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
@@ -51,6 +53,7 @@ export function ChatPanel({
   title,
   branchName,
   prUrl,
+  summary,
   messages,
   isSandboxActive,
   isSandboxToggling,
@@ -143,7 +146,7 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border border-neutral-200 dark:border-neutral-700 z-50">
+      <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700 z-50">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}
@@ -170,6 +173,34 @@ export function ChatPanel({
           </Button>
         </div>
       </div>
+      {summary && summary.length > 0 && (
+        <Accordion
+          selectionMode="single"
+          className="px-4 border-b border-neutral-200 dark:border-neutral-700"
+          isCompact
+        >
+          <AccordionItem
+            key="summary"
+            title={
+              <div className="flex flex-row gap-2 items-center text-teal-600 dark:text-teal-400">
+                <IconSparkles size={14} />
+                <p>Session summary</p>
+              </div>
+            }
+            classNames={{
+              title: "text-sm",
+              trigger: "py-2",
+              content: "pb-2",
+            }}
+          >
+            <ul className="list-disc list-inside text-sm text-default-600 space-y-1 pl-4">
+              {summary.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </AccordionItem>
+        </Accordion>
+      )}
       <div className="flex-1 overflow-y-auto scrollbar p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center py-12 text-neutral-500">
@@ -203,10 +234,10 @@ export function ChatPanel({
                   className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] px-3 py-2 rounded-xl ${
+                    className={`max-w-[90%] px-3 py-2 rounded-xl ${
                       message.role === "user"
                         ? "bg-teal-600 text-white"
-                        : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                        : "bg-neutral-100 dark:bg-neutral-800"
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap break-words">

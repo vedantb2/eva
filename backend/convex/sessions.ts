@@ -24,6 +24,7 @@ const sessionValidator = v.object({
   lastActivityAt: v.optional(v.number()),
   status: v.union(v.literal("active"), v.literal("closed")),
   archived: v.optional(v.boolean()),
+  summary: v.optional(v.array(v.string())),
   messages: v.array(messageValidator),
 });
 
@@ -148,6 +149,19 @@ export const update = mutation({
     if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.prUrl !== undefined) updates.prUrl = args.prUrl;
     await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
+export const updateSummary = mutation({
+  args: {
+    id: v.id("sessions"),
+    summary: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    await ctx.db.patch(args.id, { summary: args.summary });
     return null;
   },
 });

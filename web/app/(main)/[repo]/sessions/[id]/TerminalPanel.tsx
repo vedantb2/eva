@@ -239,9 +239,9 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#1a1a1a]">
+    <div className="h-full flex flex-col bg-neutral-900">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/80 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-10">
           <Spinner size="lg" />
         </div>
       )}

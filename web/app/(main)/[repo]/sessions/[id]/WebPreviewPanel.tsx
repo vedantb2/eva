@@ -86,7 +86,7 @@ export function WebPreviewPanel({
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900">
-      <div className="flex items-center gap-2 px-3 pb-2 bg-white dark:bg-neutral-950">
+      <div className="flex items-center gap-2 px-3 pb-2">
         <Input
           type="number"
           value={port}
@@ -127,7 +127,7 @@ export function WebPreviewPanel({
           </span>
         )}
       </div>
-      <div className="flex-1 relative min-h-0">
+      <div className="flex-1 relative min-h-0 ">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 z-10">
             <Spinner size="lg" />

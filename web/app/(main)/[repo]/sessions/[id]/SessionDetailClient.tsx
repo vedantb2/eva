@@ -55,7 +55,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const isSandboxActive = session.status === "active";
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full ">
       <div className="w-3/5 shadow-small">
         <SandboxPanel
           sessionId={sessionId}
@@ -69,6 +69,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           title={session.title}
           branchName={session.branchName}
           prUrl={session.prUrl}
+          summary={session.summary}
           messages={session.messages}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxToggling}

@@ -20,7 +20,7 @@ export function SandboxPanel({
   const [activeTab, setActiveTab] = useState<string>("terminal");
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-950">
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-50 dark:border-neutral-800">
       <div className="p-3">
         <Tabs
           selectedKey={activeTab}

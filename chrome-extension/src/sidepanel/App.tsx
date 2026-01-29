@@ -13,7 +13,12 @@ import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -75,13 +80,18 @@ if (!PUBLISHABLE_KEY) {
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
+const ALLOWED_HOSTS = [
+  "localhost:3000",
+  "localhost:3001",
+  "carepulse.co.uk",
+  "staging.carepulse.co.uk",
+  "eprocurement.carepulse.co.uk",
+];
+
 const isAllowedUrl = (url: string) => {
   try {
-    const parsed = new URL(url);
-    const host = parsed.host;
-    if (host === "localhost:3000") return true;
-    if (host.endsWith(".vercel.app")) return true;
-    return false;
+    const { host } = new URL(url);
+    return ALLOWED_HOSTS.includes(host) || host.endsWith(".vercel.app");
   } catch {
     return false;
   }
@@ -99,16 +109,24 @@ function AuthenticatedApp() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const createSession = useMutation(api.sessions.create);
-  const getOrCreateExtensionSession = useMutation(api.sessions.getOrCreateExtensionSession);
+  const getOrCreateExtensionSession = useMutation(
+    api.sessions.getOrCreateExtensionSession,
+  );
 
   useEffect(() => {
     const checkCurrentTab = async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       setIsValidUrl(tab?.url ? isAllowedUrl(tab.url) : false);
     };
     checkCurrentTab();
 
-    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+    const handleTabUpdate = (
+      tabId: number,
+      changeInfo: chrome.tabs.TabChangeInfo,
+    ) => {
       if (changeInfo.url) {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id === tabId) {
@@ -139,7 +157,7 @@ function AuthenticatedApp() {
     const listener = (
       message: { type: string; payload?: ExtractedContext },
       _sender: chrome.runtime.MessageSender,
-      _sendResponse: (response?: unknown) => void
+      _sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type === "ELEMENT_CAPTURED" && message.payload) {
         setCapturedContext(message.payload);
@@ -197,7 +215,9 @@ function AuthenticatedApp() {
           Eva Assist is only supported on:
         </p>
         <ul className="mt-4 text-muted-foreground list-disc list-inside">
-          <li>localhost:3000</li>
+          {ALLOWED_HOSTS.map((host) => (
+            <li key={host}>{host}</li>
+          ))}
           <li>*.vercel.app</li>
         </ul>
       </div>

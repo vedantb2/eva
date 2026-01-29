@@ -229,4 +229,92 @@ export declare const components: {
       >;
     };
   };
+  timeline: {
+    lib: {
+      clear: FunctionReference<"mutation", "internal", { scope: string }, null>;
+      createCheckpoint: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string; scope: string },
+        null
+      >;
+      deleteCheckpoint: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string; scope: string },
+        null
+      >;
+      deleteScope: FunctionReference<
+        "mutation",
+        "internal",
+        { scope: string },
+        null
+      >;
+      getCheckpointDocument: FunctionReference<
+        "query",
+        "internal",
+        { name: string; scope: string },
+        any | null
+      >;
+      getCurrentDocument: FunctionReference<
+        "query",
+        "internal",
+        { scope: string },
+        any | null
+      >;
+      getDocumentAtPosition: FunctionReference<
+        "query",
+        "internal",
+        { position: number; scope: string },
+        any | null
+      >;
+      getStatus: FunctionReference<
+        "query",
+        "internal",
+        { scope: string },
+        {
+          canRedo: boolean;
+          canUndo: boolean;
+          length: number;
+          position: number | null;
+        }
+      >;
+      listCheckpoints: FunctionReference<
+        "query",
+        "internal",
+        { scope: string },
+        Array<{ name: string; position: number | null }>
+      >;
+      listNodes: FunctionReference<
+        "query",
+        "internal",
+        { scope: string },
+        Array<{ document: any; position: number }>
+      >;
+      push: FunctionReference<
+        "mutation",
+        "internal",
+        { document: any; maxNodes?: number; scope: string },
+        null
+      >;
+      redo: FunctionReference<
+        "mutation",
+        "internal",
+        { count?: number; scope: string },
+        any | null
+      >;
+      restoreCheckpoint: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodes?: number; name: string; scope: string },
+        any
+      >;
+      undo: FunctionReference<
+        "mutation",
+        "internal",
+        { count?: number; scope: string },
+        any | null
+      >;
+    };
+  };
 };

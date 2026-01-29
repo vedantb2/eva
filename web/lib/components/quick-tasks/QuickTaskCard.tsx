@@ -3,12 +3,18 @@
 import { Card, CardBody } from "@heroui/card";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
-import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import { IconGitBranch, IconGitPullRequest, IconDotsVertical } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import Link from "next/link";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+} from "@heroui/dropdown";
 
 export type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
@@ -27,6 +33,7 @@ interface QuickTaskCardProps {
   status: TaskStatus;
   createdAt: number;
   createdBy?: Id<"users">;
+  branchName?: string;
   onClick?: () => void;
 }
 
@@ -37,8 +44,10 @@ export function QuickTaskCard({
   status,
   createdAt,
   createdBy,
+  branchName,
   onClick,
 }: QuickTaskCardProps) {
+  const { fullName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
@@ -55,18 +64,38 @@ export function QuickTaskCard({
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {latestPrUrl && (
-              <Link
-                href={latestPrUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-1 rounded hover:bg-default-200 transition-colors"
-              >
-                <IconGitPullRequest size={14} className="text-success-500" />
-              </Link>
+            <SubtaskProgress taskId={id} />
+            {(branchName || latestPrUrl) && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Dropdown>
+                  <DropdownTrigger>
+                    <button type="button" className="p-1 rounded hover:bg-default-200 transition-colors">
+                      <IconDotsVertical size={14} className="text-default-400" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu aria-label="Task actions">
+                    {branchName ? (
+                      <DropdownItem
+                        key="branch"
+                        startContent={<IconGitBranch size={16} />}
+                        onPress={() => window.open(`https://github.com/${fullName}/tree/${branchName}`, "_blank")}
+                      >
+                        View Branch
+                      </DropdownItem>
+                    ) : null}
+                    {latestPrUrl ? (
+                      <DropdownItem
+                        key="pr"
+                        startContent={<IconGitPullRequest size={16} />}
+                        onPress={() => window.open(latestPrUrl, "_blank")}
+                      >
+                        View PR
+                      </DropdownItem>
+                    ) : null}
+                  </DropdownMenu>
+                </Dropdown>
+              </div>
             )}
-              <SubtaskProgress taskId={id} />
           </div>
         </div>
         <div className="flex items-center justify-between mt-1">

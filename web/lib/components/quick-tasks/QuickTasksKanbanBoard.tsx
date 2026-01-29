@@ -28,6 +28,7 @@ interface Task {
   status: TaskStatus;
   order: number;
   createdBy?: Id<"users">;
+  branchName?: string;
   updatedAt: number;
 }
 
@@ -129,6 +130,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            branchName={task.branchName}
           />
         )}
         renderOverlay={(task) => (

@@ -285,6 +285,8 @@ export function ProjectsClient() {
                         description={project.description}
                         rawInput={project.rawInput}
                         branchName={project.branchName}
+                        repoFullName={fullName}
+                        createdAt={project._creationTime}
                         projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
                         cardBg={phaseConfig[phase].cardBg}
                         onDelete={() =>

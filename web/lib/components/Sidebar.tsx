@@ -194,7 +194,7 @@ export function Sidebar() {
           >
             <Link
               href="/"
-              className={`flex items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}
+              className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-teal-200/50 dark:bg-teal-800 rounded-full pr-4 mx-auto"}`}
             >
               <Image
                 src="/icon.png"
@@ -204,7 +204,7 @@ export function Sidebar() {
                 className="rounded-full"
               />
               {!collapsed && (
-                <span className="text-2xl tracking-tight font-semibold text-neutral-900 dark:text-white">
+                <span className="text-xl tracking-tight font-semibold text-neutral-900 dark:text-white">
                   Eva
                 </span>
               )}

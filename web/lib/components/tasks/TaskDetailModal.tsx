@@ -18,6 +18,8 @@ import { Textarea } from "@heroui/input";
 import { IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullRequest, IconSend, IconArrowUp } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type TaskStatus = "todo" | "in_progress" | "code_review" | "done";
 
@@ -187,9 +189,19 @@ export function TaskDetailModal({
                                 </span>
                               }
                             >
-                              <p className="text-xs text-default-500 whitespace-pre-wrap">
+                              <SyntaxHighlighter
+                                language="css"
+                                style={oneDark}
+                                wrapLines
+                                wrapLongLines
+                                customStyle={{
+                                  fontSize: "0.75rem",
+                                  borderRadius: "0.5rem",
+                                  margin: 0,
+                                }}
+                              >
                                 {elementDetails}
-                              </p>
+                              </SyntaxHighlighter>
                             </AccordionItem>
                           </Accordion>
                         )}

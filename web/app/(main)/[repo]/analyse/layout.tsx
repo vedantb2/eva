@@ -5,7 +5,6 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
-import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
 import {
   Modal,
@@ -18,6 +17,7 @@ import {
   IconBrain,
   IconSearch,
   IconTrash,
+  IconDotsVertical,
   IconFolder,
   IconBookmark,
   IconRefresh,
@@ -27,6 +27,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+} from "@heroui/dropdown";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import dayjs from "@/lib/dates";
 
@@ -135,7 +141,7 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`px-4 py-3 cursor-pointer transition-all group ${
+                        className={`px-4 py-2 cursor-pointer transition-all group ${
                           isSelected
                             ? "bg-teal-100 dark:bg-teal-900/20"
                             : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -155,33 +161,31 @@ export default function ResearchLayout({
                             >
                               {query.title}
                             </h3>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-neutral-500 flex-shrink-0">
-                                {dayjs(query.updatedAt).fromNow()}
-                              </span>
-                              <Tooltip content="Delete query">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setQueryToDelete({
-                                      id: query._id,
-                                      title: query.title,
-                                    });
-                                  }}
-                                  className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-neutral-400 hover:text-danger-500"
-                                >
-                                  <IconTrash size={14} />
-                                </button>
-                              </Tooltip>
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                              <Dropdown>
+                                <DropdownTrigger>
+                                  <button type="button" className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400">
+                                    <IconDotsVertical size={14} />
+                                  </button>
+                                </DropdownTrigger>
+                                <DropdownMenu aria-label="Query actions">
+                                  <DropdownItem
+                                    key="delete"
+                                    className="text-danger"
+                                    color="danger"
+                                    startContent={<IconTrash size={16} />}
+                                    onPress={() => setQueryToDelete({ id: query._id, title: query.title })}
+                                  >
+                                    Delete
+                                  </DropdownItem>
+                                </DropdownMenu>
+                              </Dropdown>
                             </div>
                           </div>
-                          {query.createdBy && (
-                            <div className="mt-1 w-fit">
-                              <UserInitials userId={query.createdBy} />
-                            </div>
-                          )}
+                          <div className="mt-2 flex items-center">
+                            {query.createdBy && <UserInitials userId={query.createdBy} />}
+                            <span className="text-xs text-neutral-500 ml-auto">{dayjs(query._creationTime).fromNow()}</span>
+                          </div>
                         </Link>
                       </div>
                     );

@@ -5,7 +5,6 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
-import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
 import {
   Modal,
@@ -14,12 +13,23 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { IconTerminal2, IconArchive, IconSearch } from "@tabler/icons-react";
+import {
+  IconTerminal2,
+  IconArchive,
+  IconSearch,
+  IconDotsVertical,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+} from "@heroui/dropdown";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import dayjs from "@/lib/dates";
 
@@ -103,16 +113,6 @@ export default function SessionsLayout({
     }
   };
 
-  const getLastActivity = (
-    session: NonNullable<typeof sessions>[number],
-  ): string => {
-    if (session.messages.length === 0) {
-      return dayjs(session._creationTime).fromNow();
-    }
-    const lastMessage = session.messages[session.messages.length - 1];
-    return dayjs(lastMessage.timestamp).fromNow();
-  };
-
   const sidebar = (
     <>
       <div className="px-3 pt-6 pb-3">
@@ -144,7 +144,7 @@ export default function SessionsLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-4 py-3 cursor-pointer transition-all group ${
+                  className={`px-4 py-2 cursor-pointer transition-all group ${
                     isSelected
                       ? "bg-teal-100 dark:bg-teal-900/20"
                       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -161,33 +161,48 @@ export default function SessionsLayout({
                       >
                         {session.title}
                       </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500 flex-shrink-0">
-                          {getLastActivity(session)}
-                        </span>
-                        <Tooltip content="Archive session">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSessionToArchive({
-                                id: session._id,
-                                title: session.title,
-                              });
-                            }}
-                            className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-warning-100 dark:hover:bg-warning-900/30 text-neutral-400 hover:text-warning-500"
-                          >
-                            <IconArchive size={14} />
-                          </button>
-                        </Tooltip>
+                      <div
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                      >
+                        <Dropdown>
+                          <DropdownTrigger>
+                            <button
+                              type="button"
+                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400"
+                            >
+                              <IconDotsVertical size={14} />
+                            </button>
+                          </DropdownTrigger>
+                          <DropdownMenu aria-label="Session actions">
+                            <DropdownItem
+                              key="archive"
+                              className="text-warning"
+                              color="warning"
+                              startContent={<IconArchive size={16} />}
+                              onPress={() =>
+                                setSessionToArchive({
+                                  id: session._id,
+                                  title: session.title,
+                                })
+                              }
+                            >
+                              Archive
+                            </DropdownItem>
+                          </DropdownMenu>
+                        </Dropdown>
                       </div>
                     </div>
-                    {session.createdBy && (
-                      <div className="mt-1 w-fit">
+                    <div className="mt-2 flex items-center">
+                      {session.createdBy && (
                         <UserInitials userId={session.createdBy} />
-                      </div>
-                    )}
+                      )}
+                      <span className="text-xs text-neutral-500 ml-auto">
+                        {dayjs(session._creationTime).fromNow()}
+                      </span>
+                    </div>
                   </Link>
                 </div>
               );

@@ -320,7 +320,7 @@ export function Sidebar() {
                                   }`}
                                 >
                                   <item.icon
-                                    className={`w-5 h-5 flex-shrink-0 ${
+                                    className={`size-[16px] flex-shrink-0 ${
                                       isActive
                                         ? "text-teal-800 dark:text-teal-200"
                                         : ""
@@ -367,7 +367,7 @@ export function Sidebar() {
                   >
                     <span className="relative flex-shrink-0">
                       <item.icon
-                        className={`w-5 h-5 ${isActive ? "text-teal-600" : ""}`}
+                        className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
                       />
                       {showBadge && (
                         <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-teal-600 rounded-full">

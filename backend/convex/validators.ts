@@ -73,3 +73,10 @@ export const requirementNotMetValidator = v.object({
   requirement: v.string(),
   reason: v.string(),
 });
+
+export const notificationTypeValidator = v.union(
+  v.literal("routine_complete"),
+  v.literal("export_ready"),
+  v.literal("task_complete"),
+  v.literal("system")
+);

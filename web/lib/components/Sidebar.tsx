@@ -21,6 +21,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconFlask,
+  IconBell,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -59,7 +60,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena)/,
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena|notifications)/,
     );
     if (match) {
       return match[1];
@@ -141,6 +142,8 @@ export function Sidebar() {
     }
   }, [pathname, repoNavigation, expandedGroups]);
 
+  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
+
   const bottomNavigation = [
     ...(repoSlug
       ? [
@@ -148,6 +151,7 @@ export function Sidebar() {
           { name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield },
         ]
       : []),
+    { name: "Notifications", href: "/notifications", icon: IconBell },
     { name: "Repositories", href: "/repos", icon: IconBrandGithub },
     { name: "Settings", href: "/settings", icon: IconSettings },
   ];
@@ -352,6 +356,8 @@ export function Sidebar() {
             <div className="space-y-1">
               {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
+                const showBadge =
+                  item.name === "Notifications" && unreadCount > 0;
                 return (
                   <Link
                     key={item.name}
@@ -364,9 +370,16 @@ export function Sidebar() {
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
-                    <item.icon
-                      className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-teal-600" : ""}`}
-                    />
+                    <span className="relative flex-shrink-0">
+                      <item.icon
+                        className={`w-5 h-5 ${isActive ? "text-teal-600" : ""}`}
+                      />
+                      {showBadge && (
+                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-teal-600 rounded-full">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </span>
                     {!collapsed && item.name}
                   </Link>
                 );

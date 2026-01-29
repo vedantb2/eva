@@ -13,6 +13,7 @@ import {
   themeValidator,
   requirementMetValidator,
   requirementNotMetValidator,
+  notificationTypeValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -244,6 +245,18 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  notifications: defineTable({
+    userId: v.id("users"),
+    type: notificationTypeValidator,
+    title: v.string(),
+    message: v.optional(v.string()),
+    read: v.boolean(),
+    href: v.optional(v.string()),
+    repoId: v.optional(v.id("githubRepos")),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_read", ["userId", "read"]),
 });
 
 export default schema;

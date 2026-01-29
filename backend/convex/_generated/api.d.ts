@@ -19,6 +19,7 @@ import type * as columns from "../columns.js";
 import type * as docs from "../docs.js";
 import type * as evaluationReports from "../evaluationReports.js";
 import type * as githubRepos from "../githubRepos.js";
+import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 import type * as projects from "../projects.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   docs: typeof docs;
   evaluationReports: typeof evaluationReports;
   githubRepos: typeof githubRepos;
+  notifications: typeof notifications;
   presence: typeof presence;
   projects: typeof projects;
   prosemirrorSync: typeof prosemirrorSync;

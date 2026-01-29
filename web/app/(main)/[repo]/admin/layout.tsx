@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconServer2, IconLayoutDashboard } from "@tabler/icons-react";
+import { IconServer2, IconLayoutDashboard, IconChartBar } from "@tabler/icons-react";
+import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 
 export default function AdminLayout({
   children,
@@ -18,16 +19,13 @@ export default function AdminLayout({
   const navigation = [
     { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
     { name: "Sandboxes", href: baseUrl + "/sandboxes", icon: IconServer2 },
+    { name: "Stats", href: baseUrl + "/stats", icon: IconChartBar },
   ];
 
   return (
-    <div className="flex h-screen">
-      <div className="w-64 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
-        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-            Admin
-          </h2>
-        </div>
+    <SidebarLayoutWrapper
+      title="Admin"
+      sidebar={
         <nav className="flex-1 p-2 space-y-1">
           {navigation.map((item) => {
             const isActive =
@@ -51,8 +49,9 @@ export default function AdminLayout({
             );
           })}
         </nav>
-      </div>
-      <div className="flex-1 overflow-hidden">{children}</div>
-    </div>
+      }
+    >
+      {children}
+    </SidebarLayoutWrapper>
   );
 }

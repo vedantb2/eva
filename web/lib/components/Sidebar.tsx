@@ -14,7 +14,6 @@ import {
   IconChecklist,
   IconSelector,
   IconTerminal2,
-  IconChartBar,
   IconFileText,
   IconShield,
   IconChevronDown,
@@ -60,7 +59,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|stats|docs|admin|analyse|testing-arena|notifications)/,
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena|notifications)/,
     );
     if (match) {
       return match[1];
@@ -145,14 +144,10 @@ export function Sidebar() {
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
 
   const bottomNavigation = [
+    { name: "Notifications", href: `/${repoSlug}/notifications`, icon: IconBell },
     ...(repoSlug
-      ? [
-          { name: "Stats", href: `/${repoSlug}/stats`, icon: IconChartBar },
-          { name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield },
-        ]
+      ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
       : []),
-    { name: "Notifications", href: "/notifications", icon: IconBell },
-    { name: "Repositories", href: "/repos", icon: IconBrandGithub },
     { name: "Settings", href: "/settings", icon: IconSettings },
   ];
 

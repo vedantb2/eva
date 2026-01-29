@@ -46,7 +46,7 @@ export function KanbanColumn({
       shadow="none"
       className={`flex-1 min-w-0 h-full transition-colors flex flex-col ${
         isOver
-          ? "bg-neutral-100 dark:bg-neutral-700"
+          ? "bg-neutral-200/70 dark:bg-neutral-700"
           : "bg-neutral-50 dark:bg-neutral-800/50"
       }`}
     >

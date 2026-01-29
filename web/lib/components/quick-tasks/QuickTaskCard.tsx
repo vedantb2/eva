@@ -62,10 +62,10 @@ export function QuickTaskCard({
             </Link>
           )}
         </div>
-        {description && (
+        {/* {description && (
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
-        )}
-        <div className="flex items-center justify-between mt-2">
+        )} */}
+        <div className="flex items-center justify-between mt-1">
           {createdBy && <UserInitials userId={createdBy} />}
           <div className="flex items-center gap-1 text-xs text-default-400">
             <IconSubtask size={12} />

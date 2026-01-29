@@ -37,6 +37,7 @@ interface QuickTasksKanbanBoardProps {
 
 export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
+  const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -64,12 +65,16 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   };
 
   const todoTasks = tasks.filter((t) => t.status === "todo");
+  const ownedTodoTasks = todoTasks.filter(
+    (t) => t.createdBy === currentUserId,
+  );
+  const skippedCount = todoTasks.length - ownedTodoTasks.length;
 
   const handleFixAll = async () => {
-    if (todoTasks.length === 0) return;
+    if (ownedTodoTasks.length === 0) return;
     setIsFixingAll(true);
     try {
-      for (const task of todoTasks) {
+      for (const task of ownedTodoTasks) {
         const result = await startExecution({ id: task._id });
         await fetch("/api/inngest/send", {
           method: "POST",
@@ -139,15 +144,31 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             <>
               <ModalHeader>Complete All Tasks</ModalHeader>
               <ModalBody className="text-sm text-default-600 space-y-2">
-                <p>
-                  Eva will run and complete all {todoTasks.length} task
-                  {todoTasks.length !== 1 && "s"}.
-                </p>
-                <p>
-                  If there is an issue, Eva will return the task to To Do with a
-                  red border.
-                </p>
-                <p>If successful, she will move it to Code Review.</p>
+                {ownedTodoTasks.length > 0 ? (
+                  <>
+                    <p>
+                      Eva will run and complete {ownedTodoTasks.length} task
+                      {ownedTodoTasks.length !== 1 && "s"} you created.
+                    </p>
+                    {skippedCount > 0 && (
+                      <p className="text-warning-600 dark:text-warning-400">
+                        {skippedCount} task{skippedCount !== 1 && "s"} created
+                        by others will be skipped. Only the task owner can run
+                        Eva.
+                      </p>
+                    )}
+                    <p>
+                      If there is an issue, Eva will return the task to To Do
+                      with a red border.
+                    </p>
+                    <p>If successful, she will move it to Code Review.</p>
+                  </>
+                ) : (
+                  <p>
+                    Only the task owner can run Eva. None of the todo tasks were
+                    created by you.
+                  </p>
+                )}
               </ModalBody>
               <ModalFooter>
                 <Button variant="light" onPress={onClose}>
@@ -155,6 +176,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
                 </Button>
                 <Button
                   color="primary"
+                  isDisabled={ownedTodoTasks.length === 0}
                   onPress={() => {
                     onClose();
                     handleFixAll();
@@ -175,6 +197,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
           title={selectedTask.title}
           description={selectedTask.description}
           status={selectedTask.status}
+          createdBy={selectedTask.createdBy}
         />
       )}
     </>

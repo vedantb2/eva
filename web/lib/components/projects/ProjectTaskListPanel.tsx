@@ -150,6 +150,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
           title={selectedTask.title}
           description={selectedTask.description}
           status={selectedTask.status}
+          createdBy={selectedTask.createdBy}
         />
       )}
     </div>

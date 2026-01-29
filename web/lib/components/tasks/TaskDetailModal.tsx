@@ -15,6 +15,7 @@ import { GenericId as Id } from "convex/values";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
 import { Textarea } from "@heroui/input";
+import { Tooltip } from "@heroui/tooltip";
 import { IconPlayerPlay, IconTerminal2, IconTrash, IconGitPullRequest, IconSend, IconArrowUp } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
@@ -31,6 +32,7 @@ interface TaskDetailModalProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  createdBy?: Id<"users">;
 }
 
 function formatRelativeTime(timestamp: number) {
@@ -52,7 +54,10 @@ export function TaskDetailModal({
   title,
   description,
   status,
+  createdBy,
 }: TaskDetailModalProps) {
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner = currentUserId === createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
@@ -417,15 +422,22 @@ export function TaskDetailModal({
                 </Button>
               ) : null
             ) : (
-              <Button
-                color="primary"
-                startContent={<IconPlayerPlay size={18} />}
-                onPress={handleStartExecution}
-                isLoading={isStarting}
-                isDisabled={isBlocked || hasActiveRun}
+              <Tooltip
+                content="Only the task owner can run Eva"
+                isDisabled={isOwner}
               >
-                {hasActiveRun ? "Running..." : "Run Eva"}
-              </Button>
+                <div>
+                  <Button
+                    color="primary"
+                    startContent={<IconPlayerPlay size={18} />}
+                    onPress={handleStartExecution}
+                    isLoading={isStarting}
+                    isDisabled={isBlocked || hasActiveRun || !isOwner}
+                  >
+                    {hasActiveRun ? "Running..." : "Run Eva"}
+                  </Button>
+                </div>
+              </Tooltip>
             )}
           </ModalFooter>
         </ModalContent>

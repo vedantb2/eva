@@ -95,6 +95,14 @@ async function runMigration(
   });
 }
 
+export const me = query({
+  args: {},
+  returns: v.union(v.id("users"), v.null()),
+  handler: async (ctx) => {
+    return await getCurrentUserId(ctx);
+  },
+});
+
 export const isCurrentUserAdmin = query({
   args: {},
   returns: v.boolean(),

@@ -15,6 +15,7 @@ import {
   interviewQuestion,
   interviewSpec,
   interviewChat,
+  summarizeSession,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -34,5 +35,6 @@ export const { GET, POST, PUT } = serve({
     interviewQuestion,
     interviewSpec,
     interviewChat,
+    summarizeSession,
   ],
 });

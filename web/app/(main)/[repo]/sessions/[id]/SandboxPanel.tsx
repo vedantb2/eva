@@ -17,7 +17,7 @@ export function SandboxPanel({
   sandboxId,
   isActive,
 }: SandboxPanelProps) {
-  const [activeTab, setActiveTab] = useState<string>("terminal");
+  const [activeTab, setActiveTab] = useState<string>("preview");
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-50 dark:border-neutral-800">

@@ -168,6 +168,18 @@ export const updateSummary = mutation({
   },
 });
 
+export const updateSummaryNoAuth = mutation({
+  args: {
+    id: v.id("sessions"),
+    summary: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { summary: args.summary });
+    return null;
+  },
+});
+
 export const archive = mutation({
   args: { id: v.id("sessions") },
   returns: v.null(),

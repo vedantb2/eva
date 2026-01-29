@@ -63,6 +63,7 @@ export function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
   const typedSessionId = sessionId as Id<"sessions">;
 
@@ -142,6 +143,26 @@ export function ChatPanel({
     }
   };
 
+  const handleGenerateSummary = async () => {
+    setIsSummarizing(true);
+    try {
+      await fetch("/api/inngest/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "session/summary.generate",
+          data: {
+            sessionId,
+            repoId: repo._id,
+            installationId: repo.installationId,
+          },
+        }),
+      });
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   const isInputDisabled = !isSandboxActive || isSending;
 
   return (
@@ -157,6 +178,16 @@ export function ChatPanel({
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="flat"
+            onPress={handleGenerateSummary}
+            isLoading={isSummarizing}
+            isDisabled={!isSandboxActive || messages.length === 0}
+            isIconOnly
+          >
+            <IconSparkles className="size-5 text-teal-500 dark:text-teal-400" />
+          </Button>
           <Button
             size="sm"
             color={isSandboxActive ? "danger" : "success"}

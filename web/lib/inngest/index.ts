@@ -13,3 +13,4 @@ export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";
 export { interviewQuestion } from "./functions/interview-question";
 export { interviewSpec } from "./functions/interview-spec";
 export { interviewChat } from "./functions/interview-chat";
+export { summarizeSession } from "./functions/summarize-session";

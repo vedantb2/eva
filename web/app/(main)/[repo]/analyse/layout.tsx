@@ -17,7 +17,6 @@ import {
 import {
   IconBrain,
   IconSearch,
-  IconPlus,
   IconTrash,
   IconFolder,
   IconBookmark,
@@ -28,6 +27,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 export default function ResearchLayout({
   children,
@@ -189,6 +189,11 @@ export default function ResearchLayout({
                               </Tooltip>
                             </div>
                           </div>
+                          {query.createdBy && (
+                            <div className="mt-1 w-fit">
+                              <UserInitials userId={query.createdBy} />
+                            </div>
+                          )}
                         </Link>
                       </div>
                     );

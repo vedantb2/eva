@@ -25,6 +25,7 @@ const sessionValidator = v.object({
   status: v.union(v.literal("active"), v.literal("closed")),
   archived: v.optional(v.boolean()),
   summary: v.optional(v.array(v.string())),
+  createdBy: v.optional(v.id("users")),
   messages: v.array(messageValidator),
 });
 
@@ -74,6 +75,7 @@ export const create = mutation({
       title: args.title,
       status: "active",
       messages: [],
+      createdBy: userId,
     });
   },
 });

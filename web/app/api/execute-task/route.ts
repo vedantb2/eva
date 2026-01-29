@@ -41,8 +41,7 @@ export async function POST(request: NextRequest) {
       120
     );
 
-    const branchName =
-      task.branchName || `conductor/task-${task.taskNumber || Date.now()}`;
+    const branchName = `conductor/task-${task.taskNumber || Date.now()}`;
     await sandbox.process.executeCommand(
       `git checkout -b ${branchName}`,
       "/home/daytona/workspace",

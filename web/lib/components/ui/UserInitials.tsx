@@ -1,15 +1,20 @@
+import { api } from "@/api";
 import { Tooltip } from "@heroui/react";
+import { useQuery } from "convex/react";
+import { GenericId as Id } from "convex/values";
 
 interface UserInitialsProps {
-  firstName?: string;
-  lastName?: string;
+  userId: Id<"users">;
 }
 
-export function UserInitials({ firstName, lastName }: UserInitialsProps) {
+export function UserInitials({ userId }: UserInitialsProps) {
+  const user = useQuery(api.users.get, { id: userId });
+  if (!user) return null;
   const initials =
-    `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
+    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
+    "?";
   return (
-    <Tooltip content={`${firstName} ${lastName}`}>
+    <Tooltip content={`${user.firstName} ${user.lastName}`}>
       <div className="p-1 bg-teal-500 text-white rounded-full text-xs font-medium leading-none">
         {initials}
       </div>

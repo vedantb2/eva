@@ -166,6 +166,7 @@ const schema = defineSchema({
     status: v.union(v.literal("active"), v.literal("closed")),
     archived: v.optional(v.boolean()),
     summary: v.optional(v.array(v.string())),
+    createdBy: v.optional(v.id("users")),
     messages: v.array(
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
@@ -200,6 +201,7 @@ const schema = defineSchema({
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
+    createdBy: v.optional(v.id("users")),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),

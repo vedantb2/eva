@@ -32,10 +32,6 @@ export function ProjectTaskCard({
 }: ProjectTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const creator = useQuery(
-    api.users.get,
-    createdBy ? { id: createdBy } : "skip"
-  );
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   return (
@@ -77,12 +73,7 @@ export function ProjectTaskCard({
             <IconSubtask size={12} />
             <SubtaskProgress taskId={id} />
           </div>
-          {creator && (
-            <UserInitials
-              firstName={creator.firstName}
-              lastName={creator.lastName}
-            />
-          )}
+          {createdBy && <UserInitials userId={createdBy} />}
         </div>
       </CardBody>
     </Card>

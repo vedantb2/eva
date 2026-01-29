@@ -17,6 +17,7 @@ const researchQueryValidator = v.object({
   messages: v.array(messageValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
+  createdBy: v.optional(v.id("users")),
 });
 
 export const list = query({
@@ -65,6 +66,7 @@ export const create = mutation({
       messages: [],
       createdAt: now,
       updatedAt: now,
+      createdBy: userId,
     });
   },
 });

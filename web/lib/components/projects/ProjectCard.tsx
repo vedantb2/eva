@@ -1,7 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
@@ -19,11 +17,6 @@ interface ProjectCardCreatorProps {
   userId: Id<"users">;
 }
 
-export function ProjectCardCreator({ userId }: ProjectCardCreatorProps) {
-  const user = useQuery(api.users.get, { id: userId });
-  if (!user) return null;
-  return <UserInitials firstName={user.firstName} lastName={user.lastName} />;
-}
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -66,7 +59,7 @@ export function ProjectCard({
             </p>
           ) : null}
           <div className="mt-4 flex items-center justify-between">
-            <ProjectCardCreator userId={userId} />
+            <UserInitials userId={userId} />
             {branchName && (
               <Tooltip content={branchName}>
                 <Button

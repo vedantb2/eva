@@ -36,10 +36,6 @@ export function QuickTaskCard({
   onClick,
 }: QuickTaskCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const creator = useQuery(
-    api.users.get,
-    createdBy ? { id: createdBy } : "skip"
-  );
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
 
@@ -70,12 +66,7 @@ export function QuickTaskCard({
           <p className="text-xs text-default-500 line-clamp-2">{description}</p>
         )}
         <div className="flex items-center justify-between mt-2">
-          {creator && (
-            <UserInitials
-              firstName={creator.firstName}
-              lastName={creator.lastName}
-            />
-          )}
+          {createdBy && <UserInitials userId={createdBy} />}
           <div className="flex items-center gap-1 text-xs text-default-400">
             <IconSubtask size={12} />
             <SubtaskProgress taskId={id} />

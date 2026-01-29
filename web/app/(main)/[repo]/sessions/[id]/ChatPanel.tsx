@@ -193,7 +193,7 @@ export function ChatPanel({
               content: "pb-2",
             }}
           >
-            <ul className="list-disc list-inside text-sm text-default-600 space-y-1 pl-4">
+            <ul className="list-disc list-inside text-sm text-teal-600 dark:text-teal-400 space-y-1 pl-4">
               {summary.map((item, i) => (
                 <li key={i}>{item}</li>
               ))}
@@ -234,7 +234,7 @@ export function ChatPanel({
                   className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[90%] px-3 py-2 rounded-xl ${
+                    className={`max-w-[85%] px-3 py-2 rounded-xl ${
                       message.role === "user"
                         ? "bg-teal-600 text-white"
                         : "bg-neutral-100 dark:bg-neutral-800"

@@ -20,6 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 export default function SessionsLayout({
   children,
@@ -194,6 +195,11 @@ export default function SessionsLayout({
                         </Tooltip>
                       </div>
                     </div>
+                    {session.createdBy && (
+                      <div className="mt-1 w-fit">
+                        <UserInitials userId={session.createdBy} />
+                      </div>
+                    )}
                   </Link>
                 </div>
               );

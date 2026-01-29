@@ -42,6 +42,7 @@
     "ai": "^5.0.30",
     "chart.js": "^4.4.8",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "convex": "^1.24.1",
     "convex-helpers": "^0.1.88",
     "convex-timeline": "^0.1.2",

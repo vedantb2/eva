@@ -1,14 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
+import { roleValidator, sessionModeValidator, sessionStatusValidator } from "./validators";
 
 const messageValidator = v.object({
-  role: v.union(v.literal("user"), v.literal("assistant")),
+  role: roleValidator,
   content: v.string(),
   timestamp: v.number(),
-  mode: v.optional(
-    v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
-  ),
+  mode: v.optional(sessionModeValidator),
 });
 
 const sessionValidator = v.object({
@@ -22,7 +21,7 @@ const sessionValidator = v.object({
   sandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
   lastActivityAt: v.optional(v.number()),
-  status: v.union(v.literal("active"), v.literal("closed")),
+  status: sessionStatusValidator,
   archived: v.optional(v.boolean()),
   summary: v.optional(v.array(v.string())),
   createdBy: v.optional(v.id("users")),
@@ -83,11 +82,9 @@ export const create = mutation({
 export const addMessage = mutation({
   args: {
     id: v.id("sessions"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
+    role: roleValidator,
     content: v.string(),
-    mode: v.optional(
-      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
-    ),
+    mode: v.optional(sessionModeValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -112,7 +109,7 @@ export const addMessage = mutation({
 export const updateStatus = mutation({
   args: {
     id: v.id("sessions"),
-    status: v.union(v.literal("active"), v.literal("closed")),
+    status: sessionStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -260,7 +257,7 @@ export const getOrCreateExtensionSession = mutation({
     repoId: v.string(),
     messages: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
+        role: roleValidator,
         content: v.string(),
       })
     ),

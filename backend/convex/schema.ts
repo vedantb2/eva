@@ -1,5 +1,19 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  taskStatusValidator,
+  runStatusValidator,
+  logLevelValidator,
+  roleValidator,
+  sessionModeValidator,
+  sessionStatusValidator,
+  phaseValidator,
+  indexingStatusValidator,
+  evaluationStatusValidator,
+  themeValidator,
+  requirementMetValidator,
+  requirementNotMetValidator,
+} from "./validators";
 
 const schema = defineSchema({
   users: defineTable({
@@ -9,7 +23,7 @@ const schema = defineSchema({
     lastName: v.optional(v.string()),
     fullName: v.optional(v.string()),
     isAdmin: v.optional(v.boolean()),
-    theme: v.optional(v.union(v.literal("light"), v.literal("dark"))),
+    theme: v.optional(themeValidator),
     lastSeenAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
@@ -35,26 +49,14 @@ const schema = defineSchema({
     prUrl: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     lastSandboxActivity: v.optional(v.number()),
-    phase: v.union(
-      v.literal("draft"),
-      v.literal("finalized"),
-      v.literal("active"),
-      v.literal("completed")
-    ),
+    phase: phaseValidator,
     rawInput: v.string(),
     generatedSpec: v.optional(v.string()),
     codebaseIndex: v.optional(v.string()),
-    indexingStatus: v.optional(
-      v.union(
-        v.literal("pending"),
-        v.literal("indexing"),
-        v.literal("complete"),
-        v.literal("error")
-      )
-    ),
+    indexingStatus: v.optional(indexingStatusValidator),
     conversationHistory: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
+        role: roleValidator,
         content: v.string(),
       })
     ),
@@ -87,13 +89,7 @@ const schema = defineSchema({
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
-    status: v.union(
-      v.literal("todo"),
-      v.literal("in_progress"),
-      v.literal("business_review"),
-      v.literal("code_review"),
-      v.literal("done")
-    ),
+    status: taskStatusValidator,
     order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -106,20 +102,11 @@ const schema = defineSchema({
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("success"),
-      v.literal("error")
-    ),
+    status: runStatusValidator,
     logs: v.array(
       v.object({
         timestamp: v.number(),
-        level: v.union(
-          v.literal("info"),
-          v.literal("warn"),
-          v.literal("error")
-        ),
+        level: logLevelValidator,
         message: v.string(),
       })
     ),
@@ -165,18 +152,16 @@ const schema = defineSchema({
     sandboxId: v.optional(v.string()),
     ptySessionId: v.optional(v.string()),
     lastActivityAt: v.optional(v.number()),
-    status: v.union(v.literal("active"), v.literal("closed")),
+    status: sessionStatusValidator,
     archived: v.optional(v.boolean()),
     summary: v.optional(v.array(v.string())),
     createdBy: v.optional(v.id("users")),
     messages: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
+        role: roleValidator,
         content: v.string(),
         timestamp: v.number(),
-        mode: v.optional(
-          v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
-        ),
+        mode: v.optional(sessionModeValidator),
       })
     ),
   })
@@ -196,7 +181,7 @@ const schema = defineSchema({
     title: v.string(),
     messages: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
+        role: roleValidator,
         content: v.string(),
         timestamp: v.number(),
       })
@@ -241,18 +226,9 @@ const schema = defineSchema({
   evaluationReports: defineTable({
     repoId: v.id("githubRepos"),
     docId: v.id("docs"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error")
-    ),
-    requirementsMet: v.array(
-      v.object({ requirement: v.string(), evidence: v.string() })
-    ),
-    requirementsNotMet: v.array(
-      v.object({ requirement: v.string(), reason: v.string() })
-    ),
+    status: evaluationStatusValidator,
+    requirementsMet: v.array(requirementMetValidator),
+    requirementsNotMet: v.array(requirementNotMetValidator),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
     createdAt: v.number(),

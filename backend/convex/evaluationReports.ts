@@ -1,28 +1,14 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
-
-const requirementMetValidator = v.object({
-  requirement: v.string(),
-  evidence: v.string(),
-});
-
-const requirementNotMetValidator = v.object({
-  requirement: v.string(),
-  reason: v.string(),
-});
+import { evaluationStatusValidator, requirementMetValidator, requirementNotMetValidator } from "./validators";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
   docId: v.id("docs"),
-  status: v.union(
-    v.literal("pending"),
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("error")
-  ),
+  status: evaluationStatusValidator,
   requirementsMet: v.array(requirementMetValidator),
   requirementsNotMet: v.array(requirementNotMetValidator),
   summary: v.optional(v.string()),
@@ -86,12 +72,7 @@ export const create = mutation({
 export const updateEvalStatus = mutation({
   args: {
     id: v.id("evaluationReports"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error")
-    ),
+    status: evaluationStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

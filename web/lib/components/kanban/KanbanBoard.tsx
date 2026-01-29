@@ -8,7 +8,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
 import { KanbanColumn, KANBAN_STATUSES, TASK_STATUS_CONFIG } from "./KanbanColumn";
@@ -215,7 +215,7 @@ export function KanbanBoard<T extends BaseTask>({
       </div>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >

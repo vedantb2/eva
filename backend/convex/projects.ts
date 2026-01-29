@@ -2,18 +2,12 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
+import { roleValidator, phaseValidator, indexingStatusValidator } from "./validators";
 
 const conversationMessageValidator = v.object({
-  role: v.union(v.literal("user"), v.literal("assistant")),
+  role: roleValidator,
   content: v.string(),
 });
-
-const phaseValidator = v.union(
-  v.literal("draft"),
-  v.literal("finalized"),
-  v.literal("active"),
-  v.literal("completed"),
-);
 
 const projectValidator = v.object({
   _id: v.id("projects"),
@@ -30,14 +24,7 @@ const projectValidator = v.object({
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
   codebaseIndex: v.optional(v.string()),
-  indexingStatus: v.optional(
-    v.union(
-      v.literal("pending"),
-      v.literal("indexing"),
-      v.literal("complete"),
-      v.literal("error"),
-    ),
-  ),
+  indexingStatus: v.optional(indexingStatusValidator),
   conversationHistory: v.array(conversationMessageValidator),
 });
 
@@ -190,7 +177,7 @@ export const update = mutation({
 export const addMessage = mutation({
   args: {
     id: v.id("projects"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
+    role: roleValidator,
     content: v.string(),
   },
   returns: v.null(),
@@ -307,12 +294,7 @@ export const clearMessages = mutation({
 export const setIndexingStatus = mutation({
   args: {
     id: v.id("projects"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("indexing"),
-      v.literal("complete"),
-      v.literal("error"),
-    ),
+    status: indexingStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

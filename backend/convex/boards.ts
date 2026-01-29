@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { taskStatusValidator } from "./validators";
 
 const boardValidator = v.object({
   _id: v.id("boards"),
@@ -30,12 +31,7 @@ const agentTaskValidator = v.object({
   branchName: v.optional(v.string()),
   projectId: v.optional(v.id("projects")),
   taskNumber: v.optional(v.number()),
-  status: v.union(
-    v.literal("todo"),
-    v.literal("in_progress"),
-    v.literal("code_review"),
-    v.literal("done")
-  ),
+  status: taskStatusValidator,
   order: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),

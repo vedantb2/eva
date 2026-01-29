@@ -1,16 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-
-const runStatusValidator = v.union(
-  v.literal("queued"),
-  v.literal("running"),
-  v.literal("success"),
-  v.literal("error")
-);
+import { runStatusValidator, logLevelValidator } from "./validators";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
-  level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+  level: logLevelValidator,
   message: v.string(),
 });
 
@@ -193,7 +187,7 @@ export const updateStatus = mutation({
 export const appendLog = mutation({
   args: {
     id: v.id("agentRuns"),
-    level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+    level: logLevelValidator,
     message: v.string(),
   },
   returns: v.null(),

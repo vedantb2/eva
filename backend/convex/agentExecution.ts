@@ -5,6 +5,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { runStatusValidator } from "./validators";
 
 export const getRunInternal = internalQuery({
   args: { id: v.id("agentRuns") },
@@ -30,12 +31,7 @@ export const getRepoInternal = internalQuery({
 export const updateRunStatusInternal = internalMutation({
   args: {
     id: v.id("agentRuns"),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("success"),
-      v.literal("error")
-    ),
+    status: runStatusValidator,
   },
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);

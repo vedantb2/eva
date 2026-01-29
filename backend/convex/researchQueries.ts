@@ -1,9 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
+import { roleValidator } from "./validators";
 
 const messageValidator = v.object({
-  role: v.union(v.literal("user"), v.literal("assistant")),
+  role: roleValidator,
   content: v.string(),
   timestamp: v.number(),
 });
@@ -74,7 +75,7 @@ export const create = mutation({
 export const addMessage = mutation({
   args: {
     id: v.id("researchQueries"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
+    role: roleValidator,
     content: v.string(),
   },
   returns: v.null(),

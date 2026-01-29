@@ -3,14 +3,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
-
-const taskStatusValidator = v.union(
-  v.literal("todo"),
-  v.literal("in_progress"),
-  v.literal("business_review"),
-  v.literal("code_review"),
-  v.literal("done")
-);
+import { taskStatusValidator } from "./validators";
 
 const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),

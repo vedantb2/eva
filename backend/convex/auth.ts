@@ -1,6 +1,7 @@
 import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { themeValidator } from "./validators";
 
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
@@ -167,7 +168,7 @@ export const ensureUserExists = mutation({
 
 export const getTheme = query({
   args: {},
-  returns: v.union(v.literal("light"), v.literal("dark"), v.null()),
+  returns: v.union(themeValidator, v.null()),
   handler: async (ctx) => {
     const userId = await getCurrentUserId(ctx);
     if (!userId) return null;
@@ -177,7 +178,7 @@ export const getTheme = query({
 });
 
 export const setTheme = mutation({
-  args: { theme: v.union(v.literal("light"), v.literal("dark")) },
+  args: { theme: themeValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);

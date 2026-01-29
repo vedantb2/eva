@@ -161,7 +161,10 @@ export function Sidebar() {
         >
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
-        <Link href="/" className="flex items-center gap-2">
+        <Link
+          href="/"
+          className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto`}
+        >
           <Image
             src="/icon.png"
             alt="Eva"
@@ -169,7 +172,7 @@ export function Sidebar() {
             height={22}
             className="rounded-full"
           />
-          <span className="text-base font-semibold text-neutral-900 dark:text-white">
+          <span className="text-md tracking-tight font-semibold text-teal-800 dark:text-teal-100">
             Eva
           </span>
         </Link>
@@ -194,7 +197,7 @@ export function Sidebar() {
           >
             <Link
               href="/"
-              className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-teal-200/50 dark:bg-teal-800 rounded-full pr-4 mx-auto"}`}
+              className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
             >
               <Image
                 src="/icon.png"

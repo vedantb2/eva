@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { inngest } from "@/lib/inngest";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) {
+  const { getToken } = await auth();
+  const clerkToken = await getToken({ template: "convex" });
+  if (!clerkToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const convex = createConvex(clerkToken);
 
   const { sessionId, message, mode = "execute", generatePlan = false } =
     await request.json();
@@ -23,14 +23,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const session = await convex.query(api.sessions.getNoAuth, {
+  const session = await convex.query(api.sessions.get, {
     id: sessionId as Id<"sessions">,
   });
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  const repo = await convex.query(api.githubRepos.getNoAuth, {
+  const repo = await convex.query(api.githubRepos.get, {
     id: session.repoId,
   });
   if (!repo) {
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     await inngest.send({
       name: "session/pr.create",
       data: {
+        clerkToken,
         sessionId,
         repoId: session.repoId,
         installationId: repo.installationId,
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     await inngest.send({
       name: "session/ask.execute",
       data: {
+        clerkToken,
         sessionId,
         messageContent: message,
         repoId: session.repoId,
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
     await inngest.send({
       name: "session/plan.execute",
       data: {
+        clerkToken,
         sessionId,
         messageContent: message,
         repoId: session.repoId,
@@ -77,6 +80,7 @@ export async function POST(request: NextRequest) {
     await inngest.send({
       name: "session/task.execute",
       data: {
+        clerkToken,
         sessionId,
         messageContent: message,
         repoId: session.repoId,

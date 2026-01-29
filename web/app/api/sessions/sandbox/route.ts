@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { inngest } from "@/lib/inngest";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
 
   const { sessionId, action } = await request.json();
   if (!sessionId || !action) {
@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const session = await convex.query(api.sessions.getNoAuth, {
+  const session = await convex.query(api.sessions.get, {
     id: sessionId as Id<"sessions">,
   });
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  const repo = await convex.query(api.githubRepos.getNoAuth, {
+  const repo = await convex.query(api.githubRepos.get, {
     id: session.repoId,
   });
   if (!repo) {
@@ -50,10 +50,11 @@ export async function POST(request: NextRequest) {
         sessionId,
         repoId: session.repoId,
         installationId: repo.installationId,
+        clerkToken,
       },
     });
   } else {
-    await convex.mutation(api.sessions.updateStatusNoAuth, {
+    await convex.mutation(api.sessions.updateStatus, {
       id: sessionId as Id<"sessions">,
       status: "closed",
     });
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (session.sandboxId) {
       await inngest.send({
         name: "session/cleanup.requested",
-        data: { sandboxId: session.sandboxId, sessionId },
+        data: { sandboxId: session.sandboxId, sessionId, clerkToken },
       });
     }
   }

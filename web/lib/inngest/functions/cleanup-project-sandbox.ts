@@ -1,11 +1,8 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { getSandbox } from "../sandbox";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const cleanupProjectSandbox = inngest.createFunction(
   {
@@ -14,7 +11,8 @@ export const cleanupProjectSandbox = inngest.createFunction(
   },
   { event: "project/sandbox.cleanup" },
   async ({ event, step }) => {
-    const { projectId, sandboxId } = event.data;
+    const { clerkToken, projectId, sandboxId } = event.data;
+    const convex = createConvex(clerkToken);
 
     await step.run("delete-sandbox", async () => {
       try {
@@ -26,7 +24,7 @@ export const cleanupProjectSandbox = inngest.createFunction(
     });
 
     await step.run("clear-sandbox-from-project", async () => {
-      await convex.mutation(api.projects.clearSandboxNoAuth, {
+      await convex.mutation(api.projects.clearProjectSandbox, {
         id: projectId as Id<"projects">,
       });
     });

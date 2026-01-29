@@ -1,24 +1,22 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
 import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const summarizeSession = inngest.createFunction(
   { id: "summarize-session", retries: 2 },
   { event: "session/summary.generate" },
   async ({ event, step }) => {
-    const { sessionId, repoId, installationId } = event.data;
+    const { clerkToken, sessionId, repoId, installationId } = event.data;
+    const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
-      const sessionData = await convex.query(api.sessions.getNoAuth, {
+      const sessionData = await convex.query(api.sessions.get, {
         id: sessionId as Id<"sessions">,
       });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!sessionData || !repoData) {
@@ -38,7 +36,7 @@ export const summarizeSession = inngest.createFunction(
       await installClaudeCode(sandbox);
       await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
 
-      await convex.mutation(api.sessions.updateSandboxNoAuth, {
+      await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,
         sandboxId: sandbox.id,
       });
@@ -77,7 +75,7 @@ Respond with ONLY a JSON array of strings, no other text. Example: ["Built login
     });
 
     await step.run("update-summary", async () => {
-      await convex.mutation(api.sessions.updateSummaryNoAuth, {
+      await convex.mutation(api.sessions.updateSummary, {
         id: sessionId as Id<"sessions">,
         summary: result,
       });

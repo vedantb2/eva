@@ -106,14 +106,6 @@ export const get = query({
   },
 });
 
-export const getNoAuth = query({
-  args: { id: v.id("agentTasks") },
-  returns: v.union(agentTaskValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
 export const create = mutation({
   args: {
     columnId: v.id("columns"),

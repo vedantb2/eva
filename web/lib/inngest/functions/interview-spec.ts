@@ -1,11 +1,8 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { getGitHubToken, runClaudeCLI, extractJsonFromText, ensureProjectSandbox } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 interface CodebaseContext {
   summary: string;
@@ -159,10 +156,11 @@ export const interviewSpec = inngest.createFunction(
   },
   { event: "project/interview.spec" },
   async ({ event, step }) => {
-    const { projectId, repoId, installationId, featureDescription, answers } = event.data;
+    const { clerkToken, projectId, repoId, installationId, featureDescription, answers } = event.data;
+    const convex = createConvex(clerkToken);
 
     const project = await step.run("fetch-project", async () => {
-      const p = await convex.query(api.projects.getNoAuth, {
+      const p = await convex.query(api.projects.get, {
         id: projectId as Id<"projects">,
       });
       if (!p) throw new Error("Project not found");
@@ -170,7 +168,7 @@ export const interviewSpec = inngest.createFunction(
     });
 
     const repo = await step.run("fetch-repo", async () => {
-      const r = await convex.query(api.githubRepos.getNoAuth, {
+      const r = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!r) throw new Error("Repo not found");
@@ -192,7 +190,7 @@ export const interviewSpec = inngest.createFunction(
         repo.name,
         workDir,
         async (sandboxId) => {
-          await convex.mutation(api.projects.updateSandboxNoAuth, {
+          await convex.mutation(api.projects.updateProjectSandbox, {
             id: projectId as Id<"projects">,
             sandboxId,
           });
@@ -233,13 +231,13 @@ ${prompt}`;
     });
 
     await step.run("save-spec", async () => {
-      await convex.mutation(api.projects.addMessageNoAuth, {
+      await convex.mutation(api.projects.addMessage, {
         id: projectId as Id<"projects">,
         role: "assistant",
         content: specJson,
       });
 
-      await convex.mutation(api.projects.updateNoAuth, {
+      await convex.mutation(api.projects.update, {
         id: projectId as Id<"projects">,
         generatedSpec: specJson,
         phase: "finalized",
@@ -247,7 +245,7 @@ ${prompt}`;
     });
 
     await step.run("update-activity", async () => {
-      await convex.mutation(api.projects.updateLastSandboxActivityNoAuth, {
+      await convex.mutation(api.projects.updateLastSandboxActivity, {
         id: projectId as Id<"projects">,
       });
     });

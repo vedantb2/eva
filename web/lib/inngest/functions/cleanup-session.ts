@@ -1,11 +1,8 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { getSandbox } from "../sandbox";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const cleanupSession = inngest.createFunction(
   {
@@ -14,7 +11,8 @@ export const cleanupSession = inngest.createFunction(
   },
   { event: "session/cleanup.requested" },
   async ({ event, step }) => {
-    const { sandboxId, sessionId } = event.data;
+    const { clerkToken, sandboxId, sessionId } = event.data;
+    const convex = createConvex(clerkToken);
 
     await step.run("kill-sandbox", async () => {
       if (!sandboxId) {
@@ -33,10 +31,10 @@ export const cleanupSession = inngest.createFunction(
     if (sessionId) {
       await step.run("clear-sandbox-id", async () => {
         try {
-          await convex.mutation(api.sessions.clearSandboxNoAuth, {
+          await convex.mutation(api.sessions.clearSandbox, {
             id: sessionId as Id<"sessions">,
           });
-          await convex.mutation(api.sessions.addMessageNoAuth, {
+          await convex.mutation(api.sessions.addMessage, {
             id: sessionId as Id<"sessions">,
             role: "assistant",
             content: "Sandbox stopped. Start the sandbox to continue working.",

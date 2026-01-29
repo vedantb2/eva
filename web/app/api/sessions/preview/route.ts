@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { Daytona } from "@daytonaio/sdk";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 const daytona = new Daytona();
 
 export async function GET(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
 
   const searchParams = request.nextUrl.searchParams;
   const sessionId = searchParams.get("sessionId");
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
   }
 
-  const session = await convex.query(api.sessions.getNoAuth, {
+  const session = await convex.query(api.sessions.get, {
     id: sessionId as Id<"sessions">,
   });
   if (!session) {

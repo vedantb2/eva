@@ -142,37 +142,6 @@ export const remove = mutation({
   },
 });
 
-export const getNoAuth = query({
-  args: { id: v.id("researchQueries") },
-  returns: v.union(researchQueryValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const addMessageNoAuth = mutation({
-  args: {
-    id: v.id("researchQueries"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const researchQuery = await ctx.db.get(args.id);
-    if (!researchQuery) {
-      throw new Error("Query not found");
-    }
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...researchQuery.messages,
-        { role: args.role, content: args.content, timestamp: Date.now() },
-      ],
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 const schemaInfoValidator = v.object({
   tables: v.array(
     v.object({

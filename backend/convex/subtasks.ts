@@ -34,25 +34,17 @@ export const listByTask = query({
   },
 });
 
-export const listByTaskNoAuth = query({
-  args: { parentTaskId: v.id("agentTasks") },
-  returns: v.array(subtaskValidator),
-  handler: async (ctx, args) => {
-    const subtasks = await ctx.db
-      .query("subtasks")
-      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
-      .collect();
-    return subtasks.sort((a, b) => a.order - b.order);
-  },
-});
-
-export const markCompletedNoAuth = mutation({
+export const markCompleted = mutation({
   args: {
     parentTaskId: v.id("agentTasks"),
     completedIndices: v.array(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))

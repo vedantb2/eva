@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { inngest } from "@/lib/inngest";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
 
   const { queryId, question, repoId } = await request.json();
   if (!queryId || !question || !repoId) {
@@ -22,14 +22,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const query = await convex.query(api.researchQueries.getNoAuth, {
+  const query = await convex.query(api.researchQueries.get, {
     id: queryId as Id<"researchQueries">,
   });
   if (!query) {
     return NextResponse.json({ error: "Query not found" }, { status: 404 });
   }
 
-  await convex.mutation(api.researchQueries.addMessageNoAuth, {
+  await convex.mutation(api.researchQueries.addMessage, {
     id: queryId as Id<"researchQueries">,
     role: "user",
     content: question,
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   await inngest.send({
     name: "research/query.execute",
-    data: { queryId, question, repoId },
+    data: { queryId, question, repoId, clerkToken },
   });
 
   return NextResponse.json({ success: true });

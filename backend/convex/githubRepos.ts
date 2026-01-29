@@ -33,35 +33,6 @@ export const get = query({
   },
 });
 
-export const getNoAuth = query({
-  args: { id: v.id("githubRepos") },
-  returns: v.union(githubRepoValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const listNoAuth = query({
-  args: {},
-  returns: v.array(githubRepoValidator),
-  handler: async (ctx) => {
-    return await ctx.db.query("githubRepos").collect();
-  },
-});
-
-export const getByOwnerAndNameNoAuth = query({
-  args: { owner: v.string(), name: v.string() },
-  returns: v.union(githubRepoValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_name", (q) =>
-        q.eq("owner", args.owner).eq("name", args.name)
-      )
-      .first();
-  },
-});
-
 export const getByOwnerAndName = query({
   args: { owner: v.string(), name: v.string() },
   returns: v.union(githubRepoValidator, v.null()),

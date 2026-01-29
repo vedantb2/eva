@@ -354,47 +354,6 @@ export const setCodebaseIndex = mutation({
   },
 });
 
-export const setIndexingStatusNoAuth = mutation({
-  args: {
-    id: v.id("projects"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("indexing"),
-      v.literal("complete"),
-      v.literal("error")
-    ),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    await ctx.db.patch(args.id, {
-      indexingStatus: args.status,
-    });
-    return null;
-  },
-});
-
-export const setCodebaseIndexNoAuth = mutation({
-  args: {
-    id: v.id("projects"),
-    codebaseIndex: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    await ctx.db.patch(args.id, {
-      codebaseIndex: args.codebaseIndex,
-      indexingStatus: "complete",
-    });
-    return null;
-  },
-});
 
 export const getTaskCount = query({
   args: { projectId: v.id("projects") },
@@ -558,13 +517,14 @@ export const startDevelopment = mutation({
   },
 });
 
-export const updatePrUrlNoAuth = mutation({
+export const updatePrUrl = mutation({
   args: {
     id: v.id("projects"),
     prUrl: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -574,21 +534,14 @@ export const updatePrUrlNoAuth = mutation({
   },
 });
 
-export const getNoAuth = query({
-  args: { id: v.id("projects") },
-  returns: v.union(projectValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const updateSandboxNoAuth = mutation({
+export const updateProjectSandbox = mutation({
   args: {
     id: v.id("projects"),
     sandboxId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -601,10 +554,11 @@ export const updateSandboxNoAuth = mutation({
   },
 });
 
-export const clearSandboxNoAuth = mutation({
+export const clearProjectSandbox = mutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -617,66 +571,16 @@ export const clearSandboxNoAuth = mutation({
   },
 });
 
-export const updateLastSandboxActivityNoAuth = mutation({
+export const updateLastSandboxActivity = mutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
     }
     await ctx.db.patch(args.id, { lastSandboxActivity: Date.now() });
-    return null;
-  },
-});
-
-export const addMessageNoAuth = mutation({
-  args: {
-    id: v.id("projects"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    await ctx.db.patch(args.id, {
-      conversationHistory: [...project.conversationHistory, { role: args.role, content: args.content }],
-    });
-    return null;
-  },
-});
-
-export const updateNoAuth = mutation({
-  args: {
-    id: v.id("projects"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    branchName: v.optional(v.string()),
-    generatedSpec: v.optional(v.string()),
-    phase: v.optional(phaseValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    const updates: {
-      title?: string;
-      description?: string;
-      branchName?: string;
-      generatedSpec?: string;
-      phase?: "draft" | "finalized" | "active" | "completed";
-    } = {};
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.branchName !== undefined) updates.branchName = args.branchName;
-    if (args.generatedSpec !== undefined) updates.generatedSpec = args.generatedSpec;
-    if (args.phase !== undefined) updates.phase = args.phase;
-    await ctx.db.patch(args.id, updates);
     return null;
   },
 });

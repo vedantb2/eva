@@ -1,12 +1,9 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
 import { getGitHubToken, configureGit, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 interface AgentOutput {
   success: boolean;
@@ -21,10 +18,11 @@ export const executeTask = inngest.createFunction(
     retries: 3,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { runId: string } };
+        event: { data: { clerkToken: string; runId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const runId = eventData.event.data.runId as Id<"agentRuns">;
-      await convex.mutation(api.agentRuns.completeNoAuth, {
+      await convex.mutation(api.agentRuns.complete, {
         id: runId,
         success: false,
         error: error.message,
@@ -33,21 +31,22 @@ export const executeTask = inngest.createFunction(
   },
   { event: "task/execute.requested" },
   async ({ event, step }) => {
-    const { runId, taskId, repoId, installationId, projectId, branchName, isFirstTaskOnBranch } = event.data;
+    const { clerkToken, runId, taskId, repoId, installationId, projectId, branchName, isFirstTaskOnBranch } = event.data;
+    const convex = createConvex(clerkToken);
 
     const { task, repo, project, subtasks } = await step.run("fetch-task-data", async () => {
-      const taskData = await convex.query(api.agentTasks.getNoAuth, { id: taskId });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, { id: repoId });
+      const taskData = await convex.query(api.agentTasks.get, { id: taskId });
+      const repoData = await convex.query(api.githubRepos.get, { id: repoId });
       if (!taskData || !repoData) {
         throw new Error("Task or repo not found");
       }
-      const projectData = projectId ? await convex.query(api.projects.getNoAuth, { id: projectId }) : null;
-      const subtaskData = await convex.query(api.subtasks.listByTaskNoAuth, { parentTaskId: taskId });
+      const projectData = projectId ? await convex.query(api.projects.get, { id: projectId }) : null;
+      const subtaskData = await convex.query(api.subtasks.listByTask, { parentTaskId: taskId });
       return { task: taskData, repo: repoData, project: projectData, subtasks: subtaskData };
     });
 
     await step.run("update-status-running", async () => {
-      await convex.mutation(api.agentRuns.updateStatusNoAuth, {
+      await convex.mutation(api.agentRuns.updateStatus, {
         id: runId as Id<"agentRuns">,
         status: "running",
       });
@@ -61,7 +60,7 @@ export const executeTask = inngest.createFunction(
       if (project?.sandboxId) {
         const alive = await isSandboxAlive(project.sandboxId);
         if (alive) {
-          await convex.mutation(api.agentRuns.appendLogNoAuth, {
+          await convex.mutation(api.agentRuns.appendLog, {
             id: runId as Id<"agentRuns">,
             level: "info",
             message: `Reusing existing sandbox: ${project.sandboxId}`,
@@ -75,7 +74,7 @@ export const executeTask = inngest.createFunction(
             60
           );
 
-          await convex.mutation(api.projects.updateLastSandboxActivityNoAuth, {
+          await convex.mutation(api.projects.updateLastSandboxActivity, {
             id: projectId as Id<"projects">,
           });
 
@@ -86,7 +85,7 @@ export const executeTask = inngest.createFunction(
       const sandbox = await createSandbox(freshToken);
       await installClaudeCode(sandbox);
 
-      await convex.mutation(api.agentRuns.appendLogNoAuth, {
+      await convex.mutation(api.agentRuns.appendLog, {
         id: runId as Id<"agentRuns">,
         level: "info",
         message: `Cloning ${repo.owner}/${repo.name}...`,
@@ -101,7 +100,7 @@ export const executeTask = inngest.createFunction(
 
       if (isFirstTaskOnBranch) {
         await sandbox.process.executeCommand(`cd ~/workspace && git checkout -b ${taskBranchName}`, "/", undefined, 30);
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Created branch: ${taskBranchName}`,
@@ -113,7 +112,7 @@ export const executeTask = inngest.createFunction(
           undefined,
           30
         );
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Checked out existing branch: ${taskBranchName}`,
@@ -123,7 +122,7 @@ export const executeTask = inngest.createFunction(
       await configureGit(sandbox);
 
       if (projectId) {
-        await convex.mutation(api.projects.updateSandboxNoAuth, {
+        await convex.mutation(api.projects.updateProjectSandbox, {
           id: projectId as Id<"projects">,
           sandboxId: sandbox.id,
         });
@@ -135,7 +134,7 @@ export const executeTask = inngest.createFunction(
     const agentResult = await step.run("run-autonomous-agent", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      await convex.mutation(api.agentRuns.appendLogNoAuth, {
+      await convex.mutation(api.agentRuns.appendLog, {
         id: runId as Id<"agentRuns">,
         level: "info",
         message: "AI agent executing task...",
@@ -223,7 +222,7 @@ ${prInstructions}
 
       if (!agentOutput.success) {
         const truncatedOutput = resultText.slice(-1500);
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "error",
           message: `Agent output: ${truncatedOutput}`,
@@ -233,7 +232,7 @@ ${prInstructions}
 
       if (sandboxData.isFirstTaskOnBranch && !agentOutput.prUrl) {
         const truncatedOutput = resultText.slice(-1500);
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "error",
           message: `Agent output: ${truncatedOutput}`,
@@ -242,13 +241,13 @@ ${prInstructions}
       }
 
       if (sandboxData.isFirstTaskOnBranch) {
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `PR created: ${agentOutput.prUrl}`,
         });
       } else {
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Commit pushed to project branch: ${sandboxData.branchName}`,
@@ -265,11 +264,11 @@ ${prInstructions}
 
     await step.run("mark-subtasks-completed", async () => {
       if (agentResult.completedSubtasks.length > 0) {
-        await convex.mutation(api.subtasks.markCompletedNoAuth, {
+        await convex.mutation(api.subtasks.markCompleted, {
           parentTaskId: taskId as Id<"agentTasks">,
           completedIndices: agentResult.completedSubtasks,
         });
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Marked ${agentResult.completedSubtasks.length} subtasks as completed`,
@@ -279,17 +278,17 @@ ${prInstructions}
 
     await step.run("complete-run", async () => {
       if (agentResult.isFirstTaskOnBranch && agentResult.prUrl && projectId) {
-        await convex.mutation(api.projects.updatePrUrlNoAuth, {
+        await convex.mutation(api.projects.updatePrUrl, {
           id: projectId as Id<"projects">,
           prUrl: agentResult.prUrl,
         });
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Project PR created: ${agentResult.prUrl}`,
         });
       } else {
-        await convex.mutation(api.agentRuns.appendLogNoAuth, {
+        await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
           message: `Commit pushed to branch: ${agentResult.branchName}`,
@@ -297,12 +296,12 @@ ${prInstructions}
       }
 
       if (projectId) {
-        await convex.mutation(api.projects.updateLastSandboxActivityNoAuth, {
+        await convex.mutation(api.projects.updateLastSandboxActivity, {
           id: projectId as Id<"projects">,
         });
       }
 
-      await convex.mutation(api.agentRuns.completeNoAuth, {
+      await convex.mutation(api.agentRuns.complete, {
         id: runId as Id<"agentRuns">,
         success: true,
         resultSummary: agentResult.isFirstTaskOnBranch ? "Created project PR" : "Pushed commit to project branch",

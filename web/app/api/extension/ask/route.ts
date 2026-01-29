@@ -1,12 +1,9 @@
-import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { GenericId as Id } from "convex/values";
 import { inngest } from "@/lib/inngest";
 import { validateAuth } from "../validate-auth";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,19 +25,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const convex = createConvex(authResult.token);
+
   const { sessionId, message, contextMessage } = await request.json();
   if (!sessionId || !message) {
     return NextResponse.json({ error: "Missing sessionId or message" }, { status: 400, headers: corsHeaders });
   }
 
-  const session = await convex.query(api.sessions.getNoAuth, {
+  const session = await convex.query(api.sessions.get, {
     id: sessionId as Id<"sessions">,
   });
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404, headers: corsHeaders });
   }
 
-  const repo = await convex.query(api.githubRepos.getNoAuth, {
+  const repo = await convex.query(api.githubRepos.get, {
     id: session.repoId,
   });
   if (!repo) {
@@ -54,6 +53,7 @@ export async function POST(request: NextRequest) {
       messageContent: (contextMessage as string) || message,
       repoId: session.repoId,
       installationId: repo.installationId,
+      clerkToken: authResult.token,
     },
   });
 

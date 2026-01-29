@@ -1,9 +1,8 @@
 import { inngest } from "../client";
 import { Daytona } from "@daytonaio/sdk";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
 import {
   cloneRepo,
@@ -13,7 +12,6 @@ import {
   runClaudeCLI,
 } from "../sandbox-helpers";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 const daytona = new Daytona();
 
 export const executeResearchQuery = inngest.createFunction(
@@ -22,10 +20,11 @@ export const executeResearchQuery = inngest.createFunction(
     retries: 1,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { queryId: string } };
+        event: { data: { clerkToken: string; queryId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const queryId = eventData.event.data.queryId as Id<"researchQueries">;
-      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+      await convex.mutation(api.researchQueries.addMessage, {
         id: queryId,
         role: "assistant",
         content: `Error processing query: ${error.message}`,
@@ -34,10 +33,11 @@ export const executeResearchQuery = inngest.createFunction(
   },
   { event: "research/query.execute" },
   async ({ event, step }) => {
-    const { queryId, question, repoId } = event.data;
+    const { clerkToken, queryId, question, repoId } = event.data;
+    const convex = createConvex(clerkToken);
 
     await step.run("add-processing-message", async () => {
-      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+      await convex.mutation(api.researchQueries.addMessage, {
         id: queryId as Id<"researchQueries">,
         role: "assistant",
         content: "Analyzing your question...",
@@ -45,7 +45,7 @@ export const executeResearchQuery = inngest.createFunction(
     });
 
     const answer = await step.run("generate-answer", async () => {
-      const repo = await convex.query(api.githubRepos.getNoAuth, {
+      const repo = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!repo) throw new Error("Repo not found");
@@ -126,7 +126,7 @@ ${question}
     });
 
     await step.run("save-response", async () => {
-      await convex.mutation(api.researchQueries.addMessageNoAuth, {
+      await convex.mutation(api.researchQueries.addMessage, {
         id: queryId as Id<"researchQueries">,
         role: "assistant",
         content: answer,

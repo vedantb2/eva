@@ -168,18 +168,6 @@ export const updateSummary = mutation({
   },
 });
 
-export const updateSummaryNoAuth = mutation({
-  args: {
-    id: v.id("sessions"),
-    summary: v.array(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { summary: args.summary });
-    return null;
-  },
-});
-
 export const archive = mutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -200,46 +188,7 @@ export const archive = mutation({
   },
 });
 
-export const getNoAuth = query({
-  args: { id: v.id("sessions") },
-  returns: v.union(sessionValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const addMessageNoAuth = mutation({
-  args: {
-    id: v.id("sessions"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-    mode: v.optional(
-      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan"), v.literal("flag"))
-    ),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...session.messages,
-        {
-          role: args.role,
-          content: args.content,
-          timestamp: Date.now(),
-          mode: args.mode,
-        },
-      ],
-      lastActivityAt: Date.now(),
-    });
-    return null;
-  },
-});
-
-export const updateSandboxNoAuth = mutation({
+export const updateSandbox = mutation({
   args: {
     id: v.id("sessions"),
     sandboxId: v.optional(v.string()),
@@ -248,6 +197,7 @@ export const updateSandboxNoAuth = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -266,10 +216,11 @@ export const updateSandboxNoAuth = mutation({
   },
 });
 
-export const clearSandboxNoAuth = mutation({
+export const clearSandbox = mutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -279,29 +230,14 @@ export const clearSandboxNoAuth = mutation({
   },
 });
 
-export const updateStatusNoAuth = mutation({
-  args: {
-    id: v.id("sessions"),
-    status: v.union(v.literal("active"), v.literal("closed")),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
-    await ctx.db.patch(args.id, { status: args.status });
-    return null;
-  },
-});
-
-export const updatePtySessionNoAuth = mutation({
+export const updatePtySession = mutation({
   args: {
     id: v.id("sessions"),
     ptySessionId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");

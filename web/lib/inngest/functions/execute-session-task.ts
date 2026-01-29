@@ -1,12 +1,9 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox } from "../sandbox";
 import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const executeSessionTask = inngest.createFunction(
   {
@@ -14,10 +11,11 @@ export const executeSessionTask = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { sessionId: string } };
+        event: { data: { clerkToken: string; sessionId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const sessionId = eventData.event.data.sessionId as Id<"sessions">;
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId,
         role: "assistant",
         content: `Error executing task: ${error.message}`,
@@ -26,13 +24,14 @@ export const executeSessionTask = inngest.createFunction(
   },
   { event: "session/task.execute" },
   async ({ event, step }) => {
-    const { sessionId, messageContent, repoId, installationId } = event.data;
+    const { clerkToken, sessionId, messageContent, repoId, installationId } = event.data;
+    const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
-      const sessionData = await convex.query(api.sessions.getNoAuth, {
+      const sessionData = await convex.query(api.sessions.get, {
         id: sessionId as Id<"sessions">,
       });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!sessionData || !repoData) {
@@ -42,7 +41,7 @@ export const executeSessionTask = inngest.createFunction(
     });
 
     await step.run("add-processing-message", async () => {
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: "Processing your request...",
@@ -74,7 +73,7 @@ export const executeSessionTask = inngest.createFunction(
       await setupBranch(sandbox, branchName);
       await configureGit(sandbox);
 
-      await convex.mutation(api.sessions.updateSandboxNoAuth, {
+      await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,
         sandboxId: sandbox.id,
         branchName,
@@ -122,7 +121,7 @@ ${messageContent}
     });
 
     await step.run("update-session", async () => {
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: result.summary,

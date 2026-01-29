@@ -83,27 +83,7 @@ export const create = mutation({
   },
 });
 
-export const createNoAuth = mutation({
-  args: {
-    repoId: v.id("githubRepos"),
-    docId: v.id("docs"),
-  },
-  returns: v.id("evaluationReports"),
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("evaluationReports", {
-      repoId: args.repoId,
-      docId: args.docId,
-      status: "pending",
-      requirementsMet: [],
-      requirementsNotMet: [],
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
-export const updateStatusNoAuth = mutation({
+export const updateEvalStatus = mutation({
   args: {
     id: v.id("evaluationReports"),
     status: v.union(
@@ -115,6 +95,7 @@ export const updateStatusNoAuth = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -127,7 +108,7 @@ export const updateStatusNoAuth = mutation({
   },
 });
 
-export const completeNoAuth = mutation({
+export const completeEval = mutation({
   args: {
     id: v.id("evaluationReports"),
     requirementsMet: v.array(requirementMetValidator),
@@ -136,6 +117,7 @@ export const completeNoAuth = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -151,13 +133,14 @@ export const completeNoAuth = mutation({
   },
 });
 
-export const failNoAuth = mutation({
+export const failEval = mutation({
   args: {
     id: v.id("evaluationReports"),
     error: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -171,13 +154,14 @@ export const failNoAuth = mutation({
   },
 });
 
-export const updateSummaryNoAuth = mutation({
+export const updateEvalSummary = mutation({
   args: {
     id: v.id("evaluationReports"),
     summary: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");

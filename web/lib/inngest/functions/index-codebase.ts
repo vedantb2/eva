@@ -1,12 +1,9 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox } from "../sandbox";
 import { getGitHubToken, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 
@@ -54,10 +51,11 @@ export const indexCodebase = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event }) => {
       const eventData = event.data as unknown as {
-        event: { data: { projectId: string } };
+        event: { data: { clerkToken: string; projectId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const projectId = eventData.event.data.projectId as Id<"projects">;
-      await convex.mutation(api.projects.setIndexingStatusNoAuth, {
+      await convex.mutation(api.projects.setIndexingStatus, {
         id: projectId,
         status: "error",
       });
@@ -65,10 +63,11 @@ export const indexCodebase = inngest.createFunction(
   },
   { event: "project/index.requested" },
   async ({ event, step }) => {
-    const { projectId, repoId, installationId } = event.data;
+    const { clerkToken, projectId, repoId, installationId } = event.data;
+    const convex = createConvex(clerkToken);
 
     const repo = await step.run("fetch-repo", async () => {
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!repoData) {
@@ -78,7 +77,7 @@ export const indexCodebase = inngest.createFunction(
     });
 
     await step.run("set-indexing-status", async () => {
-      await convex.mutation(api.projects.setIndexingStatusNoAuth, {
+      await convex.mutation(api.projects.setIndexingStatus, {
         id: projectId as Id<"projects">,
         status: "indexing",
       });
@@ -153,14 +152,14 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
     });
 
     await step.run("save-index", async () => {
-      await convex.mutation(api.projects.setCodebaseIndexNoAuth, {
+      await convex.mutation(api.projects.setCodebaseIndex, {
         id: projectId as Id<"projects">,
         codebaseIndex,
       });
     });
 
     await step.run("save-sandbox", async () => {
-      await convex.mutation(api.projects.updateSandboxNoAuth, {
+      await convex.mutation(api.projects.updateProjectSandbox, {
         id: projectId as Id<"projects">,
         sandboxId,
       });

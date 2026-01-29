@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox } from "@/lib/inngest/sandbox";
 import { Sandbox } from "@daytonaio/sdk";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+import { auth } from "@clerk/nextjs/server";
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
+  const { userId, getToken } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
+
   const { runId, taskId, repoId, githubToken } = await request.json();
 
   const task = await convex.query(api.agentTasks.get, { id: taskId });

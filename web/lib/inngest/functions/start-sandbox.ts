@@ -1,12 +1,9 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandboxFromSnapshot, getSandbox } from "../sandbox";
 import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const startSandbox = inngest.createFunction(
   {
@@ -15,13 +12,14 @@ export const startSandbox = inngest.createFunction(
   },
   { event: "session/sandbox.start" },
   async ({ event, step }) => {
-    const { sessionId, repoId, installationId } = event.data;
+    const { clerkToken, sessionId, repoId, installationId } = event.data;
+    const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
-      const sessionData = await convex.query(api.sessions.getNoAuth, {
+      const sessionData = await convex.query(api.sessions.get, {
         id: sessionId as Id<"sessions">,
       });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!sessionData || !repoData) {
@@ -79,13 +77,13 @@ export const startSandbox = inngest.createFunction(
         await sandbox.process.executeCommand("pnpm install", "/home/daytona/workspace", undefined, 300);
       }
 
-      await convex.mutation(api.sessions.updateSandboxNoAuth, {
+      await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,
         sandboxId: sandbox.id,
         branchName,
       });
 
-      await convex.mutation(api.sessions.updateStatusNoAuth, {
+      await convex.mutation(api.sessions.updateStatus, {
         id: sessionId as Id<"sessions">,
         status: "active",
       });
@@ -103,7 +101,7 @@ export const startSandbox = inngest.createFunction(
         content = `Sandbox started and dependencies installed! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`;
       }
 
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content,

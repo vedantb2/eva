@@ -1,12 +1,9 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox } from "../sandbox";
 import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 interface EvaluationResult {
   requirementsMet: Array<{ requirement: string; evidence: string }>;
@@ -20,10 +17,11 @@ export const evaluateDoc = inngest.createFunction(
     retries: 1,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { reportId: string } };
+        event: { data: { clerkToken: string; reportId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const reportId = eventData.event.data.reportId as Id<"evaluationReports">;
-      await convex.mutation(api.evaluationReports.failNoAuth, {
+      await convex.mutation(api.evaluationReports.failEval, {
         id: reportId,
         error: error.message,
       });
@@ -31,18 +29,19 @@ export const evaluateDoc = inngest.createFunction(
   },
   { event: "testing-arena/evaluate.doc" },
   async ({ event, step }) => {
-    const { reportId, docId, repoId } = event.data;
+    const { clerkToken, reportId, docId, repoId } = event.data;
+    const convex = createConvex(clerkToken);
 
     await step.run("update-status-running", async () => {
-      await convex.mutation(api.evaluationReports.updateStatusNoAuth, {
+      await convex.mutation(api.evaluationReports.updateEvalStatus, {
         id: reportId as Id<"evaluationReports">,
         status: "running",
       });
     });
 
     const { doc, repo } = await step.run("fetch-data", async () => {
-      const docData = await convex.query(api.docs.getNoAuth, { id: docId as Id<"docs"> });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, { id: repoId as Id<"githubRepos"> });
+      const docData = await convex.query(api.docs.get, { id: docId as Id<"docs"> });
+      const repoData = await convex.query(api.githubRepos.get, { id: repoId as Id<"githubRepos"> });
       if (!docData || !repoData) {
         throw new Error("Doc or repo not found");
       }
@@ -50,7 +49,7 @@ export const evaluateDoc = inngest.createFunction(
     });
 
     await step.run("add-processing-message", async () => {
-      await convex.mutation(api.evaluationReports.updateSummaryNoAuth, {
+      await convex.mutation(api.evaluationReports.updateEvalSummary, {
         id: reportId as Id<"evaluationReports">,
         summary: "Setting up sandbox...",
       });
@@ -65,7 +64,7 @@ export const evaluateDoc = inngest.createFunction(
     });
 
     await step.run("update-cloning-status", async () => {
-      await convex.mutation(api.evaluationReports.updateSummaryNoAuth, {
+      await convex.mutation(api.evaluationReports.updateEvalSummary, {
         id: reportId as Id<"evaluationReports">,
         summary: "Analyzing codebase...",
       });
@@ -153,7 +152,7 @@ You MUST output ONLY valid JSON. No markdown. No explanations. No text outside J
     });
 
     await step.run("save-results", async () => {
-      await convex.mutation(api.evaluationReports.completeNoAuth, {
+      await convex.mutation(api.evaluationReports.completeEval, {
         id: reportId as Id<"evaluationReports">,
         requirementsMet: result.requirementsMet,
         requirementsNotMet: result.requirementsNotMet,

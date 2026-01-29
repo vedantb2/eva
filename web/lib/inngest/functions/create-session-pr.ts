@@ -1,11 +1,8 @@
 import { inngest } from "../client";
-import { ConvexHttpClient } from "convex/browser";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { getGitHubToken } from "../sandbox-helpers";
-
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 
 export const createSessionPr = inngest.createFunction(
   {
@@ -13,10 +10,11 @@ export const createSessionPr = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { sessionId: string } };
+        event: { data: { clerkToken: string; sessionId: string } };
       };
+      const convex = createConvex(eventData.event.data.clerkToken);
       const sessionId = eventData.event.data.sessionId as Id<"sessions">;
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId,
         role: "assistant",
         content: `Failed to create PR: ${error.message}`,
@@ -25,13 +23,14 @@ export const createSessionPr = inngest.createFunction(
   },
   { event: "session/pr.create" },
   async ({ event, step }) => {
-    const { sessionId, repoId, installationId, title, description } = event.data;
+    const { clerkToken, sessionId, repoId, installationId, title, description } = event.data;
+    const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-data", async () => {
-      const sessionData = await convex.query(api.sessions.getNoAuth, {
+      const sessionData = await convex.query(api.sessions.get, {
         id: sessionId as Id<"sessions">,
       });
-      const repoData = await convex.query(api.githubRepos.getNoAuth, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
       if (!sessionData || !repoData) {
@@ -44,7 +43,7 @@ export const createSessionPr = inngest.createFunction(
     });
 
     await step.run("add-processing-message", async () => {
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: "Creating pull request...",
@@ -87,12 +86,12 @@ export const createSessionPr = inngest.createFunction(
     });
 
     await step.run("update-session", async () => {
-      await convex.mutation(api.sessions.updateSandboxNoAuth, {
+      await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,
         prUrl,
       });
 
-      await convex.mutation(api.sessions.addMessageNoAuth, {
+      await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,
         role: "assistant",
         content: `Pull request created: ${prUrl}`,

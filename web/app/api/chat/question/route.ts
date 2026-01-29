@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { inngest } from "@/lib/inngest";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: Request) {
+  const { userId, getToken } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const clerkToken = await getToken({ template: "convex" });
+
   const {
     projectId,
     repoId,
@@ -20,6 +28,7 @@ export async function POST(req: Request) {
       featureDescription,
       questionTopic,
       previousAnswers,
+      clerkToken,
     },
   });
 

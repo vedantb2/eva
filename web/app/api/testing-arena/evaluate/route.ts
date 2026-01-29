@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { inngest } from "@/lib/inngest";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
 
   const { docId, repoId } = await request.json();
   if (!docId || !repoId) {
@@ -22,21 +22,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const doc = await convex.query(api.docs.getNoAuth, {
+  const doc = await convex.query(api.docs.get, {
     id: docId as Id<"docs">,
   });
   if (!doc) {
     return NextResponse.json({ error: "Doc not found" }, { status: 404 });
   }
 
-  const reportId = await convex.mutation(api.evaluationReports.createNoAuth, {
+  const reportId = await convex.mutation(api.evaluationReports.create, {
     repoId: repoId as Id<"githubRepos">,
     docId: docId as Id<"docs">,
   });
 
   await inngest.send({
     name: "testing-arena/evaluate.doc",
-    data: { reportId, docId, repoId },
+    data: { reportId, docId, repoId, clerkToken },
   });
 
   return NextResponse.json({ success: true, reportId });

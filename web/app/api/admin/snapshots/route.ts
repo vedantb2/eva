@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
 import { createAppAuth } from "@octokit/auth-app";
 import { api } from "@/api";
-import { clientEnv } from "@/env/client";
+import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
 import {
   listSnapshots,
@@ -14,16 +13,14 @@ import {
 } from "@/lib/inngest/snapshots";
 import { GenericId as Id } from "convex/values";
 
-const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
-
 async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
+  const authResult = createAppAuth({
     appId: serverEnv.GITHUB_APP_ID,
     privateKey: serverEnv.GITHUB_PRIVATE_KEY,
     clientId: serverEnv.GITHUB_CLIENT_ID,
     clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
   });
-  const { token } = await auth({ type: "installation", installationId });
+  const { token } = await authResult({ type: "installation", installationId });
   return token;
 }
 
@@ -46,10 +43,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const clerkToken = await getToken({ template: "convex" });
+  const convex = createConvex(clerkToken ?? undefined);
 
   const { action, repoId, branch } = await request.json();
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const repo = await convex.query(api.githubRepos.getNoAuth, {
+  const repo = await convex.query(api.githubRepos.get, {
     id: repoId as Id<"githubRepos">,
   });
 

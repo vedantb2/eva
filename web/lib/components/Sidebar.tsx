@@ -204,7 +204,7 @@ export function Sidebar() {
                 className="rounded-full"
               />
               {!collapsed && (
-                <span className="text-xl tracking-tight font-semibold text-neutral-900 dark:text-white">
+                <span className="text-xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
                   Eva
                 </span>
               )}

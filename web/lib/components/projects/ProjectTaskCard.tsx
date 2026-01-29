@@ -70,10 +70,7 @@ export function ProjectTaskCard({
         )}
         <div className="flex items-center justify-between text-xs text-default-400">
           {createdBy && <UserInitials userId={createdBy} />}
-          <div className="flex items-center gap-1">
-            <IconSubtask size={12} />
-            <SubtaskProgress taskId={id} />
-          </div>
+          <SubtaskProgress taskId={id} />
         </div>
       </CardBody>
     </Card>

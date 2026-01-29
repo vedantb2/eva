@@ -66,10 +66,7 @@ export function QuickTaskCard({
                 <IconGitPullRequest size={14} className="text-success-500" />
               </Link>
             )}
-            <div className="flex items-center gap-1 text-xs text-default-400">
-              <IconSubtask size={12} />
               <SubtaskProgress taskId={id} />
-            </div>
           </div>
         </div>
         <div className="flex items-center justify-between mt-1">

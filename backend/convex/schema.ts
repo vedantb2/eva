@@ -137,6 +137,14 @@ const schema = defineSchema({
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 
+  taskProof: defineTable({
+    taskId: v.id("agentTasks"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    fileType: v.string(),
+    createdAt: v.number(),
+  }).index("by_task", ["taskId"]),
+
   taskDependencies: defineTable({
     taskId: v.id("agentTasks"),
     dependsOnId: v.id("agentTasks"),

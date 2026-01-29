@@ -6,7 +6,7 @@ import { getCurrentUserId } from "./auth";
 
 const presence = new Presence(components.presence);
 
-const ONE_MINUTE = 60 * 1000;
+const FIVE_MINUTES = 5 * 60 * 1000;
 
 export const heartbeat = mutation({
   args: { roomId: v.string(), userId: v.string(), sessionId: v.string(), interval: v.number() },
@@ -15,7 +15,7 @@ export const heartbeat = mutation({
     const currentUserId = await getCurrentUserId(ctx);
     if (currentUserId) {
       const user = await ctx.db.get(currentUserId);
-      if (user && (!user.lastSeenAt || Date.now() - user.lastSeenAt > ONE_MINUTE)) {
+      if (user && (!user.lastSeenAt || Date.now() - user.lastSeenAt > FIVE_MINUTES)) {
         await ctx.db.patch(currentUserId, { lastSeenAt: Date.now() });
       }
     }

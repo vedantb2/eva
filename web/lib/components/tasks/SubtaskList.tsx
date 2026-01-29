@@ -6,7 +6,7 @@ import { GenericId as Id } from "convex/values";
 import { Checkbox } from "@heroui/checkbox";
 import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconSubtask, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 
 interface SubtaskListProps {
@@ -38,7 +38,7 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
 
   const handleToggleComplete = async (
     subtaskId: Id<"subtasks">,
-    completed: boolean
+    completed: boolean,
   ) => {
     await updateSubtask({ id: subtaskId, completed: !completed });
   };
@@ -48,9 +48,7 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
   };
 
   if (subtasks === undefined) {
-    return (
-      <div className="text-sm text-default-400">Loading subtasks...</div>
-    );
+    return <div className="text-sm text-default-400">Loading subtasks...</div>;
   }
 
   return (
@@ -82,10 +80,7 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
 
       <div className="space-y-2">
         {subtasks.map((subtask) => (
-          <div
-            key={subtask._id}
-            className="flex items-center gap-2 group"
-          >
+          <div key={subtask._id} className="flex items-center gap-2 group">
             <Checkbox
               isSelected={subtask.completed}
               onValueChange={() =>
@@ -162,8 +157,11 @@ export function SubtaskProgress({ taskId }: { taskId: Id<"agentTasks"> }) {
   const totalCount = subtasks.length;
 
   return (
-    <span className="text-xs text-default-400">
-      {completedCount}/{totalCount}
-    </span>
+    <div className="flex items-center gap-1 text-xs text-default-400 ml-auto">
+      <IconSubtask size={12} />
+      <span className="text-xs text-default-400">
+        {completedCount}/{totalCount}
+      </span>
+    </div>
   );
 }

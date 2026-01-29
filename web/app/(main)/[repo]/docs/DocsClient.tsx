@@ -3,22 +3,19 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
 import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DocsList } from "@/lib/components/docs/DocsList";
-import { DocViewer } from "@/lib/components/docs/DocViewer";
 
-export function DocsClient() {
-  const { repo } = useRepo();
+export function DocsClient({ children }: { children: React.ReactNode }) {
+  const { repo, repoSlug } = useRepo();
   const docs = useQuery(api.docs.list, { repoId: repo._id });
   const createDoc = useMutation(api.docs.create);
-  const [selectedId, setSelectedId] = useState<Id<"docs"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-
-  const selectedDoc = docs?.find((d) => d._id === selectedId);
+  const router = useRouter();
 
   const handleCreate = async () => {
     setIsCreating(true);
@@ -28,7 +25,7 @@ export function DocsClient() {
         title: "Untitled",
         content: "",
       });
-      setSelectedId(id);
+      router.push(`/${repoSlug}/docs/${id}`);
     } finally {
       setIsCreating(false);
     }
@@ -52,14 +49,10 @@ export function DocsClient() {
     >
       <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
         <div className="col-span-1 h-full overflow-hidden">
-          <DocsList
-            docs={docs}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <DocsList docs={docs} repoSlug={repoSlug} />
         </div>
         <div className="col-span-2 h-full overflow-hidden">
-          <DocViewer doc={selectedDoc} onSelect={setSelectedId} />
+          {children}
         </div>
       </div>
     </PageWrapper>

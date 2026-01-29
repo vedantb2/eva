@@ -4,6 +4,8 @@ import { GenericId as Id } from "convex/values";
 import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
 import { Input } from "@heroui/input";
 import { useState, useMemo } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 interface Doc {
   _id: Id<"docs">;
@@ -13,12 +15,12 @@ interface Doc {
 
 interface DocsListProps {
   docs: Doc[] | undefined;
-  selectedId: Id<"docs"> | null;
-  onSelect: (id: Id<"docs">) => void;
+  repoSlug: string;
 }
 
-export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
+export function DocsList({ docs, repoSlug }: DocsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const pathname = usePathname();
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
@@ -59,21 +61,24 @@ export function DocsList({ docs, selectedId, onSelect }: DocsListProps) {
         {filteredDocs.length === 0 ? (
           <div className="p-4 text-center text-sm text-neutral-400">No matches found</div>
         ) : (
-          filteredDocs.map((doc) => (
-            <button
-              key={doc._id}
-              type="button"
-              onClick={() => onSelect(doc._id)}
-              className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
-                selectedId === doc._id
-                  ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                  : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-              }`}
-            >
-              <IconFileText size={16} className="flex-shrink-0" />
-              <span className="truncate text-sm">{doc.title}</span>
-            </button>
-          ))
+          filteredDocs.map((doc) => {
+            const href = `/${repoSlug}/docs/${doc._id}`;
+            const isSelected = pathname === href;
+            return (
+              <Link
+                key={doc._id}
+                href={href}
+                className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
+                  isSelected
+                    ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                }`}
+              >
+                <IconFileText size={16} className="flex-shrink-0" />
+                <span className="truncate text-sm">{doc.title}</span>
+              </Link>
+            );
+          })
         )}
       </div>
     </div>

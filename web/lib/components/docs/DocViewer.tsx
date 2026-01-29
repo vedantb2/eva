@@ -21,7 +21,6 @@ import { Spinner } from "@heroui/spinner";
 import { Tooltip } from "@heroui/tooltip";
 import {
   IconTrash,
-  IconFileText,
   IconCheck,
   IconLoader2,
   IconArrowBackUp,
@@ -30,6 +29,8 @@ import {
   IconBookmark,
 } from "@tabler/icons-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
 
 interface Doc {
@@ -39,30 +40,13 @@ interface Doc {
   updatedAt: number;
 }
 
-interface DocViewerProps {
-  doc: Doc | undefined;
-  onSelect: (id: Id<"docs"> | null) => void;
+export function DocViewer({ doc }: { doc: Doc }) {
+  return <DocEditor key={doc._id} doc={doc} />;
 }
 
-export function DocViewer({ doc, onSelect }: DocViewerProps) {
-  if (!doc) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-400">
-        <IconFileText size={48} className="mb-3" />
-        <p>Select a document to view</p>
-      </div>
-    );
-  }
-  return <DocEditor key={doc._id} doc={doc} onSelect={onSelect} />;
-}
-
-function DocEditor({
-  doc,
-  onSelect,
-}: {
-  doc: Doc;
-  onSelect: (id: Id<"docs"> | null) => void;
-}) {
+function DocEditor({ doc }: { doc: Doc }) {
+  const router = useRouter();
+  const { repoSlug } = useRepo();
   const sync = useTiptapSync(api.prosemirrorSync, doc._id);
   const updateDoc = useMutation(api.docs.update);
   const removeDoc = useMutation(api.docs.remove);
@@ -122,7 +106,7 @@ function DocEditor({
     try {
       await removeDoc({ id: doc._id });
       setShowDeleteModal(false);
-      onSelect(null);
+      router.push(`/${repoSlug}/docs`);
     } finally {
       setIsDeleting(false);
     }

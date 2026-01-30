@@ -693,6 +693,34 @@ export const getDependentTasks = query({
   },
 });
 
+export const assignToProject = mutation({
+  args: {
+    taskIds: v.array(v.id("agentTasks")),
+    projectId: v.id("projects"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    for (const taskId of args.taskIds) {
+      const task = await ctx.db.get(taskId);
+      if (task) {
+        await ctx.db.patch(taskId, {
+          projectId: args.projectId,
+          updatedAt: Date.now(),
+        });
+      }
+    }
+    return null;
+  },
+});
+
 export const deleteCascade = mutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

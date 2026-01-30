@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownItem,
 } from "@heroui/dropdown";
+import { Checkbox } from "@heroui/checkbox";
 
 export type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
 
@@ -35,6 +36,9 @@ interface QuickTaskCardProps {
   createdBy?: Id<"users">;
   branchName?: string;
   onClick?: () => void;
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function QuickTaskCard({
@@ -46,6 +50,9 @@ export function QuickTaskCard({
   createdBy,
   branchName,
   onClick,
+  isSelecting,
+  isSelected,
+  onToggleSelect,
 }: QuickTaskCardProps) {
   const { fullName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
@@ -54,15 +61,23 @@ export function QuickTaskCard({
 
   return (
     <Card
-      isPressable={!!onClick}
-      onPress={onClick}
+      isPressable={isSelecting ? false : !!onClick}
+      onPress={isSelecting ? undefined : onClick}
       shadow="none"
       radius="sm"
-      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""}`}
+      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
     >
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
+          {isSelecting && (
+            <Checkbox
+              isSelected={isSelected}
+              onValueChange={() => onToggleSelect?.()}
+              size="sm"
+              classNames={{ wrapper: "flex-shrink-0" }}
+            />
+          )}
+          <h4 className="font-medium text-sm line-clamp-1 flex-1">{title}</h4>
           <div className="flex items-center gap-2 flex-shrink-0">
             <SubtaskProgress taskId={id} />
             {(branchName || latestPrUrl) && (

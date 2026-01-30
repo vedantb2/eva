@@ -25,9 +25,17 @@ type TaskStatus = Task["status"];
 
 interface QuickTasksKanbanBoardProps {
   repoId: Id<"githubRepos">;
+  isSelecting: boolean;
+  selectedIds: Set<Id<"agentTasks">>;
+  onToggleSelect: (id: Id<"agentTasks">) => void;
 }
 
-export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
+export function QuickTasksKanbanBoard({
+  repoId,
+  isSelecting,
+  selectedIds,
+  onToggleSelect,
+}: QuickTasksKanbanBoardProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -97,7 +105,13 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
       <KanbanBoard
         items={tasks}
         onStatusChange={handleStatusChange}
-        onItemClick={(task) => setSelectedTaskId(task._id)}
+        onItemClick={(task) => {
+          if (isSelecting) {
+            onToggleSelect(task._id);
+          } else {
+            setSelectedTaskId(task._id);
+          }
+        }}
         fillHeight
         columnExtra={(status) =>
           status === "todo" && todoTasks.length > 0 ? (
@@ -121,6 +135,9 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            isSelecting={isSelecting}
+            isSelected={selectedIds.has(task._id)}
+            onToggleSelect={() => onToggleSelect(task._id)}
           />
         )}
         renderOverlay={(task) => (

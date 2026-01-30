@@ -3,21 +3,51 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
+import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button } from "@heroui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { IconChecklist, IconPlus } from "@tabler/icons-react";
+import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
+import {
+  IconChecklist,
+  IconPlus,
+  IconCheckbox,
+  IconX,
+  IconFolders,
+} from "@tabler/icons-react";
 
 export function QuickTasksClient() {
   const { repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"agentTasks">>>(
+    new Set(),
+  );
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
+
+  const toggleSelect = (id: Id<"agentTasks">) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setIsSelecting(false);
+    setSelectedIds(new Set());
+  };
 
   return (
     <>
@@ -25,13 +55,48 @@ export function QuickTasksClient() {
         title="Quick Tasks"
         fillHeight
         headerRight={
-          <Button
-            color="primary"
-            startContent={<IconPlus size={16} />}
-            onPress={() => setIsCreating(true)}
-          >
-            New Task
-          </Button>
+          <div className="flex items-center gap-2">
+            {hasQuickTasks &&
+              (isSelecting ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    startContent={<IconX size={14} />}
+                    onPress={exitSelectMode}
+                  >
+                    Cancel
+                  </Button>
+                  {selectedIds.size > 0 && (
+                    <Button
+                      size="sm"
+                      color="primary"
+                      startContent={<IconFolders size={14} />}
+                      onPress={() => setIsGroupModalOpen(true)}
+                    >
+                      Group {selectedIds.size} into Project
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="flat"
+                  startContent={<IconCheckbox size={14} />}
+                  onPress={() => setIsSelecting(true)}
+                >
+                  Select
+                </Button>
+              ))}
+            <Button
+              size="sm"
+              color="primary"
+              startContent={<IconPlus size={16} />}
+              onPress={() => setIsCreating(true)}
+            >
+              New Task
+            </Button>
+          </div>
         }
       >
         {tasks === undefined ? (
@@ -47,12 +112,23 @@ export function QuickTasksClient() {
             onAction={() => setIsCreating(true)}
           />
         ) : (
-          <QuickTasksKanbanBoard repoId={repo._id} />
+          <QuickTasksKanbanBoard
+            repoId={repo._id}
+            isSelecting={isSelecting}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+          />
         )}
       </PageWrapper>
       <QuickTaskModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
+      />
+      <GroupTasksModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
       />
     </>
   );

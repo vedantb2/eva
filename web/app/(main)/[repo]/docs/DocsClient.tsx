@@ -39,6 +39,7 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
       headerRight={
         <Button
           color="primary"
+          size="sm"
           startContent={<IconPlus size={16} />}
           onPress={handleCreate}
           isLoading={isCreating}
@@ -51,9 +52,7 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
         <div className="col-span-1 h-full overflow-hidden">
           <DocsList docs={docs} repoSlug={repoSlug} />
         </div>
-        <div className="col-span-2 h-full overflow-hidden">
-          {children}
-        </div>
+        <div className="col-span-2 h-full overflow-hidden">{children}</div>
       </div>
     </PageWrapper>
   );

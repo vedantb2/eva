@@ -581,6 +581,44 @@ export const startDevelopment = mutation({
   },
 });
 
+export const createFromTasks = mutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    title: v.string(),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.id("projects"),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const slugify = (text: string) =>
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 50);
+    const branchName = `conductor/${slugify(args.title)}`;
+    const projectId = await ctx.db.insert("projects", {
+      repoId: args.repoId,
+      userId,
+      title: args.title,
+      rawInput: args.title,
+      phase: "active",
+      branchName,
+      conversationHistory: [],
+    });
+    for (const taskId of args.taskIds) {
+      const task = await ctx.db.get(taskId);
+      if (task) {
+        await ctx.db.patch(taskId, { projectId, updatedAt: Date.now() });
+      }
+    }
+    return projectId;
+  },
+});
+
 export const updatePrUrl = mutation({
   args: {
     id: v.id("projects"),

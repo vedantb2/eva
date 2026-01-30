@@ -142,6 +142,7 @@ export function TestingArenaClient({
         headerRight={
           <Button
             color="primary"
+            size="sm"
             startContent={<IconPlayerPlay size={16} />}
             onPress={() => setShowTestAllModal(true)}
             isLoading={isTestingAll}
@@ -155,9 +156,7 @@ export function TestingArenaClient({
           <div className="col-span-1 h-full overflow-hidden">
             <DocsListPanel docs={docs} repoSlug={repoSlug} />
           </div>
-          <div className="col-span-2 h-full overflow-hidden">
-            {children}
-          </div>
+          <div className="col-span-2 h-full overflow-hidden">{children}</div>
         </div>
       </PageWrapper>
       <Modal

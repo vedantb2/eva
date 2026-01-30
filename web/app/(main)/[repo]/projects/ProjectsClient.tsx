@@ -160,6 +160,7 @@ export function ProjectsClient() {
         headerRight={
           <Button
             color="primary"
+            size="sm"
             startContent={<IconPlus size={16} />}
             onPress={() => setIsCreating(true)}
           >

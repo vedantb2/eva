@@ -26,19 +26,25 @@ interface EvaluationReport {
 }
 
 function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
-  const styles = {
-    pending:
-      "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
-    running: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
-    completed:
-      "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-    error: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+  const config = {
+    pending: {
+      dot: "bg-yellow-500",
+      text: "text-yellow-600 dark:text-yellow-400",
+    },
+    running: {
+      dot: "bg-teal-500 animate-pulse",
+      text: "text-teal-600 dark:text-teal-400",
+    },
+    completed: {
+      dot: "bg-green-500",
+      text: "text-green-600 dark:text-green-400",
+    },
+    error: { dot: "bg-red-500", text: "text-red-600 dark:text-red-400" },
   };
-
+  const { dot, text } = config[status];
   return (
-    <span
-      className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status]}`}
-    >
+    <span className={`flex items-center gap-1.5 text-xs font-medium ${text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {status}
     </span>
   );
@@ -50,109 +56,145 @@ function ReportCard({ report }: { report: EvaluationReport }) {
 
   const metCount = report.requirementsMet.length;
   const notMetCount = report.requirementsNotMet.length;
+  const total = metCount + notMetCount;
+  const passRate = total > 0 ? Math.round((metCount / total) * 100) : 0;
 
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-neutral-500 dark:text-neutral-400">
-          {dayjs(report.createdAt).format("M/D/YYYY, h:mm:ss A")}
-        </div>
+    <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-white dark:bg-neutral-800">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700/50">
         <StatusBadge status={report.status} />
+        <span className="text-xs text-neutral-400">
+          {dayjs(report.createdAt).fromNow()}
+        </span>
       </div>
 
       {report.status === "running" && (
-        <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-          <span className="text-sm">Evaluating codebase...</span>
+        <div className="px-4 py-6 flex items-center gap-3">
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-teal-200 dark:border-teal-800 border-t-teal-600" />
+          <span className="text-sm text-neutral-600 dark:text-neutral-300">
+            Evaluating codebase...
+          </span>
         </div>
       )}
 
       {report.status === "error" && report.error && (
-        <div className="text-red-600 dark:text-red-400 text-sm">
-          Error: {report.error}
+        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/10 text-sm text-red-600 dark:text-red-400">
+          {report.error}
         </div>
       )}
 
       {report.status === "completed" && (
         <>
-          <div className="flex items-center gap-4 mb-3">
-            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-              <IconCheck size={16} />
-              <span className="text-sm font-medium">{metCount} met</span>
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-3 mb-2">
+              <span
+                className={`text-2xl font-bold tabular-nums ${passRate >= 80 ? "text-green-600 dark:text-green-400" : passRate >= 50 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}
+              >
+                {passRate}%
+              </span>
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="flex items-center gap-1">
+                  <IconCheck size={12} className="text-green-500" /> {metCount}{" "}
+                  met
+                </span>
+                <span className="flex items-center gap-1">
+                  <IconX size={12} className="text-red-500" /> {notMetCount} not
+                  met
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
-              <IconX size={16} />
-              <span className="text-sm font-medium">{notMetCount} not met</span>
+            <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-700 overflow-hidden flex">
+              {metCount > 0 && (
+                <div
+                  className="h-full bg-green-500 rounded-l-full"
+                  style={{ width: `${passRate}%` }}
+                />
+              )}
+              {notMetCount > 0 && (
+                <div
+                  className="h-full bg-red-400 rounded-r-full"
+                  style={{ width: `${100 - passRate}%` }}
+                />
+              )}
             </div>
           </div>
 
           {report.summary && (
-            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-3">
-              {report.summary}
-            </p>
-          )}
-
-          {metCount > 0 && (
-            <div className="mb-2">
-              <button
-                type="button"
-                onClick={() => setExpandedMet(!expandedMet)}
-                className="flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400 hover:underline"
-              >
-                {expandedMet ? (
-                  <IconChevronDown size={16} />
-                ) : (
-                  <IconChevronRight size={16} />
-                )}
-                Requirements Met ({metCount})
-              </button>
-              {expandedMet && (
-                <ul className="mt-2 space-y-2 pl-5">
-                  {report.requirementsMet.map((item, idx) => (
-                    <li key={idx} className="text-sm">
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                        {item.requirement}
-                      </span>
-                      <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-0.5">
-                        {item.evidence}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="px-4 pb-3">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                {report.summary}
+              </p>
             </div>
           )}
 
-          {notMetCount > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setExpandedNotMet(!expandedNotMet)}
-                className="flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400 hover:underline"
-              >
-                {expandedNotMet ? (
-                  <IconChevronDown size={16} />
-                ) : (
-                  <IconChevronRight size={16} />
+          <div className="border-t border-neutral-100 dark:border-neutral-700/50">
+            {metCount > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExpandedMet(!expandedMet)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors"
+                >
+                  {expandedMet ? (
+                    <IconChevronDown size={14} />
+                  ) : (
+                    <IconChevronRight size={14} />
+                  )}
+                  Requirements Met ({metCount})
+                </button>
+                {expandedMet && (
+                  <div className="px-4 pb-3 space-y-2">
+                    {report.requirementsMet.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="pl-3 border-l-2 border-green-300 dark:border-green-700"
+                      >
+                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                          {item.requirement}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          {item.evidence}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                Requirements Not Met ({notMetCount})
-              </button>
-              {expandedNotMet && (
-                <ul className="mt-2 space-y-2 pl-5">
-                  {report.requirementsNotMet.map((item, idx) => (
-                    <li key={idx} className="text-sm">
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                        {item.requirement}
-                      </span>
-                      <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-0.5">
-                        {item.reason}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+              </>
+            )}
+            {notMetCount > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExpandedNotMet(!expandedNotMet)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors"
+                >
+                  {expandedNotMet ? (
+                    <IconChevronDown size={14} />
+                  ) : (
+                    <IconChevronRight size={14} />
+                  )}
+                  Requirements Not Met ({notMetCount})
+                </button>
+                {expandedNotMet && (
+                  <div className="px-4 pb-3 space-y-2">
+                    {report.requirementsNotMet.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="pl-3 border-l-2 border-red-300 dark:border-red-700"
+                      >
+                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                          {item.requirement}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          {item.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </>
       )}
     </div>

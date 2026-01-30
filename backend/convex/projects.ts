@@ -352,6 +352,25 @@ export const getTaskCount = query({
   },
 });
 
+export const getTaskProgress = query({
+  args: { projectId: v.id("projects") },
+  returns: v.object({ done: v.number(), total: v.number() }),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return { done: 0, total: 0 };
+    }
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    return {
+      done: tasks.filter((t) => t.status === "done").length,
+      total: tasks.length,
+    };
+  },
+});
+
 const AUDIT_TASKS = [
   {
     title: "Accessibility Audit",

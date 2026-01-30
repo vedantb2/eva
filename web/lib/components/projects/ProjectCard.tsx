@@ -17,6 +17,7 @@ import {
   DropdownItem,
 } from "@heroui/dropdown";
 import { Button } from "@heroui/button";
+import { Progress } from "@heroui/progress";
 import dayjs from "@/lib/dates";
 
 interface ProjectCardProps {
@@ -34,6 +35,7 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({
+  projectId,
   userId,
   title,
   description,
@@ -46,6 +48,9 @@ export function ProjectCard({
   onDelete,
 }: ProjectCardProps) {
   const currentUserId = useQuery(api.auth.me);
+  const progress = useQuery(api.projects.getTaskProgress, {
+    projectId: projectId as Id<"projects">,
+  });
   const isOwner = currentUserId === userId;
   return (
     <div
@@ -113,6 +118,20 @@ export function ProjectCard({
             {rawInput}
           </p>
         ) : null}
+        {progress && progress.total > 0 && (
+          <Progress
+            size="sm"
+            color="success"
+            label={`${progress.done} / ${progress.total} tasks`}
+            value={Math.round((progress.done / progress.total) * 100)}
+            className="mt-2"
+            classNames={{
+              label: "text-[10px] text-neutral-500 dark:text-neutral-400",
+              track: "bg-neutral-200 dark:bg-neutral-700",
+              indicator: "bg-teal-500",
+            }}
+          />
+        )}
         <div className="mt-4 flex items-center justify-between">
           <UserInitials userId={userId} />
           <span className="text-xs text-default-400">

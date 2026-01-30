@@ -1,5 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { getCurrentUserId } from "./auth";
+import { createNotification } from "./notifications";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
@@ -53,12 +55,23 @@ export const create = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
-    return await ctx.db.insert("taskComments", {
+    const commentId = await ctx.db.insert("taskComments", {
       taskId: args.taskId,
       content: args.content,
       authorId: identity.subject,
       createdAt: Date.now(),
     });
+    const currentUserId = await getCurrentUserId(ctx);
+    if (task.assignedTo && task.assignedTo !== currentUserId) {
+      await createNotification(ctx, {
+        userId: task.assignedTo,
+        type: "comment_added",
+        title: `New comment on "${task.title}"`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+      });
+    }
+    return commentId;
   },
 });
 

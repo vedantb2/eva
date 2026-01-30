@@ -4,6 +4,7 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import { taskStatusValidator } from "./validators";
+import { createNotification } from "./notifications";
 
 const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),
@@ -181,6 +182,18 @@ export const update = mutation({
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
     await ctx.db.patch(args.id, updates);
+    if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
+      const currentUserId = await getCurrentUserId(ctx);
+      if (args.assignedTo && args.assignedTo !== currentUserId) {
+        await createNotification(ctx, {
+          userId: args.assignedTo,
+          type: "task_assigned",
+          title: `You were assigned to "${task.title}"`,
+          repoId: task.repoId,
+          projectId: task.projectId,
+        });
+      }
+    }
     return null;
   },
 });
@@ -323,6 +336,27 @@ export const updateStatus = mutation({
       status: args.status,
       updatedAt: Date.now(),
     });
+    if (args.status === "done") {
+      const currentUserId = await getCurrentUserId(ctx);
+      if (task.createdBy && task.createdBy !== currentUserId) {
+        await createNotification(ctx, {
+          userId: task.createdBy,
+          type: "task_complete",
+          title: `Task "${task.title}" is done`,
+          repoId: task.repoId,
+          projectId: task.projectId,
+        });
+      }
+      if (task.assignedTo && task.assignedTo !== currentUserId && task.assignedTo !== task.createdBy) {
+        await createNotification(ctx, {
+          userId: task.assignedTo,
+          type: "task_complete",
+          title: `Task "${task.title}" is done`,
+          repoId: task.repoId,
+          projectId: task.projectId,
+        });
+      }
+    }
     if (task.projectId) {
       const project = await ctx.db.get(task.projectId);
       if (project) {
@@ -501,7 +535,7 @@ export const createQuickTask = mutation({
       .collect();
     const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
     const now = Date.now();
-    return await ctx.db.insert("agentTasks", {
+    const taskId = await ctx.db.insert("agentTasks", {
       boardId: board._id,
       columnId: column._id,
       title: args.title,
@@ -514,6 +548,15 @@ export const createQuickTask = mutation({
       createdBy: userId ?? undefined,
       assignedTo: args.assignedTo,
     });
+    if (args.assignedTo && args.assignedTo !== userId) {
+      await createNotification(ctx, {
+        userId: args.assignedTo,
+        type: "task_assigned",
+        title: `You were assigned to "${args.title}"`,
+        repoId: args.repoId,
+      });
+    }
+    return taskId;
   },
 });
 

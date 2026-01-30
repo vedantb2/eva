@@ -1,7 +1,42 @@
-import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { mutation, query, MutationCtx } from "./_generated/server";
+import { v, Infer } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
 import { notificationTypeValidator } from "./validators";
+
+export async function createNotification(
+  ctx: MutationCtx,
+  params: {
+    userId: Id<"users">;
+    title: string;
+    type?: Infer<typeof notificationTypeValidator>;
+    message?: string;
+    href?: string;
+    repoId?: Id<"githubRepos">;
+    projectId?: Id<"projects">;
+  }
+) {
+  let href = params.href;
+  if (!href && params.repoId) {
+    const repo = await ctx.db.get(params.repoId);
+    if (repo) {
+      const slug = `${repo.owner}-${repo.name}`;
+      href = params.projectId
+        ? `/${slug}/projects/${params.projectId}`
+        : `/${slug}/quick-tasks`;
+    }
+  }
+  await ctx.db.insert("notifications", {
+    userId: params.userId,
+    type: params.type ?? "system",
+    title: params.title,
+    message: params.message,
+    href,
+    repoId: params.repoId,
+    read: false,
+    createdAt: Date.now(),
+  });
+}
 
 const notificationValidator = v.object({
   _id: v.id("notifications"),

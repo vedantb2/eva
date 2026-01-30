@@ -78,6 +78,9 @@ export const notificationTypeValidator = v.union(
   v.literal("routine_complete"),
   v.literal("export_ready"),
   v.literal("task_complete"),
+  v.literal("task_assigned"),
+  v.literal("comment_added"),
+  v.literal("run_completed"),
   v.literal("system")
 );
 

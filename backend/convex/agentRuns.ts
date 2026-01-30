@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
+import { createNotification } from "./notifications";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -264,6 +266,21 @@ export const complete = mutation({
       status: args.success ? "code_review" : "todo",
       updatedAt: now,
     });
+    const statusText = args.success ? "succeeded" : "failed";
+    const notifyUsers = new Set(
+      [task.createdBy, task.assignedTo].filter(
+        (id): id is Id<"users"> => id !== undefined
+      )
+    );
+    for (const userId of notifyUsers) {
+      await createNotification(ctx, {
+        userId,
+        type: "run_completed",
+        title: `Run ${statusText} for "${task.title}"`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+      });
+    }
     return null;
   },
 });

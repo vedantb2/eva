@@ -98,11 +98,13 @@ const schema = defineSchema({
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
+    sessionId: v.optional(v.id("sessions")),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
     .index("by_project", ["projectId"])
-    .index("by_project_and_status", ["projectId", "status"]),
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_session", ["sessionId"]),
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),

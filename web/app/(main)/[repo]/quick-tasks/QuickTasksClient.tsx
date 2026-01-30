@@ -9,12 +9,13 @@ import { Button } from "@heroui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { IconChecklist, IconPlus } from "@tabler/icons-react";
+import { IconChecklist, IconPlus, IconSelect } from "@tabler/icons-react";
 
 export function QuickTasksClient() {
   const { repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
@@ -25,13 +26,25 @@ export function QuickTasksClient() {
         title="Quick Tasks"
         fillHeight
         headerRight={
-          <Button
-            color="primary"
-            startContent={<IconPlus size={16} />}
-            onPress={() => setIsCreating(true)}
-          >
-            New Task
-          </Button>
+          <div className="flex items-center gap-2">
+            {hasQuickTasks && (
+              <Button
+                variant={selectionMode ? "solid" : "flat"}
+                color={selectionMode ? "primary" : "default"}
+                startContent={<IconSelect size={16} />}
+                onPress={() => setSelectionMode(!selectionMode)}
+              >
+                {selectionMode ? "Selecting" : "Select"}
+              </Button>
+            )}
+            <Button
+              color="primary"
+              startContent={<IconPlus size={16} />}
+              onPress={() => setIsCreating(true)}
+            >
+              New Task
+            </Button>
+          </div>
         }
       >
         {tasks === undefined ? (
@@ -47,7 +60,11 @@ export function QuickTasksClient() {
             onAction={() => setIsCreating(true)}
           />
         ) : (
-          <QuickTasksKanbanBoard repoId={repo._id} />
+          <QuickTasksKanbanBoard
+            repoId={repo._id}
+            selectionMode={selectionMode}
+            onExitSelection={() => setSelectionMode(false)}
+          />
         )}
       </PageWrapper>
       <QuickTaskModal

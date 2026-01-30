@@ -21,6 +21,7 @@ const agentTaskValidator = v.object({
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
+  sessionId: v.optional(v.id("sessions")),
 });
 
 export const listByBoard = query({
@@ -705,5 +706,38 @@ export const deleteCascade = mutation({
       await ctx.db.delete(taskId);
     }
     return null;
+  },
+});
+
+export const linkTasksToSession = mutation({
+  args: {
+    taskIds: v.array(v.id("agentTasks")),
+    sessionId: v.id("sessions"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    for (const taskId of args.taskIds) {
+      await ctx.db.patch(taskId, { sessionId: args.sessionId, updatedAt: Date.now() });
+    }
+    return null;
+  },
+});
+
+export const listBySession = query({
+  args: { sessionId: v.id("sessions") },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    return await ctx.db
+      .query("agentTasks")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
   },
 });

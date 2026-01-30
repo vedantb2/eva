@@ -34,6 +34,9 @@ import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@/lib/dates";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import Link from "next/link";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -64,6 +67,11 @@ export function TaskDetailModal({
   const generateUploadUrl = useMutation(api.taskProof.generateUploadUrl);
   const saveProof = useMutation(api.taskProof.save);
   const removeProof = useMutation(api.taskProof.remove);
+  const { fullName } = useRepo();
+  const linkedSession = useQuery(
+    api.sessions.get,
+    task?.sessionId ? { id: task.sessionId } : "skip",
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -263,6 +271,21 @@ export function TaskDetailModal({
                       </div>
                     );
                   })()}
+
+                {linkedSession && (
+                  <div>
+                    <h4 className="text-sm font-medium text-default-700 mb-2">
+                      Linked Session
+                    </h4>
+                    <Link
+                      href={`/${encodeRepoSlug(fullName)}/sessions/${linkedSession._id}`}
+                      className="flex items-center gap-2 text-sm text-primary-500 hover:underline"
+                    >
+                      <IconTerminal2 size={16} />
+                      {linkedSession.title}
+                    </Link>
+                  </div>
+                )}
 
                 {latestPrUrl && (
                   <div>

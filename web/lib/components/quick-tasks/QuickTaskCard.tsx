@@ -35,6 +35,7 @@ interface QuickTaskCardProps {
   createdBy?: Id<"users">;
   branchName?: string;
   onClick?: () => void;
+  isSelected?: boolean;
 }
 
 export function QuickTaskCard({
@@ -46,6 +47,7 @@ export function QuickTaskCard({
   createdBy,
   branchName,
   onClick,
+  isSelected,
 }: QuickTaskCardProps) {
   const { fullName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
@@ -58,7 +60,7 @@ export function QuickTaskCard({
       onPress={onClick}
       shadow="none"
       radius="sm"
-      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""}`}
+      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
     >
       <CardBody className="p-3 gap-2">
         <div className="flex items-center justify-between gap-2">

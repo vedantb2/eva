@@ -19,22 +19,39 @@ import {
   useDisclosure,
 } from "@heroui/modal";
 import { IconPlayerPlay } from "@tabler/icons-react";
+import { SendToSessionModal } from "./SendToSessionModal";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
 
 interface QuickTasksKanbanBoardProps {
   repoId: Id<"githubRepos">;
+  selectionMode: boolean;
+  onExitSelection: () => void;
 }
 
-export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
+export function QuickTasksKanbanBoard({ repoId, selectionMode, onExitSelection }: QuickTasksKanbanBoardProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<Id<"agentTasks">>>(new Set());
+  const [showSendModal, setShowSendModal] = useState(false);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+  const toggleTaskSelection = (taskId: Id<"agentTasks">) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
 
   const tasks = (allTasks?.filter((t) => !t.projectId) ?? []).sort(
     (a, b) => b.updatedAt - a.updatedAt,
@@ -97,7 +114,13 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
       <KanbanBoard
         items={tasks}
         onStatusChange={handleStatusChange}
-        onItemClick={(task) => setSelectedTaskId(task._id)}
+        onItemClick={(task) => {
+          if (selectionMode) {
+            toggleTaskSelection(task._id);
+          } else {
+            setSelectedTaskId(task._id);
+          }
+        }}
         fillHeight
         columnExtra={(status) =>
           status === "todo" && todoTasks.length > 0 ? (
@@ -121,6 +144,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            isSelected={selectedTaskIds.has(task._id)}
           />
         )}
         renderOverlay={(task) => (
@@ -189,6 +213,35 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
           taskId={selectedTaskId}
         />
       )}
+      {selectionMode && selectedTaskIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-default-100 border border-default-300 rounded-xl px-4 py-3 shadow-lg">
+          <span className="text-sm font-medium">{selectedTaskIds.size} selected</span>
+          <Button size="sm" color="primary" onPress={() => setShowSendModal(true)}>
+            Send to Session
+          </Button>
+          <Button
+            size="sm"
+            variant="flat"
+            onPress={() => {
+              setSelectedTaskIds(new Set());
+              onExitSelection();
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+      <SendToSessionModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        taskIds={Array.from(selectedTaskIds)}
+        repoId={repoId}
+        onDone={() => {
+          setSelectedTaskIds(new Set());
+          setShowSendModal(false);
+          onExitSelection();
+        }}
+      />
     </>
   );
 }

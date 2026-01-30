@@ -133,6 +133,11 @@ export interface StoredPin {
   type?: "element" | "text";
   selectedText?: string;
   ancestorSelector?: string;
+  relativeX?: number;
+  relativeY?: number;
+  tagName?: string;
+  textContent?: string;
+  dataTestId?: string;
 }
 
 export interface AnnotationsLoadedMessage {

@@ -68,6 +68,7 @@ export const create = mutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
+    taskIds: v.optional(v.array(v.id("agentTasks"))),
   },
   returns: v.id("sessions"),
   handler: async (ctx, args) => {
@@ -75,7 +76,7 @@ export const create = mutation({
     if (!userId) {
       throw new Error("Not authenticated");
     }
-    return await ctx.db.insert("sessions", {
+    const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId,
       title: args.title,
@@ -83,6 +84,12 @@ export const create = mutation({
       messages: [],
       createdBy: userId,
     });
+    if (args.taskIds) {
+      for (const taskId of args.taskIds) {
+        await ctx.db.patch(taskId, { sessionId, updatedAt: Date.now() });
+      }
+    }
+    return sessionId;
   },
 });
 

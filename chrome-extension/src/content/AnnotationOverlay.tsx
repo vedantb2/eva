@@ -55,6 +55,7 @@ interface PinData {
   saved: boolean;
   type: "element" | "text";
   selectedText?: string;
+  stale?: boolean;
 }
 
 function isDark() {
@@ -99,6 +100,37 @@ function captureContext(element: HTMLElement): ExtractedContext {
       reactVersion: hasReact ? detectReactVersion() : "N/A",
     },
   };
+}
+
+function resolveElement(pin: StoredPin): HTMLElement | null {
+  const selectorForElement = pin.type === "text" ? pin.ancestorSelector : pin.selector;
+  if (pin.dataTestId) {
+    try {
+      const el = document.querySelector(`[data-testid="${CSS.escape(pin.dataTestId)}"]`);
+      if (el instanceof HTMLElement) return el;
+    } catch {}
+  }
+  if (selectorForElement) {
+    try {
+      const el = document.querySelector(selectorForElement);
+      if (el instanceof HTMLElement) {
+        if (pin.tagName && el.tagName.toLowerCase() !== pin.tagName) return null;
+        return el;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function computeAbsolutePosition(pin: StoredPin, el: HTMLElement): { x: number; y: number } {
+  if (pin.relativeX !== undefined && pin.relativeY !== undefined) {
+    const rect = el.getBoundingClientRect();
+    return {
+      x: rect.left + window.scrollX + pin.relativeX * rect.width,
+      y: rect.top + window.scrollY + pin.relativeY * rect.height,
+    };
+  }
+  return { x: pin.x, y: pin.y };
 }
 
 const FONT = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -171,7 +203,7 @@ function PinComponent({ id, data, onDragEnd, onClick, onHover, onLeave }: PinCom
 
   return (
     <div
-      className="absolute flex items-center justify-center rounded-full bg-teal-500 text-white font-semibold border-2 border-white cursor-pointer select-none"
+      className={`absolute flex items-center justify-center rounded-full text-white font-semibold border-2 border-white cursor-pointer select-none ${data.stale ? "bg-amber-500" : "bg-teal-500"}`}
       style={{
         left: x - 12,
         top: y - 12,
@@ -486,29 +518,29 @@ export function AnnotationOverlay() {
     pinTextRef.current.clear();
     let maxNum = 0;
     for (const [id, data] of Object.entries(ext.remotePins)) {
+      if (data.number > maxNum) maxNum = data.number;
+      if (data.selectedText) {
+        pinTextRef.current.set(id, data.selectedText);
+      }
+      const el = resolveElement(data);
+      const pos = el ? computeAbsolutePosition(data, el) : { x: data.x, y: data.y };
       newPins.set(id, {
-        x: data.x,
-        y: data.y,
+        x: pos.x,
+        y: pos.y,
         text: data.text,
         number: data.number,
         saved: true,
         type: data.type || "element",
         selectedText: data.selectedText,
+        stale: !el,
       });
-      if (data.number > maxNum) maxNum = data.number;
-      if (data.selectedText) {
-        pinTextRef.current.set(id, data.selectedText);
-      }
       const selectorForElement = data.type === "text" ? data.ancestorSelector : data.selector;
       if (selectorForElement) {
         pinSelectorsRef.current.set(id, selectorForElement);
-        try {
-          const el = document.querySelector(selectorForElement);
-          if (el instanceof HTMLElement) {
-            pinElementsRef.current.set(id, el);
-            pinContextsRef.current.set(id, captureContext(el));
-          }
-        } catch {}
+      }
+      if (el) {
+        pinElementsRef.current.set(id, el);
+        pinContextsRef.current.set(id, captureContext(el));
       }
     }
     pinCounterRef.current = maxNum;
@@ -523,7 +555,8 @@ export function AnnotationOverlay() {
       const stored: Record<string, StoredPin> = {};
       for (const [id, pin] of currentPins) {
         if (!pin.saved) continue;
-        stored[id] = {
+        const el = pinElementsRef.current.get(id);
+        const entry: StoredPin = {
           x: pin.x,
           y: pin.y,
           text: pin.text,
@@ -533,6 +566,17 @@ export function AnnotationOverlay() {
           selectedText: pin.type === "text" ? pinTextRef.current.get(id) : undefined,
           ancestorSelector: pin.type === "text" ? pinSelectorsRef.current.get(id) : undefined,
         };
+        if (el && el.isConnected) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            entry.relativeX = (pin.x - (rect.left + window.scrollX)) / rect.width;
+            entry.relativeY = (pin.y - (rect.top + window.scrollY)) / rect.height;
+          }
+          entry.tagName = el.tagName.toLowerCase();
+          entry.textContent = (el.textContent || "").trim().slice(0, 100);
+          if (el.dataset.testid) entry.dataTestId = el.dataset.testid;
+        }
+        stored[id] = entry;
       }
       chrome.runtime.sendMessage({
         type: "ANNOTATIONS_CHANGED",
@@ -921,6 +965,11 @@ export function AnnotationOverlay() {
             boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
           }}
         >
+          {tooltipPin.stale && (
+            <div className="text-amber-500 font-medium mb-1" style={{ fontSize: 11 }}>
+              Element may have changed or been removed
+            </div>
+          )}
           {tooltipPin.text}
         </div>
       )}

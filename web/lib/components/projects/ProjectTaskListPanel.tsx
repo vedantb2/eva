@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
+import type { FunctionReturnType } from "convex/server";
 import { useState, useMemo } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { ProjectTaskCard } from "./ProjectTaskCard";
@@ -15,17 +16,8 @@ import {
   IconCircleCheck,
 } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
-
-interface Task {
-  _id: Id<"agentTasks">;
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  taskNumber?: number;
-  order: number;
-  createdBy?: Id<"users">;
-}
+type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
+type TaskStatus = Task["status"];
 
 const STATUS_CONFIG: Record<
   TaskStatus,
@@ -72,7 +64,7 @@ interface ProjectTaskListPanelProps {
 
 export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
 
   const groupedTasks = useMemo(() => {
     if (!tasks) return null;
@@ -141,7 +133,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                     description={task.description}
                     status={task.status}
                     createdBy={task.createdBy}
-                    onClick={() => setSelectedTask(task)}
+                    onClick={() => setSelectedTaskId(task._id)}
                   />
                 ))
               )}
@@ -149,16 +141,11 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
           );
         })}
       </Accordion>
-      {selectedTask && (
+      {selectedTaskId && (
         <TaskDetailModal
-          isOpen={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          taskId={selectedTask._id}
-          taskNumber={selectedTask.taskNumber}
-          title={selectedTask.title}
-          description={selectedTask.description}
-          status={selectedTask.status}
-          createdBy={selectedTask.createdBy}
+          isOpen={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          taskId={selectedTaskId}
         />
       )}
     </div>

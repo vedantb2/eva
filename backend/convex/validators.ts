@@ -80,3 +80,5 @@ export const notificationTypeValidator = v.union(
   v.literal("task_complete"),
   v.literal("system")
 );
+
+export const roleUserValidator = v.union(v.literal("business"), v.literal("dev"));

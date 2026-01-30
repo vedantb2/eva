@@ -20,6 +20,7 @@ const agentTaskValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
+  assignedTo: v.optional(v.id("users")),
 });
 
 export const listByBoard = query({
@@ -156,6 +157,7 @@ export const update = mutation({
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
+    assignedTo: v.optional(v.id("users")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -177,6 +179,7 @@ export const update = mutation({
     if (args.repoId !== undefined) updates.repoId = args.repoId;
     if (args.projectId !== undefined) updates.projectId = args.projectId;
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
+    if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
     await ctx.db.patch(args.id, updates);
     return null;
   },
@@ -445,6 +448,7 @@ export const createQuickTask = mutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     description: v.optional(v.string()),
+    assignedTo: v.optional(v.id("users")),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -508,6 +512,7 @@ export const createQuickTask = mutation({
       createdAt: now,
       updatedAt: now,
       createdBy: userId ?? undefined,
+      assignedTo: args.assignedTo,
     });
   },
 });

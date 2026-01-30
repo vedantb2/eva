@@ -14,6 +14,7 @@ import {
   requirementMetValidator,
   requirementNotMetValidator,
   notificationTypeValidator,
+  roleUserValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -24,6 +25,7 @@ const schema = defineSchema({
     lastName: v.optional(v.string()),
     fullName: v.optional(v.string()),
     isAdmin: v.optional(v.boolean()),
+    role: v.optional(roleUserValidator),
     theme: v.optional(themeValidator),
     lastSeenAt: v.optional(v.number()),
   })
@@ -95,6 +97,7 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
+    assignedTo: v.optional(v.id("users")),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])

@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
+import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
@@ -19,18 +20,8 @@ import {
 } from "@heroui/modal";
 import { IconPlayerPlay } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
-
-interface Task {
-  _id: Id<"agentTasks">;
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  order: number;
-  createdBy?: Id<"users">;
-  branchName?: string;
-  updatedAt: number;
-}
+type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
+type TaskStatus = Task["status"];
 
 interface QuickTasksKanbanBoardProps {
   repoId: Id<"githubRepos">;
@@ -41,7 +32,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
@@ -106,7 +97,7 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
       <KanbanBoard
         items={tasks}
         onStatusChange={handleStatusChange}
-        onItemClick={setSelectedTask}
+        onItemClick={(task) => setSelectedTaskId(task._id)}
         fillHeight
         columnExtra={(status) =>
           status === "todo" && todoTasks.length > 0 ? (
@@ -130,7 +121,6 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
-            branchName={task.branchName}
           />
         )}
         renderOverlay={(task) => (
@@ -192,15 +182,11 @@ export function QuickTasksKanbanBoard({ repoId }: QuickTasksKanbanBoardProps) {
           )}
         </ModalContent>
       </Modal>
-      {selectedTask && (
+      {selectedTaskId && (
         <TaskDetailModal
-          isOpen={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          taskId={selectedTask._id}
-          title={selectedTask.title}
-          description={selectedTask.description}
-          status={selectedTask.status}
-          createdBy={selectedTask.createdBy}
+          isOpen={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          taskId={selectedTaskId}
         />
       )}
     </>

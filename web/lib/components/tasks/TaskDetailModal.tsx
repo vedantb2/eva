@@ -9,6 +9,7 @@ import {
 } from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
+import { Select, SelectItem } from "@heroui/select";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -34,40 +35,26 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@/lib/dates";
 
-type TaskStatus =
-  | "todo"
-  | "in_progress"
-  | "business_review"
-  | "code_review"
-  | "done";
-
 interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   taskId: Id<"agentTasks">;
-  taskNumber?: number;
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  createdBy?: Id<"users">;
 }
 
 export function TaskDetailModal({
   isOpen,
   onClose,
   taskId,
-  taskNumber,
-  title,
-  description,
-  status,
-  createdBy,
 }: TaskDetailModalProps) {
+  const task = useQuery(api.agentTasks.get, { id: taskId });
   const currentUserId = useQuery(api.auth.me);
-  const isOwner = currentUserId === createdBy;
+  const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
+  const users = useQuery(api.users.listAll);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const updateTask = useMutation(api.agentTasks.update);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
   const comments = useQuery(api.taskComments.listByTask, { taskId });
   const createComment = useMutation(api.taskComments.create);
@@ -127,6 +114,7 @@ export function TaskDetailModal({
   );
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const status = task?.status;
   const showProofSection = status !== "todo" && status !== "in_progress";
 
   const handleStartExecution = async () => {
@@ -181,15 +169,15 @@ export function TaskDetailModal({
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              {taskNumber && (
+              {task?.taskNumber && (
                 <span className="text-default-400 font-mono">
-                  #{taskNumber}
+                  #{task.taskNumber}
                 </span>
               )}
-              <span>{title}</span>
+              <span>{task?.title}</span>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <TaskStatusBadge status={status} />
+              {status && <TaskStatusBadge status={status} />}
               {isBlocked && (
                 <Chip size="sm" color="warning" variant="flat">
                   Blocked
@@ -202,16 +190,37 @@ export function TaskDetailModal({
               className={`grid gap-6 ${showChangesPanel ? "grid-cols-[1fr_1fr] min-h-[400px]" : "grid-cols-1"}`}
             >
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
-                {description &&
+                <Select
+                  label="Assigned To"
+                  placeholder="Unassigned"
+                  selectedKeys={task?.assignedTo ? [task.assignedTo] : []}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0];
+                    const user = users?.find((u) => u._id === String(selected));
+                    updateTask({ id: taskId, assignedTo: user?._id });
+                  }}
+                  size="sm"
+                >
+                  {(users ?? []).map((user) => (
+                    <SelectItem key={user._id}>
+                      {user.fullName ||
+                        [user.firstName, user.lastName]
+                          .filter(Boolean)
+                          .join(" ") ||
+                        "Unnamed User"}
+                    </SelectItem>
+                  ))}
+                </Select>
+                {task?.description &&
                   (() => {
-                    const separatorIndex = description.indexOf("---");
+                    const separatorIndex = task.description.indexOf("---");
                     const mainDesc =
                       separatorIndex !== -1
-                        ? description.slice(0, separatorIndex).trimEnd()
-                        : description;
+                        ? task.description.slice(0, separatorIndex).trimEnd()
+                        : task.description;
                     const elementDetails =
                       separatorIndex !== -1
-                        ? description.slice(separatorIndex + 3).trimStart()
+                        ? task.description.slice(separatorIndex + 3).trimStart()
                         : null;
                     return (
                       <div>
@@ -606,8 +615,8 @@ export function TaskDetailModal({
             <p className="text-default-600">
               Are you sure you want to delete{" "}
               <strong>
-                {taskNumber ? `#${taskNumber} ` : ""}
-                {title}
+                {task?.taskNumber ? `#${task.taskNumber} ` : ""}
+                {task?.title}
               </strong>
               ?
             </p>

@@ -10,7 +10,8 @@ import {
 } from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input, Textarea } from "@heroui/input";
-import { useMutation } from "convex/react";
+import { Select, SelectItem } from "@heroui/select";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -23,8 +24,10 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   const { repo } = useRepo();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [assignedToKey, setAssignedToKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const users = useQuery(api.users.listAll);
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
 
   const handleSubmit = async () => {
@@ -32,13 +35,16 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
 
     setIsLoading(true);
     try {
+      const assignedUser = users?.find((u) => u._id === assignedToKey);
       await createQuickTask({
         repoId: repo._id,
         title: title.trim(),
         description: description.trim() || undefined,
+        assignedTo: assignedUser?._id,
       });
       setTitle("");
       setDescription("");
+      setAssignedToKey("");
       onClose();
     } finally {
       setIsLoading(false);
@@ -65,6 +71,21 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               onValueChange={setDescription}
               minRows={3}
             />
+            <Select
+              label="Assign To"
+              placeholder="Select a user (optional)"
+              selectedKeys={assignedToKey ? [assignedToKey] : []}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0];
+                setAssignedToKey(selected ? String(selected) : "");
+              }}
+            >
+              {(users ?? []).map((user) => (
+                <SelectItem key={user._id}>
+                  {user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed User"}
+                </SelectItem>
+              ))}
+            </Select>
           </div>
         </ModalBody>
         <ModalFooter>

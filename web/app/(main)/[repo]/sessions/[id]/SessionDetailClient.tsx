@@ -61,6 +61,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           sessionId={sessionId}
           sandboxId={session.sandboxId}
           isActive={isSandboxActive}
+          fileDiffs={session.fileDiffs}
         />
       </div>
       <div className="w-2/5">

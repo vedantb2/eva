@@ -3,7 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
+import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, installClaudeCode, captureGitDiff } from "../sandbox-helpers";
 
 export const executeSessionTask = inngest.createFunction(
   {
@@ -88,6 +88,14 @@ export const executeSessionTask = inngest.createFunction(
 
       await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
 
+      const headResult = await sandbox.process.executeCommand(
+        "cd ~/workspace && git rev-parse HEAD",
+        "/",
+        undefined,
+        10
+      );
+      const beforeHead = (headResult.result || "").trim();
+
       const commitMessage = messageContent.slice(0, 50).replace(/"/g, '\\"');
       const prompt = `You are working on an ongoing session. The user has requested the following task:
 
@@ -117,7 +125,23 @@ ${messageContent}
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
       });
 
-      return { summary: claudeResult.result || "Task completed successfully." };
+      return {
+        summary: claudeResult.result || "Task completed successfully.",
+        beforeHead,
+        sandboxId: sandboxData.sandboxId,
+      };
+    });
+
+    await step.run("save-diffs", async () => {
+      if (!result.beforeHead) return;
+      const sandbox = await getSandbox(result.sandboxId);
+      const diffs = await captureGitDiff(sandbox, result.beforeHead);
+      if (diffs.length > 0) {
+        await convex.mutation(api.sessions.updateFileDiffs, {
+          id: sessionId as Id<"sessions">,
+          fileDiffs: diffs,
+        });
+      }
     });
 
     await step.run("update-session", async () => {

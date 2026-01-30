@@ -2,20 +2,27 @@
 
 import { useState } from "react";
 import { Tabs, Tab } from "@heroui/tabs";
-import { IconTerminal2, IconWorld } from "@tabler/icons-react";
+import { IconTerminal2, IconWorld, IconGitBranch } from "@tabler/icons-react";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@/api";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
+import { DiffPanel } from "./DiffPanel";
+
+type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 
 interface SandboxPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
+  fileDiffs: Session["fileDiffs"];
 }
 
 export function SandboxPanel({
   sessionId,
   sandboxId,
   isActive,
+  fileDiffs,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("preview");
 
@@ -47,6 +54,15 @@ export function SandboxPanel({
               </div>
             }
           />
+          <Tab
+            key="diffs"
+            title={
+              <div className="flex items-center gap-1.5">
+                <IconGitBranch className="w-4 h-4" />
+                <span>Diffs</span>
+              </div>
+            }
+          />
         </Tabs>
       </div>
       <div className="flex-1 overflow-hidden relative">
@@ -63,6 +79,9 @@ export function SandboxPanel({
             sandboxId={sandboxId}
             isActive={isActive}
           />
+        </div>
+        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
+          <DiffPanel fileDiffs={fileDiffs} />
         </div>
       </div>
     </div>

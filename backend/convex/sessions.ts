@@ -10,6 +10,12 @@ const messageValidator = v.object({
   mode: v.optional(sessionModeValidator),
 });
 
+const fileDiffValidator = v.object({
+  file: v.string(),
+  status: v.string(),
+  diff: v.string(),
+});
+
 const sessionValidator = v.object({
   _id: v.id("sessions"),
   _creationTime: v.number(),
@@ -26,6 +32,7 @@ const sessionValidator = v.object({
   summary: v.optional(v.array(v.string())),
   createdBy: v.optional(v.id("users")),
   messages: v.array(messageValidator),
+  fileDiffs: v.optional(v.array(fileDiffValidator)),
 });
 
 export const list = query({
@@ -243,6 +250,23 @@ export const updatePtySession = mutation({
       ptySessionId: args.ptySessionId,
       lastActivityAt: Date.now(),
     });
+    return null;
+  },
+});
+
+export const updateFileDiffs = mutation({
+  args: {
+    id: v.id("sessions"),
+    fileDiffs: v.array(fileDiffValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    await ctx.db.patch(args.id, { fileDiffs: args.fileDiffs });
     return null;
   },
 });

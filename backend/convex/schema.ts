@@ -176,6 +176,11 @@ const schema = defineSchema({
         mode: v.optional(sessionModeValidator),
       })
     ),
+    fileDiffs: v.optional(v.array(v.object({
+      file: v.string(),
+      status: v.string(),
+      diff: v.string(),
+    }))),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

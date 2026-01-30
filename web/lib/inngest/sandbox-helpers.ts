@@ -170,6 +170,48 @@ export function extractJsonFromText(text: string): string | null {
   return JSON.stringify(json[0]);
 }
 
+interface FileDiff {
+  file: string;
+  status: string;
+  diff: string;
+}
+
+export async function captureGitDiff(
+  sandbox: Sandbox,
+  beforeHead: string,
+  workDir = "~/workspace"
+): Promise<FileDiff[]> {
+  const result = await sandbox.process.executeCommand(
+    `cd ${workDir} && git diff ${beforeHead}..HEAD`,
+    "/",
+    undefined,
+    30
+  );
+  const raw = result.result || "";
+  if (!raw.trim()) return [];
+
+  const chunks = raw.split(/(?=^diff --git )/m).filter(Boolean);
+  const MAX_TOTAL = 50_000;
+  let totalSize = 0;
+  const diffs: FileDiff[] = [];
+
+  for (const chunk of chunks) {
+    const fileMatch = chunk.match(/^diff --git a\/.+ b\/(.+)$/m);
+    if (!fileMatch) continue;
+
+    const file = fileMatch[1];
+    let status = "modified";
+    if (chunk.includes("--- /dev/null")) status = "added";
+    else if (chunk.includes("+++ /dev/null")) status = "deleted";
+
+    if (totalSize + chunk.length > MAX_TOTAL) break;
+    totalSize += chunk.length;
+    diffs.push({ file, status, diff: chunk });
+  }
+
+  return diffs;
+}
+
 export async function ensureProjectSandbox(
   projectSandboxId: string | undefined,
   githubToken: string,

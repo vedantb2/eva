@@ -56,7 +56,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
 
   return (
     <div className="flex h-full ">
-      <div className="w-3/5 shadow-small">
+      <div className="w-3/5">
         <SandboxPanel
           sessionId={sessionId}
           sandboxId={session.sandboxId}

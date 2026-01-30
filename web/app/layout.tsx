@@ -8,9 +8,9 @@ import { Analytics } from "@vercel/analytics/next";
 export const metadata: Metadata = {
   title: "Eva - Your New Coworker",
   description:
-    "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
+    "Meet Eva, your new AI coworker. Manage tasks, ship code, and track progress in real-time.",
   keywords:
-    "ai agents, llm orchestration, kanban, task automation, agent execution",
+    "ai coworker, coding assistant, task management, developer tools, code automation",
   icons: {
     icon: "/icon.png",
     apple: "/icon-192x192.png",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false,
   },
-  themeColor: "#db2777",
+  themeColor: "#0d9488",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: "Eva",
     title: "Eva",
     description:
-      "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
+      "Meet Eva, your new AI coworker. Manage tasks, ship code, and track progress in real-time.",
   },
 };
 

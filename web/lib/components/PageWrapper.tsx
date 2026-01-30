@@ -34,12 +34,13 @@ export function PageWrapper({
           <Button
             size="sm"
             isIconOnly
+            radius="full"
             variant="flat"
             onPress={onBack ?? (() => router.back())}
-            className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex-shrink-0"
+            className="flex-shrink-0"
           >
             <IconArrowLeft
-              size={20}
+              size={16}
               className="text-neutral-600 dark:text-neutral-400"
             />
           </Button>

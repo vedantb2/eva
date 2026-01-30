@@ -2,14 +2,14 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Eva - Kanban for AI Agents",
+    name: "Eva - Your New Coworker",
     short_name: "Eva",
     description:
-      "Orchestrate AI agents with a Kanban-style interface. Manage tasks, trigger agent runs, and track execution in real-time.",
+      "Meet Eva, your new AI coworker. Manage tasks, ship code, and track progress in real-time.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#db2777",
+    theme_color: "#0d9488",
     orientation: "portrait",
     scope: "/",
     icons: [

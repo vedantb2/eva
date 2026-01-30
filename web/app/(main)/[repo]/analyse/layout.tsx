@@ -161,10 +161,18 @@ export default function ResearchLayout({
                             >
                               {query.title}
                             </h3>
-                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                            <div
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
                               <Dropdown>
                                 <DropdownTrigger>
-                                  <button type="button" className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400">
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400"
+                                  >
                                     <IconDotsVertical size={14} />
                                   </button>
                                 </DropdownTrigger>
@@ -174,7 +182,12 @@ export default function ResearchLayout({
                                     className="text-danger"
                                     color="danger"
                                     startContent={<IconTrash size={16} />}
-                                    onPress={() => setQueryToDelete({ id: query._id, title: query.title })}
+                                    onPress={() =>
+                                      setQueryToDelete({
+                                        id: query._id,
+                                        title: query.title,
+                                      })
+                                    }
                                   >
                                     Delete
                                   </DropdownItem>
@@ -183,8 +196,12 @@ export default function ResearchLayout({
                             </div>
                           </div>
                           <div className="mt-2 flex items-center">
-                            {query.createdBy && <UserInitials userId={query.createdBy} />}
-                            <span className="text-xs text-neutral-500 ml-auto">{dayjs(query._creationTime).fromNow()}</span>
+                            {query.createdBy && (
+                              <UserInitials userId={query.createdBy} />
+                            )}
+                            <span className="text-xs text-neutral-500 ml-auto">
+                              {dayjs(query._creationTime).fromNow()}
+                            </span>
                           </div>
                         </Link>
                       </div>
@@ -199,17 +216,6 @@ export default function ResearchLayout({
               </p>
               <div>
                 <Link
-                  href={baseUrl + "/files"}
-                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                    isFilesPage
-                      ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                  }`}
-                >
-                  <IconFolder size={14} />
-                  <span className="text-sm font-medium">Browse Files</span>
-                </Link>
-                <Link
                   href={baseUrl + "/saved-queries"}
                   className={`flex items-center gap-3 px-4 py-3 transition-colors ${
                     isSavedQueriesPage
@@ -218,7 +224,7 @@ export default function ResearchLayout({
                   }`}
                 >
                   <IconBookmark size={14} />
-                  <span className="text-sm font-medium">Saved Queries</span>
+                  <span className="text-sm font-medium">Saved queries</span>
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
@@ -230,6 +236,17 @@ export default function ResearchLayout({
                 >
                   <IconRefresh size={14} />
                   <span className="text-sm font-medium">Routines</span>
+                </Link>
+                <Link
+                  href={baseUrl + "/files"}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    isFilesPage
+                      ? "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400"
+                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                  }`}
+                >
+                  <IconFolder size={14} />
+                  <span className="text-sm font-medium">Files</span>
                 </Link>
               </div>
             </div>

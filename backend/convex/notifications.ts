@@ -30,6 +30,18 @@ export const list = query({
   },
 });
 
+export const get = query({
+  args: { id: v.id("notifications") },
+  returns: v.union(notificationValidator, v.null()),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return null;
+    const notification = await ctx.db.get(args.id);
+    if (!notification || notification.userId !== userId) return null;
+    return notification;
+  },
+});
+
 export const countUnread = query({
   args: {},
   returns: v.number(),

@@ -5,10 +5,12 @@ import { GenericId as Id } from "convex/values";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { PlanContextPanel } from "./PlanContextPanel";
 import {
+  IconChecklist,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import { Button } from "@heroui/react";
 
@@ -63,18 +65,21 @@ export function ProjectActiveLayout({
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-neutral-800/40">
       <div
-        className={`${tasksCollapsed ? "w-10" : "w-1/4"} h-full border-r dark:border-neutral-700 flex flex-col transition-all`}
+        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r dark:border-neutral-700 flex flex-col transition-all`}
       >
-        <div className="flex items-center justify-between p-1">
+        <div className="flex items-center justify-between">
           {!tasksCollapsed && (
-            <p className="text-sm mx-auto text-teal-500 dark:text-teal-400 font-semibold">
-              Tasks
-            </p>
+            <div className="flex flex-row items-center gap-1 mx-auto text-teal-500 dark:text-teal-400">
+              <IconChecklist size={14} />
+              <p className="text-sm font-semibold">Tasks</p>
+            </div>
           )}
           <Button
             size="sm"
             isIconOnly
-            variant="flat"
+            variant="light"
+            radius="none"
+            className="text-teal-500 dark:text-teal-400"
             onPress={() => setTasksCollapsed(!tasksCollapsed)}
           >
             {tasksCollapsed ? (
@@ -104,13 +109,15 @@ export function ProjectActiveLayout({
         <p className="text-neutral-400">Sandbox (coming soon)</p>
       </div>
       <div
-        className={`${chatCollapsed ? "w-10" : "w-1/4"} h-full border-l dark:border-neutral-700 flex flex-col transition-all`}
+        className={`${chatCollapsed ? "w-8" : "w-1/4"} h-full border-l dark:border-neutral-700 flex flex-col transition-all`}
       >
-        <div className="flex items-center justify-start p-1">
+        <div className="flex items-center justify-start">
           <Button
             size="sm"
             isIconOnly
-            variant="flat"
+            radius="none"
+            variant="light"
+            className="text-teal-500 dark:text-teal-400"
             onPress={() => setChatCollapsed(!chatCollapsed)}
           >
             {chatCollapsed ? (
@@ -120,9 +127,10 @@ export function ProjectActiveLayout({
             )}
           </Button>
           {!chatCollapsed && (
-            <p className="text-sm font-semibold mx-auto text-teal-500 dark:text-teal-400">
-              Chat
-            </p>
+            <div className="flex flex-row gap-1 items-center mx-auto text-teal-500 dark:text-teal-400">
+              <IconMessageCircle size={14} />
+              <p className="text-sm font-semibold ">Chat</p>
+            </div>
           )}
         </div>
         {!chatCollapsed && (

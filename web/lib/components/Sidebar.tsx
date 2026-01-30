@@ -35,6 +35,7 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Badge,
 } from "@heroui/react";
 
 export function Sidebar() {
@@ -144,7 +145,11 @@ export function Sidebar() {
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
 
   const bottomNavigation = [
-    { name: "Notifications", href: `/${repoSlug}/notifications`, icon: IconBell },
+    {
+      name: "Notifications",
+      href: `/${repoSlug}/notifications`,
+      icon: IconBell,
+    },
     ...(repoSlug
       ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
       : []),
@@ -365,16 +370,24 @@ export function Sidebar() {
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
-                    <span className="relative flex-shrink-0">
-                      <item.icon
-                        className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
-                      />
-                      {showBadge && (
-                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-teal-600 rounded-full">
-                          {unreadCount > 99 ? "99+" : unreadCount}
+                    {showBadge ? (
+                      <Badge
+                        color="primary"
+                        content={unreadCount > 99 ? "99+" : unreadCount}
+                      >
+                        <span className="relative flex-shrink-0">
+                          <item.icon
+                            className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
+                          />
                         </span>
-                      )}
-                    </span>
+                      </Badge>
+                    ) : (
+                      <span className="relative flex-shrink-0">
+                        <item.icon
+                          className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
+                        />
+                      </span>
+                    )}
                     {!collapsed && item.name}
                   </Link>
                 );

@@ -276,6 +276,40 @@ ${prInstructions}
       }
     });
 
+    await step.run("trigger-review", async () => {
+      if (agentResult.isFirstTaskOnBranch && agentResult.prUrl && projectId) {
+        const prNumberMatch = agentResult.prUrl.match(/\/pull\/(\d+)/);
+        if (!prNumberMatch) return;
+        const prNumber = parseInt(prNumberMatch[1], 10);
+
+        const reviewId = await convex.mutation(api.codeReviews.create, {
+          repoId: repoId as Id<"githubRepos">,
+          taskId: taskId as Id<"agentTasks">,
+          runId: runId as Id<"agentRuns">,
+          projectId: projectId as Id<"projects">,
+          prUrl: agentResult.prUrl,
+          prNumber,
+        });
+
+        await inngest.send({
+          name: "pr/review.requested",
+          data: {
+            clerkToken,
+            reviewId: reviewId as string,
+            taskId,
+            runId,
+            repoId,
+            installationId,
+            projectId,
+            prUrl: agentResult.prUrl,
+            prNumber,
+            branchName: agentResult.branchName,
+            sandboxId: sandboxData.sandboxId,
+          },
+        });
+      }
+    });
+
     await step.run("complete-run", async () => {
       if (agentResult.isFirstTaskOnBranch && agentResult.prUrl && projectId) {
         await convex.mutation(api.projects.updatePrUrl, {

@@ -85,3 +85,9 @@ export const notificationTypeValidator = v.union(
 );
 
 export const roleUserValidator = v.union(v.literal("business"), v.literal("dev"));
+
+export const reviewCommentValidator = v.object({
+  path: v.string(),
+  line: v.number(),
+  body: v.string(),
+});

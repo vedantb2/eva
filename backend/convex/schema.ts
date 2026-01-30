@@ -15,6 +15,7 @@ import {
   requirementNotMetValidator,
   notificationTypeValidator,
   roleUserValidator,
+  reviewCommentValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -265,6 +266,22 @@ const schema = defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"]),
+  codeReviews: defineTable({
+    repoId: v.id("githubRepos"),
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+    projectId: v.optional(v.id("projects")),
+    prUrl: v.string(),
+    prNumber: v.number(),
+    status: evaluationStatusValidator,
+    summary: v.optional(v.string()),
+    comments: v.array(reviewCommentValidator),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_run", ["runId"])
+    .index("by_task", ["taskId"]),
 });
 
 export default schema;

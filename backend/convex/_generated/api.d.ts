@@ -15,6 +15,7 @@ import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
+import type * as codeReviews from "../codeReviews.js";
 import type * as columns from "../columns.js";
 import type * as docs from "../docs.js";
 import type * as evaluationReports from "../evaluationReports.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   annotations: typeof annotations;
   auth: typeof auth;
   boards: typeof boards;
+  codeReviews: typeof codeReviews;
   columns: typeof columns;
   docs: typeof docs;
   evaluationReports: typeof evaluationReports;

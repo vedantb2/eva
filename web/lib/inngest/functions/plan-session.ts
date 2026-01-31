@@ -3,7 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, syncRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
+import { getGitHubToken, syncRepo, setupBranch, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
 
 export const planSession = inngest.createFunction(
   {
@@ -72,7 +72,6 @@ export const planSession = inngest.createFunction(
 
       const branchName = session.branchName || `session/${sessionId}`;
       await setupBranch(sandbox, branchName);
-      await configureGit(sandbox);
 
       await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,

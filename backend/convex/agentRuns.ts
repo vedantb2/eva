@@ -263,7 +263,7 @@ export const complete = mutation({
       error: args.error,
     });
     await ctx.db.patch(task._id, {
-      status: args.success ? "code_review" : "todo",
+      status: args.success ? "business_review" : "todo",
       updatedAt: now,
     });
     const statusText = args.success ? "succeeded" : "failed";

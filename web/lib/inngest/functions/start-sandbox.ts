@@ -3,7 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox, WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, configureGit, updateRemoteUrl } from "../sandbox-helpers";
+import { getGitHubToken, updateRemoteUrl } from "../sandbox-helpers";
 
 export const startSandbox = inngest.createFunction(
   {
@@ -47,7 +47,6 @@ export const startSandbox = inngest.createFunction(
 
       const branchName = session.branchName || "main";
       const sandbox = await createSandbox(freshToken);
-      await configureGit(sandbox);
       await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
       await sandbox.process.executeCommand(
         `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${branchName} && pnpm install`,

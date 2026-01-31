@@ -4,7 +4,7 @@ import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
 import { createSandbox, WORKSPACE_DIR } from "../sandbox";
-import { configureGit, getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
+import { getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
 
 export const executeResearchQuery = inngest.createFunction(
   {
@@ -49,7 +49,6 @@ export const executeResearchQuery = inngest.createFunction(
       });
 
       try {
-        await configureGit(sandbox);
         await syncRepo(sandbox, githubToken, repo.owner, repo.name);
         await sandbox.process.executeCommand(
           "npm install -g convex",

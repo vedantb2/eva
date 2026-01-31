@@ -2,15 +2,14 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, configureGit, syncRepo, runClaudeCLI } from "../sandbox-helpers";
-
-interface AgentOutput {
-  success: boolean;
-  prUrl?: string;
-  error?: string;
-  completedSubtasks?: number[];
-}
+import { getSandbox, WORKSPACE_DIR } from "../sandbox";
+import {
+  getGitHubToken,
+  syncRepo,
+  setupBranch,
+  ensureProjectSandbox,
+  runClaudeCLI,
+} from "../sandbox-helpers";
 
 export const executeTask = inngest.createFunction(
   {
@@ -31,19 +30,40 @@ export const executeTask = inngest.createFunction(
   },
   { event: "task/execute.requested" },
   async ({ event, step }) => {
-    const { clerkToken, runId, taskId, repoId, installationId, projectId, branchName, isFirstTaskOnBranch } = event.data;
+    const {
+      clerkToken,
+      runId,
+      taskId,
+      repoId,
+      installationId,
+      projectId,
+      branchName,
+      isFirstTaskOnBranch,
+    } = event.data;
     const convex = createConvex(clerkToken);
 
-    const { task, repo, project, subtasks } = await step.run("fetch-task-data", async () => {
-      const taskData = await convex.query(api.agentTasks.get, { id: taskId });
-      const repoData = await convex.query(api.githubRepos.get, { id: repoId });
-      if (!taskData || !repoData) {
-        throw new Error("Task or repo not found");
-      }
-      const projectData = projectId ? await convex.query(api.projects.get, { id: projectId }) : null;
-      const subtaskData = await convex.query(api.subtasks.listByTask, { parentTaskId: taskId });
-      return { task: taskData, repo: repoData, project: projectData, subtasks: subtaskData };
-    });
+    const { task, repo, project, subtasks } = await step.run(
+      "fetch-task-data",
+      async () => {
+        const taskData = await convex.query(api.agentTasks.get, { id: taskId });
+        const repoData = await convex.query(api.githubRepos.get, {
+          id: repoId,
+        });
+        if (!taskData || !repoData) throw new Error("Task or repo not found");
+        const projectData = projectId
+          ? await convex.query(api.projects.get, { id: projectId })
+          : null;
+        const subtaskData = await convex.query(api.subtasks.listByTask, {
+          parentTaskId: taskId,
+        });
+        return {
+          task: taskData,
+          repo: repoData,
+          project: projectData,
+          subtasks: subtaskData,
+        };
+      },
+    );
 
     await step.run("update-status-running", async () => {
       await convex.mutation(api.agentRuns.updateStatus, {
@@ -53,231 +73,115 @@ export const executeTask = inngest.createFunction(
     });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
-      const freshToken = await getGitHubToken(installationId);
-      const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      const taskBranchName = branchName || `eva/task-${task.taskNumber || Date.now()}`;
+      const githubToken = await getGitHubToken(installationId);
+      const taskBranchName =
+        branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
-      if (project?.sandboxId) {
-        const alive = await isSandboxAlive(project.sandboxId);
-        if (alive) {
-          await convex.mutation(api.agentRuns.appendLog, {
-            id: runId as Id<"agentRuns">,
-            level: "info",
-            message: `Reusing existing sandbox: ${project.sandboxId}`,
-          });
+      const sandbox = await ensureProjectSandbox(
+        project?.sandboxId,
+        githubToken,
+        repo.owner,
+        repo.name,
+        async (sandboxId) => {
+          if (projectId) {
+            await convex.mutation(api.projects.updateProjectSandbox, {
+              id: projectId as Id<"projects">,
+              sandboxId,
+            });
+          }
+        },
+      );
 
-          const sandbox = await getSandbox(project.sandboxId);
-          await sandbox.process.executeCommand(
-            `cd ${WORKSPACE_DIR} && git fetch origin && git pull origin ${taskBranchName}`,
-            "/",
-            undefined,
-            60
-          );
-
-          await convex.mutation(api.projects.updateLastSandboxActivity, {
-            id: projectId as Id<"projects">,
-          });
-
-          return { sandboxId: project.sandboxId, branchName: taskBranchName, isFirstTaskOnBranch, reused: true };
-        }
-      }
-
-      const sandbox = await createSandbox(freshToken);
-      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
-      await configureGit(sandbox);
-
-      if (isFirstTaskOnBranch) {
-        await sandbox.process.executeCommand(`cd ${WORKSPACE_DIR} && git checkout -b ${taskBranchName}`, "/", undefined, 30);
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Created branch: ${taskBranchName}`,
-        });
-      } else {
-        await sandbox.process.executeCommand(
-          `cd ${WORKSPACE_DIR} && git fetch origin && git checkout ${taskBranchName} && git pull origin ${taskBranchName}`,
-          "/",
-          undefined,
-          30
-        );
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Checked out existing branch: ${taskBranchName}`,
-        });
-      }
+      await syncRepo(sandbox, githubToken, repo.owner, repo.name);
+      await setupBranch(sandbox, taskBranchName);
 
       if (projectId) {
-        await convex.mutation(api.projects.updateProjectSandbox, {
+        await convex.mutation(api.projects.updateLastSandboxActivity, {
           id: projectId as Id<"projects">,
-          sandboxId: sandbox.id,
         });
       }
 
-      return { sandboxId: sandbox.id, branchName: taskBranchName, isFirstTaskOnBranch, reused: false };
+      return { sandboxId: sandbox.id, branchName: taskBranchName };
     });
 
-    const agentResult = await step.run("run-autonomous-agent", async () => {
+    await step.run("run-agent", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      await convex.mutation(api.agentRuns.appendLog, {
-        id: runId as Id<"agentRuns">,
-        level: "info",
-        message: "AI agent executing task...",
-      });
+      const subtasksList =
+        subtasks.length > 0
+          ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
+          : "";
 
-      const subtasksList = subtasks.length > 0
-        ? `\n## Subtasks (mark completed indices in your output):\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
-        : "";
-
-      const prInstructions = sandboxData.isFirstTaskOnBranch
-        ? `6. Run this curl command to create a PR:
-   curl -X POST "https://api.github.com/repos/${repo.owner}/${repo.name}/pulls" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -d '{"title":"${task.title.replace(/'/g, "\\'")}","body":"## Task\\n${(task.description || "No description").replace(/\n/g, "\\n").replace(/'/g, "\\'")}\\n\\n---\\n*Implemented by Eva AI Agent*","head":"${sandboxData.branchName}","base":"main"}'
-7. Extract the "html_url" from the curl response - that is the PR URL
-8. Output ONLY this JSON at the very end: {"success": true, "prUrl": "<PR_URL>", "completedSubtasks": [<indices of completed subtasks>]}`
-        : `6. Output ONLY this JSON at the very end: {"success": true, "completedSubtasks": [<indices of completed subtasks>]}`;
-
-      const prompt = `IMPORTANT: You are in IMPLEMENTATION MODE, not planning mode. Do NOT create plan files or markdown documentation. DIRECTLY edit the actual source code files. Spend some time thinking about the changes you need to make before you start so you don't make mistakes.
+      const prompt = `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
 ## Task: ${task.title}
-## Task Number: ${task.taskNumber || 1}
-
 ## Description: ${task.description || "No description provided"}
 ${subtasksList}
 
-## Repository: ${repo.owner}/${repo.name}
-## Branch: ${sandboxData.branchName}
-
-## Required Steps (execute ALL of these):
-1. Read the CLAUDE.md file to understand the codebase - use Glob and Read tools to explore the codebase and find relevant files if CLAUDE.md is not available
-2. Use Edit or Write tools to DIRECTLY modify the actual source code files (NOT create .md files)
-3. Update the CLAUDE.md file to reflect any major changes you made to the codebase
+## Steps:
+1. Read CLAUDE.md to understand the codebase
+2. Implement the changes by editing source code files
+3. Update CLAUDE.md if you made major changes
 4. Run: git add -A && git commit -m "feat(task-${task.taskNumber || 1}): ${task.title}"
 5. Run: git push -u origin ${sandboxData.branchName}
-${prInstructions}
 
-## CRITICAL RULES:
-- Do NOT create any .md files or plan files
-- Do NOT run any build, lint, test, or dev commands
-- Do NOT ask questions - make reasonable assumptions and implement
-- DIRECTLY edit source code files (.ts, .js, .py, .tsx, .jsx, etc.)
-- Do NOT default to npm. Use the repository's lockfile (pnpm-lock.yaml, yarn.lock, package-lock.json, or bun.lockb) to determine the correct package manager
-- Make minimal, focused changes to existing files
-- The GITHUB_TOKEN environment variable is already set for git push and curl
-- Include completedSubtasks in your final JSON output with the indices of subtasks you completed`;
+## Rules:
+- Do NOT create .md plan files
+- Do NOT run build, lint, test, or dev commands
+- Use the lockfile to determine the package manager
+- GITHUB_TOKEN is already set for git push`;
 
-      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+      const result = await runClaudeCLI(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
-        timeout: 0,
-        preCommand: "npx -y npm@11.7.0 install",
+        timeout: 600,
       });
 
-      let agentOutput: AgentOutput = {
-        success: false,
-        error: sandboxData.isFirstTaskOnBranch ? "No PR URL found" : "Task failed",
-      };
-
-      const resultText = claudeResult.result;
-
-      if (claudeResult.isError) {
-        agentOutput.error = resultText || "Claude returned an error";
-      } else if (sandboxData.isFirstTaskOnBranch) {
-        const prUrlMatch = resultText.match(/"?prUrl"?\s*:\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/);
-        if (prUrlMatch) {
-          agentOutput = { success: true, prUrl: prUrlMatch[1] };
-        } else {
-          const htmlUrlMatch = resultText.match(/"html_url":\s*"(https:\/\/github\.com\/[^"]+\/pull\/\d+)"/);
-          if (htmlUrlMatch) {
-            agentOutput = { success: true, prUrl: htmlUrlMatch[1] };
-          }
-        }
-      } else {
-        const successMatch = resultText.match(/"success"\s*:\s*true/);
-        if (successMatch) {
-          agentOutput = { success: true };
-        }
-      }
-
-      const completedMatch = resultText.match(/"completedSubtasks"\s*:\s*\[([^\]]*)\]/);
-      if (completedMatch && completedMatch[1]) {
-        const indices = completedMatch[1].split(",").map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n));
-        agentOutput.completedSubtasks = indices;
-      }
-
-      if (!agentOutput.success) {
-        const truncatedOutput = resultText.slice(-1500);
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "error",
-          message: `Agent output: ${truncatedOutput}`,
-        });
-        throw new Error(`Agent failed: ${agentOutput.error} | Output: ${truncatedOutput.slice(0, 500)}`);
-      }
-
-      if (sandboxData.isFirstTaskOnBranch && !agentOutput.prUrl) {
-        const truncatedOutput = resultText.slice(-1500);
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "error",
-          message: `Agent output: ${truncatedOutput}`,
-        });
-        throw new Error(`Agent failed: No PR URL found | Output: ${truncatedOutput.slice(0, 500)}`);
-      }
-
-      if (sandboxData.isFirstTaskOnBranch) {
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `PR created: ${agentOutput.prUrl}`,
-        });
-      } else {
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Commit pushed to project branch: ${sandboxData.branchName}`,
-        });
-      }
-
-      return {
-        prUrl: agentOutput.prUrl,
-        branchName: sandboxData.branchName,
-        isFirstTaskOnBranch: sandboxData.isFirstTaskOnBranch,
-        completedSubtasks: agentOutput.completedSubtasks || [],
-      };
+      if (result.isError)
+        throw new Error(`Agent failed: ${result.result.slice(0, 500)}`);
     });
 
+    const prUrl = isFirstTaskOnBranch
+      ? await step.run("create-pr", async () => {
+          const githubToken = await getGitHubToken(installationId);
+          const res = await fetch(
+            `https://api.github.com/repos/${repo.owner}/${repo.name}/pulls`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${githubToken}`,
+                Accept: "application/vnd.github+json",
+              },
+              body: JSON.stringify({
+                title: task.title,
+                body: `## Task\n${task.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
+                head: sandboxData.branchName,
+                base: "main",
+              }),
+            },
+          );
+          if (!res.ok)
+            throw new Error(`Failed to create PR: ${await res.text()}`);
+          const pr: { html_url: string } = await res.json();
+          return pr.html_url;
+        })
+      : undefined;
+
     await step.run("mark-subtasks-completed", async () => {
-      if (agentResult.completedSubtasks.length > 0) {
+      if (subtasks.length > 0) {
         await convex.mutation(api.subtasks.markCompleted, {
           parentTaskId: taskId as Id<"agentTasks">,
-          completedIndices: agentResult.completedSubtasks,
-        });
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Marked ${agentResult.completedSubtasks.length} subtasks as completed`,
+          completedIndices: subtasks.map((_, i) => i),
         });
       }
     });
 
     await step.run("complete-run", async () => {
-      if (agentResult.isFirstTaskOnBranch && agentResult.prUrl && projectId) {
+      if (prUrl && projectId) {
         await convex.mutation(api.projects.updatePrUrl, {
           id: projectId as Id<"projects">,
-          prUrl: agentResult.prUrl,
-        });
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Project PR created: ${agentResult.prUrl}`,
-        });
-      } else {
-        await convex.mutation(api.agentRuns.appendLog, {
-          id: runId as Id<"agentRuns">,
-          level: "info",
-          message: `Commit pushed to branch: ${agentResult.branchName}`,
+          prUrl,
         });
       }
 
@@ -290,10 +194,12 @@ ${prInstructions}
       await convex.mutation(api.agentRuns.complete, {
         id: runId as Id<"agentRuns">,
         success: true,
-        resultSummary: agentResult.isFirstTaskOnBranch ? "Created project PR" : "Pushed commit to project branch",
+        resultSummary: prUrl
+          ? "Created project PR"
+          : "Pushed commit to project branch",
       });
     });
 
-    return { success: true, prUrl: agentResult.prUrl };
-  }
+    return { success: true, prUrl };
+  },
 );

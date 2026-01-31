@@ -24,11 +24,18 @@ export async function createSandbox(
   githubToken: string,
   extraEnvVars?: Record<string, string>
 ): Promise<Sandbox> {
-  return daytona.create({
+  const sandbox = await daytona.create({
     snapshot: SNAPSHOT_NAME,
     envVars: { ...getSandboxEnvVars(githubToken), ...extraEnvVars },
     autoStopInterval: 60,
   });
+  await sandbox.process.executeCommand(
+    'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+    "/",
+    undefined,
+    10
+  );
+  return sandbox;
 }
 
 export async function getSandbox(sandboxId: string): Promise<Sandbox> {

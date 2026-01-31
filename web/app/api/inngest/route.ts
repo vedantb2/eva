@@ -3,12 +3,6 @@ import {
   inngest,
   executeTask,
   indexCodebase,
-  executeSessionTask,
-  cleanupSession,
-  createSessionPr,
-  startSandbox,
-  askSession,
-  planSession,
   executeResearchQuery,
   evaluateDoc,
   cleanupProjectSandbox,
@@ -17,6 +11,7 @@ import {
   interviewChat,
   summarizeSession,
   sessionExecute,
+  startSandbox,
   stopSandbox,
 } from "@/lib/inngest";
 
@@ -25,12 +20,6 @@ export const { GET, POST, PUT } = serve({
   functions: [
     executeTask,
     indexCodebase,
-    executeSessionTask,
-    cleanupSession,
-    createSessionPr,
-    startSandbox,
-    askSession,
-    planSession,
     executeResearchQuery,
     evaluateDoc,
     cleanupProjectSandbox,
@@ -39,6 +28,7 @@ export const { GET, POST, PUT } = serve({
     interviewChat,
     summarizeSession,
     sessionExecute,
+    startSandbox,
     stopSandbox,
   ],
 });

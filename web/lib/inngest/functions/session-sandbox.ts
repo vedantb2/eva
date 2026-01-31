@@ -2,13 +2,10 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, isSandboxAlive, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
+import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
 
 export const startSandbox = inngest.createFunction(
-  {
-    id: "start-sandbox",
-    retries: 2,
-  },
+  { id: "start-sandbox", retries: 2 },
   { event: "session/sandbox.start" },
   async ({ event, step }) => {
     const { clerkToken, sessionId } = event.data;
@@ -74,5 +71,44 @@ export const startSandbox = inngest.createFunction(
     });
 
     return { success: true, sandboxId: sandboxData.sandboxId };
+  }
+);
+
+export const stopSandbox = inngest.createFunction(
+  { id: "stop-sandbox", retries: 1 },
+  { event: "session/sandbox.stop" },
+  async ({ event, step }) => {
+    const { clerkToken, sessionId } = event.data;
+    const convex = createConvex(clerkToken);
+
+    const sandboxId = await step.run("fetch-session", async () => {
+      const session = await convex.query(api.sessions.get, {
+        id: sessionId as Id<"sessions">,
+      });
+      if (!session) throw new Error("Session not found");
+      return session.sandboxId;
+    });
+
+    if (sandboxId) {
+      await step.run("delete-sandbox", async () => {
+        try {
+          const sandbox = await getSandbox(sandboxId);
+          await sandbox.delete();
+        } catch {
+          // sandbox already terminated
+        }
+      });
+    }
+
+    await step.run("clear-and-notify", async () => {
+      await convex.mutation(api.sessions.clearSandbox, {
+        id: sessionId as Id<"sessions">,
+      });
+      await convex.mutation(api.sessions.addMessage, {
+        id: sessionId as Id<"sessions">,
+        role: "assistant",
+        content: "Sandbox stopped. Start the sandbox to continue working.",
+      });
+    });
   }
 );

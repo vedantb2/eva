@@ -1,12 +1,6 @@
 export { inngest } from "./client";
 export { executeTask } from "./functions/execute-task";
 export { indexCodebase } from "./functions/index-codebase";
-export { executeSessionTask } from "./functions/execute-session-task";
-export { cleanupSession } from "./functions/cleanup-session";
-export { createSessionPr } from "./functions/create-session-pr";
-export { startSandbox } from "./functions/start-sandbox";
-export { askSession } from "./functions/ask-session";
-export { planSession } from "./functions/plan-session";
 export { executeResearchQuery } from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
 export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";
@@ -15,4 +9,4 @@ export { interviewSpec } from "./functions/interview-spec";
 export { interviewChat } from "./functions/interview-chat";
 export { summarizeSession } from "./functions/summarize-session";
 export { sessionExecute } from "./functions/session-execute";
-export { stopSandbox } from "./functions/stop-sandbox";
+export { startSandbox, stopSandbox } from "./functions/session-sandbox";

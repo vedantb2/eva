@@ -67,7 +67,7 @@ export function QuickTaskCard({
       radius="sm"
       className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
     >
-      <CardBody className="p-2 gap-2">
+      <CardBody className="p-2 gap-1">
         <div className="flex items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox

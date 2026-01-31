@@ -27,7 +27,7 @@ export function UserInitials({ userId }: { userId: Id<"users"> }) {
         placement="bottom-right"
         isInvisible={!user.lastSeenAt}
       >
-        <div className="size-5 shrink-0 flex items-center justify-center bg-teal-500 text-white rounded-full text-xs font-medium">
+        <div className="size-5 shrink-0 flex items-center justify-center bg-teal-500 text-teal-100 rounded-full text-xs font-medium">
           {initials}
         </div>
       </Badge>

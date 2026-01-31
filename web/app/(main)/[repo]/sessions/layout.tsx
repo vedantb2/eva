@@ -77,11 +77,8 @@ export default function SessionsLayout({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: "session/cleanup.requested",
-            data: {
-              sandboxId: sessionData.sandboxId,
-              sessionId: sessionToArchive.id,
-            },
+            name: "session/sandbox.stop",
+            data: { sessionId: sessionToArchive.id },
           }),
         });
       }

@@ -19,10 +19,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const handleSandboxToggle = async (action: "start" | "stop") => {
     setIsSandboxToggling(true);
     try {
-      const response = await fetch("/api/sessions/sandbox", {
+      const eventName = action === "start" ? "session/sandbox.start" : "session/sandbox.stop";
+      const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, action }),
+        body: JSON.stringify({ name: eventName, data: { sessionId } }),
       });
       if (!response.ok) {
         throw new Error("Failed to toggle sandbox");

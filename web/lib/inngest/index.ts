@@ -14,3 +14,5 @@ export { interviewQuestion } from "./functions/interview-question";
 export { interviewSpec } from "./functions/interview-spec";
 export { interviewChat } from "./functions/interview-chat";
 export { summarizeSession } from "./functions/summarize-session";
+export { sessionExecute } from "./functions/session-execute";
+export { stopSandbox } from "./functions/stop-sandbox";

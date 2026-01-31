@@ -73,12 +73,15 @@ export default function SessionsLayout({
     try {
       const sessionData = sessions?.find((s) => s._id === sessionToArchive.id);
       if (sessionData?.sandboxId) {
-        await fetch("/api/sessions/cleanup", {
+        await fetch("/api/inngest/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sandboxId: sessionData.sandboxId,
-            sessionId: sessionToArchive.id,
+            name: "session/cleanup.requested",
+            data: {
+              sandboxId: sessionData.sandboxId,
+              sessionId: sessionToArchive.id,
+            },
           }),
         });
       }
@@ -103,10 +106,13 @@ export default function SessionsLayout({
       setNewSessionTitle("");
       setIsCreateModalOpen(false);
       router.push(baseUrl + "/" + id);
-      fetch("/api/sessions/sandbox", {
+      fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: id, action: "start" }),
+        body: JSON.stringify({
+          name: "session/sandbox.start",
+          data: { sessionId: id },
+        }),
       });
     } finally {
       setIsCreating(false);

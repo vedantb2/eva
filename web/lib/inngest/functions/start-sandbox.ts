@@ -12,24 +12,23 @@ export const startSandbox = inngest.createFunction(
   },
   { event: "session/sandbox.start" },
   async ({ event, step }) => {
-    const { clerkToken, sessionId, repoId, installationId } = event.data;
+    const { clerkToken, sessionId } = event.data;
     const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
       const sessionData = await convex.query(api.sessions.get, {
         id: sessionId as Id<"sessions">,
       });
+      if (!sessionData) throw new Error("Session not found");
       const repoData = await convex.query(api.githubRepos.get, {
-        id: repoId as Id<"githubRepos">,
+        id: sessionData.repoId,
       });
-      if (!sessionData || !repoData) {
-        throw new Error("Session or repo not found");
-      }
+      if (!repoData) throw new Error("Repository not found");
       return { session: sessionData, repo: repoData };
     });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
-      const freshToken = await getGitHubToken(installationId);
+      const freshToken = await getGitHubToken(repo.installationId);
 
       if (session.sandboxId && await isSandboxAlive(session.sandboxId)) {
         return {

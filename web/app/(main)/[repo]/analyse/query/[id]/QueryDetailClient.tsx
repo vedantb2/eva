@@ -32,13 +32,16 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     setInput("");
     setIsSending(true);
     try {
-      await fetch("/api/analyse/query", {
+      await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          queryId: typedQueryId,
-          question: content,
-          repoId: repo._id,
+          name: "research/query.execute",
+          data: {
+            queryId: typedQueryId,
+            question: content,
+            repoId: repo._id,
+          },
         }),
       });
     } finally {

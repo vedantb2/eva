@@ -128,16 +128,19 @@ export function ProjectChatTab({
       setIsLoading(true);
       setPendingQuestionRequest(true);
 
-      await fetch("/api/chat/question", {
+      await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId,
-          repoId,
-          installationId,
-          featureDescription: rawInput,
-          questionTopic: questionTemplate,
-          previousAnswers: currentAnswers,
+          name: "project/interview.question",
+          data: {
+            projectId,
+            repoId,
+            installationId,
+            featureDescription: rawInput,
+            questionTopic: questionTemplate,
+            previousAnswers: currentAnswers,
+          },
         }),
       });
     },

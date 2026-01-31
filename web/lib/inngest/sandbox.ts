@@ -22,18 +22,20 @@ export function getSandboxEnvVars(githubToken: string): Record<string, string> {
 
 export async function createSandbox(
   githubToken: string,
-  extraEnvVars?: Record<string, string>
+  ephemeral?: boolean,
+  extraEnvVars?: Record<string, string>,
 ): Promise<Sandbox> {
   const sandbox = await daytona.create({
     snapshot: SNAPSHOT_NAME,
     envVars: { ...getSandboxEnvVars(githubToken), ...extraEnvVars },
     autoStopInterval: 60,
+    ephemeral: ephemeral ? true : false,
   });
   await sandbox.process.executeCommand(
     'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
     "/",
     undefined,
-    10
+    10,
   );
   return sandbox;
 }
@@ -45,7 +47,12 @@ export async function getSandbox(sandboxId: string): Promise<Sandbox> {
 export async function isSandboxAlive(sandboxId: string): Promise<boolean> {
   try {
     const sandbox = await daytona.get(sandboxId);
-    await sandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
+    await sandbox.process.executeCommand(
+      "echo 'sandbox alive'",
+      "/",
+      undefined,
+      5,
+    );
     return true;
   } catch {
     return false;

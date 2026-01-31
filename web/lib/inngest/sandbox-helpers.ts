@@ -204,6 +204,7 @@ export async function ensureSandbox(
   repoOwner: string,
   repoName: string,
   onSandboxCreated: (sandboxId: string) => Promise<void>,
+  ephemeral?: boolean,
 ): Promise<Sandbox> {
   if (projectSandboxId) {
     const alive = await isSandboxAlive(projectSandboxId);
@@ -212,7 +213,7 @@ export async function ensureSandbox(
     }
   }
 
-  const sandbox = await createSandbox(githubToken);
+  const sandbox = await createSandbox(githubToken, ephemeral);
   await syncRepo(sandbox, githubToken, repoOwner, repoName);
   await onSandboxCreated(sandbox.id);
   return sandbox;

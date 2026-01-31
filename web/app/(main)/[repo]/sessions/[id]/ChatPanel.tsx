@@ -96,14 +96,12 @@ export function ChatPanel({
 
   const sendToApi = useCallback(
     async (message: string, sendMode: SessionMode, generatePlan = false) => {
-      const response = await fetch("/api/sessions/execute", {
+      const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
-          message,
-          mode: sendMode,
-          generatePlan,
+          name: "session/execute",
+          data: { sessionId, message, mode: sendMode, generatePlan },
         }),
       });
       if (!response.ok) {

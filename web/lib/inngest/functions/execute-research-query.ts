@@ -28,6 +28,14 @@ export const executeResearchQuery = inngest.createFunction(
     const { clerkToken, queryId, question, repoId } = event.data;
     const convex = createConvex(clerkToken);
 
+    await step.run("add-user-message", async () => {
+      await convex.mutation(api.researchQueries.addMessage, {
+        id: queryId as Id<"researchQueries">,
+        role: "user",
+        content: question,
+      });
+    });
+
     await step.run("add-processing-message", async () => {
       await convex.mutation(api.researchQueries.addMessage, {
         id: queryId as Id<"researchQueries">,

@@ -191,13 +191,13 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
         <div className="flex flex-col h-full">
           <div
-            className={`flex items-center h-16 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
+            className={`flex items-center h-14 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
           >
             <Link
               href="/"
@@ -396,7 +396,7 @@ export function Sidebar() {
           </nav>
 
           <div
-            className={`border-t border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:p-2 p-4" : "p-4"}`}
+            className={`border-t border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:p-2 p-4" : "px-4 py-3"}`}
           >
             <div
               className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}

@@ -70,6 +70,7 @@ function DocsListPanel({
         <Input
           placeholder="Search docs..."
           startContent={<IconSearch size={14} className="text-default-400" />}
+          size="sm"
           value={searchQuery}
           onValueChange={setSearchQuery}
           isClearable

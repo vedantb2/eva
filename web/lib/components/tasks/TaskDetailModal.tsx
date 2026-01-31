@@ -162,12 +162,12 @@ export function TaskDetailModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        size={showChangesPanel ? "5xl" : "xl"}
+        size={showChangesPanel ? "5xl" : "3xl"}
         backdrop="blur"
         scrollBehavior="inside"
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
+          <ModalHeader>
             <div className="flex items-center gap-2">
               {task?.taskNumber && (
                 <span className="text-default-400 font-mono">
@@ -176,41 +176,12 @@ export function TaskDetailModal({
               )}
               <span>{task?.title}</span>
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              {status && <TaskStatusBadge status={status} />}
-              {isBlocked && (
-                <Chip size="sm" color="warning" variant="flat">
-                  Blocked
-                </Chip>
-              )}
-            </div>
           </ModalHeader>
           <ModalBody className="pb-6">
             <div
-              className={`grid gap-6 ${showChangesPanel ? "grid-cols-[1fr_1fr] min-h-[400px]" : "grid-cols-1"}`}
+              className={`grid gap-6 min-h-[400px] ${showChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
             >
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
-                <Select
-                  label="Assigned To"
-                  placeholder="Unassigned"
-                  selectedKeys={task?.assignedTo ? [task.assignedTo] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0];
-                    const user = users?.find((u) => u._id === String(selected));
-                    updateTask({ id: taskId, assignedTo: user?._id });
-                  }}
-                  size="sm"
-                >
-                  {(users ?? []).map((user) => (
-                    <SelectItem key={user._id}>
-                      {user.fullName ||
-                        [user.firstName, user.lastName]
-                          .filter(Boolean)
-                          .join(" ") ||
-                        "Unnamed User"}
-                    </SelectItem>
-                  ))}
-                </Select>
                 {task?.description &&
                   (() => {
                     const separatorIndex = task.description.indexOf("---");
@@ -263,23 +234,6 @@ export function TaskDetailModal({
                       </div>
                     );
                   })()}
-
-                {latestPrUrl && (
-                  <div>
-                    <h4 className="text-sm font-medium text-default-700 mb-2">
-                      Pull Request
-                    </h4>
-                    <a
-                      href={latestPrUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary-500 hover:underline"
-                    >
-                      <IconGitPullRequest size={16} />
-                      View Pull Request
-                    </a>
-                  </div>
-                )}
 
                 {subtasks && subtasks.length > 0 && (
                   <div className="border-t border-divider pt-4">
@@ -388,8 +342,8 @@ export function TaskDetailModal({
 
                 {showProofSection && (
                   <div className="border-t border-divider pt-4">
-                    <h4 className="text-sm font-medium text-default-700 mb-3 flex items-center gap-2">
-                      <IconPhoto size={16} />
+                    <h4 className="text-sm font-medium text-default-700 mb-3 flex items-center gap-1.5">
+                      <IconPhoto size={14} />
                       Proof of Completion
                     </h4>
                     {proofs && proofs.length > 0 && (
@@ -455,6 +409,67 @@ export function TaskDetailModal({
                     >
                       Upload Proof
                     </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-l border-divider pl-4 space-y-4">
+                <div>
+                  <p className="text-xs text-default-400 mb-1.5">Status</p>
+                  {status && <TaskStatusBadge status={status} />}
+                  {isBlocked && (
+                    <Chip
+                      size="sm"
+                      color="warning"
+                      variant="flat"
+                      className="ml-1.5"
+                    >
+                      Blocked
+                    </Chip>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-default-400 mb-1.5">
+                    Assignee
+                  </p>
+                  <Select
+                    placeholder="Unassigned"
+                    selectedKeys={task?.assignedTo ? [task.assignedTo] : []}
+                    onSelectionChange={(keys) => {
+                      const selected = Array.from(keys)[0];
+                      const user = users?.find(
+                        (u) => u._id === String(selected),
+                      );
+                      updateTask({ id: taskId, assignedTo: user?._id });
+                    }}
+                    size="sm"
+                    aria-label="Assigned To"
+                  >
+                    {(users ?? []).map((user) => (
+                      <SelectItem key={user._id}>
+                        {user.fullName ||
+                          [user.firstName, user.lastName]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          "Unnamed User"}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+                {latestPrUrl && (
+                  <div>
+                    <p className="text-xs text-default-400 mb-1.5">
+                      Pull Request
+                    </p>
+                    <a
+                      href={latestPrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-primary-500 hover:underline"
+                    >
+                      <IconGitPullRequest size={14} />
+                      View PR
+                    </a>
                   </div>
                 )}
               </div>

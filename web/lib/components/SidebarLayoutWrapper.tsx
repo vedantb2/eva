@@ -19,7 +19,7 @@ export function SidebarLayoutWrapper({
   return (
     <div className="flex h-screen">
       <div className="w-72 border-r border-neutral-200 dark:border-neutral-800 flex flex-col bg-white dark:bg-neutral-900">
-        <div className="px-4 py-5 pb-2 flex items-center justify-between">
+        <div className="p-4 pb-0 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
             {title}
           </h1>

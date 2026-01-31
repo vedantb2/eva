@@ -118,6 +118,7 @@ export default function SessionsLayout({
       <div className="px-3 pt-6 pb-3">
         <Input
           placeholder="Search sessions..."
+          size="sm"
           startContent={<IconSearch size={16} className="text-default-400" />}
           value={searchQuery}
           onValueChange={setSearchQuery}

@@ -50,6 +50,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
       <div className="px-4 py-2">
         <Input
           placeholder="Search docs..."
+          size="sm"
           startContent={<IconSearch size={14} className="text-default-400" />}
           value={searchQuery}
           onValueChange={setSearchQuery}

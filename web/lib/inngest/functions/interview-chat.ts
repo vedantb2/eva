@@ -2,12 +2,12 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { WORKSPACE_DIR } from "../sandbox";
 import {
+  WORKSPACE_DIR,
   getGitHubToken,
   runClaudeCLI,
   ensureSandbox,
-} from "../sandbox-helpers";
+} from "../sandbox";
 
 interface ConversationMessage {
   role: "user" | "assistant";

@@ -3,8 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
-import { createSandbox, WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
+import { createSandbox, WORKSPACE_DIR, getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox";
 
 export const executeResearchQuery = inngest.createFunction(
   {
@@ -52,7 +51,7 @@ export const executeResearchQuery = inngest.createFunction(
 
       const githubToken = await getGitHubToken(repo.installationId);
 
-      const sandbox = await createSandbox(githubToken, {
+      const sandbox = await createSandbox(githubToken, undefined, {
         CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
       });
 

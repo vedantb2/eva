@@ -2,13 +2,14 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, WORKSPACE_DIR } from "../sandbox";
 import {
+  createSandbox,
+  WORKSPACE_DIR,
   getGitHubToken,
   syncRepo,
   runClaudeCLI,
   extractJsonFromText,
-} from "../sandbox-helpers";
+} from "../sandbox";
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 

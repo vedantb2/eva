@@ -2,8 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, isSandboxAlive, WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, updateRemoteUrl } from "../sandbox-helpers";
+import { createSandbox, isSandboxAlive, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
 
 export const startSandbox = inngest.createFunction(
   {

@@ -2,15 +2,16 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { getSandbox, WORKSPACE_DIR } from "../sandbox";
 import {
+  getSandbox,
+  WORKSPACE_DIR,
   getGitHubToken,
   setupBranch,
   ensureSandbox,
   updateRemoteUrl,
   runClaudeCLI,
   captureGitDiff,
-} from "../sandbox-helpers";
+} from "../sandbox";
 
 export const executeSessionTask = inngest.createFunction(
   {

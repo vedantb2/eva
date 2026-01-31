@@ -2,8 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
+import { createSandbox, getSandbox, getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox";
 
 interface EvaluationResult {
   requirementsMet: Array<{ requirement: string; evidence: string }>;

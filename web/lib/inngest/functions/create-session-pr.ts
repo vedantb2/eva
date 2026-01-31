@@ -2,7 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { getGitHubToken } from "../sandbox-helpers";
+import { getGitHubToken } from "../sandbox";
 
 export const createSessionPr = inngest.createFunction(
   {

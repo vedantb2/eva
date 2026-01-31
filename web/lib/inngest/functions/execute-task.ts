@@ -55,7 +55,7 @@ export const executeTask = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const freshToken = await getGitHubToken(installationId);
       const repoUrl = `https://x-access-token:${freshToken}@github.com/${repo.owner}/${repo.name}.git`;
-      const taskBranchName = branchName || `conductor/task-${task.taskNumber || Date.now()}`;
+      const taskBranchName = branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
       if (project?.sandboxId) {
         const alive = await isSandboxAlive(project.sandboxId);

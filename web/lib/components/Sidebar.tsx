@@ -20,7 +20,6 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconFlask,
-  IconBell,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -35,8 +34,8 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Badge,
 } from "@heroui/react";
+import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -60,7 +59,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena|notifications)/,
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena)/,
     );
     if (match) {
       return match[1];
@@ -142,14 +141,7 @@ export function Sidebar() {
     }
   }, [pathname, repoNavigation, expandedGroups]);
 
-  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
-
   const bottomNavigation = [
-    {
-      name: "Notifications",
-      href: `/${repoSlug}/notifications`,
-      icon: IconBell,
-    },
     ...(repoSlug
       ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
       : []),
@@ -354,10 +346,9 @@ export function Sidebar() {
             </div>
 
             <div className="space-y-1">
+              <NotificationsPopoverClient collapsed={collapsed} />
               {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
-                const showBadge =
-                  item.name === "Notifications" && unreadCount > 0;
                 return (
                   <Link
                     key={item.name}
@@ -370,24 +361,11 @@ export function Sidebar() {
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
-                    {showBadge ? (
-                      <Badge
-                        color="primary"
-                        content={unreadCount > 99 ? "99+" : unreadCount}
-                      >
-                        <span className="relative flex-shrink-0">
-                          <item.icon
-                            className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
-                          />
-                        </span>
-                      </Badge>
-                    ) : (
-                      <span className="relative flex-shrink-0">
-                        <item.icon
-                          className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
-                        />
-                      </span>
-                    )}
+                    <span className="relative flex-shrink-0">
+                      <item.icon
+                        className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
+                      />
+                    </span>
                     {!collapsed && item.name}
                   </Link>
                 );

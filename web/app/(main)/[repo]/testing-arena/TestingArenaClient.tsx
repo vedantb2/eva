@@ -123,10 +123,13 @@ export function TestingArenaClient({
     setIsTestingAll(true);
     try {
       for (const doc of docs) {
-        await fetch("/api/testing-arena/evaluate", {
+        await fetch("/api/inngest/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId: doc._id, repoId: repo._id }),
+          body: JSON.stringify({
+            name: "testing-arena/evaluate.doc",
+            data: { docId: doc._id, repoId: repo._id },
+          }),
         });
       }
     } finally {

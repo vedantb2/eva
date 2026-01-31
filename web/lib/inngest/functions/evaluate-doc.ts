@@ -17,20 +17,28 @@ export const evaluateDoc = inngest.createFunction(
     retries: 1,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { clerkToken: string; reportId: string } };
+        event: { data: { clerkToken: string; reportId?: string } };
       };
-      const convex = createConvex(eventData.event.data.clerkToken);
-      const reportId = eventData.event.data.reportId as Id<"evaluationReports">;
+      const { clerkToken, reportId } = eventData.event.data;
+      if (!reportId) return;
+      const convex = createConvex(clerkToken);
       await convex.mutation(api.evaluationReports.failEval, {
-        id: reportId,
+        id: reportId as Id<"evaluationReports">,
         error: error.message,
       });
     },
   },
   { event: "testing-arena/evaluate.doc" },
   async ({ event, step }) => {
-    const { clerkToken, reportId, docId, repoId } = event.data;
+    const { clerkToken, docId, repoId } = event.data;
     const convex = createConvex(clerkToken);
+
+    const reportId = await step.run("create-report", async () => {
+      return await convex.mutation(api.evaluationReports.create, {
+        repoId: repoId as Id<"githubRepos">,
+        docId: docId as Id<"docs">,
+      });
+    });
 
     await step.run("update-status-running", async () => {
       await convex.mutation(api.evaluationReports.updateEvalStatus, {

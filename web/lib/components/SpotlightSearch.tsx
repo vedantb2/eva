@@ -96,9 +96,9 @@ export function SpotlightSearch() {
                   <span className="flex-1">Projects</span>
                   <span className="text-xs text-neutral-400">Build</span>
                 </Command.Item>
-                <Command.Item value="Quick Tasks" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}>
+                <Command.Item value="Tasks" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}>
                   <IconChecklist className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1">Quick Tasks</span>
+                  <span className="flex-1">Tasks</span>
                   <span className="text-xs text-neutral-400">Fix</span>
                 </Command.Item>
                 <Command.Item value="Sessions" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/sessions`)}>

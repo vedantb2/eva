@@ -52,7 +52,7 @@ export function QuickTasksClient() {
   return (
     <>
       <PageWrapper
-        title="Quick Tasks"
+        title="Tasks"
         fillHeight
         headerRight={
           <div className="flex items-center gap-2">

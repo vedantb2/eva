@@ -98,7 +98,7 @@ export function Sidebar() {
           label: "FIX",
           items: [
             {
-              name: "Quick Tasks",
+              name: "Tasks",
               href: `/${repoSlug}/quick-tasks`,
               icon: IconChecklist,
             },

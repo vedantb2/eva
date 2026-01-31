@@ -5,11 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
-import {
-  IconGitBranch,
-  IconDotsVertical,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconGitBranch, IconDots, IconTrash } from "@tabler/icons-react";
 import {
   Dropdown,
   DropdownTrigger,
@@ -63,10 +59,10 @@ export function ProjectCard({
               isIconOnly
               size="sm"
               variant="light"
-              className="text-neutral-400 hover:text-neutral-600"
+              className="size-4 flex shrink-0 text-neutral-400 hover:text-neutral-600"
               onPress={(e) => e.continuePropagation?.()}
             >
-              <IconDotsVertical size={14} />
+              <IconDots size={14} />
             </Button>
           </DropdownTrigger>
           <DropdownMenu

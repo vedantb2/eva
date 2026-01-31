@@ -115,7 +115,7 @@ export function ChatPanel({
         let fullDescription = input;
 
         if (pageUrl) {
-          fullDescription += `\n\n**This issue must be resolved on the following page:** ${pageUrl}
+          fullDescription += `\n\nThis issue must be resolved on the following page: ${pageUrl}
 
 Please review all components and files used on this page before implementing the fix.`;
         }
@@ -127,22 +127,22 @@ Please review all components and files used on this page before implementing the
           }
           fullDescription += `- Element: \`<${capturedContext.element.tagName}>\`\n`;
           fullDescription += `- Selector: \`${capturedContext.element.selector}\`\n`;
-          if (capturedContext.element.id) {
-            fullDescription += `- ID: \`${capturedContext.element.id}\`\n`;
-          }
+          // if (capturedContext.element.id) {
+          //   fullDescription += `- ID: \`${capturedContext.element.id}\`\n`;
+          // }
           if (capturedContext.element.classNames.length > 0) {
             fullDescription += `- Classes: \`${capturedContext.element.classNames.join(", ")}\`\n`;
           }
 
-          if (capturedContext.metadata.hasReact && capturedContext.react) {
-            fullDescription += `\n**React Context**\n`;
-            fullDescription += `- Component: \`${capturedContext.react.name || "Unknown"}\`\n`;
-            fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
-            fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n\n`;
-            fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.react, null, 2)}\n\`\`\`\n</details>`;
-          } else {
-            fullDescription += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.element, null, 2)}\n\`\`\`\n</details>`;
-          }
+        //   if (capturedContext.metadata.hasReact && capturedContext.react) {
+        //     fullDescription += `\n**React Context**\n`;
+        //     fullDescription += `- Component: \`${capturedContext.react.name || "Unknown"}\`\n`;
+        //     fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
+        //     fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n\n`;
+        //     fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.react, null, 2)}\n\`\`\`\n</details>`;
+        //   } else {
+        //     fullDescription += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`html\n${capturedContext.element.outerHTML}\n\`\`\`\n</details>`;
+        //   }
         }
 
         await createQuickTask({
@@ -178,16 +178,19 @@ Please review all components and files used on this page before implementing the
         await appendMessage({ role: "user", content: input, timestamp: Date.now(), mode: "ask" });
 
         const token = await getToken({ template: "convex" });
-        const response = await fetch(`${API_URL}/api/extension/ask`, {
+        const response = await fetch(`${API_URL}/api/inngest/send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            sessionId: sessionId,
-            message: input,
-            contextMessage: fullMessage,
+            name: "session/execute",
+            data: {
+              sessionId,
+              message: fullMessage,
+              mode: "ask",
+            },
           }),
         });
 
@@ -237,7 +240,7 @@ Please review all components and files used on this page before implementing the
             description += `- React version: ${ctx.metadata.reactVersion}\n\n`;
             description += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(ctx.react, null, 2)}\n\`\`\`\n</details>`;
           } else {
-            description += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`json\n${JSON.stringify(ctx.element, null, 2)}\n\`\`\`\n</details>`;
+            description += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`html\n${ctx.element.outerHTML}\n\`\`\`\n</details>`;
           }
         }
 

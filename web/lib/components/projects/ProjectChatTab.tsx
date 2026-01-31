@@ -8,8 +8,16 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { MC_INITIAL_QUESTIONS, MC_FOLLOWUP_QUESTIONS } from "@/lib/prompts/planPrompts";
-import { IconSparkles, IconTrash, IconPlayerPlay, IconCode } from "@tabler/icons-react";
+import {
+  MC_INITIAL_QUESTIONS,
+  MC_FOLLOWUP_QUESTIONS,
+} from "@/lib/prompts/planPrompts";
+import {
+  IconSparkles,
+  IconTrash,
+  IconPlayerPlay,
+  IconCode,
+} from "@tabler/icons-react";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -67,10 +75,15 @@ export function ProjectChatTab({
   const isLocked = projectPhase === "active" || projectPhase === "completed";
   const minQuestions = 3;
   const maxQuestions = 10;
-  const questionList = isInterview ? MC_FOLLOWUP_QUESTIONS : MC_INITIAL_QUESTIONS;
-  const isIndexing = indexingStatus === "pending" || indexingStatus === "indexing";
+  const questionList = isInterview
+    ? MC_FOLLOWUP_QUESTIONS
+    : MC_INITIAL_QUESTIONS;
+  const isIndexing =
+    indexingStatus === "pending" || indexingStatus === "indexing";
 
-  const assistantMessages = initialMessages.filter((m) => m.role === "assistant");
+  const assistantMessages = initialMessages.filter(
+    (m) => m.role === "assistant",
+  );
   const questionCount = assistantMessages.length;
 
   useEffect(() => {
@@ -108,7 +121,10 @@ export function ProjectChatTab({
           try {
             const parsed = JSON.parse(msg.content);
             if (parsed.question) {
-              parsedAnswers.push({ question: parsed.question, answer: nextMsg.content });
+              parsedAnswers.push({
+                question: parsed.question,
+                answer: nextMsg.content,
+              });
             }
           } catch {
             continue;
@@ -123,7 +139,8 @@ export function ProjectChatTab({
     async (questionIndex: number, currentAnswers: AnswerRecord[]) => {
       if (questionIndex >= maxQuestions) return;
 
-      const questionTemplate = questionList[questionIndex % questionList.length];
+      const questionTemplate =
+        questionList[questionIndex % questionList.length];
 
       setIsLoading(true);
       setPendingQuestionRequest(true);
@@ -144,7 +161,7 @@ export function ProjectChatTab({
         }),
       });
     },
-    [projectId, repoId, installationId, rawInput, questionList]
+    [projectId, repoId, installationId, rawInput, questionList],
   );
 
   const handleStartInterview = async () => {
@@ -154,7 +171,9 @@ export function ProjectChatTab({
   };
 
   const handleAnswer = async (answer: string) => {
-    const lastAssistantMsg = [...initialMessages].reverse().find((m) => m.role === "assistant");
+    const lastAssistantMsg = [...initialMessages]
+      .reverse()
+      .find((m) => m.role === "assistant");
     let currentQuestion = "";
     if (lastAssistantMsg) {
       try {
@@ -184,15 +203,18 @@ export function ProjectChatTab({
     setIsLoading(true);
     setPendingSpecRequest(true);
 
-    await fetch("/api/chat/spec", {
+    await fetch("/api/inngest/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        projectId,
-        repoId,
-        installationId,
-        featureDescription: rawInput,
-        answers,
+        name: "project/interview.spec",
+        data: {
+          projectId,
+          repoId,
+          installationId,
+          featureDescription: rawInput,
+          answers,
+        },
       }),
     });
   };
@@ -210,7 +232,9 @@ export function ProjectChatTab({
 
   const currentQuestion: ParsedQuestion | null = (() => {
     if (isLoading || pendingQuestionRequest || pendingSpecRequest) return null;
-    const lastAssistantMsg = [...initialMessages].reverse().find((m) => m.role === "assistant");
+    const lastAssistantMsg = [...initialMessages]
+      .reverse()
+      .find((m) => m.role === "assistant");
     if (!lastAssistantMsg) return null;
     try {
       const parsed = JSON.parse(lastAssistantMsg.content);
@@ -223,9 +247,16 @@ export function ProjectChatTab({
     return null;
   })();
 
-  const lastUserMsg = [...initialMessages].reverse().find((m) => m.role === "user");
-  const waitingForResponse = lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
-  const showQuestion = currentQuestion && !pendingSpecRequest && questionCount <= maxQuestions && !waitingForResponse;
+  const lastUserMsg = [...initialMessages]
+    .reverse()
+    .find((m) => m.role === "user");
+  const waitingForResponse =
+    lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
+  const showQuestion =
+    currentQuestion &&
+    !pendingSpecRequest &&
+    questionCount <= maxQuestions &&
+    !waitingForResponse;
 
   if (isIndexing && !hasStarted && !isLocked) {
     return (
@@ -237,7 +268,8 @@ export function ProjectChatTab({
           Indexing Codebase
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
-          Analyzing your codebase to provide context-aware questions. This usually takes 30-60 seconds.
+          Analyzing your codebase to provide context-aware questions. This
+          usually takes 30-60 seconds.
         </p>
         <Spinner size="lg" />
       </div>
@@ -248,13 +280,17 @@ export function ProjectChatTab({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center mb-4">
-          <IconCode size={32} className="text-danger-600 dark:text-danger-400" />
+          <IconCode
+            size={32}
+            className="text-danger-600 dark:text-danger-400"
+          />
         </div>
         <h3 className="text-lg font-semibold text-default-700 mb-2">
           Indexing Failed
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
-          We couldn&apos;t analyze your codebase. You can still start the interview with generic questions.
+          We couldn&apos;t analyze your codebase. You can still start the
+          interview with generic questions.
         </p>
         <Button
           color="primary"
@@ -273,15 +309,19 @@ export function ProjectChatTab({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-4">
-          <IconPlayerPlay size={32} className="text-primary-600 dark:text-primary-400" />
+          <IconPlayerPlay
+            size={32}
+            className="text-primary-600 dark:text-primary-400"
+          />
         </div>
         <h3 className="text-lg font-semibold text-default-700 mb-2">
           Ready to Start Interview
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
-          Click the button below to start answering questions about your project. The AI
-          will ask up to {maxQuestions} multiple choice questions to understand your
-          requirements. You can generate a plan after {minQuestions} questions.
+          Click the button below to start answering questions about your
+          project. The AI will ask up to {maxQuestions} multiple choice
+          questions to understand your requirements. You can generate a plan
+          after {minQuestions} questions.
         </p>
         <Button
           color="primary"
@@ -322,32 +362,47 @@ export function ProjectChatTab({
                 );
               }
             } catch {
-              return <ChatMessage key={`msg-${i}`} role="assistant" content={m.content} />;
+              return (
+                <ChatMessage
+                  key={`msg-${i}`}
+                  role="assistant"
+                  content={m.content}
+                />
+              );
             }
           }
-          return <ChatMessage key={`msg-${i}`} role="user" content={m.content} />;
+          return (
+            <ChatMessage key={`msg-${i}`} role="user" content={m.content} />
+          );
         })}
         {(isLoading || waitingForResponse) && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
             <span className="text-sm text-default-500">
-              {pendingSpecRequest ? "Generating plan..." : "Generating question..."}
+              {pendingSpecRequest
+                ? "Generating plan..."
+                : "Generating question..."}
             </span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">
-        {showQuestion && currentQuestion.options.every((o): o is string => typeof o === "string") && (
-          <MultipleChoiceQuestion
-            question={currentQuestion.question}
-            options={currentQuestion.options.filter((o): o is string => typeof o === "string")}
-            onAnswer={handleAnswer}
-            isLoading={isLoading}
-            questionNumber={questionCount}
-            totalQuestions={maxQuestions}
-          />
-        )}
+        {showQuestion &&
+          currentQuestion.options.every(
+            (o): o is string => typeof o === "string",
+          ) && (
+            <MultipleChoiceQuestion
+              question={currentQuestion.question}
+              options={currentQuestion.options.filter(
+                (o): o is string => typeof o === "string",
+              )}
+              onAnswer={handleAnswer}
+              isLoading={isLoading}
+              questionNumber={questionCount}
+              totalQuestions={maxQuestions}
+            />
+          )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
             Questions: {questionCount}/{maxQuestions} (min {minQuestions})

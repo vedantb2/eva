@@ -144,6 +144,7 @@ interface ClaudeCLIOptions {
   allowedTools?: ClaudeTool[];
   workDir?: string;
   timeout?: number;
+  outputFormat?: "json" | "text";
 }
 
 interface ClaudeCLIResult {
@@ -161,6 +162,7 @@ export async function runClaudeCLI(
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = WORKSPACE_DIR,
     timeout = 300,
+    outputFormat,
   } = options;
 
   const escapedPrompt = quote([prompt]);
@@ -168,7 +170,7 @@ export async function runClaudeCLI(
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
 
   const cmdResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
+    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} ${outputFormat === "json" ? "--output-format json" : ""}`,
     "/",
     undefined,
     timeout,

@@ -47,15 +47,6 @@ chrome.runtime.onMessage.addListener(
         break;
       }
 
-      case "SAVE_ANNOTATION_TASK": {
-        chrome.runtime.sendMessage({
-          type: "SAVE_ANNOTATION_TASK",
-          payload: message.payload,
-        });
-        sendResponse({ success: true });
-        break;
-      }
-
       case "ANNOTATIONS_CHANGED": {
         chrome.runtime.sendMessage({
           type: "ANNOTATIONS_CHANGED",

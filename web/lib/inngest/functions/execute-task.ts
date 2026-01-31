@@ -8,7 +8,7 @@ import {
   getGitHubToken,
   syncRepo,
   setupBranch,
-  ensureSandbox,
+  getOrCreateSandbox,
   runClaudeCLI,
 } from "../sandbox";
 
@@ -78,7 +78,7 @@ export const executeTask = inngest.createFunction(
       const taskBranchName =
         branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         project?.sandboxId,
         githubToken,
         repo.owner,

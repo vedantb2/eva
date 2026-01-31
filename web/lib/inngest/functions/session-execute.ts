@@ -7,7 +7,7 @@ import {
   WORKSPACE_DIR,
   getGitHubToken,
   setupBranch,
-  ensureSandbox,
+  getOrCreateSandbox,
   updateRemoteUrl,
   runClaudeCLI,
   captureGitDiff,
@@ -102,7 +102,7 @@ export const sessionExecute = inngest.createFunction(
     if (effectiveMode === "ask") {
       const sandboxData = await step.run("setup-sandbox", async () => {
         const githubToken = await getGitHubToken(installationId);
-        const sandbox = await ensureSandbox(
+        const sandbox = await getOrCreateSandbox(
           session.sandboxId,
           githubToken,
           repo.owner,
@@ -181,7 +181,7 @@ CRITICAL response rules:
       const sandboxData = await step.run("setup-sandbox", async () => {
         const githubToken = await getGitHubToken(installationId);
         const branchName = session.branchName || `session/${sessionId}`;
-        const sandbox = await ensureSandbox(
+        const sandbox = await getOrCreateSandbox(
           session.sandboxId,
           githubToken,
           repo.owner,
@@ -298,7 +298,7 @@ ${message}
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(installationId);
       const branchName = session.branchName || `session/${sessionId}`;
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         session.sandboxId,
         githubToken,
         repo.owner,

@@ -7,7 +7,7 @@ import {
   getGitHubToken,
   runClaudeCLI,
   extractJsonFromText,
-  ensureSandbox,
+  getOrCreateSandbox,
 } from "../sandbox";
 
 interface CodebaseContext {
@@ -192,7 +192,7 @@ export const interviewSpec = inngest.createFunction(
     const specJson = await step.run("generate-spec", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,

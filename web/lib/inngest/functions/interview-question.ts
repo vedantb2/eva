@@ -7,7 +7,7 @@ import {
   getGitHubToken,
   runClaudeCLI,
   extractJsonFromText,
-  ensureSandbox,
+  getOrCreateSandbox,
 } from "../sandbox";
 
 interface CodebaseContext {
@@ -173,7 +173,7 @@ export const interviewQuestion = inngest.createFunction(
     const questionJson = await step.run("generate-question", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
@@ -193,16 +193,16 @@ export const interviewQuestion = inngest.createFunction(
         codebaseContext,
       );
 
-      const fullPrompt = `${SYSTEM_PROMPT}
-
-${prompt}`;
+      const fullPrompt = `${SYSTEM_PROMPT} ${prompt}`;
 
       const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
-        model: "haiku",
+        model: "sonnet",
         allowedTools: ["Read", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 120,
+        outputFormat: "json",
       });
+      console.log(claudeResult);
 
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {

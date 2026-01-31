@@ -6,7 +6,7 @@ import {
   WORKSPACE_DIR,
   getGitHubToken,
   runClaudeCLI,
-  ensureSandbox,
+  getOrCreateSandbox,
 } from "../sandbox";
 
 interface ConversationMessage {
@@ -50,7 +50,7 @@ export const interviewChat = inngest.createFunction(
     const response = await step.run("generate-response", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,

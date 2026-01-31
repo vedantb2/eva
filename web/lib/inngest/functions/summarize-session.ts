@@ -2,7 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { getSandbox, getGitHubToken, ensureSandbox, runClaudeCLI, extractJsonFromText } from "../sandbox";
+import { getSandbox, getGitHubToken, getOrCreateSandbox, runClaudeCLI, extractJsonFromText } from "../sandbox";
 
 export const summarizeSession = inngest.createFunction(
   { id: "summarize-session", retries: 2 },
@@ -26,7 +26,7 @@ export const summarizeSession = inngest.createFunction(
 
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(installationId);
-      const sandbox = await ensureSandbox(
+      const sandbox = await getOrCreateSandbox(
         session.sandboxId,
         githubToken,
         repo.owner,

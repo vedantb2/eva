@@ -47,21 +47,6 @@ export async function getSandbox(sandboxId: string): Promise<Sandbox> {
   return daytona.get(sandboxId);
 }
 
-export async function isSandboxAlive(sandboxId: string): Promise<boolean> {
-  try {
-    const sandbox = await daytona.get(sandboxId);
-    await sandbox.process.executeCommand(
-      "echo 'sandbox alive'",
-      "/",
-      undefined,
-      5,
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
     appId: serverEnv.GITHUB_APP_ID,
@@ -81,12 +66,7 @@ export async function syncRepo(
   workDir = WORKSPACE_DIR,
 ): Promise<void> {
   await updateRemoteUrl(sandbox, githubToken, owner, name, workDir);
-  await sandbox.process.executeCommand(
-    `cd ${workDir} && git pull`,
-    "/",
-    undefined,
-    60,
-  );
+  await sandbox.git.pull(workDir);
 }
 
 export async function setupBranch(
@@ -94,30 +74,14 @@ export async function setupBranch(
   branchName: string,
   workDir = WORKSPACE_DIR,
 ): Promise<{ created: boolean }> {
-  const checkResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && git ls-remote --heads origin ${branchName}`,
-    "/",
-    undefined,
-    30,
-  );
-
-  if (checkResult.result?.includes(branchName)) {
-    await sandbox.process.executeCommand(
-      `cd ${workDir} && git fetch origin ${branchName} && git checkout ${branchName}`,
-      "/",
-      undefined,
-      30,
-    );
+  try {
+    await sandbox.git.checkoutBranch(workDir, branchName);
     return { created: false };
+  } catch {
+    await sandbox.git.createBranch(workDir, branchName);
+    await sandbox.git.checkoutBranch(workDir, branchName);
+    return { created: true };
   }
-
-  await sandbox.process.executeCommand(
-    `cd ${workDir} && git checkout -b ${branchName}`,
-    "/",
-    undefined,
-    30,
-  );
-  return { created: true };
 }
 
 export async function updateRemoteUrl(
@@ -246,18 +210,21 @@ export async function captureGitDiff(
   return diffs;
 }
 
-export async function ensureSandbox(
-  projectSandboxId: string | undefined,
+export async function getOrCreateSandbox(
+  existingSandboxId: string | undefined,
   githubToken: string,
   repoOwner: string,
   repoName: string,
   onSandboxCreated: (sandboxId: string) => Promise<void>,
   ephemeral?: boolean,
 ): Promise<Sandbox> {
-  if (projectSandboxId) {
-    const alive = await isSandboxAlive(projectSandboxId);
-    if (alive) {
-      return getSandbox(projectSandboxId);
+  if (existingSandboxId) {
+    try {
+      const sandbox = await daytona.get(existingSandboxId);
+      await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+      return sandbox;
+    } catch {
+      // sandbox dead or unresponsive, create new
     }
   }
 

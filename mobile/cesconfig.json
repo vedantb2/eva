@@ -1,6 +1,6 @@
 {
   "cesVersion": "2.12.1",
-  "projectName": "invoice-generator",
+  "projectName": "eva",
   "packages": [
     {
       "name": "expo-router",

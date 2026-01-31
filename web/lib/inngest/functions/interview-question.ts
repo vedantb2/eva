@@ -2,6 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
+import { WORKSPACE_DIR } from "../sandbox";
 import { getGitHubToken, runClaudeCLI, extractJsonFromText, ensureProjectSandbox } from "../sandbox-helpers";
 
 interface CodebaseContext {
@@ -161,14 +162,12 @@ export const interviewQuestion = inngest.createFunction(
 
     const questionJson = await step.run("generate-question", async () => {
       const githubToken = await getGitHubToken(installationId);
-      const workDir = "/home/daytona/workspace/repo";
 
       const sandbox = await ensureProjectSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
         repo.name,
-        workDir,
         async (sandboxId) => {
           await convex.mutation(api.projects.updateProjectSandbox, {
             id: projectId as Id<"projects">,
@@ -191,7 +190,7 @@ ${prompt}`;
       const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
         model: "haiku",
         allowedTools: ["Read", "Glob", "Grep"],
-        workDir,
+        workDir: WORKSPACE_DIR,
         timeout: 120,
       });
 

@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { setupDailyReminder, handleNotificationResponse } from '@/utils/notifications';
 import { ThemeProvider } from '@/utils/ThemeContext';
-
 export {
   ErrorBoundary,
 } from 'expo-router';

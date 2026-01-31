@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, installClaudeCode, captureGitDiff } from "../sandbox-helpers";
+import { createSandbox, getSandbox, WORKSPACE_DIR } from "../sandbox";
+import { getGitHubToken, syncRepo, setupBranch, configureGit, updateRemoteUrl, runClaudeCLI, captureGitDiff } from "../sandbox-helpers";
 
 export const executeSessionTask = inngest.createFunction(
   {
@@ -66,8 +66,7 @@ export const executeSessionTask = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-      await installClaudeCode(sandbox);
-      await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
+      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
 
       const branchName = session.branchName || `session/${sessionId}`;
       await setupBranch(sandbox, branchName);
@@ -89,7 +88,7 @@ export const executeSessionTask = inngest.createFunction(
       await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
 
       const headResult = await sandbox.process.executeCommand(
-        "cd ~/workspace && git rev-parse HEAD",
+        `cd ${WORKSPACE_DIR} && git rev-parse HEAD`,
         "/",
         undefined,
         10

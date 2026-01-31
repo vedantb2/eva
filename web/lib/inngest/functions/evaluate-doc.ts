@@ -3,7 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
+import { getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
 
 interface EvaluationResult {
   requirementsMet: Array<{ requirement: string; evidence: string }>;
@@ -58,8 +58,7 @@ export const evaluateDoc = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(repo.installationId);
       const sandbox = await createSandbox(githubToken);
-      await installClaudeCode(sandbox);
-      await cloneRepo(sandbox, githubToken, repo.owner, repo.name);
+      await syncRepo(sandbox, githubToken, repo.owner, repo.name);
       return { sandboxId: sandbox.id };
     });
 

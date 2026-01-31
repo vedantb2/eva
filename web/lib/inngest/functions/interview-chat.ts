@@ -2,6 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
+import { WORKSPACE_DIR } from "../sandbox";
 import { getGitHubToken, runClaudeCLI, ensureProjectSandbox } from "../sandbox-helpers";
 
 interface ConversationMessage {
@@ -41,14 +42,12 @@ export const interviewChat = inngest.createFunction(
 
     const response = await step.run("generate-response", async () => {
       const githubToken = await getGitHubToken(installationId);
-      const workDir = "/home/daytona/workspace/repo";
 
       const sandbox = await ensureProjectSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
         repo.name,
-        workDir,
         async (sandboxId) => {
           await convex.mutation(api.projects.updateProjectSandbox, {
             id: projectId as Id<"projects">,
@@ -74,7 +73,7 @@ Respond helpfully to the user's message.`;
       const claudeResult = await runClaudeCLI(sandbox, prompt, {
         model: "haiku",
         allowedTools: ["Read", "Glob", "Grep"],
-        workDir,
+        workDir: WORKSPACE_DIR,
         timeout: 120,
       });
 

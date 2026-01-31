@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandboxFromSnapshot, getSandbox } from "../sandbox";
-import { getGitHubToken, cloneRepo, setupBranch, configureGit, updateRemoteUrl } from "../sandbox-helpers";
+import { createSandbox, getSandbox, WORKSPACE_DIR } from "../sandbox";
+import { getGitHubToken, configureGit, updateRemoteUrl } from "../sandbox-helpers";
 
 export const startSandbox = inngest.createFunction(
   {
@@ -39,7 +39,6 @@ export const startSandbox = inngest.createFunction(
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
             isNew: false,
-            usedSnapshot: false,
           };
         } catch {
           // Sandbox expired or dead, create new one
@@ -47,35 +46,15 @@ export const startSandbox = inngest.createFunction(
       }
 
       const branchName = session.branchName || "main";
-
-      const { sandbox, usedSnapshot } = await createSandboxFromSnapshot(
-        freshToken,
-        repo.owner,
-        repo.name,
-        branchName
+      const sandbox = await createSandbox(freshToken);
+      await configureGit(sandbox);
+      await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name);
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${branchName} && pnpm install`,
+        "/",
+        undefined,
+        120
       );
-
-      if (usedSnapshot) {
-        await configureGit(sandbox);
-        await updateRemoteUrl(sandbox, freshToken, repo.owner, repo.name, "/home/daytona/workspace");
-        await sandbox.process.executeCommand(
-          `cd /home/daytona/workspace && git fetch origin && git reset --hard origin/${branchName}`,
-          "/",
-          undefined,
-          60
-        );
-      } else {
-        await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
-
-        if (branchName !== "main" && branchName !== "master") {
-          await setupBranch(sandbox, branchName);
-        }
-
-        await configureGit(sandbox);
-
-        await sandbox.process.executeCommand("npm install -g pnpm", "/", undefined, 60);
-        await sandbox.process.executeCommand("pnpm install", "/home/daytona/workspace", undefined, 300);
-      }
 
       await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,
@@ -88,18 +67,13 @@ export const startSandbox = inngest.createFunction(
         status: "active",
       });
 
-      return { sandboxId: sandbox.id, branchName, isNew: true, usedSnapshot };
+      return { sandboxId: sandbox.id, branchName, isNew: true };
     });
 
     await step.run("add-startup-message", async () => {
-      let content: string;
-      if (!sandboxData.isNew) {
-        content = `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`;
-      } else if (sandboxData.usedSnapshot) {
-        content = `Sandbox started from snapshot! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`;
-      } else {
-        content = `Sandbox started and dependencies installed! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`;
-      }
+      const content = sandboxData.isNew
+        ? `Sandbox started from snapshot! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`
+        : `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`;
 
       await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,

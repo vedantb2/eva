@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Vense",
-    "slug": "vense",
+    "name": "Eva",
+    "slug": "eva",
     "version": "1.0.0",
-    "scheme": "vense",
+    "scheme": "eva",
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -20,8 +20,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to save invoices to your photo library.",
-          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save invoices to your photo library.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to acces your photo library.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to acess your your photo library.",
           "isAccessMediaLocationEnabled": true
         }
       ],
@@ -40,7 +40,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#5E0F27"
     },
@@ -50,16 +50,16 @@
       "infoPlist": {
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true,
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to save invoices to your photo library.",
-        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save invoices to your photo library."
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#5E0F27"
       },
-      "package": "com.vis1.invoicegenerator",
+      "package": "com.vis1.eva",
       "permissions": [
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE",

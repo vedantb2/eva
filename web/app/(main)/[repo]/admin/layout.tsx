@@ -18,7 +18,6 @@ export default function AdminLayout({
 
   const navigation = [
     { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
-    { name: "Sandboxes", href: baseUrl + "/sandboxes", icon: IconServer2 },
     { name: "Stats", href: baseUrl + "/stats", icon: IconChartBar },
   ];
 

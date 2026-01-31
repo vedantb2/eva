@@ -48,57 +48,10 @@ export default function Home() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Invoice Generator' }} />
+      <Stack.Screen options={{ title: 'Eva' }} />
       <ScrollView style={styles.container}>
-        {/* Current Month Summary */}
-        <View style={styles.monthSummary}>
-          <Text style={styles.monthTitle}>
-            {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </Text>
-          <View style={styles.summaryStats}>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>{monthlyHours.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>Hours</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>{formatCurrency(monthlyEarnings)}</Text>
-              <Text style={styles.statLabel}>Earned</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Quick Actions */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/log-hours')}>
-            <Text style={styles.buttonText}>Log Hours</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/invoices')}>
-            <Text style={styles.buttonText}>View Invoices</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/settings')}>
-            <Text style={styles.buttonText}>Company Details</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Recent Activity */}
-        <View style={styles.recentActivity}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {recentEntries.length === 0 ? (
-            <View style={styles.activityItem}>
-              <Text>No recent activity</Text>
-            </View>
-          ) : (
-            recentEntries.map((entry) => (
-              <View key={entry.id} style={styles.activityItem}>
-                <View style={styles.activityHeader}>
-                  <Text style={styles.activityDate}>{formatDate(entry.date)}</Text>
-                  <Text style={styles.activityHours}>{entry.hours} hours</Text>
-                </View>
-                {entry.notes && <Text style={styles.activityNotes}>{entry.notes}</Text>}
-              </View>
-            ))
-          )}
-        </View>
       </ScrollView>
     </>
   );

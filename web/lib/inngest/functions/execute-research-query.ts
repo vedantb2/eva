@@ -1,18 +1,10 @@
 import { inngest } from "../client";
-import { Daytona } from "@daytonaio/sdk";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
-import {
-  cloneRepo,
-  configureGit,
-  getGitHubToken,
-  installClaudeCode,
-  runClaudeCLI,
-} from "../sandbox-helpers";
-
-const daytona = new Daytona();
+import { createSandbox, WORKSPACE_DIR } from "../sandbox";
+import { configureGit, getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
 
 export const executeResearchQuery = inngest.createFunction(
   {
@@ -52,32 +44,26 @@ export const executeResearchQuery = inngest.createFunction(
 
       const githubToken = await getGitHubToken(repo.installationId);
 
-      const sandbox = await daytona.create({
-        envVars: {
-          CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-          CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
-          CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
-        },
-        ephemeral: true,
+      const sandbox = await createSandbox(githubToken, {
+        CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
       });
 
       try {
         await configureGit(sandbox);
-        await cloneRepo(sandbox, githubToken, repo.owner, repo.name, "~/workspace");
+        await syncRepo(sandbox, githubToken, repo.owner, repo.name);
         await sandbox.process.executeCommand(
           "npm install -g convex",
           "/",
           undefined,
           120,
         );
-        await installClaudeCode(sandbox);
 
         const mcpConfig = JSON.stringify({
           type: "stdio",
           command: "bash",
           args: [
             "-c",
-            `export CONVEX_DEPLOYMENT='${serverEnv.CONVEX_DEPLOYMENT}' && export CONVEX_DEPLOY_KEY='${serverEnv.CONVEX_DEPLOY_KEY}' && cd $HOME/workspace/backend && convex mcp start`,
+            `export CONVEX_DEPLOYMENT='${serverEnv.CONVEX_DEPLOYMENT}' && export CONVEX_DEPLOY_KEY='${serverEnv.CONVEX_DEPLOY_KEY}' && cd ${WORKSPACE_DIR}/backend && convex mcp start`,
           ],
         });
         const mcpConfigBase64 = Buffer.from(mcpConfig).toString("base64");
@@ -115,7 +101,7 @@ ${question}
         const result = await runClaudeCLI(sandbox, prompt, {
           model: "sonnet",
           allowedTools: [],
-          workDir: "~/workspace/backend",
+          workDir: `${WORKSPACE_DIR}/backend`,
           timeout: 180,
         });
 

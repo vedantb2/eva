@@ -3,7 +3,7 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, cloneRepo, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
+import { getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
 
 export const askSession = inngest.createFunction(
   {
@@ -53,8 +53,7 @@ export const askSession = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-      await installClaudeCode(sandbox);
-      await cloneRepo(sandbox, freshToken, repo.owner, repo.name);
+      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
 
       await convex.mutation(api.sessions.updateSandbox, {
         id: sessionId as Id<"sessions">,

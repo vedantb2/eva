@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, configureGit, runClaudeCLI, installClaudeCode } from "../sandbox-helpers";
+import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR } from "../sandbox";
+import { getGitHubToken, configureGit, syncRepo, runClaudeCLI } from "../sandbox-helpers";
 
 interface AgentOutput {
   success: boolean;
@@ -68,7 +68,7 @@ export const executeTask = inngest.createFunction(
 
           const sandbox = await getSandbox(project.sandboxId);
           await sandbox.process.executeCommand(
-            `cd ~/workspace && git fetch origin && git pull origin ${taskBranchName}`,
+            `cd ${WORKSPACE_DIR} && git fetch origin && git pull origin ${taskBranchName}`,
             "/",
             undefined,
             60
@@ -83,23 +83,11 @@ export const executeTask = inngest.createFunction(
       }
 
       const sandbox = await createSandbox(freshToken);
-      await installClaudeCode(sandbox);
-
-      await convex.mutation(api.agentRuns.appendLog, {
-        id: runId as Id<"agentRuns">,
-        level: "info",
-        message: `Cloning ${repo.owner}/${repo.name}...`,
-      });
-
-      try {
-        await sandbox.process.executeCommand(`git clone ${repoUrl} ~/workspace`, "/", undefined, 120);
-      } catch (err) {
-        const error = err as { result?: string; message?: string };
-        throw new Error(`Git clone failed: ${error.result || error.message || "Unknown error"}`);
-      }
+      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
+      await configureGit(sandbox);
 
       if (isFirstTaskOnBranch) {
-        await sandbox.process.executeCommand(`cd ~/workspace && git checkout -b ${taskBranchName}`, "/", undefined, 30);
+        await sandbox.process.executeCommand(`cd ${WORKSPACE_DIR} && git checkout -b ${taskBranchName}`, "/", undefined, 30);
         await convex.mutation(api.agentRuns.appendLog, {
           id: runId as Id<"agentRuns">,
           level: "info",
@@ -107,7 +95,7 @@ export const executeTask = inngest.createFunction(
         });
       } else {
         await sandbox.process.executeCommand(
-          `cd ~/workspace && git fetch origin && git checkout ${taskBranchName} && git pull origin ${taskBranchName}`,
+          `cd ${WORKSPACE_DIR} && git fetch origin && git checkout ${taskBranchName} && git pull origin ${taskBranchName}`,
           "/",
           undefined,
           30
@@ -118,8 +106,6 @@ export const executeTask = inngest.createFunction(
           message: `Checked out existing branch: ${taskBranchName}`,
         });
       }
-
-      await configureGit(sandbox);
 
       if (projectId) {
         await convex.mutation(api.projects.updateProjectSandbox, {
@@ -183,7 +169,7 @@ ${prInstructions}
       const claudeResult = await runClaudeCLI(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-        workDir: "~/workspace",
+        workDir: WORKSPACE_DIR,
         timeout: 0,
         preCommand: "npx -y npm@11.7.0 install",
       });

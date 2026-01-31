@@ -4,7 +4,7 @@ import { createAppAuth } from "@octokit/auth-app";
 import { quote } from "shell-quote";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { serverEnv } from "@/env/server";
-import { createSandbox, getSandbox, isSandboxAlive } from "./sandbox";
+import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR } from "./sandbox";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -28,39 +28,26 @@ export async function configureGit(sandbox: Sandbox): Promise<void> {
   );
 }
 
-export async function installClaudeCode(sandbox: Sandbox): Promise<void> {
-  await sandbox.process.executeCommand(
-    "npm install -g @anthropic-ai/claude-code",
-    "/",
-    undefined,
-    120
-  );
-}
-
-export async function cloneRepo(
+export async function syncRepo(
   sandbox: Sandbox,
   githubToken: string,
   owner: string,
   name: string,
-  workDir = "~/workspace"
+  workDir = WORKSPACE_DIR
 ): Promise<void> {
-  const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
-  const result = await sandbox.process.executeCommand(
-    `git clone ${repoUrl} ${workDir}`,
+  await updateRemoteUrl(sandbox, githubToken, owner, name, workDir);
+  await sandbox.process.executeCommand(
+    `cd ${workDir} && git pull`,
     "/",
     undefined,
-    120
+    60
   );
-  if (result.exitCode !== 0) {
-    const sanitized = (result.result || "").replace(new RegExp(githubToken, "g"), "[REDACTED]");
-    throw new Error(`Git clone failed: ${sanitized}`);
-  }
 }
 
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
-  workDir = "~/workspace"
+  workDir = WORKSPACE_DIR
 ): Promise<{ created: boolean }> {
   const checkResult = await sandbox.process.executeCommand(
     `cd ${workDir} && git ls-remote --heads origin ${branchName}`,
@@ -93,7 +80,7 @@ export async function updateRemoteUrl(
   githubToken: string,
   owner: string,
   name: string,
-  workDir = "~/workspace"
+  workDir = WORKSPACE_DIR
 ): Promise<void> {
   const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
   await sandbox.process.executeCommand(
@@ -128,7 +115,7 @@ export async function runClaudeCLI(
   const {
     model = "sonnet",
     allowedTools = ["Read", "Glob", "Grep"],
-    workDir = "~/workspace",
+    workDir = WORKSPACE_DIR,
     timeout = 300,
     preCommand,
   } = options;
@@ -179,7 +166,7 @@ interface FileDiff {
 export async function captureGitDiff(
   sandbox: Sandbox,
   beforeHead: string,
-  workDir = "~/workspace"
+  workDir = WORKSPACE_DIR
 ): Promise<FileDiff[]> {
   const result = await sandbox.process.executeCommand(
     `cd ${workDir} && git diff ${beforeHead}..HEAD`,
@@ -217,7 +204,6 @@ export async function ensureProjectSandbox(
   githubToken: string,
   repoOwner: string,
   repoName: string,
-  workDir: string,
   onSandboxCreated: (sandboxId: string) => Promise<void>
 ): Promise<Sandbox> {
   if (projectSandboxId) {
@@ -228,8 +214,7 @@ export async function ensureProjectSandbox(
   }
 
   const sandbox = await createSandbox(githubToken);
-  await installClaudeCode(sandbox);
-  await cloneRepo(sandbox, githubToken, repoOwner, repoName, workDir);
+  await syncRepo(sandbox, githubToken, repoOwner, repoName);
   await onSandboxCreated(sandbox.id);
   return sandbox;
 }

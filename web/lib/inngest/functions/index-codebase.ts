@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, extractJsonFromText, installClaudeCode } from "../sandbox-helpers";
+import { createSandbox, WORKSPACE_DIR } from "../sandbox";
+import { getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 
@@ -86,20 +86,8 @@ export const indexCodebase = inngest.createFunction(
     const { codebaseIndex, sandboxId } = await step.run("index-codebase", async () => {
       const githubToken = await getGitHubToken(installationId);
       const sandbox = await createSandbox(githubToken);
-      await installClaudeCode(sandbox);
-      const workDir = "/home/daytona/workspace/repo";
-
-      const repoUrl = `https://x-access-token:${githubToken}@github.com/${repo.owner}/${repo.name}.git`;
-      const cloneResult = await sandbox.process.executeCommand(
-        `git clone --depth 1 "${repoUrl}" ${workDir}`,
-        "/",
-        undefined,
-        120
-      );
-      if (cloneResult.exitCode !== 0) {
-        const sanitized = (cloneResult.result || "").replace(new RegExp(githubToken, "g"), "[REDACTED]");
-        throw new Error(`Git clone failed: ${sanitized}`);
-      }
+      await syncRepo(sandbox, githubToken, repo.owner, repo.name);
+      const workDir = WORKSPACE_DIR;
 
       const treeResult = await sandbox.process.executeCommand(
         `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,

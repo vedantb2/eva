@@ -52,8 +52,8 @@ export function KanbanColumn({
       }`}
     >
       <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <config.icon size={16} className={config.badgeText} />
+        <div className="flex items-center gap-1">
+          <config.icon size={14} className={config.badgeText} />
           <span className="font-medium">{config.label}</span>
           <span
             className={`px-2 py-0.5 text-xs font-medium rounded-full ${config.badgeBg} ${config.badgeText}`}

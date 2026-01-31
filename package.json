@@ -16,6 +16,8 @@
     "api:ext": "npm run api --prefix ./chrome-extension",
     "inngest": "npm run inngest --prefix ./web",
     "ext:dev": "npm run dev --prefix ./chrome-extension",
-    "ext:build": "npm run build --prefix ./chrome-extension"
+    "ext:build": "npm run build --prefix ./chrome-extension",
+    "snapshot:delete": "daytona snapshot delete eva-snapshot",
+    "snapshot:create": "daytona snapshot create eva-snapshot --dockerfile Dockerfile"
   }
 }

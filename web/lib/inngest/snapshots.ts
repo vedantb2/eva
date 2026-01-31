@@ -55,7 +55,7 @@ export async function createRepoSnapshot(
       `git clone --branch ${branch} --single-branch ${repoUrl} /home/daytona/workspace`
     )
     .workdir("/home/daytona/workspace")
-    .runCommands("pnpm install --frozen-lockfile || pnpm install")
+    .runCommands("pnpm install")
     .env({ PNPM_HOME: "/root/.local/share/pnpm" });
 
   const snapshot = await daytona.snapshot.create(

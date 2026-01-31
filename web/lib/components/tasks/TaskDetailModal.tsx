@@ -430,7 +430,7 @@ export function TaskDetailModal({
                 </div>
                 <div>
                   <p className="text-xs text-default-400 mb-1.5">
-                    Assignee
+                    Assign to ___ for Code Review
                   </p>
                   <Select
                     placeholder="Unassigned"

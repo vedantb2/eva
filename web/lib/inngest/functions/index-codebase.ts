@@ -3,7 +3,12 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
+import {
+  getGitHubToken,
+  syncRepo,
+  runClaudeCLI,
+  extractJsonFromText,
+} from "../sandbox-helpers";
 
 const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
 
@@ -83,34 +88,34 @@ export const indexCodebase = inngest.createFunction(
       });
     });
 
-    const { codebaseIndex, sandboxId } = await step.run("index-codebase", async () => {
-      const githubToken = await getGitHubToken(installationId);
-      const sandbox = await createSandbox(githubToken);
-      await syncRepo(sandbox, githubToken, repo.owner, repo.name);
-      const workDir = WORKSPACE_DIR;
+    const { codebaseIndex, sandboxId } = await step.run(
+      "index-codebase",
+      async () => {
+        const githubToken = await getGitHubToken(installationId);
+        const sandbox = await createSandbox(githubToken);
+        await syncRepo(sandbox, githubToken, repo.owner, repo.name);
+        const treeResult = await sandbox.process.executeCommand(
+          `cd ${WORKSPACE_DIR} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
+          "/",
+          undefined,
+          30,
+        );
 
-      const treeResult = await sandbox.process.executeCommand(
-        `cd ${workDir} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
-        "/",
-        undefined,
-        30
-      );
+        const packageJsonResult = await sandbox.process.executeCommand(
+          `cd ${WORKSPACE_DIR} && cat package.json 2>/dev/null || echo "{}"`,
+          "/",
+          undefined,
+          10,
+        );
 
-      const packageJsonResult = await sandbox.process.executeCommand(
-        `cd ${workDir} && cat package.json 2>/dev/null || echo "{}"`,
-        "/",
-        undefined,
-        10
-      );
+        const readmeResult = await sandbox.process.executeCommand(
+          `cd ${WORKSPACE_DIR} && cat README.md 2>/dev/null || echo "No README"`,
+          "/",
+          undefined,
+          10,
+        );
 
-      const readmeResult = await sandbox.process.executeCommand(
-        `cd ${workDir} && cat README.md 2>/dev/null || echo "No README"`,
-        "/",
-        undefined,
-        10
-      );
-
-      const contextPrompt = `${INDEX_PROMPT}
+        const contextPrompt = `${INDEX_PROMPT}
 
 Here's information about the codebase:
 
@@ -125,28 +130,28 @@ ${readmeResult.result?.slice(0, 2000) || ""}
 
 Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
 
-      const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
-        model: "sonnet",
-        workDir,
-        timeout: 300,
-      });
+        const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
+          model: "sonnet",
+          workDir: WORKSPACE_DIR,
+          timeout: 300,
+        });
 
-      const jsonStr = extractJsonFromText(claudeResult.result);
-      if (!jsonStr) {
-        throw new Error(`Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`);
-      }
+        const jsonStr = extractJsonFromText(claudeResult.result);
+        if (!jsonStr) {
+          throw new Error(
+            `Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`,
+          );
+        }
 
-      return { codebaseIndex: jsonStr, sandboxId: sandbox.id };
-    });
+        return { codebaseIndex: jsonStr, sandboxId: sandbox.id };
+      },
+    );
 
-    await step.run("save-index", async () => {
+    await step.run("save-results", async () => {
       await convex.mutation(api.projects.setCodebaseIndex, {
         id: projectId as Id<"projects">,
         codebaseIndex,
       });
-    });
-
-    await step.run("save-sandbox", async () => {
       await convex.mutation(api.projects.updateProjectSandbox, {
         id: projectId as Id<"projects">,
         sandboxId,
@@ -154,5 +159,5 @@ Now analyze this codebase and generate the JSON index. Remember to output ONLY v
     });
 
     return { success: true };
-  }
+  },
 );

@@ -3,7 +3,12 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, extractJsonFromText, ensureProjectSandbox } from "../sandbox-helpers";
+import {
+  getGitHubToken,
+  runClaudeCLI,
+  extractJsonFromText,
+  ensureSandbox,
+} from "../sandbox-helpers";
 
 interface CodebaseContext {
   summary: string;
@@ -95,7 +100,7 @@ function buildPrompt(
   featureDescription: string,
   questionCategory: string,
   previousAnswers: PreviousAnswer[],
-  codebaseContext: CodebaseContext | null
+  codebaseContext: CodebaseContext | null,
 ): string {
   let prompt = `## Feature Request
 "${featureDescription}"
@@ -117,7 +122,8 @@ This is a ${codebaseContext.techStack.framework} app.
     prompt += "\n";
   }
 
-  const categoryDescription = CATEGORY_MAP[questionCategory] || CATEGORY_MAP.default;
+  const categoryDescription =
+    CATEGORY_MAP[questionCategory] || CATEGORY_MAP.default;
 
   prompt += `## Your Task
 Think of an edge case or scenario the user probably hasn't considered about ${categoryDescription}.
@@ -137,23 +143,27 @@ export const interviewQuestion = inngest.createFunction(
   },
   { event: "project/interview.question" },
   async ({ event, step }) => {
-    const { clerkToken, projectId, repoId, installationId, featureDescription, questionTopic, previousAnswers = [] } = event.data;
+    const {
+      clerkToken,
+      projectId,
+      repoId,
+      installationId,
+      featureDescription,
+      questionTopic,
+      previousAnswers = [],
+    } = event.data;
     const convex = createConvex(clerkToken);
 
-    const project = await step.run("fetch-project", async () => {
-      const p = await convex.query(api.projects.get, {
+    const { project, repo } = await step.run("fetch-data", async () => {
+      const projectData = await convex.query(api.projects.get, {
         id: projectId as Id<"projects">,
       });
-      if (!p) throw new Error("Project not found");
-      return p;
-    });
-
-    const repo = await step.run("fetch-repo", async () => {
-      const r = await convex.query(api.githubRepos.get, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
-      if (!r) throw new Error("Repo not found");
-      return r;
+      if (!projectData || !repoData)
+        throw new Error("Project or repo not found");
+      return { project: projectData, repo: repoData };
     });
 
     const codebaseContext: CodebaseContext | null = project.codebaseIndex
@@ -163,7 +173,7 @@ export const interviewQuestion = inngest.createFunction(
     const questionJson = await step.run("generate-question", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureProjectSandbox(
+      const sandbox = await ensureSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
@@ -173,14 +183,14 @@ export const interviewQuestion = inngest.createFunction(
             id: projectId as Id<"projects">,
             sandboxId,
           });
-        }
+        },
       );
 
       const prompt = buildPrompt(
         featureDescription,
         questionTopic,
         previousAnswers,
-        codebaseContext
+        codebaseContext,
       );
 
       const fullPrompt = `${SYSTEM_PROMPT}
@@ -196,7 +206,9 @@ ${prompt}`;
 
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
-        throw new Error(`Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`);
+        throw new Error(
+          `Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`,
+        );
       }
 
       return jsonStr;
@@ -208,14 +220,11 @@ ${prompt}`;
         role: "assistant",
         content: questionJson,
       });
-    });
-
-    await step.run("update-activity", async () => {
       await convex.mutation(api.projects.updateLastSandboxActivity, {
         id: projectId as Id<"projects">,
       });
     });
 
     return { success: true, question: questionJson };
-  }
+  },
 );

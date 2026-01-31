@@ -4,7 +4,12 @@ import { createAppAuth } from "@octokit/auth-app";
 import { quote } from "shell-quote";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { serverEnv } from "@/env/server";
-import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR } from "./sandbox";
+import {
+  createSandbox,
+  getSandbox,
+  isSandboxAlive,
+  WORKSPACE_DIR,
+} from "./sandbox";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -24,27 +29,27 @@ export async function syncRepo(
   githubToken: string,
   owner: string,
   name: string,
-  workDir = WORKSPACE_DIR
+  workDir = WORKSPACE_DIR,
 ): Promise<void> {
   await updateRemoteUrl(sandbox, githubToken, owner, name, workDir);
   await sandbox.process.executeCommand(
     `cd ${workDir} && git pull`,
     "/",
     undefined,
-    60
+    60,
   );
 }
 
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
-  workDir = WORKSPACE_DIR
+  workDir = WORKSPACE_DIR,
 ): Promise<{ created: boolean }> {
   const checkResult = await sandbox.process.executeCommand(
     `cd ${workDir} && git ls-remote --heads origin ${branchName}`,
     "/",
     undefined,
-    30
+    30,
   );
 
   if (checkResult.result?.includes(branchName)) {
@@ -52,7 +57,7 @@ export async function setupBranch(
       `cd ${workDir} && git fetch origin ${branchName} && git checkout ${branchName}`,
       "/",
       undefined,
-      30
+      30,
     );
     return { created: false };
   }
@@ -61,7 +66,7 @@ export async function setupBranch(
     `cd ${workDir} && git checkout -b ${branchName}`,
     "/",
     undefined,
-    30
+    30,
   );
   return { created: true };
 }
@@ -71,14 +76,14 @@ export async function updateRemoteUrl(
   githubToken: string,
   owner: string,
   name: string,
-  workDir = WORKSPACE_DIR
+  workDir = WORKSPACE_DIR,
 ): Promise<void> {
   const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
   await sandbox.process.executeCommand(
     `cd ${workDir} && git remote set-url origin ${repoUrl}`,
     "/",
     undefined,
-    10
+    10,
   );
 }
 
@@ -90,7 +95,6 @@ interface ClaudeCLIOptions {
   allowedTools?: ClaudeTool[];
   workDir?: string;
   timeout?: number;
-  preCommand?: string;
 }
 
 interface ClaudeCLIResult {
@@ -101,25 +105,24 @@ interface ClaudeCLIResult {
 export async function runClaudeCLI(
   sandbox: Sandbox,
   prompt: string,
-  options: ClaudeCLIOptions = {}
+  options: ClaudeCLIOptions = {},
 ): Promise<ClaudeCLIResult> {
   const {
     model = "sonnet",
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = WORKSPACE_DIR,
     timeout = 300,
-    preCommand,
   } = options;
 
   const escapedPrompt = quote([prompt]);
-  const toolsArg = allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const preCmd = preCommand ? `${preCommand} && ` : "";
+  const toolsArg =
+    allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
 
   const cmdResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && ${preCmd}echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
+    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
     "/",
     undefined,
-    timeout
+    timeout,
   );
 
   const output = cmdResult.result || "";
@@ -130,11 +133,16 @@ export function parseClaudeOutput(output: string): ClaudeCLIResult {
   try {
     const json = JSON.parse(output.trim());
     const messages = Array.isArray(json) ? json : [json];
-    const resultMsg = messages.find((m: Record<string, unknown>) => m.type === "result");
+    const resultMsg = messages.find(
+      (m: Record<string, unknown>) => m.type === "result",
+    );
 
     if (resultMsg) {
       const result = resultMsg.result ?? "";
-      return { result: typeof result === "string" ? result : JSON.stringify(result), isError: Boolean(resultMsg.is_error) };
+      return {
+        result: typeof result === "string" ? result : JSON.stringify(result),
+        isError: Boolean(resultMsg.is_error),
+      };
     }
   } catch {
     // Fall through
@@ -157,13 +165,13 @@ interface FileDiff {
 export async function captureGitDiff(
   sandbox: Sandbox,
   beforeHead: string,
-  workDir = WORKSPACE_DIR
+  workDir = WORKSPACE_DIR,
 ): Promise<FileDiff[]> {
   const result = await sandbox.process.executeCommand(
     `cd ${workDir} && git diff ${beforeHead}..HEAD`,
     "/",
     undefined,
-    30
+    30,
   );
   const raw = result.result || "";
   if (!raw.trim()) return [];
@@ -190,12 +198,12 @@ export async function captureGitDiff(
   return diffs;
 }
 
-export async function ensureProjectSandbox(
+export async function ensureSandbox(
   projectSandboxId: string | undefined,
   githubToken: string,
   repoOwner: string,
   repoName: string,
-  onSandboxCreated: (sandboxId: string) => Promise<void>
+  onSandboxCreated: (sandboxId: string) => Promise<void>,
 ): Promise<Sandbox> {
   if (projectSandboxId) {
     const alive = await isSandboxAlive(projectSandboxId);

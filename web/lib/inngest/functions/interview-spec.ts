@@ -3,7 +3,12 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, extractJsonFromText, ensureProjectSandbox } from "../sandbox-helpers";
+import {
+  getGitHubToken,
+  runClaudeCLI,
+  extractJsonFromText,
+  ensureSandbox,
+} from "../sandbox-helpers";
 
 interface CodebaseContext {
   summary: string;
@@ -100,7 +105,8 @@ You MUST output ONLY valid JSON with this exact structure:
 
   const language = codebaseContext.techStack.language ?? "Unknown";
   const framework = codebaseContext.techStack.framework ?? "Unknown";
-  const dependencies = (codebaseContext.techStack.other ?? []).slice(0, 10).join(", ") || "None";
+  const dependencies =
+    (codebaseContext.techStack.other ?? []).slice(0, 10).join(", ") || "None";
 
   return `You are a technical architect for a ${language}/${framework} project.
 
@@ -157,23 +163,26 @@ export const interviewSpec = inngest.createFunction(
   },
   { event: "project/interview.spec" },
   async ({ event, step }) => {
-    const { clerkToken, projectId, repoId, installationId, featureDescription, answers } = event.data;
+    const {
+      clerkToken,
+      projectId,
+      repoId,
+      installationId,
+      featureDescription,
+      answers,
+    } = event.data;
     const convex = createConvex(clerkToken);
 
-    const project = await step.run("fetch-project", async () => {
-      const p = await convex.query(api.projects.get, {
+    const { project, repo } = await step.run("fetch-data", async () => {
+      const projectData = await convex.query(api.projects.get, {
         id: projectId as Id<"projects">,
       });
-      if (!p) throw new Error("Project not found");
-      return p;
-    });
-
-    const repo = await step.run("fetch-repo", async () => {
-      const r = await convex.query(api.githubRepos.get, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
-      if (!r) throw new Error("Repo not found");
-      return r;
+      if (!projectData || !repoData)
+        throw new Error("Project or repo not found");
+      return { project: projectData, repo: repoData };
     });
 
     const codebaseContext: CodebaseContext | null = project.codebaseIndex
@@ -183,7 +192,7 @@ export const interviewSpec = inngest.createFunction(
     const specJson = await step.run("generate-spec", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureProjectSandbox(
+      const sandbox = await ensureSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
@@ -193,7 +202,7 @@ export const interviewSpec = inngest.createFunction(
             id: projectId as Id<"projects">,
             sandboxId,
           });
-        }
+        },
       );
 
       const answersText = (answers as Answer[])
@@ -223,7 +232,9 @@ ${prompt}`;
 
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
-        throw new Error(`Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`);
+        throw new Error(
+          `Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`,
+        );
       }
 
       return jsonStr;
@@ -235,20 +246,16 @@ ${prompt}`;
         role: "assistant",
         content: specJson,
       });
-
       await convex.mutation(api.projects.update, {
         id: projectId as Id<"projects">,
         generatedSpec: specJson,
         phase: "finalized",
       });
-    });
-
-    await step.run("update-activity", async () => {
       await convex.mutation(api.projects.updateLastSandboxActivity, {
         id: projectId as Id<"projects">,
       });
     });
 
     return { success: true, spec: specJson };
-  }
+  },
 );

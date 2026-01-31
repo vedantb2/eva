@@ -3,7 +3,11 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { WORKSPACE_DIR } from "../sandbox";
-import { getGitHubToken, runClaudeCLI, ensureProjectSandbox } from "../sandbox-helpers";
+import {
+  getGitHubToken,
+  runClaudeCLI,
+  ensureSandbox,
+} from "../sandbox-helpers";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -21,29 +25,32 @@ export const interviewChat = inngest.createFunction(
   },
   { event: "project/interview.chat" },
   async ({ event, step }) => {
-    const { clerkToken, projectId, repoId, installationId, userMessage, systemPrompt } = event.data;
+    const {
+      clerkToken,
+      projectId,
+      repoId,
+      installationId,
+      userMessage,
+      systemPrompt,
+    } = event.data;
     const convex = createConvex(clerkToken);
 
-    const project = await step.run("fetch-project", async () => {
-      const p = await convex.query(api.projects.get, {
+    const { project, repo } = await step.run("fetch-data", async () => {
+      const projectData = await convex.query(api.projects.get, {
         id: projectId as Id<"projects">,
       });
-      if (!p) throw new Error("Project not found");
-      return p;
-    });
-
-    const repo = await step.run("fetch-repo", async () => {
-      const r = await convex.query(api.githubRepos.get, {
+      const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
-      if (!r) throw new Error("Repo not found");
-      return r;
+      if (!projectData || !repoData)
+        throw new Error("Project or repo not found");
+      return { project: projectData, repo: repoData };
     });
 
     const response = await step.run("generate-response", async () => {
       const githubToken = await getGitHubToken(installationId);
 
-      const sandbox = await ensureProjectSandbox(
+      const sandbox = await ensureSandbox(
         project.sandboxId,
         githubToken,
         repo.owner,
@@ -53,10 +60,11 @@ export const interviewChat = inngest.createFunction(
             id: projectId as Id<"projects">,
             sandboxId,
           });
-        }
+        },
       );
 
-      const conversationHistory = project.conversationHistory as ConversationMessage[];
+      const conversationHistory =
+        project.conversationHistory as ConversationMessage[];
       const historyText = conversationHistory
         .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
         .join("\n\n");
@@ -86,14 +94,11 @@ Respond helpfully to the user's message.`;
         role: "assistant",
         content: response,
       });
-    });
-
-    await step.run("update-activity", async () => {
       await convex.mutation(api.projects.updateLastSandboxActivity, {
         id: projectId as Id<"projects">,
       });
     });
 
     return { success: true, response };
-  }
+  },
 );

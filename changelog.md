@@ -1,3 +1,11 @@
+I am using Daytona for sandbox. I want claude code on it to execute tasks.
+I am using Daytona cli, I am creating a snapshot. 
+the snapshot needs to contain:
+- pnpm git claude code installed
+- git cloned my repo
+- my repo is private
+read my Dockerfile and tell me whether this is okay and what I need to run in the cli now to set it up
+
 i want you to create a helper function called something like createNotification in convex which takes the userId and content/title and then I want you to analyse places in the convex codebase of where it would be appropriate to call this function to send a notificaton to the user. one example is when changing an assignee on a task to someone else, can send noti to that user so they are aware.
 
 need you to plan a new feature, I want you to add a role field to the users table, for now just have "business" or "dev". and then in the quick tasks table i want you to add a field assignedTo which is connected to the users table, then in quicktaskmodal I want you to add a select option to assign to user which in the dropdown gets entire list of users and then once selected adds them as who the task is assigned to

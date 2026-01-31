@@ -2,8 +2,12 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox-helpers";
+import { getSandbox } from "../sandbox";
+import {
+  getGitHubToken,
+  ensureSandbox,
+  runClaudeCLI,
+} from "../sandbox-helpers";
 
 export const askSession = inngest.createFunction(
   {
@@ -25,7 +29,8 @@ export const askSession = inngest.createFunction(
   },
   { event: "session/ask.execute" },
   async ({ event, step }) => {
-    const { clerkToken, sessionId, messageContent, repoId, installationId } = event.data;
+    const { clerkToken, sessionId, messageContent, repoId, installationId } =
+      event.data;
     const convex = createConvex(clerkToken);
 
     const { session, repo } = await step.run("fetch-session-data", async () => {
@@ -42,25 +47,20 @@ export const askSession = inngest.createFunction(
     });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
-      const freshToken = await getGitHubToken(installationId);
-
-      if (session.sandboxId && await isSandboxAlive(session.sandboxId)) {
-        return {
-          sandboxId: session.sandboxId,
-          branchName: session.branchName || "main",
-          isNew: false,
-        };
-      }
-
-      const sandbox = await createSandbox(freshToken);
-      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
-
-      await convex.mutation(api.sessions.updateSandbox, {
-        id: sessionId as Id<"sessions">,
-        sandboxId: sandbox.id,
-      });
-
-      return { sandboxId: sandbox.id, branchName: "main", isNew: true };
+      const githubToken = await getGitHubToken(installationId);
+      const sandbox = await ensureSandbox(
+        session.sandboxId,
+        githubToken,
+        repo.owner,
+        repo.name,
+        async (sandboxId) => {
+          await convex.mutation(api.sessions.updateSandbox, {
+            id: sessionId as Id<"sessions">,
+            sandboxId,
+          });
+        },
+      );
+      return { sandboxId: sandbox.id };
     });
 
     const result = await step.run("ask-question", async () => {
@@ -99,7 +99,10 @@ CRITICAL response rules:
         allowedTools: ["Read", "Glob", "Grep"],
       });
 
-      return { answer: claudeResult.result || "I couldn't find an answer to your question." };
+      return {
+        answer:
+          claudeResult.result || "I couldn't find an answer to your question.",
+      };
     });
 
     await step.run("update-session", async () => {
@@ -112,5 +115,5 @@ CRITICAL response rules:
     });
 
     return { success: true };
-  }
+  },
 );

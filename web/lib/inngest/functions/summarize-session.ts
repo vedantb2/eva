@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, isSandboxAlive } from "../sandbox";
-import { getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
+import { getSandbox } from "../sandbox";
+import { getGitHubToken, ensureSandbox, runClaudeCLI, extractJsonFromText } from "../sandbox-helpers";
 
 export const summarizeSession = inngest.createFunction(
   { id: "summarize-session", retries: 2 },
@@ -26,21 +26,20 @@ export const summarizeSession = inngest.createFunction(
     });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
-      const freshToken = await getGitHubToken(installationId);
-
-      if (session.sandboxId && await isSandboxAlive(session.sandboxId)) {
-        return { sandboxId: session.sandboxId, isNew: false };
-      }
-
-      const sandbox = await createSandbox(freshToken);
-      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
-
-      await convex.mutation(api.sessions.updateSandbox, {
-        id: sessionId as Id<"sessions">,
-        sandboxId: sandbox.id,
-      });
-
-      return { sandboxId: sandbox.id, isNew: true };
+      const githubToken = await getGitHubToken(installationId);
+      const sandbox = await ensureSandbox(
+        session.sandboxId,
+        githubToken,
+        repo.owner,
+        repo.name,
+        async (sandboxId) => {
+          await convex.mutation(api.sessions.updateSandbox, {
+            id: sessionId as Id<"sessions">,
+            sandboxId,
+          });
+        },
+      );
+      return { sandboxId: sandbox.id };
     });
 
     const result = await step.run("generate-summary", async () => {

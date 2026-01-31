@@ -2,8 +2,8 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox } from "../sandbox";
-import { getGitHubToken, syncRepo, setupBranch, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
+import { getSandbox } from "../sandbox";
+import { getGitHubToken, setupBranch, ensureSandbox, updateRemoteUrl, runClaudeCLI } from "../sandbox-helpers";
 
 export const planSession = inngest.createFunction(
   {
@@ -51,35 +51,23 @@ export const planSession = inngest.createFunction(
     });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
-      const freshToken = await getGitHubToken(installationId);
-
-      if (session.sandboxId) {
-        try {
-          const existingSandbox = await getSandbox(session.sandboxId);
-          await existingSandbox.process.executeCommand("echo 'sandbox alive'", "/", undefined, 5);
-          return {
-            sandboxId: session.sandboxId,
-            branchName: session.branchName || `session/${sessionId}`,
-            isNew: false,
-          };
-        } catch {
-          // Sandbox expired or dead, create new one
-        }
-      }
-
-      const sandbox = await createSandbox(freshToken);
-      await syncRepo(sandbox, freshToken, repo.owner, repo.name);
-
+      const githubToken = await getGitHubToken(installationId);
       const branchName = session.branchName || `session/${sessionId}`;
+      const sandbox = await ensureSandbox(
+        session.sandboxId,
+        githubToken,
+        repo.owner,
+        repo.name,
+        async (sandboxId) => {
+          await convex.mutation(api.sessions.updateSandbox, {
+            id: sessionId as Id<"sessions">,
+            sandboxId,
+            branchName,
+          });
+        },
+      );
       await setupBranch(sandbox, branchName);
-
-      await convex.mutation(api.sessions.updateSandbox, {
-        id: sessionId as Id<"sessions">,
-        sandboxId: sandbox.id,
-        branchName,
-      });
-
-      return { sandboxId: sandbox.id, branchName, isNew: true };
+      return { sandboxId: sandbox.id, branchName };
     });
 
     const result = await step.run("plan-conversation", async () => {

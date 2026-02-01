@@ -6,22 +6,22 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { StatCard } from "@/lib/components/analytics/StatCard";
-import { TaskStatusChart } from "@/lib/components/analytics/TaskStatusChart";
-import { RunSuccessChart } from "@/lib/components/analytics/RunSuccessChart";
-import { SessionActivityChart } from "@/lib/components/analytics/SessionActivityChart";
-import { ProjectProgressChart } from "@/lib/components/analytics/ProjectProgressChart";
+import { PRsOverTimeChart } from "@/lib/components/analytics/PRsOverTimeChart";
+import { SessionFunnel } from "@/lib/components/analytics/SessionFunnel";
+import { ActivityTimelineChart } from "@/lib/components/analytics/ActivityTimelineChart";
+import { Leaderboard } from "@/lib/components/analytics/Leaderboard";
 import {
   TimeRangeFilter,
   TimeRange,
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";
-import { Leaderboard } from "@/lib/components/analytics/Leaderboard";
+import { Spinner } from "@heroui/spinner";
 import {
-  IconChecklist,
-  IconPercentage,
-  IconTerminal2,
   IconGitPullRequest,
+  IconPercentage,
+  IconUsers,
+  IconChecklist,
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 
@@ -38,42 +38,26 @@ export function AnalyticsClient() {
     };
   }, [timeRange]);
 
-  const taskStats = useQuery(api.analytics.getTaskStats, {
+  const impactStats = useQuery(api.analytics.getImpactStats, {
     repoId: repo._id,
     startTime,
   });
-
-  const runStats = useQuery(api.analytics.getRunStats, {
+  const activeUsers = useQuery(api.analytics.getActiveUsers, {
     repoId: repo._id,
-    startTime,
   });
-
-  const sessionStats = useQuery(api.analytics.getSessionStats, {
-    repoId: repo._id,
-    startTime,
-  });
-
-  const projectStats = useQuery(api.analytics.getProjectStats, {
-    repoId: repo._id,
-    startTime,
-  });
-
   const timeline = useQuery(api.analytics.getActivityTimeline, {
     repoId: repo._id,
     startTime: timelineStart,
     bucketSizeMs: bucketSize,
   });
-
   const leaderboard = useQuery(api.analytics.getLeaderboard, {
     repoId: repo._id,
     startTime,
   });
 
   const isLoading =
-    taskStats === undefined ||
-    runStats === undefined ||
-    sessionStats === undefined ||
-    projectStats === undefined ||
+    impactStats === undefined ||
+    activeUsers === undefined ||
     timeline === undefined ||
     leaderboard === undefined;
 
@@ -84,52 +68,45 @@ export function AnalyticsClient() {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+          <Spinner size="lg" />
         </div>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              icon={IconChecklist}
-              label="Total Tasks"
-              value={taskStats.total}
-              color="pink"
+              icon={IconGitPullRequest}
+              label="PRs Shipped"
+              value={impactStats.prsShipped}
             />
             <StatCard
               icon={IconPercentage}
-              label="Run Success Rate"
-              value={`${runStats.successRate}%`}
-              color="green"
+              label="Ship Rate"
+              value={`${impactStats.shipRate}%`}
+              subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
             />
             <StatCard
-              icon={IconTerminal2}
-              label="Active Sessions"
-              value={sessionStats.active}
-              color="yellow"
+              icon={IconUsers}
+              label="Humans Prompting"
+              value={activeUsers.count}
+              subtitle="Last 5 minutes"
             />
             <StatCard
-              icon={IconGitPullRequest}
-              label="PRs Created"
-              value={runStats.prsCreated}
-              color="blue"
+              icon={IconChecklist}
+              label="Tasks Completed"
+              value={impactStats.tasksCompleted}
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TaskStatusChart data={taskStats.byStatus} />
-            <RunSuccessChart
-              timeline={timeline}
-              successCount={runStats.byStatus.success}
-              errorCount={runStats.byStatus.error}
+            <PRsOverTimeChart timeline={timeline} />
+            <SessionFunnel
+              totalSessions={impactStats.totalSessions}
+              sessionsWithPr={impactStats.sessionsWithPr}
+              shipRate={impactStats.shipRate}
             />
-            <SessionActivityChart
-              timeline={timeline}
-              messagesByMode={sessionStats.messagesByMode}
-            />
-            <ProjectProgressChart projects={projectStats.topProjects} />
+            <ActivityTimelineChart timeline={timeline} />
+            <Leaderboard entries={leaderboard} />
           </div>
-
-          <Leaderboard entries={leaderboard} />
         </div>
       )}
     </PageWrapper>

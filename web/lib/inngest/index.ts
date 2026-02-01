@@ -9,3 +9,4 @@ export { interviewChat } from "./functions/interview-chat";
 export { summarizeSession } from "./functions/summarize-session";
 export { sessionExecute } from "./functions/session-execute";
 export { startSandbox, stopSandbox } from "./functions/session-sandbox";
+export { buildProject } from "./functions/build-project";

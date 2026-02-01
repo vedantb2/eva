@@ -37,11 +37,18 @@ export function ProjectTabs({
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
   const updateProject = useMutation(api.projects.update);
+  const clearMessagesDb = useMutation(api.projects.clearMessages);
   const addMessageDb = useMutation(api.projects.addMessage);
 
   const handleSpecGenerated = useCallback((spec: string) => {
     setPendingSpec(spec);
   }, []);
+
+  const handleClear = useCallback(async () => {
+    await clearMessagesDb({ id: projectId });
+    await updateProject({ id: projectId, phase: "draft" });
+    setPendingSpec(null);
+  }, [clearMessagesDb, updateProject, projectId]);
 
   const answersFromHistory: Array<{ question: string; answer: string }> = [];
   for (let i = 0; i < conversationHistory.length - 1; i++) {
@@ -107,6 +114,7 @@ export function ProjectTabs({
         initialMessages={conversationHistory}
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
+        onClear={handleClear}
         repoId={repoId}
         installationId={installationId}
       />
@@ -122,6 +130,7 @@ export function ProjectTabs({
           initialMessages={conversationHistory}
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}
+          onClear={handleClear}
           repoId={repoId}
           installationId={installationId}
         />

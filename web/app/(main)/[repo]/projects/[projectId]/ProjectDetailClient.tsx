@@ -154,7 +154,17 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <Button
               color="primary"
               startContent={<IconHammer size={16} />}
-              onPress={() => setIsBuildModalOpen(false)}
+              onPress={async () => {
+                await fetch("/api/inngest/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: "project/build.requested",
+                    data: { projectId: typedProjectId },
+                  }),
+                });
+                setIsBuildModalOpen(false);
+              }}
             >
               Start cooking
             </Button>

@@ -18,7 +18,14 @@ export const executeTask = inngest.createFunction(
     retries: 3,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
-        event: { data: { clerkToken: string; runId: string } };
+        event: {
+          data: {
+            clerkToken: string;
+            runId: string;
+            taskId: string;
+            projectId?: string;
+          };
+        };
       };
       const convex = createConvex(eventData.event.data.clerkToken);
       const runId = eventData.event.data.runId as Id<"agentRuns">;
@@ -26,6 +33,14 @@ export const executeTask = inngest.createFunction(
         id: runId,
         success: false,
         error: error.message,
+      });
+      await inngest.send({
+        name: "task/execute.completed",
+        data: {
+          taskId: eventData.event.data.taskId,
+          projectId: eventData.event.data.projectId,
+          success: false,
+        },
       });
     },
   },
@@ -199,6 +214,11 @@ ${subtasksList}
           ? "Created project PR"
           : "Pushed commit to project branch",
       });
+    });
+
+    await step.sendEvent("notify-completion", {
+      name: "task/execute.completed",
+      data: { taskId, projectId, success: true },
     });
 
     return { success: true, prUrl };

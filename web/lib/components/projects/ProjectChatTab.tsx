@@ -26,6 +26,7 @@ interface ProjectChatTabProps {
   initialMessages: ConversationMessage[];
   rawInput: string;
   onSpecGenerated?: (spec: string) => void;
+  onClear?: () => void;
   repoId: Id<"githubRepos">;
   installationId: number;
 }
@@ -46,6 +47,7 @@ export function ProjectChatTab({
   initialMessages,
   rawInput,
   onSpecGenerated,
+  onClear,
   repoId,
   installationId,
 }: ProjectChatTabProps) {
@@ -166,6 +168,7 @@ export function ProjectChatTab({
     setHasStarted(false);
     setAnswers([]);
     setIsLoading(false);
+    onClear?.();
   };
 
   const currentQuestion: ParsedQuestion | null = (() => {

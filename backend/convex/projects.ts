@@ -306,19 +306,29 @@ export const getTaskCount = query({
 
 export const getTaskProgress = query({
   args: { projectId: v.id("projects") },
-  returns: v.object({ done: v.number(), total: v.number() }),
+  returns: v.object({
+    total: v.number(),
+    todo: v.number(),
+    in_progress: v.number(),
+    business_review: v.number(),
+    code_review: v.number(),
+    done: v.number(),
+  }),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return { done: 0, total: 0 };
-    }
+    const empty = { total: 0, todo: 0, in_progress: 0, business_review: 0, code_review: 0, done: 0 };
+    if (!userId) return empty;
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
     return {
-      done: tasks.filter((t) => t.status === "done").length,
       total: tasks.length,
+      todo: tasks.filter((t) => t.status === "todo").length,
+      in_progress: tasks.filter((t) => t.status === "in_progress").length,
+      business_review: tasks.filter((t) => t.status === "business_review").length,
+      code_review: tasks.filter((t) => t.status === "code_review").length,
+      done: tasks.filter((t) => t.status === "done").length,
     };
   },
 });

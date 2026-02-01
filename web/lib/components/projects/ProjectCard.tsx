@@ -13,8 +13,12 @@ import {
   DropdownItem,
 } from "@heroui/dropdown";
 import { Button } from "@heroui/button";
-import { Progress } from "@heroui/progress";
+import { Tooltip } from "@heroui/tooltip";
 import dayjs from "@/lib/dates";
+import {
+  statusConfig,
+  TASK_STATUSES,
+} from "@/lib/components/tasks/TaskStatusBadge";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -115,18 +119,26 @@ export function ProjectCard({
           </p>
         ) : null}
         {progress && progress.total > 0 && (
-          <Progress
+          <Tooltip
+            content={TASK_STATUSES.filter((s) => progress[s] > 0)
+              .map((s) => `${progress[s]} ${statusConfig[s].label}`)
+              .join(", ")}
             size="sm"
-            color="success"
-            label={`${progress.done} / ${progress.total} tasks`}
-            value={Math.round((progress.done / progress.total) * 100)}
-            className="mt-2"
-            classNames={{
-              label: "text-[10px] text-neutral-500 dark:text-neutral-400",
-              track: "bg-neutral-200 dark:bg-neutral-700",
-              indicator: "bg-teal-500",
-            }}
-          />
+          >
+            <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+              {TASK_STATUSES.map((status) => {
+                const count = progress[status];
+                if (count === 0) return null;
+                return (
+                  <div
+                    key={status}
+                    className={statusConfig[status].bar}
+                    style={{ width: `${(count / progress.total) * 100}%` }}
+                  />
+                );
+              })}
+            </div>
+          </Tooltip>
         )}
         <div className="mt-4 flex items-center justify-between">
           <UserInitials userId={userId} />

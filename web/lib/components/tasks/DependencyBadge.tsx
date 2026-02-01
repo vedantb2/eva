@@ -20,10 +20,11 @@ export function DependencyBadge({
   className,
   status,
 }: DependencyBadgeProps) {
+  if (status && status !== "todo") {
+    return null;
+  }
+
   if (!isBlocked) {
-    if (status && status !== "todo") {
-      return null;
-    }
     return (
       <span
         className={cn(

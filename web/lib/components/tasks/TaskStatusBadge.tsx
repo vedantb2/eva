@@ -30,11 +30,12 @@ interface TaskStatusBadgeProps {
 
 export const statusConfig: Record<
   TaskStatus,
-  { bg: string; cardBg: string; text: string; label: string; icon: typeof IconCircle }
+  { bg: string; cardBg: string; bar: string; text: string; label: string; icon: typeof IconCircle }
 > = {
   todo: {
     bg: "bg-neutral-100 dark:bg-neutral-700",
     cardBg: "bg-neutral-200/40 dark:bg-neutral-800",
+    bar: "bg-neutral-400 dark:bg-neutral-500",
     text: "text-neutral-600 dark:text-neutral-300",
     label: "To Do",
     icon: IconCircle,
@@ -42,6 +43,7 @@ export const statusConfig: Record<
   in_progress: {
     bg: "bg-yellow-100 dark:bg-yellow-900/60",
     cardBg: "bg-yellow-50 dark:bg-yellow-900/20",
+    bar: "bg-yellow-400 dark:bg-yellow-500",
     text: "text-yellow-700 dark:text-yellow-400",
     label: "In Progress",
     icon: IconClock,
@@ -49,6 +51,7 @@ export const statusConfig: Record<
   business_review: {
     bg: "bg-orange-100 dark:bg-orange-900/60",
     cardBg: "bg-orange-50 dark:bg-orange-900/20",
+    bar: "bg-orange-400 dark:bg-orange-500",
     text: "text-orange-700 dark:text-orange-400",
     label: "Business Review",
     icon: IconClipboardCheck,
@@ -56,6 +59,7 @@ export const statusConfig: Record<
   code_review: {
     bg: "bg-purple-100 dark:bg-purple-900/60",
     cardBg: "bg-purple-100/60 dark:bg-purple-900/20",
+    bar: "bg-purple-400 dark:bg-purple-500",
     text: "text-purple-700 dark:text-purple-400",
     label: "Code Review",
     icon: IconEye,
@@ -63,6 +67,7 @@ export const statusConfig: Record<
   done: {
     bg: "bg-green-100 dark:bg-green-900/60",
     cardBg: "bg-green-50 dark:bg-green-900/20",
+    bar: "bg-green-400 dark:bg-green-500",
     text: "text-green-700 dark:text-green-400",
     label: "Done",
     icon: IconCircleCheck,

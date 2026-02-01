@@ -17,6 +17,9 @@ interface PreviousAnswer {
 
 const SYSTEM_PROMPT = `You are a product-minded engineer helping a user spec out a feature before building it. You have access to their codebase and understand how it works.
 
+## Before You Ask
+Read CLAUDE.md and explore relevant files (Glob, Grep, Read) BEFORE formulating your question. Ground every question in real code you've seen.
+
 ## Your Role
 - Ask questions that actually matter for implementation — things that would block you or lead to rework if you guessed wrong
 - Ground your questions in the real codebase: reference existing patterns, pages, or behaviors the user already has
@@ -25,20 +28,25 @@ const SYSTEM_PROMPT = `You are a product-minded engineer helping a user spec out
 
 ## Format Rules
 - Question: 1-3 sentences. Include a concrete example or "for instance..." to illustrate why the question matters.
-- Options: 2-4 options, each 1-2 sentences. Describe the actual user-facing behavior, not implementation details.
+- Options: 2-4 options, each with a short label and a description explaining what it means and why it matters.
 - Do NOT ask about purely technical choices (database schema, state management library, API design)
 - Do NOT repeat topics already covered in previous answers
 
+## Readiness
+If you believe all critical decisions are covered and you have enough information to create a comprehensive implementation plan, output {"ready": true} instead of a question.
+
 ## Good Examples
-{"question": "When a user creates a new project, should they see a blank canvas or a guided setup flow? For instance, right now your app drops users into an empty board — should this feature follow the same pattern or hold their hand a bit more?", "options": ["Blank canvas, same as existing boards", "Step-by-step wizard that walks them through setup", "Blank canvas but with a dismissible tooltip pointing out key actions"]}
+{"question": "When a user creates a new project, should they see a blank canvas or a guided setup flow? For instance, right now your app drops users into an empty board — should this feature follow the same pattern or hold their hand a bit more?", "options": [{"label": "Blank canvas", "description": "Same as existing boards — user figures it out on their own"}, {"label": "Step-by-step wizard", "description": "A guided setup flow that walks them through each decision"}, {"label": "Canvas with tooltips", "description": "Blank canvas but with a dismissible tooltip pointing out key actions"}]}
 
-{"question": "If someone is halfway through filling this out and accidentally navigates away, should their progress be saved? For example, imagine they've typed out a long description and hit the back button by mistake.", "options": ["Auto-save their progress so they can pick up where they left off", "Show a warning before leaving but don't auto-save", "Don't save — if they leave, they start over"]}
+{"question": "If someone is halfway through filling this out and accidentally navigates away, should their progress be saved? For example, imagine they've typed out a long description and hit the back button by mistake.", "options": [{"label": "Auto-save", "description": "Progress is saved automatically so they can pick up where they left off"}, {"label": "Warn before leaving", "description": "Show a confirmation dialog before navigating away, but don't persist data"}, {"label": "No save", "description": "If they leave, they start over — keeps things simple"}]}
 
-{"question": "Should other team members be able to see or interact with this, or is it private to the person who created it? For instance, if Alice creates one, can Bob view it or is it hidden from him entirely?", "options": ["Fully private — only the creator can see it", "Visible to everyone on the team but only the creator can edit", "Visible and editable by the whole team"]}
+{"question": "Should other team members be able to see or interact with this, or is it private to the person who created it? For instance, if Alice creates one, can Bob view it or is it hidden from him entirely?", "options": [{"label": "Fully private", "description": "Only the creator can see it — invisible to everyone else"}, {"label": "View-only sharing", "description": "Visible to everyone on the team but only the creator can edit"}, {"label": "Full collaboration", "description": "Visible and editable by the whole team"}]}
 
 ## Output Format
-You MUST output ONLY valid JSON with this exact structure:
-{"question": "your question here", "options": ["option 1", "option 2", "option 3"]}`;
+You MUST output ONLY valid JSON with one of these structures:
+{"question": "your question here", "options": [{"label": "Short name", "description": "What this means and why it matters"}]}
+OR
+{"ready": true}`;
 
 const TASK_PHILOSOPHY = `
 TASK GRANULARITY RULES:
@@ -85,8 +93,12 @@ Ask ONE question about a decision that would actually affect how this feature ge
 
 Include a brief example or scenario in the question so the user understands the tradeoff.
 
+If you believe all critical decisions are covered, output {"ready": true} instead.
+
 Output ONLY valid JSON:
-{"question": "your question", "options": ["option 1", "option 2"]}`;
+{"question": "your question", "options": [{"label": "Short name", "description": "Explanation"}]}
+OR
+{"ready": true}`;
 
   return prompt;
 }
@@ -141,14 +153,9 @@ export const interviewQuestion = inngest.createFunction(
       return { project: projectData, repo: repoData };
     });
 
-    const answerCount = (previousAnswers as PreviousAnswer[]).length;
-
-    const shouldGenerateSpec = await step.run("check-readiness", async () => {
-      if (rejectionReason) return false;
-      if (answerCount < 3) return false;
-      if (answerCount >= 7) return true;
-
+    const questionJson = await step.run("generate-question", async () => {
       const githubToken = await getGitHubToken(installationId);
+
       const sandbox = await getOrCreateSandbox(
         project.sandboxId,
         githubToken,
@@ -162,33 +169,34 @@ export const interviewQuestion = inngest.createFunction(
         },
       );
 
-      const answersText = (previousAnswers as PreviousAnswer[])
-        .map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`)
-        .join("\n\n");
+      const prompt = buildQuestionPrompt(
+        featureDescription,
+        previousAnswers as PreviousAnswer[],
+        rejectionReason as string | undefined,
+      );
 
-      const readinessPrompt = `Feature: "${featureDescription}"
+      const fullPrompt = `${SYSTEM_PROMPT} ${prompt}`;
 
-Interview Q&A so far:
-${answersText}
-
-Given these questions and answers, do you have enough information to create a comprehensive implementation plan for this feature? Consider whether all major edge cases, user flows, and behavioral decisions have been addressed.
-
-You should lean towards "ready" - ${answerCount} questions have already been asked. Only say "not_ready" if a critical aspect of the feature is completely unaddressed.
-
-Respond with ONLY the single word "ready" or "not_ready". Nothing else.`;
-
-      const result = await runClaudeCLI(sandbox, readinessPrompt, {
-        model: "haiku",
-        allowedTools: [],
+      const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
+        model: "sonnet",
+        allowedTools: ["Read", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
-        timeout: 30,
+        timeout: 120,
       });
+      const jsonStr = extractJsonFromText(claudeResult.result);
+      if (!jsonStr) {
+        throw new Error(
+          `Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`,
+        );
+      }
 
-      return result.result.trim().toLowerCase().includes("ready") &&
-        !result.result.trim().toLowerCase().includes("not_ready");
+      return jsonStr;
     });
 
-    if (shouldGenerateSpec) {
+    const parsed = JSON.parse(questionJson);
+    const isReady = parsed.ready === true;
+
+    if (isReady) {
       const specJson = await step.run("generate-spec", async () => {
         const githubToken = await getGitHubToken(installationId);
         const sandbox = await getOrCreateSandbox(
@@ -254,46 +262,6 @@ Output ONLY valid JSON.`;
 
       return { success: true, type: "spec", spec: specJson };
     }
-
-    const questionJson = await step.run("generate-question", async () => {
-      const githubToken = await getGitHubToken(installationId);
-
-      const sandbox = await getOrCreateSandbox(
-        project.sandboxId,
-        githubToken,
-        repo.owner,
-        repo.name,
-        async (sandboxId) => {
-          await convex.mutation(api.projects.updateProjectSandbox, {
-            id: projectId as Id<"projects">,
-            sandboxId,
-          });
-        },
-      );
-
-      const prompt = buildQuestionPrompt(
-        featureDescription,
-        previousAnswers as PreviousAnswer[],
-        rejectionReason as string | undefined,
-      );
-
-      const fullPrompt = `${SYSTEM_PROMPT} ${prompt}`;
-
-      const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
-        model: "sonnet",
-        allowedTools: ["Read", "Glob", "Grep"],
-        workDir: WORKSPACE_DIR,
-        timeout: 120,
-      });
-      const jsonStr = extractJsonFromText(claudeResult.result);
-      if (!jsonStr) {
-        throw new Error(
-          `Failed to extract JSON: ${claudeResult.result.slice(0, 500)}`,
-        );
-      }
-
-      return jsonStr;
-    });
 
     await step.run("save-message", async () => {
       await convex.mutation(api.projects.addMessage, {

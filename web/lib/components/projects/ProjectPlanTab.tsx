@@ -80,7 +80,7 @@ export function ProjectPlanTab({
           implementation plan.
         </p>
         <p className="text-sm text-default-400">
-          The AI will generate a plan automatically during the interview.
+          Eva will generate a plan automatically during the interview.
         </p>
       </div>
     );

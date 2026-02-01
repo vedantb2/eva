@@ -36,9 +36,14 @@ interface AnswerRecord {
   answer: string;
 }
 
+interface OptionItem {
+  label: string;
+  description: string;
+}
+
 interface ParsedQuestion {
   question: string;
-  options: string[];
+  options: OptionItem[];
 }
 
 export function ProjectChatTab({
@@ -137,7 +142,7 @@ export function ProjectChatTab({
 
   const handleStartInterview = async () => {
     setHasStarted(true);
-    await addMessageDb({ id: projectId, role: "user", content: rawInput });
+    // await addMessageDb({ id: projectId, role: "user", content: rawInput });
     askQuestion([]);
   };
 
@@ -171,6 +176,9 @@ export function ProjectChatTab({
     onClear?.();
   };
 
+  const isValidOption = (o: unknown): o is OptionItem =>
+    typeof o === "object" && o !== null && typeof (o as OptionItem).label === "string" && typeof (o as OptionItem).description === "string";
+
   const currentQuestion: ParsedQuestion | null = (() => {
     if (isLoading) return null;
     const lastAssistantMsg = [...initialMessages]
@@ -179,7 +187,7 @@ export function ProjectChatTab({
     if (!lastAssistantMsg) return null;
     try {
       const parsed = JSON.parse(lastAssistantMsg.content);
-      if (parsed.question && parsed.options) {
+      if (parsed.question && Array.isArray(parsed.options) && parsed.options.every(isValidOption)) {
         return parsed as ParsedQuestion;
       }
     } catch {
@@ -209,7 +217,7 @@ export function ProjectChatTab({
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
           Click the button below to start answering questions about your
-          project. The AI will ask multiple choice questions to understand your
+          project. Eva will ask multiple choice questions to understand your
           requirements, then automatically generate a plan when ready.
         </p>
         <Button
@@ -274,20 +282,15 @@ export function ProjectChatTab({
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">
-        {showQuestion &&
-          currentQuestion.options.every(
-            (o): o is string => typeof o === "string",
-          ) && (
-            <MultipleChoiceQuestion
-              question={currentQuestion.question}
-              options={currentQuestion.options.filter(
-                (o): o is string => typeof o === "string",
-              )}
-              onAnswer={handleAnswer}
-              isLoading={isLoading}
-              questionNumber={questionCount}
-            />
-          )}
+        {showQuestion && (
+          <MultipleChoiceQuestion
+            question={currentQuestion.question}
+            options={currentQuestion.options}
+            onAnswer={handleAnswer}
+            isLoading={isLoading}
+            questionNumber={questionCount}
+          />
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
             Questions answered: {questionCount}

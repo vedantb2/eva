@@ -4,7 +4,6 @@ export { executeResearchQuery } from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
 export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";
 export { interviewQuestion } from "./functions/interview-question";
-export { interviewSpec } from "./functions/interview-spec";
 export { summarizeSession } from "./functions/summarize-session";
 export { sessionExecute } from "./functions/session-execute";
 export { startSandbox, stopSandbox } from "./functions/session-sandbox";

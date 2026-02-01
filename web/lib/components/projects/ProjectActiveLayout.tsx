@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { GenericId as Id } from "convex/values";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { PlanContextPanel } from "./PlanContextPanel";
+import { ProjectChatArea } from "./ProjectChatArea";
 import {
   IconChecklist,
   IconLayoutSidebarLeftCollapse,
@@ -132,8 +133,11 @@ export function ProjectActiveLayout({
           )}
         </div>
         {!chatCollapsed && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-neutral-400">Chat (coming soon)</p>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ProjectChatArea
+              projectId={projectId}
+              conversationHistory={project.conversationHistory}
+            />
           </div>
         )}
       </div>

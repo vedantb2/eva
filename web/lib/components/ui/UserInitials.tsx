@@ -1,5 +1,6 @@
 import { api } from "@/api";
 import dayjs from "@/lib/dates";
+import { Avatar } from "@heroui/avatar";
 import { Badge, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
@@ -27,6 +28,18 @@ export function UserInitials({
       : name;
   const iconSize =
     size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
+  const avatar = (
+    <Avatar
+      name={initials || "?"}
+      classNames={{
+        base: `${iconSize} bg-teal-500`,
+        name: "text-teal-100",
+      }}
+    />
+  );
+  if (hideLastSeen) {
+    return <Tooltip content={tooltip}>{avatar}</Tooltip>;
+  }
   return (
     <Tooltip content={tooltip}>
       <Badge
@@ -35,13 +48,9 @@ export function UserInitials({
         color={online ? "success" : "warning"}
         shape="circle"
         placement="bottom-right"
-        isInvisible={hideLastSeen ?? !user.lastSeenAt}
+        isInvisible={hideLastSeen || !user.lastSeenAt}
       >
-        <div
-          className={`${iconSize} shrink-0 flex items-center justify-center bg-teal-500 text-teal-100 rounded-full text-xs font-medium`}
-        >
-          {initials}
-        </div>
+        {avatar}
       </Badge>
     </Tooltip>
   );

@@ -51,6 +51,14 @@ export function ProjectCard({
   const progress = useQuery(api.projects.getTaskProgress, {
     projectId: projectId as Id<"projects">,
   });
+  const project = useQuery(api.projects.get, { id: projectId });
+  const participantIds = [
+    ...new Set(
+      (project?.conversationHistory ?? [])
+        .filter((m) => m.userId)
+        .map((m) => m.userId),
+    ),
+  ];
   const isOwner = currentUserId === userId;
   return (
     <div
@@ -141,7 +149,15 @@ export function ProjectCard({
           </Tooltip>
         )}
         <div className="mt-4 flex items-center justify-between">
-          <UserInitials userId={userId} />
+          <div className="flex -space-x-1">
+            {participantIds.length > 0 ? (
+              participantIds.map((id) => (
+                <UserInitials key={id} userId={id!} hideLastSeen />
+              ))
+            ) : (
+              <UserInitials userId={userId} />
+            )}
+          </div>
           <span className="text-xs text-default-400">
             {dayjs(createdAt).fromNow()}
           </span>

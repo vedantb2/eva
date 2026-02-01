@@ -200,9 +200,17 @@ export default function SessionsLayout({
                       </div>
                     </div>
                     <div className="mt-2 flex items-center">
-                      {session.createdBy && (
-                        <UserInitials userId={session.createdBy} />
-                      )}
+                      <div className="flex -space-x-1">
+                        {[
+                          ...new Set(
+                            session.messages
+                              .filter((m) => m.userId)
+                              .map((m) => m.userId),
+                          ),
+                        ].map((id) => (
+                          <UserInitials key={id} userId={id!} />
+                        ))}
+                      </div>
                       <span className="text-xs text-neutral-500 ml-auto">
                         {dayjs(session._creationTime).fromNow()}
                       </span>

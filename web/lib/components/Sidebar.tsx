@@ -346,7 +346,6 @@ export function Sidebar() {
             </div>
 
             <div className="space-y-1">
-              <NotificationsPopoverClient collapsed={collapsed} />
               {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -392,6 +391,7 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                   <ThemeToggleClient />
+                  <NotificationsPopoverClient collapsed={collapsed} />
                 </>
               )}
             </div>

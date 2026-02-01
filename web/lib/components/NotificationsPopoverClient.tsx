@@ -78,10 +78,7 @@ export function NotificationsPopoverClient({
   }, [selected, markAsRead]);
 
   const trigger = (
-    <button
-      title={collapsed ? "Notifications" : undefined}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white w-full ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
-    >
+    <Button size="sm" variant="light" isIconOnly>
       {unreadCount > 0 ? (
         <Badge color="primary" content={unreadCount > 99 ? "99+" : unreadCount}>
           <IconBell className="size-[16px]" />
@@ -89,8 +86,7 @@ export function NotificationsPopoverClient({
       ) : (
         <IconBell className="size-[16px]" />
       )}
-      {!collapsed && "Notifications"}
-    </button>
+    </Button>
   );
 
   return (
@@ -160,10 +156,7 @@ export function NotificationsPopoverClient({
         </PopoverContent>
       </Popover>
 
-      <Modal
-        isOpen={!!selected}
-        onClose={() => setSelected(null)}
-      >
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)}>
         <ModalContent>
           {selected &&
             (() => {

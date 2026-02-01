@@ -26,6 +26,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 type SessionMode = "execute" | "ask" | "plan" | "flag";
 
@@ -35,6 +36,7 @@ interface Message {
   timestamp: number;
   mode?: SessionMode;
   activityLog?: string;
+  userId?: string;
 }
 
 interface ChatPanelProps {
@@ -282,23 +284,24 @@ export function ChatPanel({
                         <p className="text-sm whitespace-pre-wrap break-words">
                           {message.content}
                         </p>
-                        {message.role === "assistant" && message.activityLog && (
-                          <Accordion isCompact className="mt-2 px-0">
-                            <AccordionItem
-                              key="logs"
-                              title="View logs"
-                              classNames={{
-                                title: "text-xs text-neutral-500",
-                                trigger: "py-1",
-                                content: "pb-2",
-                              }}
-                            >
-                              <pre className="text-xs whitespace-pre-wrap break-words text-neutral-500 max-h-60 overflow-y-auto">
-                                {message.activityLog}
-                              </pre>
-                            </AccordionItem>
-                          </Accordion>
-                        )}
+                        {message.role === "assistant" &&
+                          message.activityLog && (
+                            <Accordion isCompact className="mt-2 px-0">
+                              <AccordionItem
+                                key="logs"
+                                title="View logs"
+                                classNames={{
+                                  title: "text-xs text-neutral-500",
+                                  trigger: "py-1",
+                                  content: "pb-2 overflow-hidden",
+                                }}
+                              >
+                                <pre className="text-xs whitespace-pre-wrap break-words text-neutral-500 max-h-60 overflow-y-auto">
+                                  {message.activityLog}
+                                </pre>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
                       </>
                     )}
                   </div>
@@ -322,11 +325,18 @@ export function ChatPanel({
                     </div>
                   )}
                 </div>
-                {message.role === "user" && (
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                    <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                  </div>
-                )}
+                {message.role === "user" &&
+                  (message.userId ? (
+                    <UserInitials
+                      userId={message.userId}
+                      hideLastSeen
+                      size="md"
+                    />
+                  ) : (
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                      <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                    </div>
+                  ))}
               </div>
             ))
         )}

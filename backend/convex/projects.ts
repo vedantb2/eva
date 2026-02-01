@@ -8,6 +8,7 @@ const conversationMessageValidator = v.object({
   role: roleValidator,
   content: v.string(),
   activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
 });
 
 const projectValidator = v.object({
@@ -129,6 +130,7 @@ export const create = mutation({
         {
           role: "user",
           content: args.rawInput,
+          userId,
         },
       ],
     });
@@ -192,7 +194,7 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       conversationHistory: [
         ...project.conversationHistory,
-        { role: args.role, content: args.content, activityLog: args.activityLog },
+        { role: args.role, content: args.content, activityLog: args.activityLog, userId },
       ],
     });
     return null;

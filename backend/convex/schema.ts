@@ -59,6 +59,7 @@ const schema = defineSchema({
         role: roleValidator,
         content: v.string(),
         activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
       })
     ),
   })
@@ -173,6 +174,7 @@ const schema = defineSchema({
         timestamp: v.number(),
         mode: v.optional(sessionModeValidator),
         activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
       })
     ),
     fileDiffs: v.optional(v.array(v.object({
@@ -200,6 +202,7 @@ const schema = defineSchema({
         role: roleValidator,
         content: v.string(),
         timestamp: v.number(),
+        userId: v.optional(v.id("users")),
       })
     ),
     createdAt: v.number(),

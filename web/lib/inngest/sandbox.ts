@@ -31,8 +31,8 @@ export async function createSandbox(
       CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
       ...extraEnvVars,
     },
-    autoStopInterval: 30,
-    autoDeleteInterval: 60,
+    autoStopInterval: 15,
+    autoDeleteInterval: 30,
     ephemeral: ephemeral ? true : false,
   });
   await sandbox.process.executeCommand(

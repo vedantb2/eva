@@ -9,6 +9,7 @@ import { IconArrowUp, IconUser } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 interface QueryDetailClientProps {
   queryId: string;
@@ -110,11 +111,14 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   {message.content}
                 </p>
               </div>
-              {message.role === "user" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                  <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                </div>
-              )}
+              {message.role === "user" &&
+                (message.userId ? (
+                  <UserInitials userId={message.userId} hideLastSeen />
+                ) : (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                    <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                  </div>
+                ))}
             </div>
           ))
         )}

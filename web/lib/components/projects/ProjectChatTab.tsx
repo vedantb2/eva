@@ -8,15 +8,13 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import {
-  IconTrash,
-  IconPlayerPlay,
-} from "@tabler/icons-react";
+import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 
 interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   activityLog?: string;
+  userId?: string;
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
@@ -171,7 +169,10 @@ export function ProjectChatTab({
   };
 
   const isValidOption = (o: unknown): o is OptionItem =>
-    typeof o === "object" && o !== null && typeof (o as OptionItem).label === "string" && typeof (o as OptionItem).description === "string";
+    typeof o === "object" &&
+    o !== null &&
+    typeof (o as OptionItem).label === "string" &&
+    typeof (o as OptionItem).description === "string";
 
   const currentQuestion: ParsedQuestion | null = (() => {
     if (isLoading) return null;
@@ -181,7 +182,11 @@ export function ProjectChatTab({
     if (!lastAssistantMsg) return null;
     try {
       const parsed = JSON.parse(lastAssistantMsg.content);
-      if (parsed.question && Array.isArray(parsed.options) && parsed.options.every(isValidOption)) {
+      if (
+        parsed.question &&
+        Array.isArray(parsed.options) &&
+        parsed.options.every(isValidOption)
+      ) {
         return parsed as ParsedQuestion;
       }
     } catch {
@@ -191,7 +196,8 @@ export function ProjectChatTab({
   })();
 
   const waitingForResponse =
-    initialMessages.length > 0 && initialMessages[initialMessages.length - 1]?.role === "user";
+    initialMessages.length > 0 &&
+    initialMessages[initialMessages.length - 1]?.role === "user";
   const showQuestion = currentQuestion && !waitingForResponse;
 
   if (!hasStarted && !isLocked) {
@@ -274,15 +280,23 @@ export function ProjectChatTab({
             );
           }
           return (
-            <ChatMessage key={`msg-${i}`} role="user" content={m.content} />
+            <ChatMessage
+              key={`msg-${i}`}
+              role="user"
+              content={m.content}
+              userId={m.userId}
+            />
           );
         })}
-        {(isLoading || waitingForResponse) && !initialMessages.some((m) => m.role === "assistant" && !m.content) && (
-          <div className="flex gap-3 items-center">
-            <Spinner size="sm" />
-            <span className="text-sm text-default-500">Thinking...</span>
-          </div>
-        )}
+        {(isLoading || waitingForResponse) &&
+          !initialMessages.some(
+            (m) => m.role === "assistant" && !m.content,
+          ) && (
+            <div className="flex gap-3 items-center">
+              <Spinner size="sm" />
+              <span className="text-sm text-default-500">Thinking...</span>
+            </div>
+          )}
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-divider p-4 space-y-3">

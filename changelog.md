@@ -1,3 +1,9 @@
+second thing - are we saving the user id of who sent the message for the project interview and the session?
+
+I want session to be collaborative, so I was thinking of replacing the generic iconuser in the chat area for both sides and instead using the UserInitials.tsx with hideLastSeen prop set as true
+
+is a separate field for this streaming output needed? if so, is it possible to style the message separately from a regular assistant message, or maybe keep it under an accordion under the assistants message saying "View logs" so the entire streaming history is only visible when the user wants to see it
+
 I am using Daytona for sandbox. I want claude code on it to execute tasks.
 I am using Daytona cli, I am creating a snapshot. 
 the snapshot needs to contain:

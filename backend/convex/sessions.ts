@@ -9,6 +9,7 @@ const messageValidator = v.object({
   timestamp: v.number(),
   mode: v.optional(sessionModeValidator),
   activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
 });
 
 const fileDiffValidator = v.object({
@@ -108,7 +109,7 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...session.messages,
-        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode, activityLog: args.activityLog },
+        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode, activityLog: args.activityLog, userId },
       ],
     });
     return null;

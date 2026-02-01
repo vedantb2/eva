@@ -7,6 +7,7 @@ const messageValidator = v.object({
   role: roleValidator,
   content: v.string(),
   timestamp: v.number(),
+  userId: v.optional(v.id("users")),
 });
 
 const researchQueryValidator = v.object({
@@ -91,7 +92,12 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...query.messages,
-        { role: args.role, content: args.content, timestamp: Date.now() },
+        {
+          role: args.role,
+          content: args.content,
+          timestamp: Date.now(),
+          userId,
+        },
       ],
       updatedAt: Date.now(),
     });
@@ -149,7 +155,7 @@ const schemaInfoValidator = v.object({
       name: v.string(),
       fields: v.array(v.string()),
       description: v.string(),
-    })
+    }),
   ),
   availableQueries: v.array(v.string()),
 });
@@ -162,13 +168,21 @@ export const getSchemaInfo = query({
       tables: [
         {
           name: "agentTasks",
-          fields: ["title", "status", "boardId", "createdAt", "updatedAt", "description"],
+          fields: [
+            "title",
+            "status",
+            "boardId",
+            "createdAt",
+            "updatedAt",
+            "description",
+          ],
           description: "Work items/tasks on kanban boards",
         },
         {
           name: "features",
           fields: ["title", "status", "branchName", "description"],
-          description: "Feature branches (planning, active, completed, archived)",
+          description:
+            "Feature branches (planning, active, completed, archived)",
         },
         {
           name: "sessions",

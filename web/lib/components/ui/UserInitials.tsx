@@ -7,9 +7,11 @@ import { GenericId as Id } from "convex/values";
 export function UserInitials({
   userId,
   hideLastSeen,
+  size,
 }: {
   userId: string;
   hideLastSeen?: boolean;
+  size?: "sm" | "md" | "lg";
 }) {
   const user = useQuery(api.users.get, { id: userId as Id<"users"> });
   if (!user) return null;
@@ -23,6 +25,8 @@ export function UserInitials({
     : user.lastSeenAt
       ? `${name} · Active ${dayjs(user.lastSeenAt).fromNow()}`
       : name;
+  const iconSize =
+    size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
   return (
     <Tooltip content={tooltip}>
       <Badge
@@ -33,7 +37,9 @@ export function UserInitials({
         placement="bottom-right"
         isInvisible={hideLastSeen ?? !user.lastSeenAt}
       >
-        <div className="size-5 shrink-0 flex items-center justify-center bg-teal-500 text-teal-100 rounded-full text-xs font-medium">
+        <div
+          className={`${iconSize} shrink-0 flex items-center justify-center bg-teal-500 text-teal-100 rounded-full text-xs font-medium`}
+        >
           {initials}
         </div>
       </Badge>

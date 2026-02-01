@@ -11,6 +11,7 @@ interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   activityLog?: string;
+  userId?: string;
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
@@ -105,7 +106,7 @@ export function ProjectTabs({
   );
 
   const specToShow =
-    projectPhase !== "draft" ? pendingSpec ?? generatedSpec : undefined;
+    projectPhase !== "draft" ? (pendingSpec ?? generatedSpec) : undefined;
 
   if (!specToShow) {
     return (
@@ -113,7 +114,6 @@ export function ProjectTabs({
         projectId={projectId}
         projectPhase={projectPhase}
         initialMessages={conversationHistory}
-
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}
@@ -130,7 +130,6 @@ export function ProjectTabs({
           projectId={projectId}
           projectPhase={projectPhase}
           initialMessages={conversationHistory}
-  
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}
           onClear={handleClear}

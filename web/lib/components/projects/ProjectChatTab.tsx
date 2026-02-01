@@ -346,7 +346,7 @@ export function ProjectChatTab({
                   <ChatMessage
                     key={`msg-${i}`}
                     role="assistant"
-                    content={`${parsed.question}`}
+                    content={parsed.question}
                   />
                 );
               }
@@ -360,20 +360,21 @@ export function ProjectChatTab({
                 );
               }
             } catch {
-              return (
-                <ChatMessage
-                  key={`msg-${i}`}
-                  role="assistant"
-                  content={m.content}
-                />
-              );
+              // Not parseable JSON, fall through to raw display
             }
+            return (
+              <ChatMessage
+                key={`msg-${i}`}
+                role="assistant"
+                content={m.content}
+              />
+            );
           }
           return (
             <ChatMessage key={`msg-${i}`} role="user" content={m.content} />
           );
         })}
-        {(isLoading || waitingForResponse) && (
+        {(isLoading || (waitingForResponse && pendingQuestionRequest)) && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
             <span className="text-sm text-default-500">

@@ -216,7 +216,7 @@ export function ProjectPlanTab({
                   Indexing Codebase...
                 </p>
                 <p className="text-sm text-warning-600 dark:text-warning-400">
-                  This may take 1-2 minutes. The AI is analyzing your project structure.
+                  This may take 1-2 minutes. Eva is analyzing your project structure.
                 </p>
               </div>
             </CardBody>

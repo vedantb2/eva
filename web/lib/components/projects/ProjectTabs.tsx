@@ -2,8 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { GenericId as Id } from "convex/values";
-import { useMutation } from "convex/react";
-import { api } from "@/api";
 import { ProjectChatTab } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 
@@ -37,15 +35,10 @@ export function ProjectTabs({
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
   const [isInterview, setIsInterview] = useState(false);
-  const updateProject = useMutation(api.projects.update);
 
-  const handleSpecGenerated = useCallback(
-    async (spec: string) => {
-      setPendingSpec(spec);
-      await updateProject({ id: projectId, generatedSpec: spec, phase: "finalized" });
-    },
-    [projectId, updateProject]
-  );
+  const handleSpecGenerated = useCallback((spec: string) => {
+    setPendingSpec(spec);
+  }, []);
 
   const handleStartInterview = useCallback(() => {
     setIsInterview(true);

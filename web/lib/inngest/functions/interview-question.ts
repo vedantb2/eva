@@ -87,12 +87,16 @@ You MUST output ONLY valid JSON with this exact structure:
 {"question": "your question here", "options": ["option 1", "option 2", "option 3"]}`;
 
 const CATEGORY_MAP: Record<string, string> = {
-  data_flow: "what happens with the data",
+  state_management: "how information is tracked and updated",
+  data_persistence: "how data is saved and loaded",
+  component_architecture: "how the feature is organized",
+  api_design: "how different parts communicate",
+  edge_case_handling: "unusual situations or edge cases",
+  initialization_behavior: "what happens the first time",
   error_handling: "what happens when something goes wrong",
-  user_experience: "how it should feel to use",
-  edge_cases: "unusual situations or edge cases",
-  permissions: "who can do what",
-  notifications: "keeping users informed",
+  runtime_behavior: "how things work while the app is running",
+  integration_points: "how this connects with existing features",
+  validation_strategy: "how user input is checked",
   default: "an important detail",
 };
 
@@ -200,10 +204,7 @@ export const interviewQuestion = inngest.createFunction(
         allowedTools: ["Read", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 120,
-        outputFormat: "json",
       });
-      console.log(claudeResult);
-
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
         throw new Error(

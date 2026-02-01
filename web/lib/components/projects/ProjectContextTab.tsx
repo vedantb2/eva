@@ -105,7 +105,7 @@ export function ProjectContextTab() {
                     Indexing Codebase...
                   </p>
                   <p className="text-sm text-warning-600 dark:text-warning-400">
-                    This may take 1-2 minutes. The AI is analyzing your project structure,
+                    This may take 1-2 minutes. Eva is analyzing your project structure,
                     patterns, and conventions.
                   </p>
                 </div>
@@ -120,7 +120,7 @@ export function ProjectContextTab() {
                 No Codebase Context Yet
               </h3>
               <p className="text-sm text-default-500 mb-6 max-w-md">
-                Index your codebase to help the AI agent understand your project structure,
+                Index your codebase to help Eva understand your project structure,
                 patterns, and which files to modify.
               </p>
               <Button

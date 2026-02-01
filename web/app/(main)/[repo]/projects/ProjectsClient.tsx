@@ -17,7 +17,11 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
-import { phaseConfig, PROJECT_PHASES, type ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import {
+  phaseConfig,
+  PROJECT_PHASES,
+  type ProjectPhase,
+} from "@/lib/components/projects/ProjectPhaseBadge";
 import { Input } from "@heroui/input";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
@@ -159,11 +163,24 @@ export function ProjectsClient() {
                       handlePhaseToggle(keys as Set<string>)
                     }
                     closeOnSelect={false}
+                    items={PROJECT_PHASES.map((p) => ({
+                      key: p,
+                      label: phaseConfig[p].label,
+                      icon: phaseConfig[p].icon,
+                      text: phaseConfig[p].text,
+                    }))}
                   >
-                    <DropdownItem key="draft">Draft</DropdownItem>
-                    <DropdownItem key="finalized">Finalized</DropdownItem>
-                    <DropdownItem key="active">Active</DropdownItem>
-                    <DropdownItem key="completed">Completed</DropdownItem>
+                    {(item) => (
+                      <DropdownItem
+                        key={item.key}
+                        startContent={
+                          <item.icon size={16} className={item.text} />
+                        }
+                        className={item.text}
+                      >
+                        {item.label}
+                      </DropdownItem>
+                    )}
                   </DropdownMenu>
                 </Dropdown>
                 <Dropdown>

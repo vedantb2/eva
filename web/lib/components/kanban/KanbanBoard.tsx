@@ -30,7 +30,12 @@ import {
 } from "@heroui/dropdown";
 import { IconFilter, IconSearch } from "@tabler/icons-react";
 
-type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
+type TaskStatus =
+  | "todo"
+  | "in_progress"
+  | "business_review"
+  | "code_review"
+  | "done";
 
 interface BaseTask {
   _id: string;
@@ -99,7 +104,7 @@ export function KanbanBoard<T extends BaseTask>({
   const [activeItem, setActiveItem] = useState<T | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleStatuses, setVisibleStatuses] = useState<Set<TaskStatus>>(
-    new Set(KANBAN_STATUSES)
+    new Set(KANBAN_STATUSES),
   );
 
   const sensors = useSensors(
@@ -107,7 +112,7 @@ export function KanbanBoard<T extends BaseTask>({
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const filteredItems = useMemo(() => {
@@ -116,15 +121,18 @@ export function KanbanBoard<T extends BaseTask>({
     return items.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
+        item.description?.toLowerCase().includes(query),
     );
   }, [items, searchQuery]);
 
   const itemsByStatus = useMemo(() => {
-    return KANBAN_STATUSES.reduce((acc, status) => {
-      acc[status] = filteredItems.filter((item) => item.status === status);
-      return acc;
-    }, {} as Record<TaskStatus, T[]>);
+    return KANBAN_STATUSES.reduce(
+      (acc, status) => {
+        acc[status] = filteredItems.filter((item) => item.status === status);
+        return acc;
+      },
+      {} as Record<TaskStatus, T[]>,
+    );
   }, [filteredItems]);
 
   const handleStatusToggle = (keys: Set<string>) => {
@@ -173,7 +181,11 @@ export function KanbanBoard<T extends BaseTask>({
   };
 
   return (
-    <div className={fillHeight ? "flex flex-col flex-1 min-h-0 gap-2" : "space-y-4"}>
+    <div
+      className={
+        fillHeight ? "flex flex-col flex-1 min-h-0 gap-2" : "space-y-4"
+      }
+    >
       <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
         <Dropdown>
           <DropdownTrigger>
@@ -195,12 +207,18 @@ export function KanbanBoard<T extends BaseTask>({
               handleStatusToggle(keys as Set<string>)
             }
             closeOnSelect={false}
+            items={KANBAN_STATUSES.map((s) => ({
+              key: s,
+              label: statusConfig[s].label,
+              icon: statusConfig[s].icon,
+              text: statusConfig[s].text,
+            }))}
           >
-            <DropdownItem key="todo">To Do</DropdownItem>
-            <DropdownItem key="in_progress">In Progress</DropdownItem>
-            <DropdownItem key="business_review">Business Review</DropdownItem>
-            <DropdownItem key="code_review">Code Review</DropdownItem>
-            <DropdownItem key="done">Done</DropdownItem>
+            {(item) => (
+              <DropdownItem key={item.key} startContent={<item.icon size={16} className={item.text} />} className={item.text}>
+                {item.label}
+              </DropdownItem>
+            )}
           </DropdownMenu>
         </Dropdown>
         <Input
@@ -246,7 +264,7 @@ export function KanbanBoard<T extends BaseTask>({
                   ))}
                 </SortableContext>
               </KanbanColumn>
-            )
+            ),
           )}
         </div>
         <DragOverlay>

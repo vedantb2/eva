@@ -80,7 +80,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                     <StatusIcon size={14} className={`ml-1 ${config.text}`} />
                   }
                   variant="flat"
-                  className={`${config.bg}`}
+                  className={`${config.bg} ${config.text} shadow-inner`}
                   endContent={
                     <Chip size="sm" className={`${config.text} ${config.bg}`}>
                       {statusTasks.length}

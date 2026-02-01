@@ -13,7 +13,7 @@ import { Select, SelectItem } from "@heroui/select";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { TaskStatusBadge } from "./TaskStatusBadge";
+import { statusConfig, TASK_STATUSES, type TaskStatus } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
 import { Textarea } from "@heroui/input";
 import { Tooltip } from "@heroui/tooltip";
@@ -55,6 +55,7 @@ export function TaskDetailModal({
   const users = useQuery(api.users.listAll);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateTask = useMutation(api.agentTasks.update);
+  const updateStatus = useMutation(api.agentTasks.updateStatus);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
   const comments = useQuery(api.taskComments.listByTask, { taskId });
   const createComment = useMutation(api.taskComments.create);
@@ -416,13 +417,58 @@ export function TaskDetailModal({
               <div className="border-l border-divider pl-4 space-y-4">
                 <div>
                   <p className="text-xs text-default-400 mb-1.5">Status</p>
-                  {status && <TaskStatusBadge status={status} />}
+                  <Select
+                    selectedKeys={status ? [status] : []}
+                    onSelectionChange={(keys) => {
+                      const selected = Array.from(keys)[0];
+                      if (
+                        selected &&
+                        TASK_STATUSES.includes(selected as TaskStatus)
+                      ) {
+                        updateStatus({
+                          id: taskId,
+                          status: selected as TaskStatus,
+                        });
+                      }
+                    }}
+                    size="sm"
+                    aria-label="Status"
+                    renderValue={(items) => {
+                      const val = items[0]?.key;
+                      if (!val || typeof val !== "string") return null;
+                      const config = statusConfig[val as TaskStatus];
+                      const Icon = config.icon;
+                      return (
+                        <div
+                          className={`flex items-center gap-1.5 ${config.text}`}
+                        >
+                          <Icon size={14} />
+                          <span className="text-sm">{config.label}</span>
+                        </div>
+                      );
+                    }}
+                  >
+                    {TASK_STATUSES.map((s) => {
+                      const config = statusConfig[s];
+                      const Icon = config.icon;
+                      return (
+                        <SelectItem key={s} textValue={config.label}>
+                          <div
+                            className={`flex items-center gap-1.5 ${config.text}`}
+                          >
+                            <Icon size={14} />
+                            <span>{config.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </Select>
                   {isBlocked && (
                     <Chip
                       size="sm"
                       color="warning"
                       variant="flat"
-                      className="ml-1.5"
+                      className="mt-1.5"
                     >
                       Blocked
                     </Chip>

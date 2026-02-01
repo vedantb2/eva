@@ -123,7 +123,7 @@ export function GroupTasksModal({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{project.title}</span>
-                      <ProjectPhaseBadge phase={project.phase} size="sm" />
+                      <ProjectPhaseBadge phase={project.phase} />
                     </div>
                     {project.description && (
                       <p className="text-xs text-default-400 mt-1 line-clamp-1">

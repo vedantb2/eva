@@ -15,15 +15,9 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconSearch,
-  IconNotes,
-  IconCheck,
-  IconClock,
-  IconCircleCheck,
 } from "@tabler/icons-react";
-import {
-  KanbanColumn,
-  ColumnConfig,
-} from "@/lib/components/kanban/KanbanColumn";
+import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
+import { phaseConfig, PROJECT_PHASES, type ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 import { Input } from "@heroui/input";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
@@ -42,47 +36,8 @@ import {
 } from "@heroui/modal";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
-type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 type SortField = "created" | "title";
 type SortDirection = "asc" | "desc";
-
-const ALL_PHASES: ProjectPhase[] = [
-  "draft",
-  "finalized",
-  "active",
-  "completed",
-];
-
-const phaseConfig: Record<ProjectPhase, ColumnConfig & { cardBg: string }> = {
-  draft: {
-    label: "Draft",
-    bg: "bg-neutral-200 dark:bg-neutral-700",
-    text: "text-neutral-600 dark:text-neutral-300",
-    cardBg: "bg-white dark:bg-neutral-900",
-    icon: IconNotes,
-  },
-  finalized: {
-    label: "Finalized",
-    bg: "bg-teal-100 dark:bg-teal-900/30",
-    text: "text-teal-700 dark:text-teal-400",
-    cardBg: "bg-white dark:bg-neutral-900",
-    icon: IconCheck,
-  },
-  active: {
-    label: "Active",
-    bg: "bg-yellow-100 dark:bg-yellow-900/30",
-    text: "text-yellow-700 dark:text-yellow-400",
-    cardBg: "bg-white dark:bg-neutral-900",
-    icon: IconClock,
-  },
-  completed: {
-    label: "Completed",
-    bg: "bg-green-100 dark:bg-green-900/30",
-    text: "text-green-700 dark:text-green-400",
-    cardBg: "bg-white dark:bg-neutral-900",
-    icon: IconCircleCheck,
-  },
-};
 
 export function ProjectsClient() {
   const { repo, fullName } = useRepo();
@@ -90,7 +45,7 @@ export function ProjectsClient() {
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
   const [visiblePhases, setVisiblePhases] = useState<Set<ProjectPhase>>(
-    new Set(ALL_PHASES),
+    new Set(PROJECT_PHASES),
   );
   const [sortField, setSortField] = useState<SortField>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -104,7 +59,7 @@ export function ProjectsClient() {
   const projectsByPhase = useMemo(() => {
     if (!projects) return {} as Record<ProjectPhase, typeof projects>;
     const query = searchQuery.toLowerCase().trim();
-    const grouped = ALL_PHASES.reduce(
+    const grouped = PROJECT_PHASES.reduce(
       (acc, phase) => {
         acc[phase] = projects
           .filter((p) => p.phase === phase)
@@ -191,7 +146,7 @@ export function ProjectsClient() {
                       size="sm"
                       startContent={<IconFilter size={16} />}
                     >
-                      {visiblePhases.size === ALL_PHASES.length
+                      {visiblePhases.size === PROJECT_PHASES.length
                         ? "All Columns"
                         : `${visiblePhases.size} Columns`}
                     </Button>
@@ -268,7 +223,7 @@ export function ProjectsClient() {
               />
             </div>
             <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
-              {ALL_PHASES.filter((phase) => visiblePhases.has(phase)).map(
+              {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
                 (phase) => (
                   <KanbanColumn
                     key={phase}

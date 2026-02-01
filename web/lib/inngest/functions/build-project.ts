@@ -21,7 +21,7 @@ export const buildProject = inngest.createFunction(
 
     const results: Array<{ taskId: string; success: boolean }> = [];
 
-    for (let i = 0; i < tasks.length; i++) {
+    for (let i = 1; i < tasks.length; i++) {
       const task = tasks[i];
 
       const executionData = await step.run(`start-task-${i}`, async () => {

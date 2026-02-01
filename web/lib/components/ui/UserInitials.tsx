@@ -4,8 +4,14 @@ import { Badge, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
 
-export function UserInitials({ userId }: { userId: Id<"users"> }) {
-  const user = useQuery(api.users.get, { id: userId });
+export function UserInitials({
+  userId,
+  hideLastSeen,
+}: {
+  userId: string;
+  hideLastSeen?: boolean;
+}) {
+  const user = useQuery(api.users.get, { id: userId as Id<"users"> });
   if (!user) return null;
   const initials =
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
@@ -25,7 +31,7 @@ export function UserInitials({ userId }: { userId: Id<"users"> }) {
         color={online ? "success" : "warning"}
         shape="circle"
         placement="bottom-right"
-        isInvisible={!user.lastSeenAt}
+        isInvisible={hideLastSeen ?? !user.lastSeenAt}
       >
         <div className="size-5 shrink-0 flex items-center justify-center bg-teal-500 text-teal-100 rounded-full text-xs font-medium">
           {initials}

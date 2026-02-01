@@ -33,8 +33,8 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
           base: isUser ? "bg-primary" : "bg-neutral-200",
           icon: isUser ? "text-primary-foreground" : "text-default-600",
         }}
-        size="sm"
         className="flex-shrink-0"
+        size="sm"
       />
       <Card
         shadow="none"

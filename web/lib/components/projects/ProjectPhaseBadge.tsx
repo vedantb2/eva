@@ -1,5 +1,6 @@
 "use client";
 
+import { Chip } from "@heroui/react";
 import {
   IconNotes,
   IconCheck,
@@ -7,55 +8,64 @@ import {
   IconCircleCheck,
 } from "@tabler/icons-react";
 
-type ProjectPhase = "draft" | "finalized" | "active" | "completed";
+export type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 
-const phaseConfig: Record<
+export const PROJECT_PHASES: ProjectPhase[] = [
+  "draft",
+  "finalized",
+  "active",
+  "completed",
+];
+
+export const phaseConfig: Record<
   ProjectPhase,
-  { label: string; bgClass: string; textClass: string; icon: typeof IconNotes }
+  { bg: string; cardBg: string; text: string; label: string; icon: typeof IconNotes }
 > = {
   draft: {
+    bg: "bg-neutral-200 dark:bg-neutral-700",
+    cardBg: "bg-white dark:bg-neutral-900",
+    text: "text-neutral-600 dark:text-neutral-300",
     label: "Draft",
-    bgClass: "bg-neutral-100 dark:bg-neutral-700",
-    textClass: "text-neutral-600 dark:text-neutral-300",
     icon: IconNotes,
   },
   finalized: {
+    bg: "bg-teal-200 dark:bg-teal-900/60",
+    cardBg: "bg-white dark:bg-neutral-900",
+    text: "text-teal-700 dark:text-teal-400",
     label: "Finalized",
-    bgClass: "bg-teal-100 dark:bg-teal-900/30",
-    textClass: "text-teal-700 dark:text-teal-400",
     icon: IconCheck,
   },
   active: {
+    bg: "bg-yellow-200 dark:bg-yellow-900/60",
+    cardBg: "bg-white dark:bg-neutral-900",
+    text: "text-yellow-700 dark:text-yellow-400",
     label: "Active",
-    bgClass: "bg-yellow-100 dark:bg-yellow-900/30",
-    textClass: "text-yellow-700 dark:text-yellow-400",
     icon: IconClock,
   },
   completed: {
+    bg: "bg-green-200 dark:bg-green-900/60",
+    cardBg: "bg-white dark:bg-neutral-900",
+    text: "text-green-700 dark:text-green-400",
     label: "Completed",
-    bgClass: "bg-green-100 dark:bg-green-900/30",
-    textClass: "text-green-700 dark:text-green-400",
     icon: IconCircleCheck,
   },
 };
 
 interface ProjectPhaseBadgeProps {
   phase: ProjectPhase;
-  size?: "sm" | "md";
 }
 
-export function ProjectPhaseBadge({ phase, size = "md" }: ProjectPhaseBadgeProps) {
+export function ProjectPhaseBadge({ phase }: ProjectPhaseBadgeProps) {
   const config = phaseConfig[phase];
   const Icon = config.icon;
 
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full font-medium ${config.bgClass} ${config.textClass} ${
-        size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm"
-      }`}
+    <Chip
+      startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
+      variant="flat"
+      className={`${config.text} ${config.bg}`}
     >
-      <Icon size={size === "sm" ? 12 : 14} />
       {config.label}
-    </span>
+    </Chip>
   );
 }

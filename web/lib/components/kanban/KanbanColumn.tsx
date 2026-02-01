@@ -46,7 +46,7 @@ export function KanbanColumn({
           : "bg-neutral-50 dark:bg-neutral-800/50"
       }`}
     >
-      <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">
+      <CardHeader className="flex justify-between items-center p-2 pb-1 flex-shrink-0">
         <Chip
           startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
           variant="flat"
@@ -61,7 +61,7 @@ export function KanbanColumn({
         </Chip>
         {headerExtra}
       </CardHeader>
-      <CardBody className="pt-0 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">
+      <CardBody className="pt-0 p-2 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">
         {children}
       </CardBody>
     </Card>

@@ -20,6 +20,10 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconFlask,
+  IconHammer,
+  IconTool,
+  IconTestPipe,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -85,6 +89,7 @@ export function Sidebar() {
     ? [
         {
           label: "BUILD",
+          groupIcon: IconHammer,
           items: [
             {
               name: "Projects",
@@ -95,6 +100,7 @@ export function Sidebar() {
         },
         {
           label: "FIX",
+          groupIcon: IconTool,
           items: [
             {
               name: "Quick Tasks",
@@ -110,6 +116,7 @@ export function Sidebar() {
         },
         {
           label: "TEST",
+          groupIcon: IconTestPipe,
           items: [
             {
               name: "Documents",
@@ -125,6 +132,7 @@ export function Sidebar() {
         },
         {
           label: "DATA",
+          groupIcon: IconChartBar,
           items: [
             { name: "Analyse", href: `/${repoSlug}/analyse`, icon: IconBrain },
           ],
@@ -290,12 +298,13 @@ export function Sidebar() {
                         {!collapsed && (
                           <button
                             onClick={() => toggleGroup(group.label)}
-                            className="flex items-center gap-1 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-neutral-400 dark:text-neutral-500 uppercase hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                            className="flex items-center gap-1.5 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-neutral-400 dark:text-neutral-500 uppercase hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
                           >
+                            <group.groupIcon className="w-3 h-3" />
+                            {group.label}
                             <IconChevronDown
                               className={`w-3 h-3 transition-transform ${expandedGroups.has(group.label) ? "" : "-rotate-90"}`}
                             />
-                            {group.label}
                           </button>
                         )}
                         {(collapsed || expandedGroups.has(group.label)) && (

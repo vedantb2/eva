@@ -159,9 +159,10 @@ export function Sidebar() {
       <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation menu"
           className="p-2 -ml-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
         >
-          <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+          <IconMenu2 aria-hidden="true" className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link
           href="/"
@@ -183,6 +184,7 @@ export function Sidebar() {
 
       {mobileOpen && (
         <div
+          role="presentation"
           className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         />
@@ -216,18 +218,20 @@ export function Sidebar() {
             </Link>
             <button
               onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
               className="lg:hidden p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              <IconX className="w-5 h-5 text-neutral-500" />
+              <IconX aria-hidden="true" className="w-5 h-5 text-neutral-500" />
             </button>
             <button
               onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               className={`hidden lg:flex p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 ${collapsed ? "absolute right-2" : ""}`}
             >
               {collapsed ? (
-                <IconChevronRight className="w-5 h-5 text-neutral-500" />
+                <IconChevronRight aria-hidden="true" className="w-5 h-5 text-neutral-500" />
               ) : (
-                <IconChevronLeft className="w-5 h-5 text-neutral-500" />
+                <IconChevronLeft aria-hidden="true" className="w-5 h-5 text-neutral-500" />
               )}
             </button>
           </div>
@@ -245,12 +249,13 @@ export function Sidebar() {
                           <button
                             className="flex items-center gap-2 w-full px-2 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                             type="button"
+                            aria-label={`Repository: ${repoFullName}. Click to switch.`}
                           >
-                            <IconBrandGithub className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
+                            <IconBrandGithub aria-hidden="true" className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                             <span className="flex-1 text-left text-sm font-medium text-neutral-900 dark:text-white truncate">
                               {repoFullName}
                             </span>
-                            <IconSelector className="w-4 h-4 text-neutral-500" />
+                            <IconSelector aria-hidden="true" className="w-4 h-4 text-neutral-500" />
                           </button>
                         </DropdownTrigger>
                         <DropdownMenu
@@ -296,9 +301,11 @@ export function Sidebar() {
                         {!collapsed && (
                           <button
                             onClick={() => toggleGroup(group.label)}
+                            aria-expanded={expandedGroups.has(group.label)}
                             className="flex items-center gap-1 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-neutral-400 dark:text-neutral-500 uppercase hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
                           >
                             <IconChevronDown
+                              aria-hidden="true"
                               className={`w-3 h-3 transition-transform ${expandedGroups.has(group.label) ? "" : "-rotate-90"}`}
                             />
                             {group.label}

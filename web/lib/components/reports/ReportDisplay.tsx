@@ -399,7 +399,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           )}
           {report.dateRange && (
             <span className="flex items-center gap-1">
-              <IconCalendarStats className="w-3.5 h-3.5" />
+              <IconCalendarStats aria-hidden="true" className="w-3.5 h-3.5" />
               {dayjs(report.dateRange.start).format("MMM D, YYYY")} - {dayjs(report.dateRange.end).format("MMM D, YYYY")}
             </span>
           )}
@@ -442,7 +442,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
               Issue Categories
             </h3>
-            <div className="h-64">
+            <div className="h-64" role="img" aria-label={`Issue categories chart: ${analysisResults.issueCategories.map((c) => `${c.category} ${c.count}`).join(", ")}`}>
               <Doughnut data={issueCategoryChartData} options={doughnutOptions} />
             </div>
           </div>
@@ -453,7 +453,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
             Task Status Distribution
           </h3>
-          <div className="h-64">
+          <div className="h-64" role="img" aria-label={`Task status distribution: Todo ${analysisResults.workPatterns.statusDistribution.todo}, In Progress ${analysisResults.workPatterns.statusDistribution.in_progress}, Business Review ${analysisResults.workPatterns.statusDistribution.business_review}, Code Review ${analysisResults.workPatterns.statusDistribution.code_review}, Done ${analysisResults.workPatterns.statusDistribution.done}`}>
             <Doughnut data={statusChartData} options={doughnutOptions} />
           </div>
         </div>
@@ -465,7 +465,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
             Top Terms by Frequency
           </h3>
-          <div className="h-64">
+          <div className="h-64" role="img" aria-label={`Top terms by frequency: ${analysisResults.frequencyMap.slice(0, 15).map((f) => `${f.term} ${f.count}`).join(", ")}`}>
             <Bar data={frequencyChartData} options={barOptions} />
           </div>
         </div>
@@ -476,12 +476,13 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
         <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-              <IconChartLine className="w-4 h-4" />
+              <IconChartLine aria-hidden="true" className="w-4 h-4" />
               Work Distribution Over Time
             </h3>
-            <div className="flex gap-1">
+            <div role="group" aria-label="Chart view" className="flex gap-1">
               <button
                 onClick={() => setTemporalView("activity")}
+                aria-pressed={temporalView === "activity"}
                 className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
                   temporalView === "activity"
                     ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
@@ -493,6 +494,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
               {dailyBreakdownChartData && (
                 <button
                   onClick={() => setTemporalView("daily")}
+                  aria-pressed={temporalView === "daily"}
                   className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
                     temporalView === "daily"
                       ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
@@ -505,6 +507,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
               {weeklyTrendChartData && (
                 <button
                   onClick={() => setTemporalView("weekly")}
+                  aria-pressed={temporalView === "weekly"}
                   className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
                     temporalView === "weekly"
                       ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
@@ -516,7 +519,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
               )}
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-64" role="img" aria-label="Work distribution over time chart">
             {temporalView === "activity" && analysisResults.temporalGroups.length > 0 && (
               <Bar
                 data={temporalChartData}
@@ -550,10 +553,10 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
       {issuesByDateChartData && (
         <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-            <IconCalendarStats className="w-4 h-4" />
+            <IconCalendarStats aria-hidden="true" className="w-4 h-4" />
             Issues Over Time by Category
           </h3>
-          <div className="h-72">
+          <div className="h-72" role="img" aria-label="Issues over time by category chart">
             <Line data={issuesByDateChartData} options={lineOptions} />
           </div>
         </div>
@@ -562,7 +565,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
       {/* Work Patterns */}
       <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-          <IconClock className="w-4 h-4" />
+          <IconClock aria-hidden="true" className="w-4 h-4" />
           Work Patterns
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -595,7 +598,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           {/* Summary */}
           <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-              <IconBulb className="w-4 h-4 text-yellow-500" />
+              <IconBulb aria-hidden="true" className="w-4 h-4 text-yellow-500" />
               AI Summary
             </h3>
             <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
@@ -607,7 +610,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           {aiInsights.topIssueCategories.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
               <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-                <IconTag className="w-4 h-4 text-teal-500" />
+                <IconTag aria-hidden="true" className="w-4 h-4 text-teal-500" />
                 Key Issue Areas
               </h3>
               <div className="space-y-3">
@@ -656,7 +659,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           {aiInsights.commonErrorPatterns.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
               <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-                <IconAlertTriangle className="w-4 h-4 text-red-500" />
+                <IconAlertTriangle aria-hidden="true" className="w-4 h-4 text-red-500" />
                 Common Error Patterns
               </h3>
               <div className="space-y-3">
@@ -691,7 +694,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           {aiInsights.temporalTrends.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
               <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-                <IconTrendingUp className="w-4 h-4 text-teal-500" />
+                <IconTrendingUp aria-hidden="true" className="w-4 h-4 text-teal-500" />
                 Temporal Trends
               </h3>
               <div className="space-y-2">
@@ -713,7 +716,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           {aiInsights.recommendations.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
               <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-                <IconBulb className="w-4 h-4 text-yellow-500" />
+                <IconBulb aria-hidden="true" className="w-4 h-4 text-yellow-500" />
                 Recommendations
               </h3>
               <ul className="space-y-2">
@@ -722,7 +725,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
                     key={i}
                     className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300"
                   >
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                    <span aria-hidden="true" className="mt-1 w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
                     {rec}
                   </li>
                 ))}

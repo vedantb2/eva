@@ -90,14 +90,17 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
     : !!selectedTag;
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-xl p-5 border border-neutral-200 dark:border-neutral-800">
-      <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
+    <section
+      aria-labelledby="report-generator-heading"
+      className="bg-white dark:bg-neutral-900 rounded-xl p-5 border border-neutral-200 dark:border-neutral-800"
+    >
+      <h3 id="report-generator-heading" className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
         Generate Report
       </h3>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-neutral-500">
-          <IconLoader2 className="w-4 h-4 animate-spin" />
+        <div role="status" aria-label="Loading tags" className="flex items-center gap-2 text-sm text-neutral-500">
+          <IconLoader2 aria-hidden="true" className="w-4 h-4 animate-spin" />
           Loading tags...
         </div>
       ) : !hasTags ? (
@@ -110,6 +113,7 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
           <div className="flex items-center gap-2">
             <Switch
               size="sm"
+              aria-label="Multi-tag mode"
               isSelected={multiTagMode}
               onValueChange={(val) => {
                 setMultiTagMode(val);
@@ -199,25 +203,28 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
           )}
 
           {/* Date range filter */}
-          <div className="space-y-2">
+          <fieldset className="space-y-2">
+            <legend className="sr-only">Date range filter</legend>
             <div className="flex items-center gap-2">
               <Switch
                 size="sm"
+                aria-label="Filter by date range"
                 isSelected={showDateFilter}
                 onValueChange={setShowDateFilter}
               />
               <span className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center gap-1">
-                <IconCalendar className="w-3.5 h-3.5" />
+                <IconCalendar aria-hidden="true" className="w-3.5 h-3.5" />
                 Filter by date range
               </span>
             </div>
             {showDateFilter && (
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
+                  <label htmlFor="report-start-date" className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
                     Start
                   </label>
                   <input
+                    id="report-start-date"
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
@@ -225,10 +232,11 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
+                  <label htmlFor="report-end-date" className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
                     End
                   </label>
                   <input
+                    id="report-end-date"
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
@@ -241,14 +249,15 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
                       setStartDate("");
                       setEndDate("");
                     }}
+                    aria-label="Clear date filter"
                     className="self-end p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                   >
-                    <IconX className="w-4 h-4" />
+                    <IconX aria-hidden="true" className="w-4 h-4" />
                   </button>
                 )}
               </div>
             )}
-          </div>
+          </fieldset>
 
           <Textarea
             label="Notes (optional)"
@@ -281,6 +290,6 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
           </Button>
         </div>
       )}
-    </div>
+    </section>
   );
 }

@@ -23,8 +23,8 @@ export function DeletedWorkSection({ tagId }: DeletedWorkSectionProps) {
   if (workItems === undefined) {
     return (
       <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
-        <div className="flex items-center gap-2 text-sm text-neutral-500">
-          <IconLoader2 className="w-4 h-4 animate-spin" />
+        <div role="status" aria-label="Loading deleted items" className="flex items-center gap-2 text-sm text-neutral-500">
+          <IconLoader2 aria-hidden="true" className="w-4 h-4 animate-spin" />
           Loading deleted items...
         </div>
       </div>
@@ -39,9 +39,9 @@ export function DeletedWorkSection({ tagId }: DeletedWorkSectionProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
-      <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-        <IconTrash className="w-4 h-4 text-neutral-500" />
+    <section aria-labelledby="deleted-work-heading" className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
+      <h3 id="deleted-work-heading" className="text-sm font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+        <IconTrash aria-hidden="true" className="w-4 h-4 text-neutral-500" />
         Deleted / Removed Work
         <Chip size="sm" variant="flat" className="bg-neutral-100 dark:bg-neutral-800">
           {deletedTasks.length + deletedSessions.length}
@@ -53,7 +53,7 @@ export function DeletedWorkSection({ tagId }: DeletedWorkSectionProps) {
         {deletedTasks.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <IconChecklist className="w-3.5 h-3.5" />
+              <IconChecklist aria-hidden="true" className="w-3.5 h-3.5" />
               Deleted Tasks ({deletedTasks.length})
             </h4>
             <div className="space-y-1.5">
@@ -85,7 +85,7 @@ export function DeletedWorkSection({ tagId }: DeletedWorkSectionProps) {
         {deletedSessions.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <IconTerminal2 className="w-3.5 h-3.5" />
+              <IconTerminal2 aria-hidden="true" className="w-3.5 h-3.5" />
               Deleted Sessions ({deletedSessions.length})
             </h4>
             <div className="space-y-1.5">
@@ -115,7 +115,7 @@ export function DeletedWorkSection({ tagId }: DeletedWorkSectionProps) {
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 

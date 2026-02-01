@@ -64,13 +64,18 @@ export function ReportsClient() {
         )}
 
         {/* Report History */}
-        <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
+        <section
+          aria-labelledby="report-history-heading"
+          className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800"
+        >
           <button
             onClick={() => setShowHistory(!showHistory)}
+            aria-expanded={showHistory}
+            aria-controls="report-history-list"
             className="flex items-center justify-between w-full text-sm font-semibold text-neutral-900 dark:text-white"
           >
-            <span className="flex items-center gap-2">
-              <IconClock className="w-4 h-4" />
+            <span id="report-history-heading" className="flex items-center gap-2">
+              <IconClock aria-hidden="true" className="w-4 h-4" />
               Report History
               {reports && (
                 <Chip size="sm" variant="flat" className="bg-neutral-100 dark:bg-neutral-800">
@@ -79,36 +84,39 @@ export function ReportsClient() {
               )}
             </span>
             {showHistory ? (
-              <IconChevronUp className="w-4 h-4" />
+              <IconChevronUp aria-hidden="true" className="w-4 h-4" />
             ) : (
-              <IconChevronDown className="w-4 h-4" />
+              <IconChevronDown aria-hidden="true" className="w-4 h-4" />
             )}
           </button>
 
           {showHistory && (
-            <div className="mt-4">
+            <div id="report-history-list" className="mt-4">
               {isLoadingReports ? (
-                <div className="flex items-center gap-2 text-sm text-neutral-500 py-4 justify-center">
-                  <IconLoader2 className="w-4 h-4 animate-spin" />
+                <div role="status" aria-label="Loading reports" className="flex items-center gap-2 text-sm text-neutral-500 py-4 justify-center">
+                  <IconLoader2 aria-hidden="true" className="w-4 h-4 animate-spin" />
                   Loading reports...
                 </div>
               ) : reports.length === 0 ? (
                 <div className="text-center py-8">
-                  <IconReportAnalytics className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                  <IconReportAnalytics aria-hidden="true" className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     No reports yet. Select a tag above and generate your first report.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div role="list" className="space-y-2">
                   {reports.map((report) => (
                     <button
                       key={report._id}
+                      role="listitem"
                       onClick={() =>
                         setSelectedReportId(
                           report._id === selectedReportId ? null : (report._id as ReportId)
                         )
                       }
+                      aria-current={report._id === selectedReportId ? "true" : undefined}
+                      aria-label={`Report for tag ${report.tagIds && report.tagIds.length > 1 ? report.tagIds.join(", ") : report.tagId}, ${report.workItemCounts.totalTasks} tasks, ${report.workItemCounts.totalSessions} sessions, status ${report.status}`}
                       className={`flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors ${
                         report._id === selectedReportId
                           ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
@@ -162,7 +170,7 @@ export function ReportsClient() {
               )}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </PageWrapper>
   );
@@ -172,8 +180,8 @@ export function ReportsClient() {
 function SelectedReportView({ report }: { report: any }) {
   if (report === undefined) {
     return (
-      <div className="flex items-center gap-2 text-sm text-neutral-500 py-8 justify-center">
-        <IconLoader2 className="w-4 h-4 animate-spin" />
+      <div role="status" aria-label="Loading report" className="flex items-center gap-2 text-sm text-neutral-500 py-8 justify-center">
+        <IconLoader2 aria-hidden="true" className="w-4 h-4 animate-spin" />
         Loading report...
       </div>
     );
@@ -181,8 +189,8 @@ function SelectedReportView({ report }: { report: any }) {
 
   if (report === null) {
     return (
-      <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 border border-neutral-200 dark:border-neutral-800 text-center">
-        <IconAlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
+      <div role="alert" className="bg-white dark:bg-neutral-900 rounded-xl p-6 border border-neutral-200 dark:border-neutral-800 text-center">
+        <IconAlertCircle aria-hidden="true" className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
         <p className="text-sm text-neutral-500">Report not found.</p>
       </div>
     );
@@ -215,13 +223,13 @@ function SelectedReportView({ report }: { report: any }) {
         <Chip size="sm" variant="flat" className={STATUS_STYLES[report.status]}>
           {report.status === "pending" && (
             <span className="flex items-center gap-1">
-              <IconLoader2 className="w-3 h-3 animate-spin" />
+              <IconLoader2 aria-hidden="true" className="w-3 h-3 animate-spin" />
               Pending
             </span>
           )}
           {report.status === "analyzing" && (
             <span className="flex items-center gap-1">
-              <IconLoader2 className="w-3 h-3 animate-spin" />
+              <IconLoader2 aria-hidden="true" className="w-3 h-3 animate-spin" />
               Analyzing
             </span>
           )}
@@ -235,9 +243,9 @@ function SelectedReportView({ report }: { report: any }) {
 
       {/* Error state */}
       {report.status === "error" && report.error && (
-        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+        <div role="alert" className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
           <div className="flex items-start gap-2">
-            <IconAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <IconAlertCircle aria-hidden="true" className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800 dark:text-red-200">
                 Analysis failed
@@ -250,8 +258,8 @@ function SelectedReportView({ report }: { report: any }) {
 
       {/* Pending/Analyzing states */}
       {(report.status === "pending" || report.status === "analyzing") && (
-        <div className="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-6 border border-teal-200 dark:border-teal-800 text-center">
-          <IconLoader2 className="w-8 h-8 text-teal-500 mx-auto mb-3 animate-spin" />
+        <div role="status" aria-label={report.status === "pending" ? "Report queued for analysis" : "AI analysis in progress"} className="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-6 border border-teal-200 dark:border-teal-800 text-center">
+          <IconLoader2 aria-hidden="true" className="w-8 h-8 text-teal-500 mx-auto mb-3 animate-spin" />
           <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
             {report.status === "pending"
               ? "Report queued for analysis..."

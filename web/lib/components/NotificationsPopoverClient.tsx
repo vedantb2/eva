@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
-import { Badge, Chip, Divider, Spinner } from "@heroui/react";
+import { Badge, Chip, type ChipProps, Divider, Spinner } from "@heroui/react";
 import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
 import { Listbox, ListboxItem } from "@heroui/listbox";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
@@ -21,23 +21,14 @@ import {
   IconBellOff,
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
+import { GenericId as Id } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 
 type Notification = FunctionReturnType<typeof api.notifications.list>[number];
 
 const typeConfig: Record<
   Notification["type"],
-  {
-    icon: React.ComponentType<{ className?: string; size?: number }>;
-    label: string;
-    chipColor:
-      | "secondary"
-      | "primary"
-      | "success"
-      | "warning"
-      | "danger"
-      | "default";
-  }
+  { icon: typeof IconBell; label: string; chipColor: ChipProps["color"] }
 > = {
   routine_complete: {
     icon: IconRepeat,
@@ -69,7 +60,8 @@ export function NotificationsPopoverClient({
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
-  const [selected, setSelected] = useState<Notification | null>(null);
+  const [selectedId, setSelectedId] = useState<Id<"notifications"> | null>(null);
+  const selected = notifications?.find((n) => n._id === selectedId) ?? null;
 
   useEffect(() => {
     if (selected && !selected.read) {
@@ -126,7 +118,7 @@ export function NotificationsPopoverClient({
                 aria-label="Notifications"
                 onAction={(key) => {
                   const n = notifications.find((n) => n._id === key);
-                  if (n) setSelected(n);
+                  if (n) setSelectedId(n._id);
                 }}
               >
                 {notifications.map((n) => {
@@ -156,7 +148,7 @@ export function NotificationsPopoverClient({
         </PopoverContent>
       </Popover>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)}>
+      <Modal isOpen={!!selected} onClose={() => setSelectedId(null)}>
         <ModalContent>
           {selected &&
             (() => {

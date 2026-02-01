@@ -67,7 +67,12 @@ export async function syncRepo(
   workDir = WORKSPACE_DIR,
 ): Promise<void> {
   await updateRemoteUrl(sandbox, githubToken, owner, name, workDir);
-  await sandbox.git.pull(workDir);
+  await sandbox.process.executeCommand(
+    `cd ${workDir} && git pull`,
+    "/",
+    undefined,
+    60,
+  );
 }
 
 export async function setupBranch(
@@ -75,14 +80,28 @@ export async function setupBranch(
   branchName: string,
   workDir = WORKSPACE_DIR,
 ): Promise<{ created: boolean }> {
-  try {
-    await sandbox.git.checkoutBranch(workDir, branchName);
+  const checkResult = await sandbox.process.executeCommand(
+    `cd ${workDir} && git ls-remote --heads origin ${branchName}`,
+    "/",
+    undefined,
+    30,
+  );
+  if (checkResult.result?.includes(branchName)) {
+    await sandbox.process.executeCommand(
+      `cd ${workDir} && git fetch origin ${branchName} && git checkout ${branchName}`,
+      "/",
+      undefined,
+      30,
+    );
     return { created: false };
-  } catch {
-    await sandbox.git.createBranch(workDir, branchName);
-    await sandbox.git.checkoutBranch(workDir, branchName);
-    return { created: true };
   }
+  await sandbox.process.executeCommand(
+    `cd ${workDir} && git checkout -b ${branchName}`,
+    "/",
+    undefined,
+    30,
+  );
+  return { created: true };
 }
 
 export async function updateRemoteUrl(
@@ -220,15 +239,10 @@ export async function getOrCreateSandbox(
   ephemeral?: boolean,
 ): Promise<Sandbox> {
   if (existingSandboxId) {
-    try {
-      const sandbox = await daytona.get(existingSandboxId);
-      await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
-      return sandbox;
-    } catch {
-      // sandbox dead or unresponsive, create new
-    }
+    const sandbox = await daytona.get(existingSandboxId);
+    await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+    return sandbox;
   }
-
   const sandbox = await createSandbox(githubToken, ephemeral);
   await syncRepo(sandbox, githubToken, repoOwner, repoName);
   await onSandboxCreated(sandbox.id);

@@ -47,8 +47,12 @@ export const analyzeTagReport = inngest.createFunction(
   },
   { event: "report/analyze.requested" },
   async ({ event, step }) => {
-    const { clerkToken, reportId, repoId, tagId } = event.data;
+    const { clerkToken, reportId, repoId, tagId, tagIds } = event.data;
     const convex = createConvex(clerkToken);
+
+    // Determine effective tags (multi-tag support)
+    const effectiveTagIds: string[] =
+      tagIds && Array.isArray(tagIds) && tagIds.length > 0 ? tagIds : [tagId];
 
     // Step 1: Update report status to analyzing
     await step.run("update-status-analyzing", async () => {
@@ -58,14 +62,20 @@ export const analyzeTagReport = inngest.createFunction(
       });
     });
 
-    // Step 2: Collect all work data for the tag
+    // Step 2: Collect all work data for the tag(s)
     const workData = await step.run("collect-work-data", async () => {
-      // Fetch tasks and sessions by tag
-      const workItems = await convex.query(api.reports.getWorkItemsByTag, {
-        repoId: repoId as Id<"githubRepos">,
-        tagId,
-        includeDeleted: true,
-      });
+      // Fetch tasks and sessions by tag(s) - use multi-tag query when applicable
+      const workItems = effectiveTagIds.length > 1
+        ? await convex.query(api.reports.getWorkItemsByTags, {
+            repoId: repoId as Id<"githubRepos">,
+            tagIds: effectiveTagIds,
+            includeDeleted: true,
+          })
+        : await convex.query(api.reports.getWorkItemsByTag, {
+            repoId: repoId as Id<"githubRepos">,
+            tagId: effectiveTagIds[0],
+            includeDeleted: true,
+          });
 
       // Fetch full task details with descriptions
       const tasks: Array<{
@@ -75,6 +85,7 @@ export const analyzeTagReport = inngest.createFunction(
         status: string;
         createdAt: number;
         updatedAt: number;
+        tags?: string[];
       }> = [];
 
       for (const task of workItems.tasks) {
@@ -89,6 +100,7 @@ export const analyzeTagReport = inngest.createFunction(
             status: fullTask.status,
             createdAt: fullTask.createdAt,
             updatedAt: fullTask.updatedAt,
+            tags: fullTask.tags,
           });
         }
       }
@@ -100,6 +112,7 @@ export const analyzeTagReport = inngest.createFunction(
         resultSummary?: string;
         errorLogs: string[];
         error?: string;
+        startedAt?: number;
       }> = [];
 
       for (const task of workItems.tasks) {
@@ -115,6 +128,7 @@ export const analyzeTagReport = inngest.createFunction(
               .filter((l: { level: string }) => l.level === "error")
               .map((l: { message: string }) => l.message),
             error: run.error,
+            startedAt: run.startedAt,
           });
         }
       }
@@ -124,7 +138,9 @@ export const analyzeTagReport = inngest.createFunction(
         title: string;
         status: string;
         messageCount: number;
+        createdAt: number;
         messages: Array<{ role: string; content: string }>;
+        tags?: string[];
       }> = [];
 
       for (const session of workItems.sessions) {
@@ -136,12 +152,14 @@ export const analyzeTagReport = inngest.createFunction(
             title: fullSession.title,
             status: fullSession.status,
             messageCount: fullSession.messages.length,
+            createdAt: fullSession._creationTime,
             messages: fullSession.messages.map(
               (m: { role: string; content: string }) => ({
                 role: m.role,
                 content: m.content,
               })
             ),
+            tags: fullSession.tags,
           });
         }
       }
@@ -152,7 +170,9 @@ export const analyzeTagReport = inngest.createFunction(
     // Step 3: Call Claude API for pattern analysis
     const aiInsights = await step.run("analyze-with-claude", async () => {
       const prompt = buildAnalyzeTagReportPrompt({
-        tagId,
+        tagId: effectiveTagIds.length > 1
+          ? effectiveTagIds.join(", ")
+          : tagId,
         tasks: workData.tasks,
         runs: workData.runs,
         sessions: workData.sessions,

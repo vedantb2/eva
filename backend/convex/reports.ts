@@ -38,11 +38,41 @@ const workPatternsValidator = v.object({
   runSuccessRate: v.number(),
 });
 
+const issuesByDateEntryValidator = v.object({
+  date: v.number(),
+  granularity: v.union(v.literal("day"), v.literal("week"), v.literal("month")),
+  issues: v.array(
+    v.object({
+      category: v.string(),
+      count: v.number(),
+    })
+  ),
+  totalItems: v.number(),
+});
+
+const dailyBreakdownValidator = v.object({
+  date: v.number(),
+  taskCount: v.number(),
+  sessionCount: v.number(),
+  issueCount: v.number(),
+});
+
+const weeklyTrendValidator = v.object({
+  weekStart: v.number(),
+  taskCount: v.number(),
+  sessionCount: v.number(),
+  completedCount: v.number(),
+  errorCount: v.number(),
+});
+
 const analysisResultsValidator = v.object({
   issueCategories: v.array(issueCategoryValidator),
   frequencyMap: v.array(frequencyEntryValidator),
   temporalGroups: v.array(temporalGroupValidator),
   workPatterns: workPatternsValidator,
+  issuesByDate: v.optional(v.array(issuesByDateEntryValidator)),
+  dailyBreakdown: v.optional(v.array(dailyBreakdownValidator)),
+  weeklyTrend: v.optional(v.array(weeklyTrendValidator)),
 });
 
 const workItemCountsValidator = v.object({
@@ -89,13 +119,22 @@ const aiInsightsValidator = v.object({
   recommendations: v.array(v.string()),
 });
 
+const dateRangeValidator = v.optional(
+  v.object({
+    start: v.number(),
+    end: v.number(),
+  })
+);
+
 const reportValidator = v.object({
   _id: v.id("reports"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
   tagId: v.string(),
+  tagIds: v.optional(v.array(v.string())),
   status: reportStatusValidator,
   generatedAt: v.number(),
+  dateRange: dateRangeValidator,
   analysisResults: analysisResultsValidator,
   aiInsights: v.optional(aiInsightsValidator),
   error: v.optional(v.string()),
@@ -204,13 +243,192 @@ function buildTemporalGroups(
     .sort((a, b) => a.startDate - b.startDate);
 }
 
+// --- Temporal grouping helpers ---
+
+type Granularity = "day" | "week" | "month";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+
+function getDateBucket(timestamp: number, granularity: Granularity): number {
+  const date = new Date(timestamp);
+  if (granularity === "day") {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  } else if (granularity === "week") {
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Monday start
+    return new Date(date.getFullYear(), date.getMonth(), diff).getTime();
+  } else {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+  }
+}
+
+function detectGranularity(minTime: number, maxTime: number): Granularity {
+  const range = maxTime - minTime;
+  if (range <= 14 * DAY_MS) return "day";
+  if (range <= 90 * DAY_MS) return "week";
+  return "month";
+}
+
+function buildIssuesByDate(
+  tasks: Doc<"agentTasks">[],
+  sessions: Doc<"sessions">[],
+  granularity?: Granularity
+): {
+  date: number;
+  granularity: Granularity;
+  issues: { category: string; count: number }[];
+  totalItems: number;
+}[] {
+  const allTimestamps = [
+    ...tasks.map((t) => t.createdAt),
+    ...sessions.map((s) => s._creationTime),
+  ];
+  if (allTimestamps.length === 0) return [];
+
+  const minTime = Math.min(...allTimestamps);
+  const maxTime = Math.max(...allTimestamps);
+  const gran = granularity || detectGranularity(minTime, maxTime);
+
+  const buckets: Record<
+    number,
+    { categories: Record<string, number>; totalItems: number }
+  > = {};
+
+  for (const task of tasks) {
+    const bucket = getDateBucket(task.createdAt, gran);
+    if (!buckets[bucket]) buckets[bucket] = { categories: {}, totalItems: 0 };
+    buckets[bucket].totalItems++;
+    const text = [task.title, task.description || ""].join(" ");
+    const cats = categorizeText(text);
+    for (const cat of cats) {
+      buckets[bucket].categories[cat] = (buckets[bucket].categories[cat] || 0) + 1;
+    }
+  }
+
+  for (const session of sessions) {
+    const bucket = getDateBucket(session._creationTime, gran);
+    if (!buckets[bucket]) buckets[bucket] = { categories: {}, totalItems: 0 };
+    buckets[bucket].totalItems++;
+    const text = [session.title, ...session.messages.map((m) => m.content)].join(" ");
+    const cats = categorizeText(text);
+    for (const cat of cats) {
+      buckets[bucket].categories[cat] = (buckets[bucket].categories[cat] || 0) + 1;
+    }
+  }
+
+  return Object.entries(buckets)
+    .map(([dateStr, data]) => ({
+      date: Number(dateStr),
+      granularity: gran,
+      issues: Object.entries(data.categories)
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count),
+      totalItems: data.totalItems,
+    }))
+    .sort((a, b) => a.date - b.date);
+}
+
+function buildDailyBreakdown(
+  tasks: Doc<"agentTasks">[],
+  sessions: Doc<"sessions">[],
+  runs: Doc<"agentRuns">[]
+): { date: number; taskCount: number; sessionCount: number; issueCount: number }[] {
+  const buckets: Record<
+    number,
+    { taskCount: number; sessionCount: number; issueCount: number }
+  > = {};
+
+  for (const task of tasks) {
+    const bucket = getDateBucket(task.createdAt, "day");
+    if (!buckets[bucket]) buckets[bucket] = { taskCount: 0, sessionCount: 0, issueCount: 0 };
+    buckets[bucket].taskCount++;
+  }
+
+  for (const session of sessions) {
+    const bucket = getDateBucket(session._creationTime, "day");
+    if (!buckets[bucket]) buckets[bucket] = { taskCount: 0, sessionCount: 0, issueCount: 0 };
+    buckets[bucket].sessionCount++;
+  }
+
+  for (const run of runs) {
+    if (run.status === "error" && run.startedAt) {
+      const bucket = getDateBucket(run.startedAt, "day");
+      if (!buckets[bucket]) buckets[bucket] = { taskCount: 0, sessionCount: 0, issueCount: 0 };
+      buckets[bucket].issueCount++;
+    }
+  }
+
+  return Object.entries(buckets)
+    .map(([dateStr, data]) => ({
+      date: Number(dateStr),
+      ...data,
+    }))
+    .sort((a, b) => a.date - b.date);
+}
+
+function buildWeeklyTrend(
+  tasks: Doc<"agentTasks">[],
+  sessions: Doc<"sessions">[],
+  runs: Doc<"agentRuns">[]
+): {
+  weekStart: number;
+  taskCount: number;
+  sessionCount: number;
+  completedCount: number;
+  errorCount: number;
+}[] {
+  const buckets: Record<
+    number,
+    { taskCount: number; sessionCount: number; completedCount: number; errorCount: number }
+  > = {};
+
+  for (const task of tasks) {
+    const bucket = getDateBucket(task.createdAt, "week");
+    if (!buckets[bucket])
+      buckets[bucket] = { taskCount: 0, sessionCount: 0, completedCount: 0, errorCount: 0 };
+    buckets[bucket].taskCount++;
+    if (task.status === "done") buckets[bucket].completedCount++;
+  }
+
+  for (const session of sessions) {
+    const bucket = getDateBucket(session._creationTime, "week");
+    if (!buckets[bucket])
+      buckets[bucket] = { taskCount: 0, sessionCount: 0, completedCount: 0, errorCount: 0 };
+    buckets[bucket].sessionCount++;
+  }
+
+  for (const run of runs) {
+    if (run.startedAt) {
+      const bucket = getDateBucket(run.startedAt, "week");
+      if (!buckets[bucket])
+        buckets[bucket] = { taskCount: 0, sessionCount: 0, completedCount: 0, errorCount: 0 };
+      if (run.status === "error") buckets[bucket].errorCount++;
+    }
+  }
+
+  return Object.entries(buckets)
+    .map(([dateStr, data]) => ({
+      weekStart: Number(dateStr),
+      ...data,
+    }))
+    .sort((a, b) => a.weekStart - b.weekStart);
+}
+
 // --- Mutations ---
 
 export const createReport = mutation({
   args: {
     repoId: v.id("githubRepos"),
     tagId: v.string(),
+    tagIds: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    dateRange: v.optional(
+      v.object({
+        start: v.number(),
+        end: v.number(),
+      })
+    ),
   },
   returns: v.id("reports"),
   handler: async (ctx, args) => {
@@ -224,7 +442,13 @@ export const createReport = mutation({
       throw new Error("Repository not found");
     }
 
-    // Gather all agentTasks for this repo that have matching tag
+    // Build the set of tags to match against (multi-tag support)
+    const effectiveTagIds = args.tagIds && args.tagIds.length > 0
+      ? args.tagIds
+      : [args.tagId];
+    const tagSet = new Set(effectiveTagIds);
+
+    // Gather all agentTasks for this repo that have any matching tag
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -239,22 +463,38 @@ export const createReport = mutation({
       allTasks.push(...tasks);
     }
 
-    // Filter tasks by tag (including soft-deleted)
-    const taggedTasks = allTasks.filter(
-      (t) => t.tags && t.tags.includes(args.tagId)
+    // Filter tasks by any matching tag (including soft-deleted)
+    let taggedTasks = allTasks.filter(
+      (t) => t.tags && t.tags.some((tag) => tagSet.has(tag))
     );
+
+    // Apply date range filter using createdAt (original start date)
+    if (args.dateRange) {
+      taggedTasks = taggedTasks.filter(
+        (t) => t.createdAt >= args.dateRange!.start && t.createdAt <= args.dateRange!.end
+      );
+    }
+
     const activeTasks = taggedTasks.filter((t) => !t.deletedAt);
     const deletedTasks = taggedTasks.filter((t) => !!t.deletedAt);
 
-    // Gather all sessions for this repo that have matching tag
+    // Gather all sessions for this repo that have any matching tag
     const allSessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
 
-    const taggedSessions = allSessions.filter(
-      (s) => s.tags && s.tags.includes(args.tagId)
+    let taggedSessions = allSessions.filter(
+      (s) => s.tags && s.tags.some((tag) => tagSet.has(tag))
     );
+
+    // Apply date range filter using _creationTime (original start date)
+    if (args.dateRange) {
+      taggedSessions = taggedSessions.filter(
+        (s) => s._creationTime >= args.dateRange!.start && s._creationTime <= args.dateRange!.end
+      );
+    }
+
     const activeSessions = taggedSessions.filter((s) => !s.deletedAt);
     const deletedSessions = taggedSessions.filter((s) => !!s.deletedAt);
 
@@ -336,6 +576,11 @@ export const createReport = mutation({
     // Build temporal groups
     const temporalGroups = buildTemporalGroups(taggedTasks, taggedSessions);
 
+    // Build temporal breakdown data
+    const issuesByDate = buildIssuesByDate(taggedTasks, taggedSessions);
+    const dailyBreakdown = buildDailyBreakdown(taggedTasks, taggedSessions, allRuns);
+    const weeklyTrend = buildWeeklyTrend(taggedTasks, taggedSessions, allRuns);
+
     // Compute work patterns
     const statusDistribution = {
       todo: 0,
@@ -378,8 +623,10 @@ export const createReport = mutation({
     const reportId = await ctx.db.insert("reports", {
       repoId: args.repoId,
       tagId: args.tagId,
+      tagIds: effectiveTagIds.length > 1 ? effectiveTagIds : undefined,
       status: "pending",
       generatedAt: now,
+      dateRange: args.dateRange,
       analysisResults: {
         issueCategories,
         frequencyMap,
@@ -390,6 +637,9 @@ export const createReport = mutation({
           statusDistribution,
           runSuccessRate,
         },
+        issuesByDate,
+        dailyBreakdown,
+        weeklyTrend,
       },
       workItemCounts: {
         totalTasks: taggedTasks.length,

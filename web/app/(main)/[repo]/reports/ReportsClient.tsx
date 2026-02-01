@@ -116,19 +116,39 @@ export function ReportsClient() {
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Chip
-                          size="sm"
-                          variant="flat"
-                          className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                        >
-                          {report.tagId}
-                        </Chip>
+                        {report.tagIds && report.tagIds.length > 1 ? (
+                          <div className="flex items-center gap-1">
+                            {report.tagIds.map((tag: string) => (
+                              <Chip
+                                key={tag}
+                                size="sm"
+                                variant="flat"
+                                className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                              >
+                                {tag}
+                              </Chip>
+                            ))}
+                          </div>
+                        ) : (
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                          >
+                            {report.tagId}
+                          </Chip>
+                        )}
                         <span className="text-neutral-500 dark:text-neutral-400 text-xs truncate">
                           {report.workItemCounts.totalTasks} tasks,{" "}
                           {report.workItemCounts.totalSessions} sessions
                         </span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {report.dateRange && (
+                          <span className="text-xs text-neutral-400">
+                            {dayjs(report.dateRange.start).format("M/D")} - {dayjs(report.dateRange.end).format("M/D")}
+                          </span>
+                        )}
                         <Chip size="sm" variant="flat" className={STATUS_STYLES[report.status]}>
                           {report.status}
                         </Chip>
@@ -171,14 +191,27 @@ function SelectedReportView({ report }: { report: any }) {
   return (
     <div className="space-y-4">
       {/* Status banner */}
-      <div className="flex items-center gap-3">
-        <Chip
-          size="sm"
-          variant="flat"
-          className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-        >
-          {report.tagId}
-        </Chip>
+      <div className="flex items-center gap-3 flex-wrap">
+        {report.tagIds && report.tagIds.length > 1 ? (
+          report.tagIds.map((tag: string) => (
+            <Chip
+              key={tag}
+              size="sm"
+              variant="flat"
+              className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+            >
+              {tag}
+            </Chip>
+          ))
+        ) : (
+          <Chip
+            size="sm"
+            variant="flat"
+            className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+          >
+            {report.tagId}
+          </Chip>
+        )}
         <Chip size="sm" variant="flat" className={STATUS_STYLES[report.status]}>
           {report.status === "pending" && (
             <span className="flex items-center gap-1">

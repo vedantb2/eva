@@ -259,8 +259,15 @@ const schema = defineSchema({
   reports: defineTable({
     repoId: v.id("githubRepos"),
     tagId: v.string(),
+    tagIds: v.optional(v.array(v.string())),
     status: reportStatusValidator,
     generatedAt: v.number(),
+    dateRange: v.optional(
+      v.object({
+        start: v.number(),
+        end: v.number(),
+      })
+    ),
     analysisResults: v.object({
       issueCategories: v.array(
         v.object({
@@ -296,6 +303,46 @@ const schema = defineSchema({
         }),
         runSuccessRate: v.number(),
       }),
+      issuesByDate: v.optional(
+        v.array(
+          v.object({
+            date: v.number(),
+            granularity: v.union(
+              v.literal("day"),
+              v.literal("week"),
+              v.literal("month")
+            ),
+            issues: v.array(
+              v.object({
+                category: v.string(),
+                count: v.number(),
+              })
+            ),
+            totalItems: v.number(),
+          })
+        )
+      ),
+      dailyBreakdown: v.optional(
+        v.array(
+          v.object({
+            date: v.number(),
+            taskCount: v.number(),
+            sessionCount: v.number(),
+            issueCount: v.number(),
+          })
+        )
+      ),
+      weeklyTrend: v.optional(
+        v.array(
+          v.object({
+            weekStart: v.number(),
+            taskCount: v.number(),
+            sessionCount: v.number(),
+            completedCount: v.number(),
+            errorCount: v.number(),
+          })
+        )
+      ),
     }),
     aiInsights: v.optional(
       v.object({

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { repoId, tagId, notes } = await request.json();
+  const { repoId, tagId, tagIds, notes, dateRange } = await request.json();
   if (!repoId || !tagId) {
     return NextResponse.json(
       { error: "repoId and tagId are required" },
@@ -30,7 +30,9 @@ export async function POST(request: NextRequest) {
   const reportId = await convex.mutation(api.reports.createReport, {
     repoId: repoId as Id<"githubRepos">,
     tagId,
+    tagIds: tagIds || undefined,
     notes,
+    dateRange: dateRange || undefined,
   });
 
   // Trigger AI analysis as background job
@@ -41,6 +43,7 @@ export async function POST(request: NextRequest) {
       reportId: reportId as string,
       repoId,
       tagId,
+      tagIds: tagIds || undefined,
     },
   });
 

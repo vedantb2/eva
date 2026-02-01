@@ -9,8 +9,15 @@ import {
   SelectItem,
   Button,
   Textarea,
+  Chip,
+  Switch,
 } from "@heroui/react";
-import { IconReportAnalytics, IconLoader2 } from "@tabler/icons-react";
+import {
+  IconReportAnalytics,
+  IconLoader2,
+  IconCalendar,
+  IconX,
+} from "@tabler/icons-react";
 
 interface ReportGeneratorProps {
   onReportCreated?: (reportId: string) => void;
@@ -19,8 +26,13 @@ interface ReportGeneratorProps {
 export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
   const { repo } = useRepo();
   const [selectedTag, setSelectedTag] = useState<string>("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [multiTagMode, setMultiTagMode] = useState(false);
   const [notes, setNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const availableTags = useQuery(api.reports.getAvailableTags, {
     repoId: repo._id,
@@ -28,14 +40,41 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
 
   const createReport = useMutation(api.reports.createReport);
 
+  const handleAddTag = (tag: string) => {
+    if (tag && !selectedTags.includes(tag)) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setSelectedTags(selectedTags.filter((t) => t !== tag));
+  };
+
   const handleGenerate = async () => {
-    if (!selectedTag) return;
+    const primaryTag = multiTagMode
+      ? selectedTags[0]
+      : selectedTag;
+    if (!primaryTag) return;
+
     setIsGenerating(true);
     try {
+      // Build date range if filter is active
+      let dateRange: { start: number; end: number } | undefined;
+      if (showDateFilter && startDate && endDate) {
+        dateRange = {
+          start: new Date(startDate).getTime(),
+          end: new Date(endDate + "T23:59:59.999Z").getTime(),
+        };
+      }
+
       const reportId = await createReport({
         repoId: repo._id,
-        tagId: selectedTag,
+        tagId: primaryTag,
+        tagIds: multiTagMode && selectedTags.length > 1
+          ? selectedTags
+          : undefined,
         notes: notes || undefined,
+        dateRange,
       });
       onReportCreated?.(reportId);
       setNotes("");
@@ -46,6 +85,9 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
 
   const isLoading = availableTags === undefined;
   const hasTags = availableTags && availableTags.length > 0;
+  const canGenerate = multiTagMode
+    ? selectedTags.length > 0
+    : !!selectedTag;
 
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-xl p-5 border border-neutral-200 dark:border-neutral-800">
@@ -64,27 +106,149 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
         </p>
       ) : (
         <div className="space-y-3">
-          <Select
-            label="Tag"
-            placeholder="Select a tag to analyze"
-            selectedKeys={selectedTag ? new Set([selectedTag]) : new Set()}
-            onSelectionChange={(keys) => {
-              const selected = Array.from(keys)[0];
-              setSelectedTag(typeof selected === "string" ? selected : "");
-            }}
-            size="sm"
-            variant="bordered"
-            classNames={{
-              trigger:
-                "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700",
-              value: "text-neutral-900 dark:text-white",
-              popoverContent: "bg-white dark:bg-neutral-800",
-            }}
-          >
-            {availableTags.map((tag) => (
-              <SelectItem key={tag}>{tag}</SelectItem>
-            ))}
-          </Select>
+          {/* Multi-tag toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              size="sm"
+              isSelected={multiTagMode}
+              onValueChange={(val) => {
+                setMultiTagMode(val);
+                if (!val) {
+                  setSelectedTags([]);
+                } else {
+                  if (selectedTag) {
+                    setSelectedTags([selectedTag]);
+                  }
+                }
+              }}
+            />
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">
+              Multi-tag mode
+            </span>
+          </div>
+
+          {multiTagMode ? (
+            <>
+              <Select
+                label="Add Tag"
+                placeholder="Select tags to include"
+                selectedKeys={new Set()}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0];
+                  if (typeof selected === "string") {
+                    handleAddTag(selected);
+                  }
+                }}
+                size="sm"
+                variant="bordered"
+                classNames={{
+                  trigger:
+                    "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700",
+                  value: "text-neutral-900 dark:text-white",
+                  popoverContent: "bg-white dark:bg-neutral-800",
+                }}
+              >
+                {availableTags
+                  .filter((tag) => !selectedTags.includes(tag))
+                  .map((tag) => (
+                    <SelectItem key={tag}>{tag}</SelectItem>
+                  ))}
+              </Select>
+              {selectedTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedTags.map((tag) => (
+                    <Chip
+                      key={tag}
+                      size="sm"
+                      variant="flat"
+                      onClose={() => handleRemoveTag(tag)}
+                      classNames={{
+                        base: "bg-teal-100 dark:bg-teal-900/30",
+                        content: "text-teal-700 dark:text-teal-300",
+                        closeButton: "text-teal-700 dark:text-teal-300",
+                      }}
+                    >
+                      {tag}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <Select
+              label="Tag"
+              placeholder="Select a tag to analyze"
+              selectedKeys={selectedTag ? new Set([selectedTag]) : new Set()}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0];
+                setSelectedTag(typeof selected === "string" ? selected : "");
+              }}
+              size="sm"
+              variant="bordered"
+              classNames={{
+                trigger:
+                  "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700",
+                value: "text-neutral-900 dark:text-white",
+                popoverContent: "bg-white dark:bg-neutral-800",
+              }}
+            >
+              {availableTags.map((tag) => (
+                <SelectItem key={tag}>{tag}</SelectItem>
+              ))}
+            </Select>
+          )}
+
+          {/* Date range filter */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                size="sm"
+                isSelected={showDateFilter}
+                onValueChange={setShowDateFilter}
+              />
+              <span className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center gap-1">
+                <IconCalendar className="w-3.5 h-3.5" />
+                Filter by date range
+              </span>
+            </div>
+            {showDateFilter && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
+                    Start
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
+                    End
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    className="self-end p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  >
+                    <IconX className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           <Textarea
             label="Notes (optional)"
@@ -106,7 +270,7 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
             color="primary"
             size="sm"
             onPress={handleGenerate}
-            isDisabled={!selectedTag || isGenerating}
+            isDisabled={!canGenerate || isGenerating}
             isLoading={isGenerating}
             startContent={
               !isGenerating && <IconReportAnalytics className="w-4 h-4" />

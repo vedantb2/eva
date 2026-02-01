@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Chip } from "@heroui/react";
-import { Bar, Doughnut } from "react-chartjs-2";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
   ArcElement,
+  PointElement,
+  LineElement,
+  Filler,
   Tooltip,
   Legend,
 } from "chart.js";
@@ -22,11 +25,23 @@ import {
   IconPercentage,
   IconTerminal2,
   IconTrash,
+  IconCalendarStats,
+  IconChartLine,
 } from "@tabler/icons-react";
 import { StatCard } from "@/lib/components/analytics/StatCard";
 import dayjs from "@/lib/dates";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 interface IssueCategory {
   category: string;
@@ -60,6 +75,28 @@ interface WorkPatterns {
   runSuccessRate: number;
 }
 
+interface IssuesByDateEntry {
+  date: number;
+  granularity: "day" | "week" | "month";
+  issues: { category: string; count: number }[];
+  totalItems: number;
+}
+
+interface DailyBreakdown {
+  date: number;
+  taskCount: number;
+  sessionCount: number;
+  issueCount: number;
+}
+
+interface WeeklyTrend {
+  weekStart: number;
+  taskCount: number;
+  sessionCount: number;
+  completedCount: number;
+  errorCount: number;
+}
+
 interface AiInsights {
   summary: string;
   topIssueCategories: {
@@ -88,6 +125,9 @@ interface Report {
     frequencyMap: FrequencyEntry[];
     temporalGroups: TemporalGroup[];
     workPatterns: WorkPatterns;
+    issuesByDate?: IssuesByDateEntry[];
+    dailyBreakdown?: DailyBreakdown[];
+    weeklyTrend?: WeeklyTrend[];
   };
   aiInsights?: AiInsights;
   workItemCounts: {
@@ -98,6 +138,11 @@ interface Report {
     activeSessions: number;
     deletedSessions: number;
   };
+  dateRange?: {
+    start: number;
+    end: number;
+  };
+  tagIds?: string[];
 }
 
 interface ReportDisplayProps {
@@ -125,6 +170,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export function ReportDisplay({ report }: ReportDisplayProps) {
   const { analysisResults, aiInsights, workItemCounts } = report;
+  const [temporalView, setTemporalView] = useState<"activity" | "daily" | "weekly">("activity");
 
   const issueCategoryChartData = useMemo(() => {
     const categories = analysisResults.issueCategories;
@@ -181,6 +227,98 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
     };
   }, [analysisResults.temporalGroups]);
 
+  const dailyBreakdownChartData = useMemo(() => {
+    const breakdown = analysisResults.dailyBreakdown;
+    if (!breakdown || breakdown.length === 0) return null;
+    return {
+      labels: breakdown.map((d) => dayjs(d.date).format("MMM D")),
+      datasets: [
+        {
+          label: "Tasks",
+          data: breakdown.map((d) => d.taskCount),
+          borderColor: "rgb(20, 184, 166)",
+          backgroundColor: "rgba(20, 184, 166, 0.1)",
+          fill: true,
+          tension: 0.3,
+        },
+        {
+          label: "Sessions",
+          data: breakdown.map((d) => d.sessionCount),
+          borderColor: "rgb(168, 85, 247)",
+          backgroundColor: "rgba(168, 85, 247, 0.1)",
+          fill: true,
+          tension: 0.3,
+        },
+        {
+          label: "Issues",
+          data: breakdown.map((d) => d.issueCount),
+          borderColor: "rgb(239, 68, 68)",
+          backgroundColor: "rgba(239, 68, 68, 0.1)",
+          fill: true,
+          tension: 0.3,
+        },
+      ],
+    };
+  }, [analysisResults.dailyBreakdown]);
+
+  const weeklyTrendChartData = useMemo(() => {
+    const trend = analysisResults.weeklyTrend;
+    if (!trend || trend.length === 0) return null;
+    return {
+      labels: trend.map((w) => dayjs(w.weekStart).format("MMM D")),
+      datasets: [
+        {
+          label: "Tasks Created",
+          data: trend.map((w) => w.taskCount),
+          backgroundColor: "rgba(20, 184, 166, 0.6)",
+          borderColor: "rgb(20, 184, 166)",
+          borderWidth: 1,
+        },
+        {
+          label: "Completed",
+          data: trend.map((w) => w.completedCount),
+          backgroundColor: "rgba(34, 197, 94, 0.6)",
+          borderColor: "rgb(34, 197, 94)",
+          borderWidth: 1,
+        },
+        {
+          label: "Errors",
+          data: trend.map((w) => w.errorCount),
+          backgroundColor: "rgba(239, 68, 68, 0.6)",
+          borderColor: "rgb(239, 68, 68)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [analysisResults.weeklyTrend]);
+
+  const issuesByDateChartData = useMemo(() => {
+    const entries = analysisResults.issuesByDate;
+    if (!entries || entries.length === 0) return null;
+    const allCategories = new Set<string>();
+    for (const entry of entries) {
+      for (const issue of entry.issues) {
+        allCategories.add(issue.category);
+      }
+    }
+    const categoryList = [...allCategories];
+    const formatStr = entries[0]?.granularity === "day" ? "MMM D" : entries[0]?.granularity === "month" ? "MMM YYYY" : "MMM D";
+    return {
+      labels: entries.map((e) => dayjs(e.date).format(formatStr)),
+      datasets: categoryList.map((cat) => ({
+        label: cat.charAt(0).toUpperCase() + cat.slice(1),
+        data: entries.map((e) => {
+          const found = e.issues.find((i) => i.category === cat);
+          return found ? found.count : 0;
+        }),
+        borderColor: CATEGORY_COLORS[cat] || CATEGORY_COLORS.uncategorized,
+        backgroundColor: (CATEGORY_COLORS[cat] || CATEGORY_COLORS.uncategorized).replace("0.8", "0.1"),
+        fill: false,
+        tension: 0.3,
+      })),
+    };
+  }, [analysisResults.issuesByDate]);
+
   const statusChartData = useMemo(() => {
     const dist = analysisResults.workPatterns.statusDistribution;
     return {
@@ -212,6 +350,17 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
     },
   };
 
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, position: "top" as const },
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+    },
+  };
+
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -220,8 +369,43 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
     },
   };
 
+  const hasTemporalData =
+    analysisResults.temporalGroups.length > 0 ||
+    (analysisResults.dailyBreakdown && analysisResults.dailyBreakdown.length > 0) ||
+    (analysisResults.weeklyTrend && analysisResults.weeklyTrend.length > 0);
+
   return (
     <div className="space-y-6">
+      {/* Date range and multi-tag indicator */}
+      {(report.dateRange || report.tagIds) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+          {report.tagIds && report.tagIds.length > 1 && (
+            <span className="flex items-center gap-1">
+              Tags:
+              {report.tagIds.map((tag) => (
+                <Chip
+                  key={tag}
+                  size="sm"
+                  variant="flat"
+                  classNames={{
+                    base: "bg-teal-100 dark:bg-teal-900/30",
+                    content: "text-teal-700 dark:text-teal-300 text-xs",
+                  }}
+                >
+                  {tag}
+                </Chip>
+              ))}
+            </span>
+          )}
+          {report.dateRange && (
+            <span className="flex items-center gap-1">
+              <IconCalendarStats className="w-3.5 h-3.5" />
+              {dayjs(report.dateRange.start).format("MMM D, YYYY")} - {dayjs(report.dateRange.end).format("MMM D, YYYY")}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -287,22 +471,90 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
         </div>
       )}
 
-      {/* Temporal Trends */}
-      {analysisResults.temporalGroups.length > 0 && (
+      {/* Temporal Section with view toggle */}
+      {hasTemporalData && (
         <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
-            Activity Over Time
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+              <IconChartLine className="w-4 h-4" />
+              Work Distribution Over Time
+            </h3>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setTemporalView("activity")}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  temporalView === "activity"
+                    ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                    : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                }`}
+              >
+                Activity
+              </button>
+              {dailyBreakdownChartData && (
+                <button
+                  onClick={() => setTemporalView("daily")}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                    temporalView === "daily"
+                      ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  Daily
+                </button>
+              )}
+              {weeklyTrendChartData && (
+                <button
+                  onClick={() => setTemporalView("weekly")}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                    temporalView === "weekly"
+                      ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  Weekly
+                </button>
+              )}
+            </div>
+          </div>
           <div className="h-64">
-            <Bar
-              data={temporalChartData}
-              options={{
-                ...barOptions,
-                plugins: {
-                  legend: { display: true, position: "top" as const },
-                },
-              }}
-            />
+            {temporalView === "activity" && analysisResults.temporalGroups.length > 0 && (
+              <Bar
+                data={temporalChartData}
+                options={{
+                  ...barOptions,
+                  plugins: {
+                    legend: { display: true, position: "top" as const },
+                  },
+                }}
+              />
+            )}
+            {temporalView === "daily" && dailyBreakdownChartData && (
+              <Line data={dailyBreakdownChartData} options={lineOptions} />
+            )}
+            {temporalView === "weekly" && weeklyTrendChartData && (
+              <Bar
+                data={weeklyTrendChartData}
+                options={{
+                  ...barOptions,
+                  plugins: {
+                    legend: { display: true, position: "top" as const },
+                  },
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Issues Over Time (by category) */}
+      {issuesByDateChartData && (
+        <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+            <IconCalendarStats className="w-4 h-4" />
+            Issues Over Time by Category
+          </h3>
+          <div className="h-72">
+            <Line data={issuesByDateChartData} options={lineOptions} />
           </div>
         </div>
       )}

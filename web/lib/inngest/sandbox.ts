@@ -32,6 +32,7 @@ export async function createSandbox(
       ...extraEnvVars,
     },
     autoStopInterval: 60,
+    autoDeleteInterval: 480,
     ephemeral: ephemeral ? true : false,
   });
   await sandbox.process.executeCommand(

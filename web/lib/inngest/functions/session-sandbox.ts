@@ -2,7 +2,7 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, isSandboxAlive, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
+import { createSandbox, getSandbox, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
 
 export const startSandbox = inngest.createFunction(
   { id: "start-sandbox", retries: 2 },
@@ -26,12 +26,18 @@ export const startSandbox = inngest.createFunction(
     const sandboxData = await step.run("setup-sandbox", async () => {
       const freshToken = await getGitHubToken(repo.installationId);
 
-      if (session.sandboxId && await isSandboxAlive(session.sandboxId)) {
-        return {
-          sandboxId: session.sandboxId,
-          branchName: session.branchName || `session/${sessionId}`,
-          isNew: false,
-        };
+      if (session.sandboxId) {
+        try {
+          const existing = await getSandbox(session.sandboxId);
+          await existing.process.executeCommand("echo 1", "/", undefined, 5);
+          return {
+            sandboxId: session.sandboxId,
+            branchName: session.branchName || `session/${sessionId}`,
+            isNew: false,
+          };
+        } catch {
+          // sandbox dead or unresponsive, create new
+        }
       }
 
       const branchName = session.branchName || "main";

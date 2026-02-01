@@ -20,6 +20,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconFlask,
+  IconReportAnalytics,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -59,7 +60,7 @@ export function Sidebar() {
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena)/,
+      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena|reports)/,
     );
     if (match) {
       return match[1];
@@ -127,6 +128,11 @@ export function Sidebar() {
           label: "DATA",
           items: [
             { name: "Analyse", href: `/${repoSlug}/analyse`, icon: IconBrain },
+            {
+              name: "Reports",
+              href: `/${repoSlug}/reports`,
+              icon: IconReportAnalytics,
+            },
           ],
         },
       ]

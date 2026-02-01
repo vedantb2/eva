@@ -626,6 +626,53 @@ export const getWorkItemsByTag = query({
   },
 });
 
+export const getAvailableTags = query({
+  args: {
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+
+    const tagSet = new Set<string>();
+
+    // Collect tags from tasks
+    const boards = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+
+    for (const board of boards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      for (const task of tasks) {
+        if (task.tags) {
+          for (const tag of task.tags) tagSet.add(tag);
+        }
+      }
+    }
+
+    // Collect tags from sessions
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+
+    for (const session of sessions) {
+      if (session.tags) {
+        for (const tag of session.tags) tagSet.add(tag);
+      }
+    }
+
+    return [...tagSet].sort();
+  },
+});
+
 export const getWorkItemsByTags = query({
   args: {
     repoId: v.id("githubRepos"),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -38,8 +38,6 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
     repoId: repo._id,
   });
 
-  const createReport = useMutation(api.reports.createReport);
-
   const handleAddTag = (tag: string) => {
     if (tag && !selectedTags.includes(tag)) {
       setSelectedTags([...selectedTags, tag]);
@@ -67,15 +65,24 @@ export function ReportGenerator({ onReportCreated }: ReportGeneratorProps) {
         };
       }
 
-      const reportId = await createReport({
-        repoId: repo._id,
-        tagId: primaryTag,
-        tagIds: multiTagMode && selectedTags.length > 1
-          ? selectedTags
-          : undefined,
-        notes: notes || undefined,
-        dateRange,
+      const response = await fetch("/api/reports/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repoId: repo._id,
+          tagId: primaryTag,
+          tagIds: multiTagMode && selectedTags.length > 1
+            ? selectedTags
+            : undefined,
+          notes: notes || undefined,
+          dateRange,
+        }),
       });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to create report");
+      }
+      const { reportId } = await response.json();
       onReportCreated?.(reportId);
       setNotes("");
     } finally {

@@ -10,7 +10,9 @@
     "lint": "next lint",
     "api": "npx convex-helpers ts-api-spec --output-file api",
     "api:prod": "npx convex-helpers ts-api-spec --prod --output-file api",
-    "inngest": "npx inngest-cli dev"
+    "inngest": "npx inngest-cli dev",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.30",
@@ -75,7 +77,8 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.1.4"
   },
   "pnpm": {
     "overrides": {

@@ -5,28 +5,8 @@ import { createConvex } from "@/lib/convex-auth";
 import { serverEnv } from "@/env/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildAnalyzeTagReportPrompt } from "@/lib/prompts/analyzeTagReportPrompt";
-
-interface AiInsights {
-  summary: string;
-  topIssueCategories: Array<{
-    category: string;
-    description: string;
-    count: number;
-    severity: "low" | "medium" | "high";
-    examples: string[];
-  }>;
-  commonErrorPatterns: Array<{
-    pattern: string;
-    description: string;
-    frequency: number;
-    suggestedFix?: string;
-  }>;
-  temporalTrends: Array<{
-    trend: string;
-    description: string;
-  }>;
-  recommendations: string[];
-}
+import { extractJsonFromResponse, normalizeAiInsights } from "../normalizeAiInsights";
+import type { AiInsights } from "../normalizeAiInsights";
 
 export const analyzeTagReport = inngest.createFunction(
   {
@@ -195,55 +175,10 @@ export const analyzeTagReport = inngest.createFunction(
 
       const responseText = textContent.text;
 
-      // Extract JSON from response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error(
-          `Failed to parse AI response as JSON: ${responseText.slice(0, 200)}`
-        );
-      }
-
-      const parsed: Partial<AiInsights> = JSON.parse(jsonMatch[0]);
-
-      // Validate and normalize the response
-      return {
-        summary:
-          typeof parsed.summary === "string"
-            ? parsed.summary
-            : "Analysis completed.",
-        topIssueCategories: Array.isArray(parsed.topIssueCategories)
-          ? parsed.topIssueCategories.map((c) => ({
-              category: c.category || "Unknown",
-              description: c.description || "",
-              count: typeof c.count === "number" ? c.count : 0,
-              severity: (["low", "medium", "high"].includes(c.severity)
-                ? c.severity
-                : "medium") as "low" | "medium" | "high",
-              examples: Array.isArray(c.examples)
-                ? c.examples.filter((e): e is string => typeof e === "string")
-                : [],
-            }))
-          : [],
-        commonErrorPatterns: Array.isArray(parsed.commonErrorPatterns)
-          ? parsed.commonErrorPatterns.map((p) => ({
-              pattern: p.pattern || "Unknown",
-              description: p.description || "",
-              frequency: typeof p.frequency === "number" ? p.frequency : 0,
-              ...(p.suggestedFix ? { suggestedFix: p.suggestedFix } : {}),
-            }))
-          : [],
-        temporalTrends: Array.isArray(parsed.temporalTrends)
-          ? parsed.temporalTrends.map((t) => ({
-              trend: t.trend || "Unknown",
-              description: t.description || "",
-            }))
-          : [],
-        recommendations: Array.isArray(parsed.recommendations)
-          ? parsed.recommendations.filter(
-              (r): r is string => typeof r === "string"
-            )
-          : [],
-      } satisfies AiInsights;
+      // Extract JSON from response and normalize
+      const jsonStr = extractJsonFromResponse(responseText);
+      const parsed: Partial<AiInsights> = JSON.parse(jsonStr);
+      return normalizeAiInsights(parsed) satisfies AiInsights;
     });
 
     // Step 4: Save AI insights to the report

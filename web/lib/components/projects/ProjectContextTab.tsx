@@ -6,7 +6,6 @@ import { Spinner } from "@heroui/spinner";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Accordion, AccordionItem } from "@heroui/accordion";
-import { GenericId as Id } from "convex/values";
 import {
   IconCode,
   IconFolderSearch,
@@ -18,8 +17,7 @@ import {
   IconFileText,
   IconRefresh,
 } from "@tabler/icons-react";
-
-type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface CodebaseIndex {
   summary: string;
@@ -45,21 +43,10 @@ interface CodebaseIndex {
   };
 }
 
-interface ProjectContextTabProps {
-  projectId: Id<"projects">;
-  codebaseIndex: string | undefined;
-  indexingStatus: IndexingStatus;
-  repoId: Id<"githubRepos">;
-  installationId: number;
-}
-
-export function ProjectContextTab({
-  projectId,
-  codebaseIndex,
-  indexingStatus,
-  repoId,
-  installationId,
-}: ProjectContextTabProps) {
+export function ProjectContextTab() {
+  const { repo } = useRepo();
+  const codebaseIndex = repo.codebaseIndex;
+  const indexingStatus = repo.indexingStatus;
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
 
@@ -89,9 +76,8 @@ export function ProjectContextTab({
         body: JSON.stringify({
           name: "project/index.requested",
           data: {
-            projectId,
-            repoId,
-            installationId,
+            repoId: repo._id,
+            installationId: repo.installationId,
           },
         }),
       });

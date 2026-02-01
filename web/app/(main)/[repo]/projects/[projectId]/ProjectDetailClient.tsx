@@ -116,8 +116,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             projectPhase={project.phase}
             rawInput={project.rawInput}
             generatedSpec={project.generatedSpec}
-            codebaseIndex={project.codebaseIndex}
-            indexingStatus={project.indexingStatus}
             conversationHistory={project.conversationHistory}
             repoSlug={encodeRepoSlug(fullName)}
             repoId={repo._id}

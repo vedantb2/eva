@@ -185,8 +185,8 @@ export const interviewSpec = inngest.createFunction(
       return { project: projectData, repo: repoData };
     });
 
-    const codebaseContext: CodebaseContext | null = project.codebaseIndex
-      ? JSON.parse(project.codebaseIndex)
+    const codebaseContext: CodebaseContext | null = repo.codebaseIndex
+      ? JSON.parse(repo.codebaseIndex)
       : null;
 
     const specJson = await step.run("generate-spec", async () => {

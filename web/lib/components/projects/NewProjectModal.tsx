@@ -41,18 +41,19 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         rawInput: description.trim(),
       });
 
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "project/index.requested",
-          data: {
-            projectId,
-            repoId: repo._id,
-            installationId: repo.installationId,
-          },
-        }),
-      });
+      if (!repo.codebaseIndex) {
+        await fetch("/api/inngest/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "project/index.requested",
+            data: {
+              repoId: repo._id,
+              installationId: repo.installationId,
+            },
+          }),
+        });
+      }
 
       setTitle("");
       setDescription("");

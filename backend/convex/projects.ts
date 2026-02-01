@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
-import { roleValidator, phaseValidator, indexingStatusValidator } from "./validators";
+import { roleValidator, phaseValidator } from "./validators";
 
 const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -23,8 +23,6 @@ const projectValidator = v.object({
   phase: phaseValidator,
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
-  codebaseIndex: v.optional(v.string()),
-  indexingStatus: v.optional(indexingStatusValidator),
   conversationHistory: v.array(conversationMessageValidator),
 });
 
@@ -126,7 +124,6 @@ export const create = mutation({
       title: args.title,
       rawInput: args.rawInput,
       phase: "draft",
-      indexingStatus: "pending",
       conversationHistory: [
         {
           role: "user",
@@ -286,51 +283,6 @@ export const clearMessages = mutation({
     }
     await ctx.db.patch(args.id, {
       conversationHistory: [],
-    });
-    return null;
-  },
-});
-
-export const setIndexingStatus = mutation({
-  args: {
-    id: v.id("projects"),
-    status: indexingStatusValidator,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    await ctx.db.patch(args.id, {
-      indexingStatus: args.status,
-    });
-    return null;
-  },
-});
-
-export const setCodebaseIndex = mutation({
-  args: {
-    id: v.id("projects"),
-    codebaseIndex: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    await ctx.db.patch(args.id, {
-      codebaseIndex: args.codebaseIndex,
-      indexingStatus: "complete",
     });
     return null;
   },

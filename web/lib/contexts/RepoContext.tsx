@@ -12,6 +12,8 @@ interface Repo {
   owner: string;
   name: string;
   installationId: number;
+  codebaseIndex?: string;
+  indexingStatus?: "pending" | "indexing" | "complete" | "error";
 }
 
 interface RepoContextType {

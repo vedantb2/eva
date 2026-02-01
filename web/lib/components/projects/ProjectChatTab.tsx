@@ -18,6 +18,7 @@ import {
   IconPlayerPlay,
   IconCode,
 } from "@tabler/icons-react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -25,15 +26,12 @@ interface ConversationMessage {
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
-type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface ProjectChatTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   initialMessages: ConversationMessage[];
   rawInput: string;
-  codebaseIndex: string | undefined;
-  indexingStatus: IndexingStatus;
   onSpecGenerated?: (spec: string) => void;
   isInterview?: boolean;
   repoId: Id<"githubRepos">;
@@ -55,13 +53,13 @@ export function ProjectChatTab({
   projectPhase,
   initialMessages,
   rawInput,
-  codebaseIndex,
-  indexingStatus,
   onSpecGenerated,
   isInterview = false,
   repoId,
   installationId,
 }: ProjectChatTabProps) {
+  const { repo } = useRepo();
+  const indexingStatus = repo.indexingStatus;
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);

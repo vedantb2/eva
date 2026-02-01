@@ -13,15 +13,12 @@ interface ConversationMessage {
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
-type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   rawInput: string;
   generatedSpec: string | undefined;
-  codebaseIndex: string | undefined;
-  indexingStatus: IndexingStatus;
   conversationHistory: ConversationMessage[];
   repoSlug: string;
   repoId: Id<"githubRepos">;
@@ -33,8 +30,6 @@ export function ProjectTabs({
   projectPhase,
   rawInput,
   generatedSpec,
-  codebaseIndex,
-  indexingStatus,
   conversationHistory,
   repoSlug,
   repoId,
@@ -65,8 +60,6 @@ export function ProjectTabs({
           projectPhase={projectPhase}
           initialMessages={conversationHistory}
           rawInput={rawInput}
-          codebaseIndex={codebaseIndex}
-          indexingStatus={indexingStatus}
           onSpecGenerated={handleSpecGenerated}
           isInterview={isInterview}
           repoId={repoId}
@@ -83,8 +76,6 @@ export function ProjectTabs({
           projectPhase={projectPhase}
           initialMessages={conversationHistory}
           rawInput={rawInput}
-          codebaseIndex={codebaseIndex}
-          indexingStatus={indexingStatus}
           onSpecGenerated={handleSpecGenerated}
           isInterview={isInterview}
           repoId={repoId}
@@ -96,8 +87,6 @@ export function ProjectTabs({
           projectId={projectId}
           projectPhase={projectPhase}
           generatedSpec={hasSpec}
-          codebaseIndex={codebaseIndex}
-          indexingStatus={indexingStatus}
           repoSlug={repoSlug}
           repoId={repoId}
           installationId={installationId}

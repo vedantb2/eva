@@ -55,8 +55,6 @@ const schema = defineSchema({
     phase: phaseValidator,
     rawInput: v.string(),
     generatedSpec: v.optional(v.string()),
-    codebaseIndex: v.optional(v.string()),
-    indexingStatus: v.optional(indexingStatusValidator),
     conversationHistory: v.array(
       v.object({
         role: roleValidator,
@@ -125,6 +123,8 @@ const schema = defineSchema({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
+    codebaseIndex: v.optional(v.string()),
+    indexingStatus: v.optional(indexingStatusValidator),
   }).index("by_owner_name", ["owner", "name"]),
 
   subtasks: defineTable({

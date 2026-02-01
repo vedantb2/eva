@@ -3,15 +3,16 @@ import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import {
-  createSandbox,
   WORKSPACE_DIR,
   getGitHubToken,
-  syncRepo,
+  getOrCreateSandbox,
   runClaudeCLI,
   extractJsonFromText,
 } from "../sandbox";
 
-const INDEX_PROMPT = `Analyze this codebase and create a structured index. Output ONLY valid JSON with this exact structure:
+const INDEX_PROMPT = `Analyze this codebase and create a structured index. Use Glob to discover all files, Read to examine key files like package.json, README, and entry points, and Grep to find patterns.
+
+Output ONLY valid JSON with this exact structure:
 
 {
   "summary": "Brief 2-3 sentence description of what this project does",
@@ -57,105 +58,64 @@ export const indexCodebase = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event }) => {
       const eventData = event.data as unknown as {
-        event: { data: { clerkToken: string; projectId: string } };
+        event: { data: { clerkToken: string; repoId: string } };
       };
       const convex = createConvex(eventData.event.data.clerkToken);
-      const projectId = eventData.event.data.projectId as Id<"projects">;
-      await convex.mutation(api.projects.setIndexingStatus, {
-        id: projectId,
+      const repoId = eventData.event.data.repoId as Id<"githubRepos">;
+      await convex.mutation(api.githubRepos.setIndexingStatus, {
+        id: repoId,
         status: "error",
       });
     },
   },
   { event: "project/index.requested" },
   async ({ event, step }) => {
-    const { clerkToken, projectId, repoId, installationId } = event.data;
+    const { clerkToken, repoId, installationId } = event.data;
     const convex = createConvex(clerkToken);
 
-    const repo = await step.run("fetch-repo", async () => {
+    const repo = await step.run("fetch-data", async () => {
       const repoData = await convex.query(api.githubRepos.get, {
         id: repoId as Id<"githubRepos">,
       });
-      if (!repoData) {
-        throw new Error("Repo not found");
-      }
+      if (!repoData) throw new Error("Repo not found");
       return repoData;
     });
 
     await step.run("set-indexing-status", async () => {
-      await convex.mutation(api.projects.setIndexingStatus, {
-        id: projectId as Id<"projects">,
+      await convex.mutation(api.githubRepos.setIndexingStatus, {
+        id: repoId as Id<"githubRepos">,
         status: "indexing",
       });
     });
 
-    const { codebaseIndex, sandboxId } = await step.run(
-      "index-codebase",
-      async () => {
-        const githubToken = await getGitHubToken(installationId);
-        const sandbox = await createSandbox(githubToken);
-        await syncRepo(sandbox, githubToken, repo.owner, repo.name);
-        const treeResult = await sandbox.process.executeCommand(
-          `cd ${WORKSPACE_DIR} && find . -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) | grep -v node_modules | grep -v .git | head -100 || true`,
-          "/",
-          undefined,
-          30,
-        );
+    const codebaseIndex = await step.run("index-codebase", async () => {
+      const githubToken = await getGitHubToken(installationId);
+      const sandbox = await getOrCreateSandbox(
+        undefined,
+        githubToken,
+        repo.owner,
+        repo.name,
+        async () => {},
+      );
 
-        const packageJsonResult = await sandbox.process.executeCommand(
-          `cd ${WORKSPACE_DIR} && cat package.json 2>/dev/null || echo "{}"`,
-          "/",
-          undefined,
-          10,
-        );
+      const claudeResult = await runClaudeCLI(sandbox, INDEX_PROMPT, {
+        model: "sonnet",
+        workDir: WORKSPACE_DIR,
+        timeout: 300,
+      });
 
-        const readmeResult = await sandbox.process.executeCommand(
-          `cd ${WORKSPACE_DIR} && cat README.md 2>/dev/null || echo "No README"`,
-          "/",
-          undefined,
-          10,
-        );
+      const jsonStr = extractJsonFromText(claudeResult.result);
+      if (!jsonStr) {
+        throw new Error(`Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`);
+      }
 
-        const contextPrompt = `${INDEX_PROMPT}
-
-Here's information about the codebase:
-
-## File List
-${treeResult.result || ""}
-
-## package.json
-${packageJsonResult.result || "{}"}
-
-## README (excerpt)
-${readmeResult.result?.slice(0, 2000) || ""}
-
-Now analyze this codebase and generate the JSON index. Remember to output ONLY valid JSON.`;
-
-        const claudeResult = await runClaudeCLI(sandbox, contextPrompt, {
-          model: "sonnet",
-          workDir: WORKSPACE_DIR,
-          timeout: 300,
-        });
-
-        const jsonStr = extractJsonFromText(claudeResult.result);
-        if (!jsonStr) {
-          throw new Error(
-            `Failed to extract JSON from output: ${claudeResult.result.slice(0, 500)}`,
-          );
-        }
-
-        return { codebaseIndex: jsonStr, sandboxId: sandbox.id };
-      },
-    );
+      return jsonStr;
+    });
 
     await step.run("save-results", async () => {
-      await convex.mutation(api.projects.setCodebaseIndex, {
-        id: projectId as Id<"projects">,
+      await convex.mutation(api.githubRepos.setCodebaseIndex, {
+        id: repoId as Id<"githubRepos">,
         codebaseIndex,
-      });
-      await convex.mutation(api.projects.updateProjectSandbox, {
-        id: projectId as Id<"projects">,
-        sandboxId,
       });
     });
 

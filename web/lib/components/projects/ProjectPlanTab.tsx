@@ -24,9 +24,9 @@ import {
   IconAlertCircle,
 } from "@tabler/icons-react";
 import { ProjectContextTab } from "./ProjectContextTab";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
-type IndexingStatus = "pending" | "indexing" | "complete" | "error" | undefined;
 
 interface CodebaseIndex {
   summary: string;
@@ -56,8 +56,6 @@ interface ProjectPlanTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   generatedSpec: string | undefined;
-  codebaseIndex: string | undefined;
-  indexingStatus: IndexingStatus;
   repoSlug: string;
   repoId: Id<"githubRepos">;
   installationId: number;
@@ -68,13 +66,14 @@ export function ProjectPlanTab({
   projectId,
   projectPhase,
   generatedSpec,
-  codebaseIndex,
-  indexingStatus,
   repoSlug,
   repoId,
   installationId,
   onStartInterview,
 }: ProjectPlanTabProps) {
+  const { repo } = useRepo();
+  const codebaseIndex = repo.codebaseIndex;
+  const indexingStatus = repo.indexingStatus;
   const router = useRouter();
   const startDevelopment = useMutation(api.projects.startDevelopment);
   const updateProject = useMutation(api.projects.update);
@@ -120,7 +119,6 @@ export function ProjectPlanTab({
         body: JSON.stringify({
           name: "project/index.requested",
           data: {
-            projectId,
             repoId,
             installationId,
           },
@@ -329,13 +327,7 @@ export function ProjectPlanTab({
         <ModalContent>
           <ModalHeader>Codebase Index</ModalHeader>
           <ModalBody className="p-0">
-            <ProjectContextTab
-              projectId={projectId}
-              codebaseIndex={codebaseIndex}
-              indexingStatus={indexingStatus}
-              repoId={repoId}
-              installationId={installationId}
-            />
+            <ProjectContextTab />
           </ModalBody>
         </ModalContent>
       </Modal>

@@ -1,6 +1,5 @@
 export { inngest } from "./client";
 export { executeTask } from "./functions/execute-task";
-export { indexCodebase } from "./functions/index-codebase";
 export { executeResearchQuery } from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
 export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";

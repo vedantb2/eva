@@ -8,7 +8,6 @@ import {
   sessionModeValidator,
   sessionStatusValidator,
   phaseValidator,
-  indexingStatusValidator,
   evaluationStatusValidator,
   themeValidator,
   requirementMetValidator,
@@ -123,8 +122,6 @@ const schema = defineSchema({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
-    codebaseIndex: v.optional(v.string()),
-    indexingStatus: v.optional(indexingStatusValidator),
   }).index("by_owner_name", ["owner", "name"]),
 
   subtasks: defineTable({

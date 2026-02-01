@@ -9,15 +9,9 @@ import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import {
-  MC_INITIAL_QUESTIONS,
-  MC_FOLLOWUP_QUESTIONS,
-} from "@/lib/prompts/planPrompts";
-import {
   IconTrash,
   IconPlayerPlay,
-  IconCode,
 } from "@tabler/icons-react";
-import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -32,7 +26,6 @@ interface ProjectChatTabProps {
   initialMessages: ConversationMessage[];
   rawInput: string;
   onSpecGenerated?: (spec: string) => void;
-  isInterview?: boolean;
   repoId: Id<"githubRepos">;
   installationId: number;
 }
@@ -53,12 +46,9 @@ export function ProjectChatTab({
   initialMessages,
   rawInput,
   onSpecGenerated,
-  isInterview = false,
   repoId,
   installationId,
 }: ProjectChatTabProps) {
-  const { repo } = useRepo();
-  const indexingStatus = repo.indexingStatus;
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -68,11 +58,6 @@ export function ProjectChatTab({
   const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
-  const questionList = isInterview
-    ? MC_FOLLOWUP_QUESTIONS
-    : MC_INITIAL_QUESTIONS;
-  const isIndexing =
-    indexingStatus === "pending" || indexingStatus === "indexing";
 
   const assistantMessages = initialMessages.filter(
     (m) => m.role === "assistant",
@@ -127,10 +112,7 @@ export function ProjectChatTab({
   }, []);
 
   const askQuestion = useCallback(
-    async (questionIndex: number, currentAnswers: AnswerRecord[]) => {
-      const questionTemplate =
-        questionList[questionIndex % questionList.length];
-
+    async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
 
       await fetch("/api/inngest/send", {
@@ -143,19 +125,18 @@ export function ProjectChatTab({
             repoId,
             installationId,
             featureDescription: rawInput,
-            questionTopic: questionTemplate,
             previousAnswers: currentAnswers,
           },
         }),
       });
     },
-    [projectId, repoId, installationId, rawInput, questionList],
+    [projectId, repoId, installationId, rawInput],
   );
 
   const handleStartInterview = async () => {
     setHasStarted(true);
     await addMessageDb({ id: projectId, role: "user", content: rawInput });
-    askQuestion(0, []);
+    askQuestion([]);
   };
 
   const handleAnswer = async (answer: string) => {
@@ -177,7 +158,7 @@ export function ProjectChatTab({
     setAnswers(updatedAnswers);
 
     await addMessageDb({ id: projectId, role: "user", content: answer });
-    askQuestion(questionCount, updatedAnswers);
+    askQuestion(updatedAnswers);
   };
 
   const handleClearChat = async () => {
@@ -210,53 +191,6 @@ export function ProjectChatTab({
   const waitingForResponse =
     lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
   const showQuestion = currentQuestion && !waitingForResponse;
-
-  if (isIndexing && !hasStarted && !isLocked) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-default-100 flex items-center justify-center mb-4">
-          <IconCode size={32} className="text-default-500" />
-        </div>
-        <h3 className="text-lg font-semibold text-default-700 mb-2">
-          Indexing Codebase
-        </h3>
-        <p className="text-sm text-default-500 mb-6 max-w-md">
-          Analyzing your codebase to provide context-aware questions. This
-          usually takes 30-60 seconds.
-        </p>
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  if (indexingStatus === "error" && !hasStarted && !isLocked) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center mb-4">
-          <IconCode
-            size={32}
-            className="text-danger-600 dark:text-danger-400"
-          />
-        </div>
-        <h3 className="text-lg font-semibold text-default-700 mb-2">
-          Indexing Failed
-        </h3>
-        <p className="text-sm text-default-500 mb-6 max-w-md">
-          We couldn&apos;t analyze your codebase. You can still start the
-          interview with generic questions.
-        </p>
-        <Button
-          color="primary"
-          size="lg"
-          startContent={<IconPlayerPlay size={20} />}
-          onPress={handleStartInterview}
-          isLoading={isLoading}
-        >
-          Start Interview Anyway
-        </Button>
-      </div>
-    );
-  }
 
   if (!hasStarted && !isLocked) {
     return (

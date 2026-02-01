@@ -6,10 +6,6 @@ import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { ProjectChatTab } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
-import {
-  MC_INITIAL_QUESTIONS,
-  MC_FOLLOWUP_QUESTIONS,
-} from "@/lib/prompts/planPrompts";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -40,17 +36,12 @@ export function ProjectTabs({
   installationId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
-  const [isInterview, setIsInterview] = useState(false);
   const updateProject = useMutation(api.projects.update);
   const addMessageDb = useMutation(api.projects.addMessage);
 
   const handleSpecGenerated = useCallback((spec: string) => {
     setPendingSpec(spec);
   }, []);
-
-  const questionList = isInterview
-    ? MC_FOLLOWUP_QUESTIONS
-    : MC_INITIAL_QUESTIONS;
 
   const answersFromHistory: Array<{ question: string; answer: string }> = [];
   for (let i = 0; i < conversationHistory.length - 1; i++) {
@@ -76,10 +67,6 @@ export function ProjectTabs({
       await updateProject({ id: projectId, phase: "draft" });
       await addMessageDb({ id: projectId, role: "user", content: reason });
 
-      const questionIndex = answersFromHistory.length;
-      const questionTemplate =
-        questionList[questionIndex % questionList.length];
-
       await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,7 +77,6 @@ export function ProjectTabs({
             repoId,
             installationId,
             featureDescription: rawInput,
-            questionTopic: questionTemplate,
             previousAnswers: answersFromHistory,
             rejectionReason: reason,
           },
@@ -98,7 +84,6 @@ export function ProjectTabs({
       });
 
       setPendingSpec(null);
-      setIsInterview(true);
     },
     [
       projectId,
@@ -108,7 +93,6 @@ export function ProjectTabs({
       updateProject,
       addMessageDb,
       answersFromHistory,
-      questionList,
     ],
   );
 
@@ -123,7 +107,6 @@ export function ProjectTabs({
         initialMessages={conversationHistory}
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
-        isInterview={isInterview}
         repoId={repoId}
         installationId={installationId}
       />
@@ -139,7 +122,6 @@ export function ProjectTabs({
           initialMessages={conversationHistory}
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}
-          isInterview={isInterview}
           repoId={repoId}
           installationId={installationId}
         />

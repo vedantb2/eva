@@ -1,6 +1,5 @@
 import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { indexingStatusValidator } from "./validators";
 
 const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),
@@ -8,8 +7,6 @@ const githubRepoValidator = v.object({
   owner: v.string(),
   name: v.string(),
   installationId: v.number(),
-  codebaseIndex: v.optional(v.string()),
-  indexingStatus: v.optional(indexingStatusValidator),
 });
 
 export const list = query({
@@ -104,36 +101,5 @@ export const getInternal = internalQuery({
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
-  },
-});
-
-export const setIndexingStatus = mutation({
-  args: {
-    id: v.id("githubRepos"),
-    status: indexingStatusValidator,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const repo = await ctx.db.get(args.id);
-    if (!repo) throw new Error("Repo not found");
-    await ctx.db.patch(args.id, { indexingStatus: args.status });
-    return null;
-  },
-});
-
-export const setCodebaseIndex = mutation({
-  args: {
-    id: v.id("githubRepos"),
-    codebaseIndex: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const repo = await ctx.db.get(args.id);
-    if (!repo) throw new Error("Repo not found");
-    await ctx.db.patch(args.id, {
-      codebaseIndex: args.codebaseIndex,
-      indexingStatus: "complete",
-    });
-    return null;
   },
 });

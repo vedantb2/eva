@@ -10,29 +10,6 @@ import {
   getOrCreateSandbox,
 } from "../sandbox";
 
-interface CodebaseContext {
-  summary: string;
-  techStack: {
-    language: string;
-    framework: string;
-    other: string[];
-  };
-  structure: {
-    keyDirectories: { path: string; purpose: string }[];
-  };
-  patterns: {
-    componentPattern: string;
-    stateManagement: string;
-    apiPattern: string;
-  };
-  keyFiles: { path: string; purpose: string }[];
-  conventions: {
-    naming: string;
-    fileStructure: string;
-    imports: string;
-  };
-}
-
 const TASK_PHILOSOPHY = `
 TASK GRANULARITY RULES:
 - Each task should represent ONE ownership boundary in the codebase
@@ -70,67 +47,7 @@ Examples of BAD task breakdowns (too granular):
 
 Each task description should specify ALL the changes needed within that ownership boundary.`;
 
-function buildSystemPrompt(codebaseContext: CodebaseContext | null): string {
-  const basePrompt = `You are a technical architect. Based on the feature description and interview answers, create a detailed implementation plan.
-${TASK_PHILOSOPHY}
-
-## Output Format
-You MUST output ONLY valid JSON with this exact structure:
-{
-  "title": "Clear, concise feature title (max 60 chars)",
-  "description": "Detailed description of the feature including scope and goals",
-  "tasks": [
-    {
-      "title": "Task title",
-      "description": "What needs to be done",
-      "dependencies": [1, 2],
-      "subtasks": ["subtask 1", "subtask 2", "subtask 3"]
-    }
-  ]
-}`;
-
-  if (!codebaseContext?.techStack) {
-    return basePrompt;
-  }
-
-  const keyFilesList = (codebaseContext.keyFiles ?? [])
-    .slice(0, 8)
-    .map((f) => `- ${f.path}: ${f.purpose}`)
-    .join("\n");
-
-  const keyDirs = (codebaseContext.structure?.keyDirectories ?? [])
-    .slice(0, 5)
-    .map((d) => `- ${d.path}: ${d.purpose}`)
-    .join("\n");
-
-  const language = codebaseContext.techStack.language ?? "Unknown";
-  const framework = codebaseContext.techStack.framework ?? "Unknown";
-  const dependencies =
-    (codebaseContext.techStack.other ?? []).slice(0, 10).join(", ") || "None";
-
-  return `You are a technical architect for a ${language}/${framework} project.
-
-Project context:
-${codebaseContext.summary ?? "No summary available"}
-
-Tech stack: ${language}, ${framework}
-Dependencies: ${dependencies}
-
-Key directories:
-${keyDirs || "Not available"}
-
-Key files:
-${keyFilesList || "Not available"}
-
-Code patterns:
-- Components: ${codebaseContext.patterns?.componentPattern ?? "N/A"}
-- State: ${codebaseContext.patterns?.stateManagement ?? "N/A"}
-- API: ${codebaseContext.patterns?.apiPattern ?? "N/A"}
-
-Conventions:
-- Naming: ${codebaseContext.conventions?.naming ?? "N/A"}
-- File structure: ${codebaseContext.conventions?.fileStructure ?? "N/A"}
-
+const SPEC_SYSTEM_PROMPT = `You are a technical architect. Read CLAUDE.md first to understand the codebase, then create a detailed implementation plan based on the feature description and interview answers.
 ${TASK_PHILOSOPHY}
 
 Reference actual file paths and follow the project's existing patterns and conventions.
@@ -149,7 +66,6 @@ You MUST output ONLY valid JSON with this exact structure:
     }
   ]
 }`;
-}
 
 interface Answer {
   question: string;
@@ -185,10 +101,6 @@ export const interviewSpec = inngest.createFunction(
       return { project: projectData, repo: repoData };
     });
 
-    const codebaseContext: CodebaseContext | null = repo.codebaseIndex
-      ? JSON.parse(repo.codebaseIndex)
-      : null;
-
     const specJson = await step.run("generate-spec", async () => {
       const githubToken = await getGitHubToken(installationId);
 
@@ -218,8 +130,7 @@ Generate an implementation spec with 2-5 tasks. Each task should represent a com
 
 Output ONLY valid JSON.`;
 
-      const systemPrompt = buildSystemPrompt(codebaseContext);
-      const fullPrompt = `${systemPrompt}
+      const fullPrompt = `${SPEC_SYSTEM_PROMPT}
 
 ${prompt}`;
 

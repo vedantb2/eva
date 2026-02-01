@@ -2,7 +2,6 @@ import { serve } from "inngest/next";
 import {
   inngest,
   executeTask,
-  indexCodebase,
   executeResearchQuery,
   evaluateDoc,
   cleanupProjectSandbox,
@@ -19,7 +18,6 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     executeTask,
-    indexCodebase,
     executeResearchQuery,
     evaluateDoc,
     cleanupProjectSandbox,

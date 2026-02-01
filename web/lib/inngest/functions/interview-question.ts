@@ -10,99 +10,35 @@ import {
   getOrCreateSandbox,
 } from "../sandbox";
 
-interface CodebaseContext {
-  summary: string;
-  techStack: {
-    language: string;
-    framework: string;
-    other: string[];
-  };
-  structure: {
-    keyDirectories: { path: string; purpose: string }[];
-  };
-  patterns: {
-    componentPattern: string;
-    stateManagement: string;
-    apiPattern: string;
-  };
-  keyFiles: { path: string; purpose: string }[];
-  conventions: {
-    naming: string;
-    fileStructure: string;
-    imports: string;
-  };
-}
-
 interface PreviousAnswer {
   question: string;
   answer: string;
 }
 
-const SYSTEM_PROMPT = `You help users think through their feature by asking clarifying questions about edge cases and scenarios they may not have considered.
+const SYSTEM_PROMPT = `You are a product-minded engineer helping a user spec out a feature before building it. You have access to their codebase and understand how it works.
 
 ## Your Role
-- Surface edge cases the user probably hasn't thought about
-- Ask "what should happen when..." questions
-- Use simple, everyday language - NO technical jargon
-- Help the user make decisions that will affect how the feature works
+- Ask questions that actually matter for implementation — things that would block you or lead to rework if you guessed wrong
+- Ground your questions in the real codebase: reference existing patterns, pages, or behaviors the user already has
+- Each question should include a brief example or scenario so the user understands why it matters
+- Use plain language but you CAN reference things the user would recognize (e.g. "the settings page", "your current notification system", "the sidebar")
 
 ## Format Rules
-- Question: MAX 15 words, simple and clear
-- Options: MAX 15 words each, describe the behavior in plain language
-- NO technical terms like "localStorage", "context", "API", "state", "sync", "fallback"
+- Question: 1-3 sentences. Include a concrete example or "for instance..." to illustrate why the question matters.
+- Options: 2-4 options, each 1-2 sentences. Describe the actual user-facing behavior, not implementation details.
+- Do NOT ask about purely technical choices (database schema, state management library, API design)
+- Do NOT repeat topics already covered in previous answers
 
 ## Good Examples
-Question: "Should the app remember your theme choice after you close it?"
-Options: ["Yes, remember forever", "No, reset each visit", "Only remember for this device"]
+{"question": "When a user creates a new project, should they see a blank canvas or a guided setup flow? For instance, right now your app drops users into an empty board — should this feature follow the same pattern or hold their hand a bit more?", "options": ["Blank canvas, same as existing boards", "Step-by-step wizard that walks them through setup", "Blank canvas but with a dismissible tooltip pointing out key actions"]}
 
-Question: "If you change the theme in one tab, should other open tabs update too?"
-Options: ["Yes, update all tabs", "No, each tab stays independent"]
+{"question": "If someone is halfway through filling this out and accidentally navigates away, should their progress be saved? For example, imagine they've typed out a long description and hit the back button by mistake.", "options": ["Auto-save their progress so they can pick up where they left off", "Show a warning before leaving but don't auto-save", "Don't save — if they leave, they start over"]}
 
-Question: "What if someone has 100+ items? Should we show all at once?"
-Options: ["Show all of them", "Show 20 at a time with a 'load more' button", "Show 50 max"]
-
-Question: "What happens if the user tries to delete something by accident?"
-Options: ["Delete immediately, no undo", "Ask 'Are you sure?' first", "Allow undo for 5 seconds"]
-
-Question: "What should new users see the first time they use this?"
-Options: ["Empty screen with a hint to get started", "Pre-filled example data", "Quick tutorial walkthrough"]
-
-## Bad Examples (DO NOT DO THIS)
-- "Where should theme state be stored?" (too technical)
-- "localStorage with automatic persistence" (jargon-heavy option)
-- "Should we use optimistic updates?" (developer speak)
-
-## Focus Areas
-- First-time experience: What do new users see?
-- Edge cases: What if there's nothing there? What if there's too much?
-- Mistakes: What if users do something by accident?
-- Failures: What if something goes wrong?
-- Conflicts: What if two things happen at once?
-- Limits: Is there a maximum? What happens at the limit?
-- Memory: Should the app remember choices? For how long?
-
-## DO NOT ask about
-- Technical implementation details
-- Developer-facing decisions
-- Anything using programming terminology
+{"question": "Should other team members be able to see or interact with this, or is it private to the person who created it? For instance, if Alice creates one, can Bob view it or is it hidden from him entirely?", "options": ["Fully private — only the creator can see it", "Visible to everyone on the team but only the creator can edit", "Visible and editable by the whole team"]}
 
 ## Output Format
 You MUST output ONLY valid JSON with this exact structure:
 {"question": "your question here", "options": ["option 1", "option 2", "option 3"]}`;
-
-const CATEGORY_MAP: Record<string, string> = {
-  state_management: "how information is tracked and updated",
-  data_persistence: "how data is saved and loaded",
-  component_architecture: "how the feature is organized",
-  api_design: "how different parts communicate",
-  edge_case_handling: "unusual situations or edge cases",
-  initialization_behavior: "what happens the first time",
-  error_handling: "what happens when something goes wrong",
-  runtime_behavior: "how things work while the app is running",
-  integration_points: "how this connects with existing features",
-  validation_strategy: "how user input is checked",
-  default: "an important detail",
-};
 
 const TASK_PHILOSOPHY = `
 TASK GRANULARITY RULES:
@@ -120,22 +56,13 @@ Each task description should specify ALL the changes needed within that ownershi
 
 function buildQuestionPrompt(
   featureDescription: string,
-  questionCategory: string,
   previousAnswers: PreviousAnswer[],
-  codebaseContext: CodebaseContext | null,
   rejectionReason?: string,
 ): string {
   let prompt = `## Feature Request
 "${featureDescription}"
 
 `;
-
-  if (codebaseContext?.techStack?.framework) {
-    prompt += `## App Info
-This is a ${codebaseContext.techStack.framework} app.
-
-`;
-  }
 
   if (previousAnswers.length > 0) {
     prompt += `## Already Decided\n`;
@@ -148,86 +75,23 @@ This is a ${codebaseContext.techStack.framework} app.
   if (rejectionReason) {
     prompt += `## Important Context
 The user previously received a generated plan but rejected it with this feedback: "${rejectionReason}"
-Ask a question that addresses what the user felt was missing or wrong.
+Ask a question that directly addresses what the user felt was missing or wrong.
 
 `;
   }
 
-  const categoryDescription =
-    CATEGORY_MAP[questionCategory] || CATEGORY_MAP.default;
-
   prompt += `## Your Task
-Think of an edge case or scenario the user probably hasn't considered about ${categoryDescription}.
-Ask ONE simple question (max 15 words) with 2-4 clear options (max 15 words each).
-Use everyday language. No technical jargon.
+Ask ONE question about a decision that would actually affect how this feature gets built. Ground it in the existing codebase where possible — reference real pages, components, or behaviors the user already has.
 
-Output ONLY valid JSON in this format:
+Include a brief example or scenario in the question so the user understands the tradeoff.
+
+Output ONLY valid JSON:
 {"question": "your question", "options": ["option 1", "option 2"]}`;
 
   return prompt;
 }
 
-function buildSpecSystemPrompt(codebaseContext: CodebaseContext | null): string {
-  const basePrompt = `You are a technical architect. Based on the feature description and interview answers, create a detailed implementation plan.
-${TASK_PHILOSOPHY}
-
-## Output Format
-You MUST output ONLY valid JSON with this exact structure:
-{
-  "title": "Clear, concise feature title (max 60 chars)",
-  "description": "Detailed description of the feature including scope and goals",
-  "tasks": [
-    {
-      "title": "Task title",
-      "description": "What needs to be done",
-      "dependencies": [1, 2],
-      "subtasks": ["subtask 1", "subtask 2", "subtask 3"]
-    }
-  ]
-}`;
-
-  if (!codebaseContext?.techStack) {
-    return basePrompt;
-  }
-
-  const keyFilesList = (codebaseContext.keyFiles ?? [])
-    .slice(0, 8)
-    .map((f) => `- ${f.path}: ${f.purpose}`)
-    .join("\n");
-
-  const keyDirs = (codebaseContext.structure?.keyDirectories ?? [])
-    .slice(0, 5)
-    .map((d) => `- ${d.path}: ${d.purpose}`)
-    .join("\n");
-
-  const language = codebaseContext.techStack.language ?? "Unknown";
-  const framework = codebaseContext.techStack.framework ?? "Unknown";
-  const dependencies =
-    (codebaseContext.techStack.other ?? []).slice(0, 10).join(", ") || "None";
-
-  return `You are a technical architect for a ${language}/${framework} project.
-
-Project context:
-${codebaseContext.summary ?? "No summary available"}
-
-Tech stack: ${language}, ${framework}
-Dependencies: ${dependencies}
-
-Key directories:
-${keyDirs || "Not available"}
-
-Key files:
-${keyFilesList || "Not available"}
-
-Code patterns:
-- Components: ${codebaseContext.patterns?.componentPattern ?? "N/A"}
-- State: ${codebaseContext.patterns?.stateManagement ?? "N/A"}
-- API: ${codebaseContext.patterns?.apiPattern ?? "N/A"}
-
-Conventions:
-- Naming: ${codebaseContext.conventions?.naming ?? "N/A"}
-- File structure: ${codebaseContext.conventions?.fileStructure ?? "N/A"}
-
+const SPEC_SYSTEM_PROMPT = `You are a technical architect. Read CLAUDE.md first to understand the codebase, then create a detailed implementation plan based on the feature description and interview answers.
 ${TASK_PHILOSOPHY}
 
 Reference actual file paths and follow the project's existing patterns and conventions.
@@ -246,7 +110,6 @@ You MUST output ONLY valid JSON with this exact structure:
     }
   ]
 }`;
-}
 
 export const interviewQuestion = inngest.createFunction(
   {
@@ -261,7 +124,6 @@ export const interviewQuestion = inngest.createFunction(
       repoId,
       installationId,
       featureDescription,
-      questionTopic,
       previousAnswers = [],
       rejectionReason,
     } = event.data;
@@ -278,10 +140,6 @@ export const interviewQuestion = inngest.createFunction(
         throw new Error("Project or repo not found");
       return { project: projectData, repo: repoData };
     });
-
-    const codebaseContext: CodebaseContext | null = repo.codebaseIndex
-      ? JSON.parse(repo.codebaseIndex)
-      : null;
 
     const answerCount = (previousAnswers as PreviousAnswer[]).length;
 
@@ -359,8 +217,7 @@ Generate an implementation spec with 2-5 tasks. Each task should represent a com
 
 Output ONLY valid JSON.`;
 
-        const systemPrompt = buildSpecSystemPrompt(codebaseContext);
-        const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+        const fullPrompt = `${SPEC_SYSTEM_PROMPT}\n\n${prompt}`;
 
         const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
           model: "sonnet",
@@ -416,9 +273,7 @@ Output ONLY valid JSON.`;
 
       const prompt = buildQuestionPrompt(
         featureDescription,
-        questionTopic,
         previousAnswers as PreviousAnswer[],
-        codebaseContext,
         rejectionReason as string | undefined,
       );
 

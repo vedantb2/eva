@@ -314,6 +314,15 @@ export async function runClaudeCLIStreaming(
     ).catch(() => {});
   }
 
+  displayLog = "";
+  for (const line of cmdOutput.split("\n")) {
+    if (!line.trim()) continue;
+    const formatted = formatStreamEvent(line);
+    if (formatted) {
+      displayLog += (displayLog ? "\n" : "") + formatted;
+    }
+  }
+
   const lines = cmdOutput.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
     try {

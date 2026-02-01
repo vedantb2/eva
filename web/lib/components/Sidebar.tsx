@@ -400,7 +400,7 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                   <ThemeToggleClient />
-                  <NotificationsPopoverClient collapsed={collapsed} />
+                  <NotificationsPopoverClient />
                 </>
               )}
             </div>

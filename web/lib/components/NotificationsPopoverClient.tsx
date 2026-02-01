@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
-import { Badge, Chip, type ChipProps, Divider, Spinner } from "@heroui/react";
+import { Badge, Chip, type ChipProps, Divider, Spinner, useDisclosure } from "@heroui/react";
 import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
 import { Listbox, ListboxItem } from "@heroui/listbox";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
@@ -51,16 +51,15 @@ const typeConfig: Record<
   system: { icon: IconInfoCircle, label: "System", chipColor: "default" },
 };
 
-export function NotificationsPopoverClient({
-  collapsed,
-}: {
-  collapsed: boolean;
-}) {
+export function NotificationsPopoverClient() {
+  const popover = useDisclosure();
   const notifications = useQuery(api.notifications.list);
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
-  const [selectedId, setSelectedId] = useState<Id<"notifications"> | null>(null);
+  const [selectedId, setSelectedId] = useState<Id<"notifications"> | null>(
+    null,
+  );
   const selected = notifications?.find((n) => n._id === selectedId) ?? null;
 
   useEffect(() => {
@@ -70,7 +69,7 @@ export function NotificationsPopoverClient({
   }, [selected, markAsRead]);
 
   const trigger = (
-    <Button variant="light" isIconOnly>
+    <Button variant="light" isIconOnly onPress={popover.onOpen}>
       {unreadCount > 0 ? (
         <Badge color="primary" content={unreadCount > 99 ? "99+" : unreadCount}>
           <IconBell className="size-5" />
@@ -83,7 +82,7 @@ export function NotificationsPopoverClient({
 
   return (
     <>
-      <Popover placement="right-end" offset={12}>
+      <Popover isOpen={popover.isOpen} onOpenChange={popover.onOpenChange} placement="right-end" offset={12}>
         <PopoverTrigger>{trigger}</PopoverTrigger>
         <PopoverContent className="p-0">
           <div className="flex items-center justify-start px-3 py-2.5">
@@ -137,6 +136,7 @@ export function NotificationsPopoverClient({
                       }
                       description={dayjs(n.createdAt).fromNow()}
                       className={n.read ? "opacity-60" : ""}
+                      onPress={popover.onClose}
                     >
                       {n.title}
                     </ListboxItem>

@@ -33,10 +33,15 @@ const sessionValidator = v.object({
   createdBy: v.optional(v.id("users")),
   messages: v.array(messageValidator),
   fileDiffs: v.optional(v.array(fileDiffValidator)),
+  tags: v.optional(v.array(v.string())),
+  deletedAt: v.optional(v.number()),
 });
 
 export const list = query({
-  args: { repoId: v.id("githubRepos") },
+  args: {
+    repoId: v.id("githubRepos"),
+    includeDeleted: v.optional(v.boolean()),
+  },
   returns: v.array(sessionValidator),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
@@ -47,8 +52,12 @@ export const list = query({
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    // Filter out archived sessions
-    return sessions.filter((session) => !session.archived);
+    // Filter out archived and soft-deleted sessions
+    return sessions.filter((session) => {
+      if (session.archived) return false;
+      if (!args.includeDeleted && session.deletedAt) return false;
+      return true;
+    });
   },
 });
 
@@ -68,6 +77,7 @@ export const create = mutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.id("sessions"),
   handler: async (ctx, args) => {
@@ -82,6 +92,7 @@ export const create = mutation({
       status: "active",
       messages: [],
       createdBy: userId,
+      tags: args.tags,
     });
   },
 });
@@ -188,6 +199,26 @@ export const archive = mutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { archived: true });
+    return null;
+  },
+});
+
+export const softDelete = mutation({
+  args: { id: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    if (session.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
     return null;
   },
 });
@@ -332,5 +363,82 @@ export const getOrCreateExtensionSession = mutation({
       repoId: args.repoId,
       messages: [],
     };
+  },
+});
+
+export const updateTags = mutation({
+  args: {
+    id: v.id("sessions"),
+    tags: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    if (session.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { tags: args.tags });
+    return null;
+  },
+});
+
+export const listByTag = query({
+  args: {
+    repoId: v.id("githubRepos"),
+    tagId: v.string(),
+    includeDeleted: v.optional(v.boolean()),
+  },
+  returns: v.array(sessionValidator),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return sessions.filter((session) => {
+      if (!session.tags || !session.tags.includes(args.tagId)) return false;
+      if (session.archived) return false;
+      if (!args.includeDeleted && session.deletedAt) return false;
+      return true;
+    });
+  },
+});
+
+export const listByTags = query({
+  args: {
+    repoId: v.id("githubRepos"),
+    tagIds: v.array(v.string()),
+    includeDeleted: v.optional(v.boolean()),
+  },
+  returns: v.array(sessionValidator),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+    if (args.tagIds.length === 0) {
+      return [];
+    }
+    const tagSet = new Set(args.tagIds);
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return sessions.filter((session) => {
+      if (!session.tags || !session.tags.some((tag) => tagSet.has(tag))) return false;
+      if (session.archived) return false;
+      if (!args.includeDeleted && session.deletedAt) return false;
+      return true;
+    });
   },
 });

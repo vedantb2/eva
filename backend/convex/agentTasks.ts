@@ -22,6 +22,8 @@ const agentTaskValidator = v.object({
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
+  tags: v.optional(v.array(v.string())),
+  deletedAt: v.optional(v.number()),
 });
 
 export const listByBoard = query({
@@ -111,6 +113,7 @@ export const create = mutation({
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
     status: v.optional(taskStatusValidator),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -146,6 +149,7 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
       createdBy: userId ?? undefined,
+      tags: args.tags,
     });
   },
 });
@@ -159,6 +163,7 @@ export const update = mutation({
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.id("users")),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -181,6 +186,7 @@ export const update = mutation({
     if (args.projectId !== undefined) updates.projectId = args.projectId;
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
+    if (args.tags !== undefined) updates.tags = args.tags;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       const currentUserId = await getCurrentUserId(ctx);
@@ -426,28 +432,11 @@ export const remove = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
-    const runs = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    for (const run of runs) {
-      await ctx.db.delete(run._id);
-    }
-    const dependencies = await ctx.db
-      .query("taskDependencies")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    for (const dep of dependencies) {
-      await ctx.db.delete(dep._id);
-    }
-    const dependents = await ctx.db
-      .query("taskDependencies")
-      .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.id))
-      .collect();
-    for (const dep of dependents) {
-      await ctx.db.delete(dep._id);
-    }
-    await ctx.db.delete(args.id);
+    // Soft-delete: mark with deletedAt timestamp
+    await ctx.db.patch(args.id, {
+      deletedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -483,6 +472,7 @@ export const createQuickTask = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     assignedTo: v.optional(v.id("users")),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -547,6 +537,7 @@ export const createQuickTask = mutation({
       updatedAt: now,
       createdBy: userId ?? undefined,
       assignedTo: args.assignedTo,
+      tags: args.tags,
     });
     if (args.assignedTo && args.assignedTo !== userId) {
       await createNotification(ctx, {
@@ -751,30 +742,115 @@ export const deleteCascade = mutation({
       }
     };
     await collectDependents(args.id);
+    const now = Date.now();
     for (const taskId of tasksToDelete) {
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId))
-        .collect();
-      for (const run of runs) {
-        await ctx.db.delete(run._id);
-      }
-      const dependencies = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId))
-        .collect();
-      for (const dep of dependencies) {
-        await ctx.db.delete(dep._id);
-      }
-      const dependents = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_dependency", (q) => q.eq("dependsOnId", taskId))
-        .collect();
-      for (const dep of dependents) {
-        await ctx.db.delete(dep._id);
-      }
-      await ctx.db.delete(taskId);
+      // Soft-delete: mark with deletedAt timestamp
+      await ctx.db.patch(taskId, {
+        deletedAt: now,
+        updatedAt: now,
+      });
     }
     return null;
+  },
+});
+
+export const updateTags = mutation({
+  args: {
+    id: v.id("agentTasks"),
+    tags: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const task = await ctx.db.get(args.id);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== identity.subject) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      tags: args.tags,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const listByTag = query({
+  args: {
+    repoId: v.id("githubRepos"),
+    tagId: v.string(),
+    includeDeleted: v.optional(v.boolean()),
+  },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const boards = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const allTasks = [];
+    for (const board of ownedBoards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      allTasks.push(...tasks);
+    }
+    let filtered = allTasks.filter(
+      (t) => t.tags && t.tags.includes(args.tagId)
+    );
+    if (!args.includeDeleted) {
+      filtered = filtered.filter((t) => !t.deletedAt);
+    }
+    return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+export const listByTags = query({
+  args: {
+    repoId: v.id("githubRepos"),
+    tagIds: v.array(v.string()),
+    includeDeleted: v.optional(v.boolean()),
+  },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    if (args.tagIds.length === 0) {
+      return [];
+    }
+    const tagSet = new Set(args.tagIds);
+    const boards = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const allTasks = [];
+    for (const board of ownedBoards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      allTasks.push(...tasks);
+    }
+    let filtered = allTasks.filter(
+      (t) => t.tags && t.tags.some((tag) => tagSet.has(tag))
+    );
+    if (!args.includeDeleted) {
+      filtered = filtered.filter((t) => !t.deletedAt);
+    }
+    return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });

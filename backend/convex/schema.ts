@@ -95,11 +95,14 @@ const schema = defineSchema({
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
+    tags: v.optional(v.array(v.string())),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
     .index("by_project", ["projectId"])
-    .index("by_project_and_status", ["projectId", "status"]),
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_repo", ["repoId"]),
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),
@@ -178,6 +181,8 @@ const schema = defineSchema({
       status: v.string(),
       diff: v.string(),
     }))),
+    tags: v.optional(v.array(v.string())),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -250,6 +255,67 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  reports: defineTable({
+    repoId: v.id("githubRepos"),
+    tagId: v.string(),
+    generatedAt: v.number(),
+    analysisResults: v.object({
+      issueCategories: v.array(
+        v.object({
+          category: v.string(),
+          count: v.number(),
+          taskIds: v.array(v.id("agentTasks")),
+          sessionIds: v.array(v.id("sessions")),
+        })
+      ),
+      frequencyMap: v.array(
+        v.object({
+          term: v.string(),
+          count: v.number(),
+        })
+      ),
+      temporalGroups: v.array(
+        v.object({
+          startDate: v.number(),
+          endDate: v.number(),
+          taskCount: v.number(),
+          sessionCount: v.number(),
+        })
+      ),
+      workPatterns: v.object({
+        avgTaskDuration: v.optional(v.number()),
+        avgSessionMessages: v.number(),
+        statusDistribution: v.object({
+          todo: v.number(),
+          in_progress: v.number(),
+          business_review: v.number(),
+          code_review: v.number(),
+          done: v.number(),
+        }),
+        runSuccessRate: v.number(),
+      }),
+    }),
+    workItemCounts: v.object({
+      totalTasks: v.number(),
+      activeTasks: v.number(),
+      deletedTasks: v.number(),
+      totalSessions: v.number(),
+      activeSessions: v.number(),
+      deletedSessions: v.number(),
+    }),
+    metadata: v.optional(
+      v.object({
+        generatedBy: v.optional(v.id("users")),
+        notes: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_tag", ["tagId"])
+    .index("by_repo", ["repoId"])
+    .index("by_tag_and_created", ["tagId", "createdAt"])
+    .index("by_repo_and_tag", ["repoId", "tagId"]),
+
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

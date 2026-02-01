@@ -3,24 +3,18 @@
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
-import { IconCircle, IconClock, IconClipboardCheck, IconEye, IconCircleCheck } from "@tabler/icons-react";
+import type { IconCircle } from "@tabler/icons-react";
+import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
+import { Chip } from "@heroui/react";
+
+export { TASK_STATUSES as KANBAN_STATUSES };
 
 export interface ColumnConfig {
+  bg: string;
+  text: string;
   label: string;
-  badgeBg: string;
-  badgeText: string;
   icon: typeof IconCircle;
 }
-
-type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
-
-export const TASK_STATUS_CONFIG: Record<TaskStatus, ColumnConfig> = {
-  todo: { label: "To Do", badgeBg: "bg-neutral-200 dark:bg-neutral-700", badgeText: "text-neutral-600 dark:text-neutral-300", icon: IconCircle },
-  in_progress: { label: "In Progress", badgeBg: "bg-yellow-100 dark:bg-yellow-900/30", badgeText: "text-yellow-700 dark:text-yellow-400", icon: IconClock },
-  business_review: { label: "Business Review", badgeBg: "bg-orange-100 dark:bg-orange-900/30", badgeText: "text-orange-700 dark:text-orange-400", icon: IconClipboardCheck },
-  code_review: { label: "Code Review", badgeBg: "bg-purple-100 dark:bg-purple-900/30", badgeText: "text-purple-700 dark:text-purple-400", icon: IconEye },
-  done: { label: "Done", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400", icon: IconCircleCheck },
-};
 
 interface KanbanColumnProps {
   id: string;
@@ -40,6 +34,7 @@ export function KanbanColumn({
   headerExtra,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
+  const Icon = config.icon;
 
   return (
     <Card
@@ -52,34 +47,23 @@ export function KanbanColumn({
       }`}
     >
       <CardHeader className="flex justify-between items-center pb-2 flex-shrink-0">
-        <div className="flex items-center gap-1">
-          <config.icon size={14} className={config.badgeText} />
-          <span className="font-medium">{config.label}</span>
-          <span
-            className={`px-2 py-0.5 text-xs font-medium rounded-full ${config.badgeBg} ${config.badgeText}`}
-          >
-            {count}
-          </span>
-        </div>
+        <Chip
+          startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
+          variant="flat"
+          className={`${config.bg}`}
+          endContent={
+            <Chip size="sm" className={`${config.text} ${config.bg}`}>
+              {count}
+            </Chip>
+          }
+        >
+          {config.label}
+        </Chip>
         {headerExtra}
       </CardHeader>
-      <CardBody className="pt-0 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">{children}</CardBody>
+      <CardBody className="pt-0 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">
+        {children}
+      </CardBody>
     </Card>
   );
 }
-
-export const KANBAN_STATUSES: TaskStatus[] = [
-  "todo",
-  "in_progress",
-  "business_review",
-  "code_review",
-  "done",
-];
-
-export const ALL_STATUSES: TaskStatus[] = [
-  "todo",
-  "in_progress",
-  "business_review",
-  "code_review",
-  "done",
-];

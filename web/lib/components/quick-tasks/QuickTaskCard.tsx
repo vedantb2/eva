@@ -16,16 +16,7 @@ import {
   DropdownItem,
 } from "@heroui/dropdown";
 import { Checkbox } from "@heroui/checkbox";
-
-export type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
-
-export const statusCardBg: Record<TaskStatus, string> = {
-  todo: "bg-neutral-200/40 dark:bg-neutral-800",
-  in_progress: "bg-yellow-50 dark:bg-yellow-900/20",
-  business_review: "bg-orange-50 dark:bg-orange-900/20",
-  code_review: "bg-purple-100/60 dark:bg-purple-900/20",
-  done: "bg-green-50 dark:bg-green-900/20",
-};
+import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -65,7 +56,7 @@ export function QuickTaskCard({
       onPress={isSelecting ? undefined : onClick}
       shadow="none"
       radius="sm"
-      className={`w-full shadow ${statusCardBg[status]} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
+      className={`w-full shadow ${statusConfig[status].cardBg} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
     >
       <CardBody className="p-2 gap-1">
         <div className="flex items-center justify-between gap-2">

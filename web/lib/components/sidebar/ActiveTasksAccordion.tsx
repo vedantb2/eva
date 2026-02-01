@@ -67,7 +67,7 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
                     </p>
                   )}
                 </div>
-                <TaskStatusBadge status={task.status} size="sm" />
+                <TaskStatusBadge status={task.status} />
               </div>
             </Link>
           ))}

@@ -2,6 +2,7 @@
 
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
+import { Button } from "@heroui/react";
 
 export function ThemeToggleClient() {
   const { theme, toggleTheme, mounted } = useThemeContext();
@@ -14,7 +15,7 @@ export function ThemeToggleClient() {
         aria-label="Toggle theme"
         disabled
       >
-        <div className="w-5 h-5" />
+        <div className="size-5" />
       </button>
     );
   }
@@ -22,17 +23,12 @@ export function ThemeToggleClient() {
   const isDark = theme === "dark";
 
   return (
-    <button
-      onClick={toggleTheme}
-      className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-      type="button"
-    >
+    <Button variant="light" isIconOnly onPress={toggleTheme}>
       {isDark ? (
-        <IconSun className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+        <IconSun className="size-5 text-neutral-600 dark:text-neutral-300" />
       ) : (
-        <IconMoon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+        <IconMoon className="size-5 text-neutral-600 dark:text-neutral-300" />
       )}
-    </button>
+    </Button>
   );
 }

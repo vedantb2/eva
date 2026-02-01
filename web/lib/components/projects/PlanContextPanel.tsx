@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { Button } from "@heroui/button";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-} from "@heroui/modal";
+import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import { IconFileText, IconMessage, IconUser, IconRobot } from "@tabler/icons-react";
+import {
+  IconFileText,
+  IconMessage,
+  IconUser,
+  IconRobot,
+} from "@tabler/icons-react";
+import { Tooltip } from "@heroui/react";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -42,23 +43,23 @@ export function PlanContextPanel({
 
   return (
     <>
-      <div className="flex justify-between gap-2 px-3 py-5">
+      <div className="flex justify-between gap-1">
         <Button
           size="sm"
-          variant="flat"
+          variant="light"
+          radius="full"
           startContent={<IconFileText size={14} />}
           onPress={() => setShowPlanModal(true)}
-        >
-          View Plan
-        </Button>
+          isIconOnly
+        />
         <Button
           size="sm"
-          variant="flat"
+          variant="light"
+          radius="full"
           startContent={<IconMessage size={14} />}
           onPress={() => setShowChatModal(true)}
-        >
-          View Interview ({conversationHistory.length})
-        </Button>
+          isIconOnly
+        />
       </div>
 
       <Modal
@@ -76,9 +77,14 @@ export function PlanContextPanel({
                 <p className="text-default-500">{parsedSpec.description}</p>
               </div>
               <div className="space-y-2">
-                <h4 className="font-medium">Tasks ({parsedSpec.tasks.length})</h4>
+                <h4 className="font-medium">
+                  Tasks ({parsedSpec.tasks.length})
+                </h4>
                 {parsedSpec.tasks.map((task, i) => (
-                  <div key={i} className="flex items-start gap-2 p-2 bg-default-100 rounded">
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 p-2 bg-default-100 rounded"
+                  >
                     <span className="text-default-400 font-mono">{i + 1}.</span>
                     <span>{task.title}</span>
                   </div>
@@ -133,7 +139,10 @@ export function PlanContextPanel({
                       }`}
                     >
                       {isUser ? (
-                        <IconUser size={16} className="text-primary-600 dark:text-primary-400" />
+                        <IconUser
+                          size={16}
+                          className="text-primary-600 dark:text-primary-400"
+                        />
                       ) : (
                         <IconRobot size={16} className="text-default-500" />
                       )}
@@ -148,7 +157,9 @@ export function PlanContextPanel({
                             : "bg-default-100 dark:bg-default-800 rounded-tl-sm"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {displayContent}
+                        </p>
                       </div>
                     </div>
                   </div>

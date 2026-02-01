@@ -68,6 +68,14 @@ export function ProjectActiveLayout({
         className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r dark:border-neutral-700 flex flex-col transition-all`}
       >
         <div className="flex items-center justify-between">
+          {!tasksCollapsed && project.generatedSpec && (
+            <div className="border-t dark:border-neutral-700">
+              <PlanContextPanel
+                generatedSpec={project.generatedSpec}
+                conversationHistory={project.conversationHistory}
+              />
+            </div>
+          )}
           {!tasksCollapsed && (
             <div className="flex flex-row items-center gap-1 mx-auto text-teal-500 dark:text-teal-400">
               <IconChecklist size={14} />
@@ -90,19 +98,9 @@ export function ProjectActiveLayout({
           </Button>
         </div>
         {!tasksCollapsed && (
-          <>
             <div className="flex-1 min-h-0 overflow-hidden">
               <ProjectTaskListPanel projectId={projectId} />
             </div>
-            {project.generatedSpec && (
-              <div className="border-t dark:border-neutral-700">
-                <PlanContextPanel
-                  generatedSpec={project.generatedSpec}
-                  conversationHistory={project.conversationHistory}
-                />
-              </div>
-            )}
-          </>
         )}
       </div>
       <div className="flex-1 flex items-center justify-center">

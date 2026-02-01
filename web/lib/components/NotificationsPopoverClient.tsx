@@ -78,13 +78,13 @@ export function NotificationsPopoverClient({
   }, [selected, markAsRead]);
 
   const trigger = (
-    <Button size="sm" variant="light" isIconOnly>
+    <Button variant="light" isIconOnly>
       {unreadCount > 0 ? (
         <Badge color="primary" content={unreadCount > 99 ? "99+" : unreadCount}>
-          <IconBell className="size-[16px]" />
+          <IconBell className="size-5" />
         </Badge>
       ) : (
-        <IconBell className="size-[16px]" />
+        <IconBell className="size-5" />
       )}
     </Button>
   );
@@ -94,7 +94,7 @@ export function NotificationsPopoverClient({
       <Popover placement="right-end" offset={12}>
         <PopoverTrigger>{trigger}</PopoverTrigger>
         <PopoverContent className="p-0">
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-start px-3 py-2.5">
             <span className="text-sm font-semibold">Notifications</span>
             {unreadCount > 0 && (
               <Button

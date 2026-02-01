@@ -17,7 +17,7 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { Button } from "@heroui/react";
+import { Button, Chip } from "@heroui/react";
 import {
   Modal,
   ModalContent,
@@ -76,15 +76,18 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </div>
           )}
           {project.prUrl && (
-            <Link
+            <Button
+              size="sm"
+              radius="full"
+              variant="ghost"
+              as={Link}
               href={project.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-success-500 hover:underline text-sm"
+              startContent={<IconGitPullRequest size={14} className="ml-1" />}
             >
-              <IconGitPullRequest size={14} />
               <span className="text-xs">View PR</span>
-            </Link>
+            </Button>
           )}
         </div>
       }

@@ -11,7 +11,8 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
-import { KanbanColumn, KANBAN_STATUSES, TASK_STATUS_CONFIG } from "./KanbanColumn";
+import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
+import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
 import { Card, CardBody } from "@heroui/card";
 import {
   SortableContext,
@@ -227,7 +228,7 @@ export function KanbanBoard<T extends BaseTask>({
               <KanbanColumn
                 key={status}
                 id={status}
-                config={TASK_STATUS_CONFIG[status]}
+                config={statusConfig[status]}
                 count={itemsByStatus[status]?.length ?? 0}
                 headerExtra={columnExtra?.(status)}
               >

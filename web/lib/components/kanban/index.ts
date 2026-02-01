@@ -1,1 +1,1 @@
-export { KanbanColumn, KANBAN_STATUSES, ALL_STATUSES } from "./KanbanColumn";
+export { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";

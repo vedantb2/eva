@@ -8,47 +8,11 @@ import { useState, useMemo } from "react";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { ProjectTaskCard } from "./ProjectTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import {
-  IconCircle,
-  IconProgress,
-  IconClipboardCheck,
-  IconEye,
-  IconCircleCheck,
-} from "@tabler/icons-react";
+import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
+import { Chip } from "@heroui/react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
 type TaskStatus = Task["status"];
-
-const STATUS_CONFIG: Record<
-  TaskStatus,
-  { label: string; icon: React.ReactNode; color: string }
-> = {
-  todo: {
-    label: "To Do",
-    icon: <IconCircle size={16} />,
-    color: "text-default-500",
-  },
-  in_progress: {
-    label: "In Progress",
-    icon: <IconProgress size={16} />,
-    color: "text-yellow-500",
-  },
-  business_review: {
-    label: "Business Review",
-    icon: <IconClipboardCheck size={16} />,
-    color: "text-orange-500",
-  },
-  code_review: {
-    label: "Code Review",
-    icon: <IconEye size={16} />,
-    color: "text-purple-500",
-  },
-  done: {
-    label: "Done",
-    icon: <IconCircleCheck size={16} />,
-    color: "text-green-500",
-  },
-};
 
 const STATUS_ORDER: TaskStatus[] = [
   "todo",
@@ -64,7 +28,9 @@ interface ProjectTaskListPanelProps {
 
 export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
+    null,
+  );
 
   const groupedTasks = useMemo(() => {
     if (!tasks) return null;
@@ -102,23 +68,31 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
         defaultExpandedKeys={defaultExpandedKeys}
       >
         {STATUS_ORDER.map((status) => {
-          const config = STATUS_CONFIG[status];
+          const config = statusConfig[status];
+          const StatusIcon = config.icon;
           const statusTasks = groupedTasks[status];
           return (
             <AccordionItem
               key={status}
               title={
-                <div className={`flex items-center gap-2 ${config.color}`}>
-                  {config.icon}
-                  <span className="font-medium">{config.label}</span>
-                  <span className="text-default-400 text-sm">
-                    ({statusTasks.length})
-                  </span>
-                </div>
+                <Chip
+                  startContent={
+                    <StatusIcon size={14} className={`ml-1 ${config.text}`} />
+                  }
+                  variant="flat"
+                  className={`${config.bg}`}
+                  endContent={
+                    <Chip size="sm" className={`${config.text} ${config.bg}`}>
+                      {statusTasks.length}
+                    </Chip>
+                  }
+                >
+                  {config.label}
+                </Chip>
               }
               classNames={{
-                trigger: "px-3",
-                content: "flex flex-col gap-2 px-4",
+                trigger: "p-2",
+                content: "flex flex-col gap-2 px-3",
               }}
             >
               {statusTasks.length === 0 ? (

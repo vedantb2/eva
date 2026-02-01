@@ -8,7 +8,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
-import { TaskStatus, statusCardBg } from "../quick-tasks/QuickTaskCard";
+import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 interface ProjectTaskCardProps {
@@ -40,9 +40,9 @@ export function ProjectTaskCard({
       onPress={onClick}
       shadow="none"
       radius="sm"
-      className={`w-full shadow ${statusCardBg[status]}`}
+      className={`w-full shadow ${statusConfig[status].cardBg}`}
     >
-      <CardBody className="p-3 gap-2">
+      <CardBody className="p-2 gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-default-400 font-mono text-sm flex-shrink-0">

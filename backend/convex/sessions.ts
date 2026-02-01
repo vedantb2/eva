@@ -8,6 +8,7 @@ const messageValidator = v.object({
   content: v.string(),
   timestamp: v.number(),
   mode: v.optional(sessionModeValidator),
+  activityLog: v.optional(v.string()),
 });
 
 const fileDiffValidator = v.object({
@@ -92,6 +93,7 @@ export const addMessage = mutation({
     role: roleValidator,
     content: v.string(),
     mode: v.optional(sessionModeValidator),
+    activityLog: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -106,7 +108,7 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       messages: [
         ...session.messages,
-        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
+        { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode, activityLog: args.activityLog },
       ],
     });
     return null;
@@ -332,5 +334,26 @@ export const getOrCreateExtensionSession = mutation({
       repoId: args.repoId,
       messages: [],
     };
+  },
+});
+
+export const updateLastMessage = mutation({
+  args: {
+    id: v.id("sessions"),
+    content: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Session not found");
+    const messages = [...session.messages];
+    const last = messages[messages.length - 1];
+    if (!last) return null;
+    if (args.content !== undefined) last.content = args.content;
+    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
+    await ctx.db.patch(args.id, { messages });
+    return null;
   },
 });

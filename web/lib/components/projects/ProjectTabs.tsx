@@ -10,6 +10,7 @@ import { ProjectPlanTab } from "./ProjectPlanTab";
 interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
+  activityLog?: string;
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
@@ -112,6 +113,7 @@ export function ProjectTabs({
         projectId={projectId}
         projectPhase={projectPhase}
         initialMessages={conversationHistory}
+
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}
@@ -128,6 +130,7 @@ export function ProjectTabs({
           projectId={projectId}
           projectPhase={projectPhase}
           initialMessages={conversationHistory}
+  
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}
           onClear={handleClear}

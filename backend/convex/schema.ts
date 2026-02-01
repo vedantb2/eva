@@ -58,6 +58,7 @@ const schema = defineSchema({
       v.object({
         role: roleValidator,
         content: v.string(),
+        activityLog: v.optional(v.string()),
       })
     ),
   })
@@ -171,6 +172,7 @@ const schema = defineSchema({
         content: v.string(),
         timestamp: v.number(),
         mode: v.optional(sessionModeValidator),
+        activityLog: v.optional(v.string()),
       })
     ),
     fileDiffs: v.optional(v.array(v.object({

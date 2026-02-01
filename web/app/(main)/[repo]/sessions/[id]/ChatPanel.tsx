@@ -34,6 +34,7 @@ interface Message {
   content: string;
   timestamp: number;
   mode?: SessionMode;
+  activityLog?: string;
 }
 
 interface ChatPanelProps {
@@ -269,9 +270,37 @@ export function ChatPanel({
                         : "bg-neutral-100 dark:bg-neutral-800"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {message.content}
-                    </p>
+                    {message.role === "assistant" && !message.content ? (
+                      <>
+                        <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
+                          {message.activityLog || "Starting..."}
+                        </pre>
+                        <Spinner size="sm" className="mt-2" />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                        {message.role === "assistant" && message.activityLog && (
+                          <Accordion isCompact className="mt-2 px-0">
+                            <AccordionItem
+                              key="logs"
+                              title="View logs"
+                              classNames={{
+                                title: "text-xs text-neutral-500",
+                                trigger: "py-1",
+                                content: "pb-2",
+                              }}
+                            >
+                              <pre className="text-xs whitespace-pre-wrap break-words text-neutral-500 max-h-60 overflow-y-auto">
+                                {message.activityLog}
+                              </pre>
+                            </AccordionItem>
+                          </Accordion>
+                        )}
+                      </>
+                    )}
                   </div>
                   {message.mode && message.role === "user" && (
                     <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">

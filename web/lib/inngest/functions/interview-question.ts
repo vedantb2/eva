@@ -5,7 +5,7 @@ import { createConvex } from "@/lib/convex-auth";
 import {
   WORKSPACE_DIR,
   getGitHubToken,
-  runClaudeCLI,
+  runClaudeCLIStreaming,
   extractJsonFromText,
   getOrCreateSandbox,
 } from "../sandbox";
@@ -127,6 +127,14 @@ export const interviewQuestion = inngest.createFunction(
   {
     id: "interview-question",
     retries: 2,
+    onFailure: async ({ event }) => {
+      const { clerkToken, projectId } = event.data.event.data;
+      const convex = createConvex(clerkToken);
+      await convex.mutation(api.projects.updateLastConversationMessage, {
+        id: projectId as Id<"projects">,
+        content: JSON.stringify({ error: true }),
+      });
+    },
   },
   { event: "project/interview.question" },
   async ({ event, step }) => {
@@ -153,7 +161,7 @@ export const interviewQuestion = inngest.createFunction(
       return { project: projectData, repo: repoData };
     });
 
-    const questionJson = await step.run("generate-question", async () => {
+    const questionResult = await step.run("generate-question", async () => {
       const githubToken = await getGitHubToken(installationId);
 
       const sandbox = await getOrCreateSandbox(
@@ -177,12 +185,26 @@ export const interviewQuestion = inngest.createFunction(
 
       const fullPrompt = `${SYSTEM_PROMPT} ${prompt}`;
 
-      const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
+      await convex.mutation(api.projects.addMessage, {
+        id: projectId as Id<"projects">,
+        role: "assistant",
+        content: "",
+        activityLog: "",
+      });
+
+      const claudeResult = await runClaudeCLIStreaming(sandbox, fullPrompt, {
         model: "sonnet",
         allowedTools: ["Read", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 120,
+        onOutput: async (accumulated) => {
+          await convex.mutation(api.projects.updateLastConversationMessage, {
+            id: projectId as Id<"projects">,
+            activityLog: accumulated,
+          });
+        },
       });
+
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
         throw new Error(
@@ -190,14 +212,16 @@ export const interviewQuestion = inngest.createFunction(
         );
       }
 
-      return jsonStr;
+      return { jsonStr, activityLog: claudeResult.activityLog };
     });
+
+    const questionJson = questionResult.jsonStr;
 
     const parsed = JSON.parse(questionJson);
     const isReady = parsed.ready === true;
 
     if (isReady) {
-      const specJson = await step.run("generate-spec", async () => {
+      const specResult = await step.run("generate-spec", async () => {
         const githubToken = await getGitHubToken(installationId);
         const sandbox = await getOrCreateSandbox(
           project.sandboxId,
@@ -227,11 +251,24 @@ Output ONLY valid JSON.`;
 
         const fullPrompt = `${SPEC_SYSTEM_PROMPT}\n\n${prompt}`;
 
-        const claudeResult = await runClaudeCLI(sandbox, fullPrompt, {
+        await convex.mutation(api.projects.addMessage, {
+          id: projectId as Id<"projects">,
+          role: "assistant",
+          content: "",
+          activityLog: "",
+        });
+
+        const claudeResult = await runClaudeCLIStreaming(sandbox, fullPrompt, {
           model: "sonnet",
           allowedTools: ["Read", "Glob", "Grep"],
           workDir: WORKSPACE_DIR,
           timeout: 180,
+          onOutput: async (accumulated) => {
+            await convex.mutation(api.projects.updateLastConversationMessage, {
+              id: projectId as Id<"projects">,
+              activityLog: accumulated,
+            });
+          },
         });
 
         const jsonStr = extractJsonFromText(claudeResult.result);
@@ -241,14 +278,16 @@ Output ONLY valid JSON.`;
           );
         }
 
-        return jsonStr;
+        return { jsonStr, activityLog: claudeResult.activityLog };
       });
 
+      const specJson = specResult.jsonStr;
+
       await step.run("save-spec", async () => {
-        await convex.mutation(api.projects.addMessage, {
+        await convex.mutation(api.projects.updateLastConversationMessage, {
           id: projectId as Id<"projects">,
-          role: "assistant",
           content: specJson,
+          activityLog: specResult.activityLog || undefined,
         });
         await convex.mutation(api.projects.update, {
           id: projectId as Id<"projects">,
@@ -264,10 +303,10 @@ Output ONLY valid JSON.`;
     }
 
     await step.run("save-message", async () => {
-      await convex.mutation(api.projects.addMessage, {
+      await convex.mutation(api.projects.updateLastConversationMessage, {
         id: projectId as Id<"projects">,
-        role: "assistant",
         content: questionJson,
+        activityLog: questionResult.activityLog || undefined,
       });
       await convex.mutation(api.projects.updateLastSandboxActivity, {
         id: projectId as Id<"projects">,

@@ -2,15 +2,19 @@
 
 import { Avatar } from "@heroui/avatar";
 import { Card, CardBody } from "@heroui/card";
+import { Accordion, AccordionItem } from "@heroui/accordion";
+import { Spinner } from "@heroui/spinner";
 import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
+  logs?: string;
+  isStreaming?: boolean;
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content, logs, isStreaming }: ChatMessageProps) {
   const isUser = role === "user";
 
   return (
@@ -41,7 +45,33 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
         className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
       >
         <CardBody className="py-2 px-2 sm:px-3">
-          <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+          {isStreaming ? (
+            <>
+              <pre className="text-sm whitespace-pre-wrap break-words text-default-500">{content}</pre>
+              <Spinner size="sm" className="mt-2" />
+            </>
+          ) : (
+            <>
+              <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+              {logs && (
+                <Accordion isCompact className="mt-2 px-0">
+                  <AccordionItem
+                    key="logs"
+                    title="View logs"
+                    classNames={{
+                      trigger: "py-1",
+                      title: "text-xs text-default-400",
+                      content: "pt-0",
+                    }}
+                  >
+                    <pre className="text-xs whitespace-pre-wrap break-words text-default-500 max-h-60 overflow-y-auto">
+                      {logs}
+                    </pre>
+                  </AccordionItem>
+                </Accordion>
+              )}
+            </>
+          )}
         </CardBody>
       </Card>
     </div>

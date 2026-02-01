@@ -16,6 +16,7 @@ import {
 interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
+  activityLog?: string;
 }
 
 type ProjectPhase = "draft" | "finalized" | "active" | "completed";
@@ -90,19 +91,16 @@ export function ProjectChatTab({
   }, [initialMessages]);
 
   useEffect(() => {
-    if (initialMessages.length > prevMessagesLengthRef.current) {
-      const newMessage = initialMessages[initialMessages.length - 1];
-      if (newMessage.role === "assistant") {
-        setIsLoading(false);
-
-        try {
-          const parsed = JSON.parse(newMessage.content);
-          if (parsed.title && parsed.tasks) {
-            onSpecGenerated?.(newMessage.content);
-          }
-        } catch {
-          // Not a spec
+    const lastMessage = initialMessages[initialMessages.length - 1];
+    if (lastMessage?.role === "assistant" && lastMessage.content) {
+      setIsLoading(false);
+      try {
+        const parsed = JSON.parse(lastMessage.content);
+        if (parsed.title && parsed.tasks) {
+          onSpecGenerated?.(lastMessage.content);
         }
+      } catch {
+        // Not a spec
       }
     }
     prevMessagesLengthRef.current = initialMessages.length;
@@ -111,6 +109,14 @@ export function ProjectChatTab({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialMessages]);
+
+  useEffect(() => {
+    if (isLocked || isLoading) return;
+    const hasAssistant = initialMessages.some((m) => m.role === "assistant");
+    if (initialMessages.length > 0 && !hasAssistant) {
+      askQuestion([]);
+    }
+  }, []);
 
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
@@ -223,6 +229,16 @@ export function ProjectChatTab({
       <div className="flex-1 overflow-y-auto scrollbar space-y-3 p-4">
         {initialMessages.map((m, i) => {
           if (m.role === "assistant") {
+            if (!m.content) {
+              return (
+                <ChatMessage
+                  key={`msg-${i}`}
+                  role="assistant"
+                  content={m.activityLog || "Starting..."}
+                  isStreaming
+                />
+              );
+            }
             try {
               const parsed = JSON.parse(m.content);
               if (parsed.question) {
@@ -231,6 +247,7 @@ export function ProjectChatTab({
                     key={`msg-${i}`}
                     role="assistant"
                     content={parsed.question}
+                    logs={m.activityLog}
                   />
                 );
               }
@@ -240,6 +257,7 @@ export function ProjectChatTab({
                     key={`msg-${i}`}
                     role="assistant"
                     content={`Generated spec: ${parsed.title}`}
+                    logs={m.activityLog}
                   />
                 );
               }
@@ -251,6 +269,7 @@ export function ProjectChatTab({
                 key={`msg-${i}`}
                 role="assistant"
                 content={m.content}
+                logs={m.activityLog}
               />
             );
           }
@@ -258,7 +277,7 @@ export function ProjectChatTab({
             <ChatMessage key={`msg-${i}`} role="user" content={m.content} />
           );
         })}
-        {(isLoading || waitingForResponse) && (
+        {(isLoading || waitingForResponse) && !initialMessages.some((m) => m.role === "assistant" && !m.content) && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
             <span className="text-sm text-default-500">Thinking...</span>

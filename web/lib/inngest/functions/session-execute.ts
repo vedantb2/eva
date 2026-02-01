@@ -9,7 +9,7 @@ import {
   setupBranch,
   getOrCreateSandbox,
   updateRemoteUrl,
-  runClaudeCLI,
+  runClaudeCLIStreaming,
   captureGitDiff,
 } from "../sandbox";
 
@@ -34,23 +34,40 @@ export const sessionExecute = inngest.createFunction(
   },
   { event: "session/execute" },
   async ({ event, step }) => {
-    const { clerkToken, sessionId, message, mode = "execute", generatePlan = false } = event.data;
+    const {
+      clerkToken,
+      sessionId,
+      message,
+      mode = "execute",
+      generatePlan = false,
+    } = event.data;
     const convex = createConvex(clerkToken);
 
-    const { session, repo, installationId } = await step.run("fetch-session-data", async () => {
-      const sessionData = await convex.query(api.sessions.get, {
-        id: sessionId as Id<"sessions">,
-      });
-      if (!sessionData) throw new Error("Session not found");
-      const repoData = await convex.query(api.githubRepos.get, { id: sessionData.repoId });
-      if (!repoData) throw new Error("Repository not found");
-      return { session: sessionData, repo: repoData, installationId: repoData.installationId };
-    });
+    const { session, repo, installationId } = await step.run(
+      "fetch-session-data",
+      async () => {
+        const sessionData = await convex.query(api.sessions.get, {
+          id: sessionId as Id<"sessions">,
+        });
+        if (!sessionData) throw new Error("Session not found");
+        const repoData = await convex.query(api.githubRepos.get, {
+          id: sessionData.repoId,
+        });
+        if (!repoData) throw new Error("Repository not found");
+        return {
+          session: sessionData,
+          repo: repoData,
+          installationId: repoData.installationId,
+        };
+      },
+    );
 
-    const effectiveMode = mode === "execute" && PR_PATTERN.test(message) ? "pr" : mode;
+    const effectiveMode =
+      mode === "execute" && PR_PATTERN.test(message) ? "pr" : mode;
 
     if (effectiveMode === "pr") {
-      if (!session.branchName) throw new Error("No branch associated with this session");
+      if (!session.branchName)
+        throw new Error("No branch associated with this session");
 
       const prUrl = await step.run("create-pr", async () => {
         const freshToken = await getGitHubToken(installationId);
@@ -72,12 +89,14 @@ export const sessionExecute = inngest.createFunction(
               head: session.branchName,
               base: "main",
             }),
-          }
+          },
         );
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(`GitHub API error: ${errorData.message || response.statusText}`);
+          throw new Error(
+            `GitHub API error: ${errorData.message || response.statusText}`,
+          );
         }
 
         const prData = await response.json();
@@ -123,7 +142,9 @@ export const sessionExecute = inngest.createFunction(
         const conversationHistory = session.messages
           .filter((m) => m.mode === "ask")
           .slice(-10)
-          .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+          .map(
+            (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
+          )
           .join("\n\n");
 
         const prompt = `You are answering questions about a codebase for a non-technical user. This is READ-ONLY mode.
@@ -148,20 +169,37 @@ CRITICAL response rules:
 - Be direct and answer the question simply
 - DO NOT modify any files`;
 
-        const claudeResult = await runClaudeCLI(sandbox, prompt, {
-          model: "opus",
-          allowedTools: ["Read", "Glob", "Grep"],
-        });
-
-        return claudeResult.result || "I couldn't find an answer to your question.";
-      });
-
-      await step.run("update-session", async () => {
         await convex.mutation(api.sessions.addMessage, {
           id: sessionId as Id<"sessions">,
           role: "assistant",
-          content: result,
+          content: "",
           mode: "ask",
+          activityLog: "",
+        });
+        const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
+          model: "opus",
+          allowedTools: ["Read", "Glob", "Grep"],
+          onOutput: async (accumulated) => {
+            await convex.mutation(api.sessions.updateLastMessage, {
+              id: sessionId as Id<"sessions">,
+              activityLog: accumulated,
+            });
+          },
+        });
+
+        return {
+          text:
+            claudeResult.result ||
+            "I couldn't find an answer to your question.",
+          activityLog: claudeResult.activityLog,
+        };
+      });
+
+      await step.run("save-answer", async () => {
+        await convex.mutation(api.sessions.updateLastMessage, {
+          id: sessionId as Id<"sessions">,
+          content: result.text,
+          activityLog: result.activityLog || undefined,
         });
       });
 
@@ -169,15 +207,6 @@ CRITICAL response rules:
     }
 
     if (effectiveMode === "plan") {
-      await step.run("add-processing-message", async () => {
-        await convex.mutation(api.sessions.addMessage, {
-          id: sessionId as Id<"sessions">,
-          role: "assistant",
-          content: generatePlan ? "Generating implementation plan..." : "Thinking...",
-          mode: "plan",
-        });
-      });
-
       const sandboxData = await step.run("setup-sandbox", async () => {
         const githubToken = await getGitHubToken(installationId);
         const branchName = session.branchName || `session/${sessionId}`;
@@ -206,11 +235,20 @@ CRITICAL response rules:
         const conversationHistory = session.messages
           .filter((m) => m.mode === "plan")
           .slice(-10)
-          .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+          .map(
+            (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
+          )
           .join("\n\n");
 
         let prompt: string;
-        let allowedTools: ("Read" | "Write" | "Edit" | "Bash" | "Glob" | "Grep")[];
+        let allowedTools: (
+          | "Read"
+          | "Write"
+          | "Edit"
+          | "Bash"
+          | "Glob"
+          | "Grep"
+        )[];
 
         if (generatePlan) {
           prompt = `You are creating a detailed implementation plan based on a planning conversation.
@@ -267,33 +305,44 @@ ${message}
           allowedTools = ["Read", "Glob", "Grep"];
         }
 
-        const claudeResult = await runClaudeCLI(sandbox, prompt, {
-          model: "opus",
-          allowedTools,
-        });
-
-        return claudeResult.result || (generatePlan ? "Plan created successfully." : "I couldn't process your message.");
-      });
-
-      await step.run("update-session", async () => {
         await convex.mutation(api.sessions.addMessage, {
           id: sessionId as Id<"sessions">,
           role: "assistant",
-          content: result,
+          content: "",
           mode: "plan",
+          activityLog: "",
+        });
+        const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
+          model: "opus",
+          allowedTools,
+          onOutput: async (accumulated) => {
+            await convex.mutation(api.sessions.updateLastMessage, {
+              id: sessionId as Id<"sessions">,
+              activityLog: accumulated,
+            });
+          },
+        });
+
+        return {
+          text:
+            claudeResult.result ||
+            (generatePlan
+              ? "Plan created successfully."
+              : "I couldn't process your message."),
+          activityLog: claudeResult.activityLog,
+        };
+      });
+
+      await step.run("save-answer", async () => {
+        await convex.mutation(api.sessions.updateLastMessage, {
+          id: sessionId as Id<"sessions">,
+          content: result.text,
+          activityLog: result.activityLog || undefined,
         });
       });
 
       return { success: true };
     }
-
-    await step.run("add-processing-message", async () => {
-      await convex.mutation(api.sessions.addMessage, {
-        id: sessionId as Id<"sessions">,
-        role: "assistant",
-        content: "Processing your request...",
-      });
-    });
 
     const sandboxData = await step.run("setup-sandbox", async () => {
       const githubToken = await getGitHubToken(installationId);
@@ -352,13 +401,26 @@ ${message}
 - Use the repository's lockfile to determine the correct package manager
 - The GITHUB_TOKEN environment variable is set for git operations`;
 
-      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+      await convex.mutation(api.sessions.addMessage, {
+        id: sessionId as Id<"sessions">,
+        role: "assistant",
+        content: "",
+        activityLog: "",
+      });
+      const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+        onOutput: async (accumulated) => {
+          await convex.mutation(api.sessions.updateLastMessage, {
+            id: sessionId as Id<"sessions">,
+            activityLog: accumulated,
+          });
+        },
       });
 
       return {
         summary: claudeResult.result || "Task completed successfully.",
+        activityLog: claudeResult.activityLog,
         beforeHead,
         sandboxId: sandboxData.sandboxId,
       };
@@ -376,11 +438,11 @@ ${message}
       }
     });
 
-    await step.run("update-session", async () => {
-      await convex.mutation(api.sessions.addMessage, {
+    await step.run("save-answer", async () => {
+      await convex.mutation(api.sessions.updateLastMessage, {
         id: sessionId as Id<"sessions">,
-        role: "assistant",
         content: result.summary,
+        activityLog: result.activityLog || undefined,
       });
     });
 

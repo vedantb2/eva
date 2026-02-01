@@ -7,6 +7,7 @@ import { roleValidator, phaseValidator } from "./validators";
 const conversationMessageValidator = v.object({
   role: roleValidator,
   content: v.string(),
+  activityLog: v.optional(v.string()),
 });
 
 const projectValidator = v.object({
@@ -176,6 +177,7 @@ export const addMessage = mutation({
     id: v.id("projects"),
     role: roleValidator,
     content: v.string(),
+    activityLog: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -190,7 +192,7 @@ export const addMessage = mutation({
     await ctx.db.patch(args.id, {
       conversationHistory: [
         ...project.conversationHistory,
-        { role: args.role, content: args.content },
+        { role: args.role, content: args.content, activityLog: args.activityLog },
       ],
     });
     return null;
@@ -645,6 +647,27 @@ export const updateLastSandboxActivity = mutation({
       throw new Error("Project not found");
     }
     await ctx.db.patch(args.id, { lastSandboxActivity: Date.now() });
+    return null;
+  },
+});
+
+export const updateLastConversationMessage = mutation({
+  args: {
+    id: v.id("projects"),
+    content: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const project = await ctx.db.get(args.id);
+    if (!project) throw new Error("Project not found");
+    const messages = [...project.conversationHistory];
+    const last = messages[messages.length - 1];
+    if (!last) return null;
+    if (args.content !== undefined) last.content = args.content;
+    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
+    await ctx.db.patch(args.id, { conversationHistory: messages });
     return null;
   },
 });

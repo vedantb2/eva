@@ -31,8 +31,8 @@ export async function createSandbox(
       CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
       ...extraEnvVars,
     },
-    autoStopInterval: 60,
-    autoDeleteInterval: 480,
+    autoStopInterval: 30,
+    autoDeleteInterval: 60,
     ephemeral: ephemeral ? true : false,
   });
   await sandbox.process.executeCommand(
@@ -134,6 +134,7 @@ interface ClaudeCLIOptions {
 interface ClaudeCLIResult {
   result: string;
   isError: boolean;
+  activityLog: string;
 }
 
 export async function runClaudeCLI(
@@ -174,12 +175,162 @@ export async function runClaudeCLI(
       return {
         result: typeof result === "string" ? result : JSON.stringify(result),
         isError: Boolean(resultMsg.is_error),
+        activityLog: "",
       };
     }
   } catch {
     // Fall through
   }
-  return { result: output, isError: false };
+  return { result: output, isError: false, activityLog: "" };
+}
+
+interface StreamingClaudeCLIOptions extends ClaudeCLIOptions {
+  onOutput: (displayLog: string) => Promise<void>;
+  flushIntervalMs?: number;
+}
+
+function formatToolCall(name: string, input: Record<string, unknown>): string {
+  switch (name) {
+    case "Read": return `Reading ${input.file_path ?? "file"}`;
+    case "Glob": return `Searching files: ${input.pattern ?? ""}`;
+    case "Grep": return `Searching for: ${input.pattern ?? ""}`;
+    case "Write": return `Writing ${input.file_path ?? "file"}`;
+    case "Edit": return `Editing ${input.file_path ?? "file"}`;
+    case "Bash": return `Running: ${String(input.command ?? "").slice(0, 100)}`;
+    case "WebFetch": return `Fetching ${input.url ?? "URL"}`;
+    case "WebSearch": return `Searching web: ${input.query ?? ""}`;
+    case "Task": return `Running subtask: ${String(input.description ?? input.prompt ?? "").slice(0, 80)}`;
+    case "NotebookEdit": return `Editing notebook: ${input.notebook_path ?? "file"}`;
+    default: return `Using ${name}`;
+  }
+}
+
+function formatToolResult(content: unknown): string | null {
+  if (typeof content === "string") {
+    return content.length > 200 ? content.slice(0, 200) + "..." : content;
+  }
+  if (Array.isArray(content)) {
+    const text = content
+      .filter((b: Record<string, unknown>) => b.type === "text" && b.text)
+      .map((b: Record<string, unknown>) => String(b.text))
+      .join("\n");
+    if (!text) return null;
+    return text.length > 200 ? text.slice(0, 200) + "..." : text;
+  }
+  return null;
+}
+
+function formatStreamEvent(line: string): string | null {
+  try {
+    const event = JSON.parse(line);
+
+    if (event.type === "assistant") {
+      const parts: string[] = [];
+      for (const block of event.message?.content ?? []) {
+        if (block.type === "text" && block.text) parts.push(block.text);
+        if (block.type === "thinking" && block.thinking) parts.push(block.thinking);
+        if (block.type === "tool_use") parts.push(formatToolCall(block.name, block.input ?? {}));
+      }
+      return parts.length > 0 ? parts.join("\n") : null;
+    }
+
+    if (event.type === "user") {
+      const parts: string[] = [];
+      for (const block of event.message?.content ?? []) {
+        if (block.type === "tool_result") {
+          const result = formatToolResult(block.content);
+          if (result) parts.push(result);
+        }
+      }
+      return parts.length > 0 ? parts.join("\n") : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function runClaudeCLIStreaming(
+  sandbox: Sandbox,
+  prompt: string,
+  options: StreamingClaudeCLIOptions,
+): Promise<ClaudeCLIResult> {
+  const {
+    model = "sonnet",
+    allowedTools = ["Read", "Glob", "Grep"],
+    workDir = WORKSPACE_DIR,
+    timeout = 300,
+    onOutput,
+    flushIntervalMs = 500,
+  } = options;
+
+  const escapedPrompt = quote([prompt]);
+  const toolsArg =
+    allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
+  const outputFile = `/tmp/claude-stream-${Date.now()}.jsonl`;
+
+  let displayLog = "";
+  let processedLines = 0;
+  let polling = true;
+
+  const interval = setInterval(async () => {
+    if (!polling) return;
+    try {
+      const fileResult = await sandbox.process.executeCommand(
+        `cat ${outputFile} 2>/dev/null || true`,
+        "/", undefined, 5,
+      );
+      const content = fileResult.result || "";
+      const lines = content.split("\n");
+      let changed = false;
+      for (let i = processedLines; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const formatted = formatStreamEvent(lines[i]);
+        if (formatted) {
+          displayLog += (displayLog ? "\n" : "") + formatted;
+          changed = true;
+        }
+      }
+      processedLines = lines.length;
+      if (changed) await onOutput(displayLog).catch(() => {});
+    } catch {
+      // polling failed, ignore
+    }
+  }, flushIntervalMs);
+
+  let cmdOutput = "";
+  try {
+    const cmdResult = await sandbox.process.executeCommand(
+      `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json 2>&1 | stdbuf -oL tee ${outputFile}`,
+      "/", undefined, timeout,
+    );
+    cmdOutput = (cmdResult.result || "").trim();
+  } finally {
+    polling = false;
+    clearInterval(interval);
+    await sandbox.process.executeCommand(
+      `rm -f ${outputFile}`, "/", undefined, 5,
+    ).catch(() => {});
+  }
+
+  const lines = cmdOutput.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(lines[i]);
+      if (parsed.type === "result") {
+        const result = parsed.result ?? "";
+        return {
+          result: typeof result === "string" ? result : JSON.stringify(result),
+          isError: Boolean(parsed.is_error),
+          activityLog: displayLog,
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return { result: cmdOutput, isError: false, activityLog: displayLog };
 }
 
 export function extractJsonFromText(text: string): string | null {

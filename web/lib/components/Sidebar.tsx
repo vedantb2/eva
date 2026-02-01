@@ -189,7 +189,7 @@ export function Sidebar() {
       >
         <div className="flex flex-col h-full">
           <div
-            className={`flex items-center h-14 border-b border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
+            className={`flex items-center h-14 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
           >
             <Link
               href="/"
@@ -227,7 +227,7 @@ export function Sidebar() {
           </div>
 
           <nav
-            className={`flex-1 py-4 overflow-y-auto scrollbar flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
+            className={`flex-1 pt-2 pb-4 overflow-y-auto scrollbar flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
           >
             <div>
               {repoSlug && repoFullName && (

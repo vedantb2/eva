@@ -104,7 +104,7 @@ export default function ResearchLayout({
 
   const sidebar = (
     <>
-      <div className="px-3 pt-6 pb-3">
+      <div className="p-3">
         <Input
           placeholder="Search queries..."
           startContent={<IconSearch size={16} className="text-default-400" />}

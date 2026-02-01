@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Spinner } from "@heroui/spinner";
 import { Card, CardBody } from "@heroui/card";
+import { Input } from "@heroui/input";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -22,6 +23,7 @@ import {
   IconCode,
   IconFolderSearch,
   IconAlertCircle,
+  IconArrowBack,
 } from "@tabler/icons-react";
 import { ProjectContextTab } from "./ProjectContextTab";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -59,7 +61,7 @@ interface ProjectPlanTabProps {
   repoSlug: string;
   repoId: Id<"githubRepos">;
   installationId: number;
-  onStartInterview: () => void;
+  onRejectSpec: (reason: string) => void;
 }
 
 export function ProjectPlanTab({
@@ -69,7 +71,7 @@ export function ProjectPlanTab({
   repoSlug,
   repoId,
   installationId,
-  onStartInterview,
+  onRejectSpec,
 }: ProjectPlanTabProps) {
   const { repo } = useRepo();
   const codebaseIndex = repo.codebaseIndex;
@@ -81,6 +83,8 @@ export function ProjectPlanTab({
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
   const [showIndexModal, setShowIndexModal] = useState(false);
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   const parsedSpec = (() => {
     if (!generatedSpec) return null;
@@ -160,9 +164,9 @@ export function ProjectPlanTab({
           Complete the interview in the Chat tab to generate a structured
           implementation plan.
         </p>
-        <Button color="primary" onPress={onStartInterview}>
-          Go to Chat
-        </Button>
+        <p className="text-sm text-default-400">
+          The AI will generate a plan automatically during the interview.
+        </p>
       </div>
     );
   }
@@ -291,23 +295,56 @@ export function ProjectPlanTab({
         </div>
 
         {!isLocked && (
-          <div className="flex gap-3 pt-4 border-t border-divider">
-            <Button
-              variant="flat"
-              startContent={<IconMessageQuestion size={18} />}
-              onPress={onStartInterview}
-              isDisabled={isLoading}
-            >
-              Interview More
-            </Button>
-            <Button
-              color="primary"
-              startContent={<IconRocket size={18} />}
-              onPress={handleStartDevelopment}
-              isLoading={isLoading}
-            >
-              Start Development
-            </Button>
+          <div className="space-y-3 pt-4 border-t border-divider">
+            {showRejectInput ? (
+              <div className="flex gap-2">
+                <Input
+                  size="sm"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="What's missing from this plan?"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && rejectReason.trim()) {
+                      onRejectSpec(rejectReason.trim());
+                      setRejectReason("");
+                      setShowRejectInput(false);
+                    }
+                  }}
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  color="primary"
+                  isDisabled={!rejectReason.trim()}
+                  onPress={() => {
+                    onRejectSpec(rejectReason.trim());
+                    setRejectReason("");
+                    setShowRejectInput(false);
+                  }}
+                >
+                  Submit
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button
+                  variant="flat"
+                  startContent={<IconArrowBack size={18} />}
+                  onPress={() => setShowRejectInput(true)}
+                  isDisabled={isLoading}
+                >
+                  Keep Interviewing
+                </Button>
+                <Button
+                  color="primary"
+                  startContent={<IconRocket size={18} />}
+                  onPress={handleStartDevelopment}
+                  isLoading={isLoading}
+                >
+                  Accept Plan
+                </Button>
+              </div>
+            )}
           </div>
         )}
         {isLocked && (

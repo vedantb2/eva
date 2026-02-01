@@ -29,7 +29,7 @@ export function PageWrapper({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
-      <div className="relative p-4 pb-[15px] flex items-center gap-3">
+      <div className="relative p-4 py-3 flex items-center gap-3">
         {showBack && (
           <Button
             size="sm"
@@ -46,7 +46,7 @@ export function PageWrapper({
           </Button>
         )}
         {title && (
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {title}
           </h1>
         )}

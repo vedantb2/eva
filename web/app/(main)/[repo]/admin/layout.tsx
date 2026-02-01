@@ -25,7 +25,7 @@ export default function AdminLayout({
     <SidebarLayoutWrapper
       title="Admin"
       sidebar={
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 px-2 py-4 space-y-1">
           {navigation.map((item) => {
             const isActive =
               pathname === item.href ||

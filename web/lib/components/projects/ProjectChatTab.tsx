@@ -13,7 +13,6 @@ import {
   MC_FOLLOWUP_QUESTIONS,
 } from "@/lib/prompts/planPrompts";
 import {
-  IconSparkles,
   IconTrash,
   IconPlayerPlay,
   IconCode,
@@ -66,13 +65,9 @@ export function ProjectChatTab({
   const [hasStarted, setHasStarted] = useState(initialMessages.length > 1);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingQuestionRequest, setPendingQuestionRequest] = useState(false);
-  const [pendingSpecRequest, setPendingSpecRequest] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
-  const minQuestions = 3;
-  const maxQuestions = 10;
   const questionList = isInterview
     ? MC_FOLLOWUP_QUESTIONS
     : MC_INITIAL_QUESTIONS;
@@ -89,16 +84,14 @@ export function ProjectChatTab({
       const newMessage = initialMessages[initialMessages.length - 1];
       if (newMessage.role === "assistant") {
         setIsLoading(false);
-        setPendingQuestionRequest(false);
 
         try {
           const parsed = JSON.parse(newMessage.content);
           if (parsed.title && parsed.tasks) {
-            setPendingSpecRequest(false);
             onSpecGenerated?.(newMessage.content);
           }
         } catch {
-          // Not a spec, just a regular message
+          // Not a spec
         }
       }
     }
@@ -135,13 +128,10 @@ export function ProjectChatTab({
 
   const askQuestion = useCallback(
     async (questionIndex: number, currentAnswers: AnswerRecord[]) => {
-      if (questionIndex >= maxQuestions) return;
-
       const questionTemplate =
         questionList[questionIndex % questionList.length];
 
       setIsLoading(true);
-      setPendingQuestionRequest(true);
 
       await fetch("/api/inngest/send", {
         method: "POST",
@@ -187,34 +177,7 @@ export function ProjectChatTab({
     setAnswers(updatedAnswers);
 
     await addMessageDb({ id: projectId, role: "user", content: answer });
-
-    const nextQuestionIndex = questionCount;
-    if (nextQuestionIndex < maxQuestions) {
-      askQuestion(nextQuestionIndex, updatedAnswers);
-    }
-  };
-
-  const handleGenerateSpec = async () => {
-    const specPrompt = "Generate implementation spec based on answers";
-    await addMessageDb({ id: projectId, role: "user", content: specPrompt });
-
-    setIsLoading(true);
-    setPendingSpecRequest(true);
-
-    await fetch("/api/inngest/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "project/interview.spec",
-        data: {
-          projectId,
-          repoId,
-          installationId,
-          featureDescription: rawInput,
-          answers,
-        },
-      }),
-    });
+    askQuestion(questionCount, updatedAnswers);
   };
 
   const handleClearChat = async () => {
@@ -222,14 +185,10 @@ export function ProjectChatTab({
     setHasStarted(false);
     setAnswers([]);
     setIsLoading(false);
-    setPendingQuestionRequest(false);
-    setPendingSpecRequest(false);
   };
 
-  const canGenerateSpec = questionCount >= minQuestions;
-
   const currentQuestion: ParsedQuestion | null = (() => {
-    if (isLoading || pendingQuestionRequest || pendingSpecRequest) return null;
+    if (isLoading) return null;
     const lastAssistantMsg = [...initialMessages]
       .reverse()
       .find((m) => m.role === "assistant");
@@ -250,11 +209,7 @@ export function ProjectChatTab({
     .find((m) => m.role === "user");
   const waitingForResponse =
     lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
-  const showQuestion =
-    currentQuestion &&
-    !pendingSpecRequest &&
-    questionCount <= maxQuestions &&
-    !waitingForResponse;
+  const showQuestion = currentQuestion && !waitingForResponse;
 
   if (isIndexing && !hasStarted && !isLocked) {
     return (
@@ -317,9 +272,8 @@ export function ProjectChatTab({
         </h3>
         <p className="text-sm text-default-500 mb-6 max-w-md">
           Click the button below to start answering questions about your
-          project. The AI will ask up to {maxQuestions} multiple choice
-          questions to understand your requirements. You can generate a plan
-          after {minQuestions} questions.
+          project. The AI will ask multiple choice questions to understand your
+          requirements, then automatically generate a plan when ready.
         </p>
         <Button
           color="primary"
@@ -360,7 +314,7 @@ export function ProjectChatTab({
                 );
               }
             } catch {
-              // Not parseable JSON, fall through to raw display
+              // Not parseable JSON
             }
             return (
               <ChatMessage
@@ -374,14 +328,10 @@ export function ProjectChatTab({
             <ChatMessage key={`msg-${i}`} role="user" content={m.content} />
           );
         })}
-        {(isLoading || (waitingForResponse && pendingQuestionRequest)) && (
+        {(isLoading || waitingForResponse) && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
-            <span className="text-sm text-default-500">
-              {pendingSpecRequest
-                ? "Generating plan..."
-                : "Generating question..."}
-            </span>
+            <span className="text-sm text-default-500">Thinking...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -399,36 +349,22 @@ export function ProjectChatTab({
               onAnswer={handleAnswer}
               isLoading={isLoading}
               questionNumber={questionCount}
-              totalQuestions={maxQuestions}
             />
           )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">
-            Questions: {questionCount}/{maxQuestions} (min {minQuestions})
+            Questions answered: {questionCount}
           </span>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="flat"
-              color="danger"
-              startContent={<IconTrash size={16} />}
-              onPress={handleClearChat}
-              isDisabled={isLoading || isLocked || initialMessages.length === 0}
-            >
-              Clear
-            </Button>
-            {canGenerateSpec && (
-              <Button
-                size="sm"
-                color="success"
-                startContent={<IconSparkles size={16} />}
-                onPress={handleGenerateSpec}
-                isDisabled={isLoading || isLocked}
-              >
-                Generate Plan
-              </Button>
-            )}
-          </div>
+          <Button
+            size="sm"
+            variant="flat"
+            color="danger"
+            startContent={<IconTrash size={16} />}
+            onPress={handleClearChat}
+            isDisabled={isLoading || isLocked || initialMessages.length === 0}
+          >
+            Clear
+          </Button>
         </div>
       </div>
     </div>

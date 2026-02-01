@@ -118,7 +118,7 @@ export default function SessionsLayout({
 
   const sidebar = (
     <>
-      <div className="px-3 pt-6 pb-3">
+      <div className="p-3">
         <Input
           placeholder="Search sessions..."
           size="sm"

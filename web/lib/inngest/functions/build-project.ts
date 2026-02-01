@@ -46,7 +46,7 @@ export const buildProject = inngest.createFunction(
 
       const completionEvent = await step.waitForEvent(`wait-task-${i}`, {
         event: "task/execute.completed",
-        match: "data.taskId",
+        if: `async.data.taskId == '${task._id}'`,
         timeout: "15m",
       });
 

@@ -85,3 +85,10 @@ export const notificationTypeValidator = v.union(
 );
 
 export const roleUserValidator = v.union(v.literal("business"), v.literal("dev"));
+
+export const reportStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("analyzing"),
+  v.literal("completed"),
+  v.literal("error")
+);

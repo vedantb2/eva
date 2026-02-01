@@ -12,6 +12,7 @@ import {
   sessionExecute,
   startSandbox,
   stopSandbox,
+  analyzeTagReport,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -28,5 +29,6 @@ export const { GET, POST, PUT } = serve({
     sessionExecute,
     startSandbox,
     stopSandbox,
+    analyzeTagReport,
   ],
 });

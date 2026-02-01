@@ -14,6 +14,7 @@ import {
   requirementNotMetValidator,
   notificationTypeValidator,
   roleUserValidator,
+  reportStatusValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -258,6 +259,7 @@ const schema = defineSchema({
   reports: defineTable({
     repoId: v.id("githubRepos"),
     tagId: v.string(),
+    status: reportStatusValidator,
     generatedAt: v.number(),
     analysisResults: v.object({
       issueCategories: v.array(
@@ -295,6 +297,36 @@ const schema = defineSchema({
         runSuccessRate: v.number(),
       }),
     }),
+    aiInsights: v.optional(
+      v.object({
+        summary: v.string(),
+        topIssueCategories: v.array(
+          v.object({
+            category: v.string(),
+            description: v.string(),
+            count: v.number(),
+            severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+            examples: v.array(v.string()),
+          })
+        ),
+        commonErrorPatterns: v.array(
+          v.object({
+            pattern: v.string(),
+            description: v.string(),
+            frequency: v.number(),
+            suggestedFix: v.optional(v.string()),
+          })
+        ),
+        temporalTrends: v.array(
+          v.object({
+            trend: v.string(),
+            description: v.string(),
+          })
+        ),
+        recommendations: v.array(v.string()),
+      })
+    ),
+    error: v.optional(v.string()),
     workItemCounts: v.object({
       totalTasks: v.number(),
       activeTasks: v.number(),

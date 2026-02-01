@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id, Doc } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
-import { taskStatusValidator } from "./validators";
+import { taskStatusValidator, reportStatusValidator } from "./validators";
 
 // --- Validators ---
 
@@ -61,13 +61,44 @@ const metadataValidator = v.optional(
   })
 );
 
+const aiInsightsValidator = v.object({
+  summary: v.string(),
+  topIssueCategories: v.array(
+    v.object({
+      category: v.string(),
+      description: v.string(),
+      count: v.number(),
+      severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+      examples: v.array(v.string()),
+    })
+  ),
+  commonErrorPatterns: v.array(
+    v.object({
+      pattern: v.string(),
+      description: v.string(),
+      frequency: v.number(),
+      suggestedFix: v.optional(v.string()),
+    })
+  ),
+  temporalTrends: v.array(
+    v.object({
+      trend: v.string(),
+      description: v.string(),
+    })
+  ),
+  recommendations: v.array(v.string()),
+});
+
 const reportValidator = v.object({
   _id: v.id("reports"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
   tagId: v.string(),
+  status: reportStatusValidator,
   generatedAt: v.number(),
   analysisResults: analysisResultsValidator,
+  aiInsights: v.optional(aiInsightsValidator),
+  error: v.optional(v.string()),
   workItemCounts: workItemCountsValidator,
   metadata: metadataValidator,
   createdAt: v.number(),
@@ -347,6 +378,7 @@ export const createReport = mutation({
     const reportId = await ctx.db.insert("reports", {
       repoId: args.repoId,
       tagId: args.tagId,
+      status: "pending",
       generatedAt: now,
       analysisResults: {
         issueCategories,
@@ -375,6 +407,48 @@ export const createReport = mutation({
     });
 
     return reportId;
+  },
+});
+
+export const updateReportStatus = mutation({
+  args: {
+    id: v.id("reports"),
+    status: reportStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) throw new Error("Report not found");
+    await ctx.db.patch(args.id, { status: args.status });
+  },
+});
+
+export const completeReportAnalysis = mutation({
+  args: {
+    id: v.id("reports"),
+    aiInsights: aiInsightsValidator,
+  },
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) throw new Error("Report not found");
+    await ctx.db.patch(args.id, {
+      status: "completed",
+      aiInsights: args.aiInsights,
+    });
+  },
+});
+
+export const failReportAnalysis = mutation({
+  args: {
+    id: v.id("reports"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.id);
+    if (!report) throw new Error("Report not found");
+    await ctx.db.patch(args.id, {
+      status: "error",
+      error: args.error,
+    });
   },
 });
 

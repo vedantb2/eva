@@ -50,7 +50,7 @@ export function MultipleChoiceQuestion({
         {question}
       </p>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         {options.map((option, idx) => {
           const isSelected = selected === option.label;
           const letter = optionLetters[idx] ?? String(idx + 1);

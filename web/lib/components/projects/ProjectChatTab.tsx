@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button } from "@heroui/button";
 import { Spinner } from "@heroui/spinner";
 import { useMutation } from "convex/react";
@@ -59,17 +59,35 @@ export function ProjectChatTab({
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [hasStarted, setHasStarted] = useState(initialMessages.length > 1);
-  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
+  const hasStarted = initialMessages.length > 0 || isLoading;
 
   const assistantMessages = initialMessages.filter(
     (m) => m.role === "assistant",
   );
   const questionCount = assistantMessages.length;
+
+  const answers = useMemo(() => {
+    const result: AnswerRecord[] = [];
+    for (let i = 0; i < initialMessages.length - 1; i++) {
+      const msg = initialMessages[i];
+      const nextMsg = initialMessages[i + 1];
+      if (msg.role === "assistant" && nextMsg?.role === "user") {
+        try {
+          const parsed = JSON.parse(msg.content);
+          if (parsed.question) {
+            result.push({ question: parsed.question, answer: nextMsg.content });
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    return result;
+  }, [initialMessages]);
 
   useEffect(() => {
     if (initialMessages.length > prevMessagesLengthRef.current) {
@@ -94,30 +112,6 @@ export function ProjectChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialMessages]);
 
-  useEffect(() => {
-    if (initialMessages.length > 0) {
-      const parsedAnswers: AnswerRecord[] = [];
-      for (let i = 0; i < initialMessages.length - 1; i++) {
-        const msg = initialMessages[i];
-        const nextMsg = initialMessages[i + 1];
-        if (msg.role === "assistant" && nextMsg?.role === "user") {
-          try {
-            const parsed = JSON.parse(msg.content);
-            if (parsed.question) {
-              parsedAnswers.push({
-                question: parsed.question,
-                answer: nextMsg.content,
-              });
-            }
-          } catch {
-            continue;
-          }
-        }
-      }
-      setAnswers(parsedAnswers);
-    }
-  }, []);
-
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
@@ -140,9 +134,7 @@ export function ProjectChatTab({
     [projectId, repoId, installationId, rawInput],
   );
 
-  const handleStartInterview = async () => {
-    setHasStarted(true);
-    // await addMessageDb({ id: projectId, role: "user", content: rawInput });
+  const handleStartInterview = () => {
     askQuestion([]);
   };
 
@@ -160,9 +152,7 @@ export function ProjectChatTab({
       }
     }
 
-    const newAnswer = { question: currentQuestion, answer };
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
+    const updatedAnswers = [...answers, { question: currentQuestion, answer }];
 
     await addMessageDb({ id: projectId, role: "user", content: answer });
     askQuestion(updatedAnswers);
@@ -170,8 +160,6 @@ export function ProjectChatTab({
 
   const handleClearChat = async () => {
     await clearMessagesDb({ id: projectId });
-    setHasStarted(false);
-    setAnswers([]);
     setIsLoading(false);
     onClear?.();
   };
@@ -196,11 +184,8 @@ export function ProjectChatTab({
     return null;
   })();
 
-  const lastUserMsg = [...initialMessages]
-    .reverse()
-    .find((m) => m.role === "user");
   const waitingForResponse =
-    lastUserMsg && initialMessages[initialMessages.length - 1]?.role === "user";
+    initialMessages.length > 0 && initialMessages[initialMessages.length - 1]?.role === "user";
   const showQuestion = currentQuestion && !waitingForResponse;
 
   if (!hasStarted && !isLocked) {

@@ -7,11 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Root-level commands (from repo root):**
 
 ```bash
-pnpm dev          # Start web dev server (Next.js with Turbopack)
-pnpm convex       # Start Convex backend dev server
-pnpm convex:deploy # Deploy Convex backend
-pnpm inngest      # Start Inngest dev server for background jobs
-pnpm api:web      # Generate Convex API types for web
+pnpm dev            # Start web dev server (Next.js with Turbopack)
+pnpm convex         # Start Convex backend dev server
+pnpm convex:deploy  # Deploy Convex backend
+pnpm inngest        # Start Inngest dev server for background jobs
+pnpm api:web        # Generate Convex API types for web
+pnpm api:ext        # Generate Convex API types for chrome-extension
+pnpm ext:dev        # Start chrome extension dev server
+pnpm ext:build      # Build chrome extension
 ```
 
 **Web-specific commands (from /web):**
@@ -37,10 +40,11 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo with three apps:
+This is a monorepo with four apps:
 
 - **web/** - Next.js 15 frontend (App Router, Turbopack)
 - **backend/** - Convex serverless backend (real-time database + API)
+- **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
 - **mobile/** - Expo/React Native app (NativeWind for styling)
 
 ### Tech Stack
@@ -57,10 +61,13 @@ This is a monorepo with three apps:
 web/
 ├── app/              # Next.js App Router pages
 │   ├── (main)/       # Protected routes requiring auth
-│   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analytics, admin)
+│   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analyse, admin, docs, quick-tasks, testing-arena)
 │   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
-│   └── api/          # Route handlers (chat, execute-task, github, inngest, sessions)
+│   └── api/          # Route handlers
+│       ├── github/   # GitHub branches, installation-token, repos
+│       ├── inngest/  # Inngest webhook + manual trigger
+│       └── sessions/ # Preview (WebSocket) and terminal (PTY) endpoints
 ├── lib/
 │   ├── components/   # Reusable UI components
 │   ├── contexts/     # React contexts (Theme, Repo, Sidebar)
@@ -87,23 +94,28 @@ backend/convex/
 - **boards** - Kanban boards linked to GitHub repos
 - **columns** - Board columns (todo, in_progress, code_review, done)
 - **agentTasks** - Work items with status, branch names, GitHub links
+- **subtasks** - Sub-items within tasks
+- **taskComments** / **taskDependencies** / **taskProof** - Task metadata
 - **agentRuns** - Task execution history with logs
 - **projects** - Development projects with phases (draft → finalized → active → completed)
 - **sessions** - Interactive Claude Code chat sessions with sandbox
 - **docs** - Repository documentation
-- **researchQueries** - Analytics queries with AI-generated insights
 - **evaluationReports** - Doc evaluation results with requirements tracking
+- **researchQueries** / **savedQueries** - Analytics queries with AI-generated insights
+- **routines** - Scheduled automation routines
+- **users** / **userMigrations** - User accounts with Clerk integration
+- **githubRepos** - GitHub repository references
+- **notifications** - User notifications
+- **annotations** - Chrome extension annotations/highlights
 
 ### Inngest Background Jobs
 
 Located in `web/lib/inngest/functions/`:
 - **execute-task** - Runs agent tasks in Daytona sandbox
-- **execute-session-task** - Executes commands within a session sandbox
-- **ask-session** / **plan-session** - Session AI interactions
-- **start-sandbox** - Initializes Daytona sandbox for sessions
-- **cleanup-session** / **cleanup-project-sandbox** - Tears down inactive sandboxes
-- **create-session-pr** - Creates GitHub PRs from session changes
-- **index-codebase** - Indexes repo for project planning
+- **session-execute** - Executes commands within a session sandbox
+- **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
+- **summarize-session** - Summarizes session history
+- **cleanup-project-sandbox** - Tears down inactive project sandboxes
 - **execute-research-query** - Runs analytics queries with AI
 - **interview-question** / **interview-spec** / **interview-chat** - Project interview workflow
 - **evaluate-doc** - Evaluates documentation against requirements

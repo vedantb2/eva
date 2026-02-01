@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Progress } from "@heroui/progress";
-import { IconSend, IconCheck, IconPencil } from "@tabler/icons-react";
+import { Card, CardBody } from "@heroui/card";
+import { Chip } from "@heroui/chip";
+import { IconCheck, IconPencil, IconArrowRight } from "@tabler/icons-react";
 
 interface MultipleChoiceQuestionProps {
   question: string;
@@ -42,103 +44,137 @@ export function MultipleChoiceQuestion({
   const canSubmit = isOther ? customAnswer.trim().length > 0 : selected.length > 0;
   const showProgress = questionNumber !== undefined && totalQuestions !== undefined;
   const progressValue = showProgress ? (questionNumber / totalQuestions) * 100 : 0;
+  const optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {showProgress && (
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-default-500">
-            <span>Question {questionNumber} of {totalQuestions}</span>
-            <span>{Math.round(progressValue)}%</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <Chip size="sm" variant="flat" classNames={{ content: "text-[11px] font-medium tracking-widest uppercase px-0" }}>
+            {questionNumber}/{totalQuestions}
+          </Chip>
           <Progress
             value={progressValue}
             size="sm"
-            color="primary"
-            classNames={{ indicator: "bg-gradient-to-r from-primary-400 to-primary-600" }}
+            classNames={{
+              track: "h-1",
+              indicator: "bg-gradient-to-r from-primary-400 to-primary-600",
+            }}
           />
+          <span className="text-[11px] font-medium tabular-nums text-default-400">
+            {Math.round(progressValue)}%
+          </span>
         </div>
       )}
-      <p className="font-medium text-default-800">{question}</p>
-      <div className="grid grid-cols-2 gap-2">
+
+      <p className="text-[15px] font-semibold leading-snug text-default-800 dark:text-default-200">
+        {question}
+      </p>
+
+      <div className="flex flex-col gap-1.5">
         {options.map((option, idx) => {
           const isSelected = selected === option;
+          const letter = optionLetters[idx] ?? String(idx + 1);
           return (
-            <button
+            <Card
               key={`${option}-${idx}`}
-              type="button"
-              disabled={isLoading}
-              onClick={() => setSelected(option)}
-              className={`
-                text-left px-3 py-3 rounded-lg border-2 transition-all duration-150
-                flex items-start gap-2 text-sm
-                ${isSelected
-                  ? "border-primary bg-primary-50 dark:bg-primary-900/20"
-                  : "border-default-200 dark:border-default-700 hover:border-default-400 dark:hover:border-default-500 hover:bg-default-50 dark:hover:bg-default-800/50"
-                }
-                ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-              `}
+              isPressable
+              isDisabled={isLoading}
+              shadow="none"
+              onPress={() => setSelected(option)}
+              classNames={{
+                base: `transition-all duration-200 ${
+                  isSelected
+                    ? "border-primary/60 bg-primary-50/80 dark:bg-primary-900/15 ring-1 ring-primary/20"
+                    : "border-transparent bg-default-50 dark:bg-default-800/40 hover:bg-default-100 dark:hover:bg-default-800/70"
+                }`,
+              }}
             >
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${isSelected ? "border-primary bg-primary" : "border-default-300 dark:border-default-600"}`}>
-                {isSelected && <IconCheck size={10} className="text-white" />}
-              </div>
-              <span className={isSelected ? "text-primary-700 dark:text-primary-300" : "text-default-700 dark:text-default-300"}>
-                {option}
-              </span>
-            </button>
+              <CardBody className="flex-row items-center gap-3 py-2.5 px-3">
+                <span
+                  className={`
+                    w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0
+                    text-[11px] font-bold tracking-wide transition-all duration-200
+                    ${isSelected
+                      ? "bg-primary text-white shadow-sm"
+                      : "bg-default-200/70 dark:bg-default-700/50 text-default-500 dark:text-default-400"
+                    }
+                  `}
+                >
+                  {isSelected ? <IconCheck size={13} strokeWidth={3} /> : letter}
+                </span>
+                <span className={`flex-1 text-sm leading-snug ${isSelected ? "text-primary-700 dark:text-primary-300 font-medium" : "text-default-700 dark:text-default-300"}`}>
+                  {option}
+                </span>
+              </CardBody>
+            </Card>
           );
         })}
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={() => setSelected("other")}
-          className={`
-            text-left px-3 py-3 rounded-lg border-2 transition-all duration-150 text-sm
-            ${options.length % 2 === 0 ? "col-span-2" : ""}
-            ${isOther
-              ? "border-primary bg-primary-50 dark:bg-primary-900/20"
-              : "border-default-200 dark:border-default-700 hover:border-default-400 dark:hover:border-default-500 hover:bg-default-50 dark:hover:bg-default-800/50"
-            }
-            ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-          `}
+
+        <Card
+          isPressable
+          isDisabled={isLoading}
+          shadow="none"
+          onPress={() => setSelected("other")}
+          classNames={{
+            base: `transition-all duration-200 ${
+              isOther
+                ? "border-primary/60 bg-primary-50/80 dark:bg-primary-900/15 ring-1 ring-primary/20"
+                : "border-transparent bg-default-50 dark:bg-default-800/40 hover:bg-default-100 dark:hover:bg-default-800/70"
+            }`,
+          }}
         >
-          <div className="flex items-center gap-2">
-            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isOther ? "border-primary bg-primary" : "border-default-300 dark:border-default-600"}`}>
-              {isOther && <IconCheck size={10} className="text-white" />}
-            </div>
-            <IconPencil size={14} className={isOther ? "text-primary" : "text-default-400"} />
-            <span className={isOther ? "text-primary-700 dark:text-primary-300" : "text-default-500"}>
-              Other...
-            </span>
-          </div>
-          {isOther && (
-            <div className="mt-2 pl-6" onClick={(e) => e.stopPropagation()}>
-              <Input
-                size="sm"
-                value={customAnswer}
-                onChange={(e) => setCustomAnswer(e.target.value)}
-                placeholder="Type your answer..."
-                isDisabled={isLoading}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && canSubmit && !isLoading) {
-                    handleSubmit();
+          <CardBody className="py-2.5 px-3">
+            <div className="flex items-center gap-3">
+              <span
+                className={`
+                  w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200
+                  ${isOther
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-default-200/70 dark:bg-default-700/50 text-default-500 dark:text-default-400"
                   }
-                }}
-              />
+                `}
+              >
+                {isOther ? <IconCheck size={13} strokeWidth={3} /> : <IconPencil size={13} />}
+              </span>
+              <span className={`flex-1 text-sm ${isOther ? "text-primary-700 dark:text-primary-300 font-medium" : "text-default-500"}`}>
+                Other...
+              </span>
             </div>
-          )}
-        </button>
+            {isOther && (
+              <div className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-200" onClick={(e) => e.stopPropagation()}>
+                <Input
+                  size="sm"
+                  value={customAnswer}
+                  onChange={(e) => setCustomAnswer(e.target.value)}
+                  placeholder="Type your answer..."
+                  isDisabled={isLoading}
+                  autoFocus
+                  classNames={{
+                    inputWrapper: "bg-white dark:bg-default-900/60 border border-default-200 dark:border-default-700 shadow-none",
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canSubmit && !isLoading) {
+                      handleSubmit();
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </CardBody>
+        </Card>
       </div>
+
       <Button
         color="primary"
         className="w-full"
+        radius="md"
         onPress={handleSubmit}
         isDisabled={!canSubmit || isLoading}
         isLoading={isLoading}
-        endContent={!isLoading && <IconSend size={16} />}
+        endContent={!isLoading && <IconArrowRight size={15} strokeWidth={2.5} />}
       >
-        Submit Answer
+        Submit
       </Button>
     </div>
   );

@@ -239,9 +239,13 @@ export async function getOrCreateSandbox(
   ephemeral?: boolean,
 ): Promise<Sandbox> {
   if (existingSandboxId) {
-    const sandbox = await daytona.get(existingSandboxId);
-    await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
-    return sandbox;
+    try {
+      const sandbox = await daytona.get(existingSandboxId);
+      await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+      return sandbox;
+    } catch {
+      // Sandbox was deleted/expired, fall through to create a new one
+    }
   }
   const sandbox = await createSandbox(githubToken, ephemeral);
   await syncRepo(sandbox, githubToken, repoOwner, repoName);

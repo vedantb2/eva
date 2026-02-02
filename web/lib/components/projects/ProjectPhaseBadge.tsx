@@ -29,7 +29,7 @@ export const phaseConfig: Record<
     icon: IconNotes,
   },
   finalized: {
-    bg: "bg-teal-200 dark:bg-teal-900/60",
+    bg: "bg-teal-200/80 dark:bg-teal-900/60",
     cardBg: "bg-white dark:bg-neutral-900",
     text: "text-teal-700 dark:text-teal-400",
     label: "Finalized",

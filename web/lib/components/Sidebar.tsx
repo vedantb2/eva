@@ -17,13 +17,13 @@ import {
   IconFileText,
   IconShield,
   IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
   IconFlask,
   IconHammer,
   IconTool,
   IconTestPipe,
   IconChartBar,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftCollapseFilled,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -38,6 +38,7 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Button,
 } from "@heroui/react";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 
@@ -154,12 +155,14 @@ export function Sidebar() {
   return (
     <>
       <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="p-2 -ml-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        <Button
+          isIconOnly
+          variant="light"
+          onPress={() => setMobileOpen(true)}
+          className="-ml-2"
         >
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
-        </button>
+        </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
           className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto`}
@@ -186,7 +189,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-neutral-100 dark:bg-neutral-950 transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
@@ -194,39 +197,43 @@ export function Sidebar() {
           <div
             className={`flex items-center h-14 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
           >
-            <Link
-              href={repoSlug ? `/${repoSlug}` : "/"}
-              className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
-            >
-              <Image
-                src="/icon.png"
-                alt="Eva"
-                width={30}
-                height={30}
-                className="rounded-full"
-              />
-              {!collapsed && (
+            {!collapsed && (
+              <Link
+                href={repoSlug ? `/${repoSlug}` : "/"}
+                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
+              >
+                <Image
+                  src="/icon.png"
+                  alt="Eva"
+                  width={30}
+                  height={30}
+                  className="rounded-full"
+                />
                 <span className="text-xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
                   Eva
                 </span>
-              )}
-            </Link>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              </Link>
+            )}
+            <Button
+              isIconOnly
+              variant="flat"
+              onPress={() => setMobileOpen(false)}
+              className="lg:hidden"
             >
               <IconX className="w-5 h-5 text-neutral-500" />
-            </button>
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className={`hidden lg:flex p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 ${collapsed ? "absolute right-2" : ""}`}
+            </Button>
+            <Button
+              isIconOnly
+              variant="light"
+              onPress={() => setCollapsed(!collapsed)}
+              className={`hidden lg:flex ${collapsed ? "absolute" : ""}`}
             >
               {collapsed ? (
-                <IconChevronRight className="w-5 h-5 text-neutral-500" />
+                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-teal-800 dark:text-teal-500" />
               ) : (
-                <IconChevronLeft className="w-5 h-5 text-neutral-500" />
+                <IconLayoutSidebarLeftCollapse className="size-5 text-teal-800 dark:text-teal-500" />
               )}
-            </button>
+            </Button>
           </div>
 
           <nav
@@ -236,19 +243,20 @@ export function Sidebar() {
               {repoSlug && repoFullName && (
                 <>
                   {!collapsed && (
-                    <div className="mb-4 space-y-2">
+                    <div className="mb-4 space-y-1">
                       <Dropdown>
                         <DropdownTrigger>
-                          <button
-                            className="flex items-center gap-2 w-full px-2 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                            type="button"
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            className="flex items-center gap-2 w-full"
                           >
                             <IconBrandGithub className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                             <span className="flex-1 text-left text-sm font-medium text-neutral-900 dark:text-white truncate">
                               {repoFullName}
                             </span>
                             <IconSelector className="w-4 h-4 text-neutral-500" />
-                          </button>
+                          </Button>
                         </DropdownTrigger>
                         <DropdownMenu
                           aria-label="Repository selection"
@@ -260,14 +268,13 @@ export function Sidebar() {
                               handleRepoSelect(selected);
                             }
                           }}
-                          className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg"
                         >
                           {(repos ?? []).map((r) => {
                             const rFullName = `${r.owner}/${r.name}`;
                             return (
                               <DropdownItem
                                 key={rFullName}
-                                className="px-3 py-2 text-sm text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                className="px-3 py-2 text-sm "
                                 startContent={
                                   <IconBrandGithub className="w-4 h-4 text-neutral-500" />
                                 }
@@ -317,7 +324,7 @@ export function Sidebar() {
                                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
                                       ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
-                                      : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
+                                      : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                                   }`}
                                 >
                                   <item.icon
@@ -361,7 +368,7 @@ export function Sidebar() {
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
                         ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
-                        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
+                        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
                     <span className="relative flex-shrink-0">

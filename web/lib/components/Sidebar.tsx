@@ -62,13 +62,8 @@ export function Sidebar() {
   };
 
   const repoSlug = useMemo(() => {
-    const match = pathname.match(
-      /^\/([^/]+)\/(projects|quick-tasks|sessions|docs|admin|analyse|testing-arena)/,
-    );
-    if (match) {
-      return match[1];
-    }
-    return null;
+    const match = pathname.match(/^\/([^/]+)/);
+    return match ? match[1] : null;
   }, [pathname]);
 
   const repoFullName = repoSlug ? decodeRepoSlug(repoSlug) : null;
@@ -166,7 +161,7 @@ export function Sidebar() {
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </button>
         <Link
-          href="/"
+          href={repoSlug ? `/${repoSlug}` : "/"}
           className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto`}
         >
           <Image
@@ -200,7 +195,7 @@ export function Sidebar() {
             className={`flex items-center h-14 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
           >
             <Link
-              href="/"
+              href={repoSlug ? `/${repoSlug}` : "/"}
               className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
             >
               <Image

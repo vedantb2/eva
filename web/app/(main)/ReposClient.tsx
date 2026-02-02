@@ -2,15 +2,46 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/api";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconBrandGithub, IconPlus, IconRefresh } from "@tabler/icons-react";
+import { IconBrandGithub, IconPlus, IconRefresh, IconX } from "@tabler/icons-react";
 import { syncGitHubRepos } from "./actions";
 
 const GITHUB_APP_NAME = "v-conductor-dev";
+const WELCOME_DISMISSED_KEY = "eva-welcome-dismissed";
+
+function WelcomeBanner() {
+  const [dismissed, setDismissed] = useState(true);
+
+  useEffect(() => {
+    setDismissed(localStorage.getItem(WELCOME_DISMISSED_KEY) === "true");
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <div className="mb-6 relative p-4 sm:p-5 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30 rounded-xl border border-teal-200 dark:border-teal-800">
+      <button
+        onClick={() => {
+          localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
+          setDismissed(true);
+        }}
+        className="absolute top-3 right-3 p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+      >
+        <IconX className="w-4 h-4" />
+      </button>
+      <h3 className="text-base font-semibold text-neutral-900 dark:text-white mb-1">
+        Say hello to Eva, your new coworker
+      </h3>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400 pr-6">
+        Eva helps you plan features, write code, run tasks, and manage your repositories — all from one place. Select a repo below to get started.
+      </p>
+    </div>
+  );
+}
 
 export function ReposClient() {
   const repos = useQuery(api.githubRepos.list);
@@ -58,6 +89,7 @@ export function ReposClient() {
         </div>
       }
     >
+        <WelcomeBanner />
         {repos === undefined ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
@@ -82,7 +114,7 @@ export function ReposClient() {
             {repos.map((repo) => (
               <Link
                 key={repo._id}
-                href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name) + "/projects"}
+                href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
                 className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-teal-300 dark:hover:border-teal-700 transition-all group"
               >
                 <div className="flex items-start gap-3">

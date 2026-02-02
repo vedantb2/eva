@@ -24,14 +24,14 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const autoSync = searchParams.get("auto") !== "false";
-  
+
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedRepos, setAddedRepos] = useState<Set<string>>(new Set());
   const syncedRef = useRef(false);
-  
+
   const createRepo = useMutation(api.githubRepos.create);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
   const handleAddAll = async () => {
     if (syncing) return;
     setSyncing(true);
-    
+
     for (const repo of repos) {
       if (!addedRepos.has(repo.fullName)) {
         try {
@@ -75,9 +75,9 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
         }
       }
     }
-    
+
     setSyncing(false);
-    router.push("/repos");
+    router.push("/");
   };
 
   if (loading || syncing) {
@@ -99,7 +99,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={() => router.push("/repos")}
+            onClick={() => router.push("/")}
             className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
           >
             Back to Repositories
@@ -169,7 +169,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
             Add All & Continue
           </button>
           <button
-            onClick={() => router.push("/repos")}
+            onClick={() => router.push("/")}
             className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-sm sm:text-base font-medium rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600"
           >
             Done

@@ -9,15 +9,14 @@ import { GenericId as Id } from "convex/values";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
+import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
-interface ConversationMessage {
+export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   activityLog?: string;
   userId?: string;
 }
-
-type ProjectPhase = "draft" | "finalized" | "active" | "completed";
 
 interface ProjectChatTabProps {
   projectId: Id<"projects">;
@@ -248,12 +247,26 @@ export function ProjectChatTab({
             try {
               const parsed = JSON.parse(m.content);
               if (parsed.question) {
+                let logs = m.activityLog;
+                const nextAssistant = initialMessages
+                  .slice(i + 1)
+                  .find((n) => n.role === "assistant" && n.content);
+                if (nextAssistant) {
+                  try {
+                    const np = JSON.parse(nextAssistant.content);
+                    if (np.title && np.tasks && nextAssistant.activityLog) {
+                      logs = [logs, nextAssistant.activityLog]
+                        .filter(Boolean)
+                        .join("\n\n");
+                    }
+                  } catch {}
+                }
                 return (
                   <ChatMessage
                     key={`msg-${i}`}
                     role="assistant"
                     content={parsed.question}
-                    logs={m.activityLog}
+                    logs={logs}
                   />
                 );
               }
@@ -263,7 +276,6 @@ export function ProjectChatTab({
                     key={`msg-${i}`}
                     role="assistant"
                     content={`Generated spec: ${parsed.title}`}
-                    logs={m.activityLog}
                   />
                 );
               }

@@ -82,7 +82,7 @@ export function ChatMessage({
                       content: "pt-0 overflow-hidden",
                     }}
                   >
-                    <pre className="text-xs whitespace-pre-wrap break-words text-default-500 max-h-60 overflow-y-auto">
+                    <pre className="text-xs whitespace-pre-wrap break-all text-default-500 max-h-60 overflow-y-auto w-0 min-w-full">
                       {logs}
                     </pre>
                   </AccordionItem>

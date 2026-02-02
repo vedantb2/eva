@@ -330,7 +330,7 @@ export function ChatPanel({
                                   content: "pb-2 overflow-hidden",
                                 }}
                               >
-                                <pre className="text-xs whitespace-pre-wrap break-words text-neutral-500 max-h-60 overflow-y-auto">
+                                <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
                                   {message.activityLog}
                                 </pre>
                               </AccordionItem>

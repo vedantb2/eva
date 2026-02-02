@@ -133,7 +133,7 @@ export function BranchSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800/50">
         <IconLoader2 className="w-4 h-4 text-neutral-400 animate-spin" />
         <span className="text-sm text-neutral-400">Loading branches...</span>
       </div>

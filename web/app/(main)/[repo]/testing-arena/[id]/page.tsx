@@ -6,14 +6,18 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
+import { Tabs, Tab } from "@heroui/tabs";
 import {
   IconPlayerPlay,
   IconCheck,
   IconX,
   IconChevronDown,
   IconChevronRight,
+  IconWorld,
+  IconCode,
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
+import { UITestingPanel } from "../UITestingPanel";
 
 interface EvaluationReport {
   _id: Id<"evaluationReports">;
@@ -201,6 +205,37 @@ function ReportCard({ report }: { report: EvaluationReport }) {
   );
 }
 
+function CodeTestingContent({
+  reports,
+}: {
+  reports: EvaluationReport[] | undefined;
+}) {
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto scrollbar p-4">
+        {reports === undefined ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-neutral-400">
+            <p className="text-sm">No test runs yet</p>
+            <p className="text-xs mt-1">
+              Click &quot;Run Test&quot; to evaluate this doc
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reports.map((report) => (
+              <ReportCard key={report._id} report={report} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TestingArenaDocPage({
   params,
 }: {
@@ -214,6 +249,7 @@ export default function TestingArenaDocPage({
     doc ? { docId: doc._id } : "skip",
   );
   const [isRunning, setIsRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("code");
 
   const handleRunTest = async () => {
     if (!doc) return;
@@ -250,38 +286,61 @@ export default function TestingArenaDocPage({
 
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
-          {doc.title}
-        </h2>
-        <Button
+      <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-700 flex flex-col gap-1">
+        <div className="flex items-center justify-between ">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
+            {doc.title}
+          </h2>
+          {activeTab === "code" ? (
+            <Button
+              size="sm"
+              color="primary"
+              startContent={<IconPlayerPlay size={16} />}
+              onPress={handleRunTest}
+              isLoading={isRunning}
+            >
+              Run Test
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              color="primary"
+              startContent={<IconPlayerPlay size={16} />}
+            >
+              Run Test
+            </Button>
+          )}
+        </div>
+        <Tabs
+          selectedKey={activeTab}
+          onSelectionChange={(key) => setActiveTab(key as string)}
           size="sm"
-          color="primary"
-          startContent={<IconPlayerPlay size={16} />}
-          onPress={handleRunTest}
-          isLoading={isRunning}
         >
-          Run Test
-        </Button>
+          <Tab
+            key="code"
+            title={
+              <div className="flex items-center gap-1.5">
+                <IconCode size={14} />
+                <span>Code Testing</span>
+              </div>
+            }
+          />
+          <Tab
+            key="ui"
+            title={
+              <div className="flex items-center gap-1.5">
+                <IconWorld size={14} />
+                <span>UI Testing</span>
+              </div>
+            }
+          />
+        </Tabs>
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar p-4">
-        {reports === undefined ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-neutral-400">
-            <p className="text-sm">No test runs yet</p>
-            <p className="text-xs mt-1">
-              Click &quot;Run Test&quot; to evaluate this doc
-            </p>
-          </div>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {activeTab === "code" ? (
+          <CodeTestingContent reports={reports} />
         ) : (
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <ReportCard key={report._id} report={report} />
-            ))}
-          </div>
+          <UITestingPanel />
         )}
       </div>
     </div>

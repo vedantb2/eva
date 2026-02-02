@@ -29,7 +29,7 @@ export function PageWrapper({
 
   return (
     <div className="flex-1 pl-1 overflow-hidden bg-neutral-100 dark:bg-neutral-950">
-      <div className="h-full flex flex-col overflow-hidden bg-white dark:bg-neutral-900 shadow-small rounded-l-3xl">
+      <div className="h-full flex flex-col overflow-hidden bg-white dark:bg-neutral-900 rounded-l-3xl">
         <div className="relative p-4 py-3 flex items-center gap-3">
           {showBack && (
             <Button

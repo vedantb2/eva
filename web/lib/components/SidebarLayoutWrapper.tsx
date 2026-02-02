@@ -18,7 +18,7 @@ export function SidebarLayoutWrapper({
 }: SidebarLayoutWrapperProps) {
   return (
     <div className="flex-1 pl-1 overflow-hidden bg-neutral-100 dark:bg-neutral-950">
-      <div className="h-full flex flex-row overflow-hidden bg-white dark:bg-neutral-900 shadow-small rounded-l-3xl">
+      <div className="h-full flex flex-row overflow-hidden bg-white dark:bg-neutral-900 rounded-l-3xl">
         <div className="w-72 border-r border-neutral-200 dark:border-neutral-800 flex flex-col bg-white dark:bg-neutral-900">
           <div className="p-4 pt-3 pb-2 flex items-center justify-between">
             <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">

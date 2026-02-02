@@ -3,20 +3,14 @@
 import { createContext, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
 import { decodeRepoSlug } from "@/lib/utils/repoUrl";
+import type { FunctionReturnType } from "convex/server";
 
-interface Repo {
-  _id: Id<"githubRepos">;
-  _creationTime: number;
-  owner: string;
-  name: string;
-  installationId: number;
-}
+type Repo = NonNullable<FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>>;
 
 interface RepoContextType {
   repo: Repo;
-  repoId: Id<"githubRepos">;
+  repoId: Repo["_id"];
   repoSlug: string;
   fullName: string;
   installationId: number;

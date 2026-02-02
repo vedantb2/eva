@@ -9,11 +9,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconArrowUp, IconMessageCircle } from "@tabler/icons-react";
-
-interface ConversationMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface ProjectChatAreaProps {
   projectId: Id<"projects">;

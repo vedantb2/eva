@@ -12,8 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
-import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
-import { Card, CardBody } from "@heroui/card";
+import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 import {
   SortableContext,
   useSortable,
@@ -29,13 +28,6 @@ import {
   DropdownItem,
 } from "@heroui/dropdown";
 import { IconFilter, IconSearch } from "@tabler/icons-react";
-
-type TaskStatus =
-  | "todo"
-  | "in_progress"
-  | "business_review"
-  | "code_review"
-  | "done";
 
 interface BaseTask {
   _id: string;

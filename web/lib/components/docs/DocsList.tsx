@@ -1,17 +1,14 @@
 "use client";
 
-import { GenericId as Id } from "convex/values";
 import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
 import { Input } from "@heroui/input";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import type { FunctionReturnType } from "convex/server";
+import { api } from "@/api";
 
-interface Doc {
-  _id: Id<"docs">;
-  title: string;
-  updatedAt: number;
-}
+type Doc = FunctionReturnType<typeof api.docs.list>[number];
 
 interface DocsListProps {
   docs: Doc[] | undefined;

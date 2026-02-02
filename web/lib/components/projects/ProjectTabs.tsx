@@ -4,17 +4,9 @@ import { useState, useCallback } from "react";
 import { GenericId as Id } from "convex/values";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { ProjectChatTab } from "./ProjectChatTab";
+import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
-
-interface ConversationMessage {
-  role: "user" | "assistant";
-  content: string;
-  activityLog?: string;
-  userId?: string;
-}
-
-type ProjectPhase = "draft" | "finalized" | "active" | "completed";
+import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;

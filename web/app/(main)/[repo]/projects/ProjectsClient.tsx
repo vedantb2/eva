@@ -40,7 +40,11 @@ import {
 } from "@heroui/modal";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
-type SortField = "created" | "title";
+const SORT_FIELDS = [
+  { key: "created" as const, label: "Date Created" },
+  { key: "title" as const, label: "Title" },
+];
+type SortField = (typeof SORT_FIELDS)[number]["key"];
 type SortDirection = "asc" | "desc";
 
 export function ProjectsClient() {
@@ -206,9 +210,11 @@ export function ProjectsClient() {
                     onSelectionChange={(keys) =>
                       setSortField(Array.from(keys)[0] as SortField)
                     }
+                    items={SORT_FIELDS}
                   >
-                    <DropdownItem key="created">Date Created</DropdownItem>
-                    <DropdownItem key="title">Title</DropdownItem>
+                    {(item) => (
+                      <DropdownItem key={item.key}>{item.label}</DropdownItem>
+                    )}
                   </DropdownMenu>
                 </Dropdown>
                 <Button

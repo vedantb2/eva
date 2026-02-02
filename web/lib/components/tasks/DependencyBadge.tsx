@@ -2,8 +2,7 @@
 
 import { cn } from "@/lib/utils/cn";
 import { IconLock, IconLockOpen } from "@tabler/icons-react";
-
-type TaskStatus = "todo" | "in_progress" | "business_review" | "code_review" | "done";
+import type { TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 
 interface DependencyBadgeProps {
   isBlocked: boolean;

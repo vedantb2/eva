@@ -27,17 +27,11 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
+import type { FunctionReturnType } from "convex/server";
 
-type SessionMode = "execute" | "ask" | "plan" | "flag";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: number;
-  mode?: SessionMode;
-  activityLog?: string;
-  userId?: string;
-}
+type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
+type Message = Session["messages"][number];
+type SessionMode = NonNullable<Message["mode"]>;
 
 interface ChatPanelProps {
   sessionId: string;

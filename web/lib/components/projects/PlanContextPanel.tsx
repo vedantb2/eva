@@ -10,12 +10,7 @@ import {
   IconUser,
   IconRobot,
 } from "@tabler/icons-react";
-import { Tooltip } from "@heroui/react";
-
-interface ConversationMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface PlanContextPanelProps {
   generatedSpec: string;

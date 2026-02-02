@@ -14,8 +14,7 @@ import {
   IconCircleCheck,
   IconArrowBack,
 } from "@tabler/icons-react";
-
-type ProjectPhase = "draft" | "finalized" | "active" | "completed";
+import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface ProjectPlanTabProps {
   projectId: Id<"projects">;

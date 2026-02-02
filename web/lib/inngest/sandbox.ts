@@ -251,6 +251,10 @@ function formatStreamEvent(line: string): string | null {
   }
 }
 
+function stripAnsi(str: string): string {
+  return str.replace(/\x1B\[[0-9;?]*[a-zA-Z]/g, "");
+}
+
 export async function runClaudeCLIStreaming(
   sandbox: Sandbox,
   prompt: string,
@@ -268,65 +272,79 @@ export async function runClaudeCLIStreaming(
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const outputFile = `/tmp/claude-stream-${Date.now()}.jsonl`;
 
+  let rawOutput = "";
   let displayLog = "";
-  let processedLines = 0;
-  let polling = true;
+  let lastProcessed = 0;
+  const decoder = new TextDecoder();
 
+  // PTY streams raw bytes via onData — just accumulate, don't process here
+  // (fires too often for mutations, and chunks don't align to JSON lines)
+  const ptyHandle = await sandbox.process.createPty({
+    id: `claude-${Date.now()}`,
+    cwd: workDir,
+    onData: (data: Uint8Array) => {
+      rawOutput += decoder.decode(data, { stream: true });
+    },
+  });
+
+  await ptyHandle.waitForConnection();
+
+  // Every 500ms: process only complete lines, parse stream-json, flush to caller
   const interval = setInterval(async () => {
-    if (!polling) return;
-    try {
-      const fileResult = await sandbox.process.executeCommand(
-        `cat ${outputFile} 2>/dev/null || true`,
-        "/", undefined, 5,
-      );
-      const content = fileResult.result || "";
-      const lines = content.split("\n");
-      let changed = false;
-      for (let i = processedLines; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const formatted = formatStreamEvent(lines[i]);
-        if (formatted) {
-          displayLog += (displayLog ? "\n" : "") + formatted;
-          changed = true;
-        }
+    if (rawOutput.length <= lastProcessed) return;
+    const pending = rawOutput.slice(lastProcessed);
+    // Only process up to last newline — skip incomplete lines at the end
+    const lastNewline = pending.lastIndexOf("\n");
+    if (lastNewline === -1) return;
+    lastProcessed += lastNewline + 1;
+    let changed = false;
+    for (const line of pending.slice(0, lastNewline).split("\n")) {
+      const clean = stripAnsi(line).trim();
+      if (!clean) continue;
+      const formatted = formatStreamEvent(clean);
+      if (formatted) {
+        displayLog += (displayLog ? "\n" : "") + formatted;
+        changed = true;
       }
-      processedLines = lines.length;
-      if (changed) await onOutput(displayLog).catch(() => {});
-    } catch {
-      // polling failed, ignore
     }
+    if (changed) await onOutput(displayLog).catch(() => {});
   }, flushIntervalMs);
 
-  let cmdOutput = "";
   try {
-    const cmdResult = await sandbox.process.executeCommand(
-      `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json 2>&1 | stdbuf -oL tee ${outputFile}`,
-      "/", undefined, timeout,
+    // "; exit" closes the shell when Claude finishes, causing wait() to resolve
+    await ptyHandle.sendInput(
+      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json; exit\n`,
     );
-    cmdOutput = (cmdResult.result || "").trim();
+
+    // Kill the PTY if it exceeds the timeout
+    const timeoutId = setTimeout(() => {
+      ptyHandle.kill().catch(() => {});
+    }, timeout * 1000);
+
+    await ptyHandle.wait();
+    clearTimeout(timeoutId);
   } finally {
-    polling = false;
     clearInterval(interval);
-    await sandbox.process.executeCommand(
-      `rm -f ${outputFile}`, "/", undefined, 5,
-    ).catch(() => {});
+    await ptyHandle.disconnect().catch(() => {});
   }
 
+  // Re-parse all output for final activity log and result extraction
   displayLog = "";
-  for (const line of cmdOutput.split("\n")) {
-    if (!line.trim()) continue;
-    const formatted = formatStreamEvent(line);
+  const lines = rawOutput.split("\n");
+  for (const line of lines) {
+    const clean = stripAnsi(line).trim();
+    if (!clean) continue;
+    const formatted = formatStreamEvent(clean);
     if (formatted) {
       displayLog += (displayLog ? "\n" : "") + formatted;
     }
   }
 
-  const lines = cmdOutput.split("\n");
+  // Find the result message (last stream-json line with type "result")
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
-      const parsed = JSON.parse(lines[i]);
+      const parsed = JSON.parse(stripAnsi(lines[i]).trim());
       if (parsed.type === "result") {
         const result = parsed.result ?? "";
         return {
@@ -339,7 +357,7 @@ export async function runClaudeCLIStreaming(
       continue;
     }
   }
-  return { result: cmdOutput, isError: false, activityLog: displayLog };
+  return { result: rawOutput, isError: false, activityLog: displayLog };
 }
 
 export function extractJsonFromText(text: string): string | null {

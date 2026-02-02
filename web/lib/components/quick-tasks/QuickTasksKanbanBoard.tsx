@@ -118,7 +118,7 @@ export function QuickTasksKanbanBoard({
             <Button
               size="sm"
               variant="flat"
-              color="primary"
+              color="danger"
               startContent={<IconPlayerPlay size={14} />}
               onPress={onOpen}
               isLoading={isFixingAll}

@@ -5,9 +5,11 @@ import { useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { api } from "@/api";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { IconBrandGithub, IconPlus, IconRefresh, IconX } from "@tabler/icons-react";
+import { Card, CardBody } from "@heroui/card";
+import { Button } from "@heroui/button";
+import { Spinner } from "@heroui/spinner";
+import { IconBrandGithub, IconPlus, IconRefresh, IconX, IconSparkles, IconCode, IconListCheck, IconGitBranch } from "@tabler/icons-react";
 import { syncGitHubRepos } from "./actions";
 
 const GITHUB_APP_NAME = "v-conductor-dev";
@@ -22,24 +24,53 @@ function WelcomeBanner() {
 
   if (dismissed) return null;
 
+  const features = [
+    { icon: IconCode, label: "Write code" },
+    { icon: IconListCheck, label: "Plan features" },
+    { icon: IconGitBranch, label: "Manage repos" },
+  ];
+
   return (
-    <div className="mb-6 relative p-4 sm:p-5 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30 rounded-xl border border-teal-200 dark:border-teal-800">
-      <button
-        onClick={() => {
-          localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
-          setDismissed(true);
-        }}
-        className="absolute top-3 right-3 p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-      >
-        <IconX className="w-4 h-4" />
-      </button>
-      <h3 className="text-base font-semibold text-neutral-900 dark:text-white mb-1">
-        Say hello to Eva, your new coworker
-      </h3>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400 pr-6">
-        Eva helps you plan features, write code, run tasks, and manage your repositories — all from one place. Select a repo below to get started.
-      </p>
-    </div>
+    <Card
+      shadow="none"
+      className="mb-6 overflow-hidden bg-gradient-to-br from-teal-800/80 to-teal-900/80 dark:from-teal-700 dark:to-teal-900"
+    >
+      <CardBody className="p-0">
+        <div className="relative p-5 sm:p-6">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={() => {
+              localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
+              setDismissed(true);
+            }}
+            className="absolute top-3 right-3 text-neutral-400 hover:text-white z-10"
+          >
+            <IconX size={16} />
+          </Button>
+          <div className="flex items-center gap-2 mb-3">
+            <IconSparkles size={20} className="text-white/80" />
+            <p className="text-lg font-semibold text-white">Meet Eva</p>
+          </div>
+          <p className="text-sm text-teal-100/80 max-w-md">
+            Your AI-powered coworker that helps you ship faster. Select a
+            repository below to get started.
+          </p>
+          <div className="flex items-center gap-4 mt-4">
+            {features.map((f) => (
+              <div
+                key={f.label}
+                className="flex items-center gap-1.5 text-xs text-teal-100/70"
+              >
+                <f.icon size={14} className="text-white/80" />
+                {f.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -66,71 +97,73 @@ export function ReposClient() {
     <PageWrapper
       title="Repositories"
       headerRight={
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-2">
           {hasRepos && (
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+            <Button
+              size="sm"
+              variant="bordered"
+              isDisabled={syncing}
+              onPress={handleSync}
+              startContent={<IconRefresh size={16} className={syncing ? "animate-spin" : ""} />}
+              className="text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
             >
-              <IconRefresh className={"w-4 h-4" + (syncing ? " animate-spin" : "")} />
               <span className="hidden sm:inline">Sync</span>
-            </button>
+            </Button>
           )}
-          <a
+          <Button
+            as="a"
+            size="sm"
             href={hasRepos ? configureUrl : connectUrl}
             target={hasRepos ? "_blank" : undefined}
             rel={hasRepos ? "noopener noreferrer" : undefined}
-            className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs sm:text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+            startContent={<IconPlus size={16} />}
+            className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium"
           >
-            <IconPlus className="w-4 h-4" />
             <span className="hidden sm:inline">{hasRepos ? "Add Repos" : "Connect GitHub"}</span>
-          </a>
+          </Button>
         </div>
       }
     >
         <WelcomeBanner />
         {repos === undefined ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="md" />
           </div>
         ) : repos.length === 0 ? (
-          <EmptyState
-            icon={IconBrandGithub}
-            title="No repositories"
-            description="Connect a GitHub repository to get started with planning and tracking features."
-            action={
-              <a
-                href={connectUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
-              >
-                <IconBrandGithub className="w-4 h-4" />
-                Connect GitHub Repository
-              </a>
-            }
-          />
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 mb-4">
+              <IconBrandGithub size={24} className="text-neutral-400" />
+            </div>
+            <p className="text-base font-medium text-neutral-900 dark:text-white">No repositories</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Connect a GitHub repository to get started.</p>
+            <Button
+              as="a"
+              href={connectUrl}
+              startContent={<IconBrandGithub size={16} />}
+              className="mt-5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium"
+            >
+              Connect GitHub
+            </Button>
+          </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {repos.map((repo) => (
-              <Link
+              <Card
                 key={repo._id}
+                as={Link}
                 href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
-                className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-teal-300 dark:hover:border-teal-700 transition-all group"
+                shadow="none"
+                isPressable
+                className="bg-neutral-50 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-lg group-hover:bg-teal-50 dark:group-hover:bg-teal-900/20 transition-colors">
-                    <IconBrandGithub className="w-5 h-5 text-neutral-600 dark:text-neutral-300 group-hover:text-teal-600 transition-colors" />
+                <CardBody className="p-4 gap-3">
+                  <IconBrandGithub size={20} className="text-neutral-400 dark:text-neutral-500" />
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-neutral-900 dark:text-white truncate">{repo.name}</p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{repo.owner}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                      {repo.owner}
-                    </p>
-                    <h3 className="text-base font-medium text-neutral-900 dark:text-white truncate">
-                      {repo.name}
-                    </h3>
-                  </div>
-                </div>
-              </Link>
+                </CardBody>
+              </Card>
             ))}
           </div>
         )}

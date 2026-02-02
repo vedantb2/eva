@@ -13,16 +13,14 @@ import {
 } from "@tabler/icons-react";
 import { Icon as TablerIcon } from "@tabler/icons-react";
 
-function MiniCard({ icon: Icon, label, value }: { icon: TablerIcon; label: string; value: string | number }) {
+function StatCard({ icon: Icon, label, value }: { icon: TablerIcon; label: string; value: string | number }) {
   return (
-    <Card shadow="none" className="border border-neutral-200 dark:border-neutral-800">
-      <CardBody className="p-4 flex-row items-center gap-3">
-        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
-          <Icon size={18} />
-        </div>
+    <Card shadow="none" className="bg-neutral-50 dark:bg-neutral-800/50">
+      <CardBody className="p-4 gap-3">
+        <Icon size={20} className="text-neutral-400 dark:text-neutral-500" />
         <div>
-          <p className="text-xl font-bold text-neutral-900 dark:text-white">{value}</p>
-          <p className="text-xs text-neutral-500">{label}</p>
+          <p className="text-2xl font-semibold text-neutral-900 dark:text-white tabular-nums">{value}</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{label}</p>
         </div>
       </CardBody>
     </Card>
@@ -49,15 +47,15 @@ export function RepoHomeClient() {
 
   return (
     <div className="flex items-center justify-center h-full p-6">
-      <div className="w-full max-w-xl space-y-4">
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+      <div className="w-full max-w-lg space-y-4">
+        <p className="text-sm font-medium text-neutral-400 dark:text-neutral-500">
           {repo.owner}/{repo.name}
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <MiniCard icon={IconGitPullRequest} label="PRs Shipped" value={impactStats.prsShipped} />
-          <MiniCard icon={IconPercentage} label="Ship Rate" value={`${impactStats.shipRate}%`} />
-          <MiniCard icon={IconUsers} label="Prompting Now" value={activeUsers.count} />
-          <MiniCard icon={IconChecklist} label="Tasks Done" value={impactStats.tasksCompleted} />
+          <StatCard icon={IconGitPullRequest} label="PRs Shipped" value={impactStats.prsShipped} />
+          <StatCard icon={IconPercentage} label="Ship Rate" value={impactStats.shipRate + "%"} />
+          <StatCard icon={IconUsers} label="Prompting Now" value={activeUsers.count} />
+          <StatCard icon={IconChecklist} label="Tasks Done" value={impactStats.tasksCompleted} />
         </div>
       </div>
     </div>

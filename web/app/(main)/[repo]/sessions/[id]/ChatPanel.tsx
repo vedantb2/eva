@@ -17,7 +17,15 @@ import {
   IconArrowUp,
   IconWorld,
   IconSparkles,
+  IconSend,
 } from "@tabler/icons-react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -61,6 +69,8 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
   const typedSessionId = sessionId as Id<"sessions">;
 
@@ -158,6 +168,24 @@ export function ChatPanel({
     }
   };
 
+  const handleCreatePr = async () => {
+    setIsCreatingPr(true);
+    try {
+      const response = await fetch("/api/sessions/create-pr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create PR");
+      }
+      setShowReviewModal(false);
+    } finally {
+      setIsCreatingPr(false);
+    }
+  };
+
   const isInputDisabled = !isSandboxActive || isSending;
 
   return (
@@ -173,15 +201,27 @@ export function ChatPanel({
           />
         </div>
         <div className="flex items-center gap-2">
+          {branchName && !prUrl && (
+            <Button
+              size="sm"
+              color="success"
+              variant="flat"
+              startContent={<IconSend size={12} />}
+              onPress={() => setShowReviewModal(true)}
+            >
+              Send for Review
+            </Button>
+          )}
           <Button
             size="sm"
             variant="flat"
             onPress={handleGenerateSummary}
             isLoading={isSummarizing}
             isDisabled={!isSandboxActive || messages.length === 0}
+            className="text-teal-500"
             isIconOnly
           >
-            <IconSparkles className="size-5 text-teal-500 dark:text-teal-400" />
+            <IconSparkles className="size-5" />
           </Button>
           <Button
             size="sm"
@@ -393,19 +433,18 @@ export function ChatPanel({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Chip
-              variant="faded"
-              size="sm"
-              startContent={<IconGitPullRequest size={12} className="ml-1" />}
-              as={Link}
-              href={
-                prUrl ??
-                `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
-              }
-              target="_blank"
-            >
-              View PR
-            </Chip>
+            {prUrl && (
+              <Chip
+                variant="faded"
+                size="sm"
+                startContent={<IconGitPullRequest size={12} className="ml-1" />}
+                as={Link}
+                href={prUrl}
+                target="_blank"
+              >
+                View PR
+              </Chip>
+            )}
             <Chip
               variant="faded"
               size="sm"
@@ -467,6 +506,36 @@ export function ChatPanel({
           </div>
         </form>
       </div>
+      <Modal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        size="lg"
+      >
+        <ModalContent>
+          <ModalHeader>Send for Code Review</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              By clicking this you confirm that all your changes have been
+              tested in your session, you are happy with those changes, have
+              generated a summary and agree with the changes. A developer will
+              then review the code changes Eva has made and get in contact to
+              confirm if they are happy before merging into staging/production.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={() => setShowReviewModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="success"
+              onPress={handleCreatePr}
+              isLoading={isCreatingPr}
+            >
+              Confirm
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

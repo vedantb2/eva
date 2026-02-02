@@ -13,29 +13,90 @@ import {
 } from "@tabler/icons-react";
 import { Icon as TablerIcon } from "@tabler/icons-react";
 import Link from "next/link";
-import Image from "next/image"
+import Image from "next/image";
+
+function Sparkline({ points, id }: { points: number[]; id: string }) {
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const h = 32;
+  const w = 80;
+  const step = w / (points.length - 1);
+
+  const d = points
+    .map((p, i) => {
+      const x = i * step;
+      const y = h - ((p - min) / range) * (h - 4) - 2;
+      return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
+    })
+    .join(" ");
+
+  const gradientId = "spark-" + id;
+
+  return (
+    <svg width={w} height={h} className="flex-shrink-0">
+      <defs>
+        <linearGradient id={gradientId} x1="0.5" y1="0" x2="1" y2="0">
+          <stop
+            offset="0%"
+            className="[stop-color:theme(colors.neutral.400)] dark:[stop-color:theme(colors.neutral.600)]"
+            stopOpacity={0.5}
+          />
+          <stop
+            offset="100%"
+            className="[stop-color:theme(colors.neutral.400)] dark:[stop-color:theme(colors.neutral.400)]"
+            stopOpacity={1}
+          />
+        </linearGradient>
+      </defs>
+      <path
+        d={d}
+        fill="none"
+        stroke={"url(#" + gradientId + ")"}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function seededPoints(seed: number): number[] {
+  let s = seed + 1;
+  return Array.from({ length: 7 }, () => {
+    s = (s * 16807 + 5) % 2147483647;
+    return s % 100;
+  });
+}
 
 function StatCard({
   icon: Icon,
   label,
   value,
+  seed,
+  color,
 }: {
   icon: TablerIcon;
   label: string;
   value: string | number;
+  seed: number;
+  color: string;
 }) {
   return (
     <Card shadow="none" className="bg-neutral-50 dark:bg-neutral-800/50">
-      <CardBody className="p-4 gap-3">
-        <Icon size={20} className="text-neutral-400 dark:text-neutral-500" />
-        <div>
-          <p className="text-2xl font-semibold text-neutral-900 dark:text-white tabular-nums">
-            {value}
-          </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            {label}
-          </p>
+      <CardBody className="p-4 flex-row items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 min-w-0">
+          <Icon size={20} className="text-neutral-400 dark:text-neutral-500" />
+          <div>
+            <p className="text-2xl font-semibold text-neutral-900 dark:text-white tabular-nums">
+              {value}
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              {label}
+            </p>
+          </div>
         </div>
+        <Sparkline points={seededPoints(seed)} id={color} />
       </CardBody>
     </Card>
   );
@@ -84,21 +145,29 @@ export function RepoHomeClient() {
             icon={IconGitPullRequest}
             label="PRs Shipped"
             value={impactStats.prsShipped}
+            seed={1}
+            color="#14b8a6"
           />
           <StatCard
             icon={IconPercentage}
-            label="Ship Rate"
+            label="Cook Rate"
             value={impactStats.shipRate + "%"}
+            seed={2}
+            color="#06b6d4"
           />
           <StatCard
             icon={IconUsers}
-            label="Prompting Now"
+            label="Cookers Now"
             value={activeUsers.count}
+            seed={3}
+            color="#8b5cf6"
           />
           <StatCard
             icon={IconChecklist}
             label="Tasks Done"
             value={impactStats.tasksCompleted}
+            seed={4}
+            color="#f59e0b"
           />
         </div>
       </div>

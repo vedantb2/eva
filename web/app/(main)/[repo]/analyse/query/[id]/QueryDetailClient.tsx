@@ -113,7 +113,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               </div>
               {message.role === "user" &&
                 (message.userId ? (
-                  <UserInitials userId={message.userId} hideLastSeen />
+                  <UserInitials userId={message.userId} hideLastSeen size="md" />
                 ) : (
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
                     <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />

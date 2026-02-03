@@ -19,8 +19,8 @@ function Sparkline({ points, id }: { points: number[]; id: string }) {
   const max = Math.max(...points);
   const min = Math.min(...points);
   const range = max - min || 1;
-  const h = 32;
-  const w = 80;
+  const h = 48;
+  const w = 120;
   const step = w / (points.length - 1);
 
   const d = points
@@ -84,14 +84,14 @@ function StatCard({
 }) {
   return (
     <Card shadow="none" className="bg-neutral-50 dark:bg-neutral-800/50">
-      <CardBody className="p-4 flex-row items-center justify-between gap-3">
+      <CardBody className="p-6 flex-row items-center justify-between gap-4">
         <div className="flex flex-col gap-3 min-w-0">
-          <Icon size={20} className="text-neutral-400 dark:text-neutral-500" />
+          <Icon size={24} className="text-neutral-400 dark:text-neutral-500" />
           <div>
-            <p className="text-2xl font-semibold text-neutral-900 dark:text-white tabular-nums">
+            <p className="text-3xl font-semibold text-neutral-900 dark:text-white tabular-nums">
               {value}
             </p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               {label}
             </p>
           </div>
@@ -121,26 +121,26 @@ export function RepoHomeClient() {
   }
 
   return (
-    <div className="flex items-center justify-center h-full p-6">
-      <div className="w-full max-w-lg space-y-4">
+    <div className="flex items-center justify-center h-full p-8">
+      <div className="w-full max-w-2xl space-y-6">
         <div
           className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 w-max`}
         >
           <Image
             src="/icon.png"
             alt="Eva"
-            width={33}
-            height={33}
+            width={40}
+            height={40}
             className="rounded-full"
           />
-          <span className="text-xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+          <span className="text-2xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
             Eva's Stats
           </span>
         </div>
-        <p className="text-sm font-medium text-neutral-400 dark:text-neutral-500">
+        <p className="text-base font-medium text-neutral-400 dark:text-neutral-500">
           {repo.owner}/{repo.name}
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <StatCard
             icon={IconGitPullRequest}
             label="PRs Shipped"

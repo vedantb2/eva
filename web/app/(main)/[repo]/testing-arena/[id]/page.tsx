@@ -7,6 +7,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Tabs, Tab } from "@heroui/tabs";
+import { Card, CardBody } from "@heroui/card";
 import {
   IconPlayerPlay,
   IconCheck,
@@ -64,144 +65,147 @@ function ReportCard({ report }: { report: EvaluationReport }) {
   const passRate = total > 0 ? Math.round((metCount / total) * 100) : 0;
 
   return (
-    <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-white dark:bg-neutral-800">
-      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700/50">
-        <StatusBadge status={report.status} />
-        <span className="text-xs text-neutral-400">
-          {dayjs(report.createdAt).fromNow()}
-        </span>
-      </div>
-
-      {report.status === "running" && (
-        <div className="px-4 py-6 flex items-center gap-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-teal-200 dark:border-teal-800 border-t-teal-600" />
-          <span className="text-sm text-neutral-600 dark:text-neutral-300">
-            Evaluating codebase...
+    <Card shadow="none" className="bg-neutral-50 dark:bg-neutral-800/50">
+      <CardBody className="p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          {report.status !== "completed" && (
+            <StatusBadge status={report.status} />
+          )}
+          <span className="text-xs text-neutral-400 tabular-nums ml-auto">
+            {dayjs(report.createdAt).fromNow()}
           </span>
         </div>
-      )}
 
-      {report.status === "error" && report.error && (
-        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/10 text-sm text-red-600 dark:text-red-400">
-          {report.error}
-        </div>
-      )}
+        {report.status === "running" && (
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-teal-600" />
+            <span className="text-sm text-neutral-500">
+              Evaluating codebase...
+            </span>
+          </div>
+        )}
 
-      {report.status === "completed" && (
-        <>
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-3 mb-2">
-              <span
-                className={`text-2xl font-bold tabular-nums ${passRate >= 80 ? "text-green-600 dark:text-green-400" : passRate >= 50 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}
-              >
-                {passRate}%
-              </span>
-              <div className="flex items-center gap-3 text-xs text-neutral-500">
-                <span className="flex items-center gap-1">
-                  <IconCheck size={12} className="text-green-500" /> {metCount}{" "}
-                  met
+        {report.status === "error" && report.error && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {report.error}
+          </p>
+        )}
+
+        {report.status === "completed" && (
+          <>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-3xl font-semibold text-neutral-900 dark:text-white tabular-nums">
+                  {passRate}%
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  Pass rate
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <IconCheck size={14} className="text-teal-600" />
+                  {metCount}
                 </span>
-                <span className="flex items-center gap-1">
-                  <IconX size={12} className="text-red-500" /> {notMetCount} not
-                  met
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <IconX size={14} className="text-red-500" />
+                  {notMetCount}
                 </span>
               </div>
             </div>
-            <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-700 overflow-hidden flex">
+
+            <div className="h-1 rounded-full bg-neutral-200/70 dark:bg-neutral-700/60 overflow-hidden flex">
               {metCount > 0 && (
                 <div
-                  className="h-full bg-green-500 rounded-l-full"
+                  className="h-full bg-teal-500"
                   style={{ width: `${passRate}%` }}
                 />
               )}
-              {notMetCount > 0 && (
-                <div
-                  className="h-full bg-red-400 rounded-r-full"
-                  style={{ width: `${100 - passRate}%` }}
-                />
-              )}
             </div>
-          </div>
 
-          {report.summary && (
-            <div className="px-4 pb-3">
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+            {report.summary && (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
                 {report.summary}
               </p>
-            </div>
-          )}
+            )}
 
-          <div className="border-t border-neutral-100 dark:border-neutral-700/50">
             {metCount > 0 && (
-              <>
+              <div>
                 <button
                   type="button"
                   onClick={() => setExpandedMet(!expandedMet)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors"
+                  className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
                 >
                   {expandedMet ? (
                     <IconChevronDown size={14} />
                   ) : (
                     <IconChevronRight size={14} />
                   )}
-                  Requirements Met ({metCount})
+                  {metCount} met
                 </button>
                 {expandedMet && (
-                  <div className="px-4 pb-3 space-y-2">
+                  <div className="mt-2 space-y-1.5 pl-5">
                     {report.requirementsMet.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="pl-3 border-l-2 border-green-300 dark:border-green-700"
-                      >
-                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                          {item.requirement}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                          {item.evidence}
-                        </p>
+                      <div key={idx} className="flex items-start gap-2">
+                        <IconCheck
+                          size={14}
+                          className="mt-0.5 text-teal-600 flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm text-neutral-900 dark:text-white">
+                            {item.requirement}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-0.5">
+                            {item.evidence}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
+
             {notMetCount > 0 && (
-              <>
+              <div>
                 <button
                   type="button"
                   onClick={() => setExpandedNotMet(!expandedNotMet)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors"
+                  className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
                 >
                   {expandedNotMet ? (
                     <IconChevronDown size={14} />
                   ) : (
                     <IconChevronRight size={14} />
                   )}
-                  Requirements Not Met ({notMetCount})
+                  {notMetCount} not met
                 </button>
                 {expandedNotMet && (
-                  <div className="px-4 pb-3 space-y-2">
+                  <div className="mt-2 space-y-1.5 pl-5">
                     {report.requirementsNotMet.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="pl-3 border-l-2 border-red-300 dark:border-red-700"
-                      >
-                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                          {item.requirement}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                          {item.reason}
-                        </p>
+                      <div key={idx} className="flex items-start gap-2">
+                        <IconX
+                          size={14}
+                          className="mt-0.5 text-red-500 flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm text-neutral-900 dark:text-white">
+                            {item.requirement}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-0.5">
+                            {item.reason}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

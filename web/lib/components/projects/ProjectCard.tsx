@@ -128,9 +128,21 @@ export function ProjectCard({
         ) : null}
         {progress && progress.total > 0 && (
           <Tooltip
-            content={TASK_STATUSES.filter((s) => progress[s] > 0)
-              .map((s) => `${progress[s]} ${statusConfig[s].label}`)
-              .join(", ")}
+            content={
+              <div className="flex flex-col gap-1">
+                {TASK_STATUSES.filter((s) => progress[s] > 0).map((s) => {
+                  const Icon = statusConfig[s].icon;
+                  return (
+                    <span
+                      key={s}
+                      className={`flex items-center gap-1.5 ${statusConfig[s].text}`}
+                    >
+                      <Icon size={12} /> {progress[s]} {statusConfig[s].label}
+                    </span>
+                  );
+                })}
+              </div>
+            }
             size="sm"
           >
             <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">

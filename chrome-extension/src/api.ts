@@ -24,6 +24,12 @@ export type PublicApiType = {
       Record<string, never>,
       "light" | "dark" | null
     >;
+    getToolbarVisible: FunctionReference<
+      "query",
+      "public",
+      Record<string, never>,
+      boolean | null
+    >;
     isCurrentUserAdmin: FunctionReference<
       "query",
       "public",
@@ -42,6 +48,12 @@ export type PublicApiType = {
       { theme: "light" | "dark" },
       null
     >;
+    setToolbarVisible: FunctionReference<
+      "mutation",
+      "public",
+      { visible: boolean },
+      null
+    >;
   };
   projects: {
     list: FunctionReference<
@@ -52,14 +64,14 @@ export type PublicApiType = {
         _creationTime: number;
         _id: Id<"projects">;
         branchName?: string;
-        codebaseIndex?: string;
         conversationHistory: Array<{
+          activityLog?: string;
           content: string;
           role: "user" | "assistant";
+          userId?: Id<"users">;
         }>;
         description?: string;
         generatedSpec?: string;
-        indexingStatus?: "pending" | "indexing" | "complete" | "error";
         lastSandboxActivity?: number;
         phase: "draft" | "finalized" | "active" | "completed";
         prUrl?: string;
@@ -78,14 +90,14 @@ export type PublicApiType = {
         _creationTime: number;
         _id: Id<"projects">;
         branchName?: string;
-        codebaseIndex?: string;
         conversationHistory: Array<{
+          activityLog?: string;
           content: string;
           role: "user" | "assistant";
+          userId?: Id<"users">;
         }>;
         description?: string;
         generatedSpec?: string;
-        indexingStatus?: "pending" | "indexing" | "complete" | "error";
         lastSandboxActivity?: number;
         phase: "draft" | "finalized" | "active" | "completed";
         prUrl?: string;
@@ -118,7 +130,12 @@ export type PublicApiType = {
     addMessage: FunctionReference<
       "mutation",
       "public",
-      { content: string; id: Id<"projects">; role: "user" | "assistant" },
+      {
+        activityLog?: string;
+        content: string;
+        id: Id<"projects">;
+        role: "user" | "assistant";
+      },
       null
     >;
     remove: FunctionReference<
@@ -139,32 +156,40 @@ export type PublicApiType = {
       { id: Id<"projects"> },
       null
     >;
-    setIndexingStatus: FunctionReference<
-      "mutation",
-      "public",
-      {
-        id: Id<"projects">;
-        status: "pending" | "indexing" | "complete" | "error";
-      },
-      null
-    >;
-    setCodebaseIndex: FunctionReference<
-      "mutation",
-      "public",
-      { codebaseIndex: string; id: Id<"projects"> },
-      null
-    >;
     getTaskCount: FunctionReference<
       "query",
       "public",
       { projectId: Id<"projects"> },
       number
     >;
+    getTaskProgress: FunctionReference<
+      "query",
+      "public",
+      { projectId: Id<"projects"> },
+      {
+        business_review: number;
+        code_review: number;
+        done: number;
+        in_progress: number;
+        todo: number;
+        total: number;
+      }
+    >;
     startDevelopment: FunctionReference<
       "mutation",
       "public",
       { projectId: Id<"projects"> },
       null
+    >;
+    createFromTasks: FunctionReference<
+      "mutation",
+      "public",
+      {
+        repoId: Id<"githubRepos">;
+        taskIds: Array<Id<"agentTasks">>;
+        title: string;
+      },
+      Id<"projects">
     >;
     updatePrUrl: FunctionReference<
       "mutation",
@@ -188,6 +213,12 @@ export type PublicApiType = {
       "mutation",
       "public",
       { id: Id<"projects"> },
+      null
+    >;
+    updateLastConversationMessage: FunctionReference<
+      "mutation",
+      "public",
+      { activityLog?: string; content?: string; id: Id<"projects"> },
       null
     >;
   };
@@ -262,7 +293,12 @@ export type PublicApiType = {
             order: number;
             projectId?: Id<"projects">;
             repoId?: Id<"githubRepos">;
-            status: "todo" | "in_progress" | "code_review" | "done";
+            status:
+              | "todo"
+              | "in_progress"
+              | "business_review"
+              | "code_review"
+              | "done";
             taskNumber?: number;
             title: string;
             updatedAt: number;
@@ -331,6 +367,7 @@ export type PublicApiType = {
       Array<{
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -339,7 +376,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -352,6 +394,7 @@ export type PublicApiType = {
       Array<{
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -360,7 +403,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -373,6 +421,7 @@ export type PublicApiType = {
       Array<{
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -381,7 +430,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -394,6 +448,7 @@ export type PublicApiType = {
       {
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -402,7 +457,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -416,7 +476,12 @@ export type PublicApiType = {
         description?: string;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status?: "todo" | "in_progress" | "code_review" | "done";
+        status?:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
       },
@@ -426,6 +491,7 @@ export type PublicApiType = {
       "mutation",
       "public",
       {
+        assignedTo?: Id<"users">;
         description?: string;
         id: Id<"agentTasks">;
         projectId?: Id<"projects">;
@@ -452,7 +518,12 @@ export type PublicApiType = {
       "public",
       {
         id: Id<"agentTasks">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
       },
       null
     >;
@@ -463,6 +534,7 @@ export type PublicApiType = {
       Array<{
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -471,7 +543,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -490,6 +567,7 @@ export type PublicApiType = {
       Array<{
         _creationTime: number;
         _id: Id<"agentTasks">;
+        assignedTo?: Id<"users">;
         boardId: Id<"boards">;
         columnId: Id<"columns">;
         createdAt: number;
@@ -498,7 +576,12 @@ export type PublicApiType = {
         order: number;
         projectId?: Id<"projects">;
         repoId?: Id<"githubRepos">;
-        status: "todo" | "in_progress" | "code_review" | "done";
+        status:
+          | "todo"
+          | "in_progress"
+          | "business_review"
+          | "code_review"
+          | "done";
         taskNumber?: number;
         title: string;
         updatedAt: number;
@@ -507,7 +590,12 @@ export type PublicApiType = {
     createQuickTask: FunctionReference<
       "mutation",
       "public",
-      { description?: string; repoId: Id<"githubRepos">; title: string },
+      {
+        assignedTo?: Id<"users">;
+        description?: string;
+        repoId: Id<"githubRepos">;
+        title: string;
+      },
       Id<"agentTasks">
     >;
     startExecution: FunctionReference<
@@ -529,6 +617,12 @@ export type PublicApiType = {
       "public",
       { taskId: Id<"agentTasks"> },
       Array<{ _id: Id<"agentTasks">; taskNumber?: number; title: string }>
+    >;
+    assignToProject: FunctionReference<
+      "mutation",
+      "public",
+      { projectId: Id<"projects">; taskIds: Array<Id<"agentTasks">> },
+      null
     >;
     deleteCascade: FunctionReference<
       "mutation",
@@ -861,12 +955,15 @@ export type PublicApiType = {
         archived?: boolean;
         branchName?: string;
         createdBy?: Id<"users">;
+        fileDiffs?: Array<{ diff: string; file: string; status: string }>;
         lastActivityAt?: number;
         messages: Array<{
+          activityLog?: string;
           content: string;
           mode?: "execute" | "ask" | "plan" | "flag";
           role: "user" | "assistant";
           timestamp: number;
+          userId?: Id<"users">;
         }>;
         prUrl?: string;
         ptySessionId?: string;
@@ -888,12 +985,15 @@ export type PublicApiType = {
         archived?: boolean;
         branchName?: string;
         createdBy?: Id<"users">;
+        fileDiffs?: Array<{ diff: string; file: string; status: string }>;
         lastActivityAt?: number;
         messages: Array<{
+          activityLog?: string;
           content: string;
           mode?: "execute" | "ask" | "plan" | "flag";
           role: "user" | "assistant";
           timestamp: number;
+          userId?: Id<"users">;
         }>;
         prUrl?: string;
         ptySessionId?: string;
@@ -915,6 +1015,7 @@ export type PublicApiType = {
       "mutation",
       "public",
       {
+        activityLog?: string;
         content: string;
         id: Id<"sessions">;
         mode?: "execute" | "ask" | "plan" | "flag";
@@ -974,6 +1075,15 @@ export type PublicApiType = {
       { id: Id<"sessions">; ptySessionId?: string },
       null
     >;
+    updateFileDiffs: FunctionReference<
+      "mutation",
+      "public",
+      {
+        fileDiffs: Array<{ diff: string; file: string; status: string }>;
+        id: Id<"sessions">;
+      },
+      null
+    >;
     getOrCreateExtensionSession: FunctionReference<
       "mutation",
       "public",
@@ -984,6 +1094,12 @@ export type PublicApiType = {
         repoId: string;
       }
     >;
+    updateLastMessage: FunctionReference<
+      "mutation",
+      "public",
+      { activityLog?: string; content?: string; id: Id<"sessions"> },
+      null
+    >;
   };
   analytics: {
     getTaskStats: FunctionReference<
@@ -992,6 +1108,7 @@ export type PublicApiType = {
       { repoId: Id<"githubRepos">; startTime?: number },
       {
         byStatus: {
+          business_review: number;
           code_review: number;
           done: number;
           in_progress: number;
@@ -1051,11 +1168,35 @@ export type PublicApiType = {
         total: number;
       }
     >;
+    getImpactStats: FunctionReference<
+      "query",
+      "public",
+      { repoId: Id<"githubRepos">; startTime?: number },
+      {
+        prsShipped: number;
+        sessionsWithPr: number;
+        shipRate: number;
+        tasksCompleted: number;
+        totalSessions: number;
+      }
+    >;
+    getActiveUsers: FunctionReference<
+      "query",
+      "public",
+      { repoId: Id<"githubRepos"> },
+      { count: number }
+    >;
     getActivityTimeline: FunctionReference<
       "query",
       "public",
       { bucketSizeMs: number; repoId: Id<"githubRepos">; startTime: number },
-      Array<{ date: number; runs: number; sessions: number; tasks: number }>
+      Array<{
+        date: number;
+        prsShipped: number;
+        runs: number;
+        sessions: number;
+        tasks: number;
+      }>
     >;
     getLeaderboard: FunctionReference<
       "query",
@@ -1065,6 +1206,7 @@ export type PublicApiType = {
         clerkId: string;
         fullName?: string;
         prsCreated: number;
+        sessionsWithPr: number;
         tasksCompleted: number;
       }>
     >;
@@ -1079,9 +1221,12 @@ export type PublicApiType = {
         _id: Id<"docs">;
         content: string;
         createdAt: number;
+        description?: string;
         repoId: Id<"githubRepos">;
+        requirements?: Array<string>;
         title: string;
         updatedAt: number;
+        userFlows?: Array<{ name: string; steps: Array<string> }>;
       }>
     >;
     get: FunctionReference<
@@ -1093,21 +1238,38 @@ export type PublicApiType = {
         _id: Id<"docs">;
         content: string;
         createdAt: number;
+        description?: string;
         repoId: Id<"githubRepos">;
+        requirements?: Array<string>;
         title: string;
         updatedAt: number;
+        userFlows?: Array<{ name: string; steps: Array<string> }>;
       } | null
     >;
     create: FunctionReference<
       "mutation",
       "public",
-      { content: string; repoId: Id<"githubRepos">; title: string },
+      {
+        content: string;
+        description?: string;
+        repoId: Id<"githubRepos">;
+        requirements?: Array<string>;
+        title: string;
+        userFlows?: Array<{ name: string; steps: Array<string> }>;
+      },
       Id<"docs">
     >;
     update: FunctionReference<
       "mutation",
       "public",
-      { content?: string; id: Id<"docs">; title?: string },
+      {
+        content?: string;
+        description?: string;
+        id: Id<"docs">;
+        requirements?: Array<string>;
+        title?: string;
+        userFlows?: Array<{ name: string; steps: Array<string> }>;
+      },
       null
     >;
     remove: FunctionReference<"mutation", "public", { id: Id<"docs"> }, null>;
@@ -1161,6 +1323,7 @@ export type PublicApiType = {
           content: string;
           role: "user" | "assistant";
           timestamp: number;
+          userId?: Id<"users">;
         }>;
         repoId: Id<"githubRepos">;
         title: string;
@@ -1181,6 +1344,7 @@ export type PublicApiType = {
           content: string;
           role: "user" | "assistant";
           timestamp: number;
+          userId?: Id<"users">;
         }>;
         repoId: Id<"githubRepos">;
         title: string;
@@ -1242,8 +1406,11 @@ export type PublicApiType = {
         docId: Id<"docs">;
         error?: string;
         repoId: Id<"githubRepos">;
-        requirementsMet: Array<{ evidence: string; requirement: string }>;
-        requirementsNotMet: Array<{ reason: string; requirement: string }>;
+        results: Array<{
+          detail: string;
+          passed: boolean;
+          requirement: string;
+        }>;
         status: "pending" | "running" | "completed" | "error";
         summary?: string;
         updatedAt: number;
@@ -1260,8 +1427,11 @@ export type PublicApiType = {
         docId: Id<"docs">;
         error?: string;
         repoId: Id<"githubRepos">;
-        requirementsMet: Array<{ evidence: string; requirement: string }>;
-        requirementsNotMet: Array<{ reason: string; requirement: string }>;
+        results: Array<{
+          detail: string;
+          passed: boolean;
+          requirement: string;
+        }>;
         status: "pending" | "running" | "completed" | "error";
         summary?: string;
         updatedAt: number;
@@ -1287,8 +1457,11 @@ export type PublicApiType = {
       "public",
       {
         id: Id<"evaluationReports">;
-        requirementsMet: Array<{ evidence: string; requirement: string }>;
-        requirementsNotMet: Array<{ reason: string; requirement: string }>;
+        results: Array<{
+          detail: string;
+          passed: boolean;
+          requirement: string;
+        }>;
         summary: string;
       },
       null
@@ -1449,6 +1622,18 @@ export type PublicApiType = {
       { id: Id<"users"> },
       { firstName?: string; lastName?: string; lastSeenAt?: number } | null
     >;
+    listAll: FunctionReference<
+      "query",
+      "public",
+      Record<string, never>,
+      Array<{
+        _id: Id<"users">;
+        firstName?: string;
+        fullName?: string;
+        lastName?: string;
+        role?: "business" | "dev";
+      }>
+    >;
   };
   presence: {
     heartbeat: FunctionReference<
@@ -1463,6 +1648,134 @@ export type PublicApiType = {
       "public",
       { sessionToken: string },
       any
+    >;
+  };
+  taskProof: {
+    generateUploadUrl: FunctionReference<
+      "mutation",
+      "public",
+      Record<string, never>,
+      string
+    >;
+    save: FunctionReference<
+      "mutation",
+      "public",
+      {
+        fileName: string;
+        fileType: string;
+        storageId: Id<"_storage">;
+        taskId: Id<"agentTasks">;
+      },
+      Id<"taskProof">
+    >;
+    listByTask: FunctionReference<
+      "query",
+      "public",
+      { taskId: Id<"agentTasks"> },
+      Array<{
+        _creationTime: number;
+        _id: Id<"taskProof">;
+        createdAt: number;
+        fileName: string;
+        fileType: string;
+        storageId: Id<"_storage">;
+        taskId: Id<"agentTasks">;
+        url: string | null;
+      }>
+    >;
+    remove: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"taskProof"> },
+      null
+    >;
+  };
+  notifications: {
+    countUnread: FunctionReference<
+      "query",
+      "public",
+      Record<string, never>,
+      number
+    >;
+    create: FunctionReference<
+      "mutation",
+      "public",
+      {
+        href?: string;
+        message?: string;
+        repoId?: Id<"githubRepos">;
+        title: string;
+        type:
+          | "routine_complete"
+          | "export_ready"
+          | "task_complete"
+          | "task_assigned"
+          | "comment_added"
+          | "run_completed"
+          | "system";
+        userId: Id<"users">;
+      },
+      Id<"notifications">
+    >;
+    get: FunctionReference<
+      "query",
+      "public",
+      { id: Id<"notifications"> },
+      {
+        _creationTime: number;
+        _id: Id<"notifications">;
+        createdAt: number;
+        href?: string;
+        message?: string;
+        read: boolean;
+        repoId?: Id<"githubRepos">;
+        title: string;
+        type:
+          | "routine_complete"
+          | "export_ready"
+          | "task_complete"
+          | "task_assigned"
+          | "comment_added"
+          | "run_completed"
+          | "system";
+        userId: Id<"users">;
+      } | null
+    >;
+    list: FunctionReference<
+      "query",
+      "public",
+      Record<string, never>,
+      Array<{
+        _creationTime: number;
+        _id: Id<"notifications">;
+        createdAt: number;
+        href?: string;
+        message?: string;
+        read: boolean;
+        repoId?: Id<"githubRepos">;
+        title: string;
+        type:
+          | "routine_complete"
+          | "export_ready"
+          | "task_complete"
+          | "task_assigned"
+          | "comment_added"
+          | "run_completed"
+          | "system";
+        userId: Id<"users">;
+      }>
+    >;
+    markAllAsRead: FunctionReference<
+      "mutation",
+      "public",
+      Record<string, never>,
+      null
+    >;
+    markAsRead: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"notifications"> },
+      null
     >;
   };
   prosemirrorSync: {

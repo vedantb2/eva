@@ -26,6 +26,7 @@ const schema = defineSchema({
     isAdmin: v.optional(v.boolean()),
     role: v.optional(roleUserValidator),
     theme: v.optional(themeValidator),
+    toolbarVisible: v.optional(v.boolean()),
     lastSeenAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])

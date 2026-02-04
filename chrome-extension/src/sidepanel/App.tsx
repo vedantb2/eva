@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ClerkProvider,
   SignedIn,
@@ -21,36 +21,20 @@ import {
 } from "@/components/ui/tooltip";
 import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
+import type { StoredPin } from "@/shared/messaging";
 import { GenericId as Id } from "convex/values";
 
-function applyTheme(theme: "light" | "dark") {
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  chrome.storage.local.set({ theme });
-}
-
 function useTheme() {
-  const [theme, setThemeState] = useState<"light" | "dark">("dark");
   const syncedTheme = useQuery(api.auth.getTheme);
   const setThemeMutation = useMutation(api.auth.setTheme);
+  const theme = syncedTheme ?? "dark";
 
   useEffect(() => {
-    chrome.storage.local.get(["theme"], (result) => {
-      const saved = result.theme === "light" ? "light" : "dark";
-      setThemeState(saved);
-      applyTheme(saved);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (syncedTheme === undefined || syncedTheme === null) return;
-    setThemeState(syncedTheme);
-    applyTheme(syncedTheme);
-  }, [syncedTheme]);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
-    setThemeState(next);
-    applyTheme(next);
     setThemeMutation({ theme: next });
   };
 
@@ -107,11 +91,124 @@ function AuthenticatedApp() {
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const syncedToolbarVisible = useQuery(api.auth.getToolbarVisible);
+  const toolbarVisible = syncedToolbarVisible === true;
+  const setToolbarVisibleMutation = useMutation(api.auth.setToolbarVisible);
+  const [pendingProjectPins, setPendingProjectPins] = useState<{
+    pageUrl: string;
+    pins: Record<string, StoredPin>;
+  } | null>(null);
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isCreatingTasks, setIsCreatingTasks] = useState(false);
 
   const createSession = useMutation(api.sessions.create);
   const getOrCreateExtensionSession = useMutation(
     api.sessions.getOrCreateExtensionSession,
   );
+  const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const assignToProject = useMutation(api.agentTasks.assignToProject);
+  const createFromTasks = useMutation(api.projects.createFromTasks);
+
+  const projects = useQuery(
+    api.projects.list,
+    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip",
+  );
+
+  const sendToolbarResult = useCallback((success: boolean, message: string) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "TOOLBAR_RESULT",
+          payload: { success, message },
+        });
+      }
+    });
+  }, []);
+
+  const toggleToolbar = useCallback(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    const next = !toolbarVisible;
+    chrome.tabs.sendMessage(tab.id, { type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR" });
+    setToolbarVisibleMutation({ visible: next });
+  }, [toolbarVisible, setToolbarVisibleMutation]);
+
+  const buildDescription = useCallback((pin: StoredPin, pageUrl: string) => {
+    let desc = `${pin.text}\n\n**Page:** ${pageUrl}`;
+    if (pin.selector) desc += `\n**Selector:** \`${pin.selector}\``;
+    if (pin.selectedText) desc += `\n**Selected text:** ${pin.selectedText}`;
+    return desc;
+  }, []);
+
+  const handleAddAllQuickTasks = useCallback(
+    async (pageUrl: string, pins: Record<string, StoredPin>) => {
+      if (!selectedRepoId) return;
+      const entries = Object.values(pins);
+      let created = 0;
+      for (const pin of entries) {
+        try {
+          await createQuickTask({
+            repoId: selectedRepoId as Id<"githubRepos">,
+            title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
+            description: buildDescription(pin, pageUrl),
+          });
+          created++;
+        } catch (e) {
+          console.error("Failed to create task:", e);
+        }
+      }
+      sendToolbarResult(created > 0, `Created ${created} task${created !== 1 ? "s" : ""}`);
+    },
+    [selectedRepoId, createQuickTask, buildDescription, sendToolbarResult],
+  );
+
+  const handleConfirmProject = useCallback(async () => {
+    if (!pendingProjectPins || !selectedRepoId) return;
+    setIsCreatingTasks(true);
+    const { pageUrl, pins } = pendingProjectPins;
+    const entries = Object.values(pins);
+    const taskIds: Id<"agentTasks">[] = [];
+    for (const pin of entries) {
+      try {
+        const id = await createQuickTask({
+          repoId: selectedRepoId as Id<"githubRepos">,
+          title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
+          description: buildDescription(pin, pageUrl),
+        });
+        taskIds.push(id);
+      } catch (e) {
+        console.error("Failed to create task:", e);
+      }
+    }
+    if (taskIds.length > 0) {
+      try {
+        if (selectedProjectId) {
+          await assignToProject({
+            taskIds,
+            projectId: selectedProjectId as Id<"projects">,
+          });
+        } else if (newProjectTitle.trim()) {
+          await createFromTasks({
+            repoId: selectedRepoId as Id<"githubRepos">,
+            title: newProjectTitle.trim(),
+            taskIds,
+          });
+        }
+        sendToolbarResult(true, `Added ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""} to project`);
+      } catch (e) {
+        console.error("Failed to assign to project:", e);
+        sendToolbarResult(false, "Failed to assign to project");
+      }
+    }
+    setPendingProjectPins(null);
+    setNewProjectTitle("");
+    setSelectedProjectId(null);
+    setIsCreatingTasks(false);
+  }, [
+    pendingProjectPins, selectedRepoId, selectedProjectId, newProjectTitle,
+    createQuickTask, assignToProject, createFromTasks, buildDescription, sendToolbarResult,
+  ]);
 
   useEffect(() => {
     const checkCurrentTab = async () => {
@@ -148,6 +245,15 @@ function AuthenticatedApp() {
   }, []);
 
   useEffect(() => {
+    if (syncedToolbarVisible === undefined || syncedToolbarVisible === null) return;
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR" });
+      }
+    });
+  }, [syncedToolbarVisible]);
+
+  useEffect(() => {
     if (!selectedRepoId && repos.length > 0) {
       setSelectedRepoId(repos[0]._id);
     }
@@ -155,21 +261,35 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     const listener = (
-      message: { type: string; payload?: ExtractedContext },
+      message: { type: string; payload?: Record<string, unknown> },
       _sender: chrome.runtime.MessageSender,
       _sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type === "ELEMENT_CAPTURED" && message.payload) {
-        setCapturedContext(message.payload);
+        setCapturedContext(message.payload as unknown as ExtractedContext);
       }
       if (message.type === "SELECTION_CANCELLED") {
         setCapturedContext(null);
+      }
+      if (message.type === "TOOLBAR_ADD_QUICK_TASKS" && message.payload) {
+        const { pageUrl, pins } = message.payload as unknown as {
+          pageUrl: string;
+          pins: Record<string, StoredPin>;
+        };
+        handleAddAllQuickTasks(pageUrl, pins);
+      }
+      if (message.type === "TOOLBAR_ADD_TO_PROJECT" && message.payload) {
+        setPendingProjectPins(message.payload as unknown as {
+          pageUrl: string;
+          pins: Record<string, StoredPin>;
+        });
       }
     };
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, []);
+  }, [handleAddAllQuickTasks]);
+
 
   useEffect(() => {
     if (selectedRepoId && user?.id) {
@@ -249,11 +369,66 @@ function AuthenticatedApp() {
         </div>
       </header>
 
+      {pendingProjectPins && (
+        <div className="border-b border-border bg-muted/50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Add {Object.keys(pendingProjectPins.pins).length} annotations to project
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setPendingProjectPins(null); setNewProjectTitle(""); setSelectedProjectId(null); }}
+            >
+              Cancel
+            </Button>
+          </div>
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="New project title..."
+              value={newProjectTitle}
+              onChange={(e) => { setNewProjectTitle(e.target.value); setSelectedProjectId(null); }}
+              className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+            {projects && projects.length > 0 && (
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                <p className="text-xs text-muted-foreground">Or pick existing:</p>
+                {projects.filter((p) => p.phase !== "completed").map((project) => (
+                  <button
+                    key={project._id}
+                    onClick={() => { setSelectedProjectId(project._id); setNewProjectTitle(""); }}
+                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      selectedProjectId === project._id
+                        ? "bg-teal-600 text-white"
+                        : "hover:bg-accent"
+                    }`}
+                  >
+                    {project.title}
+                    <span className="ml-2 text-xs opacity-60">{project.phase}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            disabled={isCreatingTasks || (!newProjectTitle.trim() && !selectedProjectId)}
+            onClick={handleConfirmProject}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+          >
+            {isCreatingTasks ? "Creating..." : "Confirm"}
+          </Button>
+        </div>
+      )}
+
       <ChatPanel
         selectedRepoId={selectedRepoId}
         sessionId={currentSessionId}
         capturedContext={capturedContext}
         onClearContext={handleClearContext}
+        toolbarVisible={toolbarVisible}
+        onToggleToolbar={toggleToolbar}
       />
 
       {selectedRepoId && (

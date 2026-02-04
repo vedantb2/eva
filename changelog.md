@@ -1,3 +1,28 @@
+add to extension:
+- add a toolbar that appears on the page just like vercel has, there should be a button in the side panel to toggle the toolbars view
+- in the toolbar, add a button to add all annotations on the page to quick tasks "Add all to Quick Tasks"
+- in the toolbar, add button to add all annotations to a project "Add all to a Project"
+- - add toolbar to chrome extension
+- button to convert all annotations on page into quick tasks
+
+in docs add 3 sections
+- description
+- user flows
+- requirements
+The three you proposed:                                                                                            - Description — what the page does
+  - User flows — step-by-step paths (2D array)                                                                     
+  - Requirements — checklist items to evaluate
+- 
+
+
+also 3 things
+- can you replace the manual doc interface with functionreturntype from convex?
+- I literally said I don't want manual state being used anywhere, so why do we have manual local state for the title, description, requirements, userflows?????? 
+- we can use optimisticupdates with convex so we don't get the state delay so please add this
+
+
+
+
 second thing - are we saving the user id of who sent the message for the project interview and the session?
 
 I want session to be collaborative, so I was thinking of replacing the generic iconuser in the chat area for both sides and instead using the UserInitials.tsx with hideLastSeen prop set as true

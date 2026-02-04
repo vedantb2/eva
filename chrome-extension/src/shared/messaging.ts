@@ -15,7 +15,12 @@ export type MessageType =
   | "STOP_ANNOTATION"
   | "SAVE_ANNOTATION_TASK"
   | "ANNOTATIONS_LOADED"
-  | "ANNOTATIONS_CHANGED";
+  | "ANNOTATIONS_CHANGED"
+  | "SHOW_TOOLBAR"
+  | "HIDE_TOOLBAR"
+  | "TOOLBAR_ADD_QUICK_TASKS"
+  | "TOOLBAR_ADD_TO_PROJECT"
+  | "TOOLBAR_RESULT";
 
 export interface StartSelectionMessage {
   type: "START_SELECTION";
@@ -150,6 +155,38 @@ export interface AnnotationsChangedMessage {
   };
 }
 
+export interface ShowToolbarMessage {
+  type: "SHOW_TOOLBAR";
+}
+
+export interface HideToolbarMessage {
+  type: "HIDE_TOOLBAR";
+}
+
+export interface ToolbarAddQuickTasksMessage {
+  type: "TOOLBAR_ADD_QUICK_TASKS";
+  payload: {
+    pageUrl: string;
+    pins: Record<string, StoredPin>;
+  };
+}
+
+export interface ToolbarAddToProjectMessage {
+  type: "TOOLBAR_ADD_TO_PROJECT";
+  payload: {
+    pageUrl: string;
+    pins: Record<string, StoredPin>;
+  };
+}
+
+export interface ToolbarResultMessage {
+  type: "TOOLBAR_RESULT";
+  payload: {
+    success: boolean;
+    message: string;
+  };
+}
+
 export type ExtensionMessage =
   | StartSelectionMessage
   | StopSelectionMessage
@@ -165,7 +202,12 @@ export type ExtensionMessage =
   | StopAnnotationMessage
   | SaveAnnotationTaskMessage
   | AnnotationsLoadedMessage
-  | AnnotationsChangedMessage;
+  | AnnotationsChangedMessage
+  | ShowToolbarMessage
+  | HideToolbarMessage
+  | ToolbarAddQuickTasksMessage
+  | ToolbarAddToProjectMessage
+  | ToolbarResultMessage;
 
 export const CONDUCTOR_URL =
   typeof chrome !== "undefined" &&

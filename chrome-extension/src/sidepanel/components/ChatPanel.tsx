@@ -8,7 +8,7 @@ import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle } from "@tabler/icons-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -29,6 +29,8 @@ interface ChatPanelProps {
   sessionId: string | null;
   capturedContext: ExtractedContext | null;
   onClearContext: () => void;
+  toolbarVisible: boolean;
+  onToggleToolbar: () => void;
 }
 
 export function ChatPanel({
@@ -36,6 +38,8 @@ export function ChatPanel({
   sessionId,
   capturedContext,
   onClearContext,
+  toolbarVisible,
+  onToggleToolbar,
 }: ChatPanelProps) {
   useUser();
   const { getToken } = useAuth();
@@ -389,6 +393,21 @@ Please review all components and files used on this page before implementing the
             isActive={activeTool === "annotate"}
             onActiveChange={handleAnnotationActiveChange}
           />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleToolbar}
+                className={`relative p-2 rounded-lg transition-all duration-200 ${
+                  toolbarVisible
+                    ? "bg-teal-600 text-white ring-2 ring-teal-500 ring-offset-2 ring-offset-background"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                <IconLayoutBottombar className="relative w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{toolbarVisible ? "Hide toolbar" : "Show toolbar"}</TooltipContent>
+          </Tooltip>
           <Tabs value={mode} onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")} className="flex-1">
             <TabsList className="w-full">
               <TabsTrigger value="ask" className="flex-1 gap-1.5">

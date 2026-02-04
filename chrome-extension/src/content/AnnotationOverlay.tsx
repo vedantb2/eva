@@ -9,6 +9,7 @@ import {
 } from "./react-extractor";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
+import { subscribeDark, getDark } from "./theme";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
 import hljsCss from "highlight.js/styles/github-dark.min.css?inline";
@@ -18,10 +19,11 @@ hljs.registerLanguage("xml", xml);
 interface ExtState {
   active: boolean;
   remotePins: Record<string, StoredPin> | null;
+  currentPins: Record<string, StoredPin>;
   version: number;
 }
 
-let _ext: ExtState = { active: false, remotePins: null, version: 0 };
+let _ext: ExtState = { active: false, remotePins: null, currentPins: {}, version: 0 };
 const _subs = new Set<() => void>();
 function _emit() {
   _subs.forEach((s) => s());
@@ -38,13 +40,27 @@ export function deactivateAnnotation() {
 }
 
 export function setAnnotationsFromRemote(stored: Record<string, StoredPin>) {
-  _ext = { ..._ext, remotePins: stored, version: _ext.version + 1 };
+  _ext = { ..._ext, remotePins: stored, currentPins: stored, version: _ext.version + 1 };
+  _emit();
+}
+
+export function updateCurrentPins(pins: Record<string, StoredPin>) {
+  _ext = { ..._ext, currentPins: pins, version: _ext.version + 1 };
   _emit();
 }
 
 export function clearAllAnnotations() {
-  _ext = { active: false, remotePins: {}, version: _ext.version + 1 };
+  _ext = { active: false, remotePins: {}, currentPins: {}, version: _ext.version + 1 };
   _emit();
+}
+
+export function getAnnotationState(): ExtState {
+  return _ext;
+}
+
+export function subscribeAnnotation(cb: () => void) {
+  _subs.add(cb);
+  return () => { _subs.delete(cb); };
 }
 
 interface PinData {
@@ -55,10 +71,6 @@ interface PinData {
   saved: boolean;
   type: "element" | "text";
   selectedText?: string;
-}
-
-function isDark() {
-  return document.documentElement.classList.contains("dark");
 }
 
 function getPageUrl() {
@@ -226,7 +238,7 @@ function InputCard({
   const [text, setText] = useState(initialText);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dark = isDark();
+  const dark = useSyncExternalStore(subscribeDark, getDark);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -325,16 +337,16 @@ function InputCard({
           onClick={() => {
             if (text.trim()) onTask(pinId, text.trim());
           }}
-          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white bg-teal-700 hover:bg-teal-600 border-none cursor-pointer transition-colors"
-          style={{ fontFamily: "inherit" }}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-700 hover:bg-teal-600 border-none cursor-pointer transition-colors"
+          style={{ fontFamily: "inherit", borderRadius: 8 }}
         >
           <IconCheckbox size={14} /> Create Task
         </button>
         <div className="flex gap-2">
           <button
             onClick={() => onCancel(pinId)}
-            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
-            style={{ fontFamily: "inherit" }}
+            className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
+            style={{ fontFamily: "inherit", borderRadius: 8 }}
           >
             <IconX size={14} /> Cancel
           </button>
@@ -342,8 +354,8 @@ function InputCard({
             onClick={() => {
               if (text.trim()) onSave(pinId, text.trim());
             }}
-            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
-            style={{ fontFamily: "inherit" }}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
+            style={{ fontFamily: "inherit", borderRadius: 8 }}
           >
             <IconDeviceFloppy size={14} /> Save
           </button>
@@ -534,6 +546,7 @@ export function AnnotationOverlay() {
           ancestorSelector: pin.type === "text" ? pinSelectorsRef.current.get(id) : undefined,
         };
       }
+      updateCurrentPins(stored);
       chrome.runtime.sendMessage({
         type: "ANNOTATIONS_CHANGED",
         payload: { pageUrl: getPageUrl(), pins: stored },
@@ -863,7 +876,7 @@ export function AnnotationOverlay() {
 
   const tooltipPin = tooltipId ? pins.get(tooltipId) : undefined;
   const activePin = activeInputId ? pins.get(activeInputId) : undefined;
-  const dark = isDark();
+  const dark = useSyncExternalStore(subscribeDark, getDark);
 
   return (
     <>

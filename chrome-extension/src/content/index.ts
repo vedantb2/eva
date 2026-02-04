@@ -7,16 +7,24 @@ import {
   AnnotationOverlay,
 } from "./AnnotationOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
+import { PageToolbar, showToolbar, hideToolbar, setToolbarFeedback } from "./PageToolbar";
 
 type ShadowMount = ReturnType<typeof createShadowMount>;
 
 let annotationMount: ShadowMount | null = null;
 let selectionMount: ShadowMount | null = null;
+let toolbarMount: ShadowMount | null = null;
 
 function ensureAnnotationMount() {
   if (annotationMount) return;
   annotationMount = createShadowMount();
   annotationMount.render(createElement(AnnotationOverlay));
+}
+
+function ensureToolbarMount() {
+  if (toolbarMount) return;
+  toolbarMount = createShadowMount();
+  toolbarMount.render(createElement(PageToolbar));
 }
 
 function destroySelection() {
@@ -71,7 +79,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "SHOW_TOOLBAR") {
+    ensureToolbarMount();
+    showToolbar();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "HIDE_TOOLBAR") {
+    hideToolbar();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "TOOLBAR_RESULT") {
+    setToolbarFeedback(message.payload.message, message.payload.success ? "success" : "error");
+    sendResponse({ success: true });
+    return true;
+  }
+
   return false;
 });
 
 chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
+ensureToolbarMount();

@@ -68,6 +68,16 @@ chrome.runtime.onMessage.addListener(
         break;
       }
 
+      case "TOOLBAR_ADD_QUICK_TASKS":
+      case "TOOLBAR_ADD_TO_PROJECT": {
+        chrome.runtime.sendMessage({
+          type: message.type,
+          payload: message.payload,
+        });
+        sendResponse({ success: true });
+        break;
+      }
+
       default:
         sendResponse({ success: false, error: "Unknown message type" });
     }

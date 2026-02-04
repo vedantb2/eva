@@ -187,3 +187,25 @@ export const setTheme = mutation({
     return null;
   },
 });
+
+export const getToolbarVisible = query({
+  args: {},
+  returns: v.union(v.boolean(), v.null()),
+  handler: async (ctx) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return null;
+    const user = await ctx.db.get(userId);
+    return user?.toolbarVisible ?? null;
+  },
+});
+
+export const setToolbarVisible = mutation({
+  args: { visible: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.db.patch(userId, { toolbarVisible: args.visible });
+    return null;
+  },
+});

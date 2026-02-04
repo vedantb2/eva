@@ -1,5 +1,6 @@
 import { useRef, useCallback, useSyncExternalStore } from "react";
-import { getAnnotationState, subscribeAnnotation } from "./AnnotationOverlay";
+import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import { getAnnotationState, subscribeAnnotation, togglePinsHidden } from "./AnnotationOverlay";
 import { subscribeDark, getDark } from "./theme";
 import type { StoredPin } from "@/shared/messaging";
 
@@ -174,6 +175,32 @@ export function PageToolbar() {
       <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 12 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
       </span>
+      <button
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 26,
+          height: 26,
+          borderRadius: 9999,
+          border: "none",
+          background: ext.pinsHidden
+            ? (dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)")
+            : "transparent",
+          color: ext.pinsHidden
+            ? (dark ? "#a1a1aa" : "#71717a")
+            : "#14b8a6",
+          cursor: "pointer",
+          padding: 0,
+          fontFamily: "inherit",
+          transition: "background 0.15s, color 0.15s",
+        }}
+        title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => togglePinsHidden()}
+      >
+        {ext.pinsHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+      </button>
       <div style={dividerStyle(dark)} />
       {toolbar.feedback ? (
         <span style={feedbackStyle(toolbar.feedback.type)}>{toolbar.feedback.message}</span>

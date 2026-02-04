@@ -8,7 +8,7 @@ import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { IconArrowUp, IconBolt, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle, IconUser } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle, IconUser } from "@tabler/icons-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -336,9 +336,7 @@ Please review all components and files used on this page before implementing the
               className={`flex gap-2.5 items-start ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {message.role === "assistant" && (
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center">
-                  <IconBolt size={14} className="text-white" />
-                </div>
+                <img src="/icons/icon.png" alt="Eva" className="flex-shrink-0 w-7 h-7 rounded-full" />
               )}
               <div className={`flex flex-col max-w-[85%] min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}>
                 {isFlagResponse && prev ? (
@@ -355,7 +353,7 @@ Please review all components and files used on this page before implementing the
                   </Collapsible>
                 ) : (
                   <div
-                    className={`rounded-xl px-3 py-2 overflow-hidden ${
+                    className={`rounded-xl px-3 py-2 overflow-hidden break-words ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-card border border-border text-card-foreground"
@@ -384,7 +382,7 @@ Please review all components and files used on this page before implementing the
                               View logs
                             </CollapsibleTrigger>
                             <CollapsibleContent className="pt-1 pb-1 overflow-hidden">
-                              <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto">
+                              <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
                                 {message.activityLog}
                               </pre>
                             </CollapsibleContent>
@@ -414,9 +412,7 @@ Please review all components and files used on this page before implementing the
 
         {isLoading && (
           <div className="flex gap-2.5 justify-start">
-            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center">
-              <IconBolt size={14} className="text-white" />
-            </div>
+            <img src="/icons/icon.png" alt="Eva" className="flex-shrink-0 w-7 h-7 rounded-full" />
             <div className="bg-card border border-border rounded-xl px-3 py-2">
               <div className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />

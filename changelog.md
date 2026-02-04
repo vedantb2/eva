@@ -1,3 +1,7 @@
+can you add a toggle to the toolbar to hide/view the annotations pls
+
+
+
 add to extension:
 - add a toolbar that appears on the page just like vercel has, there should be a button in the side panel to toggle the toolbars view
 - in the toolbar, add a button to add all annotations on the page to quick tasks "Add all to Quick Tasks"

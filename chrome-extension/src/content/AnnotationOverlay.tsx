@@ -20,10 +20,11 @@ interface ExtState {
   active: boolean;
   remotePins: Record<string, StoredPin> | null;
   currentPins: Record<string, StoredPin>;
+  pinsHidden: boolean;
   version: number;
 }
 
-let _ext: ExtState = { active: false, remotePins: null, currentPins: {}, version: 0 };
+let _ext: ExtState = { active: false, remotePins: null, currentPins: {}, pinsHidden: false, version: 0 };
 const _subs = new Set<() => void>();
 function _emit() {
   _subs.forEach((s) => s());
@@ -50,7 +51,12 @@ export function updateCurrentPins(pins: Record<string, StoredPin>) {
 }
 
 export function clearAllAnnotations() {
-  _ext = { active: false, remotePins: {}, currentPins: {}, version: _ext.version + 1 };
+  _ext = { active: false, remotePins: {}, currentPins: {}, pinsHidden: false, version: _ext.version + 1 };
+  _emit();
+}
+
+export function togglePinsHidden() {
+  _ext = { ..._ext, pinsHidden: !_ext.pinsHidden, version: _ext.version + 1 };
   _emit();
 }
 
@@ -904,54 +910,58 @@ export function AnnotationOverlay() {
         </>
       )}
 
-      {highlight && <HighlightOverlay rect={highlight} />}
-      {textHighlightRects.length > 0 && <TextHighlightOverlay rects={textHighlightRects} />}
+      {!ext.pinsHidden && (
+        <>
+          {highlight && <HighlightOverlay rect={highlight} />}
+          {textHighlightRects.length > 0 && <TextHighlightOverlay rects={textHighlightRects} />}
 
-      {Array.from(pins.entries()).map(([id, pin]) => (
-        <PinComponent
-          key={id}
-          id={id}
-          data={pin}
-          onDragEnd={handlePinDragEnd}
-          onClick={handlePinClick}
-          onHover={handlePinHover}
-          onLeave={handlePinLeave}
-        />
-      ))}
+          {Array.from(pins.entries()).map(([id, pin]) => (
+            <PinComponent
+              key={id}
+              id={id}
+              data={pin}
+              onDragEnd={handlePinDragEnd}
+              onClick={handlePinClick}
+              onHover={handlePinHover}
+              onLeave={handlePinLeave}
+            />
+          ))}
 
-      {tooltipPin && tooltipId && !activeInputId && (
-        <div
-          className={`absolute pointer-events-none rounded-md border ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
-          style={{
-            left: tooltipPin.x - 12,
-            top: tooltipPin.y + 18,
-            zIndex: 2147483645,
-            maxWidth: 240,
-            padding: "6px 8px",
-            fontFamily: FONT,
-            fontSize: 12,
-            lineHeight: 1.4,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
-          }}
-        >
-          {tooltipPin.text}
-        </div>
-      )}
+          {tooltipPin && tooltipId && !activeInputId && (
+            <div
+              className={`absolute pointer-events-none rounded-md border ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
+              style={{
+                left: tooltipPin.x - 12,
+                top: tooltipPin.y + 18,
+                zIndex: 2147483645,
+                maxWidth: 240,
+                padding: "6px 8px",
+                fontFamily: FONT,
+                fontSize: 12,
+                lineHeight: 1.4,
+                boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+              }}
+            >
+              {tooltipPin.text}
+            </div>
+          )}
 
-      {activePin && activeInputId && (
-        <InputCard
-          pinId={activeInputId}
-          position={{ x: activePin.x, y: activePin.y }}
-          initialText={activePin.text}
-          pinNumber={activePin.number}
-          elementHtml={pinContextsRef.current.get(activeInputId)?.element.outerHTML ?? ""}
-          selectedText={pinTextRef.current.get(activeInputId)}
-          isEdit={activeInputIsEdit}
-          onSave={handleInputSave}
-          onTask={handleInputTask}
-          onCancel={handleInputCancel}
-          onDelete={handleInputDelete}
-        />
+          {activePin && activeInputId && (
+            <InputCard
+              pinId={activeInputId}
+              position={{ x: activePin.x, y: activePin.y }}
+              initialText={activePin.text}
+              pinNumber={activePin.number}
+              elementHtml={pinContextsRef.current.get(activeInputId)?.element.outerHTML ?? ""}
+              selectedText={pinTextRef.current.get(activeInputId)}
+              isEdit={activeInputIsEdit}
+              onSave={handleInputSave}
+              onTask={handleInputTask}
+              onCancel={handleInputCancel}
+              onDelete={handleInputDelete}
+            />
+          )}
+        </>
       )}
     </>
   );

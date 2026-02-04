@@ -48,11 +48,11 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
         </Button>
       }
     >
-      <div className="grid grid-cols-3 grid-rows-[1fr] flex-1 min-h-0">
+      <div className="grid grid-cols-4 grid-rows-[1fr] flex-1 min-h-0">
         <div className="col-span-1 h-full overflow-hidden">
           <DocsList docs={docs} repoSlug={repoSlug} />
         </div>
-        <div className="col-span-2 h-full overflow-hidden">{children}</div>
+        <div className="col-span-3 h-full overflow-hidden">{children}</div>
       </div>
     </PageWrapper>
   );

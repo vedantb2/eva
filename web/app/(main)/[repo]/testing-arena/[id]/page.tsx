@@ -20,11 +20,16 @@ import {
 import dayjs from "@/lib/dates";
 import { UITestingPanel } from "../UITestingPanel";
 
+interface EvalResult {
+  requirement: string;
+  passed: boolean;
+  detail: string;
+}
+
 interface EvaluationReport {
   _id: Id<"evaluationReports">;
   status: "pending" | "running" | "completed" | "error";
-  requirementsMet: Array<{ requirement: string; evidence: string }>;
-  requirementsNotMet: Array<{ requirement: string; reason: string }>;
+  results: EvalResult[];
   summary?: string;
   error?: string;
   createdAt: number;
@@ -56,24 +61,20 @@ function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
 }
 
 function ReportCard({ report }: { report: EvaluationReport }) {
-  const [expandedMet, setExpandedMet] = useState(false);
-  const [expandedNotMet, setExpandedNotMet] = useState(false);
+  const [showPassed, setShowPassed] = useState(false);
 
-  const metCount = report.requirementsMet.length;
-  const notMetCount = report.requirementsNotMet.length;
-  const total = metCount + notMetCount;
-  const passRate = total > 0 ? Math.round((metCount / total) * 100) : 0;
+  const passed = report.results.filter((r) => r.passed);
+  const failed = report.results.filter((r) => !r.passed);
+  const total = report.results.length;
+  const passRate = total > 0 ? Math.round((passed.length / total) * 100) : 0;
 
   return (
-    <Card shadow="none" className="bg-neutral-50 dark:bg-neutral-800/50">
-      <CardBody className="p-6 flex flex-col gap-4">
+    <Card shadow="none" className="bg-neutral-100 dark:bg-neutral-800/50">
+      <CardBody className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           {report.status !== "completed" && (
             <StatusBadge status={report.status} />
           )}
-          <span className="text-xs text-neutral-400 tabular-nums ml-auto">
-            {dayjs(report.createdAt).fromNow()}
-          </span>
         </div>
 
         {report.status === "running" && (
@@ -92,30 +93,33 @@ function ReportCard({ report }: { report: EvaluationReport }) {
         )}
 
         {report.status === "completed" && (
-          <>
+          <div className="flex flex-col gap-4">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="text-3xl font-semibold text-neutral-900 dark:text-white tabular-nums">
-                  {passRate}%
+                  {passed.length}/{total}
                 </p>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                  Pass rate
+                  {passRate}% passed
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="flex items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400">
                 <span className="inline-flex items-center gap-1 tabular-nums">
                   <IconCheck size={14} className="text-teal-600" />
-                  {metCount}
+                  {passed.length}
                 </span>
                 <span className="inline-flex items-center gap-1 tabular-nums">
                   <IconX size={14} className="text-red-500" />
-                  {notMetCount}
+                  {failed.length}
                 </span>
               </div>
+              <span className="text-sm text-neutral-400 tabular-nums ml-auto">
+                {dayjs(report.createdAt).fromNow()}
+              </span>
             </div>
 
             <div className="h-1 rounded-full bg-neutral-200/70 dark:bg-neutral-700/60 overflow-hidden flex">
-              {metCount > 0 && (
+              {passed.length > 0 && (
                 <div
                   className="h-full bg-teal-500"
                   style={{ width: `${passRate}%` }}
@@ -129,23 +133,44 @@ function ReportCard({ report }: { report: EvaluationReport }) {
               </p>
             )}
 
-            {metCount > 0 && (
+            {failed.length > 0 && (
+              <div className="space-y-1.5">
+                {failed.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <IconX
+                      size={14}
+                      className="mt-0.5 text-red-500 flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm text-neutral-900 dark:text-white">
+                        {item.requirement}
+                      </p>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {item.detail}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {passed.length > 0 && (
               <div>
                 <button
                   type="button"
-                  onClick={() => setExpandedMet(!expandedMet)}
+                  onClick={() => setShowPassed(!showPassed)}
                   className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
                 >
-                  {expandedMet ? (
+                  {showPassed ? (
                     <IconChevronDown size={14} />
                   ) : (
                     <IconChevronRight size={14} />
                   )}
-                  {metCount} met
+                  {passed.length} passed
                 </button>
-                {expandedMet && (
+                {showPassed && (
                   <div className="mt-2 space-y-1.5 pl-5">
-                    {report.requirementsMet.map((item, idx) => (
+                    {passed.map((item, idx) => (
                       <div key={idx} className="flex items-start gap-2">
                         <IconCheck
                           size={14}
@@ -156,7 +181,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
                             {item.requirement}
                           </p>
                           <p className="text-xs text-neutral-400 mt-0.5">
-                            {item.evidence}
+                            {item.detail}
                           </p>
                         </div>
                       </div>
@@ -165,44 +190,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
                 )}
               </div>
             )}
-
-            {notMetCount > 0 && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setExpandedNotMet(!expandedNotMet)}
-                  className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
-                >
-                  {expandedNotMet ? (
-                    <IconChevronDown size={14} />
-                  ) : (
-                    <IconChevronRight size={14} />
-                  )}
-                  {notMetCount} not met
-                </button>
-                {expandedNotMet && (
-                  <div className="mt-2 space-y-1.5 pl-5">
-                    {report.requirementsNotMet.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <IconX
-                          size={14}
-                          className="mt-0.5 text-red-500 flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm text-neutral-900 dark:text-white">
-                            {item.requirement}
-                          </p>
-                          <p className="text-xs text-neutral-400 mt-0.5">
-                            {item.reason}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
+          </div>
         )}
       </CardBody>
     </Card>

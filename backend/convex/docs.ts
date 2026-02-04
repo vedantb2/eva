@@ -8,10 +8,13 @@ const docTimeline = new Timeline(components.timeline, { maxNodesPerScope: 50 });
 
 const snapshotValidator = v.object({ title: v.string(), content: v.string() });
 
-function parseSnapshot(data: unknown): { title: string; content: string } | null {
+function parseSnapshot(
+  data: unknown,
+): { title: string; content: string } | null {
   if (typeof data !== "object" || data === null) return null;
   if (!("title" in data) || !("content" in data)) return null;
-  if (typeof data.title !== "string" || typeof data.content !== "string") return null;
+  if (typeof data.title !== "string" || typeof data.content !== "string")
+    return null;
   return { title: data.title, content: data.content };
 }
 
@@ -21,6 +24,11 @@ const docValidator = v.object({
   repoId: v.id("githubRepos"),
   title: v.string(),
   content: v.string(),
+  description: v.optional(v.string()),
+  userFlows: v.optional(
+    v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
+  ),
+  requirements: v.optional(v.array(v.string())),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -57,6 +65,11 @@ export const create = mutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     content: v.string(),
+    description: v.optional(v.string()),
+    userFlows: v.optional(
+      v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
+    ),
+    requirements: v.optional(v.array(v.string())),
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => {
@@ -69,6 +82,9 @@ export const create = mutation({
       repoId: args.repoId,
       title: args.title,
       content: args.content,
+      description: args.description,
+      userFlows: args.userFlows,
+      requirements: args.requirements,
       createdAt: now,
       updatedAt: now,
     });
@@ -80,6 +96,11 @@ export const update = mutation({
     id: v.id("docs"),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
+    description: v.optional(v.string()),
+    userFlows: v.optional(
+      v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
+    ),
+    requirements: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -91,11 +112,22 @@ export const update = mutation({
     if (!doc) {
       throw new Error("Doc not found");
     }
-    const updates: { title?: string; content?: string; updatedAt: number } = {
+    const updates: {
+      title?: string;
+      content?: string;
+      description?: string;
+      userFlows?: Array<{ name: string; steps: string[] }>;
+      requirements?: string[];
+      updatedAt: number;
+    } = {
       updatedAt: Date.now(),
     };
     if (args.title !== undefined) updates.title = args.title;
     if (args.content !== undefined) updates.content = args.content;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.userFlows !== undefined) updates.userFlows = args.userFlows;
+    if (args.requirements !== undefined)
+      updates.requirements = args.requirements;
     await ctx.db.patch(args.id, updates);
     return null;
   },
@@ -144,7 +176,10 @@ export const timelineUndo = mutation({
     const result = await docTimeline.undo(ctx, `doc:${args.id}`);
     const snapshot = parseSnapshot(result);
     if (snapshot) {
-      await ctx.db.patch(args.id, { title: snapshot.title, updatedAt: Date.now() });
+      await ctx.db.patch(args.id, {
+        title: snapshot.title,
+        updatedAt: Date.now(),
+      });
     }
     return snapshot;
   },
@@ -159,7 +194,10 @@ export const timelineRedo = mutation({
     const result = await docTimeline.redo(ctx, `doc:${args.id}`);
     const snapshot = parseSnapshot(result);
     if (snapshot) {
-      await ctx.db.patch(args.id, { title: snapshot.title, updatedAt: Date.now() });
+      await ctx.db.patch(args.id, {
+        title: snapshot.title,
+        updatedAt: Date.now(),
+      });
     }
     return snapshot;
   },
@@ -175,7 +213,8 @@ export const timelineStatus = query({
   }),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
-    if (!userId) return { canUndo: false, canRedo: false, position: null, length: 0 };
+    if (!userId)
+      return { canUndo: false, canRedo: false, position: null, length: 0 };
     return await docTimeline.status(ctx, `doc:${args.id}`);
   },
 });
@@ -193,4 +232,3 @@ export const timelineHistory = query({
     });
   },
 });
-

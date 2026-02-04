@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
-import { evaluationStatusValidator, requirementMetValidator, requirementNotMetValidator } from "./validators";
+import { evaluationStatusValidator, evalResultValidator } from "./validators";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
@@ -9,8 +9,7 @@ const reportValidator = v.object({
   repoId: v.id("githubRepos"),
   docId: v.id("docs"),
   status: evaluationStatusValidator,
-  requirementsMet: v.array(requirementMetValidator),
-  requirementsNotMet: v.array(requirementNotMetValidator),
+  results: v.array(evalResultValidator),
   summary: v.optional(v.string()),
   error: v.optional(v.string()),
   createdAt: v.number(),
@@ -61,8 +60,7 @@ export const create = mutation({
       repoId: args.repoId,
       docId: args.docId,
       status: "pending",
-      requirementsMet: [],
-      requirementsNotMet: [],
+      results: [],
       createdAt: now,
       updatedAt: now,
     });
@@ -92,8 +90,7 @@ export const updateEvalStatus = mutation({
 export const completeEval = mutation({
   args: {
     id: v.id("evaluationReports"),
-    requirementsMet: v.array(requirementMetValidator),
-    requirementsNotMet: v.array(requirementNotMetValidator),
+    results: v.array(evalResultValidator),
     summary: v.string(),
   },
   returns: v.null(),
@@ -105,8 +102,7 @@ export const completeEval = mutation({
     }
     await ctx.db.patch(args.id, {
       status: "completed",
-      requirementsMet: args.requirementsMet,
-      requirementsNotMet: args.requirementsNotMet,
+      results: args.results,
       summary: args.summary,
       updatedAt: Date.now(),
     });

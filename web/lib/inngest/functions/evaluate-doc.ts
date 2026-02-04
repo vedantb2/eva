@@ -5,8 +5,7 @@ import { createConvex } from "@/lib/convex-auth";
 import { createSandbox, getSandbox, getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox";
 
 interface EvaluationResult {
-  requirementsMet: Array<{ requirement: string; evidence: string }>;
-  requirementsNotMet: Array<{ requirement: string; reason: string }>;
+  results: Array<{ requirement: string; passed: boolean; detail: string }>;
   summary: string;
 }
 
@@ -76,21 +75,23 @@ export const evaluateDoc = inngest.createFunction(
       });
     });
 
+    const requirements = doc.requirements ?? [];
+
     await step.run("explore-codebase", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      const explorationPrompt = `You are analyzing a codebase to evaluate it against requirements.
+      const explorationPrompt = `You are a QA engineer evaluating whether a codebase meets a specification.
 
-## Document: ${doc.title}
+## Feature: ${doc.title}
+${doc.description || ""}
 
-${doc.content}
+## Requirements to verify:
+${requirements.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-Explore the repository and determine:
-- What features exist in the codebase
-- What functionality is implemented
-- What requirements from the document are met or not met
-
-Do NOT output JSON. Just reason and gather facts about what you find.`;
+For each requirement above, explore the codebase to find evidence of whether it is implemented.
+Search for relevant files, read implementations, and note what you find.
+Be thorough — check routes, components, API handlers, database schemas, and business logic.
+Do NOT output JSON. Reason through each requirement and gather facts.`;
 
       await runClaudeCLI(sandbox, explorationPrompt, {
         model: "opus",
@@ -101,18 +102,20 @@ Do NOT output JSON. Just reason and gather facts about what you find.`;
     const result = await step.run("generate-evaluation", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
-      const jsonPrompt = `Using everything you discovered about the repository, produce the final evaluation.
+      const jsonPrompt = `Based on your analysis, produce the final evaluation as JSON.
 
-Focus on business/functional requirements, not code structure.
-Use plain, non-technical language. No file paths or code references.
+Requirements (evaluate exactly ${requirements.length}, one result per requirement):
+${requirements.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-You MUST output ONLY valid JSON. No markdown. No explanations. No text outside JSON.
+Rules:
+- "passed": true means the requirement is fully implemented and functional
+- "passed": false means it is missing, partial, or broken
+- "detail": brief plain-language explanation of what you found (no file paths or code)
+- You MUST produce exactly ${requirements.length} results, one per requirement, in order
 
-{
-  "requirementsMet": [{"requirement": "string", "evidence": "string"}],
-  "requirementsNotMet": [{"requirement": "string", "reason": "string"}],
-  "summary": "string"
-}`;
+Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON object.
+
+{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}`;
 
       const claudeResult = await runClaudeCLI(sandbox, jsonPrompt, {
         model: "opus",
@@ -126,24 +129,23 @@ You MUST output ONLY valid JSON. No markdown. No explanations. No text outside J
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
         return {
-          requirementsMet: [],
-          requirementsNotMet: [],
+          results: requirements.map((r) => ({ requirement: r, passed: false, detail: "Failed to parse evaluation" })),
           summary: `Failed to parse evaluation results. Raw output: ${claudeResult.result.slice(0, 300)}`,
         };
       }
 
       const parsed: Partial<EvaluationResult> = JSON.parse(jsonStr);
 
-      const requirementsNotMet = Array.isArray(parsed.requirementsNotMet)
-        ? parsed.requirementsNotMet.map((item: Record<string, string>) => ({
+      const results = Array.isArray(parsed.results)
+        ? parsed.results.map((item: { requirement?: string; passed?: boolean; detail?: string }) => ({
             requirement: item.requirement || "",
-            reason: item.reason || item.evidence || "",
+            passed: item.passed === true,
+            detail: item.detail || "",
           }))
-        : [];
+        : requirements.map((r) => ({ requirement: r, passed: false, detail: "No evaluation produced" }));
 
       return {
-        requirementsMet: Array.isArray(parsed.requirementsMet) ? parsed.requirementsMet : [],
-        requirementsNotMet,
+        results,
         summary: typeof parsed.summary === "string" ? parsed.summary : "Evaluation completed",
       };
     });
@@ -160,8 +162,7 @@ You MUST output ONLY valid JSON. No markdown. No explanations. No text outside J
     await step.run("save-results", async () => {
       await convex.mutation(api.evaluationReports.completeEval, {
         id: reportId as Id<"evaluationReports">,
-        requirementsMet: result.requirementsMet,
-        requirementsNotMet: result.requirementsNotMet,
+        results: result.results,
         summary: result.summary,
       });
     });

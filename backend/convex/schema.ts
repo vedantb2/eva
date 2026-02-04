@@ -10,8 +10,8 @@ import {
   phaseValidator,
   evaluationStatusValidator,
   themeValidator,
-  requirementMetValidator,
-  requirementNotMetValidator,
+  evalResultValidator,
+  userFlowValidator,
   notificationTypeValidator,
   roleUserValidator,
 } from "./validators";
@@ -60,7 +60,7 @@ const schema = defineSchema({
         content: v.string(),
         activityLog: v.optional(v.string()),
         userId: v.optional(v.id("users")),
-      })
+      }),
     ),
   })
     .index("by_repo", ["repoId"])
@@ -111,7 +111,7 @@ const schema = defineSchema({
         timestamp: v.number(),
         level: logLevelValidator,
         message: v.string(),
-      })
+      }),
     ),
     startedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
@@ -175,13 +175,17 @@ const schema = defineSchema({
         mode: v.optional(sessionModeValidator),
         activityLog: v.optional(v.string()),
         userId: v.optional(v.id("users")),
-      })
+      }),
     ),
-    fileDiffs: v.optional(v.array(v.object({
-      file: v.string(),
-      status: v.string(),
-      diff: v.string(),
-    }))),
+    fileDiffs: v.optional(
+      v.array(
+        v.object({
+          file: v.string(),
+          status: v.string(),
+          diff: v.string(),
+        }),
+      ),
+    ),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -190,6 +194,9 @@ const schema = defineSchema({
     repoId: v.id("githubRepos"),
     title: v.string(),
     content: v.string(),
+    description: v.optional(v.string()),
+    userFlows: v.optional(v.array(userFlowValidator)),
+    requirements: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -203,7 +210,7 @@ const schema = defineSchema({
         content: v.string(),
         timestamp: v.number(),
         userId: v.optional(v.id("users")),
-      })
+      }),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -246,8 +253,7 @@ const schema = defineSchema({
     repoId: v.id("githubRepos"),
     docId: v.id("docs"),
     status: evaluationStatusValidator,
-    requirementsMet: v.array(requirementMetValidator),
-    requirementsNotMet: v.array(requirementNotMetValidator),
+    results: v.array(evalResultValidator),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
     createdAt: v.number(),

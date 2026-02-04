@@ -1,15 +1,10 @@
 "use client";
 
-import { GenericId as Id } from "convex/values";
-import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
-import { EditorContent, EditorProvider } from "@tiptap/react";
-import type { Editor } from "@tiptap/core";
-import { generateJSON } from "@tiptap/core";
-import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Input, Textarea } from "@heroui/input";
 import {
   Modal,
   ModalContent,
@@ -17,28 +12,20 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { Spinner } from "@heroui/spinner";
 import { Tooltip } from "@heroui/tooltip";
 import {
   IconTrash,
-  IconCheck,
-  IconLoader2,
-  IconArrowBackUp,
-  IconArrowForwardUp,
-  IconHistory,
-  IconBookmark,
+  IconPlus,
+  IconX,
+  IconGripVertical,
+  IconInfoCircle,
 } from "@tabler/icons-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
 
-interface Doc {
-  _id: Id<"docs">;
-  title: string;
-  content: string;
-  updatedAt: number;
-}
+type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
 export function DocViewer({ doc }: { doc: Doc }) {
   return <DocEditor key={doc._id} doc={doc} />;
@@ -47,58 +34,85 @@ export function DocViewer({ doc }: { doc: Doc }) {
 function DocEditor({ doc }: { doc: Doc }) {
   const router = useRouter();
   const { repoSlug } = useRepo();
-  const sync = useTiptapSync(api.prosemirrorSync, doc._id);
-  const updateDoc = useMutation(api.docs.update);
+  const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.docs.get, { id: args.id });
+      if (current) {
+        localStore.setQuery(
+          api.docs.get,
+          { id: args.id },
+          {
+            ...current,
+            ...args,
+            updatedAt: Date.now(),
+          },
+        );
+      }
+    },
+  );
   const removeDoc = useMutation(api.docs.remove);
-  const saveVersionMut = useMutation(api.docs.saveVersion);
-  const undoVersion = useMutation(api.docs.timelineUndo);
-  const redoVersion = useMutation(api.docs.timelineRedo);
-  const status = useQuery(api.docs.timelineStatus, { id: doc._id });
-  const [title, setTitle] = useState(doc.title);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
-  const [lastEdited, setLastEdited] = useState(doc.updatedAt);
-  const [showHistory, setShowHistory] = useState(false);
-  const hasCreated = useRef(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const editorRef = useRef<Editor | null>(null);
-  const history = useQuery(
-    api.docs.timelineHistory,
-    showHistory ? { id: doc._id } : "skip"
-  );
 
-  useEffect(() => {
-    setTitle(doc.title);
-  }, [doc.title]);
+  const addRequirement = () => {
+    updateDoc({ id: doc._id, requirements: [...(doc.requirements ?? []), ""] });
+  };
 
-  useEffect(() => {
-    return () => clearTimeout(saveTimerRef.current);
-  }, []);
+  const updateRequirement = (idx: number, val: string) => {
+    const next = (doc.requirements ?? []).map((r, i) => (i === idx ? val : r));
+    updateDoc({ id: doc._id, requirements: next });
+  };
 
-  const handleEditorUpdate = useCallback(() => {
-    setSaveStatus("saving");
-    setLastEdited(Date.now());
-    clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => setSaveStatus("saved"), 1500);
-  }, []);
+  const removeRequirement = (idx: number) => {
+    const next = (doc.requirements ?? []).filter((_, i) => i !== idx);
+    updateDoc({ id: doc._id, requirements: next });
+  };
 
-  useEffect(() => {
-    if (!sync.isLoading && sync.initialContent === null && !hasCreated.current) {
-      hasCreated.current = true;
-      if (doc.content) {
-        const json = generateJSON(doc.content, [StarterKit]);
-        sync.create(json);
-      } else {
-        sync.create({ type: "doc", content: [] });
-      }
-    }
-  }, [sync, doc.content]);
+  const addFlow = () => {
+    updateDoc({
+      id: doc._id,
+      userFlows: [...(doc.userFlows ?? []), { name: "", steps: [""] }],
+    });
+  };
 
-  const handleTitleBlur = () => {
-    if (title !== doc.title) {
-      updateDoc({ id: doc._id, title });
-    }
+  const removeFlow = (flowIdx: number) => {
+    const next = (doc.userFlows ?? []).filter((_, i) => i !== flowIdx);
+    updateDoc({ id: doc._id, userFlows: next });
+  };
+
+  const updateFlowName = (flowIdx: number, name: string) => {
+    const next = (doc.userFlows ?? []).map((flow, i) =>
+      i === flowIdx ? { ...flow, name } : flow,
+    );
+    updateDoc({ id: doc._id, userFlows: next });
+  };
+
+  const addStep = (flowIdx: number) => {
+    const next = (doc.userFlows ?? []).map((flow, i) =>
+      i === flowIdx ? { ...flow, steps: [...flow.steps, ""] } : flow,
+    );
+    updateDoc({ id: doc._id, userFlows: next });
+  };
+
+  const removeStep = (flowIdx: number, stepIdx: number) => {
+    const next = (doc.userFlows ?? []).map((flow, i) =>
+      i === flowIdx
+        ? { ...flow, steps: flow.steps.filter((_, j) => j !== stepIdx) }
+        : flow,
+    );
+    updateDoc({ id: doc._id, userFlows: next });
+  };
+
+  const updateStep = (flowIdx: number, stepIdx: number, val: string) => {
+    const next = (doc.userFlows ?? []).map((flow, i) =>
+      i === flowIdx
+        ? {
+            ...flow,
+            steps: flow.steps.map((s, j) => (j === stepIdx ? val : s)),
+          }
+        : flow,
+    );
+    updateDoc({ id: doc._id, userFlows: next });
   };
 
   const handleDelete = async () => {
@@ -112,168 +126,205 @@ function DocEditor({ doc }: { doc: Doc }) {
     }
   };
 
-  const handleSaveVersion = async () => {
-    if (!editorRef.current) return;
-    await saveVersionMut({
-      id: doc._id,
-      content: JSON.stringify(editorRef.current.getJSON()),
-    });
-  };
-
-  const handleUndo = async () => {
-    const result = await undoVersion({ id: doc._id });
-    if (result && editorRef.current) {
-      editorRef.current.commands.setContent(JSON.parse(result.content));
-      setTitle(result.title);
-    }
-  };
-
-  const handleRedo = async () => {
-    const result = await redoVersion({ id: doc._id });
-    if (result && editorRef.current) {
-      editorRef.current.commands.setContent(JSON.parse(result.content));
-      setTitle(result.title);
-    }
-  };
-
-  if (sync.isLoading || sync.initialContent === null) {
-    return (
-      <div className="h-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center gap-3">
             <Input
-              value={title}
-              onValueChange={setTitle}
-              onBlur={handleTitleBlur}
+              value={doc.title}
+              onValueChange={(val) => updateDoc({ id: doc._id, title: val })}
               className="max-w-xs"
               size="sm"
               placeholder="Document title"
             />
-            <div className="flex items-center gap-1.5 text-xs text-neutral-400 whitespace-nowrap">
-              {saveStatus === "saving" ? (
-                <IconLoader2 size={14} className="animate-spin" />
-              ) : (
-                <IconCheck size={14} />
-              )}
-              <span>{saveStatus === "saving" ? "Saving..." : "Saved"}</span>
-              <span className="mx-1">·</span>
-              <span>{dayjs(lastEdited).fromNow()}</span>
-            </div>
+            <span className="text-xs text-neutral-400 whitespace-nowrap">
+              {dayjs(doc.updatedAt).fromNow()}
+            </span>
           </div>
-          <div className="flex items-center gap-1">
-            <Tooltip content="Save version">
-              <Button
-                size="sm"
-                variant="flat"
-                isIconOnly
-                onPress={handleSaveVersion}
-              >
-                <IconBookmark size={16} />
-              </Button>
-            </Tooltip>
-            <Tooltip content="Undo version">
-              <Button
-                size="sm"
-                variant="flat"
-                isIconOnly
-                isDisabled={!status?.canUndo}
-                onPress={handleUndo}
-              >
-                <IconArrowBackUp size={16} />
-              </Button>
-            </Tooltip>
-            <Tooltip content="Redo version">
-              <Button
-                size="sm"
-                variant="flat"
-                isIconOnly
-                isDisabled={!status?.canRedo}
-                onPress={handleRedo}
-              >
-                <IconArrowForwardUp size={16} />
-              </Button>
-            </Tooltip>
-            <Tooltip content="Edit history">
-              <Button
-                size="sm"
-                variant="flat"
-                isIconOnly
-                onPress={() => setShowHistory((v) => !v)}
-                className={showHistory ? "bg-teal-100 dark:bg-teal-900/30" : ""}
-              >
-                <IconHistory size={16} />
-              </Button>
-            </Tooltip>
-            {status && status.length > 0 && (
-              <span className="text-xs text-neutral-400 ml-1">
-                v{(status.position ?? 0) + 1}/{status.length}
-              </span>
-            )}
-            <div className="w-px h-5 bg-neutral-200 dark:bg-neutral-700 mx-1" />
-            <Button
-              size="sm"
-              variant="flat"
-              color="danger"
-              startContent={<IconTrash size={16} />}
-              onPress={() => setShowDeleteModal(true)}
-            >
-              Delete
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="flat"
+            color="danger"
+            startContent={<IconTrash size={16} />}
+            onPress={() => setShowDeleteModal(true)}
+          >
+            Delete
+          </Button>
         </div>
-        <div className="flex-1 overflow-hidden flex">
-          <div className="flex-1 overflow-y-auto scrollbar p-4">
-            <EditorProvider
-              content={sync.initialContent}
-              extensions={[StarterKit, sync.extension]}
-              immediatelyRender={false}
-              onUpdate={handleEditorUpdate}
-              onCreate={({ editor }) => {
-                editorRef.current = editor;
-              }}
-            >
-              <EditorContent
-                editor={null}
-                className="prose dark:prose-invert max-w-none min-h-full focus-within:outline-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:outline-none"
-              />
-            </EditorProvider>
-          </div>
-          {showHistory && (
-            <div className="w-64 border-l border-neutral-200 dark:border-neutral-700 overflow-y-auto scrollbar p-3">
-              <p className="text-xs font-medium text-neutral-500 mb-2">
-                Edit History
-              </p>
-              {!history || history.length === 0 ? (
-                <p className="text-xs text-neutral-400">No versions saved</p>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {history.map((node) => (
-                    <div
-                      key={node.position}
-                      className={`px-3 py-2 rounded text-xs ${
-                        status?.position === node.position
-                          ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-medium"
-                          : "text-neutral-600 dark:text-neutral-400"
-                      }`}
-                    >
-                      <span>v{node.position + 1}</span>
-                      <span className="ml-2 truncate">{node.title}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+
+        <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
+          <section>
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
+              Description
+            </label>
+            <Textarea
+              value={doc.description ?? ""}
+              onValueChange={(val) =>
+                updateDoc({ id: doc._id, description: val })
+              }
+              placeholder="What does this page or feature do?"
+              minRows={2}
+              maxRows={8}
+              classNames={{ inputWrapper: "bg-white dark:bg-neutral-800" }}
+            />
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                Requirements
+                <Tooltip
+                  content="Used for code-level testing and evaluation"
+                  size="sm"
+                >
+                  <IconInfoCircle size={14} className="text-neutral-400" />
+                </Tooltip>
+              </label>
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={<IconPlus size={14} />}
+                onPress={addRequirement}
+              >
+                Add
+              </Button>
             </div>
-          )}
+            {(doc.requirements ?? []).length === 0 ? (
+              <p className="text-sm text-neutral-400">
+                No requirements yet. Add items that should be verified during
+                testing.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(doc.requirements ?? []).map((req, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <IconGripVertical
+                      size={14}
+                      className="text-neutral-300 dark:text-neutral-600 flex-shrink-0"
+                    />
+                    <Input
+                      value={req}
+                      onValueChange={(val) => updateRequirement(idx, val)}
+                      placeholder="e.g. Users can log in with email"
+                      size="sm"
+                      classNames={{
+                        inputWrapper: "bg-white dark:bg-neutral-800",
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="light"
+                      isIconOnly
+                      onPress={() => removeRequirement(idx)}
+                      className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                    >
+                      <IconX size={14} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                User Flows
+                <Tooltip
+                  content="Used for UI testing in the testing arena"
+                  size="sm"
+                >
+                  <IconInfoCircle size={14} className="text-neutral-400" />
+                </Tooltip>
+              </label>
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={<IconPlus size={14} />}
+                onPress={addFlow}
+              >
+                Add Flow
+              </Button>
+            </div>
+            {(doc.userFlows ?? []).length === 0 ? (
+              <p className="text-sm text-neutral-400">
+                No user flows yet. Add step-by-step flows to test in the UI
+                testing tab.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {(doc.userFlows ?? []).map((flow, flowIdx) => (
+                  <div
+                    key={flowIdx}
+                    className="border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 bg-white dark:bg-neutral-800"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Input
+                        value={flow.name}
+                        onValueChange={(val) => updateFlowName(flowIdx, val)}
+                        placeholder={`Flow ${flowIdx + 1}`}
+                        size="sm"
+                        classNames={{
+                          inputWrapper: "bg-neutral-50 dark:bg-neutral-900",
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => removeFlow(flowIdx)}
+                        className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                      >
+                        <IconX size={14} />
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {flow.steps.map((step, stepIdx) => (
+                        <div key={stepIdx} className="flex items-center gap-2">
+                          <span className="text-xs text-neutral-400 w-5 text-right flex-shrink-0 tabular-nums">
+                            {stepIdx + 1}.
+                          </span>
+                          <Input
+                            value={step}
+                            onValueChange={(val) =>
+                              updateStep(flowIdx, stepIdx, val)
+                            }
+                            placeholder="Describe this step"
+                            size="sm"
+                            classNames={{
+                              inputWrapper: "bg-neutral-50 dark:bg-neutral-900",
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="light"
+                            isIconOnly
+                            onPress={() => removeStep(flowIdx, stepIdx)}
+                            className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                          >
+                            <IconX size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="light"
+                      startContent={<IconPlus size={14} />}
+                      onPress={() => addStep(flowIdx)}
+                      className="mt-2 text-neutral-500"
+                    >
+                      Add Step
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
+
       <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
         <ModalContent>
           <ModalHeader>Delete Document</ModalHeader>
@@ -289,7 +340,11 @@ function DocEditor({ doc }: { doc: Doc }) {
             <Button variant="flat" onPress={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
-            <Button color="danger" onPress={handleDelete} isLoading={isDeleting}>
+            <Button
+              color="danger"
+              onPress={handleDelete}
+              isLoading={isDeleting}
+            >
               Delete
             </Button>
           </ModalFooter>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useUser, useAuth } from "@clerk/chrome-extension";
+import { useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
@@ -8,7 +8,7 @@ import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowUp, IconBolt, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle, IconUser } from "@tabler/icons-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
@@ -20,6 +20,8 @@ type SessionMessage = {
   content: string;
   timestamp: number;
   mode?: "execute" | "ask" | "plan" | "flag";
+  activityLog?: string;
+  userId?: string;
 };
 
 type Mode = "ask" | "flag";
@@ -33,6 +35,23 @@ interface ChatPanelProps {
   onToggleToolbar: () => void;
 }
 
+function UserAvatar({ userId }: { userId?: string }) {
+  const user = useQuery(api.users.get, userId ? { id: userId as Id<"users"> } : "skip");
+  if (!user) {
+    return (
+      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+        <IconUser size={14} className="text-neutral-500" />
+      </div>
+    );
+  }
+  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
+  return (
+    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 text-teal-100 text-xs font-medium flex items-center justify-center">
+      {initials}
+    </div>
+  );
+}
+
 export function ChatPanel({
   selectedRepoId,
   sessionId,
@@ -41,7 +60,6 @@ export function ChatPanel({
   toolbarVisible,
   onToggleToolbar,
 }: ChatPanelProps) {
-  useUser();
   const { getToken } = useAuth();
   const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>([]);
   const [input, setInput] = useState("");
@@ -315,60 +333,95 @@ Please review all components and files used on this page before implementing the
           return (
             <div
               key={index}
-              className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
+              className={`flex gap-2.5 items-start ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {isFlagResponse && prev ? (
-                <Collapsible className="max-w-[85%] rounded-lg border border-border bg-card text-card-foreground overflow-hidden">
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
-                    <IconCheck size={16} className="text-teal-500 shrink-0" />
-                    <span className="flex-1 text-left">Issue flagged and task created</span>
-                    <IconChevronRight size={14} className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
-                    <p className="font-medium">{prev.content.slice(0, 100)}</p>
-                    <p className="text-muted-foreground whitespace-pre-wrap break-words">{message.content}</p>
-                  </CollapsibleContent>
-                </Collapsible>
-              ) : (
-                <div
-                  className={`max-w-[85%] rounded-lg px-4 py-2 overflow-hidden ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card border border-border text-card-foreground"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words text-sm">
-                    {message.content}
-                  </p>
+              {message.role === "assistant" && (
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center">
+                  <IconBolt size={14} className="text-white" />
                 </div>
               )}
-              {message.role === "user" && message.mode && (message.mode === "ask" || message.mode === "flag") && (
-                <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  {message.mode === "ask" ? (
-                    <IconMessageCircle size={12} />
-                  ) : (
-                    <IconFlag size={12} />
-                  )}
-                  {message.mode === "ask" ? "Ask" : "Flag"}
-                </span>
+              <div className={`flex flex-col max-w-[85%] min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}>
+                {isFlagResponse && prev ? (
+                  <Collapsible className="rounded-xl border border-border bg-card text-card-foreground overflow-hidden">
+                    <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
+                      <IconCheck size={16} className="text-teal-500 shrink-0" />
+                      <span className="flex-1 text-left">Issue flagged and task created</span>
+                      <IconChevronRight size={14} className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
+                      <p className="font-medium">{prev.content.slice(0, 100)}</p>
+                      <p className="text-muted-foreground whitespace-pre-wrap break-words">{message.content}</p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ) : (
+                  <div
+                    className={`rounded-xl px-3 py-2 overflow-hidden ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border border-border text-card-foreground"
+                    }`}
+                  >
+                    {message.role === "assistant" && !message.content && message.activityLog ? (
+                      <>
+                        <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
+                          {message.activityLog}
+                        </pre>
+                        <div className="flex gap-1 mt-2">
+                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
+                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap break-words text-sm">
+                          {message.content}
+                        </p>
+                        {message.role === "assistant" && message.activityLog && (
+                          <Collapsible>
+                            <CollapsibleTrigger className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                              <IconChevronRight size={12} className="transition-transform group-data-[state=open]:rotate-90" />
+                              View logs
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-1 pb-1 overflow-hidden">
+                              <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto">
+                                {message.activityLog}
+                              </pre>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                {message.role === "user" && message.mode && (message.mode === "ask" || message.mode === "flag") && (
+                  <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    {message.mode === "ask" ? (
+                      <IconMessageCircle size={12} />
+                    ) : (
+                      <IconFlag size={12} />
+                    )}
+                    {message.mode === "ask" ? "Ask" : "Flag"}
+                  </span>
+                )}
+              </div>
+              {message.role === "user" && (
+                <UserAvatar userId={message.userId} />
               )}
             </div>
           );
         })}
 
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-card border border-border rounded-lg px-4 py-2">
+          <div className="flex gap-2.5 justify-start">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center">
+              <IconBolt size={14} className="text-white" />
+            </div>
+            <div className="bg-card border border-border rounded-xl px-3 py-2">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                <span
-                  className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                />
-                <span
-                  className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                />
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
               </div>
             </div>
           </div>

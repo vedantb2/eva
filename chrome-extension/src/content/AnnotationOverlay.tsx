@@ -119,7 +119,6 @@ function captureContext(element: HTMLElement): ExtractedContext {
   };
 }
 
-const FONT = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 interface PinComponentProps {
   id: string;
@@ -196,7 +195,6 @@ function PinComponent({ id, data, onDragEnd, onClick, onHover, onLeave }: PinCom
         width: 24,
         height: 24,
         fontSize: 11,
-        fontFamily: FONT,
         zIndex: 2147483645,
         boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
         transition: dragPos ? "none" : "transform 0.15s, box-shadow 0.15s",
@@ -270,7 +268,6 @@ function InputCard({
         top: position.y + 18,
         width: 340,
         zIndex: 2147483645,
-        fontFamily: FONT,
         boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.12)" : "0 8px 32px rgba(0,0,0,0.4)",
         pointerEvents: "auto",
       }}
@@ -281,7 +278,7 @@ function InputCard({
           <button
             onClick={() => onDelete(pinId)}
             className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-500 hover:text-red-600" : "text-red-400 hover:text-red-300"}`}
-            style={{ fontFamily: "inherit", fontSize: 11 }}
+            style={{ fontSize: 11 }}
           >
             <IconTrash size={12} /> Delete
           </button>
@@ -299,7 +296,7 @@ function InputCard({
           <button
             onClick={() => setDetailsOpen((v) => !v)}
             className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-500 hover:text-neutral-600" : "text-neutral-400 hover:text-neutral-300"}`}
-            style={{ fontFamily: "inherit", padding: 0 }}
+            style={{ padding: 0 }}
           >
             <IconChevronRight
               size={12}
@@ -335,7 +332,7 @@ function InputCard({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400" : "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500"}`}
-          style={{ fontFamily: "inherit", boxSizing: "border-box", display: "block" }}
+          style={{ boxSizing: "border-box", display: "block" }}
         />
       </div>
       <div className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-100" : "border-neutral-700"}`} style={{ paddingTop: 10 }}>
@@ -344,7 +341,7 @@ function InputCard({
             if (text.trim()) onTask(pinId, text.trim());
           }}
           className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-700 hover:bg-teal-600 border-none cursor-pointer transition-colors"
-          style={{ fontFamily: "inherit", borderRadius: 8 }}
+          style={{ borderRadius: 8 }}
         >
           <IconCheckbox size={14} /> Create Task
         </button>
@@ -352,7 +349,7 @@ function InputCard({
           <button
             onClick={() => onCancel(pinId)}
             className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
-            style={{ fontFamily: "inherit", borderRadius: 8 }}
+            style={{ borderRadius: 8 }}
           >
             <IconX size={14} /> Cancel
           </button>
@@ -361,7 +358,7 @@ function InputCard({
               if (text.trim()) onSave(pinId, text.trim());
             }}
             className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
-            style={{ fontFamily: "inherit", borderRadius: 8 }}
+            style={{ borderRadius: 8 }}
           >
             <IconDeviceFloppy size={14} /> Save
           </button>
@@ -936,8 +933,7 @@ export function AnnotationOverlay() {
                 zIndex: 2147483645,
                 maxWidth: 240,
                 padding: "6px 8px",
-                fontFamily: FONT,
-                fontSize: 12,
+                        fontSize: 12,
                 lineHeight: 1.4,
                 boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
               }}

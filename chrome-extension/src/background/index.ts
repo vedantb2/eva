@@ -68,6 +68,7 @@ chrome.runtime.onMessage.addListener(
         break;
       }
 
+      case "REQUEST_TOOLBAR_STATE":
       case "TOOLBAR_ADD_QUICK_TASKS":
       case "TOOLBAR_ADD_TO_PROJECT": {
         chrome.runtime.sendMessage({

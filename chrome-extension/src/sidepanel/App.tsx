@@ -271,6 +271,13 @@ function AuthenticatedApp() {
       if (message.type === "SELECTION_CANCELLED") {
         setCapturedContext(null);
       }
+      if (message.type === "REQUEST_TOOLBAR_STATE") {
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id && syncedToolbarVisible) {
+            chrome.tabs.sendMessage(tab.id, { type: "SHOW_TOOLBAR" });
+          }
+        });
+      }
       if (message.type === "TOOLBAR_ADD_QUICK_TASKS" && message.payload) {
         const { pageUrl, pins } = message.payload as unknown as {
           pageUrl: string;
@@ -288,7 +295,7 @@ function AuthenticatedApp() {
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, [handleAddAllQuickTasks]);
+  }, [handleAddAllQuickTasks, syncedToolbarVisible]);
 
 
   useEffect(() => {

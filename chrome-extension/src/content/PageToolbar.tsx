@@ -2,6 +2,7 @@ import { useRef, useCallback, useSyncExternalStore } from "react";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { getAnnotationState, subscribeAnnotation, togglePinsHidden } from "./AnnotationOverlay";
 import { subscribeDark, getDark } from "./theme";
+import { Button } from "@/components/ui/button";
 import type { StoredPin } from "@/shared/messaging";
 
 interface ToolbarState {
@@ -46,35 +47,6 @@ function sendPins(type: "TOOLBAR_ADD_QUICK_TASKS" | "TOOLBAR_ADD_TO_PROJECT", pi
   _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };
   _toolbarEmit();
   chrome.runtime.sendMessage({ type, payload: { pageUrl: getPageUrl(), pins } });
-}
-
-const btnBase: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 12px",
-  borderRadius: 9999,
-  fontSize: 12,
-  fontWeight: 500,
-  cursor: "pointer",
-  border: "none",
-  transition: "opacity 0.15s",
-  fontFamily: "inherit",
-};
-
-const disabledStyle: React.CSSProperties = { opacity: 0.4, cursor: "default" };
-
-function btnTeal(): React.CSSProperties {
-  return { ...btnBase, background: "#0d9488", color: "#fff" };
-}
-
-function btnOutline(dark: boolean): React.CSSProperties {
-  return {
-    ...btnBase,
-    background: "transparent",
-    color: dark ? "#e4e4e7" : "#3f3f46",
-    border: dark ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.15)",
-  };
 }
 
 function dividerStyle(dark: boolean): React.CSSProperties {
@@ -134,8 +106,6 @@ export function PageToolbar() {
   const pinCount = Object.keys(pins).length;
   const hasPins = pinCount > 0;
   const disabled = !hasPins || toolbar.loading;
-  const teal = btnTeal();
-  const outline = btnOutline(dark);
 
   const positioned = toolbar.x !== -1;
   const containerStyle: React.CSSProperties = {
@@ -150,7 +120,6 @@ export function PageToolbar() {
     backdropFilter: "blur(12px)",
     boxShadow: dark ? "0 4px 24px rgba(0,0,0,0.25)" : "0 4px 24px rgba(0,0,0,0.1)",
     border: dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
-    fontFamily: "'Inter', system-ui, sans-serif",
     fontSize: 13,
     color: dark ? "#e4e4e7" : "#27272a",
     whiteSpace: "nowrap",
@@ -175,53 +144,43 @@ export function PageToolbar() {
       <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 12 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
       </span>
-      <button
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 26,
-          height: 26,
-          borderRadius: 9999,
-          border: "none",
-          background: ext.pinsHidden
-            ? (dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)")
-            : "transparent",
-          color: ext.pinsHidden
-            ? (dark ? "#a1a1aa" : "#71717a")
-            : "#14b8a6",
-          cursor: "pointer",
-          padding: 0,
-          fontFamily: "inherit",
-          transition: "background 0.15s, color 0.15s",
-        }}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`w-7 h-7 ${ext.pinsHidden ? "text-neutral-400" : "text-teal-500"}`}
+        style={{ borderRadius: 9999 }}
         title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => togglePinsHidden()}
       >
         {ext.pinsHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-      </button>
+      </Button>
       <div style={dividerStyle(dark)} />
       {toolbar.feedback ? (
         <span style={feedbackStyle(toolbar.feedback.type)}>{toolbar.feedback.message}</span>
       ) : (
         <>
-          <button
-            style={disabled ? { ...teal, ...disabledStyle } : teal}
+          <Button
+            size="sm"
+            className="bg-teal-600 hover:bg-teal-500 text-white text-xs"
+            style={{ borderRadius: 9999 }}
             disabled={disabled}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => hasPins && sendPins("TOOLBAR_ADD_QUICK_TASKS", pins)}
           >
             Add all to Quick Tasks
-          </button>
-          <button
-            style={disabled ? { ...outline, ...disabledStyle } : outline}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            style={{ borderRadius: 9999 }}
             disabled={disabled}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => hasPins && sendPins("TOOLBAR_ADD_TO_PROJECT", pins)}
           >
             Add all to a Project
-          </button>
+          </Button>
         </>
       )}
     </div>

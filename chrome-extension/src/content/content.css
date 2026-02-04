@@ -1,12 +1,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:host {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   border-width: 0;
   border-style: solid;
+  font-family: inherit;
 }
 
 @keyframes conductor-glow {

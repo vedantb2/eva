@@ -103,3 +103,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
 ensureToolbarMount();
+chrome.runtime.sendMessage({ type: "REQUEST_TOOLBAR_STATE" });

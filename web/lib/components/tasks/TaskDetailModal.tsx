@@ -575,7 +575,7 @@ export function TaskDetailModal({
                     className="flex gap-2 items-center bg-white dark:bg-neutral-800 rounded-lg"
                   >
                     <Textarea
-                      minRows={2}
+                      minRows={3}
                       maxRows={5}
                       placeholder="Describe the changes you'd like Eva to make..."
                       value={commentText}
@@ -591,8 +591,10 @@ export function TaskDetailModal({
                     <Button
                       isIconOnly
                       type="submit"
-                      className="mb-auto mt-2 mr-2"
+                      size="sm"
+                      className="mt-auto mb-2 mr-2"
                       color="primary"
+                      radius="full"
                       isDisabled={!commentText.trim()}
                     >
                       <IconArrowUp size={18} />

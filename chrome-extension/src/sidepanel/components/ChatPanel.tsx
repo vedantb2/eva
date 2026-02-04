@@ -489,7 +489,7 @@ Please review all components and files used on this page before implementing the
                   !input.trim() || !selectedRepoId || isLoading || isLoadingSession
                 }
                 size="icon"
-                className="mb-auto mr-2 mt-2 bg-teal-600 hover:bg-teal-700 text-white"
+                className="mt-auto rounded-full mr-2 mb-2 bg-teal-600 hover:bg-teal-700 text-white"
               >
                 <IconArrowUp size={18} />
               </Button>

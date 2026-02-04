@@ -495,8 +495,9 @@ export function ChatPanel({
             <Button
               type="submit"
               isIconOnly
-              className="mb-auto mr-2 mt-2"
+              className="mt-auto mr-2 mb-2"
               color="primary"
+              radius="full"
               isLoading={isSending}
               isDisabled={isInputDisabled || !input.trim()}
               size="sm"

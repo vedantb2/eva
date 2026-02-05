@@ -98,7 +98,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             isLoading={isLoading}
             isDisabled={!title.trim()}
           >
-            Create Task
+            Create Quick Task
           </Button>
         </ModalFooter>
       </ModalContent>

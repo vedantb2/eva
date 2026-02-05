@@ -94,7 +94,7 @@ export function QuickTasksClient() {
               startContent={<IconPlus size={16} />}
               onPress={() => setIsCreating(true)}
             >
-              New Task
+              New Quick Task
             </Button>
           </div>
         }

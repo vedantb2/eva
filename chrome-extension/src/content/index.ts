@@ -41,7 +41,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       createElement(SelectionOverlay, {
         onCapture(context) {
           chrome.runtime.sendMessage({ type: "ELEMENT_CAPTURED", payload: context });
-          destroySelection();
         },
         onCancel() {
           chrome.runtime.sendMessage({ type: "SELECTION_CANCELLED" });

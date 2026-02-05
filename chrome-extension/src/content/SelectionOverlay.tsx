@@ -148,7 +148,13 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
         },
       };
       setCapturing(true);
-      setTimeout(() => onCapture(context), 200);
+      setTimeout(() => {
+        onCapture(context);
+        setCapturing(false);
+        hoveredRef.current = null;
+        setHoverRect(null);
+        setInfoData(null);
+      }, 200);
     }
 
     function handleMouseDown(e: MouseEvent) {

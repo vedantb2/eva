@@ -45,8 +45,8 @@ type Mode = "ask" | "flag";
 interface ChatPanelProps {
   selectedRepoId: string | null;
   sessionId: string | null;
-  capturedContext: ExtractedContext | null;
-  onClearContext: () => void;
+  capturedContexts: ExtractedContext[];
+  onClearContext: (index?: number) => void;
   toolbarVisible: boolean;
   onToggleToolbar: () => void;
 }
@@ -76,7 +76,7 @@ function UserAvatar({ userId }: { userId?: string }) {
 export function ChatPanel({
   selectedRepoId,
   sessionId,
-  capturedContext,
+  capturedContexts,
   onClearContext,
   toolbarVisible,
   onToggleToolbar,
@@ -185,29 +185,16 @@ export function ChatPanel({
 Please review all components and files used on this page before implementing the fix.`;
         }
 
-        if (capturedContext) {
+        for (const ctx of capturedContexts) {
           fullDescription += `\n\n---\n**Captured Element Context**\n`;
-          if (capturedContext.selectedText) {
-            fullDescription += `- Selected Text: "${capturedContext.selectedText}"\n`;
+          if (ctx.selectedText) {
+            fullDescription += `- Selected Text: "${ctx.selectedText}"\n`;
           }
-          fullDescription += `- Element: \`<${capturedContext.element.tagName}>\`\n`;
-          fullDescription += `- Selector: \`${capturedContext.element.selector}\`\n`;
-          // if (capturedContext.element.id) {
-          //   fullDescription += `- ID: \`${capturedContext.element.id}\`\n`;
-          // }
-          if (capturedContext.element.classNames.length > 0) {
-            fullDescription += `- Classes: \`${capturedContext.element.classNames.join(", ")}\`\n`;
+          fullDescription += `- Element: \`<${ctx.element.tagName}>\`\n`;
+          fullDescription += `- Selector: \`${ctx.element.selector}\`\n`;
+          if (ctx.element.classNames.length > 0) {
+            fullDescription += `- Classes: \`${ctx.element.classNames.join(", ")}\`\n`;
           }
-
-          //   if (capturedContext.metadata.hasReact && capturedContext.react) {
-          //     fullDescription += `\n**React Context**\n`;
-          //     fullDescription += `- Component: \`${capturedContext.react.name || "Unknown"}\`\n`;
-          //     fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
-          //     fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n\n`;
-          //     fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.react, null, 2)}\n\`\`\`\n</details>`;
-          //   } else {
-          //     fullDescription += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`html\n${capturedContext.element.outerHTML}\n\`\`\`\n</details>`;
-          //   }
         }
 
         await createQuickTask({
@@ -216,7 +203,7 @@ Please review all components and files used on this page before implementing the
           description: fullDescription,
         });
 
-        const successMessage = `Issue flagged successfully!${capturedContext ? `\n\nI've attached the captured ${capturedContext.metadata.hasReact ? "React component" : "element"} context to the task.` : ""}`;
+        const successMessage = `Issue flagged successfully!${capturedContexts.length > 0 ? `\n\nI've attached ${capturedContexts.length} captured element${capturedContexts.length !== 1 ? "s" : ""} to the task.` : ""}`;
 
         await appendMessage({
           role: "assistant",
@@ -348,12 +335,12 @@ Please review all components and files used on this page before implementing the
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
     if (mode === "ask") {
-      return capturedContext
-        ? "Ask Eva about this element..."
+      return capturedContexts.length > 0
+        ? `Ask Eva about ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
         : "Ask Eva about the codebase...";
     }
-    return capturedContext
-      ? "Describe the issue to Eva with this element..."
+    return capturedContexts.length > 0
+      ? `Describe the issue with ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
       : "Describe an issue to Eva to flag...";
   };
 
@@ -374,7 +361,7 @@ Please review all components and files used on this page before implementing the
             <p className="font-medium text-foreground text-sm mb-1">
               {mode === "ask"
                 ? "Ask Eva questions about your codebase"
-                : capturedContext
+                : capturedContexts.length > 0
                   ? "Describe the issue you want to flag to Eva"
                   : "Flag an issue for Eva"}
             </p>
@@ -527,13 +514,13 @@ Please review all components and files used on this page before implementing the
       </div>
 
       <div className="p-4 border-t border-border space-y-3">
-        {capturedContext && (
-          <ContextPreview context={capturedContext} onClear={onClearContext} />
-        )}
+        {capturedContexts.map((ctx, i) => (
+          <ContextPreview key={ctx.metadata.capturedAt} context={ctx} onClear={() => onClearContext(i)} />
+        ))}
 
         <div className="flex items-center gap-3">
           <SelectionTool
-            hasCapturedContext={capturedContext !== null}
+            capturedCount={capturedContexts.length}
             isActive={activeTool === "select"}
             onActiveChange={handleSelectionActiveChange}
           />

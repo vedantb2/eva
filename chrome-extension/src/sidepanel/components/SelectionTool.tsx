@@ -2,17 +2,17 @@ import { useEffect, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface SelectionToolProps {
-  hasCapturedContext?: boolean;
+  capturedCount?: number;
   isActive: boolean;
   onActiveChange: (active: boolean) => void;
 }
 
-export function SelectionTool({ hasCapturedContext = false, isActive, onActiveChange }: SelectionToolProps) {
+export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: SelectionToolProps) {
   const prevActiveRef = useRef(isActive);
 
   useEffect(() => {
     const handleMessage = (message: { type: string }) => {
-      if (message.type === "ELEMENT_CAPTURED" || message.type === "SELECTION_CANCELLED") {
+      if (message.type === "SELECTION_CANCELLED") {
         onActiveChange(false);
       }
     };
@@ -61,8 +61,10 @@ export function SelectionTool({ hasCapturedContext = false, isActive, onActiveCh
           {isActive && (
             <span className="absolute inset-0 rounded-lg animate-ping bg-primary opacity-30" />
           )}
-          {hasCapturedContext && !isActive && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-background" />
+          {capturedCount > 0 && !isActive && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-teal-500 text-white text-[10px] font-medium rounded-full border-2 border-background flex items-center justify-center">
+              {capturedCount}
+            </span>
           )}
           <svg className="relative w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />

@@ -86,8 +86,7 @@ function AuthenticatedApp() {
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
-  const [capturedContext, setCapturedContext] =
-    useState<ExtractedContext | null>(null);
+  const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>([]);
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -266,10 +265,7 @@ function AuthenticatedApp() {
       _sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type === "ELEMENT_CAPTURED" && message.payload) {
-        setCapturedContext(message.payload as unknown as ExtractedContext);
-      }
-      if (message.type === "SELECTION_CANCELLED") {
-        setCapturedContext(null);
+        setCapturedContexts(prev => [...prev, message.payload as unknown as ExtractedContext]);
       }
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -313,8 +309,12 @@ function AuthenticatedApp() {
     chrome.storage.local.set({ defaultRepoId: repoId });
   };
 
-  const handleClearContext = () => {
-    setCapturedContext(null);
+  const handleClearContext = (index?: number) => {
+    if (index === undefined) {
+      setCapturedContexts([]);
+    } else {
+      setCapturedContexts(prev => prev.filter((_, i) => i !== index));
+    }
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
   };
 
@@ -432,7 +432,7 @@ function AuthenticatedApp() {
       <ChatPanel
         selectedRepoId={selectedRepoId}
         sessionId={currentSessionId}
-        capturedContext={capturedContext}
+        capturedContexts={capturedContexts}
         onClearContext={handleClearContext}
         toolbarVisible={toolbarVisible}
         onToggleToolbar={toggleToolbar}

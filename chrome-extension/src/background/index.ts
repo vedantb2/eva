@@ -22,16 +22,11 @@ chrome.runtime.onMessage.addListener(
     switch (message.type) {
       case "ELEMENT_CAPTURED": {
         capturedContext = message.payload ?? null;
-        chrome.runtime.sendMessage({
-          type: "ELEMENT_CAPTURED",
-          payload: message.payload,
-        });
         sendResponse({ success: true });
         break;
       }
 
       case "SELECTION_CANCELLED": {
-        chrome.runtime.sendMessage({ type: "SELECTION_CANCELLED" });
         sendResponse({ success: true });
         break;
       }

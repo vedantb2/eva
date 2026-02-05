@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/api(.*)",
@@ -21,7 +21,11 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-export default clerkMiddleware(async (auth, req) => {
+function authDisabledMiddleware(_req: NextRequest) {
+  return NextResponse.next();
+}
+
+const clerkHandler = clerkMiddleware(async (auth, req) => {
   const origin = req.headers.get("origin") || "";
   const url = req.url;
   const isAllowedOrigin = allowedOrigins.includes(origin) ||
@@ -33,10 +37,6 @@ export default clerkMiddleware(async (auth, req) => {
       headers.set("Access-Control-Allow-Origin", origin);
     }
     return new NextResponse(null, { status: 200, headers });
-  }
-
-  if (process.env.DISABLE_AUTH === "true") {
-    return NextResponse.next();
   }
 
   if (!isPublicRoute(req)) {
@@ -55,6 +55,10 @@ export default clerkMiddleware(async (auth, req) => {
 
   return response;
 });
+
+export default process.env.DISABLE_AUTH === "true"
+  ? authDisabledMiddleware
+  : clerkHandler;
 
 export const config = {
   matcher: [

@@ -12,12 +12,11 @@ jobs:
 
       - name: Install Daytona CLI
         run: |
-          curl -sf -L https://download.daytona.io/daytona/install.sh | sudo bash
-          which daytona || find /usr -name daytona 2>/dev/null || echo "Checking common locations..."
-          ls -la /usr/local/bin/daytona 2>/dev/null || true
-          ls -la /usr/bin/daytona 2>/dev/null || true
+          curl -sfL https://download.daytona.io/daytona/install.sh | sudo DAYTONA_PATH=/usr/local/bin bash
+          sudo chmod +x /usr/local/bin/daytona
+          /usr/local/bin/daytona version
 
-      - name: Build Docker image with secrets
+      - name: Build Docker image
         run: |
           docker build \
             --platform linux/amd64 \

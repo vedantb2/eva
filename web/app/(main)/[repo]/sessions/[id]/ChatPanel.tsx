@@ -48,6 +48,7 @@ interface ChatPanelProps {
   prUrl?: string;
   summary?: string[];
   messages: Message[];
+  planContent?: string;
   streamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
@@ -61,6 +62,7 @@ export function ChatPanel({
   prUrl,
   summary,
   messages,
+  planContent,
   streamingActivity,
   isSandboxActive,
   isSandboxToggling,
@@ -72,6 +74,7 @@ export function ChatPanel({
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
   const typedSessionId = sessionId as Id<"sessions">;
@@ -105,13 +108,13 @@ export function ChatPanel({
   }, [messages]);
 
   const sendToApi = useCallback(
-    async (message: string, sendMode: SessionMode, generatePlan = false) => {
+    async (message: string, sendMode: SessionMode) => {
       const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "session/execute",
-          data: { sessionId, message, mode: sendMode, generatePlan },
+          data: { sessionId, message, mode: sendMode },
         }),
       });
       if (!response.ok) {
@@ -121,31 +124,14 @@ export function ChatPanel({
     [sessionId],
   );
 
-  const handleSend = async (generatePlan = false) => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     const content = input.trim();
     setInput("");
     setIsSending(true);
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
-      await sendToApi(content, mode, generatePlan);
-    } catch {
-      setIsSending(false);
-    }
-  };
-
-  const handleGeneratePlan = async () => {
-    const content =
-      "Generate the implementation plan based on our conversation.";
-    setIsSending(true);
-    try {
-      await addMessage({
-        id: typedSessionId,
-        role: "user",
-        content,
-        mode: "plan",
-      });
-      await sendToApi(content, "plan", true);
+      await sendToApi(content, mode);
     } catch {
       setIsSending(false);
     }
@@ -447,17 +433,15 @@ export function ChatPanel({
                 }
               />
             </Tabs>
-            {mode === "plan" && messages.some((m) => m.mode === "plan") && (
+            {mode === "plan" && planContent && (
               <Button
                 size="sm"
                 variant="flat"
                 color="success"
-                onPress={handleGeneratePlan}
-                isLoading={isSending}
-                isDisabled={isInputDisabled}
+                onPress={() => setShowPlanModal(true)}
                 startContent={<IconFileText className="w-3 h-3" />}
               >
-                Generate
+                View Plan
               </Button>
             )}
           </div>
@@ -575,6 +559,26 @@ export function ChatPanel({
               isLoading={isCreatingPr}
             >
               Confirm
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      <Modal
+        isOpen={showPlanModal}
+        onClose={() => setShowPlanModal(false)}
+        size="3xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          <ModalHeader>Implementation Plan</ModalHeader>
+          <ModalBody>
+            <pre className="text-sm whitespace-pre-wrap break-words text-neutral-700 dark:text-neutral-300 font-mono">
+              {planContent}
+            </pre>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={() => setShowPlanModal(false)}>
+              Close
             </Button>
           </ModalFooter>
         </ModalContent>

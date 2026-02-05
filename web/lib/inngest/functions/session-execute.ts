@@ -40,7 +40,6 @@ export const sessionExecute = inngest.createFunction(
       sessionId,
       message,
       mode = "execute",
-      generatePlan = false,
     } = event.data;
     const convex = createConvex(clerkToken);
 
@@ -244,70 +243,37 @@ CRITICAL response rules:
           )
           .join("\n\n");
 
-        let prompt: string;
-        let allowedTools: (
-          | "Read"
-          | "Write"
-          | "Edit"
-          | "Bash"
-          | "Glob"
-          | "Grep"
-        )[];
+        const existingPlan = session.planContent || "";
 
-        if (generatePlan) {
-          prompt = `You are creating a detailed implementation plan based on a planning conversation.
-
-## Repository: ${repo.owner}/${repo.name}
-## Branch: ${sandboxData.branchName}
-
-## Planning Conversation:
-${conversationHistory}
-
-## Final Request:
-${message}
-
-## Instructions:
-1. Review the conversation to understand the full scope
-2. Use Glob, Grep, Read to analyze the codebase
-3. Create a detailed plan.md file in the root directory with:
-   - Overview of changes
-   - List of files to create/modify
-   - Step-by-step implementation tasks
-   - Any dependencies or prerequisites
-4. Commit and push the plan: git add plan.md && git commit -m "docs: add implementation plan" && git push -u origin ${sandboxData.branchName}
-5. Respond with a summary of the plan
-
-## Rules:
-- Only create/modify plan.md - no other changes
-- Use Markdown formatting in the plan
-- Be specific about file paths and changes`;
-
-          allowedTools = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"];
-        } else {
-          prompt = `You are a planning assistant helping design an implementation approach. This is the PLANNING phase - gather requirements and discuss approach before implementing.
+        const prompt = `You are a planning assistant helping a non-technical business user design an implementation plan for a codebase.
 
 ## Repository: ${repo.owner}/${repo.name}
 
-## Previous Planning Conversation:
-${conversationHistory || "No previous conversation."}
+## Previous Conversation:
+${conversationHistory || "None"}
 
-## Current Message:
+## Current plan.md contents:
+${existingPlan || "No plan created yet."}
+
+## User Message:
 ${message}
 
 ## Instructions:
-1. Use Glob, Grep, Read to explore the codebase as needed
-2. Ask clarifying questions about requirements
-3. Discuss implementation approaches and trade-offs
-4. Help refine the plan with the user
+1. Use Glob, Grep, Read to explore the codebase as needed to answer the user's question
+2. Ask clarifying questions about requirements when needed
+3. After each interaction, create or update plan.md in the repository root with the current state of the plan
+4. The plan should be a living document - add sections incrementally as you learn more
+5. Structure plan.md with: Overview, Files to Modify, Implementation Steps, Dependencies/Prerequisites
 
 ## Rules:
-- DO NOT make code changes - only read and discuss
-- Ask questions to clarify requirements
-- Suggest approaches and explain trade-offs
-- When ready, tell the user to click "Generate Plan" to create plan.md`;
-
-          allowedTools = ["Read", "Glob", "Grep"];
-        }
+- You may ONLY write to plan.md in the repository root - do NOT modify any other files
+- Use the Write tool to create/update plan.md
+- Write for a non-technical audience - avoid jargon, explain concepts simply
+- Keep your conversational response SHORT (2-4 sentences)
+- Be specific about what files and changes are needed in the plan
+- If this is the first message, create plan.md with initial structure based on the user's request
+- If plan.md already exists, update it based on the new information from the conversation
+- Do NOT commit or push any changes`;
 
         await convex.mutation(api.sessions.addMessage, {
           id: sessionId as Id<"sessions">,
@@ -318,7 +284,7 @@ ${message}
         });
         const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
           model: "opus",
-          allowedTools,
+          allowedTools: ["Read", "Write", "Glob", "Grep"],
           onOutput: async (currentActivity) => {
             await convex.mutation(api.streaming.set, {
               entityId: sessionId,
@@ -329,12 +295,27 @@ ${message}
 
         return {
           text:
-            claudeResult.result ||
-            (generatePlan
-              ? "Plan created successfully."
-              : "I couldn't process your message."),
+            claudeResult.result || "I couldn't process your message.",
           activityLog: claudeResult.activityLog,
+          sandboxId: sandboxData.sandboxId,
         };
+      });
+
+      await step.run("save-plan-content", async () => {
+        const sandbox = await getSandbox(result.sandboxId);
+        const catResult = await sandbox.process.executeCommand(
+          `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
+          "/",
+          undefined,
+          10,
+        );
+        const planContent = (catResult.result || "").trim();
+        if (planContent) {
+          await convex.mutation(api.sessions.updatePlanContent, {
+            id: sessionId as Id<"sessions">,
+            planContent,
+          });
+        }
       });
 
       await step.run("save-answer", async () => {

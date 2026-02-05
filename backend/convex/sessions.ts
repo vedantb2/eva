@@ -35,6 +35,7 @@ const sessionValidator = v.object({
   createdBy: v.optional(v.id("users")),
   messages: v.array(messageValidator),
   fileDiffs: v.optional(v.array(fileDiffValidator)),
+  planContent: v.optional(v.string()),
 });
 
 export const list = query({
@@ -335,6 +336,21 @@ export const getOrCreateExtensionSession = mutation({
       repoId: args.repoId,
       messages: [],
     };
+  },
+});
+
+export const updatePlanContent = mutation({
+  args: {
+    id: v.id("sessions"),
+    planContent: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Session not found");
+    await ctx.db.patch(args.id, { planContent: args.planContent });
+    return null;
   },
 });
 

@@ -74,6 +74,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           prUrl={session.prUrl}
           summary={session.summary}
           messages={session.messages}
+          planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxToggling}

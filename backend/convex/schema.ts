@@ -187,6 +187,7 @@ const schema = defineSchema({
         }),
       ),
     ),
+    planContent: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

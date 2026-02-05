@@ -104,7 +104,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                 className={`max-w-[80%] px-4 py-2 rounded-xl ${
                   message.role === "user"
                     ? "bg-teal-600 text-white"
-                    : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                    : "bg-white dark:bg-neutral-800"
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap break-words">

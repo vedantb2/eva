@@ -19,6 +19,7 @@ export const sessionExecute = inngest.createFunction(
   {
     id: "session-execute",
     retries: 2,
+    cancelOn: [{ event: "session/execute.cancel", match: "data.sessionId" }],
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
         event: { data: { clerkToken: string; sessionId: string } };

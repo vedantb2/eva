@@ -105,6 +105,26 @@ export const addMessage = mutation({
   },
 });
 
+export const updateLastMessage = mutation({
+  args: {
+    id: v.id("researchQueries"),
+    content: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const query = await ctx.db.get(args.id);
+    if (!query) throw new Error("Query not found");
+    const messages = [...query.messages];
+    const last = messages[messages.length - 1];
+    if (!last) return null;
+    last.content = args.content;
+    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    return null;
+  },
+});
+
 export const update = mutation({
   args: {
     id: v.id("researchQueries"),

@@ -7,9 +7,25 @@ import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { IconArrowUp, IconCheck, IconChevronRight, IconFlag, IconLayoutBottombar, IconMessageCircle, IconUser } from "@tabler/icons-react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import {
+  IconArrowUp,
+  IconCheck,
+  IconChevronRight,
+  IconFlag,
+  IconLayoutBottombar,
+  IconMessageCircle,
+  IconUser,
+} from "@tabler/icons-react";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
 
@@ -36,7 +52,10 @@ interface ChatPanelProps {
 }
 
 function UserAvatar({ userId }: { userId?: string }) {
-  const user = useQuery(api.users.get, userId ? { id: userId as Id<"users"> } : "skip");
+  const user = useQuery(
+    api.users.get,
+    userId ? { id: userId as Id<"users"> } : "skip",
+  );
   if (!user) {
     return (
       <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
@@ -44,7 +63,9 @@ function UserAvatar({ userId }: { userId?: string }) {
       </div>
     );
   }
-  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "?";
+  const initials =
+    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
+    "?";
   return (
     <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 text-teal-100 text-xs font-medium flex items-center justify-center">
       {initials}
@@ -61,11 +82,15 @@ export function ChatPanel({
   onToggleToolbar,
 }: ChatPanelProps) {
   const { getToken } = useAuth();
-  const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>([]);
+  const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>(
+    [],
+  );
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
-  const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(null);
+  const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(
+    null,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
@@ -73,13 +98,22 @@ export function ChatPanel({
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
       if (!session) return;
-      localStore.setQuery(api.sessions.get, { id: args.id }, {
-        ...session,
-        messages: [
-          ...session.messages,
-          { role: args.role, content: args.content, timestamp: Date.now(), mode: args.mode },
-        ],
-      });
+      localStore.setQuery(
+        api.sessions.get,
+        { id: args.id },
+        {
+          ...session,
+          messages: [
+            ...session.messages,
+            {
+              role: args.role,
+              content: args.content,
+              timestamp: Date.now(),
+              mode: args.mode,
+            },
+          ],
+        },
+      );
     },
   );
 
@@ -89,7 +123,8 @@ export function ChatPanel({
   );
 
   const isLoadingSession = sessionId !== null && currentSession === undefined;
-  const messages = currentSession?.messages ?? (sessionId ? [] : ephemeralMessages);
+  const messages =
+    currentSession?.messages ?? (sessionId ? [] : ephemeralMessages);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,7 +132,10 @@ export function ChatPanel({
 
   useEffect(() => {
     if (!isLoading) return;
-    if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+    if (
+      messages.length > 0 &&
+      messages[messages.length - 1].role === "assistant"
+    ) {
       setIsLoading(false);
     }
   }, [messages, isLoading]);
@@ -132,7 +170,12 @@ export function ChatPanel({
         });
         const pageUrl = tab?.url || "";
 
-        await appendMessage({ role: "user", content: input, timestamp: Date.now(), mode: "flag" });
+        await appendMessage({
+          role: "user",
+          content: input,
+          timestamp: Date.now(),
+          mode: "flag",
+        });
 
         let fullDescription = input;
 
@@ -156,15 +199,15 @@ Please review all components and files used on this page before implementing the
             fullDescription += `- Classes: \`${capturedContext.element.classNames.join(", ")}\`\n`;
           }
 
-        //   if (capturedContext.metadata.hasReact && capturedContext.react) {
-        //     fullDescription += `\n**React Context**\n`;
-        //     fullDescription += `- Component: \`${capturedContext.react.name || "Unknown"}\`\n`;
-        //     fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
-        //     fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n\n`;
-        //     fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.react, null, 2)}\n\`\`\`\n</details>`;
-        //   } else {
-        //     fullDescription += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`html\n${capturedContext.element.outerHTML}\n\`\`\`\n</details>`;
-        //   }
+          //   if (capturedContext.metadata.hasReact && capturedContext.react) {
+          //     fullDescription += `\n**React Context**\n`;
+          //     fullDescription += `- Component: \`${capturedContext.react.name || "Unknown"}\`\n`;
+          //     fullDescription += `- Total components: ${capturedContext.metadata.totalComponents}\n`;
+          //     fullDescription += `- React version: ${capturedContext.metadata.reactVersion}\n\n`;
+          //     fullDescription += `<details>\n<summary>Full Component Tree</summary>\n\n\`\`\`json\n${JSON.stringify(capturedContext.react, null, 2)}\n\`\`\`\n</details>`;
+          //   } else {
+          //     fullDescription += `\n<details>\n<summary>Element Details</summary>\n\n\`\`\`html\n${capturedContext.element.outerHTML}\n\`\`\`\n</details>`;
+          //   }
         }
 
         await createQuickTask({
@@ -175,7 +218,11 @@ Please review all components and files used on this page before implementing the
 
         const successMessage = `Issue flagged successfully!${capturedContext ? `\n\nI've attached the captured ${capturedContext.metadata.hasReact ? "React component" : "element"} context to the task.` : ""}`;
 
-        await appendMessage({ role: "assistant", content: successMessage, timestamp: Date.now() });
+        await appendMessage({
+          role: "assistant",
+          content: successMessage,
+          timestamp: Date.now(),
+        });
         onClearContext();
       } catch (error) {
         await appendMessage({
@@ -197,7 +244,12 @@ Please review all components and files used on this page before implementing the
           ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${input}`
           : input;
 
-        await appendMessage({ role: "user", content: input, timestamp: Date.now(), mode: "ask" });
+        await appendMessage({
+          role: "user",
+          content: input,
+          timestamp: Date.now(),
+          mode: "ask",
+        });
 
         const token = await getToken({ template: "convex" });
         const response = await fetch(`${API_URL}/api/inngest/send`, {
@@ -239,7 +291,13 @@ Please review all components and files used on this page before implementing the
   };
 
   const handleAnnotationTask = useCallback(
-    async (payload: { title: string; pageUrl: string; position: { x: number; y: number }; pinId: string; elementContext?: ExtractedContext }) => {
+    async (payload: {
+      title: string;
+      pageUrl: string;
+      position: { x: number; y: number };
+      pinId: string;
+      elementContext?: ExtractedContext;
+    }) => {
       if (!selectedRepoId) return;
       try {
         let description = `${payload.title}\n\n**Page:** ${payload.pageUrl}`;
@@ -301,7 +359,9 @@ Please review all components and files used on this page before implementing the
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className={`flex-1 p-4 space-y-4 ${messages.length > 0 ? "overflow-y-auto" : "overflow-hidden"}`}>
+      <div
+        className={`flex-1 p-4 space-y-4 ${messages.length > 0 ? "overflow-y-auto" : "overflow-hidden"}`}
+      >
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <div className="mb-3 rounded-full bg-muted p-4">
@@ -328,7 +388,8 @@ Please review all components and files used on this page before implementing the
 
         {messages.map((message, index) => {
           const prev = index > 0 ? messages[index - 1] : undefined;
-          const isFlagResponse = message.role === "assistant" && prev?.mode === "flag";
+          const isFlagResponse =
+            message.role === "assistant" && prev?.mode === "flag";
 
           return (
             <div
@@ -336,19 +397,34 @@ Please review all components and files used on this page before implementing the
               className={`flex gap-2.5 items-start ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {message.role === "assistant" && (
-                <img src="/icons/icon.png" alt="Eva" className="flex-shrink-0 w-7 h-7 rounded-full" />
+                <img
+                  src="/icons/icon.png"
+                  alt="Eva"
+                  className="flex-shrink-0 w-7 h-7 rounded-full"
+                />
               )}
-              <div className={`flex flex-col max-w-[85%] min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}>
+              <div
+                className={`flex flex-col max-w-[85%] min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}
+              >
                 {isFlagResponse && prev ? (
                   <Collapsible className="rounded-xl border border-border bg-card text-card-foreground overflow-hidden">
                     <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
                       <IconCheck size={16} className="text-teal-500 shrink-0" />
-                      <span className="flex-1 text-left">Issue flagged and task created</span>
-                      <IconChevronRight size={14} className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                      <span className="flex-1 text-left">
+                        Issue flagged and task created
+                      </span>
+                      <IconChevronRight
+                        size={14}
+                        className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+                      />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
-                      <p className="font-medium">{prev.content.slice(0, 100)}</p>
-                      <p className="text-muted-foreground whitespace-pre-wrap break-words">{message.content}</p>
+                      <p className="font-medium">
+                        {prev.content.slice(0, 100)}
+                      </p>
+                      <p className="text-muted-foreground whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
                     </CollapsibleContent>
                   </Collapsible>
                 ) : (
@@ -356,18 +432,26 @@ Please review all components and files used on this page before implementing the
                     className={`rounded-xl px-3 py-2 overflow-hidden break-words ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
-                        : "bg-card border border-border text-card-foreground"
+                        : "bg-card text-card-foreground"
                     }`}
                   >
-                    {message.role === "assistant" && !message.content && message.activityLog ? (
+                    {message.role === "assistant" &&
+                    !message.content &&
+                    message.activityLog ? (
                       <>
                         <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
                           {message.activityLog}
                         </pre>
                         <div className="flex gap-1 mt-2">
                           <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
-                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                          <span
+                            className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          />
+                          <span
+                            className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          />
                         </div>
                       </>
                     ) : (
@@ -375,33 +459,39 @@ Please review all components and files used on this page before implementing the
                         <p className="whitespace-pre-wrap break-words text-sm">
                           {message.content}
                         </p>
-                        {message.role === "assistant" && message.activityLog && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                              <IconChevronRight size={12} className="transition-transform group-data-[state=open]:rotate-90" />
-                              View logs
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-1 pb-1 overflow-hidden">
-                              <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
-                                {message.activityLog}
-                              </pre>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
+                        {message.role === "assistant" &&
+                          message.activityLog && (
+                            <Collapsible>
+                              <CollapsibleTrigger className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                                <IconChevronRight
+                                  size={12}
+                                  className="transition-transform group-data-[state=open]:rotate-90"
+                                />
+                                View logs
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="pt-1 pb-1 overflow-hidden">
+                                <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
+                                  {message.activityLog}
+                                </pre>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
                       </>
                     )}
                   </div>
                 )}
-                {message.role === "user" && message.mode && (message.mode === "ask" || message.mode === "flag") && (
-                  <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    {message.mode === "ask" ? (
-                      <IconMessageCircle size={12} />
-                    ) : (
-                      <IconFlag size={12} />
-                    )}
-                    {message.mode === "ask" ? "Ask" : "Flag"}
-                  </span>
-                )}
+                {message.role === "user" &&
+                  message.mode &&
+                  (message.mode === "ask" || message.mode === "flag") && (
+                    <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      {message.mode === "ask" ? (
+                        <IconMessageCircle size={12} />
+                      ) : (
+                        <IconFlag size={12} />
+                      )}
+                      {message.mode === "ask" ? "Ask" : "Flag"}
+                    </span>
+                  )}
               </div>
               {message.role === "user" && (
                 <UserAvatar userId={message.userId} />
@@ -412,12 +502,22 @@ Please review all components and files used on this page before implementing the
 
         {isLoading && (
           <div className="flex gap-2.5 justify-start">
-            <img src="/icons/icon.png" alt="Eva" className="flex-shrink-0 w-7 h-7 rounded-full" />
+            <img
+              src="/icons/icon.png"
+              alt="Eva"
+              className="flex-shrink-0 w-7 h-7 rounded-full"
+            />
             <div className="bg-card border border-border rounded-xl px-3 py-2">
               <div className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                <span
+                  className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
+                  style={{ animationDelay: "0.1s" }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                />
               </div>
             </div>
           </div>
@@ -455,9 +555,15 @@ Please review all components and files used on this page before implementing the
                 <IconLayoutBottombar className="relative w-5 h-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{toolbarVisible ? "Hide toolbar" : "Show toolbar"}</TooltipContent>
+            <TooltipContent>
+              {toolbarVisible ? "Hide toolbar" : "Show toolbar"}
+            </TooltipContent>
           </Tooltip>
-          <Tabs value={mode} onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")} className="flex-1">
+          <Tabs
+            value={mode}
+            onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
+            className="flex-1"
+          >
             <TabsList className="w-full">
               <TabsTrigger value="ask" className="flex-1 gap-1.5">
                 <IconMessageCircle size={16} />
@@ -478,7 +584,8 @@ Please review all components and files used on this page before implementing the
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholder()}
             disabled={!selectedRepoId || isLoading || isLoadingSession}
-            rows={3}
+            minLength={3}
+            rows={5}
             className="flex-1 min-h-[4.5rem] resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
           <Tooltip>
@@ -486,7 +593,10 @@ Please review all components and files used on this page before implementing the
               <Button
                 onClick={handleSend}
                 disabled={
-                  !input.trim() || !selectedRepoId || isLoading || isLoadingSession
+                  !input.trim() ||
+                  !selectedRepoId ||
+                  isLoading ||
+                  isLoadingSession
                 }
                 size="icon"
                 className="mt-auto rounded-full mr-2 mb-2 bg-teal-600 hover:bg-teal-700 text-white"

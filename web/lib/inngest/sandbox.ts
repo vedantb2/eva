@@ -17,24 +17,31 @@ export async function createSandbox(
   githubToken: string,
   ephemeral?: boolean,
   extraEnvVars?: Record<string, string>,
+  networkAllowList?: string,
 ): Promise<Sandbox> {
-  const sandbox = await daytona.create({
-    snapshot: SNAPSHOT_NAME,
-    envVars: {
-      GITHUB_TOKEN: githubToken,
-      CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-      NEXT_PUBLIC_CONVEX_URL: clientEnv.NEXT_PUBLIC_CONVEX_URL,
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
-        clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-      NEXT_PUBLIC_ENV: clientEnv.NEXT_PUBLIC_ENV,
-      CLERK_SECRET_KEY: serverEnv.CLERK_SECRET_KEY,
-      CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
-      ...extraEnvVars,
+  const sandbox = await daytona.create(
+    {
+      snapshot: SNAPSHOT_NAME,
+      envVars: {
+        GITHUB_TOKEN: githubToken,
+        CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+        NEXT_PUBLIC_CONVEX_URL: clientEnv.NEXT_PUBLIC_CONVEX_URL,
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+          clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+        NEXT_PUBLIC_ENV: clientEnv.NEXT_PUBLIC_ENV,
+        CLERK_SECRET_KEY: serverEnv.CLERK_SECRET_KEY,
+        CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
+        ...extraEnvVars,
+      },
+      autoStopInterval: 15,
+      autoDeleteInterval: 30,
+      ephemeral: ephemeral ? true : false,
+      ...(networkAllowList ? { networkAllowList } : {}),
     },
-    autoStopInterval: 15,
-    autoDeleteInterval: 30,
-    ephemeral: ephemeral ? true : false,
-  });
+    {
+      timeout: 120,
+    },
+  );
   await sandbox.process.executeCommand(
     'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
     "/",
@@ -191,17 +198,28 @@ interface StreamingClaudeCLIOptions extends ClaudeCLIOptions {
 
 function formatToolCall(name: string, input: Record<string, unknown>): string {
   switch (name) {
-    case "Read": return `Reading ${input.file_path ?? "file"}`;
-    case "Glob": return `Searching files: ${input.pattern ?? ""}`;
-    case "Grep": return `Searching for: ${input.pattern ?? ""}`;
-    case "Write": return `Writing ${input.file_path ?? "file"}`;
-    case "Edit": return `Editing ${input.file_path ?? "file"}`;
-    case "Bash": return `Running: ${String(input.command ?? "").slice(0, 100)}`;
-    case "WebFetch": return `Fetching ${input.url ?? "URL"}`;
-    case "WebSearch": return `Searching web: ${input.query ?? ""}`;
-    case "Task": return `Running subtask: ${String(input.description ?? input.prompt ?? "").slice(0, 80)}`;
-    case "NotebookEdit": return `Editing notebook: ${input.notebook_path ?? "file"}`;
-    default: return `Using ${name}`;
+    case "Read":
+      return `Reading ${input.file_path ?? "file"}`;
+    case "Glob":
+      return `Searching files: ${input.pattern ?? ""}`;
+    case "Grep":
+      return `Searching for: ${input.pattern ?? ""}`;
+    case "Write":
+      return `Writing ${input.file_path ?? "file"}`;
+    case "Edit":
+      return `Editing ${input.file_path ?? "file"}`;
+    case "Bash":
+      return `Running: ${String(input.command ?? "").slice(0, 100)}`;
+    case "WebFetch":
+      return `Fetching ${input.url ?? "URL"}`;
+    case "WebSearch":
+      return `Searching web: ${input.query ?? ""}`;
+    case "Task":
+      return `Running subtask: ${String(input.description ?? input.prompt ?? "").slice(0, 80)}`;
+    case "NotebookEdit":
+      return `Editing notebook: ${input.notebook_path ?? "file"}`;
+    default:
+      return `Using ${name}`;
   }
 }
 
@@ -228,8 +246,10 @@ function formatStreamEvent(line: string): string | null {
       const parts: string[] = [];
       for (const block of event.message?.content ?? []) {
         if (block.type === "text" && block.text) parts.push(block.text);
-        if (block.type === "thinking" && block.thinking) parts.push(block.thinking);
-        if (block.type === "tool_use") parts.push(formatToolCall(block.name, block.input ?? {}));
+        if (block.type === "thinking" && block.thinking)
+          parts.push(block.thinking);
+        if (block.type === "tool_use")
+          parts.push(formatToolCall(block.name, block.input ?? {}));
       }
       return parts.length > 0 ? parts.join("\n") : null;
     }

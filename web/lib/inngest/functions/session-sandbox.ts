@@ -56,6 +56,13 @@ export const startSandbox = inngest.createFunction(
         branchName,
       });
 
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        "/",
+        undefined,
+        10
+      );
+
       await convex.mutation(api.sessions.updateStatus, {
         id: sessionId as Id<"sessions">,
         status: "active",
@@ -66,7 +73,7 @@ export const startSandbox = inngest.createFunction(
 
     await step.run("add-startup-message", async () => {
       const content = sandboxData.isNew
-        ? `Sandbox started from snapshot! Ready on branch \`${sandboxData.branchName}\`. Run \`pnpm dev\` in the terminal to start the dev server.`
+        ? `Sandbox started from snapshot! Ready on branch \`${sandboxData.branchName}\`. Dev server is starting automatically.`
         : `Sandbox reconnected! Continuing work on branch \`${sandboxData.branchName}\`.`;
 
       await convex.mutation(api.sessions.addMessage, {

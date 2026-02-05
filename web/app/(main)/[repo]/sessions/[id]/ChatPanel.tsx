@@ -10,7 +10,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
-  IconMessageQuestion,
+  IconMessageCircle2,
   IconClipboardList,
   IconFileText,
   IconGitPullRequest,
@@ -74,6 +74,7 @@ export function ChatPanel({
   const [mode, setMode] = useState<SessionMode>("execute");
   const typedSessionId = sessionId as Id<"sessions">;
 
+  const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
@@ -126,7 +127,7 @@ export function ChatPanel({
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
       await sendToApi(content, mode, generatePlan);
-    } finally {
+    } catch {
       setIsSending(false);
     }
   };
@@ -143,7 +144,7 @@ export function ChatPanel({
         mode: "plan",
       });
       await sendToApi(content, "plan", true);
-    } finally {
+    } catch {
       setIsSending(false);
     }
   };
@@ -186,7 +187,33 @@ export function ChatPanel({
     }
   };
 
-  const isInputDisabled = !isSandboxActive || isSending;
+  const lastMessage = messages[messages.length - 1];
+  const lastAssistantHasNoContent =
+    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  const isExecuting = isSending || lastAssistantHasNoContent;
+
+  useEffect(() => {
+    if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
+      setIsSending(false);
+    }
+  }, [isSending, lastMessage]);
+
+  const handleCancel = async () => {
+    await fetch("/api/inngest/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "session/execute.cancel",
+        data: { sessionId },
+      }),
+    });
+    await updateLastMessage({
+      id: typedSessionId,
+      content: "Execution cancelled by user.",
+    });
+  };
+
+  const isInputDisabled = !isSandboxActive || isSending || isExecuting;
 
   return (
     <div className="flex flex-col h-full">
@@ -348,7 +375,7 @@ export function ChatPanel({
                       )}
                       {message.mode === "ask" && (
                         <>
-                          <IconMessageQuestion className="w-3 h-3" /> Ask
+                          <IconMessageCircle2 className="w-3 h-3" /> Ask
                         </>
                       )}
                       {message.mode === "plan" && (
@@ -403,7 +430,7 @@ export function ChatPanel({
                 key="ask"
                 title={
                   <div className="flex items-center gap-1">
-                    <IconMessageQuestion className="w-3 h-3" />
+                    <IconMessageCircle2 className="size-3" />
                     <span className="text-xs">Ask</span>
                   </div>
                 }
@@ -492,18 +519,31 @@ export function ChatPanel({
               }}
               isDisabled={isInputDisabled}
             />
-            <Button
-              type="submit"
-              isIconOnly
-              className="mt-auto mr-2 mb-2"
-              color="primary"
-              radius="full"
-              isLoading={isSending}
-              isDisabled={isInputDisabled || !input.trim()}
-              size="sm"
-            >
-              <IconArrowUp size={16} />
-            </Button>
+            {isExecuting ? (
+              <Button
+                isIconOnly
+                className="mt-auto mr-2 mb-2"
+                color="danger"
+                radius="full"
+                onPress={handleCancel}
+                size="sm"
+              >
+                <IconPlayerStop size={16} />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                isIconOnly
+                className="mt-auto mr-2 mb-2"
+                color="primary"
+                radius="full"
+                isLoading={isSending}
+                isDisabled={isInputDisabled || !input.trim()}
+                size="sm"
+              >
+                <IconArrowUp size={16} />
+              </Button>
+            )}
           </div>
         </form>
       </div>

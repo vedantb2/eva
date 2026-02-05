@@ -15,9 +15,8 @@ export const executeResearchQuery = inngest.createFunction(
       };
       const convex = createConvex(eventData.event.data.clerkToken);
       const queryId = eventData.event.data.queryId as Id<"researchQueries">;
-      await convex.mutation(api.researchQueries.addMessage, {
+      await convex.mutation(api.researchQueries.updateLastMessage, {
         id: queryId,
-        role: "assistant",
         content: `Error processing query: ${error.message}`,
       });
     },
@@ -51,26 +50,29 @@ export const executeResearchQuery = inngest.createFunction(
 
       const githubToken = await getGitHubToken(repo.installationId);
 
-      const sandbox = await createSandbox(githubToken, undefined, {
-        CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
-      });
+      const convexAllowList = "52.44.0.0/16,52.54.0.0/16,52.200.0.0/16";
+      const sandbox = await createSandbox(
+        githubToken,
+        undefined,
+        { CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY },
+        convexAllowList,
+      );
 
       try {
         await syncRepo(sandbox, githubToken, repo.owner, repo.name);
+
+        const backendDir = `${WORKSPACE_DIR}/backend`;
         await sandbox.process.executeCommand(
-          "npm install -g convex",
+          `printf 'CONVEX_DEPLOYMENT=${serverEnv.CONVEX_DEPLOYMENT}\nCONVEX_DEPLOY_KEY=${serverEnv.CONVEX_DEPLOY_KEY}\n' > ${backendDir}/.env.local`,
           "/",
           undefined,
-          120,
+          10,
         );
 
         const mcpConfig = JSON.stringify({
           type: "stdio",
           command: "bash",
-          args: [
-            "-c",
-            `export CONVEX_DEPLOYMENT='${serverEnv.CONVEX_DEPLOYMENT}' && export CONVEX_DEPLOY_KEY='${serverEnv.CONVEX_DEPLOY_KEY}' && cd ${WORKSPACE_DIR}/backend && convex mcp start`,
-          ],
+          args: ["-c", `cd ${backendDir} && npx convex mcp start`],
         });
         const mcpConfigBase64 = Buffer.from(mcpConfig).toString("base64");
         await sandbox.process.executeCommand(
@@ -107,7 +109,7 @@ ${question}
         const result = await runClaudeCLI(sandbox, prompt, {
           model: "sonnet",
           allowedTools: [],
-          workDir: `${WORKSPACE_DIR}/backend`,
+          workDir: backendDir,
           timeout: 180,
         });
 
@@ -118,9 +120,8 @@ ${question}
     });
 
     await step.run("save-response", async () => {
-      await convex.mutation(api.researchQueries.addMessage, {
+      await convex.mutation(api.researchQueries.updateLastMessage, {
         id: queryId as Id<"researchQueries">,
-        role: "assistant",
         content: answer,
       });
     });

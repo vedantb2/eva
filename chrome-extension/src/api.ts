@@ -1368,6 +1368,12 @@ export type PublicApiType = {
       },
       null
     >;
+    updateLastMessage: FunctionReference<
+      "mutation",
+      "public",
+      { content: string; id: Id<"researchQueries"> },
+      null
+    >;
     update: FunctionReference<
       "mutation",
       "public",

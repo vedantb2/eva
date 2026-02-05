@@ -57,7 +57,7 @@ export const startSandbox = inngest.createFunction(
       });
 
       await sandbox.process.executeCommand(
-        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        `cd ${WORKSPACE_DIR} && DISABLE_AUTH=true pnpm dev > /dev/null 2>&1 &`,
         "/",
         undefined,
         10

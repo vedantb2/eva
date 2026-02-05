@@ -40,13 +40,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const sandbox = await daytona.get(session.sandboxId);
-    const preview = await sandbox.getPreviewLink(port);
+    const signedPreview = await sandbox.getSignedPreviewUrl(port, 3600);
 
-    return NextResponse.json({
-      url: preview.url,
-      token: preview.token,
-      port,
-    });
+    return NextResponse.json({ url: signedPreview.url, port });
   } catch (error) {
     console.error("Failed to get preview link:", error);
     return NextResponse.json(

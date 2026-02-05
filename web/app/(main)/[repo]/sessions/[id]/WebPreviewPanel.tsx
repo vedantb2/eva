@@ -14,7 +14,6 @@ interface WebPreviewPanelProps {
 
 interface PreviewInfo {
   url: string;
-  token: string;
   port: number;
 }
 
@@ -115,7 +114,7 @@ export function WebPreviewPanel({
             variant="flat"
             isIconOnly
             as="a"
-            href={`${previewInfo.url}?DAYTONA_SANDBOX_AUTH_KEY=${previewInfo.token}`}
+            href={previewInfo.url}
             target="_blank"
           >
             <IconExternalLink className="w-4 h-4" />
@@ -150,10 +149,9 @@ export function WebPreviewPanel({
           <div className="h-full flex flex-col">
             <iframe
               key={iframeKey}
-              src={`${previewInfo.url}?DAYTONA_SANDBOX_AUTH_KEY=${previewInfo.token}`}
+              src={previewInfo.url}
               className="flex-1 w-full border-0"
               title="Preview"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           </div>
         )}

@@ -35,6 +35,10 @@ export default clerkMiddleware(async (auth, req) => {
     return new NextResponse(null, { status: 200, headers });
   }
 
+  if (process.env.DISABLE_AUTH === "true") {
+    return NextResponse.next();
+  }
+
   if (!isPublicRoute(req)) {
     await auth.protect();
   }

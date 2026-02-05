@@ -28,8 +28,7 @@ jobs:
             .
 
       - name: Delete existing snapshot
-        continue-on-error: true
-        run: daytona snapshot delete eva-snapshot
+        run: daytona snapshot delete eva-snapshot || true
 
       - name: Push snapshot to Daytona
         run: daytona snapshot push eva-snapshot:${{ github.sha }} --name eva-snapshot

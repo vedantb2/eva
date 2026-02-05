@@ -105,7 +105,7 @@ export function ProjectActiveLayout({
         )}
       </div>
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-neutral-400">Sandbox (coming soon)</p>
+        <p className="text-neutral-400">Preview (coming soon)</p>
       </div>
       <div
         className={`${chatCollapsed ? "w-8" : "w-1/4"} h-full border-l dark:border-neutral-700 flex flex-col transition-all`}

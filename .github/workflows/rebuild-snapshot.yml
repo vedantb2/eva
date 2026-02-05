@@ -12,9 +12,8 @@ jobs:
 
       - name: Install Daytona CLI
         run: |
-          curl -sfL https://download.daytona.io/daytona/install.sh | sudo DAYTONA_PATH=/usr/local/bin bash
-          sudo chmod +x /usr/local/bin/daytona
-          /usr/local/bin/daytona version
+          brew install daytonaio/cli/daytona
+          daytona version
 
       - name: Build Docker image
         run: |
@@ -28,9 +27,9 @@ jobs:
         continue-on-error: true
         env:
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
-        run: /usr/local/bin/daytona snapshot delete eva-snapshot
+        run: daytona snapshot delete eva-snapshot
 
       - name: Push snapshot to Daytona
         env:
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
-        run: /usr/local/bin/daytona snapshot push eva-snapshot:latest --name eva-snapshot
+        run: daytona snapshot push eva-snapshot:latest --name eva-snapshot

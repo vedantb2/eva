@@ -214,7 +214,7 @@ export function KanbanBoard<T extends BaseTask>({
           </DropdownMenu>
         </Dropdown>
         <Input
-          placeholder="Search tasks..."
+          placeholder="Search quick tasks..."
           size="sm"
           className="w-1/2 mx-auto"
           startContent={<IconSearch size={16} className="text-default-400" />}

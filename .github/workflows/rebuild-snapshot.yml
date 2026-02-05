@@ -13,7 +13,9 @@ jobs:
       - name: Install Daytona CLI
         run: |
           curl -sf -L https://download.daytona.io/daytona/install.sh | sudo bash
-          echo "/usr/local/bin" >> $GITHUB_PATH
+          which daytona || find /usr -name daytona 2>/dev/null || echo "Checking common locations..."
+          ls -la /usr/local/bin/daytona 2>/dev/null || true
+          ls -la /usr/bin/daytona 2>/dev/null || true
 
       - name: Build Docker image with secrets
         run: |
@@ -27,9 +29,9 @@ jobs:
         continue-on-error: true
         env:
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
-        run: daytona snapshot delete eva-snapshot
+        run: /usr/local/bin/daytona snapshot delete eva-snapshot
 
       - name: Push snapshot to Daytona
         env:
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
-        run: daytona snapshot push eva-snapshot:latest --name eva-snapshot
+        run: /usr/local/bin/daytona snapshot push eva-snapshot:latest --name eva-snapshot

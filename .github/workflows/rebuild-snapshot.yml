@@ -13,6 +13,7 @@ jobs:
       - name: Install Daytona CLI
         run: |
           curl -sf -L https://download.daytona.io/daytona/install.sh | sudo bash
+          echo "/usr/local/bin" >> $GITHUB_PATH
 
       - name: Build Docker image with secrets
         run: |

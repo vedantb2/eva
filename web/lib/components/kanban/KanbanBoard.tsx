@@ -44,6 +44,7 @@ interface KanbanBoardProps<T extends BaseTask> {
   onItemClick: (item: T) => void;
   fillHeight?: boolean;
   columnExtra?: (status: TaskStatus) => ReactNode;
+  searchPlaceholder?: string;
 }
 
 function SortableItem<T extends BaseTask>({
@@ -92,6 +93,7 @@ export function KanbanBoard<T extends BaseTask>({
   onItemClick,
   fillHeight = false,
   columnExtra,
+  searchPlaceholder = "Search tasks...",
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -214,7 +216,7 @@ export function KanbanBoard<T extends BaseTask>({
           </DropdownMenu>
         </Dropdown>
         <Input
-          placeholder="Search tasks..."
+          placeholder={searchPlaceholder}
           size="sm"
           className="w-1/2 mx-auto"
           startContent={<IconSearch size={16} className="text-default-400" />}

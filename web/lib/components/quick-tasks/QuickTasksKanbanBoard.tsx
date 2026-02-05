@@ -105,6 +105,7 @@ export function QuickTasksKanbanBoard({
       <KanbanBoard
         items={tasks}
         onStatusChange={handleStatusChange}
+        searchPlaceholder="Search quick tasks..."
         onItemClick={(task) => {
           if (isSelecting) {
             onToggleSelect(task._id);

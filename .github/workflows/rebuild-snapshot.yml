@@ -16,6 +16,9 @@ jobs:
           chmod +x /usr/local/bin/daytona
           daytona version
 
+      - name: Authenticate Daytona CLI
+        run: daytona login --api-key ${{ secrets.DAYTONA_API_KEY }}
+
       - name: Build Docker image
         run: |
           docker build \
@@ -26,11 +29,7 @@ jobs:
 
       - name: Delete existing snapshot
         continue-on-error: true
-        env:
-          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
         run: daytona snapshot delete eva-snapshot
 
       - name: Push snapshot to Daytona
-        env:
-          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
         run: daytona snapshot push eva-snapshot:${{ github.sha }} --name eva-snapshot

@@ -10,6 +10,8 @@ import {
   IconUser,
   IconRobot,
 } from "@tabler/icons-react";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface PlanContextPanelProps {
@@ -152,9 +154,18 @@ export function PlanContextPanel({
                             : "bg-default-100 dark:bg-default-800 rounded-tl-sm"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">
-                          {displayContent}
-                        </p>
+                        {isUser ? (
+                          <p className="text-sm whitespace-pre-wrap">
+                            {displayContent}
+                          </p>
+                        ) : (
+                          <Streamdown
+                            plugins={{ code }}
+                            className="prose prose-sm dark:prose-invert max-w-none"
+                          >
+                            {displayContent}
+                          </Streamdown>
+                        )}
                       </div>
                     </div>
                   </div>

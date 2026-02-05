@@ -439,3 +439,148 @@ export async function getOrCreateSandbox(
   await onSandboxCreated(sandbox.id);
   return sandbox;
 }
+
+export async function detectPackageManager(
+  sandbox: Sandbox,
+  workDir = WORKSPACE_DIR,
+): Promise<"pnpm" | "yarn" | "npm"> {
+  const check = await sandbox.process.executeCommand(
+    `ls ${workDir}/pnpm-lock.yaml ${workDir}/yarn.lock 2>/dev/null`,
+    "/",
+    undefined,
+    5,
+  );
+  const output = check.result || "";
+  if (output.includes("pnpm-lock.yaml")) return "pnpm";
+  if (output.includes("yarn.lock")) return "yarn";
+  return "npm";
+}
+
+// TODO: move agent-browser install to eva-snapshot, then remove this function
+export async function installScreenshotBrowser(sandbox: Sandbox): Promise<void> {
+  const result = await sandbox.process.executeCommand(
+    "npm install -g agent-browser 2>&1 && agent-browser install 2>&1",
+    "/",
+    undefined,
+    120,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(`agent-browser install failed: ${(result.result || "").slice(-400)}`);
+  }
+}
+// TODO: end snapshot section
+
+export async function takeWebScreenshot(
+  sandbox: Sandbox,
+  url: string,
+  outputPath: string,
+): Promise<void> {
+  const result = await sandbox.process.executeCommand(
+    `agent-browser open "${url}" && agent-browser screenshot "${outputPath}" && agent-browser close`,
+    "/",
+    undefined,
+    60,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(`Screenshot failed: ${(result.result || "").slice(-400)}`);
+  }
+}
+
+interface DirectClaudeCLIOptions {
+  model?: ClaudeModel;
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  workDir?: string;
+  timeout?: number;
+  mcpConfigPath?: string;
+}
+
+export async function runClaudeCodeDirect(
+  prompt: string,
+  options: DirectClaudeCLIOptions = {},
+): Promise<ClaudeCLIResult> {
+  const {
+    model = "sonnet",
+    allowedTools = [],
+    disallowedTools = [],
+    workDir = process.cwd(),
+    timeout = 300,
+    mcpConfigPath,
+  } = options;
+
+  const { ANTHROPIC_API_KEY: _, ...restEnv } = process.env;
+  const env = {
+    ...restEnv,
+    CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+    CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
+    CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
+  };
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      "npx",
+      "@anthropic-ai/claude-code",
+      "-p",
+      "--dangerously-skip-permissions",
+      "--model", model,
+      "--output-format", "json",
+    ];
+
+    if (allowedTools.length > 0) {
+      args.push("--allowedTools", allowedTools.join(","));
+    }
+
+    if (disallowedTools.length > 0) {
+      args.push("--disallowedTools", disallowedTools.join(","));
+    }
+
+    if (mcpConfigPath) {
+      args.push("--mcp-config", mcpConfigPath);
+    }
+
+    const child = spawn(args.join(" "), {
+      cwd: workDir,
+      env,
+      shell: true,
+    });
+
+    let output = "";
+    let errorOutput = "";
+
+    const timeoutId = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Claude Code CLI timed out after ${timeout}s`));
+    }, timeout * 1000);
+
+    child.stdout.on("data", (data: Buffer) => { output += data.toString(); });
+    child.stderr.on("data", (data: Buffer) => { errorOutput += data.toString(); });
+
+    child.stdin.write(prompt);
+    child.stdin.end();
+
+    child.on("close", (code: number | null) => {
+      clearTimeout(timeoutId);
+      const trimmed = output.trim();
+      try {
+        const json = JSON.parse(trimmed);
+        const messages = Array.isArray(json) ? json : [json];
+        const resultMsg = messages.find((m: Record<string, unknown>) => m.type === "result");
+        if (resultMsg) {
+          const result = resultMsg.result ?? "";
+          resolve({
+            result: typeof result === "string" ? result : JSON.stringify(result),
+            isError: Boolean(resultMsg.is_error),
+            activityLog: "",
+          });
+          return;
+        }
+      } catch {}
+      resolve({ result: trimmed || errorOutput, isError: code !== 0, activityLog: "" });
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeoutId);
+      reject(err);
+    });
+  });
+}

@@ -28,7 +28,14 @@ jobs:
             .
 
       - name: Delete existing snapshot
-        run: daytona snapshot delete eva-snapshot || true
+        run: |
+          SNAPSHOT_ID=$(daytona snapshot list --format json | jq -r '.[] | select(.name == "eva-snapshot") | .id // empty')
+          if [ -n "$SNAPSHOT_ID" ]; then
+            echo "Deleting snapshot: $SNAPSHOT_ID"
+            daytona snapshot delete "$SNAPSHOT_ID"
+          else
+            echo "No existing eva-snapshot found"
+          fi
 
       - name: Push snapshot to Daytona
         run: daytona snapshot push eva-snapshot:${{ github.sha }} --name eva-snapshot

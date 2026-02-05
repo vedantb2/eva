@@ -1,5 +1,6 @@
 import { heroui } from "@heroui/react";
 import tailwindcssAnimate from "tailwindcss-animate";
+import tailwindcssTypography from "@tailwindcss/typography";
 
 /** @type {import('tailwindcss').Config} */
 
@@ -37,6 +38,7 @@ const config = {
   },
   plugins: [
     tailwindcssAnimate,
+    tailwindcssTypography,
     heroui({
       themes: {
         light: {

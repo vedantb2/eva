@@ -1,0 +1,34 @@
+name: Rebuild Daytona Snapshot
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  rebuild-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Daytona CLI
+        run: |
+          curl -sf -L https://download.daytona.io/daytona/install.sh | sudo bash
+
+      - name: Build Docker image with secrets
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --build-arg GITHUB_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} \
+            -t eva-snapshot:latest \
+            .
+
+      - name: Delete existing snapshot
+        continue-on-error: true
+        env:
+          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+        run: daytona snapshot delete eva-snapshot
+
+      - name: Push snapshot to Daytona
+        env:
+          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+        run: daytona snapshot push eva-snapshot:latest --name eva-snapshot

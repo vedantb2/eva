@@ -8,6 +8,8 @@ import { Textarea } from "@heroui/input";
 import { IconArrowUp, IconUser } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 
@@ -107,9 +109,18 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     : "bg-white dark:bg-neutral-800"
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap break-words">
-                  {message.content}
-                </p>
+                {message.role === "assistant" ? (
+                  <Streamdown
+                    plugins={{ code }}
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                  >
+                    {message.content}
+                  </Streamdown>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {message.content}
+                  </p>
+                )}
               </div>
               {message.role === "user" &&
                 (message.userId ? (

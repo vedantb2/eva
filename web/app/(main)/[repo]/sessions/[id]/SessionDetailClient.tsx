@@ -14,6 +14,7 @@ interface SessionDetailClientProps {
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
+  const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
@@ -73,6 +74,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           prUrl={session.prUrl}
           summary={session.summary}
           messages={session.messages}
+          streamingActivity={streaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxToggling}
           onSandboxToggle={handleSandboxToggle}

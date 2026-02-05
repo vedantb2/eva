@@ -22,6 +22,7 @@ interface ProjectChatTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   initialMessages: ConversationMessage[];
+  streamingActivity?: string;
   rawInput: string;
   onSpecGenerated?: (spec: string) => void;
   onClear?: () => void;
@@ -48,6 +49,7 @@ export function ProjectChatTab({
   projectId,
   projectPhase,
   initialMessages,
+  streamingActivity,
   rawInput,
   onSpecGenerated,
   onClear,
@@ -239,7 +241,7 @@ export function ProjectChatTab({
                 <ChatMessage
                   key={`msg-${i}`}
                   role="assistant"
-                  content={m.activityLog || "Starting..."}
+                  content={streamingActivity || "Starting..."}
                   isStreaming
                 />
               );

@@ -3,6 +3,7 @@ import { createAppAuth } from "@octokit/auth-app";
 // @ts-ignore
 import { quote } from "shell-quote";
 import { LlmJson } from "@solvers-hub/llm-json";
+import { spawn } from "child_process";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
@@ -294,12 +295,9 @@ export async function runClaudeCLIStreaming(
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
 
   let rawOutput = "";
-  let displayLog = "";
   let lastProcessed = 0;
   const decoder = new TextDecoder();
 
-  // PTY streams raw bytes via onData — just accumulate, don't process here
-  // (fires too often for mutations, and chunks don't align to JSON lines)
   const ptyHandle = await sandbox.process.createPty({
     id: `claude-${Date.now()}`,
     cwd: workDir,
@@ -310,25 +308,20 @@ export async function runClaudeCLIStreaming(
 
   await ptyHandle.waitForConnection();
 
-  // Every 500ms: process only complete lines, parse stream-json, flush to caller
   const interval = setInterval(async () => {
     if (rawOutput.length <= lastProcessed) return;
     const pending = rawOutput.slice(lastProcessed);
-    // Only process up to last newline — skip incomplete lines at the end
     const lastNewline = pending.lastIndexOf("\n");
     if (lastNewline === -1) return;
     lastProcessed += lastNewline + 1;
-    let changed = false;
+    let latestActivity: string | null = null;
     for (const line of pending.slice(0, lastNewline).split("\n")) {
       const clean = stripAnsi(line).trim();
       if (!clean) continue;
       const formatted = formatStreamEvent(clean);
-      if (formatted) {
-        displayLog += (displayLog ? "\n" : "") + formatted;
-        changed = true;
-      }
+      if (formatted) latestActivity = formatted;
     }
-    if (changed) await onOutput(displayLog).catch(() => {});
+    if (latestActivity) await onOutput(latestActivity).catch(() => {});
   }, flushIntervalMs);
 
   try {
@@ -349,35 +342,31 @@ export async function runClaudeCLIStreaming(
     await ptyHandle.disconnect().catch(() => {});
   }
 
-  // Re-parse all output for final activity log and result extraction
-  displayLog = "";
-  const lines = rawOutput.split("\n");
-  for (const line of lines) {
+  let activityLog = "";
+  let resultEvent: { result: string; isError: boolean } | null = null;
+  for (const line of rawOutput.split("\n")) {
     const clean = stripAnsi(line).trim();
     if (!clean) continue;
     const formatted = formatStreamEvent(clean);
     if (formatted) {
-      displayLog += (displayLog ? "\n" : "") + formatted;
+      activityLog += (activityLog ? "\n" : "") + formatted;
     }
-  }
-
-  // Find the result message (last stream-json line with type "result")
-  for (let i = lines.length - 1; i >= 0; i--) {
     try {
-      const parsed = JSON.parse(stripAnsi(lines[i]).trim());
+      const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
-        const result = parsed.result ?? "";
-        return {
-          result: typeof result === "string" ? result : JSON.stringify(result),
+        const r = parsed.result ?? "";
+        resultEvent = {
+          result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
-          activityLog: displayLog,
         };
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
-  return { result: rawOutput, isError: false, activityLog: displayLog };
+
+  if (resultEvent) {
+    return { ...resultEvent, activityLog };
+  }
+  return { result: rawOutput, isError: false, activityLog };
 }
 
 export function extractJsonFromText(text: string): string | null {

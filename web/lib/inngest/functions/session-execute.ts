@@ -180,10 +180,10 @@ CRITICAL response rules:
         const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
           model: "opus",
           allowedTools: ["Read", "Glob", "Grep"],
-          onOutput: async (accumulated) => {
-            await convex.mutation(api.sessions.updateLastMessage, {
-              id: sessionId as Id<"sessions">,
-              activityLog: accumulated,
+          onOutput: async (currentActivity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: sessionId,
+              currentActivity,
             });
           },
         });
@@ -197,6 +197,9 @@ CRITICAL response rules:
       });
 
       await step.run("save-answer", async () => {
+        await convex.mutation(api.streaming.clear, {
+          entityId: sessionId,
+        });
         await convex.mutation(api.sessions.updateLastMessage, {
           id: sessionId as Id<"sessions">,
           content: result.text,
@@ -316,10 +319,10 @@ ${message}
         const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
           model: "opus",
           allowedTools,
-          onOutput: async (accumulated) => {
-            await convex.mutation(api.sessions.updateLastMessage, {
-              id: sessionId as Id<"sessions">,
-              activityLog: accumulated,
+          onOutput: async (currentActivity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: sessionId,
+              currentActivity,
             });
           },
         });
@@ -335,6 +338,9 @@ ${message}
       });
 
       await step.run("save-answer", async () => {
+        await convex.mutation(api.streaming.clear, {
+          entityId: sessionId,
+        });
         await convex.mutation(api.sessions.updateLastMessage, {
           id: sessionId as Id<"sessions">,
           content: result.text,
@@ -411,10 +417,10 @@ ${message}
       const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-        onOutput: async (accumulated) => {
-          await convex.mutation(api.sessions.updateLastMessage, {
-            id: sessionId as Id<"sessions">,
-            activityLog: accumulated,
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: sessionId,
+            currentActivity,
           });
         },
       });
@@ -440,6 +446,9 @@ ${message}
     });
 
     await step.run("save-answer", async () => {
+      await convex.mutation(api.streaming.clear, {
+        entityId: sessionId,
+      });
       await convex.mutation(api.sessions.updateLastMessage, {
         id: sessionId as Id<"sessions">,
         content: result.summary,

@@ -28,6 +28,7 @@ import type * as routines from "../routines.js";
 import type * as savedQueries from "../savedQueries.js";
 import type * as sessions from "../sessions.js";
 import type * as specs from "../specs.js";
+import type * as streaming from "../streaming.js";
 import type * as subtasks from "../subtasks.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   savedQueries: typeof savedQueries;
   sessions: typeof sessions;
   specs: typeof specs;
+  streaming: typeof streaming;
   subtasks: typeof subtasks;
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;

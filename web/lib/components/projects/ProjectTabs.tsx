@@ -14,6 +14,7 @@ interface ProjectTabsProps {
   rawInput: string;
   generatedSpec: string | undefined;
   conversationHistory: ConversationMessage[];
+  streamingActivity?: string;
   repoSlug: string;
   repoId: Id<"githubRepos">;
   installationId: number;
@@ -25,6 +26,7 @@ export function ProjectTabs({
   rawInput,
   generatedSpec,
   conversationHistory,
+  streamingActivity,
   repoSlug,
   repoId,
   installationId,
@@ -106,6 +108,7 @@ export function ProjectTabs({
         projectId={projectId}
         projectPhase={projectPhase}
         initialMessages={conversationHistory}
+        streamingActivity={streamingActivity}
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}

@@ -197,10 +197,10 @@ export const interviewQuestion = inngest.createFunction(
         allowedTools: ["Read", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 120,
-        onOutput: async (accumulated) => {
-          await convex.mutation(api.projects.updateLastConversationMessage, {
-            id: projectId as Id<"projects">,
-            activityLog: accumulated,
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: projectId,
+            currentActivity,
           });
         },
       });
@@ -263,10 +263,10 @@ Output ONLY valid JSON.`;
           allowedTools: ["Read", "Glob", "Grep"],
           workDir: WORKSPACE_DIR,
           timeout: 180,
-          onOutput: async (accumulated) => {
-            await convex.mutation(api.projects.updateLastConversationMessage, {
-              id: projectId as Id<"projects">,
-              activityLog: accumulated,
+          onOutput: async (currentActivity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: projectId,
+              currentActivity,
             });
           },
         });
@@ -284,6 +284,7 @@ Output ONLY valid JSON.`;
       const specJson = specResult.jsonStr;
 
       await step.run("save-spec", async () => {
+        await convex.mutation(api.streaming.clear, { entityId: projectId });
         await convex.mutation(api.projects.updateLastConversationMessage, {
           id: projectId as Id<"projects">,
           content: specJson,
@@ -303,6 +304,7 @@ Output ONLY valid JSON.`;
     }
 
     await step.run("save-message", async () => {
+      await convex.mutation(api.streaming.clear, { entityId: projectId });
       await convex.mutation(api.projects.updateLastConversationMessage, {
         id: projectId as Id<"projects">,
         content: questionJson,

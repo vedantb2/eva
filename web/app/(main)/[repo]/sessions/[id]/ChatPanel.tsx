@@ -48,6 +48,7 @@ interface ChatPanelProps {
   prUrl?: string;
   summary?: string[];
   messages: Message[];
+  streamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
@@ -60,6 +61,7 @@ export function ChatPanel({
   prUrl,
   summary,
   messages,
+  streamingActivity,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
@@ -336,7 +338,7 @@ export function ChatPanel({
                     {message.role === "assistant" && !message.content ? (
                       <>
                         <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
-                          {message.activityLog || "Starting..."}
+                          {streamingActivity || "Starting..."}
                         </pre>
                         <Spinner size="sm" className="mt-2" />
                       </>

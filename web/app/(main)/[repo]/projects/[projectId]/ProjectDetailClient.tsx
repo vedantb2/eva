@@ -36,6 +36,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
+  const streaming = useQuery(api.streaming.get, { entityId: projectId });
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
 
@@ -120,6 +121,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             rawInput={project.rawInput}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
+            streamingActivity={streaming?.currentActivity}
             repoSlug={encodeRepoSlug(fullName)}
             repoId={repo._id}
             installationId={repo.installationId}

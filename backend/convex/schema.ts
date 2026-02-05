@@ -191,6 +191,10 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"]),
+  streamingActivity: defineTable({
+    entityId: v.string(),
+    currentActivity: v.string(),
+  }).index("by_entity", ["entityId"]),
   docs: defineTable({
     repoId: v.id("githubRepos"),
     title: v.string(),

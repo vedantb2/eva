@@ -30,6 +30,8 @@ import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -330,9 +332,18 @@ export function ChatPanel({
                       </>
                     ) : (
                       <>
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
+                        {message.role === "assistant" ? (
+                          <Streamdown
+                            plugins={{ code }}
+                            className="prose prose-sm dark:prose-invert max-w-none"
+                          >
+                            {message.content}
+                          </Streamdown>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                          </p>
+                        )}
                         {message.role === "assistant" &&
                           message.activityLog && (
                             <Accordion isCompact className="mt-2 px-0">
@@ -572,9 +583,12 @@ export function ChatPanel({
         <ModalContent>
           <ModalHeader>Implementation Plan</ModalHeader>
           <ModalBody>
-            <pre className="text-sm whitespace-pre-wrap break-words text-neutral-700 dark:text-neutral-300 font-mono">
+            <Streamdown
+              plugins={{ code }}
+              className="prose prose-sm dark:prose-invert max-w-none"
+            >
               {planContent}
-            </pre>
+            </Streamdown>
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setShowPlanModal(false)}>

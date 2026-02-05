@@ -6,6 +6,8 @@ import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Spinner } from "@heroui/spinner";
 import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 interface ChatMessageProps {
@@ -68,9 +70,18 @@ export function ChatMessage({
             </>
           ) : (
             <>
-              <p className="text-sm whitespace-pre-wrap break-words">
-                {content}
-              </p>
+              {isUser ? (
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {content}
+                </p>
+              ) : (
+                <Streamdown
+                  plugins={{ code }}
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                >
+                  {content}
+                </Streamdown>
+              )}
               {logs && (
                 <Accordion isCompact className="mt-2 px-0">
                   <AccordionItem

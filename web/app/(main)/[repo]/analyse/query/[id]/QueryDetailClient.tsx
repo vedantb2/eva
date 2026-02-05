@@ -6,6 +6,7 @@ import { GenericId as Id } from "convex/values";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { IconArrowUp, IconUser } from "@tabler/icons-react";
+import { Spinner } from "@heroui/spinner";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
@@ -21,6 +22,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const { repo } = useRepo();
   const typedQueryId = queryId as Id<"researchQueries">;
   const query = useQuery(api.researchQueries.get, { id: typedQueryId });
+  const streaming = useQuery(api.streaming.get, { entityId: queryId });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -109,7 +111,14 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     : "bg-white dark:bg-neutral-800"
                 }`}
               >
-                {message.role === "assistant" ? (
+                {message.role === "assistant" && !message.content ? (
+                  <>
+                    <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
+                      {streaming?.currentActivity || "Starting..."}
+                    </pre>
+                    <Spinner size="sm" className="mt-2" />
+                  </>
+                ) : message.role === "assistant" ? (
                   <Streamdown
                     plugins={{ code }}
                     className="prose prose-sm dark:prose-invert max-w-none"

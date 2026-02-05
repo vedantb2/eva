@@ -495,6 +495,11 @@ interface DirectClaudeCLIOptions {
   mcpConfigPath?: string;
 }
 
+interface DirectStreamingClaudeCLIOptions extends DirectClaudeCLIOptions {
+  onOutput: (displayLog: string) => Promise<void>;
+  flushIntervalMs?: number;
+}
+
 export async function runClaudeCodeDirect(
   prompt: string,
   options: DirectClaudeCLIOptions = {},
@@ -580,6 +585,126 @@ export async function runClaudeCodeDirect(
 
     child.on("error", (err) => {
       clearTimeout(timeoutId);
+      reject(err);
+    });
+  });
+}
+
+export async function runClaudeCodeDirectStreaming(
+  prompt: string,
+  options: DirectStreamingClaudeCLIOptions,
+): Promise<ClaudeCLIResult> {
+  const {
+    model = "sonnet",
+    allowedTools = [],
+    disallowedTools = [],
+    workDir = process.cwd(),
+    timeout = 300,
+    mcpConfigPath,
+    onOutput,
+    flushIntervalMs = 500,
+  } = options;
+
+  const { ANTHROPIC_API_KEY: _, ...restEnv } = process.env;
+  const env = {
+    ...restEnv,
+    CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
+    CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
+    CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
+  };
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      "npx",
+      "@anthropic-ai/claude-code",
+      "-p",
+      "--verbose",
+      "--dangerously-skip-permissions",
+      "--model", model,
+      "--output-format", "stream-json",
+    ];
+
+    if (allowedTools.length > 0) {
+      args.push("--allowedTools", allowedTools.join(","));
+    }
+    if (disallowedTools.length > 0) {
+      args.push("--disallowedTools", disallowedTools.join(","));
+    }
+    if (mcpConfigPath) {
+      args.push("--mcp-config", mcpConfigPath);
+    }
+
+    const child = spawn(args.join(" "), {
+      cwd: workDir,
+      env,
+      shell: true,
+    });
+
+    let rawOutput = "";
+    let lastProcessed = 0;
+
+    const timeoutId = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Claude Code CLI timed out after ${timeout}s`));
+    }, timeout * 1000);
+
+    const interval = setInterval(async () => {
+      if (rawOutput.length <= lastProcessed) return;
+      const pending = rawOutput.slice(lastProcessed);
+      const lastNewline = pending.lastIndexOf("\n");
+      if (lastNewline === -1) return;
+      lastProcessed += lastNewline + 1;
+      let latestActivity: string | null = null;
+      for (const line of pending.slice(0, lastNewline).split("\n")) {
+        const clean = stripAnsi(line).trim();
+        if (!clean) continue;
+        const formatted = formatStreamEvent(clean);
+        if (formatted) latestActivity = formatted;
+      }
+      if (latestActivity) await onOutput(latestActivity).catch(() => {});
+    }, flushIntervalMs);
+
+    child.stdout.on("data", (data: Buffer) => { rawOutput += data.toString(); });
+    child.stderr.on("data", () => {});
+
+    child.stdin.write(prompt);
+    child.stdin.end();
+
+    child.on("close", () => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+
+      let activityLog = "";
+      let resultEvent: { result: string; isError: boolean } | null = null;
+      for (const line of rawOutput.split("\n")) {
+        const clean = stripAnsi(line).trim();
+        if (!clean) continue;
+        const formatted = formatStreamEvent(clean);
+        if (formatted) {
+          activityLog += (activityLog ? "\n" : "") + formatted;
+        }
+        try {
+          const parsed = JSON.parse(clean);
+          if (parsed.type === "result") {
+            const r = parsed.result ?? "";
+            resultEvent = {
+              result: typeof r === "string" ? r : JSON.stringify(r),
+              isError: Boolean(parsed.is_error),
+            };
+          }
+        } catch {}
+      }
+
+      if (resultEvent) {
+        resolve({ ...resultEvent, activityLog });
+      } else {
+        resolve({ result: rawOutput, isError: false, activityLog });
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
       reject(err);
     });
   });

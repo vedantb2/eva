@@ -2,8 +2,20 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { serverEnv } from "@/env/server";
-import { createSandbox, WORKSPACE_DIR, getGitHubToken, syncRepo, runClaudeCLI } from "../sandbox";
+import { runClaudeCodeDirectStreaming } from "../sandbox";
+import fs from "fs";
+import os from "os";
+import path from "path";
+
+function getConvexAccessToken(): string | null {
+  try {
+    const configPath = path.join(os.homedir(), ".convex", "config.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return config.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export const executeResearchQuery = inngest.createFunction(
   {
@@ -38,51 +50,37 @@ export const executeResearchQuery = inngest.createFunction(
       await convex.mutation(api.researchQueries.addMessage, {
         id: queryId as Id<"researchQueries">,
         role: "assistant",
-        content: "Analyzing your question...",
+        content: "",
       });
     });
 
     const answer = await step.run("generate-answer", async () => {
-      const repo = await convex.query(api.githubRepos.get, {
-        id: repoId as Id<"githubRepos">,
-      });
-      if (!repo) throw new Error("Repo not found");
+      const ts = Date.now();
+      const mcpConfigPath = path.join(os.tmpdir(), `mcp-config-${ts}.json`);
+      const backendDir = path.resolve(process.cwd(), "../backend");
 
-      const githubToken = await getGitHubToken(repo.installationId);
+      const isWindows = process.platform === "win32";
+      const npxCmd = `npx -y convex@latest mcp start --project-dir "${backendDir}"`;
+      const mcpServer = isWindows
+        ? { command: "cmd", args: ["/c", npxCmd] }
+        : { command: "npx", args: ["-y", "convex@latest", "mcp", "start", "--project-dir", backendDir] };
 
-      const convexAllowList = "52.44.0.0/16,52.54.0.0/16,52.200.0.0/16";
-      const sandbox = await createSandbox(
-        githubToken,
-        undefined,
-        { CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY },
-        convexAllowList,
+      const accessToken = getConvexAccessToken();
+      const mcpEnv: Record<string, string> = {};
+      if (accessToken) {
+        mcpEnv.CONVEX_OVERRIDE_ACCESS_TOKEN = accessToken;
+      }
+
+      fs.writeFileSync(
+        mcpConfigPath,
+        JSON.stringify({
+          mcpServers: {
+            convex: { ...mcpServer, env: mcpEnv },
+          },
+        }),
       );
 
-      try {
-        await syncRepo(sandbox, githubToken, repo.owner, repo.name);
-
-        const backendDir = `${WORKSPACE_DIR}/backend`;
-        await sandbox.process.executeCommand(
-          `printf 'CONVEX_DEPLOYMENT=${serverEnv.CONVEX_DEPLOYMENT}\nCONVEX_DEPLOY_KEY=${serverEnv.CONVEX_DEPLOY_KEY}\n' > ${backendDir}/.env.local`,
-          "/",
-          undefined,
-          10,
-        );
-
-        const mcpConfig = JSON.stringify({
-          type: "stdio",
-          command: "bash",
-          args: ["-c", `cd ${backendDir} && npx convex mcp start`],
-        });
-        const mcpConfigBase64 = Buffer.from(mcpConfig).toString("base64");
-        await sandbox.process.executeCommand(
-          `claude mcp add-json convex "$(echo '${mcpConfigBase64}' | base64 -d)"`,
-          "/",
-          undefined,
-          30,
-        );
-
-        const prompt = `You are a data analyst with access to query a software project database via Convex MCP.
+      const prompt = `You are a data analyst. You MUST use the Convex MCP tools to query the database. Do NOT create files, do NOT suggest manual steps, do NOT modify the codebase.
 
 ## Database Schema
 - agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
@@ -91,6 +89,7 @@ export const executeResearchQuery = inngest.createFunction(
 - projects: _id, repoId, userId, title, description, phase (draft/finalized/active/completed), branchName
 - boards: _id, name, ownerId, repoId, createdAt
 - docs: _id, repoId, title, content, createdAt, updatedAt
+- users: _id, clerkId, email, name, createdAt
 
 ## Current Repository ID
 repoId: "${repoId}"
@@ -99,27 +98,39 @@ repoId: "${repoId}"
 ${question}
 
 ## Instructions
-- Use the runOneoffQuery MCP tool to query the Convex database
-- Write JavaScript query code that uses ctx.db.query() with proper indexes
-- Filter by repoId where applicable (e.g., sessions, projects use by_repo index)
-- For agentTasks, query boards by repoId first, then tasks by boardId
-- Analyze the results and provide insights
-- Be concise and accurate`;
+1. Call mcp__convex__status to get the deploymentSelector
+2. Use mcp__convex__runOneoffQuery with that deploymentSelector to run ad-hoc queries directly - do NOT create or modify any files
+3. The runOneoffQuery code format is:
+\`\`\`js
+import { query } from "convex:/_system/repl/wrappers.js";
+export default query({ handler: async (ctx) => { return await ctx.db.query("tableName").collect(); } });
+\`\`\`
+4. Filter by repoId where applicable (sessions, projects use by_repo index)
+5. For agentTasks, query boards by repoId first, then tasks by boardId
+6. Analyze the results and provide a concise answer`;
 
-        const result = await runClaudeCLI(sandbox, prompt, {
+      try {
+        const result = await runClaudeCodeDirectStreaming(prompt, {
           model: "sonnet",
-          allowedTools: [],
+          disallowedTools: ["Write", "Edit", "Bash", "NotebookEdit"],
+          mcpConfigPath,
           workDir: backendDir,
           timeout: 180,
+          onOutput: async (currentActivity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: queryId,
+              currentActivity,
+            });
+          },
         });
-
         return result.result || "I couldn't generate a response.";
       } finally {
-        await sandbox.delete();
+        try { fs.unlinkSync(mcpConfigPath); } catch {}
       }
     });
 
     await step.run("save-response", async () => {
+      await convex.mutation(api.streaming.clear, { entityId: queryId });
       await convex.mutation(api.researchQueries.updateLastMessage, {
         id: queryId as Id<"researchQueries">,
         content: answer,

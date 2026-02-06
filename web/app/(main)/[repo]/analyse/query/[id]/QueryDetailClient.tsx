@@ -8,6 +8,7 @@ import { Textarea } from "@heroui/input";
 import { IconArrowUp, IconUser } from "@tabler/icons-react";
 import { Spinner } from "@heroui/spinner";
 import { useEffect, useRef, useState } from "react";
+import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
@@ -26,6 +27,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,6 +48,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             queryId: typedQueryId,
             question: content,
             repoId: repo._id,
+            model,
           },
         }),
       });
@@ -167,7 +170,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
+          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -180,24 +183,25 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   handleSend();
                 }
               }}
-              className="flex-1"
               classNames={{
                 inputWrapper:
                   "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
               }}
               isDisabled={isSending}
             />
-            <Button
-              type="submit"
-              isIconOnly
-              color="primary"
-              radius="full"
-              className="mt-auto mr-2 mb-2"
-              isLoading={isSending}
-              isDisabled={isSending || !input.trim()}
-            >
-              <IconArrowUp size={18} />
-            </Button>
+            <div className="flex items-center justify-between px-2 pb-2">
+              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+              <Button
+                type="submit"
+                isIconOnly
+                color="primary"
+                radius="full"
+                isLoading={isSending}
+                isDisabled={isSending || !input.trim()}
+              >
+                <IconArrowUp size={18} />
+              </Button>
+            </div>
           </div>
         </form>
       </div>

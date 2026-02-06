@@ -28,6 +28,7 @@ import {
 } from "@heroui/modal";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Link from "next/link";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
@@ -79,6 +80,7 @@ export function ChatPanel({
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
   const typedSessionId = sessionId as Id<"sessions">;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
@@ -110,13 +112,13 @@ export function ChatPanel({
   }, [messages]);
 
   const sendToApi = useCallback(
-    async (message: string, sendMode: SessionMode) => {
+    async (message: string, sendMode: SessionMode, sendModel: ClaudeModel) => {
       const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "session/execute",
-          data: { sessionId, message, mode: sendMode },
+          data: { sessionId, message, mode: sendMode, model: sendModel },
         }),
       });
       if (!response.ok) {
@@ -133,7 +135,7 @@ export function ChatPanel({
     setIsSending(true);
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
-      await sendToApi(content, mode);
+      await sendToApi(content, mode, model);
     } catch {
       setIsSending(false);
     }
@@ -491,7 +493,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
+          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -518,31 +520,32 @@ export function ChatPanel({
               }}
               isDisabled={isInputDisabled}
             />
-            {isExecuting ? (
-              <Button
-                isIconOnly
-                className="mt-auto mr-2 mb-2"
-                color="danger"
-                radius="full"
-                onPress={handleCancel}
-                size="sm"
-              >
-                <IconPlayerStop size={16} />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                isIconOnly
-                className="mt-auto mr-2 mb-2"
-                color="primary"
-                radius="full"
-                isLoading={isSending}
-                isDisabled={isInputDisabled || !input.trim()}
-                size="sm"
-              >
-                <IconArrowUp size={16} />
-              </Button>
-            )}
+            <div className="flex items-center justify-between px-2 pb-2">
+              <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+              {isExecuting ? (
+                <Button
+                  isIconOnly
+                  color="danger"
+                  radius="full"
+                  onPress={handleCancel}
+                  size="sm"
+                >
+                  <IconPlayerStop size={16} />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  isIconOnly
+                  color="primary"
+                  radius="full"
+                  isLoading={isSending}
+                  isDisabled={isInputDisabled || !input.trim()}
+                  size="sm"
+                >
+                  <IconArrowUp size={16} />
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </div>

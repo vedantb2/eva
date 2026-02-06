@@ -2,19 +2,36 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { runClaudeCodeDirectStreaming } from "../sandbox";
-import fs from "fs";
-import os from "os";
-import path from "path";
+import { generateText, tool, stepCountIs } from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { z } from "zod";
+import { clientEnv } from "@/env/client";
+import { serverEnv } from "@/env/server";
 
-function getConvexAccessToken(): string | null {
-  try {
-    const configPath = path.join(os.homedir(), ".convex", "config.json");
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    return config.accessToken ?? null;
-  } catch {
-    return null;
-  }
+const queryResultSchema = z.object({
+  status: z.string(),
+  value: z.unknown(),
+  logLines: z.array(z.string()).optional(),
+});
+
+async function runConvexQuery(queryCode: string): Promise<string> {
+  const res = await fetch(
+    `${clientEnv.NEXT_PUBLIC_CONVEX_URL}/api/run_test_function`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adminKey: serverEnv.CONVEX_DEPLOY_KEY,
+        args: {},
+        bundle: { path: "testQuery.js", source: queryCode },
+        format: "convex_encoded_json",
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`Convex query failed: ${res.status}`);
+  const { status, value } = queryResultSchema.parse(await res.json());
+  if (status !== "success") throw new Error(`Query error: ${JSON.stringify(value)}`);
+  return JSON.stringify(value);
 }
 
 export const executeResearchQuery = inngest.createFunction(
@@ -55,32 +72,24 @@ export const executeResearchQuery = inngest.createFunction(
     });
 
     const answer = await step.run("generate-answer", async () => {
-      const ts = Date.now();
-      const mcpConfigPath = path.join(os.tmpdir(), `mcp-config-${ts}.json`);
-      const backendDir = path.resolve(process.cwd(), "../backend");
+      await convex.mutation(api.streaming.set, {
+        entityId: queryId,
+        currentActivity: "Analyzing your question...",
+      });
 
-      const isWindows = process.platform === "win32";
-      const npxCmd = `npx -y convex@latest mcp start --project-dir "${backendDir}"`;
-      const mcpServer = isWindows
-        ? { command: "cmd", args: ["/c", npxCmd] }
-        : { command: "npx", args: ["-y", "convex@latest", "mcp", "start", "--project-dir", backendDir] };
+      const openrouter = createOpenRouter({
+        apiKey: serverEnv.OPENROUTER_API_KEY ?? "",
+      });
 
-      const accessToken = getConvexAccessToken();
-      const mcpEnv: Record<string, string> = {};
-      if (accessToken) {
-        mcpEnv.CONVEX_OVERRIDE_ACCESS_TOKEN = accessToken;
-      }
+      const now = new Date();
+      const { text } = await generateText({
+        model: openrouter("openai/gpt-5-nano"),
+        system: `You are a data analyst. Use the run_query tool to query the Convex database and analyze results. Do NOT suggest manual steps or modifications.
 
-      fs.writeFileSync(
-        mcpConfigPath,
-        JSON.stringify({
-          mcpServers: {
-            convex: { ...mcpServer, env: mcpEnv },
-          },
-        }),
-      );
-
-      const prompt = `You are a data analyst. You MUST use the Convex MCP tools to query the database. Do NOT create files, do NOT suggest manual steps, do NOT modify the codebase.
+## Current Time
+- UTC: ${now.toISOString()}
+- Timestamp (ms): ${now.getTime()}
+- All database timestamps are in milliseconds since epoch (Unix ms). Use Date.now() in queries for current time. For "today", subtract 24*60*60*1000 from Date.now().
 
 ## Database Schema
 - agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
@@ -94,39 +103,55 @@ export const executeResearchQuery = inngest.createFunction(
 ## Current Repository ID
 repoId: "${repoId}"
 
-## Question
-${question}
-
 ## Instructions
-1. Call mcp__convex__status to get the deploymentSelector
-2. Use mcp__convex__runOneoffQuery with that deploymentSelector to run ad-hoc queries directly - do NOT create or modify any files
-3. The runOneoffQuery code format is:
+1. Use run_query to execute read-only Convex queries
+2. Always show the query code you ran in your response so the user can verify
+3. Query format — every query MUST use this exact wrapper:
 \`\`\`js
 import { query } from "convex:/_system/repl/wrappers.js";
-export default query({ handler: async (ctx) => { return await ctx.db.query("tableName").collect(); } });
+export default query({ handler: async (ctx) => {
+  // your query logic here
+  return result;
+}});
 \`\`\`
-4. Filter by repoId where applicable (sessions, projects use by_repo index)
-5. For agentTasks, query boards by repoId first, then tasks by boardId
-6. Analyze the results and provide a concise answer`;
 
-      try {
-        const result = await runClaudeCodeDirectStreaming(prompt, {
-          model: "sonnet",
-          disallowedTools: ["Write", "Edit", "Bash", "NotebookEdit"],
-          mcpConfigPath,
-          workDir: backendDir,
-          timeout: 180,
-          onOutput: async (currentActivity) => {
-            await convex.mutation(api.streaming.set, {
-              entityId: queryId,
-              currentActivity,
-            });
-          },
-        });
-        return result.result || "I couldn't generate a response.";
-      } finally {
-        try { fs.unlinkSync(mcpConfigPath); } catch {}
-      }
+## Query Examples
+- Get all rows: \`await ctx.db.query("tableName").collect()\`
+- With index: \`await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()\`
+- Order desc: \`await ctx.db.query("agentRuns").order("desc").take(20)\`
+- Filter after fetch: \`const rows = await ctx.db.query("agentRuns").collect(); return rows.filter(r => r.startedAt >= ${now.getTime()} - 86400000);\`
+- Get by ID: \`await ctx.db.get(someId)\`
+
+## Available Indexes
+- agentTasks: by_board (boardId), by_project (projectId)
+- agentRuns: by_task (taskId)
+- sessions: by_repo (repoId), by_repo_and_status (repoId, status)
+- projects: by_repo (repoId)
+- boards: by_repo (repoId)
+- docs: by_repo (repoId)
+
+## Tips
+- Filter by repoId where applicable
+- For agentTasks: query boards by repoId first, then tasks by boardId
+- For agentRuns: query tasks first, then runs by taskId
+- Analyze the results and provide a concise answer`,
+        prompt: question,
+        tools: {
+          run_query: tool({
+            description:
+              "Execute a read-only Convex database query. Write JavaScript using the Convex query format with ctx.db.query().",
+            inputSchema: z.object({
+              code: z
+                .string()
+                .describe("JavaScript query code using Convex query format"),
+            }),
+            execute: async ({ code }) => runConvexQuery(code),
+          }),
+        },
+        stopWhen: stepCountIs(5),
+      });
+
+      return text || "I couldn't generate a response.";
     });
 
     await step.run("save-response", async () => {

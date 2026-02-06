@@ -41,7 +41,7 @@ export function SessionSidebar({
         <div className="p-2">
           <Button
             size="default"
-            className="w-full justify-start gap-2 bg-teal-600 hover:bg-teal-700 text-white"
+            className="w-full justify-start gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={() => {
               onNewSession();
               onClose();

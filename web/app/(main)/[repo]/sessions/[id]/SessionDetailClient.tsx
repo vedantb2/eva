@@ -6,6 +6,11 @@ import { GenericId as Id } from "convex/values";
 import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
+import { Button } from "@/lib/components/ui/button";
+import {
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
+} from "@tabler/icons-react";
 
 interface SessionDetailClientProps {
   sessionId: string;
@@ -16,6 +21,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
     setIsSandboxToggling(true);
@@ -57,8 +63,8 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const isSandboxActive = session.status === "active";
 
   return (
-    <div className="flex h-full ">
-      <div className="w-3/5">
+    <div className="flex h-full">
+      <div className="flex-1">
         <SandboxPanel
           sessionId={sessionId}
           sandboxId={session.sandboxId}
@@ -66,20 +72,40 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           fileDiffs={session.fileDiffs}
         />
       </div>
-      <div className="w-2/5">
-        <ChatPanel
-          sessionId={sessionId}
-          title={session.title}
-          branchName={session.branchName}
-          prUrl={session.prUrl}
-          summary={session.summary}
-          messages={session.messages}
-          planContent={session.planContent}
-          streamingActivity={streaming?.currentActivity}
-          isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxToggling}
-          onSandboxToggle={handleSandboxToggle}
-        />
+      <div
+        className={`${chatCollapsed ? "w-10" : "w-2/5"} flex flex-col transition-all duration-200`}
+      >
+        <div className="flex items-center p-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="flex-shrink-0"
+            onClick={() => setChatCollapsed(!chatCollapsed)}
+          >
+            {chatCollapsed ? (
+              <IconLayoutSidebarRightExpand size={16} />
+            ) : (
+              <IconLayoutSidebarRightCollapse size={16} />
+            )}
+          </Button>
+        </div>
+        {!chatCollapsed && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChatPanel
+              sessionId={sessionId}
+              title={session.title}
+              branchName={session.branchName}
+              prUrl={session.prUrl}
+              summary={session.summary}
+              messages={session.messages}
+              planContent={session.planContent}
+              streamingActivity={streaming?.currentActivity}
+              isSandboxActive={isSandboxActive}
+              isSandboxToggling={isSandboxToggling}
+              onSandboxToggle={handleSandboxToggle}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

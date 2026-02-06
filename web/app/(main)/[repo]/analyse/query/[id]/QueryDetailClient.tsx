@@ -90,25 +90,28 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           query.messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-3 ${
-                message.role === "user" ? "justify-end" : "justify-start"
+              className={`flex flex-col ${
+                message.role === "user" ? "items-end" : "items-start"
               }`}
             >
               {message.role === "assistant" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden">
-                  <Image
-                    src="/icon.png"
-                    alt="Assistant"
-                    width={32}
-                    height={32}
-                  />
+                <div className="mb-1.5 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <Image
+                      src="/icon.png"
+                      alt="Assistant"
+                      width={32}
+                      height={32}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-neutral-500">Eva</span>
                 </div>
               )}
               <div
-                className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                className={`px-4 py-2 rounded-xl ${
                   message.role === "user"
-                    ? "bg-teal-600 text-white"
-                    : "bg-white dark:bg-neutral-800"
+                    ? "max-w-[80%] bg-teal-600 text-white rounded-br-none"
+                    : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
                 }`}
               >
                 {message.role === "assistant" && !message.content ? (
@@ -131,18 +134,21 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   </p>
                 )}
               </div>
-              {message.role === "user" &&
-                (message.userId ? (
-                  <UserInitials
-                    userId={message.userId}
-                    hideLastSeen
-                    size="md"
-                  />
-                ) : (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                    <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                  </div>
-                ))}
+              {message.role === "user" && (
+                <div className="mt-1.5">
+                  {message.userId ? (
+                    <UserInitials
+                      userId={message.userId}
+                      hideLastSeen
+                      size="md"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                      <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

@@ -381,20 +381,23 @@ Please review all components and files used on this page before implementing the
           return (
             <div
               key={index}
-              className={`flex gap-2.5 items-start ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
             >
               {message.role === "assistant" && (
-                <img
-                  src="/icons/icon.png"
-                  alt="Eva"
-                  className="flex-shrink-0 w-7 h-7 rounded-full"
-                />
+                <div className="mb-1.5 flex items-center gap-2">
+                  <img
+                    src="/icons/icon.png"
+                    alt="Eva"
+                    className="flex-shrink-0 w-7 h-7 rounded-full"
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                </div>
               )}
               <div
-                className={`flex flex-col max-w-[85%] min-w-0 ${message.role === "user" ? "items-end" : "items-start"}`}
+                className={`flex flex-col min-w-0 ${message.role === "user" ? "max-w-[85%] items-end" : "items-start"}`}
               >
                 {isFlagResponse && prev ? (
-                  <Collapsible className="rounded-xl border border-border bg-card text-card-foreground overflow-hidden">
+                  <Collapsible className="rounded-xl rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
                     <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
                       <IconCheck size={16} className="text-teal-500 shrink-0" />
                       <span className="flex-1 text-left">
@@ -418,8 +421,8 @@ Please review all components and files used on this page before implementing the
                   <div
                     className={`rounded-xl px-3 py-2 overflow-hidden break-words ${
                       message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card text-card-foreground"
+                        ? "bg-primary text-primary-foreground rounded-br-none"
+                        : "bg-muted text-card-foreground rounded-tl-none"
                     }`}
                   >
                     {message.role === "assistant" &&
@@ -481,20 +484,25 @@ Please review all components and files used on this page before implementing the
                   )}
               </div>
               {message.role === "user" && (
-                <UserAvatar userId={message.userId} />
+                <div className="mt-1.5">
+                  <UserAvatar userId={message.userId} />
+                </div>
               )}
             </div>
           );
         })}
 
         {isLoading && (
-          <div className="flex gap-2.5 justify-start">
-            <img
-              src="/icons/icon.png"
-              alt="Eva"
-              className="flex-shrink-0 w-7 h-7 rounded-full"
-            />
-            <div className="bg-card border border-border rounded-xl px-3 py-2">
+          <div className="flex flex-col items-start">
+            <div className="mb-1.5 flex items-center gap-2">
+              <img
+                src="/icons/icon.png"
+                alt="Eva"
+                className="flex-shrink-0 w-7 h-7 rounded-full"
+              />
+              <span className="text-xs font-medium text-muted-foreground">Eva</span>
+            </div>
+            <div className="bg-muted rounded-xl rounded-tl-none px-3 py-2">
               <div className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
                 <span

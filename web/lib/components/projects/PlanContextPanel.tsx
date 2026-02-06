@@ -126,48 +126,44 @@ export function PlanContextPanel({
                 return (
                   <div
                     key={i}
-                    className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}
+                    className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
                   >
+                    {!isUser && (
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-default-100 dark:bg-default-800">
+                          <IconRobot size={16} className="text-default-500" />
+                        </div>
+                        <span className="text-xs font-medium text-default-500">Eva</span>
+                      </div>
+                    )}
                     <div
-                      className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      className={`max-w-[80%] px-4 py-3 rounded-2xl ${
                         isUser
-                          ? "bg-primary-100 dark:bg-primary-900"
-                          : "bg-default-100 dark:bg-default-800"
+                          ? "bg-primary-500 text-white rounded-br-none"
+                          : "bg-default-100 dark:bg-default-800 rounded-tl-none"
                       }`}
                     >
                       {isUser ? (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {displayContent}
+                        </p>
+                      ) : (
+                        <Streamdown
+                          plugins={{ code }}
+                          className="prose prose-sm dark:prose-invert max-w-none"
+                        >
+                          {displayContent}
+                        </Streamdown>
+                      )}
+                    </div>
+                    {isUser && (
+                      <div className="mt-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-primary-100 dark:bg-primary-900">
                         <IconUser
                           size={16}
                           className="text-primary-600 dark:text-primary-400"
                         />
-                      ) : (
-                        <IconRobot size={16} className="text-default-500" />
-                      )}
-                    </div>
-                    <div
-                      className={`flex-1 max-w-[80%] ${isUser ? "text-right" : ""}`}
-                    >
-                      <div
-                        className={`inline-block text-left px-4 py-3 rounded-2xl ${
-                          isUser
-                            ? "bg-primary-500 text-white rounded-tr-sm"
-                            : "bg-default-100 dark:bg-default-800 rounded-tl-sm"
-                        }`}
-                      >
-                        {isUser ? (
-                          <p className="text-sm whitespace-pre-wrap">
-                            {displayContent}
-                          </p>
-                        ) : (
-                          <Streamdown
-                            plugins={{ code }}
-                            className="prose prose-sm dark:prose-invert max-w-none"
-                          >
-                            {displayContent}
-                          </Streamdown>
-                        )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}

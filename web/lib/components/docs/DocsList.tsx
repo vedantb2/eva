@@ -28,7 +28,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
                 href={href}
                 className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
                   isSelected
-                    ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                    ? "bg-primary/10 text-primary"
                     : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
                 }`}
               >

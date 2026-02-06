@@ -35,7 +35,7 @@ export function UserInitials({
 
   const avatar = (
     <Avatar className={iconSize}>
-      <AvatarFallback className="bg-teal-500 text-teal-100 text-xs">
+      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
         {initials}
       </AvatarFallback>
     </Avatar>

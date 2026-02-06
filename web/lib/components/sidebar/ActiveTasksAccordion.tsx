@@ -38,7 +38,7 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
       <AccordionItem value="active-tasks" className="border-b-0 px-0">
         <AccordionTrigger className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg hover:no-underline">
           <div className="flex items-center gap-2">
-            <IconListCheck className="w-4 h-4 text-teal-600" />
+            <IconListCheck className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Active Tasks</span>
             <span className="ml-auto text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
               {tasks.length}

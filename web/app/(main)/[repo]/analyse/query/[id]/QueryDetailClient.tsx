@@ -60,7 +60,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   if (query === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               <div
                 className={`px-4 py-2 rounded-xl ${
                   message.role === "user"
-                    ? "max-w-[80%] bg-teal-600 text-white rounded-br-none"
+                    ? "max-w-[80%] bg-primary text-white rounded-br-none"
                     : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
                 }`}
               >
@@ -157,7 +157,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         )}
         {isSending && (
           <div className="flex gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
             <span className="text-sm text-neutral-500">Sending...</span>
           </div>
         )}
@@ -182,7 +182,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   handleSend();
                 }
               }}
-              className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 border-none focus-visible:ring-0 resize-none"
+              className="bg-transparent border-none shadow-none focus-visible:ring-0 resize-none"
               disabled={isSending}
             />
             <div className="flex items-center justify-between px-2 pb-2">

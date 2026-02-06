@@ -241,7 +241,7 @@ export function ChatPanel({
             variant="secondary"
             onClick={handleGenerateSummary}
             disabled={isSummarizing || !isSandboxActive || messages.length === 0}
-            className="h-8 w-8 text-teal-500"
+            className="h-8 w-8 text-primary"
           >
             {isSummarizing ? <Spinner size="sm" /> : <IconSparkles className="size-5" />}
           </Button>
@@ -270,13 +270,13 @@ export function ChatPanel({
         >
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">
-              <div className="flex flex-row gap-2 items-center text-teal-600 dark:text-teal-400">
+              <div className="flex flex-row gap-2 items-center text-primary">
                 <IconSparkles size={14} />
                 <p>Session summary</p>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <ul className="list-disc list-inside text-sm text-teal-600 dark:text-teal-400 space-y-1 pl-4">
+              <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
                 {summary.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -320,7 +320,7 @@ export function ChatPanel({
                 <div
                   className={`px-3 py-2 rounded-xl ${
                     message.role === "user"
-                      ? "max-w-[85%] bg-teal-600 text-white rounded-br-none"
+                      ? "max-w-[85%] bg-primary text-white rounded-br-none"
                       : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
                   }`}
                 >
@@ -493,7 +493,7 @@ export function ChatPanel({
                   handleSend();
                 }
               }}
-              className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 border-0 focus-visible:ring-0"
+              className="bg-transparent border-none shadow-none focus-visible:ring-0"
               disabled={isInputDisabled}
             />
             <div className="flex items-center justify-between px-2 pb-2">

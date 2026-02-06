@@ -118,7 +118,7 @@ export function GroupTasksModal({
                   onClick={() => setSelectedProjectId(project._id)}
                   className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
                     selectedProjectId === project._id
-                      ? "border-teal-500 bg-teal-100 dark:bg-teal-800/40"
+                      ? "border-primary bg-primary/10"
                       : "border-transparent bg-muted hover:bg-muted"
                   }`}
                 >

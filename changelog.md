@@ -1,5 +1,14 @@
 # Changelog
 
+## Replace hardcoded teal colors with primary theme variables - 2026-02-06
+
+- Replaced all hardcoded `teal-*` Tailwind color classes across 29 files with `primary` theme equivalents (`text-primary`, `bg-primary/10`, `border-primary`, etc.)
+- Collapsed redundant `dark:` variant classes since `primary` CSS variables already adapt to dark mode
+- Updated gradient backgrounds (sidebar logo, welcome banner, repo home) to use `bg-primary/10` and `bg-gradient-to-br from-primary/80 to-primary/90`
+- Replaced teal spinner borders, selection rings, chat bubbles, and status indicators with primary color
+- Updated `UserInitials` to use `bg-primary text-primary-foreground`
+- Updated `ProjectPhaseBadge` finalized phase to use `bg-primary/15` and `text-primary`
+
 ## Replace HeroUI with shadcn/ui - 2026-02-06
 
 - Migrated all 57 files from HeroUI components to shadcn/ui equivalents

@@ -166,7 +166,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
-          className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto`}
+          className={`flex items-center gap-1.5 bg-primary/10 rounded-full pr-4 mx-auto`}
         >
           <Image
             src="/icon.png"
@@ -175,7 +175,7 @@ export function Sidebar() {
             height={22}
             className="rounded-full"
           />
-          <span className="text-md tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+          <span className="text-md tracking-tight font-semibold text-primary">
             Eva
           </span>
         </Link>
@@ -201,7 +201,7 @@ export function Sidebar() {
             {!collapsed && (
               <Link
                 href={repoSlug ? `/${repoSlug}` : "/"}
-                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
+                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-primary/10 rounded-full pr-4 mx-auto"}`}
               >
                 <Image
                   src="/icon.png"
@@ -210,7 +210,7 @@ export function Sidebar() {
                   height={30}
                   className="rounded-full"
                 />
-                <span className="text-xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+                <span className="text-xl tracking-tight font-semibold text-primary">
                   Eva
                 </span>
               </Link>
@@ -230,9 +230,9 @@ export function Sidebar() {
               className={`hidden lg:flex ${collapsed ? "absolute" : ""}`}
             >
               {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-teal-800 dark:text-teal-500" />
+                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-primary" />
               ) : (
-                <IconLayoutSidebarLeftCollapse className="size-5 text-teal-800 dark:text-teal-500" />
+                <IconLayoutSidebarLeftCollapse className="size-5 text-primary" />
               )}
             </Button>
           </div>
@@ -318,14 +318,14 @@ export function Sidebar() {
                                   title={collapsed ? item.name : undefined}
                                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
-                                      ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
+                                      ? "bg-primary/10 text-primary"
                                       : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                                   }`}
                                 >
                                   <item.icon
                                     className={`size-[16px] flex-shrink-0 ${
                                       isActive
-                                        ? "text-teal-800 dark:text-teal-200"
+                                        ? "text-primary"
                                         : ""
                                     }`}
                                   />
@@ -362,13 +362,13 @@ export function Sidebar() {
                     title={collapsed ? item.name : undefined}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
-                        ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
+                        ? "bg-primary/5 text-primary"
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
                     <span className="relative flex-shrink-0">
                       <item.icon
-                        className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
+                        className={`size-[16px] ${isActive ? "text-primary" : ""}`}
                       />
                     </span>
                     {!collapsed && item.name}

@@ -133,7 +133,7 @@ export default function SessionsLayout({
       <div className="flex-1 overflow-y-auto scrollbar">
         {sessions === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center">
@@ -151,7 +151,7 @@ export default function SessionsLayout({
                   key={session._id}
                   className={`px-4 py-2 cursor-pointer transition-all group ${
                     isSelected
-                      ? "bg-teal-100 dark:bg-teal-900/20"
+                      ? "bg-primary/10"
                       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   }`}
                 >
@@ -160,7 +160,7 @@ export default function SessionsLayout({
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${
                           isSelected
-                            ? "text-teal-600 dark:text-teal-400"
+                            ? "text-primary"
                             : "text-neutral-900 dark:text-white"
                         }`}
                       >

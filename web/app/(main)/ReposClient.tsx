@@ -32,7 +32,7 @@ function WelcomeBanner() {
 
   return (
     <Card
-      className="mb-6 overflow-hidden shadow-none bg-gradient-to-br from-teal-800/80 to-teal-900/80 dark:from-teal-700 dark:to-teal-900"
+      className="mb-6 overflow-hidden shadow-none bg-gradient-to-br from-primary/80 to-primary/90"
     >
       <CardContent className="p-0">
         <div className="relative p-5 sm:p-6">
@@ -51,7 +51,7 @@ function WelcomeBanner() {
             <IconSparkles size={20} className="text-white/80" />
             <p className="text-lg font-semibold text-white">Meet Eva</p>
           </div>
-          <p className="text-sm text-teal-100/80 max-w-md">
+          <p className="text-sm text-primary-foreground/80 max-w-md">
             Your AI-powered coworker that helps you ship faster. Select a
             repository below to get started.
           </p>
@@ -59,7 +59,7 @@ function WelcomeBanner() {
             {features.map((f) => (
               <div
                 key={f.label}
-                className="flex items-center gap-1.5 text-xs text-teal-100/70"
+                className="flex items-center gap-1.5 text-xs text-primary-foreground/70"
               >
                 <f.icon size={14} className="text-white/80" />
                 {f.label}

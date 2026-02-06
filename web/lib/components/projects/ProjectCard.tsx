@@ -112,7 +112,7 @@ export function ProjectCard({
       </div>
       <Link href={projectUrl} className="block">
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-teal-600 transition-colors truncate">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-primary transition-colors truncate">
             {title}
           </h3>
         </div>

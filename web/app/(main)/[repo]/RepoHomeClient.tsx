@@ -124,7 +124,7 @@ export function RepoHomeClient() {
     <div className="flex items-center justify-center h-full p-8">
       <div className="w-full max-w-2xl space-y-6">
         <div
-          className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 w-max`}
+          className={`flex items-center gap-1.5 bg-primary/10 rounded-full pr-4 w-max`}
         >
           <Image
             src="/icon.png"
@@ -133,7 +133,7 @@ export function RepoHomeClient() {
             height={40}
             className="rounded-full"
           />
-          <span className="text-2xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+          <span className="text-2xl tracking-tight font-semibold text-primary">
             Eva's Stats
           </span>
         </div>

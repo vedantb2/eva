@@ -55,7 +55,7 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   if (!tasks || !groupedTasks) {
     return (
       <div className="flex items-center justify-center h-32">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
   }

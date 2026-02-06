@@ -78,7 +78,7 @@ export function ProjectActiveLayout({
             </div>
           )}
           {!tasksCollapsed && (
-            <div className="flex flex-row items-center gap-1 mx-auto text-teal-500 dark:text-teal-400">
+            <div className="flex flex-row items-center gap-1 mx-auto text-primary">
               <IconChecklist size={14} />
               <p className="text-sm font-semibold">Tasks</p>
             </div>
@@ -86,7 +86,7 @@ export function ProjectActiveLayout({
           <Button
             size="icon"
             variant="ghost"
-            className="rounded-none text-teal-500 dark:text-teal-400"
+            className="rounded-none text-primary"
             onClick={() => setTasksCollapsed(!tasksCollapsed)}
           >
             {tasksCollapsed ? (
@@ -112,7 +112,7 @@ export function ProjectActiveLayout({
           <Button
             size="icon"
             variant="ghost"
-            className="rounded-none text-teal-500 dark:text-teal-400"
+            className="rounded-none text-primary"
             onClick={() => setChatCollapsed(!chatCollapsed)}
           >
             {chatCollapsed ? (
@@ -122,7 +122,7 @@ export function ProjectActiveLayout({
             )}
           </Button>
           {!chatCollapsed && (
-            <div className="flex flex-row gap-1 items-center mx-auto text-teal-500 dark:text-teal-400">
+            <div className="flex flex-row gap-1 items-center mx-auto text-primary">
               <IconMessageCircle size={14} />
               <p className="text-sm font-semibold ">Chat</p>
             </div>

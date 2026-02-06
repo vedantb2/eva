@@ -4,6 +4,7 @@ import {
   activateAnnotation,
   deactivateAnnotation,
   setAnnotationsFromRemote,
+  clearAllAnnotations,
   AnnotationOverlay,
 } from "./AnnotationOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
@@ -87,6 +88,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "HIDE_TOOLBAR") {
     hideToolbar();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "PANEL_CLOSED") {
+    hideToolbar();
+    deactivateAnnotation();
+    clearAllAnnotations();
+    destroySelection();
     sendResponse({ success: true });
     return true;
   }

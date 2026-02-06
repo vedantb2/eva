@@ -135,11 +135,13 @@ function DocEditor({ doc }: { doc: Doc }) {
   return (
     <>
       <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+        <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Input
               value={doc.title}
-              onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+              onChange={(e) =>
+                updateDoc({ id: doc._id, title: e.target.value })
+              }
               className="max-w-xs h-8 text-sm"
               placeholder="Document title"
             />
@@ -181,14 +183,12 @@ function DocEditor({ doc }: { doc: Doc }) {
                   <TooltipTrigger asChild>
                     <IconInfoCircle size={14} className="text-neutral-400" />
                   </TooltipTrigger>
-                  <TooltipContent>Used for code-level testing and evaluation</TooltipContent>
+                  <TooltipContent>
+                    Used for code-level testing and evaluation
+                  </TooltipContent>
                 </Tooltip>
               </label>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={addRequirement}
-              >
+              <Button size="sm" variant="secondary" onClick={addRequirement}>
                 <IconPlus size={14} />
                 Add
               </Button>
@@ -234,14 +234,12 @@ function DocEditor({ doc }: { doc: Doc }) {
                   <TooltipTrigger asChild>
                     <IconInfoCircle size={14} className="text-neutral-400" />
                   </TooltipTrigger>
-                  <TooltipContent>Used for UI testing in the testing arena</TooltipContent>
+                  <TooltipContent>
+                    Used for UI testing in the testing arena
+                  </TooltipContent>
                 </Tooltip>
               </label>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={addFlow}
-              >
+              <Button size="sm" variant="secondary" onClick={addFlow}>
                 <IconPlus size={14} />
                 Add Flow
               </Button>
@@ -261,7 +259,9 @@ function DocEditor({ doc }: { doc: Doc }) {
                     <div className="flex items-center gap-2 mb-3">
                       <Input
                         value={flow.name}
-                        onChange={(e) => updateFlowName(flowIdx, e.target.value)}
+                        onChange={(e) =>
+                          updateFlowName(flowIdx, e.target.value)
+                        }
                         placeholder={`Flow ${flowIdx + 1}`}
                         className="h-8 text-sm bg-neutral-50 dark:bg-neutral-900"
                       />
@@ -316,7 +316,12 @@ function DocEditor({ doc }: { doc: Doc }) {
         </div>
       </div>
 
-      <Dialog open={showDeleteModal} onOpenChange={(v) => { if (!v) setShowDeleteModal(false); }}>
+      <Dialog
+        open={showDeleteModal}
+        onOpenChange={(v) => {
+          if (!v) setShowDeleteModal(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Document</DialogTitle>
@@ -330,7 +335,10 @@ function DocEditor({ doc }: { doc: Doc }) {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteModal(false)}
+            >
               Cancel
             </Button>
             <Button

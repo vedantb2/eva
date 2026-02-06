@@ -278,7 +278,7 @@ export default function TestingArenaDocPage({
 
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
-      <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-700 flex flex-col gap-1">
+      <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
             {doc.title}
@@ -292,10 +292,7 @@ export default function TestingArenaDocPage({
             {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
           </Button>
         </div>
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-        >
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8">
             <TabsTrigger value="code" className="text-xs">
               <IconCode size={14} />

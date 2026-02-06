@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  IconWorld,
-  IconTerminal2,
-} from "@tabler/icons-react";
+import { IconWorld, IconTerminal2 } from "@tabler/icons-react";
 
 export function UITestingPanel() {
   const [isRunning] = useState(false);
@@ -13,10 +10,12 @@ export function UITestingPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 flex flex-col">
-        <div className="h-[60%] border-b border-neutral-200 dark:border-neutral-700">
+        <div className="h-[60%]">
           <div className="h-full flex flex-col items-center justify-center text-neutral-400 bg-neutral-50 dark:bg-neutral-900">
             <IconWorld size={48} className="mb-3 opacity-50" />
-            <p className="text-sm">Enter a URL and run the test to see Eva interact with your UI</p>
+            <p className="text-sm">
+              Enter a URL and run the test to see Eva interact with your UI
+            </p>
           </div>
         </div>
         <div className="h-[40%] flex flex-col bg-neutral-950">

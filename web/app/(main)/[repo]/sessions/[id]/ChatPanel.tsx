@@ -257,7 +257,7 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700 z-50">
+      <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}
@@ -312,11 +312,7 @@ export function ChatPanel({
         </div>
       </div>
       {summary && summary.length > 0 && (
-        <Accordion
-          type="single"
-          collapsible
-          className="px-4 border-b border-neutral-200 dark:border-neutral-700"
-        >
+        <Accordion type="single" collapsible className="px-4">
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">
               <div className="flex flex-row gap-2 items-center text-primary">
@@ -365,8 +361,8 @@ export function ChatPanel({
                 <MessageContent
                   className={
                     message.role === "user"
-                      ? "rounded-xl rounded-br-none bg-primary text-primary-foreground px-3 py-2"
-                      : "rounded-xl rounded-tl-none bg-muted px-3 py-2"
+                      ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                      : "px-1 py-2"
                   }
                 >
                   {message.role === "assistant" && !message.content ? (
@@ -405,7 +401,7 @@ export function ChatPanel({
                   )}
                 </MessageContent>
                 {message.mode && message.role === "user" && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
                     {message.mode === "execute" && (
                       <>
                         <IconCode className="w-3 h-3" /> Execute
@@ -424,7 +420,7 @@ export function ChatPanel({
                   </div>
                 )}
                 {message.role === "user" && (
-                  <div className="mt-0.5">
+                  <div className="mt-0.5 ml-auto">
                     {message.userId ? (
                       <UserInitials
                         userId={message.userId}
@@ -444,7 +440,7 @@ export function ChatPanel({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="px-3 pb-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+      <div className="px-3 pb-4 pt-3">
         <div className="flex items-center gap-1 mb-2">
           {prUrl && (
             <Link href={prUrl} target="_blank">

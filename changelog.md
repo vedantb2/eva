@@ -1,5 +1,20 @@
 # Changelog
 
+## Design cleanup: ChatGPT-style minimalism - 2026-02-06
+
+- Flattened all CSS shadow variables to `none` across light and dark modes for a flat, clean aesthetic
+- Lightened global border and input colors for subtler visual separation
+- Removed shadows from button, card, input, textarea, input-group, select, tabs, and badge components
+- Softened hover states on buttons and ghost elements (half-opacity accent backgrounds)
+- Simplified badges: tinted backgrounds instead of solid fills, removed borders from base class
+- Lightened dialog overlay from 80% to 50% opacity, removed dialog border
+- Removed default `border-b` from accordion items
+- Flattened sidebar navigation: removed grouped headers (BUILD/FIX/TEST/DATA), chevrons, and expand/collapse logic in favor of a simple flat list
+- Removed sidebar bottom border separator and logo pill background
+- Removed border separators from chat header, summary accordion, and input area in ChatPanel and QueryDetailClient
+- Updated message bubbles: user messages use subtle `bg-secondary` instead of `bg-primary`, assistant messages have no background
+- Removed border separators from DocViewer, ProjectDetailClient, testing-arena pages, and SessionFunnel
+
 ## Add response length selector to chat UIs - 2026-02-06
 
 - Created `ResponseLengthSelector` component with concise/default/detailed options

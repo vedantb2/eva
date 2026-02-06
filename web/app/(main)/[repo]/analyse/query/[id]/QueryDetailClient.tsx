@@ -102,7 +102,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="p-4">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
           {query.title}
         </h1>
@@ -132,8 +132,8 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                 <MessageContent
                   className={
                     message.role === "user"
-                      ? "rounded-xl rounded-br-none bg-primary text-primary-foreground px-4 py-2"
-                      : "rounded-xl rounded-tl-none bg-muted px-4 py-2"
+                      ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                      : "px-1 py-2"
                   }
                 >
                   {message.role === "assistant" && !message.content ? (
@@ -158,7 +158,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   )}
                 </MessageContent>
                 {message.role === "user" && (
-                  <div className="mt-0.5">
+                  <div className="mt-0.5 ml-auto">
                     {message.userId ? (
                       <UserInitials
                         userId={message.userId}

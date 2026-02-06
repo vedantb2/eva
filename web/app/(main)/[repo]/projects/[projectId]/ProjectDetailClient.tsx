@@ -81,12 +81,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </div>
           )}
           {project.prUrl && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="rounded-full"
-              asChild
-            >
+            <Button size="sm" variant="ghost" className="rounded-full" asChild>
               <Link
                 href={project.prUrl}
                 target="_blank"
@@ -121,7 +116,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         ) : null
       }
     >
-      <div className="flex-1 flex flex-col min-h-0 border-t border-neutral-200 dark:border-neutral-700">
+      <div className="flex-1 flex flex-col min-h-0">
         {isDraftOrFinalized ? (
           <ProjectTabs
             projectId={typedProjectId}
@@ -143,7 +138,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         )}
       </div>
 
-      <Dialog open={isBuildModalOpen} onOpenChange={(v) => { if (!v) setIsBuildModalOpen(false); }}>
+      <Dialog
+        open={isBuildModalOpen}
+        onOpenChange={(v) => {
+          if (!v) setIsBuildModalOpen(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Build Project</DialogTitle>
@@ -160,7 +160,10 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setIsBuildModalOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBuildModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button

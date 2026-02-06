@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Spinner } from "@heroui/spinner";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
-import { Button } from "@heroui/button";
+import { Button } from "@/lib/components/ui/button";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -228,10 +228,10 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
         <p className="text-sm text-red-500">{error}</p>
         <Button
           size="sm"
-          variant="flat"
-          onPress={() => setRetryCount((c) => c + 1)}
-          startContent={<IconRefresh className="w-4 h-4" />}
+          variant="secondary"
+          onClick={() => setRetryCount((c) => c + 1)}
         >
+          <IconRefresh className="w-4 h-4" />
           Retry
         </Button>
       </div>

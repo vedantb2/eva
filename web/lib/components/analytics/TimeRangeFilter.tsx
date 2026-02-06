@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs, Tab } from "@heroui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
 import dayjs from "@/lib/dates";
 
 type TimeRange = "7d" | "30d" | "90d" | "all";
@@ -24,20 +24,13 @@ export function getBucketSize(range: TimeRange): number {
 
 export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {
   return (
-    <Tabs
-      selectedKey={value}
-      onSelectionChange={(key) => onChange(key as TimeRange)}
-      size="sm"
-      variant="solid"
-      classNames={{
-        tabList: "bg-neutral-100 dark:bg-neutral-800",
-        cursor: "bg-white dark:bg-neutral-700",
-      }}
-    >
-      <Tab key="7d" title="7 Days" />
-      <Tab key="30d" title="30 Days" />
-      <Tab key="90d" title="90 Days" />
-      <Tab key="all" title="All Time" />
+    <Tabs value={value} onValueChange={(v) => onChange(v as TimeRange)}>
+      <TabsList>
+        <TabsTrigger value="7d">7 Days</TabsTrigger>
+        <TabsTrigger value="30d">30 Days</TabsTrigger>
+        <TabsTrigger value="90d">90 Days</TabsTrigger>
+        <TabsTrigger value="all">All Time</TabsTrigger>
+      </TabsList>
     </Tabs>
   );
 }

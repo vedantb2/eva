@@ -4,15 +4,15 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
 import {
   IconBrain,
   IconSearch,
@@ -21,6 +21,7 @@ import {
   IconFolder,
   IconBookmark,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -28,11 +29,11 @@ import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/lib/components/ui/dropdown-menu";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import dayjs from "@/lib/dates";
 
@@ -104,15 +105,23 @@ export default function ResearchLayout({
 
   const sidebar = (
     <>
-      <div className="p-3">
+      <div className="p-3 relative">
+        <IconSearch size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search queries..."
-          startContent={<IconSearch size={16} className="text-default-400" />}
           value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 pr-8"
         />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <IconX size={14} />
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {queries === undefined ? (
@@ -167,32 +176,30 @@ export default function ResearchLayout({
                                 e.stopPropagation();
                               }}
                             >
-                              <Dropdown>
-                                <DropdownTrigger>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400"
+                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-neutral-400"
                                   >
                                     <IconDotsVertical size={14} />
                                   </button>
-                                </DropdownTrigger>
-                                <DropdownMenu aria-label="Query actions">
-                                  <DropdownItem
-                                    key="delete"
-                                    className="text-danger"
-                                    color="danger"
-                                    startContent={<IconTrash size={16} />}
-                                    onPress={() =>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() =>
                                       setQueryToDelete({
                                         id: query._id,
                                         title: query.title,
                                       })
                                     }
                                   >
+                                    <IconTrash size={16} className="mr-2 h-4 w-4" />
                                     Delete
-                                  </DropdownItem>
-                                </DropdownMenu>
-                              </Dropdown>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                           <div className="mt-2 flex items-center">
@@ -275,49 +282,55 @@ export default function ResearchLayout({
     >
       {children}
 
-      <Modal isOpen={!!queryToDelete} onClose={() => setQueryToDelete(null)}>
-        <ModalContent>
-          <ModalHeader>Delete Query</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+      <Dialog open={!!queryToDelete} onOpenChange={(v) => { if (!v) setQueryToDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Query</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               Are you sure you want to delete{" "}
               <strong>{queryToDelete?.title}</strong>?
             </p>
-            <p className="text-sm text-default-500 mt-3">
+            <p className="text-sm text-muted-foreground mt-3">
               This action cannot be undone. All messages in this query will be
               permanently deleted.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setQueryToDelete(null)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setQueryToDelete(null)}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDelete}
-              isLoading={isDeleting}
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
             >
-              Delete Query
+              {isDeleting ? "Deleting..." : "Delete Query"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          setNewQueryTitle("");
+      <Dialog
+        open={isCreateModalOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setIsCreateModalOpen(false);
+            setNewQueryTitle("");
+          }
         }}
       >
-        <ModalContent>
-          <ModalHeader>New Query</ModalHeader>
-          <ModalBody>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Query</DialogTitle>
+          </DialogHeader>
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Query Title</label>
             <Input
-              label="Query Title"
               placeholder="e.g., Analyze user metrics"
               value={newQueryTitle}
-              onValueChange={setNewQueryTitle}
+              onChange={(e) => setNewQueryTitle(e.target.value)}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newQueryTitle.trim()) {
@@ -325,11 +338,11 @@ export default function ResearchLayout({
                 }
               }}
             />
-          </ModalBody>
-          <ModalFooter>
+          </div>
+          <DialogFooter>
             <Button
-              variant="flat"
-              onPress={() => {
+              variant="secondary"
+              onClick={() => {
                 setIsCreateModalOpen(false);
                 setNewQueryTitle("");
               }}
@@ -337,16 +350,14 @@ export default function ResearchLayout({
               Cancel
             </Button>
             <Button
-              color="primary"
-              onPress={handleCreate}
-              isLoading={isCreating}
-              isDisabled={!newQueryTitle.trim()}
+              onClick={handleCreate}
+              disabled={!newQueryTitle.trim() || isCreating}
             >
-              Create Query
+              {isCreating ? "Creating..." : "Create Query"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarLayoutWrapper>
   );
 }

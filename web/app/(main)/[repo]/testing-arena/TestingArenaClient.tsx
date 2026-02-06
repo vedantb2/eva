@@ -4,21 +4,22 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@heroui/button";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import {
   IconPlayerPlay,
   IconFileText,
   IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
-import { Input } from "@heroui/input";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { GenericId as Id } from "convex/values";
@@ -66,16 +67,23 @@ function DocsListPanel({
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
-      <div className="px-4 py-2 pb-4">
+      <div className="px-4 py-2 pb-4 relative">
+        <IconSearch size={14} className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search docs..."
-          startContent={<IconSearch size={14} className="text-default-400" />}
-          size="sm"
+          className="pl-8 pr-8 h-8 text-sm"
           value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <IconX size={14} />
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (
@@ -145,14 +153,12 @@ export function TestingArenaClient({
         fillHeight
         headerRight={
           <Button
-            color="primary"
             size="sm"
-            startContent={<IconPlayerPlay size={16} />}
-            onPress={() => setShowTestAllModal(true)}
-            isLoading={isTestingAll}
-            isDisabled={!docs || docs.length === 0}
+            onClick={() => setShowTestAllModal(true)}
+            disabled={isTestingAll || !docs || docs.length === 0}
           >
-            Test All Docs
+            <IconPlayerPlay size={16} />
+            {isTestingAll ? "Testing..." : "Test All Docs"}
           </Button>
         }
       >
@@ -163,32 +169,31 @@ export function TestingArenaClient({
           <div className="col-span-3 h-full overflow-hidden">{children}</div>
         </div>
       </PageWrapper>
-      <Modal
-        isOpen={showTestAllModal}
-        onClose={() => setShowTestAllModal(false)}
-      >
-        <ModalContent>
-          <ModalHeader>Test All Documents</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+      <Dialog open={showTestAllModal} onOpenChange={(v) => { if (!v) setShowTestAllModal(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Test All Documents</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
               documents?
             </p>
-            <p className="text-sm text-default-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               This will evaluate each document against your codebase
               sequentially.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setShowTestAllModal(false)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
-            <Button color="primary" onPress={handleTestAll}>
+            <Button onClick={handleTestAll}>
               Yes save me Eva
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

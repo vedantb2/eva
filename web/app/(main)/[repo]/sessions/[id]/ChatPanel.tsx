@@ -1,10 +1,23 @@
 "use client";
 
-import { Accordion, AccordionItem } from "@heroui/accordion";
-import { Button } from "@heroui/button";
-import { Textarea } from "@heroui/input";
-import { Spinner } from "@heroui/spinner";
-import { Chip } from "@heroui/chip";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/lib/components/ui/accordion";
+import { Button } from "@/lib/components/ui/button";
+import { Textarea } from "@/lib/components/ui/textarea";
+import { Spinner } from "@/lib/components/ui/spinner";
+import { Badge } from "@/lib/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
 import {
   IconUser,
   IconPlayerPlay,
@@ -19,14 +32,6 @@ import {
   IconSparkles,
   IconSend,
 } from "@tabler/icons-react";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Link from "next/link";
@@ -223,34 +228,33 @@ export function ChatPanel({
           {branchName && !prUrl && (
             <Button
               size="sm"
-              color="success"
-              variant="flat"
-              startContent={<IconSend size={12} />}
-              onPress={() => setShowReviewModal(true)}
+              variant="secondary"
+              className="text-green-600"
+              onClick={() => setShowReviewModal(true)}
             >
+              <IconSend size={12} />
               Send for Review
             </Button>
           )}
           <Button
-            size="sm"
-            variant="flat"
-            onPress={handleGenerateSummary}
-            isLoading={isSummarizing}
-            isDisabled={!isSandboxActive || messages.length === 0}
-            className="text-teal-500"
-            isIconOnly
+            size="icon"
+            variant="secondary"
+            onClick={handleGenerateSummary}
+            disabled={isSummarizing || !isSandboxActive || messages.length === 0}
+            className="h-8 w-8 text-teal-500"
           >
-            <IconSparkles className="size-5" />
+            {isSummarizing ? <Spinner size="sm" /> : <IconSparkles className="size-5" />}
           </Button>
           <Button
-            size="sm"
-            color={isSandboxActive ? "danger" : "success"}
-            variant="flat"
-            onPress={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-            isLoading={isSandboxToggling}
-            isIconOnly
+            size="icon"
+            variant={isSandboxActive ? "destructive" : "secondary"}
+            onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+            disabled={isSandboxToggling}
+            className={`h-8 w-8 ${!isSandboxActive ? "text-green-600" : ""}`}
           >
-            {isSandboxActive ? (
+            {isSandboxToggling ? (
+              <Spinner size="sm" />
+            ) : isSandboxActive ? (
               <IconPlayerStop className="w-4 h-4" />
             ) : (
               <IconPlayerPlay className="w-4 h-4" />
@@ -260,29 +264,24 @@ export function ChatPanel({
       </div>
       {summary && summary.length > 0 && (
         <Accordion
-          selectionMode="single"
+          type="single"
+          collapsible
           className="px-4 border-b border-neutral-200 dark:border-neutral-700"
-          isCompact
         >
-          <AccordionItem
-            key="summary"
-            title={
+          <AccordionItem value="summary" className="border-b-0">
+            <AccordionTrigger className="py-2 text-sm">
               <div className="flex flex-row gap-2 items-center text-teal-600 dark:text-teal-400">
                 <IconSparkles size={14} />
                 <p>Session summary</p>
               </div>
-            }
-            classNames={{
-              title: "text-sm",
-              trigger: "py-2",
-              content: "pb-2",
-            }}
-          >
-            <ul className="list-disc list-inside text-sm text-teal-600 dark:text-teal-400 space-y-1 pl-4">
-              {summary.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
+            </AccordionTrigger>
+            <AccordionContent className="pb-2">
+              <ul className="list-disc list-inside text-sm text-teal-600 dark:text-teal-400 space-y-1 pl-4">
+                {summary.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </AccordionContent>
           </AccordionItem>
         </Accordion>
       )}
@@ -348,19 +347,16 @@ export function ChatPanel({
                       )}
                       {message.role === "assistant" &&
                         message.activityLog && (
-                          <Accordion isCompact className="mt-2 px-0">
-                            <AccordionItem
-                              key="logs"
-                              title="View logs"
-                              classNames={{
-                                title: "text-xs text-neutral-500",
-                                trigger: "py-1",
-                                content: "pb-2 overflow-hidden",
-                              }}
-                            >
-                              <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
-                                {message.activityLog}
-                              </pre>
+                          <Accordion type="single" collapsible className="mt-2 px-0">
+                            <AccordionItem value="logs" className="border-b-0">
+                              <AccordionTrigger className="py-1 text-xs text-neutral-500">
+                                View logs
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-2 overflow-hidden">
+                                <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
+                                  {message.activityLog}
+                                </pre>
+                              </AccordionContent>
                             </AccordionItem>
                           </Accordion>
                         )}
@@ -415,76 +411,60 @@ export function ChatPanel({
       <div className="px-3 pb-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
-            <Tabs
-              size="sm"
-              selectedKey={mode}
-              onSelectionChange={(key) => setMode(key as SessionMode)}
-            >
-              <Tab
-                key="execute"
-                title={
+            <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
+              <TabsList>
+                <TabsTrigger value="execute">
                   <div className="flex items-center gap-1">
                     <IconCode className="w-3 h-3" />
                     <span className="text-xs">Execute</span>
                   </div>
-                }
-              />
-              <Tab
-                key="ask"
-                title={
+                </TabsTrigger>
+                <TabsTrigger value="ask">
                   <div className="flex items-center gap-1">
                     <IconMessageCircle2 className="size-3" />
                     <span className="text-xs">Ask</span>
                   </div>
-                }
-              />
-              <Tab
-                key="plan"
-                title={
+                </TabsTrigger>
+                <TabsTrigger value="plan">
                   <div className="flex items-center gap-1">
                     <IconClipboardList className="w-3 h-3" />
                     <span className="text-xs">Plan</span>
                   </div>
-                }
-              />
+                </TabsTrigger>
+              </TabsList>
             </Tabs>
             {mode === "plan" && planContent && (
               <Button
                 size="sm"
-                variant="flat"
-                color="success"
-                onPress={() => setShowPlanModal(true)}
-                startContent={<IconFileText className="w-3 h-3" />}
+                variant="secondary"
+                className="text-green-600"
+                onClick={() => setShowPlanModal(true)}
               >
+                <IconFileText className="w-3 h-3" />
                 View Plan
               </Button>
             )}
           </div>
           <div className="flex items-center gap-1">
             {prUrl && (
-              <Chip
-                variant="faded"
-                size="sm"
-                startContent={<IconGitPullRequest size={12} className="ml-1" />}
-                as={Link}
-                href={prUrl}
-                target="_blank"
-              >
-                View PR
-              </Chip>
+              <Link href={prUrl} target="_blank">
+                <Badge variant="outline" className="gap-1 cursor-pointer">
+                  <IconGitPullRequest size={12} />
+                  View PR
+                </Badge>
+              </Link>
             )}
-            <Chip
-              variant="faded"
-              size="sm"
-              startContent={<IconWorld size={12} className="ml-1" />}
-              as={Link}
+            <Link
               href={
                 prUrl ??
                 `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
               }
             >
-              View Preview
-            </Chip>
+              <Badge variant="outline" className="gap-1 cursor-pointer">
+                <IconWorld size={12} />
+                View Preview
+              </Badge>
+            </Link>
           </div>
         </div>
         <form
@@ -506,102 +486,85 @@ export function ChatPanel({
                       ? "Ask Eva a question about the codebase..."
                       : "Describe what you want to build to Eva..."
               }
-              minRows={4}
-              maxRows={6}
+              rows={4}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              classNames={{
-                inputWrapper:
-                  "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
-              }}
-              isDisabled={isInputDisabled}
+              className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 border-0 focus-visible:ring-0"
+              disabled={isInputDisabled}
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
               {isExecuting ? (
                 <Button
-                  isIconOnly
-                  color="danger"
-                  radius="full"
-                  onPress={handleCancel}
-                  size="sm"
+                  size="icon"
+                  variant="destructive"
+                  className="rounded-full h-8 w-8"
+                  onClick={handleCancel}
                 >
                   <IconPlayerStop size={16} />
                 </Button>
               ) : (
                 <Button
                   type="submit"
-                  isIconOnly
-                  color="primary"
-                  radius="full"
-                  isLoading={isSending}
-                  isDisabled={isInputDisabled || !input.trim()}
-                  size="sm"
+                  size="icon"
+                  className="rounded-full h-8 w-8"
+                  disabled={isInputDisabled || !input.trim()}
                 >
-                  <IconArrowUp size={16} />
+                  {isSending ? <Spinner size="sm" /> : <IconArrowUp size={16} />}
                 </Button>
               )}
             </div>
           </div>
         </form>
       </div>
-      <Modal
-        isOpen={showReviewModal}
-        onClose={() => setShowReviewModal(false)}
-        size="lg"
-      >
-        <ModalContent>
-          <ModalHeader>Send for Code Review</ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              By clicking this you confirm that all your changes have been
-              tested in your session, you are happy with those changes, have
-              generated a summary and agree with the changes. A developer will
-              then review the code changes Eva has made and get in contact to
-              confirm if they are happy before merging into staging/production.
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setShowReviewModal(false)}>
+      <Dialog open={showReviewModal} onOpenChange={(v) => { if (!v) setShowReviewModal(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send for Code Review</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+            By clicking this you confirm that all your changes have been
+            tested in your session, you are happy with those changes, have
+            generated a summary and agree with the changes. A developer will
+            then review the code changes Eva has made and get in contact to
+            confirm if they are happy before merging into staging/production.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReviewModal(false)}>
               Cancel
             </Button>
             <Button
-              color="success"
-              onPress={handleCreatePr}
-              isLoading={isCreatingPr}
+              className="bg-green-600 text-white hover:bg-green-700"
+              onClick={handleCreatePr}
+              disabled={isCreatingPr}
             >
-              Confirm
+              {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      <Modal
-        isOpen={showPlanModal}
-        onClose={() => setShowPlanModal(false)}
-        size="3xl"
-        scrollBehavior="inside"
-      >
-        <ModalContent>
-          <ModalHeader>Implementation Plan</ModalHeader>
-          <ModalBody>
-            <Streamdown
-              plugins={{ code }}
-              className="prose prose-sm dark:prose-invert max-w-none"
-            >
-              {planContent}
-            </Streamdown>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setShowPlanModal(false)}>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showPlanModal} onOpenChange={(v) => { if (!v) setShowPlanModal(false); }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Implementation Plan</DialogTitle>
+          </DialogHeader>
+          <Streamdown
+            plugins={{ code }}
+            className="prose prose-sm dark:prose-invert max-w-none"
+          >
+            {planContent}
+          </Streamdown>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
               Close
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

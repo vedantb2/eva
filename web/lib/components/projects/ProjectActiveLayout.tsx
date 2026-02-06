@@ -13,7 +13,7 @@ import {
   IconLayoutSidebarRightExpand,
   IconMessageCircle,
 } from "@tabler/icons-react";
-import { Button } from "@heroui/react";
+import { Button } from "@/lib/components/ui/button";
 
 interface Project {
   _id: Id<"projects">;
@@ -84,12 +84,10 @@ export function ProjectActiveLayout({
             </div>
           )}
           <Button
-            size="sm"
-            isIconOnly
-            variant="light"
-            radius="none"
-            className="text-teal-500 dark:text-teal-400"
-            onPress={() => setTasksCollapsed(!tasksCollapsed)}
+            size="icon"
+            variant="ghost"
+            className="rounded-none text-teal-500 dark:text-teal-400"
+            onClick={() => setTasksCollapsed(!tasksCollapsed)}
           >
             {tasksCollapsed ? (
               <IconLayoutSidebarLeftExpand size={16} />
@@ -112,12 +110,10 @@ export function ProjectActiveLayout({
       >
         <div className="flex items-center justify-start">
           <Button
-            size="sm"
-            isIconOnly
-            radius="none"
-            variant="light"
-            className="text-teal-500 dark:text-teal-400"
-            onPress={() => setChatCollapsed(!chatCollapsed)}
+            size="icon"
+            variant="ghost"
+            className="rounded-none text-teal-500 dark:text-teal-400"
+            onClick={() => setChatCollapsed(!chatCollapsed)}
           >
             {chatCollapsed ? (
               <IconLayoutSidebarRightExpand size={16} />

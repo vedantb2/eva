@@ -8,16 +8,16 @@ import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import { Card, CardBody } from "@heroui/card";
-import { Button } from "@heroui/button";
+import { Card, CardContent } from "@/lib/components/ui/card";
+import { Button } from "@/lib/components/ui/button";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { IconPlayerPlay } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -42,7 +42,7 @@ export function QuickTasksKanbanBoard({
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
   const [isFixingAll, setIsFixingAll] = useState(false);
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const tasks = (allTasks?.filter((t) => !t.projectId) ?? []).sort(
     (a, b) => b.updatedAt - a.updatedAt,
@@ -117,12 +117,11 @@ export function QuickTasksKanbanBoard({
           status === "todo" && todoTasks.length > 0 ? (
             <Button
               size="sm"
-              variant="flat"
-              color="danger"
-              startContent={<IconPlayerPlay size={14} />}
-              onPress={onOpen}
-              isLoading={isFixingAll}
+              variant="destructive"
+              onClick={() => setIsConfirmOpen(true)}
+              disabled={isFixingAll}
             >
+              {isFixingAll ? <Spinner size="sm" /> : <IconPlayerPlay size={14} />}
               Fix All
             </Button>
           ) : null
@@ -141,64 +140,61 @@ export function QuickTasksKanbanBoard({
           />
         )}
         renderOverlay={(task) => (
-          <Card shadow="none" className="w-[240px] sm:w-[280px]">
-            <CardBody className="p-3">
+          <Card className="w-[240px] sm:w-[280px] shadow-none">
+            <CardContent className="p-3">
               <span className="font-medium text-sm">{task.title}</span>
-            </CardBody>
+            </CardContent>
           </Card>
         )}
       />
-      <Modal backdrop="blur" isOpen={isOpen} onOpenChange={onOpenChange}>
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>Complete All Tasks</ModalHeader>
-              <ModalBody className="text-sm text-default-600 space-y-2">
-                {ownedTodoTasks.length > 0 ? (
-                  <>
-                    <p>
-                      Eva will run and complete {ownedTodoTasks.length} task
-                      {ownedTodoTasks.length !== 1 && "s"} you created.
-                    </p>
-                    {skippedCount > 0 && (
-                      <p className="text-warning-600 dark:text-warning-400">
-                        {skippedCount} task{skippedCount !== 1 && "s"} created
-                        by others will be skipped. Only the task owner can run
-                        Eva.
-                      </p>
-                    )}
-                    <p>
-                      If there is an issue, Eva will return the task to To Do
-                      with a red border.
-                    </p>
-                    <p>If successful, she will move it to Code Review.</p>
-                  </>
-                ) : (
-                  <p>
-                    Only the task owner can run Eva. None of the todo tasks were
-                    created by you.
+      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete All Tasks</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-foreground/80 space-y-2">
+            {ownedTodoTasks.length > 0 ? (
+              <>
+                <p>
+                  Eva will run and complete {ownedTodoTasks.length} task
+                  {ownedTodoTasks.length !== 1 && "s"} you created.
+                </p>
+                {skippedCount > 0 && (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    {skippedCount} task{skippedCount !== 1 && "s"} created
+                    by others will be skipped. Only the task owner can run
+                    Eva.
                   </p>
                 )}
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="light" onPress={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  color="primary"
-                  isDisabled={ownedTodoTasks.length === 0}
-                  onPress={() => {
-                    onClose();
-                    handleFixAll();
-                  }}
-                >
-                  Complete All
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+                <p>
+                  If there is an issue, Eva will return the task to To Do
+                  with a red border.
+                </p>
+                <p>If successful, she will move it to Code Review.</p>
+              </>
+            ) : (
+              <p>
+                Only the task owner can run Eva. None of the todo tasks were
+                created by you.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={ownedTodoTasks.length === 0}
+              onClick={() => {
+                setIsConfirmOpen(false);
+                handleFixAll();
+              }}
+            >
+              Complete All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {selectedTaskId && (
         <TaskDetailModal
           isOpen={!!selectedTaskId}

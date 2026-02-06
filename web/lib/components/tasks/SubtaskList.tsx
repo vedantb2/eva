@@ -3,9 +3,9 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { Checkbox } from "@heroui/checkbox";
-import { Input } from "@heroui/input";
-import { Button } from "@heroui/button";
+import { Checkbox } from "@/lib/components/ui/checkbox";
+import { Input } from "@/lib/components/ui/input";
+import { Button } from "@/lib/components/ui/button";
 import { IconPlus, IconSubtask, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -48,16 +48,16 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
   };
 
   if (subtasks === undefined) {
-    return <div className="text-sm text-default-400">Loading subtasks...</div>;
+    return <div className="text-sm text-muted-foreground">Loading subtasks...</div>;
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-default-700">
+        <h4 className="text-sm font-medium text-foreground">
           Subtasks
           {totalCount > 0 && (
-            <span className="ml-2 text-default-400">
+            <span className="ml-2 text-muted-foreground">
               ({completedCount}/{totalCount})
             </span>
           )}
@@ -65,46 +65,45 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
         {!isAdding && !readOnly && (
           <Button
             size="sm"
-            variant="light"
-            startContent={<IconPlus size={14} />}
-            onPress={() => setIsAdding(true)}
+            variant="ghost"
+            onClick={() => setIsAdding(true)}
           >
+            <IconPlus size={14} className="mr-1" />
             Add
           </Button>
         )}
       </div>
 
       {subtasks.length === 0 && !isAdding && (
-        <p className="text-sm text-default-400">No subtasks yet</p>
+        <p className="text-sm text-muted-foreground">No subtasks yet</p>
       )}
 
       <div className="space-y-2">
         {subtasks.map((subtask) => (
           <div key={subtask._id} className="flex items-center gap-2 group">
             <Checkbox
-              isSelected={subtask.completed}
-              onValueChange={() =>
+              checked={subtask.completed}
+              onCheckedChange={() =>
                 handleToggleComplete(subtask._id, subtask.completed)
               }
-              size="sm"
+              className="h-3.5 w-3.5"
             />
             <span
               className={`flex-1 text-sm ${
                 subtask.completed
-                  ? "text-default-400 line-through"
-                  : "text-default-700"
+                  ? "text-muted-foreground line-through"
+                  : "text-foreground"
               }`}
             >
               {subtask.title}
             </span>
             <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-              onPress={() => handleRemove(subtask._id)}
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              onClick={() => handleRemove(subtask._id)}
             >
-              <IconTrash size={14} className="text-danger" />
+              <IconTrash size={14} className="text-destructive" />
             </Button>
           </div>
         ))}
@@ -113,11 +112,11 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
       {isAdding && (
         <div className="flex gap-2">
           <Input
-            size="sm"
             placeholder="Subtask title"
             value={newSubtaskTitle}
-            onValueChange={setNewSubtaskTitle}
+            onChange={(e) => setNewSubtaskTitle(e.target.value)}
             autoFocus
+            className="h-8 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 handleAddSubtask();
@@ -127,13 +126,13 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
               }
             }}
           />
-          <Button size="sm" color="primary" onPress={handleAddSubtask}>
+          <Button size="sm" onClick={handleAddSubtask}>
             Add
           </Button>
           <Button
             size="sm"
-            variant="flat"
-            onPress={() => {
+            variant="secondary"
+            onClick={() => {
               setIsAdding(false);
               setNewSubtaskTitle("");
             }}
@@ -157,9 +156,9 @@ export function SubtaskProgress({ taskId }: { taskId: Id<"agentTasks"> }) {
   const totalCount = subtasks.length;
 
   return (
-    <div className="flex items-center gap-1 text-xs text-default-400 ml-auto">
+    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
       <IconSubtask size={12} />
-      <span className="text-xs text-default-400">
+      <span className="text-xs text-muted-foreground">
         {completedCount}/{totalCount}
       </span>
     </div>

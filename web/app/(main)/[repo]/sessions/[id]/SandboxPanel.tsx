@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Tabs, Tab } from "@heroui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
 import { IconTerminal2, IconWorld, IconGitBranch } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/api";
@@ -29,40 +29,27 @@ export function SandboxPanel({
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
       <div className="p-3">
-        <Tabs
-          selectedKey={activeTab}
-          onSelectionChange={(key) => setActiveTab(key as string)}
-          classNames={{
-            tabList: "gap-2",
-          }}
-        >
-          <Tab
-            key="preview"
-            title={
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="gap-2">
+            <TabsTrigger value="preview">
               <div className="flex items-center gap-1.5">
                 <IconWorld className="w-4 h-4" />
                 <span>Preview</span>
               </div>
-            }
-          />
-          <Tab
-            key="terminal"
-            title={
+            </TabsTrigger>
+            <TabsTrigger value="terminal">
               <div className="flex items-center gap-1.5">
                 <IconTerminal2 className="w-4 h-4" />
                 <span>Terminal</span>
               </div>
-            }
-          />
-          <Tab
-            key="diffs"
-            title={
+            </TabsTrigger>
+            <TabsTrigger value="diffs">
               <div className="flex items-center gap-1.5">
                 <IconGitBranch className="w-4 h-4" />
                 <span>Diffs</span>
               </div>
-            }
-          />
+            </TabsTrigger>
+          </TabsList>
         </Tabs>
       </div>
       <div className="flex-1 overflow-hidden relative">

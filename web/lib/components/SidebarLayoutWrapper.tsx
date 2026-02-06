@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/button";
+import { Button } from "@/lib/components/ui/button";
 import { IconPlus } from "@tabler/icons-react";
 
 interface SidebarLayoutWrapperProps {
@@ -25,7 +25,7 @@ export function SidebarLayoutWrapper({
               {title}
             </h1>
             {onAdd && (
-              <Button size="sm" color="primary" isIconOnly onPress={onAdd}>
+              <Button size="icon" onClick={onAdd}>
                 <IconPlus size={16} />
               </Button>
             )}

@@ -8,15 +8,16 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
-import { Tab, Tabs } from "@heroui/tabs";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/lib/components/ui/tabs";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface GroupTasksModalProps {
@@ -80,87 +81,84 @@ export function GroupTasksModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
-      <ModalContent>
-        <ModalHeader>
-          Group {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} into project
-        </ModalHeader>
-        <ModalBody>
-          <Tabs
-            aria-label="Group options"
-            fullWidth
-            selectedKey={activeTab}
-            onSelectionChange={(key) => setActiveTab(key as string)}
-          >
-            <Tab key="new" title="New Project">
-              <div className="pt-2">
-                <Input
-                  label="Project title"
-                  placeholder="e.g. Bug fixes, UI improvements..."
-                  value={title}
-                  onValueChange={setTitle}
-                  autoFocus
-                />
-              </div>
-            </Tab>
-            <Tab key="existing" title="Existing Project">
-              <div className="pt-2 space-y-2 max-h-80 overflow-y-auto">
-                {projects?.filter((p) => p.phase === "active" || p.phase === "completed").length === 0 && (
-                  <p className="text-sm text-default-400 text-center py-4">
-                    No active projects
-                  </p>
-                )}
-                {projects?.filter((p) => p.phase === "active" || p.phase === "completed").map((project) => (
-                  <button
-                    key={project._id}
-                    type="button"
-                    onClick={() => setSelectedProjectId(project._id)}
-                    className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
-                      selectedProjectId === project._id
-                        ? "border-teal-500 bg-teal-100 dark:bg-teal-800/40"
-                        : "border-transparent bg-default-100 dark:bg-neutral-800 hover:bg-default-200 dark:hover:bg-neutral-700"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{project.title}</span>
-                      <ProjectPhaseBadge phase={project.phase} />
-                    </div>
-                    {project.description && (
-                      <p className="text-xs text-default-400 mt-1 line-clamp-1">
-                        {project.description}
-                      </p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </Tab>
-          </Tabs>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>
+            Group {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} into project
+          </DialogTitle>
+        </DialogHeader>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full">
+            <TabsTrigger value="new" className="flex-1">New Project</TabsTrigger>
+            <TabsTrigger value="existing" className="flex-1">Existing Project</TabsTrigger>
+          </TabsList>
+          <TabsContent value="new">
+            <div className="pt-2 space-y-1.5">
+              <label className="text-sm font-medium">Project title</label>
+              <Input
+                placeholder="e.g. Bug fixes, UI improvements..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="existing">
+            <div className="pt-2 space-y-2 max-h-80 overflow-y-auto">
+              {projects?.filter((p) => p.phase === "active" || p.phase === "completed").length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No active projects
+                </p>
+              )}
+              {projects?.filter((p) => p.phase === "active" || p.phase === "completed").map((project) => (
+                <button
+                  key={project._id}
+                  type="button"
+                  onClick={() => setSelectedProjectId(project._id)}
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
+                    selectedProjectId === project._id
+                      ? "border-teal-500 bg-teal-100 dark:bg-teal-800/40"
+                      : "border-transparent bg-muted hover:bg-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{project.title}</span>
+                    <ProjectPhaseBadge phase={project.phase} />
+                  </div>
+                  {project.description && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                      {project.description}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           {activeTab === "new" ? (
             <Button
-              color="primary"
-              onPress={handleCreate}
-              isLoading={isLoading}
-              isDisabled={!title.trim()}
+              onClick={handleCreate}
+              disabled={isLoading || !title.trim()}
             >
+              {isLoading && <Spinner size="sm" />}
               Create Project
             </Button>
           ) : (
             <Button
-              color="primary"
-              onPress={handleAddToProject}
-              isLoading={isLoading}
-              isDisabled={!selectedProjectId}
+              onClick={handleAddToProject}
+              disabled={isLoading || !selectedProjectId}
             >
+              {isLoading && <Spinner size="sm" />}
               Add to Project
             </Button>
           )}
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

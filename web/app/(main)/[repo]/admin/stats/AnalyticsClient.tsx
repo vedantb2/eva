@@ -16,7 +16,7 @@ import {
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";
-import { Spinner } from "@heroui/spinner";
+import { Spinner } from "@/lib/components/ui/spinner";
 import {
   IconGitPullRequest,
   IconPercentage,

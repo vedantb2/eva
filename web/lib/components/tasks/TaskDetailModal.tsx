@@ -1,22 +1,38 @@
 "use client";
 
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Chip } from "@heroui/chip";
-import { Select, SelectItem } from "@heroui/select";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Badge } from "@/lib/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/lib/components/ui/select";
+import { Textarea } from "@/lib/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/lib/components/ui/tooltip";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/lib/components/ui/accordion";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { statusConfig, TASK_STATUSES, type TaskStatus } from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
-import { Textarea } from "@heroui/input";
-import { Tooltip } from "@heroui/tooltip";
 import {
   IconPlayerPlay,
   IconTerminal2,
@@ -27,10 +43,9 @@ import {
   IconX,
   IconUpload,
   IconPhoto,
-  IconVideo,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@/lib/dates";
@@ -160,25 +175,21 @@ export function TaskDetailModal({
 
   return (
     <>
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        size={showChangesPanel ? "5xl" : "3xl"}
-        backdrop="blur"
-        scrollBehavior="inside"
-      >
-        <ModalContent>
-          <ModalHeader>
-            <div className="flex items-center gap-2">
-              {task?.taskNumber && (
-                <span className="text-default-400 font-mono">
-                  #{task.taskNumber}
-                </span>
-              )}
-              <span>{task?.title}</span>
-            </div>
-          </ModalHeader>
-          <ModalBody className="pb-6">
+      <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+        <DialogContent className={`${showChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}>
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                {task?.taskNumber && (
+                  <span className="text-muted-foreground font-mono">
+                    #{task.taskNumber}
+                  </span>
+                )}
+                <span>{task?.title}</span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pb-6">
             <div
               className={`grid gap-6 min-h-[400px] ${showChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
             >
@@ -196,39 +207,39 @@ export function TaskDetailModal({
                         : null;
                     return (
                       <div>
-                        <h4 className="text-sm font-medium text-default-700 mb-2">
+                        <h4 className="text-sm font-medium text-foreground mb-2">
                           Description
                         </h4>
-                        <p className="text-sm text-default-600 whitespace-pre-wrap">
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
                           {mainDesc}
                         </p>
                         {elementDetails && (
                           <Accordion
-                            isCompact
-                            variant="light"
+                            type="single"
+                            collapsible
                             className="mt-2 px-0"
                           >
-                            <AccordionItem
-                              key="element-details"
-                              title={
-                                <span className="text-xs text-default-500">
+                            <AccordionItem value="element-details">
+                              <AccordionTrigger>
+                                <span className="text-xs text-muted-foreground">
                                   Element Details
                                 </span>
-                              }
-                            >
-                              <SyntaxHighlighter
-                                language="css"
-                                style={oneDark}
-                                wrapLines
-                                wrapLongLines
-                                customStyle={{
-                                  fontSize: "0.75rem",
-                                  borderRadius: "0.5rem",
-                                  margin: 0,
-                                }}
-                              >
-                                {elementDetails}
-                              </SyntaxHighlighter>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <SyntaxHighlighter
+                                  language="css"
+                                  style={oneDark}
+                                  wrapLines
+                                  wrapLongLines
+                                  customStyle={{
+                                    fontSize: "0.75rem",
+                                    borderRadius: "0.5rem",
+                                    margin: 0,
+                                  }}
+                                >
+                                  {elementDetails}
+                                </SyntaxHighlighter>
+                              </AccordionContent>
                             </AccordionItem>
                           </Accordion>
                         )}
@@ -237,43 +248,43 @@ export function TaskDetailModal({
                   })()}
 
                 {subtasks && subtasks.length > 0 && (
-                  <div className="border-t border-divider pt-4">
+                  <div className="border-t border-border pt-4">
                     <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
                   </div>
                 )}
 
                 {runs && runs.length > 0 && (
-                  <div className="border-t border-divider pt-4">
-                    <h4 className="text-sm font-medium text-default-700 mb-3 flex items-center gap-2">
+                  <div className="border-t border-border pt-4">
+                    <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
                       <IconTerminal2 size={16} />
                       Agent Runs ({runs.length})
                     </h4>
                     <Accordion
-                      isCompact
-                      variant="splitted"
-                      selectionMode="multiple"
+                      type="multiple"
+                      className="space-y-2"
                     >
                       {runs.map((run) => (
                         <AccordionItem
                           key={run._id}
-                          title={
+                          value={run._id}
+                          className="border rounded-lg px-3"
+                        >
+                          <AccordionTrigger>
                             <div className="flex items-center gap-2">
-                              <Chip
-                                size="sm"
-                                color={
+                              <Badge
+                                variant={
                                   run.status === "success"
                                     ? "success"
                                     : run.status === "error"
-                                      ? "danger"
+                                      ? "destructive"
                                       : run.status === "running"
                                         ? "warning"
-                                        : "default"
+                                        : "outline"
                                 }
-                                variant="flat"
                               >
                                 {run.status}
-                              </Chip>
-                              <span className="text-xs text-default-400">
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
                                 {run.startedAt
                                   ? dayjs(run.startedAt).format(
                                       "M/D/YYYY, h:mm:ss A",
@@ -281,60 +292,61 @@ export function TaskDetailModal({
                                   : "Queued"}
                               </span>
                             </div>
-                          }
-                        >
-                          <div className="space-y-2">
-                            {run.resultSummary && (
-                              <p className="text-sm text-default-600">
-                                {run.resultSummary}
-                              </p>
-                            )}
-                            {run.error && (
-                              <div className="p-2 bg-danger-50 dark:bg-danger-900/20 rounded text-sm text-danger-600 dark:text-danger-400">
-                                {run.error}
-                              </div>
-                            )}
-                            {run.prUrl && (
-                              <a
-                                href={run.prUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-primary-500 hover:underline"
-                              >
-                                View Pull Request
-                              </a>
-                            )}
-                            {run.logs.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-xs text-default-400 mb-1">
-                                  Logs
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-2">
+                              {run.resultSummary && (
+                                <p className="text-sm text-foreground/80">
+                                  {run.resultSummary}
                                 </p>
-                                <div className="bg-default-100 rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
-                                  {run.logs.map((log, i) => (
-                                    <div
-                                      key={i}
-                                      className={`flex gap-2 ${
-                                        log.level === "error"
-                                          ? "text-danger-500"
-                                          : log.level === "warn"
-                                            ? "text-warning-500"
-                                            : "text-default-600"
-                                      }`}
-                                    >
-                                      <span className="text-default-400 flex-shrink-0">
-                                        {dayjs(log.timestamp).format(
-                                          "h:mm:ss A",
-                                        )}
-                                      </span>
-                                      <span className="break-all">
-                                        {log.message}
-                                      </span>
-                                    </div>
-                                  ))}
+                              )}
+                              {run.error && (
+                                <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+                                  {run.error}
                                 </div>
-                              </div>
-                            )}
-                          </div>
+                              )}
+                              {run.prUrl && (
+                                <a
+                                  href={run.prUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-primary hover:underline"
+                                >
+                                  View Pull Request
+                                </a>
+                              )}
+                              {run.logs.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-muted-foreground mb-1">
+                                    Logs
+                                  </p>
+                                  <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
+                                    {run.logs.map((log, i) => (
+                                      <div
+                                        key={i}
+                                        className={`flex gap-2 ${
+                                          log.level === "error"
+                                            ? "text-destructive"
+                                            : log.level === "warn"
+                                              ? "text-amber-600 dark:text-amber-400"
+                                              : "text-foreground/80"
+                                        }`}
+                                      >
+                                        <span className="text-muted-foreground flex-shrink-0">
+                                          {dayjs(log.timestamp).format(
+                                            "h:mm:ss A",
+                                          )}
+                                        </span>
+                                        <span className="break-all">
+                                          {log.message}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
                         </AccordionItem>
                       ))}
                     </Accordion>
@@ -342,8 +354,8 @@ export function TaskDetailModal({
                 )}
 
                 {showProofSection && (
-                  <div className="border-t border-divider pt-4">
-                    <h4 className="text-sm font-medium text-default-700 mb-3 flex items-center gap-1.5">
+                  <div className="border-t border-border pt-4">
+                    <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
                       <IconPhoto size={14} />
                       Proof of Completion
                     </h4>
@@ -352,7 +364,7 @@ export function TaskDetailModal({
                         {proofs.map((proof) => (
                           <div
                             key={proof._id}
-                            className="group relative rounded-lg overflow-hidden bg-default-100"
+                            className="group relative rounded-lg overflow-hidden bg-muted"
                           >
                             {proof.url &&
                               proof.fileType.startsWith("image/") && (
@@ -371,15 +383,14 @@ export function TaskDetailModal({
                                 />
                               )}
                             <div className="flex items-center justify-between p-2">
-                              <span className="text-xs text-default-500 truncate">
+                              <span className="text-xs text-muted-foreground truncate">
                                 {proof.fileName}
                               </span>
                               <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                className="opacity-0 group-hover:opacity-100"
-                                onPress={() => removeProof({ id: proof._id })}
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                                onClick={() => removeProof({ id: proof._id })}
                               >
                                 <IconTrash size={14} />
                               </Button>
@@ -403,115 +414,108 @@ export function TaskDetailModal({
                     />
                     <Button
                       size="sm"
-                      variant="flat"
-                      startContent={<IconUpload size={14} />}
-                      onPress={() => fileInputRef.current?.click()}
-                      isLoading={isUploading}
+                      variant="secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
                     >
+                      {isUploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconUpload size={14} />}
                       Upload Proof
                     </Button>
                   </div>
                 )}
               </div>
 
-              <div className="border-l border-divider pl-4 space-y-4">
+              <div className="border-l border-border pl-4 space-y-4">
                 <div>
-                  <p className="text-xs text-default-400 mb-1.5">Status</p>
+                  <p className="text-xs text-muted-foreground mb-1.5">Status</p>
                   <Select
-                    selectedKeys={status ? [status] : []}
-                    onSelectionChange={(keys) => {
-                      const selected = Array.from(keys)[0];
-                      if (
-                        selected &&
-                        TASK_STATUSES.includes(selected as TaskStatus)
-                      ) {
+                    value={status ?? ""}
+                    onValueChange={(val) => {
+                      if (TASK_STATUSES.includes(val as TaskStatus)) {
                         updateStatus({
                           id: taskId,
-                          status: selected as TaskStatus,
+                          status: val as TaskStatus,
                         });
                       }
                     }}
-                    size="sm"
-                    aria-label="Status"
-                    renderValue={(items) => {
-                      const val = items[0]?.key;
-                      if (!val || typeof val !== "string") return null;
-                      const config = statusConfig[val as TaskStatus];
-                      const Icon = config.icon;
-                      return (
-                        <div
-                          className={`flex items-center gap-1.5 ${config.text}`}
-                        >
-                          <Icon size={14} />
-                          <span className="text-sm">{config.label}</span>
-                        </div>
-                      );
-                    }}
                   >
-                    {TASK_STATUSES.map((s) => {
-                      const config = statusConfig[s];
-                      const Icon = config.icon;
-                      return (
-                        <SelectItem key={s} textValue={config.label}>
-                          <div
-                            className={`flex items-center gap-1.5 ${config.text}`}
-                          >
-                            <Icon size={14} />
-                            <span>{config.label}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue>
+                        {status ? (() => {
+                          const config = statusConfig[status as TaskStatus];
+                          const Icon = config.icon;
+                          return (
+                            <div className={`flex items-center gap-1.5 ${config.text}`}>
+                              <Icon size={14} />
+                              <span className="text-sm">{config.label}</span>
+                            </div>
+                          );
+                        })() : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_STATUSES.map((s) => {
+                        const config = statusConfig[s];
+                        const Icon = config.icon;
+                        return (
+                          <SelectItem key={s} value={s}>
+                            <div
+                              className={`flex items-center gap-1.5 ${config.text}`}
+                            >
+                              <Icon size={14} />
+                              <span>{config.label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
                   </Select>
                   {isBlocked && (
-                    <Chip
-                      size="sm"
-                      color="warning"
-                      variant="flat"
+                    <Badge
+                      variant="warning"
                       className="mt-1.5"
                     >
                       Blocked
-                    </Chip>
+                    </Badge>
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-default-400 mb-1.5">
+                  <p className="text-xs text-muted-foreground mb-1.5">
                     Assign to ___ for Code Review
                   </p>
                   <Select
-                    placeholder="Unassigned"
-                    selectedKeys={task?.assignedTo ? [task.assignedTo] : []}
-                    onSelectionChange={(keys) => {
-                      const selected = Array.from(keys)[0];
-                      const user = users?.find(
-                        (u) => u._id === String(selected),
-                      );
+                    value={task?.assignedTo ?? ""}
+                    onValueChange={(val) => {
+                      const user = users?.find((u) => u._id === val);
                       updateTask({ id: taskId, assignedTo: user?._id });
                     }}
-                    size="sm"
-                    aria-label="Assigned To"
                   >
-                    {(users ?? []).map((user) => (
-                      <SelectItem key={user._id}>
-                        {user.fullName ||
-                          [user.firstName, user.lastName]
-                            .filter(Boolean)
-                            .join(" ") ||
-                          "Unnamed User"}
-                      </SelectItem>
-                    ))}
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(users ?? []).map((user) => (
+                        <SelectItem key={user._id} value={user._id}>
+                          {user.fullName ||
+                            [user.firstName, user.lastName]
+                              .filter(Boolean)
+                              .join(" ") ||
+                            "Unnamed User"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 {latestPrUrl && (
                   <div>
-                    <p className="text-xs text-default-400 mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5">
                       Pull Request
                     </p>
                     <a
                       href={latestPrUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-primary-500 hover:underline"
+                      className="flex items-center gap-1.5 text-sm text-primary hover:underline"
                     >
                       <IconGitPullRequest size={14} />
                       View PR
@@ -521,49 +525,48 @@ export function TaskDetailModal({
               </div>
 
               {showChangesPanel && (
-                <div className="flex flex-col border-l border-divider pl-6">
+                <div className="flex flex-col border-l border-border pl-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-default-700">
+                    <h4 className="text-sm font-medium text-foreground">
                       Ask Eva to make changes{" "}
                       {comments &&
                         comments.length > 0 &&
                         `(${comments.length})`}
                     </h4>
                     <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                      onPress={() => setShowChangesPanel(false)}
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => setShowChangesPanel(false)}
                     >
                       <IconX size={16} />
                     </Button>
                   </div>
                   <div className="flex-1 overflow-y-auto scrollbar space-y-3 mb-3">
                     {(!comments || comments.length === 0) && (
-                      <p className="text-sm text-default-400">
+                      <p className="text-sm text-muted-foreground">
                         No change requests yet.
                       </p>
                     )}
                     {comments?.map((comment) => (
                       <div
                         key={comment._id}
-                        className="group rounded-lg bg-default-100 p-3"
+                        className="group rounded-lg bg-muted p-3"
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-default-400">
+                          <span className="text-xs text-muted-foreground">
                             {dayjs(comment.createdAt).fromNow()}
                           </span>
                           <Button
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            className="opacity-0 group-hover:opacity-100"
-                            onPress={() => removeComment({ id: comment._id })}
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                            onClick={() => removeComment({ id: comment._id })}
                           >
                             <IconTrash size={14} />
                           </Button>
                         </div>
-                        <p className="text-sm text-default-600 whitespace-pre-wrap">
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
                           {comment.content}
                         </p>
                       </div>
@@ -575,11 +578,10 @@ export function TaskDetailModal({
                     className="flex gap-2 items-center bg-white dark:bg-neutral-800 rounded-lg"
                   >
                     <Textarea
-                      minRows={3}
-                      maxRows={5}
+                      rows={3}
                       placeholder="Describe the changes you'd like Eva to make..."
                       value={commentText}
-                      onValueChange={setCommentText}
+                      onChange={(e) => setCommentText(e.target.value)}
                       className="flex-1"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -589,13 +591,10 @@ export function TaskDetailModal({
                       }}
                     />
                     <Button
-                      isIconOnly
+                      size="icon"
                       type="submit"
-                      size="sm"
-                      className="mt-auto mb-2 mr-2"
-                      color="primary"
-                      radius="full"
-                      isDisabled={!commentText.trim()}
+                      className="mt-auto mb-2 mr-2 rounded-full"
+                      disabled={!commentText.trim()}
                     >
                       <IconArrowUp size={18} />
                     </Button>
@@ -603,79 +602,78 @@ export function TaskDetailModal({
                 </div>
               )}
             </div>
-          </ModalBody>
-          <ModalFooter className="justify-between">
-            <Tooltip
-              content="Only the task owner can delete"
-              isDisabled={isOwner}
-            >
-              <div>
-                <Button
-                  color="danger"
-                  variant="flat"
-                  startContent={<IconTrash size={18} />}
-                  onPress={() => setShowDeleteConfirm(true)}
-                  isDisabled={!isOwner}
-                >
-                  Delete
-                </Button>
-              </div>
+          </div>
+          <DialogFooter className="justify-between sm:justify-between">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={!isOwner}
+                  >
+                    <IconTrash size={18} />
+                    Delete
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isOwner && (
+                <TooltipContent>Only the task owner can delete</TooltipContent>
+              )}
             </Tooltip>
             <div className="flex items-center gap-2">
               {!showChangesPanel &&
                 status !== "todo" &&
                 status !== "in_progress" && (
                   <Button
-                    variant="flat"
-                    startContent={<IconMessagePlus size={18} />}
-                    onPress={() => setShowChangesPanel(true)}
+                    variant="secondary"
+                    onClick={() => setShowChangesPanel(true)}
                   >
+                    <IconMessagePlus size={18} />
                     Request Changes
                   </Button>
                 )}
               {status === "todo" ? (
-                <Tooltip
-                  content="Only the task owner can run Eva"
-                  isDisabled={isOwner}
-                >
-                  <div>
-                    <Button
-                      color="primary"
-                      startContent={<IconPlayerPlay size={18} />}
-                      onPress={handleStartExecution}
-                      isLoading={isStarting}
-                      isDisabled={isBlocked || hasActiveRun || !isOwner}
-                    >
-                      {hasActiveRun ? "Running..." : "Run Eva"}
-                    </Button>
-                  </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        onClick={handleStartExecution}
+                        disabled={isStarting || isBlocked || hasActiveRun || !isOwner}
+                      >
+                        {isStarting ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlayerPlay size={18} />}
+                        {hasActiveRun ? "Running..." : "Run Eva"}
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {!isOwner && (
+                    <TooltipContent>Only the task owner can run Eva</TooltipContent>
+                  )}
                 </Tooltip>
               ) : latestPrUrl &&
                 (status === "code_review" || status === "done") ? (
-                <Button
-                  color="primary"
-                  startContent={<IconGitPullRequest size={18} />}
-                  as="a"
-                  href={latestPrUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open PR
+                <Button asChild>
+                  <a
+                    href={latestPrUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconGitPullRequest size={18} />
+                    Open PR
+                  </a>
                 </Button>
               ) : null}
             </div>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      <Modal
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        size="md"
-      >
-        <ModalContent>
-          <ModalHeader>Delete Task</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showDeleteConfirm} onOpenChange={(v) => { if (!v) setShowDeleteConfirm(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               Are you sure you want to delete{" "}
               <strong>
                 {task?.taskNumber ? `#${task.taskNumber} ` : ""}
@@ -684,12 +682,12 @@ export function TaskDetailModal({
               ?
             </p>
             {dependentTasks && dependentTasks.length > 0 && (
-              <div className="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
-                <p className="text-sm font-medium text-warning-700 dark:text-warning-300 mb-2">
+              <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-2">
                   The following tasks depend on this task and will also be
                   deleted:
                 </p>
-                <ul className="text-sm text-warning-600 dark:text-warning-400 space-y-1">
+                <ul className="text-sm text-amber-600 dark:text-amber-400 space-y-1">
                   {dependentTasks.map((t) => (
                     <li key={t._id}>
                       {t.taskNumber ? `#${t.taskNumber} ` : ""}
@@ -699,27 +697,28 @@ export function TaskDetailModal({
                 </ul>
               </div>
             )}
-            <p className="text-sm text-default-500 mt-3">
+            <p className="text-sm text-muted-foreground mt-3">
               This action cannot be undone.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setShowDeleteConfirm(false)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDelete}
-              isLoading={isDeleting}
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
             >
+              {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
               Delete
               {dependentTasks && dependentTasks.length > 0
                 ? ` ${dependentTasks.length + 1} Tasks`
                 : ""}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

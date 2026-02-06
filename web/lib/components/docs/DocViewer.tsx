@@ -3,16 +3,21 @@
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { Button } from "@heroui/button";
-import { Input, Textarea } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
+import { Textarea } from "@/lib/components/ui/textarea";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Tooltip } from "@heroui/tooltip";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/lib/components/ui/tooltip";
 import {
   IconTrash,
   IconPlus,
@@ -24,6 +29,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
+import { Spinner } from "@/lib/components/ui/spinner";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -133,9 +139,8 @@ function DocEditor({ doc }: { doc: Doc }) {
           <div className="flex items-center gap-3">
             <Input
               value={doc.title}
-              onValueChange={(val) => updateDoc({ id: doc._id, title: val })}
-              className="max-w-xs"
-              size="sm"
+              onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+              className="max-w-xs h-8 text-sm"
               placeholder="Document title"
             />
             <span className="text-xs text-neutral-400 whitespace-nowrap">
@@ -144,11 +149,10 @@ function DocEditor({ doc }: { doc: Doc }) {
           </div>
           <Button
             size="sm"
-            variant="flat"
-            color="danger"
-            startContent={<IconTrash size={16} />}
-            onPress={() => setShowDeleteModal(true)}
+            variant="destructive"
+            onClick={() => setShowDeleteModal(true)}
           >
+            <IconTrash size={16} />
             Delete
           </Button>
         </div>
@@ -160,13 +164,12 @@ function DocEditor({ doc }: { doc: Doc }) {
             </label>
             <Textarea
               value={doc.description ?? ""}
-              onValueChange={(val) =>
-                updateDoc({ id: doc._id, description: val })
+              onChange={(e) =>
+                updateDoc({ id: doc._id, description: e.target.value })
               }
               placeholder="What does this page or feature do?"
-              minRows={2}
-              maxRows={8}
-              classNames={{ inputWrapper: "bg-white dark:bg-neutral-800" }}
+              rows={2}
+              className="bg-white dark:bg-neutral-800"
             />
           </section>
 
@@ -174,19 +177,19 @@ function DocEditor({ doc }: { doc: Doc }) {
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
                 Requirements
-                <Tooltip
-                  content="Used for code-level testing and evaluation"
-                  size="sm"
-                >
-                  <IconInfoCircle size={14} className="text-neutral-400" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <IconInfoCircle size={14} className="text-neutral-400" />
+                  </TooltipTrigger>
+                  <TooltipContent>Used for code-level testing and evaluation</TooltipContent>
                 </Tooltip>
               </label>
               <Button
                 size="sm"
-                variant="flat"
-                startContent={<IconPlus size={14} />}
-                onPress={addRequirement}
+                variant="secondary"
+                onClick={addRequirement}
               >
+                <IconPlus size={14} />
                 Add
               </Button>
             </div>
@@ -205,19 +208,15 @@ function DocEditor({ doc }: { doc: Doc }) {
                     />
                     <Input
                       value={req}
-                      onValueChange={(val) => updateRequirement(idx, val)}
+                      onChange={(e) => updateRequirement(idx, e.target.value)}
                       placeholder="e.g. Users can log in with email"
-                      size="sm"
-                      classNames={{
-                        inputWrapper: "bg-white dark:bg-neutral-800",
-                      }}
+                      className="h-8 text-sm bg-white dark:bg-neutral-800"
                     />
                     <Button
-                      size="sm"
-                      variant="light"
-                      isIconOnly
-                      onPress={() => removeRequirement(idx)}
-                      className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeRequirement(idx)}
+                      className="text-neutral-400 hover:text-red-500 flex-shrink-0 h-8 w-8"
                     >
                       <IconX size={14} />
                     </Button>
@@ -231,19 +230,19 @@ function DocEditor({ doc }: { doc: Doc }) {
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
                 User Flows
-                <Tooltip
-                  content="Used for UI testing in the testing arena"
-                  size="sm"
-                >
-                  <IconInfoCircle size={14} className="text-neutral-400" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <IconInfoCircle size={14} className="text-neutral-400" />
+                  </TooltipTrigger>
+                  <TooltipContent>Used for UI testing in the testing arena</TooltipContent>
                 </Tooltip>
               </label>
               <Button
                 size="sm"
-                variant="flat"
-                startContent={<IconPlus size={14} />}
-                onPress={addFlow}
+                variant="secondary"
+                onClick={addFlow}
               >
+                <IconPlus size={14} />
                 Add Flow
               </Button>
             </div>
@@ -262,19 +261,15 @@ function DocEditor({ doc }: { doc: Doc }) {
                     <div className="flex items-center gap-2 mb-3">
                       <Input
                         value={flow.name}
-                        onValueChange={(val) => updateFlowName(flowIdx, val)}
+                        onChange={(e) => updateFlowName(flowIdx, e.target.value)}
                         placeholder={`Flow ${flowIdx + 1}`}
-                        size="sm"
-                        classNames={{
-                          inputWrapper: "bg-neutral-50 dark:bg-neutral-900",
-                        }}
+                        className="h-8 text-sm bg-neutral-50 dark:bg-neutral-900"
                       />
                       <Button
-                        size="sm"
-                        variant="light"
-                        isIconOnly
-                        onPress={() => removeFlow(flowIdx)}
-                        className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeFlow(flowIdx)}
+                        className="text-neutral-400 hover:text-red-500 flex-shrink-0 h-8 w-8"
                       >
                         <IconX size={14} />
                       </Button>
@@ -287,21 +282,17 @@ function DocEditor({ doc }: { doc: Doc }) {
                           </span>
                           <Input
                             value={step}
-                            onValueChange={(val) =>
-                              updateStep(flowIdx, stepIdx, val)
+                            onChange={(e) =>
+                              updateStep(flowIdx, stepIdx, e.target.value)
                             }
                             placeholder="Describe this step"
-                            size="sm"
-                            classNames={{
-                              inputWrapper: "bg-neutral-50 dark:bg-neutral-900",
-                            }}
+                            className="h-8 text-sm bg-neutral-50 dark:bg-neutral-900"
                           />
                           <Button
-                            size="sm"
-                            variant="light"
-                            isIconOnly
-                            onPress={() => removeStep(flowIdx, stepIdx)}
-                            className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeStep(flowIdx, stepIdx)}
+                            className="text-neutral-400 hover:text-red-500 flex-shrink-0 h-8 w-8"
                           >
                             <IconX size={14} />
                           </Button>
@@ -310,11 +301,11 @@ function DocEditor({ doc }: { doc: Doc }) {
                     </div>
                     <Button
                       size="sm"
-                      variant="light"
-                      startContent={<IconPlus size={14} />}
-                      onPress={() => addStep(flowIdx)}
+                      variant="ghost"
+                      onClick={() => addStep(flowIdx)}
                       className="mt-2 text-neutral-500"
                     >
+                      <IconPlus size={14} />
                       Add Step
                     </Button>
                   </div>
@@ -325,31 +316,34 @@ function DocEditor({ doc }: { doc: Doc }) {
         </div>
       </div>
 
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
-        <ModalContent>
-          <ModalHeader>Delete Document</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+      <Dialog open={showDeleteModal} onOpenChange={(v) => { if (!v) setShowDeleteModal(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Document</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               Are you sure you want to delete <strong>{doc.title}</strong>?
             </p>
-            <p className="text-sm text-default-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               This action cannot be undone.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setShowDeleteModal(false)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDelete}
-              isLoading={isDeleting}
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
             >
+              {isDeleting && <Spinner size="sm" />}
               Delete
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -19,15 +19,15 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import { IconFilter, IconSearch } from "@tabler/icons-react";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 
 interface BaseTask {
   _id: string;
@@ -127,10 +127,17 @@ export function KanbanBoard<T extends BaseTask>({
     );
   }, [filteredItems]);
 
-  const handleStatusToggle = (keys: Set<string>) => {
-    const newStatuses = new Set(Array.from(keys) as TaskStatus[]);
-    if (newStatuses.size === 0) return;
-    setVisibleStatuses(newStatuses);
+  const handleStatusToggle = (status: TaskStatus) => {
+    setVisibleStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) {
+        if (next.size === 1) return prev;
+        next.delete(status);
+      } else {
+        next.add(status);
+      }
+      return next;
+    });
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -179,50 +186,53 @@ export function KanbanBoard<T extends BaseTask>({
       }
     >
       <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
-        <Dropdown>
-          <DropdownTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
-              variant="flat"
+              variant="secondary"
               size="sm"
-              startContent={<IconFilter size={16} />}
             >
+              <IconFilter size={16} />
               {visibleStatuses.size === KANBAN_STATUSES.length
                 ? "All Columns"
                 : `${visibleStatuses.size} Columns`}
             </Button>
-          </DropdownTrigger>
-          <DropdownMenu
-            aria-label="Toggle columns"
-            selectionMode="multiple"
-            selectedKeys={visibleStatuses}
-            onSelectionChange={(keys) =>
-              handleStatusToggle(keys as Set<string>)
-            }
-            closeOnSelect={false}
-            items={KANBAN_STATUSES.map((s) => ({
-              key: s,
-              label: statusConfig[s].label,
-              icon: statusConfig[s].icon,
-              text: statusConfig[s].text,
-            }))}
-          >
-            {(item) => (
-              <DropdownItem key={item.key} startContent={<item.icon size={16} className={item.text} />} className={item.text}>
-                {item.label}
-              </DropdownItem>
-            )}
-          </DropdownMenu>
-        </Dropdown>
-        <Input
-          placeholder="Search tasks..."
-          size="sm"
-          className="w-1/2 mx-auto"
-          startContent={<IconSearch size={16} className="text-default-400" />}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
-        />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {KANBAN_STATUSES.map((s) => {
+              const cfg = statusConfig[s];
+              return (
+                <DropdownMenuCheckboxItem
+                  key={s}
+                  checked={visibleStatuses.has(s)}
+                  onCheckedChange={() => handleStatusToggle(s)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                  <span className={cfg.text}>{cfg.label}</span>
+                </DropdownMenuCheckboxItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="relative w-1/2 mx-auto">
+          <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks..."
+            className="pl-9 pr-8 h-8 text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </div>
       </div>
       <DndContext
         sensors={sensors}

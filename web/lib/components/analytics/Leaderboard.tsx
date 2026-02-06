@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardBody } from "@heroui/card";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import { IconTrophy, IconUser } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/api";
@@ -22,22 +22,22 @@ const rankColors = [
 export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
-      <Card shadow="none" className="border border-neutral-200 dark:border-neutral-800">
-        <CardBody className="p-4">
+      <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+        <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
             Top Contributors
           </h3>
           <div className="py-8 text-center text-neutral-500 dark:text-neutral-400">
             No activity yet
           </div>
-        </CardBody>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card shadow="none" className="border border-neutral-200 dark:border-neutral-800">
-      <CardBody className="p-4">
+    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+      <CardContent className="p-4">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
           Top Contributors
         </h3>
@@ -75,7 +75,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
             </div>
           ))}
         </div>
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

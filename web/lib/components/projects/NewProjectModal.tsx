@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Input, Textarea } from "@heroui/input";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
+import { Textarea } from "@/lib/components/ui/textarea";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -51,41 +53,44 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalContent>
-        <ModalHeader>New Project</ModalHeader>
-        <ModalBody>
-          <div className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New Project</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Title</label>
             <Input
-              label="Title"
               placeholder="Name your project"
               value={title}
-              onValueChange={setTitle}
+              onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Description</label>
             <Textarea
-              label="Description"
               placeholder="Describe what you want to build..."
               value={description}
-              onValueChange={setDescription}
-              minRows={4}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
             />
           </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button
-            color="primary"
-            onPress={handleSubmit}
-            isLoading={isLoading}
-            isDisabled={!title.trim() || !description.trim()}
+            onClick={handleSubmit}
+            disabled={isLoading || !title.trim() || !description.trim()}
           >
+            {isLoading && <Spinner size="sm" />}
             Create Project
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

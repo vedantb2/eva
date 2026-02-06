@@ -11,7 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Card, CardBody } from "@heroui/card";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import dayjs from "@/lib/dates";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -53,15 +53,15 @@ export function ActivityTimelineChart({ timeline }: ActivityTimelineChartProps) 
   };
 
   return (
-    <Card shadow="none" className="border border-neutral-200 dark:border-neutral-800">
-      <CardBody className="p-4">
+    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+      <CardContent className="p-4">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
           Activity Over Time
         </h3>
         <div className="h-64">
           <Line data={chartData} options={options} />
         </div>
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

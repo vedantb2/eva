@@ -5,11 +5,16 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 import { useState, useMemo } from "react";
-import { Accordion, AccordionItem } from "@heroui/accordion";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/lib/components/ui/accordion";
 import { ProjectTaskCard } from "./ProjectTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
-import { Chip } from "@heroui/react";
+import { Badge } from "@/lib/components/ui/badge";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
 type TaskStatus = Task["status"];
@@ -63,54 +68,49 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
   return (
     <div className="h-full overflow-y-auto scrollbar">
       <Accordion
-        selectionMode="multiple"
+        type="multiple"
         className="px-0 [&_hr]:bg-neutral-100 dark:[&_hr]:bg-neutral-800"
-        defaultExpandedKeys={defaultExpandedKeys}
+        defaultValue={defaultExpandedKeys}
       >
         {STATUS_ORDER.map((status) => {
           const config = statusConfig[status];
           const StatusIcon = config.icon;
           const statusTasks = groupedTasks[status];
           return (
-            <AccordionItem
-              key={status}
-              title={
-                <Chip
-                  startContent={
-                    <StatusIcon size={14} className={`ml-1 ${config.text}`} />
-                  }
-                  variant="flat"
-                  className={`${config.bg} ${config.text} shadow-inner`}
-                  endContent={
-                    <Chip size="sm" className={`${config.text} ${config.bg}`}>
-                      {statusTasks.length}
-                    </Chip>
-                  }
+            <AccordionItem key={status} value={status}>
+              <AccordionTrigger className="p-2 hover:no-underline">
+                <Badge
+                  variant="outline"
+                  className={`${config.bg} ${config.text} shadow-inner gap-1.5`}
                 >
+                  <StatusIcon size={14} className={config.text} />
                   {config.label}
-                </Chip>
-              }
-              classNames={{
-                trigger: "p-2",
-                content: "flex flex-col gap-2 px-3",
-              }}
-            >
-              {statusTasks.length === 0 ? (
-                <p className="text-sm text-default-400 py-2">No tasks</p>
-              ) : (
-                statusTasks.map((task) => (
-                  <ProjectTaskCard
-                    key={task._id}
-                    id={task._id}
-                    taskNumber={task.taskNumber ?? 0}
-                    title={task.title}
-                    description={task.description}
-                    status={task.status}
-                    createdBy={task.createdBy}
-                    onClick={() => setSelectedTaskId(task._id)}
-                  />
-                ))
-              )}
+                  <Badge
+                    variant="outline"
+                    className={`${config.text} ${config.bg} ml-1 px-1.5 py-0`}
+                  >
+                    {statusTasks.length}
+                  </Badge>
+                </Badge>
+              </AccordionTrigger>
+              <AccordionContent className="flex flex-col gap-2 px-3">
+                {statusTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No tasks</p>
+                ) : (
+                  statusTasks.map((task) => (
+                    <ProjectTaskCard
+                      key={task._id}
+                      id={task._id}
+                      taskNumber={task.taskNumber ?? 0}
+                      title={task.title}
+                      description={task.description}
+                      status={task.status}
+                      createdBy={task.createdBy}
+                      onClick={() => setSelectedTaskId(task._id)}
+                    />
+                  ))
+                )}
+              </AccordionContent>
             </AccordionItem>
           );
         })}

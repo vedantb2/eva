@@ -49,7 +49,7 @@ This is a monorepo with four apps:
 
 ### Tech Stack
 
-**Frontend:** Next.js 15, TypeScript, Tailwind CSS, HeroUI components, Clerk auth, ai-sdk with OpenRouter
+**Frontend:** Next.js 15, TypeScript, Tailwind CSS, shadcn/ui (Radix UI primitives), Clerk auth, ai-sdk with OpenRouter
 
 **Backend:** Convex (database + mutations/queries), Resend (email), Inngest (background jobs)
 

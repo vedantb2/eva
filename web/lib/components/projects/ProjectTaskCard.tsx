@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardBody } from "@heroui/card";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import { GenericId as Id } from "convex/values";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
@@ -36,16 +36,13 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      isPressable={!!onClick}
-      onPress={onClick}
-      shadow="none"
-      radius="sm"
-      className={`w-full shadow ${statusConfig[status].cardBg}`}
+      className={`w-full shadow shadow-none rounded-sm ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
     >
-      <CardBody className="p-2 gap-2">
+      <CardContent className="p-2 gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-default-400 font-mono text-sm flex-shrink-0">
+            <span className="text-muted-foreground font-mono text-sm flex-shrink-0">
               #{taskNumber}
             </span>
             <h4 className="font-medium text-sm line-clamp-1">{title}</h4>
@@ -57,22 +54,22 @@ export function ProjectTaskCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="flex-shrink-0 p-1 rounded hover:bg-default-200 transition-colors"
+                className="flex-shrink-0 p-1 rounded hover:bg-muted transition-colors"
               >
-                <IconGitPullRequest size={14} className="text-success-500" />
+                <IconGitPullRequest size={14} className="text-emerald-500" />
               </Link>
             )}
             <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
           </div>
         </div>
         {description && (
-          <p className="text-xs text-default-500 line-clamp-2">{description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">{description}</p>
         )}
-        <div className="flex items-center justify-between text-xs text-default-400">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           {createdBy && <UserInitials userId={createdBy} />}
           <SubtaskProgress taskId={id} />
         </div>
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -68,17 +68,17 @@ export function ProjectPlanTab({
   if (!parsedSpec) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-default-100 flex items-center justify-center mb-4">
-          <IconMessageQuestion size={32} className="text-default-400" />
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <IconMessageQuestion size={32} className="text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-default-700 mb-2">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
           No Plan Generated Yet
         </h3>
-        <p className="text-sm text-default-500 mb-6 max-w-md">
+        <p className="text-sm text-muted-foreground mb-6 max-w-md">
           Complete the interview in the Chat tab to generate a structured
           implementation plan.
         </p>
-        <p className="text-sm text-default-400">
+        <p className="text-sm text-muted-foreground">
           Eva will generate a plan automatically during the interview.
         </p>
       </div>
@@ -90,21 +90,21 @@ export function ProjectPlanTab({
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <IconCircleCheck size={20} className="text-success" />
+            <IconCircleCheck size={20} className="text-emerald-600 dark:text-emerald-400" />
             <h2 className="text-xl font-bold">{parsedSpec.title}</h2>
           </div>
-          <p className="text-default-500">{parsedSpec.description}</p>
+          <p className="text-muted-foreground">{parsedSpec.description}</p>
         </div>
 
         <div>
           <h3 className="font-semibold mb-3">Tasks ({parsedSpec.tasks.length})</h3>
           <div className="space-y-1">
             {parsedSpec.tasks.map((task, i) => (
-              <div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-default-100">
-                <span className="text-default-400 font-mono text-sm w-6">{i + 1}.</span>
+              <div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted">
+                <span className="text-muted-foreground font-mono text-sm w-6">{i + 1}.</span>
                 <span className="text-sm flex-1">{task.title}</span>
                 {task.dependencies.length > 0 && (
-                  <span className="text-xs text-default-400">
+                  <span className="text-xs text-muted-foreground">
                     after {task.dependencies.join(", ")}
                   </span>
                 )}
@@ -114,11 +114,10 @@ export function ProjectPlanTab({
         </div>
 
         {!isLocked && (
-          <div className="space-y-3 pt-4 border-t border-divider">
+          <div className="space-y-3 pt-4 border-t border-border">
             {showRejectInput ? (
               <div className="flex gap-2">
                 <Input
-                  size="sm"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="What's missing from this plan?"
@@ -130,12 +129,12 @@ export function ProjectPlanTab({
                     }
                   }}
                   autoFocus
+                  className="h-8 text-sm"
                 />
                 <Button
                   size="sm"
-                  color="primary"
-                  isDisabled={!rejectReason.trim()}
-                  onPress={() => {
+                  disabled={!rejectReason.trim()}
+                  onClick={() => {
                     onRejectSpec(rejectReason.trim());
                     setRejectReason("");
                     setShowRejectInput(false);
@@ -147,28 +146,27 @@ export function ProjectPlanTab({
             ) : (
               <div className="flex gap-3">
                 <Button
-                  variant="flat"
-                  startContent={<IconArrowBack size={18} />}
-                  onPress={() => setShowRejectInput(true)}
-                  isDisabled={isLoading}
+                  variant="secondary"
+                  onClick={() => setShowRejectInput(true)}
+                  disabled={isLoading}
                 >
+                  <IconArrowBack size={18} />
                   Keep Interviewing
                 </Button>
                 <Button
-                  color="primary"
-                  startContent={<IconRocket size={18} />}
-                  onPress={handleStartDevelopment}
-                  isLoading={isLoading}
+                  onClick={handleStartDevelopment}
+                  disabled={isLoading}
                 >
-                  Accept Plan
+                  <IconRocket size={18} />
+                  {isLoading ? "Starting..." : "Accept Plan"}
                 </Button>
               </div>
             )}
           </div>
         )}
         {isLocked && (
-          <div className="p-4 bg-success-50 dark:bg-success-900/20 rounded-lg">
-            <p className="text-sm text-success-700 dark:text-success-400">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
               Development has started on this project. The plan is now locked.
             </p>
           </div>

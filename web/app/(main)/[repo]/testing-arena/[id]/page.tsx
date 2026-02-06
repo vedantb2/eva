@@ -5,9 +5,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@heroui/button";
-import { Tabs, Tab } from "@heroui/tabs";
-import { Card, CardBody } from "@heroui/card";
+import { Button } from "@/lib/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import {
   IconPlayerPlay,
   IconCheck,
@@ -69,8 +69,8 @@ function ReportCard({ report }: { report: EvaluationReport }) {
   const passRate = total > 0 ? Math.round((passed.length / total) * 100) : 0;
 
   return (
-    <Card shadow="none" className="bg-neutral-100 dark:bg-neutral-800/50">
-      <CardBody className="flex flex-col gap-4">
+    <Card className="shadow-none bg-neutral-100 dark:bg-neutral-800/50">
+      <CardContent className="flex flex-col gap-4 p-4">
         <div className="flex items-center justify-between">
           {report.status !== "completed" && (
             <StatusBadge status={report.status} />
@@ -192,7 +192,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
             )}
           </div>
         )}
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }
@@ -283,49 +283,29 @@ export default function TestingArenaDocPage({
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
             {doc.title}
           </h2>
-          {activeTab === "code" ? (
-            <Button
-              size="sm"
-              color="primary"
-              startContent={<IconPlayerPlay size={16} />}
-              onPress={handleRunTest}
-              isLoading={isRunning}
-            >
-              Run Test
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              color="primary"
-              startContent={<IconPlayerPlay size={16} />}
-            >
-              Run Test
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={activeTab === "code" ? handleRunTest : undefined}
+            disabled={activeTab === "code" && isRunning}
+          >
+            <IconPlayerPlay size={16} />
+            {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
+          </Button>
         </div>
         <Tabs
-          selectedKey={activeTab}
-          onSelectionChange={(key) => setActiveTab(key as string)}
-          size="sm"
+          value={activeTab}
+          onValueChange={setActiveTab}
         >
-          <Tab
-            key="code"
-            title={
-              <div className="flex items-center gap-1.5">
-                <IconCode size={14} />
-                <span>Code Testing</span>
-              </div>
-            }
-          />
-          <Tab
-            key="ui"
-            title={
-              <div className="flex items-center gap-1.5">
-                <IconWorld size={14} />
-                <span>UI Testing</span>
-              </div>
-            }
-          />
+          <TabsList className="h-8">
+            <TabsTrigger value="code" className="text-xs">
+              <IconCode size={14} />
+              <span>Code Testing</span>
+            </TabsTrigger>
+            <TabsTrigger value="ui" className="text-xs">
+              <IconWorld size={14} />
+              <span>UI Testing</span>
+            </TabsTrigger>
+          </TabsList>
         </Tabs>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">

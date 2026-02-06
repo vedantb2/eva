@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@heroui/button";
+import { Button } from "@/lib/components/ui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
@@ -15,6 +15,7 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
@@ -22,22 +23,24 @@ import {
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
-import { Input } from "@heroui/input";
+import { Input } from "@/lib/components/ui/input";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/lib/components/ui/dropdown-menu";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
 const SORT_FIELDS = [
@@ -109,10 +112,17 @@ export function ProjectsClient() {
     }
   };
 
-  const handlePhaseToggle = (keys: Set<string>) => {
-    const newPhases = new Set(Array.from(keys) as ProjectPhase[]);
-    if (newPhases.size === 0) return;
-    setVisiblePhases(newPhases);
+  const handlePhaseToggle = (phase: ProjectPhase) => {
+    setVisiblePhases((prev) => {
+      const next = new Set(prev);
+      if (next.has(phase)) {
+        if (next.size === 1) return prev;
+        next.delete(phase);
+      } else {
+        next.add(phase);
+      }
+      return next;
+    });
   };
 
   return (
@@ -122,11 +132,10 @@ export function ProjectsClient() {
         fillHeight
         headerRight={
           <Button
-            color="primary"
             size="sm"
-            startContent={<IconPlus size={16} />}
-            onPress={() => setIsCreating(true)}
+            onClick={() => setIsCreating(true)}
           >
+            <IconPlus size={16} />
             New Project
           </Button>
         }
@@ -147,81 +156,67 @@ export function ProjectsClient() {
           <div className="flex flex-col flex-1 min-h-0 gap-4">
             <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Dropdown>
-                  <DropdownTrigger>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
-                      variant="flat"
+                      variant="secondary"
                       size="sm"
-                      startContent={<IconFilter size={16} />}
                     >
+                      <IconFilter size={16} />
                       {visiblePhases.size === PROJECT_PHASES.length
                         ? "All Columns"
                         : `${visiblePhases.size} Columns`}
                     </Button>
-                  </DropdownTrigger>
-                  <DropdownMenu
-                    aria-label="Toggle columns"
-                    selectionMode="multiple"
-                    selectedKeys={visiblePhases}
-                    onSelectionChange={(keys) =>
-                      handlePhaseToggle(keys as Set<string>)
-                    }
-                    closeOnSelect={false}
-                    items={PROJECT_PHASES.map((p) => ({
-                      key: p,
-                      label: phaseConfig[p].label,
-                      icon: phaseConfig[p].icon,
-                      text: phaseConfig[p].text,
-                    }))}
-                  >
-                    {(item) => (
-                      <DropdownItem
-                        key={item.key}
-                        startContent={
-                          <item.icon size={16} className={item.text} />
-                        }
-                        className={item.text}
-                      >
-                        {item.label}
-                      </DropdownItem>
-                    )}
-                  </DropdownMenu>
-                </Dropdown>
-                <Dropdown>
-                  <DropdownTrigger>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {PROJECT_PHASES.map((p) => {
+                      const cfg = phaseConfig[p];
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={p}
+                          checked={visiblePhases.has(p)}
+                          onCheckedChange={() => handlePhaseToggle(p)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                          <span className={cfg.text}>{cfg.label}</span>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
-                      variant="flat"
+                      variant="secondary"
                       size="sm"
-                      startContent={
-                        sortDirection === "asc" ? (
-                          <IconSortAscending size={16} />
-                        ) : (
-                          <IconSortDescending size={16} />
-                        )
-                      }
                     >
+                      {sortDirection === "asc" ? (
+                        <IconSortAscending size={16} />
+                      ) : (
+                        <IconSortDescending size={16} />
+                      )}
                       {sortField === "created" ? "Date" : "Title"}
                     </Button>
-                  </DropdownTrigger>
-                  <DropdownMenu
-                    aria-label="Sort by"
-                    selectionMode="single"
-                    selectedKeys={new Set([sortField])}
-                    onSelectionChange={(keys) =>
-                      setSortField(Array.from(keys)[0] as SortField)
-                    }
-                    items={SORT_FIELDS}
-                  >
-                    {(item) => (
-                      <DropdownItem key={item.key}>{item.label}</DropdownItem>
-                    )}
-                  </DropdownMenu>
-                </Dropdown>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={sortField}
+                      onValueChange={(v) => setSortField(v as SortField)}
+                    >
+                      {SORT_FIELDS.map((item) => (
+                        <DropdownMenuRadioItem key={item.key} value={item.key}>
+                          {item.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
-                  variant="flat"
-                  size="sm"
-                  isIconOnly
-                  onPress={() =>
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() =>
                     setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
                   }
                 >
@@ -232,18 +227,24 @@ export function ProjectsClient() {
                   )}
                 </Button>
               </div>
-              <Input
-                placeholder="Search projects..."
-                size="sm"
-                className="w-1/2 mx-auto"
-                startContent={
-                  <IconSearch size={16} className="text-default-400" />
-                }
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                isClearable
-                onClear={() => setSearchQuery("")}
-              />
+              <div className="relative w-1/2 mx-auto">
+                <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  className="pl-9 pr-8 h-8 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <IconX size={14} />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
               {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
@@ -292,41 +293,40 @@ export function ProjectsClient() {
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
       />
-      <Modal
-        isOpen={!!projectToDelete}
-        onClose={() => setProjectToDelete(null)}
-      >
-        <ModalContent>
-          <ModalHeader>Delete Project</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+      <Dialog open={!!projectToDelete} onOpenChange={(v) => { if (!v) setProjectToDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               Are you sure you want to delete{" "}
               <strong>{projectToDelete?.title}</strong>?
             </p>
-            <div className="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
-              <p className="text-sm text-warning-700 dark:text-warning-300">
+            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <p className="text-sm text-amber-600 dark:text-amber-400">
                 This will permanently delete the project and all associated
                 tasks, subtasks, agent runs, and dependencies.
               </p>
             </div>
-            <p className="text-sm text-default-500 mt-3">
+            <p className="text-sm text-muted-foreground mt-3">
               This action cannot be undone.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setProjectToDelete(null)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setProjectToDelete(null)}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDelete}
-              isLoading={isDeleting}
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
             >
-              Delete Project
+              {isDeleting ? "Deleting..." : "Delete Project"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

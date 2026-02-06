@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CardBody } from "@heroui/card";
-import { Progress } from "@heroui/progress";
+import { Card, CardContent } from "@/lib/components/ui/card";
+import { Progress } from "@/lib/components/ui/progress";
 
 interface SessionFunnelProps {
   totalSessions: number;
@@ -11,8 +11,8 @@ interface SessionFunnelProps {
 
 export function SessionFunnel({ totalSessions, sessionsWithPr, shipRate }: SessionFunnelProps) {
   return (
-    <Card shadow="none" className="border border-neutral-200 dark:border-neutral-800">
-      <CardBody className="p-4 space-y-4">
+    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+      <CardContent className="p-4 space-y-4">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
           Session to PR Funnel
         </h3>
@@ -22,7 +22,7 @@ export function SessionFunnel({ totalSessions, sessionsWithPr, shipRate }: Sessi
               <span className="text-neutral-600 dark:text-neutral-400">Sessions Created</span>
               <span className="font-medium text-neutral-900 dark:text-white">{totalSessions}</span>
             </div>
-            <Progress value={100} color="default" size="md" />
+            <Progress value={100} />
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1">
@@ -31,8 +31,6 @@ export function SessionFunnel({ totalSessions, sessionsWithPr, shipRate }: Sessi
             </div>
             <Progress
               value={totalSessions > 0 ? (sessionsWithPr / totalSessions) * 100 : 0}
-              color="primary"
-              size="md"
             />
           </div>
           <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
@@ -42,7 +40,7 @@ export function SessionFunnel({ totalSessions, sessionsWithPr, shipRate }: Sessi
             </p>
           </div>
         </div>
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

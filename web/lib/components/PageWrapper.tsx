@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button } from "@/lib/components/ui/button";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
@@ -33,12 +33,10 @@ export function PageWrapper({
         <div className="relative p-4 py-3 flex items-center gap-3">
           {showBack && (
             <Button
-              size="sm"
-              isIconOnly
-              radius="full"
-              variant="flat"
-              onPress={onBack ?? (() => router.back())}
-              className="flex-shrink-0"
+              size="icon"
+              variant="secondary"
+              onClick={onBack ?? (() => router.back())}
+              className="flex-shrink-0 rounded-full"
             >
               <IconArrowLeft
                 size={16}

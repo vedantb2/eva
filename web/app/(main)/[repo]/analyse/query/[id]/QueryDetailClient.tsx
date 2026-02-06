@@ -3,10 +3,10 @@
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@heroui/button";
-import { Textarea } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Textarea } from "@/lib/components/ui/textarea";
 import { IconArrowUp, IconUser } from "@tabler/icons-react";
-import { Spinner } from "@heroui/spinner";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useEffect, useRef, useState } from "react";
 import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Image from "next/image";
@@ -175,31 +175,25 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask Eva to perform an analysis..."
-              minRows={4}
-              maxRows={6}
+              rows={4}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              classNames={{
-                inputWrapper:
-                  "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
-              }}
-              isDisabled={isSending}
+              className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 border-none focus-visible:ring-0 resize-none"
+              disabled={isSending}
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
               <Button
                 type="submit"
-                isIconOnly
-                color="primary"
-                radius="full"
-                isLoading={isSending}
-                isDisabled={isSending || !input.trim()}
+                size="icon"
+                className="rounded-full"
+                disabled={isSending || !input.trim()}
               >
-                <IconArrowUp size={18} />
+                {isSending ? <Spinner size="sm" /> : <IconArrowUp size={18} />}
               </Button>
             </div>
           </div>

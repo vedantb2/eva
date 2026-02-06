@@ -2,7 +2,7 @@
 
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
-import { Button } from "@heroui/react";
+import { Button } from "@/lib/components/ui/button";
 
 export function ThemeToggleClient() {
   const { theme, toggleTheme, mounted } = useThemeContext();
@@ -23,7 +23,7 @@ export function ThemeToggleClient() {
   const isDark = theme === "dark";
 
   return (
-    <Button variant="light" isIconOnly onPress={toggleTheme}>
+    <Button variant="ghost" size="icon" onClick={toggleTheme}>
       {isDark ? (
         <IconSun className="size-5 text-neutral-600 dark:text-neutral-300" />
       ) : (

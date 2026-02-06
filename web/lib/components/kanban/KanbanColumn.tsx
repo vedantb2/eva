@@ -1,11 +1,11 @@
 "use client";
 
-import { Card, CardHeader, CardBody } from "@heroui/card";
+import { Card, CardHeader, CardContent } from "@/lib/components/ui/card";
+import { Badge } from "@/lib/components/ui/badge";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 import type { IconCircle } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
-import { Chip } from "@heroui/react";
 
 export { TASK_STATUSES as KANBAN_STATUSES };
 
@@ -39,31 +39,31 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
-      shadow="none"
-      className={`flex-1 min-w-0 h-full transition-colors flex flex-col ${
+      className={`flex-1 min-w-0 h-full transition-colors flex flex-col shadow-none ${
         isOver
           ? "bg-neutral-200/70 dark:bg-neutral-700"
           : "bg-neutral-50 dark:bg-neutral-800/50"
       }`}
     >
-      <CardHeader className="flex justify-between items-center p-2 pb-1 flex-shrink-0">
-        <Chip
-          startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
-          variant="flat"
-          className={`${config.bg} ${config.text} shadow-inner`}
-          endContent={
-            <Chip size="sm" className={`${config.text} ${config.bg}`}>
-              {count}
-            </Chip>
-          }
+      <CardHeader className="flex flex-row justify-between items-center p-2 pb-1 flex-shrink-0 space-y-0">
+        <Badge
+          variant="outline"
+          className={`${config.bg} ${config.text} shadow-inner gap-1.5`}
         >
+          <Icon size={14} className={config.text} />
           {config.label}
-        </Chip>
+          <Badge
+            variant="outline"
+            className={`${config.text} ${config.bg} ml-1 px-1.5 py-0`}
+          >
+            {count}
+          </Badge>
+        </Badge>
         {headerExtra}
       </CardHeader>
-      <CardBody className="pt-0 p-2 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">
+      <CardContent className="pt-0 p-2 overflow-y-auto scrollbar space-y-2 flex-1 min-h-0">
         {children}
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

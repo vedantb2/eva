@@ -1,7 +1,7 @@
 "use client";
 
 import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
-import { Input } from "@heroui/input";
+import { Input } from "@/lib/components/ui/input";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -45,15 +45,15 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
       <div className="px-4 py-2 pb-4">
-        <Input
-          placeholder="Search docs..."
-          size="sm"
-          startContent={<IconSearch size={14} className="text-default-400" />}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
-        />
+        <div className="relative">
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search docs..."
+            className="h-8 text-sm pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (

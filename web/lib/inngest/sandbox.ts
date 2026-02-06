@@ -9,7 +9,7 @@ import { serverEnv } from "@/env/server";
 
 export const SNAPSHOT_NAME = "eva-snapshot";
 
-const daytona = new Daytona();
+const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const llmJson = new LlmJson({ attemptCorrection: true });
 
 export const WORKSPACE_DIR = "/workspace/repo";

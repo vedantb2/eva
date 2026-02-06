@@ -4,9 +4,9 @@ import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
+import { serverEnv } from "@/env/server";
 
-const daytona = new Daytona();
-
+const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const activePtyHandles = new Map<string, Awaited<ReturnType<typeof createPtyConnection>>>();
 
 async function createPtyConnection(sandbox: Awaited<ReturnType<typeof daytona.get>>, ptyId: string, cols: number, rows: number) {

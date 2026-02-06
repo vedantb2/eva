@@ -7,7 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { serverEnv } from "@/env/server";
 import { GenericId as Id } from "convex/values";
 
-const daytona = new Daytona();
+const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const clerk = createClerkClient({ secretKey: serverEnv.CLERK_SECRET_KEY });
 
 export async function GET(request: NextRequest) {
@@ -35,10 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!session.sandboxId) {
-    return NextResponse.json(
-      { error: "Sandbox not active" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Sandbox not active" }, { status: 400 });
   }
 
   try {
@@ -58,7 +55,7 @@ export async function GET(request: NextRequest) {
     console.error("Failed to get preview link:", error);
     return NextResponse.json(
       { error: "Failed to get preview link" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

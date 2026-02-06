@@ -40,6 +40,7 @@ export const sessionExecute = inngest.createFunction(
       sessionId,
       message,
       mode = "execute",
+      model = "sonnet",
     } = event.data;
     const convex = createConvex(clerkToken);
 
@@ -177,7 +178,7 @@ CRITICAL response rules:
           activityLog: "",
         });
         const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
-          model: "opus",
+          model,
           allowedTools: ["Read", "Glob", "Grep"],
           onOutput: async (currentActivity) => {
             await convex.mutation(api.streaming.set, {
@@ -283,7 +284,7 @@ ${message}
           activityLog: "",
         });
         const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
-          model: "opus",
+          model,
           allowedTools: ["Read", "Write", "Glob", "Grep"],
           onOutput: async (currentActivity) => {
             await convex.mutation(api.streaming.set, {
@@ -396,7 +397,7 @@ ${message}
         activityLog: "",
       });
       const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
-        model: "opus",
+        model,
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
         onOutput: async (currentActivity) => {
           await convex.mutation(api.streaming.set, {

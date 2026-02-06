@@ -13,7 +13,7 @@ export const serverEnv = createEnv({
     DAYTONA_API_KEY: z.string().min(1),
     CONVEX_DEPLOYMENT: z.string().min(1),
     CONVEX_DEPLOY_KEY: z.string().min(1),
-    OPENROUTER_API_KEY: z.string().optional(),
+    SANDBOX_CLERK_USER_ID: z.string().min(1),
   },
   experimental__runtimeEnv: process.env,
 });

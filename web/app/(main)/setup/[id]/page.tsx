@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RepoSetupClient } from "./RepoSetupClient";
 
 export default async function RepoSetupPage({
@@ -6,5 +7,9 @@ export default async function RepoSetupPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <RepoSetupClient installationId={id} />;
+  return (
+    <Suspense>
+      <RepoSetupClient installationId={id} />
+    </Suspense>
+  );
 }

@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSignIn } from "@clerk/nextjs";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-export default function SandboxAuthPage() {
+function SandboxAuth() {
   const { signIn, setActive } = useSignIn();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,8 +33,36 @@ export default function SandboxAuthPage() {
   }, [signIn, setActive, searchParams, router]);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+      }}
+    >
       <p>Signing in...</p>
     </div>
+  );
+}
+
+export default function SandboxAuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100vh",
+          }}
+        >
+          <p>Loading...</p>
+        </div>
+      }
+    >
+      <SandboxAuth />
+    </Suspense>
   );
 }

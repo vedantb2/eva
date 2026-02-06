@@ -166,7 +166,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
-          className={`flex items-center gap-1.5 bg-primary/10 rounded-full pr-4 mx-auto`}
+          className={`flex items-center gap-1.5 mx-auto`}
         >
           <Image
             src="/icon.png"
@@ -201,7 +201,7 @@ export function Sidebar() {
             {!collapsed && (
               <Link
                 href={repoSlug ? `/${repoSlug}` : "/"}
-                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-primary/10 rounded-full pr-4 mx-auto"}`}
+                className="flex items-center gap-1.5"
               >
                 <Image
                   src="/icon.png"
@@ -324,9 +324,7 @@ export function Sidebar() {
                                 >
                                   <item.icon
                                     className={`size-[16px] flex-shrink-0 ${
-                                      isActive
-                                        ? "text-primary"
-                                        : ""
+                                      isActive ? "text-primary" : ""
                                     }`}
                                   />
                                   {!collapsed && item.name}
@@ -363,14 +361,12 @@ export function Sidebar() {
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
                         ? "bg-primary/5 text-primary"
-                        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
+                        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
-                    <span className="relative flex-shrink-0">
-                      <item.icon
-                        className={`size-[16px] ${isActive ? "text-primary" : ""}`}
-                      />
-                    </span>
+                    <item.icon
+                      className={`size-[16px] flex-shrink-0 ${isActive ? "text-primary" : ""}`}
+                    />
                     {!collapsed && item.name}
                   </Link>
                 );
@@ -379,7 +375,7 @@ export function Sidebar() {
           </nav>
 
           <div
-            className={`border-t border-neutral-200 dark:border-neutral-800 ${collapsed ? "lg:p-2 p-4" : "px-4 py-3"}`}
+            className={`pt-3 mt-2 ${collapsed ? "lg:p-2 p-4" : "px-4 py-3"}`}
           >
             <div
               className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}

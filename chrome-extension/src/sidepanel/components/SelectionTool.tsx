@@ -62,7 +62,7 @@ export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: S
             <span className="absolute inset-0 rounded-lg animate-ping bg-primary opacity-30" />
           )}
           {capturedCount > 0 && !isActive && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-teal-500 text-white text-[10px] font-medium rounded-full border-2 border-background flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-medium rounded-full border-2 border-background flex items-center justify-center">
               {capturedCount}
             </span>
           )}

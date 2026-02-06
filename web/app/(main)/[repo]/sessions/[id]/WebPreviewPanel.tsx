@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner } from "@heroui/spinner";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Spinner } from "@/lib/components/ui/spinner";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
 
 interface WebPreviewPanelProps {
@@ -92,32 +92,27 @@ export function WebPreviewPanel({
           onChange={(e) => setPort(e.target.value)}
           onKeyDown={handlePortChange}
           placeholder="Port"
-          size="sm"
-          className="w-20"
-          classNames={{
-            input: "text-center",
-            inputWrapper: "h-8 min-h-8",
-          }}
+          className="w-20 h-8 text-center text-sm"
         />
         <Button
-          size="sm"
-          variant="flat"
-          isIconOnly
-          onPress={handlePortSubmit}
-          isLoading={isLoading}
+          size="icon"
+          variant="secondary"
+          onClick={handlePortSubmit}
+          disabled={isLoading}
+          className="h-8 w-8"
         >
-          <IconRefresh className="w-4 h-4" />
+          {isLoading ? <Spinner size="sm" /> : <IconRefresh className="w-4 h-4" />}
         </Button>
         {previewInfo && (
           <Button
-            size="sm"
-            variant="flat"
-            isIconOnly
-            as="a"
-            href={previewInfo.url}
-            target="_blank"
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8"
+            asChild
           >
-            <IconExternalLink className="w-4 h-4" />
+            <a href={previewInfo.url} target="_blank" rel="noopener noreferrer">
+              <IconExternalLink className="w-4 h-4" />
+            </a>
           </Button>
         )}
         {previewInfo && (
@@ -137,10 +132,10 @@ export function WebPreviewPanel({
             <p className="text-sm text-red-500">{error}</p>
             <Button
               size="sm"
-              variant="flat"
-              onPress={handlePortSubmit}
-              startContent={<IconRefresh className="w-4 h-4" />}
+              variant="secondary"
+              onClick={handlePortSubmit}
             >
+              <IconRefresh className="w-4 h-4" />
               Retry
             </Button>
           </div>

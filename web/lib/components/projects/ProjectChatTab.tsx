@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Button } from "@heroui/button";
-import { Spinner } from "@heroui/spinner";
+import { Button } from "@/lib/components/ui/button";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -204,27 +204,26 @@ export function ProjectChatTab({
   if (!hasStarted && !isLocked) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-4">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <IconPlayerPlay
             size={32}
-            className="text-primary-600 dark:text-primary-400"
+            className="text-primary"
           />
         </div>
-        <h3 className="text-lg font-semibold text-default-700 mb-2">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
           Ready to Start Interview
         </h3>
-        <p className="text-sm text-default-500 mb-6 max-w-md">
+        <p className="text-sm text-muted-foreground mb-6 max-w-md">
           Click the button below to start answering questions about your
           project. Eva will ask multiple choice questions to understand your
           requirements, then automatically generate a plan when ready.
         </p>
         <Button
-          color="primary"
           size="lg"
-          startContent={<IconPlayerPlay size={20} />}
-          onPress={handleStartInterview}
-          isLoading={isLoading}
+          onClick={handleStartInterview}
+          disabled={isLoading}
         >
+          {isLoading ? <Spinner size="sm" /> : <IconPlayerPlay className="mr-2 h-5 w-5" />}
           Start Interview
         </Button>
       </div>
@@ -308,12 +307,12 @@ export function ProjectChatTab({
           ) && (
             <div className="flex gap-3 items-center">
               <Spinner size="sm" />
-              <span className="text-sm text-default-500">Thinking...</span>
+              <span className="text-sm text-muted-foreground">Thinking...</span>
             </div>
           )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-divider p-4 space-y-3">
+      <div className="border-t border-border p-4 space-y-3">
         {showQuestion && (
           <MultipleChoiceQuestion
             question={currentQuestion.question}
@@ -324,17 +323,16 @@ export function ProjectChatTab({
           />
         )}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-default-400">
+          <span className="text-xs text-muted-foreground">
             Questions answered: {questionCount}
           </span>
           <Button
             size="sm"
-            variant="flat"
-            color="danger"
-            startContent={<IconTrash size={16} />}
-            onPress={handleClearChat}
-            isDisabled={isLoading || isLocked || initialMessages.length === 0}
+            variant="destructive"
+            onClick={handleClearChat}
+            disabled={isLoading || isLocked || initialMessages.length === 0}
           >
+            <IconTrash className="mr-2 h-4 w-4" />
             Clear
           </Button>
         </div>

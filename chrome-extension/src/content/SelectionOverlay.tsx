@@ -288,7 +288,7 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
           className="fixed inset-0 pointer-events-none rounded-md"
           style={{
             zIndex: 2147483644,
-            border: "1px solid #14b8a6",
+            border: "1px solid #975799",
             boxSizing: "border-box",
           }}
         />
@@ -297,7 +297,7 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
           style={{
             zIndex: 2147483644,
             border: "11px solid",
-            borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
+            borderImage: "linear-gradient(to right, #7a3a7c, #975799) 1",
             boxSizing: "border-box",
             filter: "blur(20px)",
             animation: "conductor-glow 0.8s ease-in-out infinite alternate",
@@ -384,7 +384,7 @@ export function SelectionOverlay({ onCapture, onCancel }: SelectionOverlayProps)
           }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-teal-500 font-medium">
+            <span className="font-medium" style={{ color: "#975799" }}>
               &lt;{infoData.componentName}&gt;
             </span>
             <span

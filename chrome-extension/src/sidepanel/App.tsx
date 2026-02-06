@@ -401,7 +401,7 @@ function AuthenticatedApp() {
               placeholder="New project title..."
               value={newProjectTitle}
               onChange={(e) => { setNewProjectTitle(e.target.value); setSelectedProjectId(null); }}
-              className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {projects && projects.length > 0 && (
               <div className="max-h-32 overflow-y-auto space-y-1">
@@ -412,7 +412,7 @@ function AuthenticatedApp() {
                     onClick={() => { setSelectedProjectId(project._id); setNewProjectTitle(""); }}
                     className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
                       selectedProjectId === project._id
-                        ? "bg-teal-600 text-white"
+                        ? "bg-primary text-primary-foreground"
                         : "hover:bg-accent"
                     }`}
                   >
@@ -427,7 +427,7 @@ function AuthenticatedApp() {
             size="sm"
             disabled={isCreatingTasks || (!newProjectTitle.trim() && !selectedProjectId)}
             onClick={handleConfirmProject}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {isCreatingTasks ? "Creating..." : "Confirm"}
           </Button>

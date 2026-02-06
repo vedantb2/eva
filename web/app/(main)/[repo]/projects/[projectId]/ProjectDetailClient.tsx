@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
-import { Tooltip } from "@heroui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/lib/components/ui/tooltip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -17,14 +21,14 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { Button, Chip } from "@heroui/react";
+import { Button } from "@/lib/components/ui/button";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -43,7 +47,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   if (project === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -71,7 +75,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         <div className="flex items-center gap-3">
           <ProjectPhaseBadge phase={project.phase} />
           {project.branchName && (
-            <div className="flex items-center gap-1 text-default-500 text-sm">
+            <div className="flex items-center gap-1 text-muted-foreground text-sm">
               <IconGitBranch size={14} />
               {project.branchName}
             </div>
@@ -79,36 +83,40 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           {project.prUrl && (
             <Button
               size="sm"
-              radius="full"
               variant="ghost"
-              as={Link}
-              href={project.prUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              startContent={<IconGitPullRequest size={14} className="ml-1" />}
+              className="rounded-full"
+              asChild
             >
-              <span className="text-xs">View PR</span>
+              <Link
+                href={project.prUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconGitPullRequest size={14} />
+                <span className="text-xs">View PR</span>
+              </Link>
             </Button>
           )}
         </div>
       }
       headerRight={
         !isDraftOrFinalized ? (
-          <Tooltip
-            content="Only the project owner can build"
-            isDisabled={isOwner}
-          >
-            <div>
-              <Button
-                color="primary"
-                size="sm"
-                startContent={<IconHammer size={16} />}
-                onPress={() => setIsBuildModalOpen(true)}
-                isDisabled={!isOwner}
-              >
-                Build Project
-              </Button>
-            </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Button
+                  size="sm"
+                  onClick={() => setIsBuildModalOpen(true)}
+                  disabled={!isOwner}
+                >
+                  <IconHammer size={16} />
+                  Build Project
+                </Button>
+              </div>
+            </TooltipTrigger>
+            {!isOwner && (
+              <TooltipContent>Only the project owner can build</TooltipContent>
+            )}
           </Tooltip>
         ) : null
       }
@@ -135,31 +143,28 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         )}
       </div>
 
-      <Modal
-        isOpen={isBuildModalOpen}
-        onClose={() => setIsBuildModalOpen(false)}
-      >
-        <ModalContent>
-          <ModalHeader>Build Project</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
+      <Dialog open={isBuildModalOpen} onOpenChange={(v) => { if (!v) setIsBuildModalOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Build Project</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-foreground/80">
               This will allow Eva to autonomously work through all tasks in
               sequence until the project is fully built.
             </p>
-            <p className="text-sm text-default-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Best suited for projects with well-defined requirements. If Eva
               makes an error on an earlier task, it may carry forward into
               subsequent tasks.
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setIsBuildModalOpen(false)}>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsBuildModalOpen(false)}>
               Cancel
             </Button>
             <Button
-              color="primary"
-              startContent={<IconHammer size={16} />}
-              onPress={async () => {
+              onClick={async () => {
                 await fetch("/api/inngest/send", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -171,11 +176,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 setIsBuildModalOpen(false);
               }}
             >
+              <IconHammer size={16} />
               Start cooking
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

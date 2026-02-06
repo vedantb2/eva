@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -78,68 +79,67 @@ export function ProjectFinalizationModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="full" className="sm:max-w-2xl" scrollBehavior="inside">
-      <ModalContent>
-        <ModalHeader className="flex flex-col gap-1">
-          <span className="flex items-center gap-2 text-sm sm:text-base">
-            <IconCircleCheck size={20} className="text-success flex-shrink-0" />
-            Plan Generated
-          </span>
-        </ModalHeader>
-        <ModalBody>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold text-base sm:text-lg">{parsedSpec.title}</h3>
-              <p className="text-default-500 text-xs sm:text-sm">
-                {parsedSpec.description}
-              </p>
-            </div>
-            <div>
-              <h4 className="font-medium mb-2 text-sm sm:text-base">
-                Tasks ({parsedSpec.tasks.length})
-              </h4>
-              <ul className="space-y-2">
-                {parsedSpec.tasks.map((task, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-xs sm:text-sm bg-default-100 p-2 rounded"
-                  >
-                    <span className="text-default-400 font-mono flex-shrink-0">{i + 1}.</span>
-                    <div className="min-w-0">
-                      <span className="font-medium">{task.title}</span>
-                      {task.dependencies.length > 0 && (
-                        <span className="text-default-400 ml-1 sm:ml-2 block sm:inline">
-                          (depends on: {task.dependencies.join(", ")})
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader className="flex flex-col gap-1">
+          <DialogTitle>
+            <span className="flex items-center gap-2 text-sm sm:text-base">
+              <IconCircleCheck size={20} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              Plan Generated
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-base sm:text-lg">{parsedSpec.title}</h3>
+            <p className="text-muted-foreground text-xs sm:text-sm">
+              {parsedSpec.description}
+            </p>
           </div>
-        </ModalBody>
-        <ModalFooter className="flex-col sm:flex-row gap-2">
+          <div>
+            <h4 className="font-medium mb-2 text-sm sm:text-base">
+              Tasks ({parsedSpec.tasks.length})
+            </h4>
+            <ul className="space-y-2">
+              {parsedSpec.tasks.map((task, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-xs sm:text-sm bg-muted p-2 rounded"
+                >
+                  <span className="text-muted-foreground font-mono flex-shrink-0">{i + 1}.</span>
+                  <div className="min-w-0">
+                    <span className="font-medium">{task.title}</span>
+                    {task.dependencies.length > 0 && (
+                      <span className="text-muted-foreground ml-1 sm:ml-2 block sm:inline">
+                        (depends on: {task.dependencies.join(", ")})
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
-            variant="flat"
-            onPress={handleSaveDraft}
-            isDisabled={isLoading}
-            startContent={<IconFileText size={16} />}
+            variant="secondary"
+            onClick={handleSaveDraft}
+            disabled={isLoading}
             className="w-full sm:w-auto"
           >
+            <IconFileText size={16} />
             Save as Draft
           </Button>
           <Button
-            color="primary"
-            onPress={handleStartDevelopment}
-            isLoading={isLoading}
-            startContent={<IconRocket size={16} />}
+            onClick={handleStartDevelopment}
+            disabled={isLoading}
             className="w-full sm:w-auto"
           >
+            {isLoading ? <Spinner size="sm" /> : <IconRocket size={16} />}
             Start Development
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

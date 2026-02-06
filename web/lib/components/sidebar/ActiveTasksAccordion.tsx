@@ -1,6 +1,11 @@
 "use client";
 
-import { Accordion, AccordionItem } from "@heroui/react";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/lib/components/ui/accordion";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
@@ -29,49 +34,38 @@ export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionP
   }
 
   return (
-    <Accordion
-      selectionMode="multiple"
-      defaultExpandedKeys={["active-tasks"]}
-      className="px-0"
-    >
-      <AccordionItem
-        key="active-tasks"
-        aria-label="Active Tasks"
-        title={
+    <Accordion type="multiple" defaultValue={["active-tasks"]} className="px-0">
+      <AccordionItem value="active-tasks" className="border-b-0 px-0">
+        <AccordionTrigger className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg hover:no-underline">
           <div className="flex items-center gap-2">
-            <IconListCheck className="w-4 h-4 text-teal-600" />
+            <IconListCheck className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Active Tasks</span>
             <span className="ml-auto text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
               {tasks.length}
             </span>
           </div>
-        }
-        classNames={{
-          base: "px-0",
-          trigger:
-            "px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg",
-          content: "px-0",
-        }}
-      >
-        <div className="space-y-1 px-3">
-          {tasks.map((task) => (
-            <Link key={task._id} href={getTaskLink(task)}>
-              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-neutral-900 dark:text-white truncate">
-                    {task.title}
-                  </p>
-                  {task.taskNumber && (
-                    <p className="text-xs text-neutral-500">
-                      Task #{task.taskNumber}
+        </AccordionTrigger>
+        <AccordionContent className="px-0 pb-0">
+          <div className="space-y-1 px-3">
+            {tasks.map((task) => (
+              <Link key={task._id} href={getTaskLink(task)}>
+                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-neutral-900 dark:text-white truncate">
+                      {task.title}
                     </p>
-                  )}
+                    {task.taskNumber && (
+                      <p className="text-xs text-neutral-500">
+                        Task #{task.taskNumber}
+                      </p>
+                    )}
+                  </div>
+                  <TaskStatusBadge status={task.status} />
                 </div>
-                <TaskStatusBadge status={task.status} />
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        </AccordionContent>
       </AccordionItem>
     </Accordion>
   );

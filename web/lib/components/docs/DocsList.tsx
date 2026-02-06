@@ -1,7 +1,7 @@
 "use client";
 
 import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
-import { Input } from "@heroui/input";
+import { Input } from "@/lib/components/ui/input";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
   }
@@ -45,15 +45,15 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
       <div className="px-4 py-2 pb-4">
-        <Input
-          placeholder="Search docs..."
-          size="sm"
-          startContent={<IconSearch size={14} className="text-default-400" />}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
-        />
+        <div className="relative">
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search docs..."
+            className="h-8 text-sm pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (
@@ -68,7 +68,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
                 href={href}
                 className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
                   isSelected
-                    ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                    ? "bg-primary/10 text-primary"
                     : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
                 }`}
               >

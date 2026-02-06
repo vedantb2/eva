@@ -188,7 +188,7 @@ function PinComponent({ id, data, onDragEnd, onClick, onHover, onLeave }: PinCom
 
   return (
     <div
-      className="absolute flex items-center justify-center rounded-full bg-teal-500 text-white font-semibold border-2 border-white cursor-pointer select-none"
+      className="absolute flex items-center justify-center rounded-full bg-[#975799] text-white font-semibold border-2 border-white cursor-pointer select-none"
       style={{
         left: x - 12,
         top: y - 12,
@@ -340,7 +340,7 @@ function InputCard({
           onClick={() => {
             if (text.trim()) onTask(pinId, text.trim());
           }}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-700 hover:bg-teal-600 border-none cursor-pointer transition-colors"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#7a3a7c] hover:bg-[#975799] border-none cursor-pointer transition-colors"
           style={{ borderRadius: 8 }}
         >
           <IconCheckbox size={14} /> Create Task
@@ -357,7 +357,7 @@ function InputCard({
             onClick={() => {
               if (text.trim()) onSave(pinId, text.trim());
             }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-teal-500 hover:bg-teal-400 border-none cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#975799] hover:bg-[#a76ba9] border-none cursor-pointer transition-colors"
             style={{ borderRadius: 8 }}
           >
             <IconDeviceFloppy size={14} /> Save
@@ -444,7 +444,7 @@ function TextHighlightOverlay({ rects }: { rects: DOMRect[] }) {
       {rects.map((r, i) => (
         <div
           key={i}
-          className="fixed pointer-events-none bg-teal-500/25 rounded-sm"
+          className="fixed pointer-events-none bg-[#975799]/25 rounded-sm"
           style={{ zIndex: 2147483647, top: r.top, left: r.left, width: r.width, height: r.height }}
         />
       ))}
@@ -723,7 +723,7 @@ export function AnnotationOverlay() {
       return;
     }
 
-    document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z' fill='%2314b8a6' stroke='white' stroke-width='1.5'/><path d='M16 10v8M12 14h8' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>") 16 16, crosshair`;
+    document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z' fill='%23975799' stroke='white' stroke-width='1.5'/><path d='M16 10v8M12 14h8' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>") 16 16, crosshair`;
     let mouseDownPos: { x: number; y: number } | null = null;
 
     function handleMouseDown(e: MouseEvent) {
@@ -889,7 +889,7 @@ export function AnnotationOverlay() {
             className="fixed inset-0 pointer-events-none rounded-md"
             style={{
               zIndex: 2147483644,
-              border: "1px solid #14b8a6",
+              border: "1px solid #975799",
               boxSizing: "border-box",
             }}
           />
@@ -898,7 +898,7 @@ export function AnnotationOverlay() {
             style={{
               zIndex: 2147483644,
               border: "11px solid",
-              borderImage: "linear-gradient(to right, #0d9488, #14b8a6) 1",
+              borderImage: "linear-gradient(to right, #7a3a7c, #975799) 1",
               boxSizing: "border-box",
               filter: "blur(20px)",
               animation: "conductor-glow 0.8s ease-in-out infinite alternate",

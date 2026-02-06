@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectItem } from "@heroui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/lib/components/ui/select";
 
 export type ClaudeModel = "opus" | "sonnet" | "haiku";
 
@@ -19,20 +25,20 @@ interface ModelSelectorProps {
 export function ModelSelector({ value, onChange, isDisabled }: ModelSelectorProps) {
   return (
     <Select
-      size="sm"
-      aria-label="Model"
-      selectedKeys={[value]}
-      onSelectionChange={(keys) => {
-        const selected = Array.from(keys)[0];
-        if (selected) onChange(selected as ClaudeModel);
-      }}
-      className="w-28"
-      classNames={{ trigger: "min-h-8 h-8" }}
-      isDisabled={isDisabled}
+      value={value}
+      onValueChange={(v) => onChange(v as ClaudeModel)}
+      disabled={isDisabled}
     >
-      {models.map((m) => (
-        <SelectItem key={m.key}>{m.label}</SelectItem>
-      ))}
+      <SelectTrigger className="w-28 min-h-8 h-8 text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {models.map((m) => (
+          <SelectItem key={m.key} value={m.key}>
+            {m.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
     </Select>
   );
 }

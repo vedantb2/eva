@@ -1,7 +1,11 @@
 import { api } from "@/api";
 import dayjs from "@/lib/dates";
-import { Avatar } from "@heroui/avatar";
-import { Badge, Tooltip } from "@heroui/react";
+import { Avatar, AvatarFallback } from "@/lib/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/lib/components/ui/tooltip";
 import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
 
@@ -28,30 +32,41 @@ export function UserInitials({
       : name;
   const iconSize =
     size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
+
   const avatar = (
-    <Avatar
-      name={initials || "?"}
-      classNames={{
-        base: `${iconSize} bg-teal-500`,
-        name: "text-teal-100",
-      }}
-    />
+    <Avatar className={iconSize}>
+      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
   );
+
   if (hideLastSeen) {
-    return <Tooltip content={tooltip}>{avatar}</Tooltip>;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>{avatar}</span>
+        </TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    );
   }
+
   return (
-    <Tooltip content={tooltip}>
-      <Badge
-        content=""
-        size="sm"
-        color={online ? "success" : "warning"}
-        shape="circle"
-        placement="bottom-right"
-        isInvisible={hideLastSeen || !user.lastSeenAt}
-      >
-        {avatar}
-      </Badge>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="relative">
+          {avatar}
+          {!hideLastSeen && user.lastSeenAt && (
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
+                online ? "bg-emerald-500" : "bg-amber-500"
+              }`}
+            />
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
   );
 }

@@ -5,9 +5,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@heroui/button";
-import { Tabs, Tab } from "@heroui/tabs";
-import { Card, CardBody } from "@heroui/card";
+import { Button } from "@/lib/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import {
   IconPlayerPlay,
   IconCheck,
@@ -42,8 +42,8 @@ function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
       text: "text-yellow-600 dark:text-yellow-400",
     },
     running: {
-      dot: "bg-teal-500 animate-pulse",
-      text: "text-teal-600 dark:text-teal-400",
+      dot: "bg-primary animate-pulse",
+      text: "text-primary",
     },
     completed: {
       dot: "bg-green-500",
@@ -69,8 +69,8 @@ function ReportCard({ report }: { report: EvaluationReport }) {
   const passRate = total > 0 ? Math.round((passed.length / total) * 100) : 0;
 
   return (
-    <Card shadow="none" className="bg-neutral-100 dark:bg-neutral-800/50">
-      <CardBody className="flex flex-col gap-4">
+    <Card className="shadow-none bg-neutral-100 dark:bg-neutral-800/50">
+      <CardContent className="flex flex-col gap-4 p-4">
         <div className="flex items-center justify-between">
           {report.status !== "completed" && (
             <StatusBadge status={report.status} />
@@ -79,7 +79,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
 
         {report.status === "running" && (
           <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-teal-600" />
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-primary" />
             <span className="text-sm text-neutral-500">
               Evaluating codebase...
             </span>
@@ -105,7 +105,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
               </div>
               <div className="flex items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400">
                 <span className="inline-flex items-center gap-1 tabular-nums">
-                  <IconCheck size={14} className="text-teal-600" />
+                  <IconCheck size={14} className="text-primary" />
                   {passed.length}
                 </span>
                 <span className="inline-flex items-center gap-1 tabular-nums">
@@ -121,7 +121,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
             <div className="h-1 rounded-full bg-neutral-200/70 dark:bg-neutral-700/60 overflow-hidden flex">
               {passed.length > 0 && (
                 <div
-                  className="h-full bg-teal-500"
+                  className="h-full bg-primary"
                   style={{ width: `${passRate}%` }}
                 />
               )}
@@ -174,7 +174,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
                       <div key={idx} className="flex items-start gap-2">
                         <IconCheck
                           size={14}
-                          className="mt-0.5 text-teal-600 flex-shrink-0"
+                          className="mt-0.5 text-primary flex-shrink-0"
                         />
                         <div className="min-w-0">
                           <p className="text-sm text-neutral-900 dark:text-white">
@@ -192,7 +192,7 @@ function ReportCard({ report }: { report: EvaluationReport }) {
             )}
           </div>
         )}
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }
@@ -207,7 +207,7 @@ function CodeTestingContent({
       <div className="flex-1 overflow-y-auto scrollbar p-4">
         {reports === undefined ? (
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-neutral-400">
@@ -263,7 +263,7 @@ export default function TestingArenaDocPage({
   if (doc === undefined) {
     return (
       <div className="h-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -283,49 +283,29 @@ export default function TestingArenaDocPage({
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
             {doc.title}
           </h2>
-          {activeTab === "code" ? (
-            <Button
-              size="sm"
-              color="primary"
-              startContent={<IconPlayerPlay size={16} />}
-              onPress={handleRunTest}
-              isLoading={isRunning}
-            >
-              Run Test
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              color="primary"
-              startContent={<IconPlayerPlay size={16} />}
-            >
-              Run Test
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={activeTab === "code" ? handleRunTest : undefined}
+            disabled={activeTab === "code" && isRunning}
+          >
+            <IconPlayerPlay size={16} />
+            {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
+          </Button>
         </div>
         <Tabs
-          selectedKey={activeTab}
-          onSelectionChange={(key) => setActiveTab(key as string)}
-          size="sm"
+          value={activeTab}
+          onValueChange={setActiveTab}
         >
-          <Tab
-            key="code"
-            title={
-              <div className="flex items-center gap-1.5">
-                <IconCode size={14} />
-                <span>Code Testing</span>
-              </div>
-            }
-          />
-          <Tab
-            key="ui"
-            title={
-              <div className="flex items-center gap-1.5">
-                <IconWorld size={14} />
-                <span>UI Testing</span>
-              </div>
-            }
-          />
+          <TabsList className="h-8">
+            <TabsTrigger value="code" className="text-xs">
+              <IconCode size={14} />
+              <span>Code Testing</span>
+            </TabsTrigger>
+            <TabsTrigger value="ui" className="text-xs">
+              <IconWorld size={14} />
+              <span>UI Testing</span>
+            </TabsTrigger>
+          </TabsList>
         </Tabs>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">

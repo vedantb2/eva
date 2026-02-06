@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-  Button,
-} from "@heroui/react";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { Button } from "@/lib/components/ui/button";
 import {
   IconGitBranch,
   IconSelector,
@@ -146,12 +147,12 @@ export function BranchSelector({
 
   return (
     <div className="flex items-center gap-1">
-      <Dropdown>
-        <DropdownTrigger>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
             size="sm"
-            variant="flat"
-            className="flex items-center gap-2 flex-1 px-2 py-2  transition-colors"
+            variant="secondary"
+            className="flex items-center gap-2 flex-1 px-2 py-2 transition-colors"
           >
             <IconGitBranch className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
             <span className="flex-1 text-left text-sm text-neutral-700 dark:text-neutral-300 truncate">
@@ -159,39 +160,32 @@ export function BranchSelector({
             </span>
             <IconSelector className="w-4 h-4 text-neutral-400" />
           </Button>
-        </DropdownTrigger>
-        <DropdownMenu
-          aria-label="Branch selection"
-          selectionMode="single"
-          selectedKeys={selectedBranch ? new Set([selectedBranch]) : new Set()}
-          onSelectionChange={(keys) => {
-            const selected = Array.from(keys)[0];
-            if (typeof selected === "string") {
-              handleBranchChange(selected);
-            }
-          }}
-          className=" max-h-64 overflow-auto scrollbar"
-        >
-          {branches.map((branch) => (
-            <DropdownItem
-              key={branch.name}
-              className="px-3 py-2 text-sm text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              startContent={
-                <IconGitBranch className="w-4 h-4 text-neutral-500" />
-              }
-            >
-              {branch.name}
-            </DropdownItem>
-          ))}
-        </DropdownMenu>
-      </Dropdown>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="max-h-64 overflow-auto scrollbar">
+          <DropdownMenuRadioGroup
+            value={selectedBranch ?? ""}
+            onValueChange={handleBranchChange}
+          >
+            {branches.map((branch) => (
+              <DropdownMenuRadioItem
+                key={branch.name}
+                value={branch.name}
+                className="px-3 py-2 text-sm text-neutral-900 dark:text-white"
+              >
+                <IconGitBranch className="mr-2 h-4 w-4 text-neutral-500" />
+                {branch.name}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Button
-        isIconOnly
-        size="sm"
-        variant="flat"
-        onPress={handleSync}
+        size="icon"
+        variant="secondary"
+        onClick={handleSync}
         disabled={syncing}
         title="Sync branches from GitHub"
+        className="h-8 w-8"
       >
         <IconRefresh
           className={`w-4 h-4 text-neutral-500 dark:text-neutral-400 ${syncing ? "animate-spin" : ""}`}

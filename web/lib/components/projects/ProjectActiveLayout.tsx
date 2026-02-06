@@ -13,7 +13,7 @@ import {
   IconLayoutSidebarRightExpand,
   IconMessageCircle,
 } from "@tabler/icons-react";
-import { Button } from "@heroui/react";
+import { Button } from "@/lib/components/ui/button";
 
 interface Project {
   _id: Id<"projects">;
@@ -78,18 +78,16 @@ export function ProjectActiveLayout({
             </div>
           )}
           {!tasksCollapsed && (
-            <div className="flex flex-row items-center gap-1 mx-auto text-teal-500 dark:text-teal-400">
+            <div className="flex flex-row items-center gap-1 mx-auto text-primary">
               <IconChecklist size={14} />
               <p className="text-sm font-semibold">Tasks</p>
             </div>
           )}
           <Button
-            size="sm"
-            isIconOnly
-            variant="light"
-            radius="none"
-            className="text-teal-500 dark:text-teal-400"
-            onPress={() => setTasksCollapsed(!tasksCollapsed)}
+            size="icon"
+            variant="ghost"
+            className="rounded-none text-primary"
+            onClick={() => setTasksCollapsed(!tasksCollapsed)}
           >
             {tasksCollapsed ? (
               <IconLayoutSidebarLeftExpand size={16} />
@@ -112,12 +110,10 @@ export function ProjectActiveLayout({
       >
         <div className="flex items-center justify-start">
           <Button
-            size="sm"
-            isIconOnly
-            radius="none"
-            variant="light"
-            className="text-teal-500 dark:text-teal-400"
-            onPress={() => setChatCollapsed(!chatCollapsed)}
+            size="icon"
+            variant="ghost"
+            className="rounded-none text-primary"
+            onClick={() => setChatCollapsed(!chatCollapsed)}
           >
             {chatCollapsed ? (
               <IconLayoutSidebarRightExpand size={16} />
@@ -126,7 +122,7 @@ export function ProjectActiveLayout({
             )}
           </Button>
           {!chatCollapsed && (
-            <div className="flex flex-row gap-1 items-center mx-auto text-teal-500 dark:text-teal-400">
+            <div className="flex flex-row gap-1 items-center mx-auto text-primary">
               <IconMessageCircle size={14} />
               <p className="text-sm font-semibold ">Chat</p>
             </div>

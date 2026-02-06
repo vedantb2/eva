@@ -67,7 +67,7 @@ function UserAvatar({ userId }: { userId?: string }) {
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
     "?";
   return (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500 text-teal-100 text-xs font-medium flex items-center justify-center">
+    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
       {initials}
     </div>
   );
@@ -353,9 +353,9 @@ Please review all components and files used on this page before implementing the
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <div className="mb-3 rounded-full bg-muted p-4">
               {mode === "ask" ? (
-                <IconMessageCircle size={28} className="text-teal-500" />
+                <IconMessageCircle size={28} className="text-primary" />
               ) : (
-                <IconFlag size={28} className="text-teal-500" />
+                <IconFlag size={28} className="text-primary" />
               )}
             </div>
             <p className="font-medium text-foreground text-sm mb-1">
@@ -399,7 +399,7 @@ Please review all components and files used on this page before implementing the
                 {isFlagResponse && prev ? (
                   <Collapsible className="rounded-xl rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
                     <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
-                      <IconCheck size={16} className="text-teal-500 shrink-0" />
+                      <IconCheck size={16} className="text-primary shrink-0" />
                       <span className="flex-1 text-left">
                         Issue flagged and task created
                       </span>
@@ -543,7 +543,7 @@ Please review all components and files used on this page before implementing the
                 onClick={onToggleToolbar}
                 className={`relative p-2 rounded-lg transition-all duration-200 ${
                   toolbarVisible
-                    ? "bg-teal-600 text-white ring-2 ring-teal-500 ring-offset-2 ring-offset-background"
+                    ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
                     : "bg-muted text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
@@ -594,7 +594,7 @@ Please review all components and files used on this page before implementing the
                   isLoadingSession
                 }
                 size="icon"
-                className="mt-auto rounded-full mr-2 mb-2 bg-teal-600 hover:bg-teal-700 text-white"
+                className="mt-auto rounded-full mr-2 mb-2 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <IconArrowUp size={18} />
               </Button>

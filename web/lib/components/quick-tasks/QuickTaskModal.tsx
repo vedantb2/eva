@@ -2,15 +2,23 @@
 
 import { useState } from "react";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Input, Textarea } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
+import { Textarea } from "@/lib/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/lib/components/ui/select";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -52,56 +60,59 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalContent>
-        <ModalHeader>New Quick Task</ModalHeader>
-        <ModalBody>
-          <div className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New Quick Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Title</label>
             <Input
-              label="Title"
               placeholder="What needs to be done?"
               value={title}
-              onValueChange={setTitle}
+              onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Description</label>
             <Textarea
-              label="Description"
               placeholder="Add more details (optional)"
               value={description}
-              onValueChange={setDescription}
-              minRows={3}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
             />
-            <Select
-              label="Assign To"
-              placeholder="Select a user (optional)"
-              selectedKeys={assignedToKey ? [assignedToKey] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0];
-                setAssignedToKey(selected ? String(selected) : "");
-              }}
-            >
-              {(users ?? []).map((user) => (
-                <SelectItem key={user._id}>
-                  {user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed User"}
-                </SelectItem>
-              ))}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Assign To</label>
+            <Select value={assignedToKey} onValueChange={setAssignedToKey}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {(users ?? []).map((user) => (
+                  <SelectItem key={user._id} value={user._id}>
+                    {user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed User"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button
-            color="primary"
-            onPress={handleSubmit}
-            isLoading={isLoading}
-            isDisabled={!title.trim()}
+            onClick={handleSubmit}
+            disabled={isLoading || !title.trim()}
           >
+            {isLoading && <Spinner size="sm" />}
             Create Task
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

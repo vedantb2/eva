@@ -1,6 +1,6 @@
 "use client";
 
-import { Chip } from "@heroui/react";
+import { Badge } from "@/lib/components/ui/badge";
 import {
   IconNotes,
   IconCheck,
@@ -29,9 +29,9 @@ export const phaseConfig: Record<
     icon: IconNotes,
   },
   finalized: {
-    bg: "bg-teal-200/80 dark:bg-teal-900/60",
+    bg: "bg-primary/15",
     cardBg: "bg-white dark:bg-neutral-900",
-    text: "text-teal-700 dark:text-teal-400",
+    text: "text-primary",
     label: "Finalized",
     icon: IconCheck,
   },
@@ -60,12 +60,9 @@ export function ProjectPhaseBadge({ phase }: ProjectPhaseBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <Chip
-      startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
-      variant="flat"
-      className={`${config.text} ${config.bg}`}
-    >
+    <Badge className={`${config.text} ${config.bg} border-transparent`}>
+      <Icon size={14} className={`mr-1 ${config.text}`} />
       {config.label}
-    </Chip>
+    </Badge>
   );
 }

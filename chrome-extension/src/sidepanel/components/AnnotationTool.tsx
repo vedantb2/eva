@@ -132,12 +132,12 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
           onClick={handleClick}
           className={`relative p-2 rounded-lg transition-all duration-200 ${
             isActive
-              ? "bg-teal-600 text-white ring-2 ring-teal-500 ring-offset-2 ring-offset-background"
+              ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
               : "bg-muted text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
           {isActive && (
-            <span className="absolute inset-0 rounded-lg animate-ping bg-teal-500 opacity-30" />
+            <span className="absolute inset-0 rounded-lg animate-ping bg-primary opacity-30" />
           )}
           <IconMapPin className="relative w-5 h-5" />
         </button>

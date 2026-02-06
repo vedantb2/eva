@@ -1,9 +1,14 @@
 "use client";
 
-import { Avatar } from "@heroui/avatar";
-import { Card, CardBody } from "@heroui/card";
-import { Accordion, AccordionItem } from "@heroui/accordion";
-import { Spinner } from "@heroui/spinner";
+import { Avatar, AvatarFallback } from "@/lib/components/ui/avatar";
+import { Card, CardContent } from "@/lib/components/ui/card";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/lib/components/ui/accordion";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
@@ -31,34 +36,26 @@ export function ChatMessage({
     <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       {!isUser && (
         <div className="mb-1.5 flex items-center gap-2">
-          <Avatar
-            icon={
-              <Image
-                src="/icon.png"
-                alt="Assistant"
-                width={24}
-                height={24}
-                className="rounded-full"
-              />
-            }
-            classNames={{
-              base: "bg-neutral-200",
-              icon: "text-default-600",
-            }}
-            className="flex-shrink-0"
-            size="sm"
-          />
-          <span className="text-xs font-medium text-default-500">Eva</span>
+          <Avatar className="flex-shrink-0 h-8 w-8 bg-neutral-200">
+            <Image
+              src="/icon.png"
+              alt="Assistant"
+              width={24}
+              height={24}
+              className="rounded-full"
+            />
+            <AvatarFallback className="bg-neutral-200 text-foreground/80">E</AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-medium text-muted-foreground">Eva</span>
         </div>
       )}
       <Card
-        shadow="none"
-        className={`${isUser ? "max-w-[85%] sm:max-w-[75%] bg-primary text-primary-foreground rounded-br-none" : "bg-default-100 rounded-tl-none"}`}
+        className={`shadow-none ${isUser ? "max-w-[85%] sm:max-w-[75%] bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-tl-none"}`}
       >
-        <CardBody className="py-2 px-2 sm:px-3">
+        <CardContent className="py-2 px-2 sm:px-3">
           {isStreaming ? (
             <>
-              <pre className="text-sm whitespace-pre-wrap break-words text-default-500">
+              <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
                 {content}
               </pre>
               <Spinner size="sm" className="mt-2" />
@@ -78,40 +75,33 @@ export function ChatMessage({
                 </Streamdown>
               )}
               {logs && (
-                <Accordion isCompact className="mt-2 px-0">
-                  <AccordionItem
-                    key="logs"
-                    title="View logs"
-                    classNames={{
-                      trigger: "py-1",
-                      title: "text-xs text-default-400",
-                      content: "pt-0 overflow-hidden",
-                    }}
-                  >
-                    <pre className="text-xs whitespace-pre-wrap break-all text-default-500 max-h-60 overflow-y-auto w-0 min-w-full">
-                      {logs}
-                    </pre>
+                <Accordion type="single" collapsible className="mt-2 px-0">
+                  <AccordionItem value="logs" className="border-b-0">
+                    <AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline">
+                      View logs
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-0 overflow-hidden">
+                      <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
+                        {logs}
+                      </pre>
+                    </AccordionContent>
                   </AccordionItem>
                 </Accordion>
               )}
             </>
           )}
-        </CardBody>
+        </CardContent>
       </Card>
       {isUser && (
         <div className="mt-1.5">
           {userId ? (
             <UserInitials userId={userId} hideLastSeen size="md" />
           ) : (
-            <Avatar
-              icon={<IconUser size={20} />}
-              classNames={{
-                base: "bg-primary",
-                icon: "text-primary-foreground",
-              }}
-              className="flex-shrink-0"
-              size="sm"
-            />
+            <Avatar className="flex-shrink-0 h-8 w-8 bg-primary">
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                <IconUser size={20} />
+              </AvatarFallback>
+            </Avatar>
           )}
         </div>
       )}

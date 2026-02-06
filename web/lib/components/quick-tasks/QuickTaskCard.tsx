@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardBody } from "@heroui/card";
+import { Card, CardContent } from "@/lib/components/ui/card";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { IconGitBranch, IconGitPullRequest, IconDotsVertical } from "@tabler/icons-react";
@@ -10,12 +10,12 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import { Checkbox } from "@heroui/checkbox";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { Checkbox } from "@/lib/components/ui/checkbox";
 import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 
 interface QuickTaskCardProps {
@@ -52,20 +52,16 @@ export function QuickTaskCard({
 
   return (
     <Card
-      isPressable={isSelecting ? false : !!onClick}
-      onPress={isSelecting ? undefined : onClick}
-      shadow="none"
-      radius="sm"
-      className={`w-full shadow ${statusConfig[status].cardBg} ${hasError ? "border-2 border-danger-500" : ""} ${isSelected ? "ring-2 ring-teal-500" : ""}`}
+      className={`w-full shadow cursor-pointer ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      onClick={isSelecting ? undefined : onClick}
     >
-      <CardBody className="p-2 gap-1">
+      <CardContent className="p-2 gap-1">
         <div className="flex items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox
-              isSelected={isSelected}
-              onValueChange={() => onToggleSelect?.()}
-              size="sm"
-              classNames={{ wrapper: "flex-shrink-0" }}
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect?.()}
+              className="flex-shrink-0"
             />
           )}
           <h4 className="font-medium text-sm line-clamp-1 flex-1">{title}</h4>
@@ -73,42 +69,36 @@ export function QuickTaskCard({
             <SubtaskProgress taskId={id} />
             {(branchName || latestPrUrl) && (
               <div onClick={(e) => e.stopPropagation()}>
-                <Dropdown>
-                  <DropdownTrigger>
-                    <button type="button" className="p-1 rounded hover:bg-default-200 transition-colors">
-                      <IconDotsVertical size={14} className="text-default-400" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="p-1 rounded hover:bg-muted transition-colors">
+                      <IconDotsVertical size={14} className="text-muted-foreground" />
                     </button>
-                  </DropdownTrigger>
-                  <DropdownMenu aria-label="Task actions">
-                    {branchName ? (
-                      <DropdownItem
-                        key="branch"
-                        startContent={<IconGitBranch size={16} />}
-                        onPress={() => window.open(`https://github.com/${fullName}/tree/${branchName}`, "_blank")}
-                      >
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {branchName && (
+                      <DropdownMenuItem onClick={() => window.open(`https://github.com/${fullName}/tree/${branchName}`, "_blank")}>
+                        <IconGitBranch className="mr-2 h-4 w-4" />
                         View Branch
-                      </DropdownItem>
-                    ) : null}
-                    {latestPrUrl ? (
-                      <DropdownItem
-                        key="pr"
-                        startContent={<IconGitPullRequest size={16} />}
-                        onPress={() => window.open(latestPrUrl, "_blank")}
-                      >
+                      </DropdownMenuItem>
+                    )}
+                    {latestPrUrl && (
+                      <DropdownMenuItem onClick={() => window.open(latestPrUrl, "_blank")}>
+                        <IconGitPullRequest className="mr-2 h-4 w-4" />
                         View PR
-                      </DropdownItem>
-                    ) : null}
-                  </DropdownMenu>
-                </Dropdown>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
         </div>
         <div className="flex items-center justify-between mt-1">
           {createdBy && <UserInitials userId={createdBy} />}
-          <span className="text-xs text-default-400 ml-auto">{dayjs(createdAt).fromNow()}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{dayjs(createdAt).fromNow()}</span>
         </div>
-      </CardBody>
+      </CardContent>
     </Card>
   );
 }

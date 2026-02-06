@@ -4,15 +4,22 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Button } from "@/lib/components/ui/button";
+import { Input } from "@/lib/components/ui/input";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/lib/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { Spinner } from "@/lib/components/ui/spinner";
 import {
   IconTerminal2,
   IconArchive,
@@ -24,12 +31,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import dayjs from "@/lib/dates";
 
@@ -119,20 +120,20 @@ export default function SessionsLayout({
   const sidebar = (
     <>
       <div className="p-3">
-        <Input
-          placeholder="Search sessions..."
-          size="sm"
-          startContent={<IconSearch size={16} className="text-default-400" />}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          isClearable
-          onClear={() => setSearchQuery("")}
-        />
+        <div className="relative">
+          <IconSearch size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search sessions..."
+            className="h-8 pl-8 text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {sessions === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center">
@@ -150,7 +151,7 @@ export default function SessionsLayout({
                   key={session._id}
                   className={`px-4 py-2 cursor-pointer transition-all group ${
                     isSelected
-                      ? "bg-teal-100 dark:bg-teal-900/20"
+                      ? "bg-primary/10"
                       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   }`}
                 >
@@ -159,7 +160,7 @@ export default function SessionsLayout({
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${
                           isSelected
-                            ? "text-teal-600 dark:text-teal-400"
+                            ? "text-primary"
                             : "text-neutral-900 dark:text-white"
                         }`}
                       >
@@ -171,32 +172,30 @@ export default function SessionsLayout({
                           e.stopPropagation();
                         }}
                       >
-                        <Dropdown>
-                          <DropdownTrigger>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-default-200 text-neutral-400"
+                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-neutral-400"
                             >
                               <IconDotsVertical size={14} />
                             </button>
-                          </DropdownTrigger>
-                          <DropdownMenu aria-label="Session actions">
-                            <DropdownItem
-                              key="archive"
-                              className="text-warning"
-                              color="warning"
-                              startContent={<IconArchive size={16} />}
-                              onPress={() =>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              className="text-amber-600"
+                              onClick={() =>
                                 setSessionToArchive({
                                   id: session._id,
                                   title: session.title,
                                 })
                               }
                             >
+                              <IconArchive size={16} className="mr-2" />
                               Archive
-                            </DropdownItem>
-                          </DropdownMenu>
-                        </Dropdown>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                     <div className="mt-2 flex items-center">
@@ -233,52 +232,53 @@ export default function SessionsLayout({
     >
       {children}
 
-      <Modal
-        isOpen={!!sessionToArchive}
-        onClose={() => setSessionToArchive(null)}
-      >
-        <ModalContent>
-          <ModalHeader>Archive Session</ModalHeader>
-          <ModalBody>
-            <p className="text-default-600">
-              Are you sure you want to archive{" "}
-              <strong>{sessionToArchive?.title}</strong>?
-            </p>
-            <p className="text-sm text-default-500 mt-3">
-              This will stop the sandbox and remove the session from the active
-              list. The session data will be preserved but no longer accessible.
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setSessionToArchive(null)}>
+      <Dialog open={!!sessionToArchive} onOpenChange={(v) => { if (!v) setSessionToArchive(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Session</DialogTitle>
+          </DialogHeader>
+          <p className="text-foreground/80">
+            Are you sure you want to archive{" "}
+            <strong>{sessionToArchive?.title}</strong>?
+          </p>
+          <p className="text-sm text-muted-foreground mt-3">
+            This will stop the sandbox and remove the session from the active
+            list. The session data will be preserved but no longer accessible.
+          </p>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setSessionToArchive(null)}>
               Cancel
             </Button>
             <Button
-              color="warning"
-              onPress={handleArchive}
-              isLoading={isArchiving}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              onClick={handleArchive}
+              disabled={isArchiving}
             >
-              Archive Session
+              {isArchiving ? <Spinner size="sm" /> : "Archive Session"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          setNewSessionTitle("");
+      <Dialog
+        open={isCreateModalOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setIsCreateModalOpen(false);
+            setNewSessionTitle("");
+          }
         }}
       >
-        <ModalContent>
-          <ModalHeader>New Session</ModalHeader>
-          <ModalBody>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Session Title</label>
             <Input
-              label="Session Title"
               placeholder="e.g., Add user authentication"
               value={newSessionTitle}
-              onValueChange={setNewSessionTitle}
+              onChange={(e) => setNewSessionTitle(e.target.value)}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newSessionTitle.trim()) {
@@ -286,11 +286,11 @@ export default function SessionsLayout({
                 }
               }}
             />
-          </ModalBody>
-          <ModalFooter>
+          </div>
+          <DialogFooter>
             <Button
-              variant="flat"
-              onPress={() => {
+              variant="secondary"
+              onClick={() => {
                 setIsCreateModalOpen(false);
                 setNewSessionTitle("");
               }}
@@ -298,16 +298,14 @@ export default function SessionsLayout({
               Cancel
             </Button>
             <Button
-              color="primary"
-              onPress={handleCreate}
-              isLoading={isCreating}
-              isDisabled={!newSessionTitle.trim()}
+              onClick={handleCreate}
+              disabled={isCreating || !newSessionTitle.trim()}
             >
-              Create Session
+              {isCreating ? <Spinner size="sm" /> : "Create Session"}
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarLayoutWrapper>
   );
 }

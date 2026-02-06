@@ -49,7 +49,7 @@ This is a monorepo with four apps:
 
 ### Tech Stack
 
-**Frontend:** Next.js 15, TypeScript, Tailwind CSS, HeroUI components, Clerk auth, ai-sdk with OpenRouter
+**Frontend:** Next.js 15, TypeScript, Tailwind CSS, shadcn/ui (Radix UI primitives), Clerk auth, ai-sdk with OpenRouter
 
 **Backend:** Convex (database + mutations/queries), Resend (email), Inngest (background jobs)
 
@@ -127,6 +127,16 @@ The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona s
 - `cloneRepo()` / `setupBranch()` - Git operations in sandbox
 - `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
 - `ensureProjectSandbox()` - Create or reuse existing sandbox
+
+### AI Elements SDK
+
+Chat UIs in sessions and research queries use AI Elements SDK components (`web/lib/components/ai-elements/`):
+- `Conversation` / `ConversationContent` / `ConversationScrollButton` - auto-scrolling message container
+- `Message` / `MessageContent` / `MessageResponse` - message rendering with Streamdown markdown
+- `Reasoning` / `ReasoningTrigger` / `ReasoningContent` - collapsible activity logs
+- `PromptInput` / `PromptInputTextarea` / `PromptInputSubmit` / `PromptInputFooter` / `PromptInputTools` - composable input form
+
+These are source-code components (like shadcn/ui), adapted for Tailwind v3. They depend on UI primitives in `web/lib/components/ui/` (collapsible, input-group, button-group, etc.).
 
 ## Conventions
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Chip } from "@heroui/react";
+import { Badge } from "@/lib/components/ui/badge";
 import {
   IconCircle,
   IconClock,
@@ -79,12 +79,9 @@ export function TaskStatusBadge({ status }: TaskStatusBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <Chip
-      startContent={<Icon size={14} className={`ml-1 ${config.text}`} />}
-      variant="flat"
-      className={`${config.text} ${config.bg}`}
-    >
+    <Badge className={`${config.text} ${config.bg} border-transparent`}>
+      <Icon size={14} className={`mr-1 ${config.text}`} />
       {config.label}
-    </Chip>
+    </Badge>
   );
 }

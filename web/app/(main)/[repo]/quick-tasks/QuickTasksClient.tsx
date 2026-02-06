@@ -6,7 +6,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@heroui/button";
+import { Button } from "@/lib/components/ui/button";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -61,19 +61,18 @@ export function QuickTasksClient() {
                 <>
                   <Button
                     size="sm"
-                    variant="flat"
-                    startContent={<IconX size={14} />}
-                    onPress={exitSelectMode}
+                    variant="secondary"
+                    onClick={exitSelectMode}
                   >
+                    <IconX className="mr-2 h-4 w-4" />
                     Cancel
                   </Button>
                   {selectedIds.size > 0 && (
                     <Button
                       size="sm"
-                      color="primary"
-                      startContent={<IconFolders size={14} />}
-                      onPress={() => setIsGroupModalOpen(true)}
+                      onClick={() => setIsGroupModalOpen(true)}
                     >
+                      <IconFolders className="mr-2 h-4 w-4" />
                       Group {selectedIds.size} into Project
                     </Button>
                   )}
@@ -81,19 +80,18 @@ export function QuickTasksClient() {
               ) : (
                 <Button
                   size="sm"
-                  variant="flat"
-                  startContent={<IconCheckbox size={14} />}
-                  onPress={() => setIsSelecting(true)}
+                  variant="secondary"
+                  onClick={() => setIsSelecting(true)}
                 >
+                  <IconCheckbox className="mr-2 h-4 w-4" />
                   Select
                 </Button>
               ))}
             <Button
               size="sm"
-              color="primary"
-              startContent={<IconPlus size={16} />}
-              onPress={() => setIsCreating(true)}
+              onClick={() => setIsCreating(true)}
             >
+              <IconPlus className="mr-2 h-4 w-4" />
               New Task
             </Button>
           </div>
@@ -101,7 +99,7 @@ export function QuickTasksClient() {
       >
         {tasks === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : !hasQuickTasks ? (
           <EmptyState

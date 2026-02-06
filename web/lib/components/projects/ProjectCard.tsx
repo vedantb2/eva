@@ -7,13 +7,17 @@ import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
 import { IconGitBranch, IconDots, IconTrash } from "@tabler/icons-react";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import { Button } from "@heroui/button";
-import { Tooltip } from "@heroui/tooltip";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { Button } from "@/lib/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/lib/components/ui/tooltip";
 import dayjs from "@/lib/dates";
 import {
   statusConfig,
@@ -65,55 +69,50 @@ export function ProjectCard({
       className={`p-3 rounded-md shadow transition-all group relative ${cardBg}`}
     >
       <div className="absolute top-2 right-2">
-        <Dropdown>
-          <DropdownTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
-              isIconOnly
-              size="sm"
-              variant="light"
+              size="icon"
+              variant="ghost"
               className="size-4 flex shrink-0 text-neutral-400 hover:text-neutral-600"
-              onPress={(e) => e.continuePropagation?.()}
+              onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />
             </Button>
-          </DropdownTrigger>
-          <DropdownMenu
-            aria-label="Project actions"
-            disabledKeys={isOwner ? [] : ["delete"]}
-          >
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             {branchName ? (
-              <DropdownItem
-                key="branch"
-                description={branchName}
-                startContent={<IconGitBranch size={16} />}
-                onPress={() =>
+              <DropdownMenuItem
+                onClick={() =>
                   window.open(
                     `https://github.com/${repoFullName}/tree/${branchName}`,
                     "_blank",
                   )
                 }
               >
+                <IconGitBranch size={16} className="mr-2 h-4 w-4" />
                 View Branch
-              </DropdownItem>
+              </DropdownMenuItem>
             ) : null}
-            <DropdownItem
-              key="delete"
-              className="text-danger"
-              color="danger"
-              startContent={<IconTrash size={16} />}
-              description={
-                !isOwner ? "Only the project owner can delete" : undefined
-              }
-              onPress={onDelete}
+            <DropdownMenuItem
+              className="text-destructive"
+              disabled={!isOwner}
+              onClick={onDelete}
             >
+              <IconTrash size={16} className="mr-2 h-4 w-4" />
               Delete
-            </DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
+              {!isOwner && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  Owner only
+                </span>
+              )}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <Link href={projectUrl} className="block">
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-teal-600 transition-colors truncate">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-primary transition-colors truncate">
             {title}
           </h3>
         </div>
@@ -127,8 +126,23 @@ export function ProjectCard({
           </p>
         ) : null}
         {progress && progress.total > 0 && (
-          <Tooltip
-            content={
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                {TASK_STATUSES.map((status) => {
+                  const count = progress[status];
+                  if (count === 0) return null;
+                  return (
+                    <div
+                      key={status}
+                      className={statusConfig[status].bar}
+                      style={{ width: `${(count / progress.total) * 100}%` }}
+                    />
+                  );
+                })}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
               <div className="flex flex-col gap-1">
                 {TASK_STATUSES.filter((s) => progress[s] > 0).map((s) => {
                   const Icon = statusConfig[s].icon;
@@ -142,22 +156,7 @@ export function ProjectCard({
                   );
                 })}
               </div>
-            }
-            size="sm"
-          >
-            <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-              {TASK_STATUSES.map((status) => {
-                const count = progress[status];
-                if (count === 0) return null;
-                return (
-                  <div
-                    key={status}
-                    className={statusConfig[status].bar}
-                    style={{ width: `${(count / progress.total) * 100}%` }}
-                  />
-                );
-              })}
-            </div>
+            </TooltipContent>
           </Tooltip>
         )}
         <div className="mt-4 flex items-center justify-between">
@@ -170,7 +169,7 @@ export function ProjectCard({
               <UserInitials userId={userId} />
             )}
           </div>
-          <span className="text-xs text-default-400">
+          <span className="text-xs text-muted-foreground">
             {dayjs(createdAt).fromNow()}
           </span>
         </div>

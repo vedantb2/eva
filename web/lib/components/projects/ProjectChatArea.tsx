@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
-import { Button } from "@heroui/button";
-import { Textarea } from "@heroui/input";
-import { Spinner } from "@heroui/spinner";
+import { Button } from "@/lib/components/ui/button";
+import { Textarea } from "@/lib/components/ui/textarea";
+import { Spinner } from "@/lib/components/ui/spinner";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -61,7 +61,7 @@ export function ProjectChatArea({
         {isSending && (
           <div className="flex gap-3 items-center">
             <Spinner size="sm" />
-            <span className="text-sm text-default-500">Sending...</span>
+            <span className="text-sm text-muted-foreground">Sending...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -78,32 +78,25 @@ export function ProjectChatArea({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Send a message..."
-              minRows={3}
-              maxRows={6}
+              rows={3}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              classNames={{
-                inputWrapper:
-                  "bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700",
-              }}
-              isDisabled={isSending}
+              className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none"
+              disabled={isSending}
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
               <Button
                 type="submit"
-                isIconOnly
-                color="primary"
-                radius="full"
-                isLoading={isSending}
-                isDisabled={!input.trim()}
-                size="sm"
+                size="icon"
+                className="rounded-full"
+                disabled={!input.trim() || isSending}
               >
-                <IconArrowUp size={16} />
+                {isSending ? <Spinner size="sm" /> : <IconArrowUp size={16} />}
               </Button>
             </div>
           </div>

@@ -34,12 +34,13 @@ import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import {
-  Dropdown,
-  DropdownTrigger,
   DropdownMenu,
-  DropdownItem,
-  Button,
-} from "@heroui/react";
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/lib/components/ui/dropdown-menu";
+import { Button } from "@/lib/components/ui/button";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 
 export function Sidebar() {
@@ -156,16 +157,16 @@ export function Sidebar() {
     <>
       <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
         <Button
-          isIconOnly
-          variant="light"
-          onPress={() => setMobileOpen(true)}
+          size="icon"
+          variant="ghost"
+          onClick={() => setMobileOpen(true)}
           className="-ml-2"
         >
           <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
         </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
-          className={`flex items-center gap-1.5 bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto`}
+          className={`flex items-center gap-1.5 bg-primary/10 rounded-full pr-4 mx-auto`}
         >
           <Image
             src="/icon.png"
@@ -174,7 +175,7 @@ export function Sidebar() {
             height={22}
             className="rounded-full"
           />
-          <span className="text-md tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+          <span className="text-md tracking-tight font-semibold text-primary">
             Eva
           </span>
         </Link>
@@ -200,7 +201,7 @@ export function Sidebar() {
             {!collapsed && (
               <Link
                 href={repoSlug ? `/${repoSlug}` : "/"}
-                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-gradient-to-r from-teal-200/50 to-cyan-200/50 dark:from-teal-800 dark:to-cyan-800 rounded-full pr-4 mx-auto"}`}
+                className={`flex items-center gap-1.5 ${collapsed ? "lg:justify-center" : "bg-primary/10 rounded-full pr-4 mx-auto"}`}
               >
                 <Image
                   src="/icon.png"
@@ -209,29 +210,29 @@ export function Sidebar() {
                   height={30}
                   className="rounded-full"
                 />
-                <span className="text-xl tracking-tight font-semibold text-teal-800 dark:text-teal-100">
+                <span className="text-xl tracking-tight font-semibold text-primary">
                   Eva
                 </span>
               </Link>
             )}
             <Button
-              isIconOnly
-              variant="flat"
-              onPress={() => setMobileOpen(false)}
+              size="icon"
+              variant="secondary"
+              onClick={() => setMobileOpen(false)}
               className="lg:hidden"
             >
               <IconX className="w-5 h-5 text-neutral-500" />
             </Button>
             <Button
-              isIconOnly
-              variant="light"
-              onPress={() => setCollapsed(!collapsed)}
+              size="icon"
+              variant="ghost"
+              onClick={() => setCollapsed(!collapsed)}
               className={`hidden lg:flex ${collapsed ? "absolute" : ""}`}
             >
               {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-teal-800 dark:text-teal-500" />
+                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-primary" />
               ) : (
-                <IconLayoutSidebarLeftCollapse className="size-5 text-teal-800 dark:text-teal-500" />
+                <IconLayoutSidebarLeftCollapse className="size-5 text-primary" />
               )}
             </Button>
           </div>
@@ -244,11 +245,11 @@ export function Sidebar() {
                 <>
                   {!collapsed && (
                     <div className="mb-4 space-y-1">
-                      <Dropdown>
-                        <DropdownTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                           <Button
                             size="sm"
-                            variant="flat"
+                            variant="secondary"
                             className="flex items-center gap-2 w-full"
                           >
                             <IconBrandGithub className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -257,34 +258,28 @@ export function Sidebar() {
                             </span>
                             <IconSelector className="w-4 h-4 text-neutral-500" />
                           </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu
-                          aria-label="Repository selection"
-                          selectionMode="single"
-                          selectedKeys={new Set([repoFullName])}
-                          onSelectionChange={(keys) => {
-                            const selected = Array.from(keys)[0];
-                            if (typeof selected === "string") {
-                              handleRepoSelect(selected);
-                            }
-                          }}
-                        >
-                          {(repos ?? []).map((r) => {
-                            const rFullName = `${r.owner}/${r.name}`;
-                            return (
-                              <DropdownItem
-                                key={rFullName}
-                                className="px-3 py-2 text-sm "
-                                startContent={
-                                  <IconBrandGithub className="w-4 h-4 text-neutral-500" />
-                                }
-                              >
-                                {rFullName}
-                              </DropdownItem>
-                            );
-                          })}
-                        </DropdownMenu>
-                      </Dropdown>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuRadioGroup
+                            value={repoFullName}
+                            onValueChange={handleRepoSelect}
+                          >
+                            {(repos ?? []).map((r) => {
+                              const rFullName = `${r.owner}/${r.name}`;
+                              return (
+                                <DropdownMenuRadioItem
+                                  key={rFullName}
+                                  value={rFullName}
+                                  className="px-3 py-2 text-sm"
+                                >
+                                  <IconBrandGithub className="mr-2 h-4 w-4 text-neutral-500" />
+                                  {rFullName}
+                                </DropdownMenuRadioItem>
+                              );
+                            })}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       {repo && (
                         <BranchSelector
                           owner={repo.owner}
@@ -323,14 +318,14 @@ export function Sidebar() {
                                   title={collapsed ? item.name : undefined}
                                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
-                                      ? "bg-teal-100/80 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200"
+                                      ? "bg-primary/10 text-primary"
                                       : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                                   }`}
                                 >
                                   <item.icon
                                     className={`size-[16px] flex-shrink-0 ${
                                       isActive
-                                        ? "text-teal-800 dark:text-teal-200"
+                                        ? "text-primary"
                                         : ""
                                     }`}
                                   />
@@ -367,13 +362,13 @@ export function Sidebar() {
                     title={collapsed ? item.name : undefined}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
-                        ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600"
+                        ? "bg-primary/5 text-primary"
                         : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
                     }`}
                   >
                     <span className="relative flex-shrink-0">
                       <item.icon
-                        className={`size-[16px] ${isActive ? "text-teal-600" : ""}`}
+                        className={`size-[16px] ${isActive ? "text-primary" : ""}`}
                       />
                     </span>
                     {!collapsed && item.name}

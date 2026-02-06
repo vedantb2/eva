@@ -409,63 +409,37 @@ export function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
       <div className="px-3 pb-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
-              <TabsList>
-                <TabsTrigger value="execute">
-                  <div className="flex items-center gap-1">
-                    <IconCode className="w-3 h-3" />
-                    <span className="text-xs">Execute</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="ask">
-                  <div className="flex items-center gap-1">
-                    <IconMessageCircle2 className="size-3" />
-                    <span className="text-xs">Ask</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="plan">
-                  <div className="flex items-center gap-1">
-                    <IconClipboardList className="w-3 h-3" />
-                    <span className="text-xs">Plan</span>
-                  </div>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {mode === "plan" && planContent && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="text-green-600"
-                onClick={() => setShowPlanModal(true)}
-              >
-                <IconFileText className="w-3 h-3" />
-                View Plan
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {prUrl && (
-              <Link href={prUrl} target="_blank">
-                <Badge variant="outline" className="gap-1 cursor-pointer">
-                  <IconGitPullRequest size={12} />
-                  View PR
-                </Badge>
-              </Link>
-            )}
-            <Link
-              href={
-                prUrl ??
-                `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
-              }
-            >
+        <div className="flex items-center gap-1 mb-2">
+          {prUrl && (
+            <Link href={prUrl} target="_blank">
               <Badge variant="outline" className="gap-1 cursor-pointer">
-                <IconWorld size={12} />
-                View Preview
+                <IconGitPullRequest size={12} />
+                View PR
               </Badge>
             </Link>
-          </div>
+          )}
+          <Link
+            href={
+              prUrl ??
+              `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
+            }
+          >
+            <Badge variant="outline" className="gap-1 cursor-pointer">
+              <IconWorld size={12} />
+              View Preview
+            </Badge>
+          </Link>
+          {mode === "plan" && planContent && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="text-green-600 h-6"
+              onClick={() => setShowPlanModal(true)}
+            >
+              <IconFileText className="w-3 h-3" />
+              View Plan
+            </Button>
+          )}
         </div>
         <form
           onSubmit={(e) => {
@@ -497,7 +471,25 @@ export function ChatPanel({
               disabled={isInputDisabled}
             />
             <div className="flex items-center justify-between px-2 pb-2">
-              <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+              <div className="flex items-center gap-2">
+                <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="execute" className="text-xs px-2 py-1 gap-1">
+                      <IconCode className="w-3 h-3" />
+                      Execute
+                    </TabsTrigger>
+                    <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
+                      <IconMessageCircle2 className="w-3 h-3" />
+                      Ask
+                    </TabsTrigger>
+                    <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
+                      <IconClipboardList className="w-3 h-3" />
+                      Plan
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+              </div>
               {isExecuting ? (
                 <Button
                   size="icon"

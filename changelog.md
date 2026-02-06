@@ -1,5 +1,13 @@
 # Changelog
 
+## Port purple theme to chrome-extension - 2026-02-06
+
+- Updated chrome-extension CSS variables from HSL teal to RGB purple theme matching the web app
+- Switched tailwind.config.js color references from `hsl(var(--...))` to `var(--...)` format
+- Replaced all hardcoded `teal-*` Tailwind classes across 5 sidepanel files with `primary` theme equivalents
+- Replaced all `#14b8a6` teal hex colors in 3 content script overlay files with `#975799` purple using Tailwind arbitrary values and inline styles (shadow DOM compatible)
+- Updated dialog and tabs UI components to use `rounded-md` for consistency with web
+
 ## Replace hardcoded teal colors with primary theme variables - 2026-02-06
 
 - Replaced all hardcoded `teal-*` Tailwind color classes across 29 files with `primary` theme equivalents (`text-primary`, `bg-primary/10`, `border-primary`, etc.)

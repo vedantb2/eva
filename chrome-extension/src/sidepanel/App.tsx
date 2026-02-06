@@ -210,6 +210,11 @@ function AuthenticatedApp() {
   ]);
 
   useEffect(() => {
+    const port = chrome.runtime.connect({ name: "sidepanel" });
+    return () => port.disconnect();
+  }, []);
+
+  useEffect(() => {
     const checkCurrentTab = async () => {
       const [tab] = await chrome.tabs.query({
         active: true,

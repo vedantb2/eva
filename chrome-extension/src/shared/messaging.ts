@@ -20,7 +20,8 @@ export type MessageType =
   | "HIDE_TOOLBAR"
   | "TOOLBAR_ADD_QUICK_TASKS"
   | "TOOLBAR_ADD_TO_PROJECT"
-  | "TOOLBAR_RESULT";
+  | "TOOLBAR_RESULT"
+  | "PANEL_CLOSED";
 
 export interface StartSelectionMessage {
   type: "START_SELECTION";

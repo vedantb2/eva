@@ -28,6 +28,7 @@ import {
 } from "@heroui/modal";
 import { Tabs, Tab } from "@heroui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Link from "next/link";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
@@ -79,6 +80,7 @@ export function ChatPanel({
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
   const typedSessionId = sessionId as Id<"sessions">;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
@@ -110,13 +112,13 @@ export function ChatPanel({
   }, [messages]);
 
   const sendToApi = useCallback(
-    async (message: string, sendMode: SessionMode) => {
+    async (message: string, sendMode: SessionMode, sendModel: ClaudeModel) => {
       const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "session/execute",
-          data: { sessionId, message, mode: sendMode },
+          data: { sessionId, message, mode: sendMode, model: sendModel },
         }),
       });
       if (!response.ok) {
@@ -133,7 +135,7 @@ export function ChatPanel({
     setIsSending(true);
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
-      await sendToApi(content, mode);
+      await sendToApi(content, mode, model);
     } catch {
       setIsSending(false);
     }
@@ -299,104 +301,106 @@ export function ChatPanel({
             .map((message, index) => (
               <div
                 key={index}
-                className={`flex gap-3 ${
-                  message.role === "user" ? "justify-end" : "justify-start"
+                className={`flex flex-col ${
+                  message.role === "user" ? "items-end" : "items-start"
                 }`}
               >
                 {message.role === "assistant" && (
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full overflow-hidden">
-                    <Image
-                      src="/icon.png"
-                      alt="Assistant"
-                      width={28}
-                      height={28}
-                    />
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full overflow-hidden">
+                      <Image
+                        src="/icon.png"
+                        alt="Assistant"
+                        width={28}
+                        height={28}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-neutral-500">Eva</span>
                   </div>
                 )}
                 <div
-                  className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
+                  className={`px-3 py-2 rounded-xl ${
+                    message.role === "user"
+                      ? "max-w-[85%] bg-teal-600 text-white rounded-br-none"
+                      : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
+                  }`}
                 >
-                  <div
-                    className={`max-w-[85%] px-3 py-2 rounded-xl ${
-                      message.role === "user"
-                        ? "bg-teal-600 text-white"
-                        : "bg-neutral-100 dark:bg-neutral-800"
-                    }`}
-                  >
-                    {message.role === "assistant" && !message.content ? (
-                      <>
-                        <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
-                          {streamingActivity || "Starting..."}
-                        </pre>
-                        <Spinner size="sm" className="mt-2" />
-                      </>
-                    ) : (
-                      <>
-                        {message.role === "assistant" ? (
-                          <Streamdown
-                            plugins={{ code }}
-                            className="prose prose-sm dark:prose-invert max-w-none"
-                          >
-                            {message.content}
-                          </Streamdown>
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
-                          </p>
+                  {message.role === "assistant" && !message.content ? (
+                    <>
+                      <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
+                        {streamingActivity || "Starting..."}
+                      </pre>
+                      <Spinner size="sm" className="mt-2" />
+                    </>
+                  ) : (
+                    <>
+                      {message.role === "assistant" ? (
+                        <Streamdown
+                          plugins={{ code }}
+                          className="prose prose-sm dark:prose-invert max-w-none"
+                        >
+                          {message.content}
+                        </Streamdown>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                      )}
+                      {message.role === "assistant" &&
+                        message.activityLog && (
+                          <Accordion isCompact className="mt-2 px-0">
+                            <AccordionItem
+                              key="logs"
+                              title="View logs"
+                              classNames={{
+                                title: "text-xs text-neutral-500",
+                                trigger: "py-1",
+                                content: "pb-2 overflow-hidden",
+                              }}
+                            >
+                              <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
+                                {message.activityLog}
+                              </pre>
+                            </AccordionItem>
+                          </Accordion>
                         )}
-                        {message.role === "assistant" &&
-                          message.activityLog && (
-                            <Accordion isCompact className="mt-2 px-0">
-                              <AccordionItem
-                                key="logs"
-                                title="View logs"
-                                classNames={{
-                                  title: "text-xs text-neutral-500",
-                                  trigger: "py-1",
-                                  content: "pb-2 overflow-hidden",
-                                }}
-                              >
-                                <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
-                                  {message.activityLog}
-                                </pre>
-                              </AccordionItem>
-                            </Accordion>
-                          )}
+                    </>
+                  )}
+                </div>
+                {message.mode && message.role === "user" && (
+                  <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
+                    {message.mode === "execute" && (
+                      <>
+                        <IconCode className="w-3 h-3" /> Execute
+                      </>
+                    )}
+                    {message.mode === "ask" && (
+                      <>
+                        <IconMessageCircle2 className="w-3 h-3" /> Ask
+                      </>
+                    )}
+                    {message.mode === "plan" && (
+                      <>
+                        <IconClipboardList className="w-3 h-3" /> Plan
                       </>
                     )}
                   </div>
-                  {message.mode && message.role === "user" && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
-                      {message.mode === "execute" && (
-                        <>
-                          <IconCode className="w-3 h-3" /> Execute
-                        </>
-                      )}
-                      {message.mode === "ask" && (
-                        <>
-                          <IconMessageCircle2 className="w-3 h-3" /> Ask
-                        </>
-                      )}
-                      {message.mode === "plan" && (
-                        <>
-                          <IconClipboardList className="w-3 h-3" /> Plan
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {message.role === "user" &&
-                  (message.userId ? (
-                    <UserInitials
-                      userId={message.userId}
-                      hideLastSeen
-                      size="md"
-                    />
-                  ) : (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                      <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                    </div>
-                  ))}
+                )}
+                {message.role === "user" && (
+                  <div className="mt-1.5">
+                    {message.userId ? (
+                      <UserInitials
+                        userId={message.userId}
+                        hideLastSeen
+                        size="md"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                        <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))
         )}
@@ -489,7 +493,7 @@ export function ChatPanel({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
+          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -516,31 +520,32 @@ export function ChatPanel({
               }}
               isDisabled={isInputDisabled}
             />
-            {isExecuting ? (
-              <Button
-                isIconOnly
-                className="mt-auto mr-2 mb-2"
-                color="danger"
-                radius="full"
-                onPress={handleCancel}
-                size="sm"
-              >
-                <IconPlayerStop size={16} />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                isIconOnly
-                className="mt-auto mr-2 mb-2"
-                color="primary"
-                radius="full"
-                isLoading={isSending}
-                isDisabled={isInputDisabled || !input.trim()}
-                size="sm"
-              >
-                <IconArrowUp size={16} />
-              </Button>
-            )}
+            <div className="flex items-center justify-between px-2 pb-2">
+              <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+              {isExecuting ? (
+                <Button
+                  isIconOnly
+                  color="danger"
+                  radius="full"
+                  onPress={handleCancel}
+                  size="sm"
+                >
+                  <IconPlayerStop size={16} />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  isIconOnly
+                  color="primary"
+                  radius="full"
+                  isLoading={isSending}
+                  isDisabled={isInputDisabled || !input.trim()}
+                  size="sm"
+                >
+                  <IconArrowUp size={16} />
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </div>

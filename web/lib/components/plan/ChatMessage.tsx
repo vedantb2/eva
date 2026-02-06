@@ -28,17 +28,11 @@ export function ChatMessage({
   const isUser = role === "user";
 
   return (
-    <div className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
-      {isUser && userId ? (
-        <div className="flex-shrink-0">
-          <UserInitials userId={userId} hideLastSeen size="md" />
-        </div>
-      ) : (
-        <Avatar
-          icon={
-            isUser ? (
-              <IconUser size={20} />
-            ) : (
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+      {!isUser && (
+        <div className="mb-1.5 flex items-center gap-2">
+          <Avatar
+            icon={
               <Image
                 src="/icon.png"
                 alt="Assistant"
@@ -46,19 +40,20 @@ export function ChatMessage({
                 height={24}
                 className="rounded-full"
               />
-            )
-          }
-          classNames={{
-            base: isUser ? "bg-primary" : "bg-neutral-200",
-            icon: isUser ? "text-primary-foreground" : "text-default-600",
-          }}
-          className="flex-shrink-0"
-          size="sm"
-        />
+            }
+            classNames={{
+              base: "bg-neutral-200",
+              icon: "text-default-600",
+            }}
+            className="flex-shrink-0"
+            size="sm"
+          />
+          <span className="text-xs font-medium text-default-500">Eva</span>
+        </div>
       )}
       <Card
         shadow="none"
-        className={`max-w-[85%] sm:max-w-[75%] ${isUser ? "bg-primary text-primary-foreground" : "bg-default-100"}`}
+        className={`${isUser ? "max-w-[85%] sm:max-w-[75%] bg-primary text-primary-foreground rounded-br-none" : "bg-default-100 rounded-tl-none"}`}
       >
         <CardBody className="py-2 px-2 sm:px-3">
           {isStreaming ? (
@@ -103,6 +98,23 @@ export function ChatMessage({
           )}
         </CardBody>
       </Card>
+      {isUser && (
+        <div className="mt-1.5">
+          {userId ? (
+            <UserInitials userId={userId} hideLastSeen size="md" />
+          ) : (
+            <Avatar
+              icon={<IconUser size={20} />}
+              classNames={{
+                base: "bg-primary",
+                icon: "text-primary-foreground",
+              }}
+              className="flex-shrink-0"
+              size="sm"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

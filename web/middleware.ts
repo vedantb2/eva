@@ -3,6 +3,7 @@ import { NextResponse, NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/api(.*)",
+  "/sandbox-auth",
 ]);
 
 const allowedOrigins = [

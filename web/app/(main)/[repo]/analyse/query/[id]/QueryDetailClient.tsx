@@ -8,6 +8,7 @@ import { Textarea } from "@heroui/input";
 import { IconArrowUp, IconUser } from "@tabler/icons-react";
 import { Spinner } from "@heroui/spinner";
 import { useEffect, useRef, useState } from "react";
+import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
@@ -26,6 +27,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,6 +48,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             queryId: typedQueryId,
             question: content,
             repoId: repo._id,
+            model,
           },
         }),
       });
@@ -90,25 +93,28 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           query.messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-3 ${
-                message.role === "user" ? "justify-end" : "justify-start"
+              className={`flex flex-col ${
+                message.role === "user" ? "items-end" : "items-start"
               }`}
             >
               {message.role === "assistant" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden">
-                  <Image
-                    src="/icon.png"
-                    alt="Assistant"
-                    width={32}
-                    height={32}
-                  />
+                <div className="mb-1.5 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <Image
+                      src="/icon.png"
+                      alt="Assistant"
+                      width={32}
+                      height={32}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-neutral-500">Eva</span>
                 </div>
               )}
               <div
-                className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                className={`px-4 py-2 rounded-xl ${
                   message.role === "user"
-                    ? "bg-teal-600 text-white"
-                    : "bg-white dark:bg-neutral-800"
+                    ? "max-w-[80%] bg-teal-600 text-white rounded-br-none"
+                    : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
                 }`}
               >
                 {message.role === "assistant" && !message.content ? (
@@ -131,18 +137,21 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   </p>
                 )}
               </div>
-              {message.role === "user" &&
-                (message.userId ? (
-                  <UserInitials
-                    userId={message.userId}
-                    hideLastSeen
-                    size="md"
-                  />
-                ) : (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                    <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
-                  </div>
-                ))}
+              {message.role === "user" && (
+                <div className="mt-1.5">
+                  {message.userId ? (
+                    <UserInitials
+                      userId={message.userId}
+                      hideLastSeen
+                      size="md"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                      <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -161,7 +170,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
+          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -174,24 +183,25 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   handleSend();
                 }
               }}
-              className="flex-1"
               classNames={{
                 inputWrapper:
                   "bg-neutral-100 hover:bg-neutral-200  dark:bg-neutral-800 dark:hover:bg-neutral-700",
               }}
               isDisabled={isSending}
             />
-            <Button
-              type="submit"
-              isIconOnly
-              color="primary"
-              radius="full"
-              className="mt-auto mr-2 mb-2"
-              isLoading={isSending}
-              isDisabled={isSending || !input.trim()}
-            >
-              <IconArrowUp size={18} />
-            </Button>
+            <div className="flex items-center justify-between px-2 pb-2">
+              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+              <Button
+                type="submit"
+                isIconOnly
+                color="primary"
+                radius="full"
+                isLoading={isSending}
+                isDisabled={isSending || !input.trim()}
+              >
+                <IconArrowUp size={18} />
+              </Button>
+            </div>
           </div>
         </form>
       </div>

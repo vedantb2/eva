@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
@@ -24,6 +25,7 @@ export function ProjectChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,7 +73,7 @@ export function ProjectChatArea({
             handleSend();
           }}
         >
-          <div className="flex gap-2 items-end bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
+          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -90,18 +92,20 @@ export function ProjectChatArea({
               }}
               isDisabled={isSending}
             />
-            <Button
-              type="submit"
-              isIconOnly
-              className="mt-auto mr-2 mb-2"
-              color="primary"
-              radius="full"
-              isLoading={isSending}
-              isDisabled={!input.trim()}
-              size="sm"
-            >
-              <IconArrowUp size={16} />
-            </Button>
+            <div className="flex items-center justify-between px-2 pb-2">
+              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+              <Button
+                type="submit"
+                isIconOnly
+                color="primary"
+                radius="full"
+                isLoading={isSending}
+                isDisabled={!input.trim()}
+                size="sm"
+              >
+                <IconArrowUp size={16} />
+              </Button>
+            </div>
           </div>
         </form>
       </div>

@@ -1,5 +1,18 @@
 let capturedContext: unknown = null;
 
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "sidepanel") return;
+  port.onDisconnect.addListener(() => {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: "PANEL_CLOSED" }).catch(() => {});
+        }
+      }
+    });
+  });
+});
+
 chrome.action.onClicked.addListener(async (tab) => {
   if (tab.id) {
     await chrome.sidePanel.open({ tabId: tab.id });

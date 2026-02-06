@@ -3,17 +3,36 @@
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@/lib/components/ui/button";
-import { Textarea } from "@/lib/components/ui/textarea";
-import { IconArrowUp, IconUser } from "@tabler/icons-react";
-import { Spinner } from "@/lib/components/ui/spinner";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Image from "next/image";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { Spinner } from "@/lib/components/ui/spinner";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/lib/components/ai-elements/conversation";
+import {
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+} from "@/lib/components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/lib/components/ai-elements/reasoning";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/lib/components/ai-elements/prompt-input";
 
 interface QueryDetailClientProps {
   queryId: string;
@@ -24,19 +43,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const typedQueryId = queryId as Id<"researchQueries">;
   const query = useQuery(api.researchQueries.get, { id: typedQueryId });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [query?.messages]);
-
-  const handleSend = async () => {
-    if (!input.trim() || isSending) return;
-    const content = input.trim();
-    setInput("");
+  const handleSend = async (text: string) => {
+    if (!text.trim() || isSending) return;
     setIsSending(true);
     try {
       await fetch("/api/inngest/send", {
@@ -46,7 +57,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           name: "research/query.execute",
           data: {
             queryId: typedQueryId,
-            question: content,
+            question: text.trim(),
             repoId: repo._id,
             model,
           },
@@ -60,7 +71,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   if (query === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -68,136 +79,105 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   if (query === null) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-neutral-500">
-            This query does not exist or has been deleted.
-          </p>
-        </div>
+        <p className="text-muted-foreground">
+          This query does not exist or has been deleted.
+        </p>
       </div>
     );
   }
 
+  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+    await handleSend(text);
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <div className="p-[16px] border-b border-neutral-200 dark:border-neutral-800">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
           {query.title}
         </h1>
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-4">
-        {query.messages.length === 0 ? (
-          <div className="text-center py-12 text-neutral-500">
-            <p>No messages yet. Start the conversation!</p>
-          </div>
-        ) : (
-          query.messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex flex-col ${
-                message.role === "user" ? "items-end" : "items-start"
-              }`}
-            >
-              {message.role === "assistant" && (
-                <div className="mb-1.5 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <Image
-                      src="/icon.png"
-                      alt="Assistant"
-                      width={32}
-                      height={32}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-neutral-500">Eva</span>
-                </div>
-              )}
-              <div
-                className={`px-4 py-2 rounded-xl ${
-                  message.role === "user"
-                    ? "max-w-[80%] bg-primary text-white rounded-br-none"
-                    : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
-                }`}
-              >
-                {message.role === "assistant" && !message.content ? (
-                  <>
-                    <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
-                      {streaming?.currentActivity || "Starting..."}
-                    </pre>
-                    <Spinner size="sm" className="mt-2" />
-                  </>
-                ) : message.role === "assistant" ? (
-                  <Streamdown
-                    plugins={{ code }}
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                  >
-                    {message.content}
-                  </Streamdown>
-                ) : (
-                  <p className="text-sm whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
-                )}
-              </div>
-              {message.role === "user" && (
-                <div className="mt-1.5">
-                  {message.userId ? (
-                    <UserInitials
-                      userId={message.userId}
-                      hideLastSeen
-                      size="md"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                      <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+      <Conversation className="flex-1">
+        <ConversationContent className="gap-4 p-6">
+          {query.messages.length === 0 ? (
+            <ConversationEmptyState title="No messages yet. Start the conversation!" />
+          ) : (
+            query.messages.map((message, index) => (
+              <AIMessage key={index} from={message.role}>
+                {message.role === "assistant" && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden">
+                      <Image
+                        src="/icon.png"
+                        alt="Assistant"
+                        width={32}
+                        height={32}
+                      />
                     </div>
+                    <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                  </div>
+                )}
+                <MessageContent
+                  className={
+                    message.role === "user"
+                      ? "rounded-xl rounded-br-none bg-primary text-primary-foreground px-4 py-2"
+                      : "rounded-xl rounded-tl-none bg-muted px-4 py-2"
+                  }
+                >
+                  {message.role === "assistant" && !message.content ? (
+                    <Reasoning isStreaming defaultOpen>
+                      <ReasoningTrigger
+                        getThinkingMessage={(isStreaming) =>
+                          isStreaming ? "Analysing..." : "Analysis complete"
+                        }
+                      />
+                      <ReasoningContent>
+                        {streaming?.currentActivity || "Starting..."}
+                      </ReasoningContent>
+                    </Reasoning>
+                  ) : message.role === "assistant" ? (
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {message.content}
+                    </MessageResponse>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
                   )}
-                </div>
-              )}
-            </div>
-          ))
-        )}
-        {isSending && (
-          <div className="flex gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-            <span className="text-sm text-neutral-500">Sending...</span>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+                </MessageContent>
+                {message.role === "user" && (
+                  <div className="mt-0.5">
+                    {message.userId ? (
+                      <UserInitials userId={message.userId} hideLastSeen size="md" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">U</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </AIMessage>
+            ))
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
       <div className="px-5 pb-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-        >
-          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Eva to perform an analysis..."
-              rows={4}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              className="bg-transparent border-none shadow-none focus-visible:ring-0 resize-none"
+        <PromptInput onSubmit={handlePromptSubmit}>
+          <PromptInputTextarea
+            placeholder="Ask Eva to perform an analysis..."
+            disabled={isSending}
+          />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+            </PromptInputTools>
+            <PromptInputSubmit
+              status={isSending ? "submitted" : undefined}
               disabled={isSending}
             />
-            <div className="flex items-center justify-between px-2 pb-2">
-              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
-              <Button
-                type="submit"
-                size="icon"
-                className="rounded-full"
-                disabled={isSending || !input.trim()}
-              >
-                {isSending ? <Spinner size="sm" /> : <IconArrowUp size={18} />}
-              </Button>
-            </div>
-          </div>
-        </form>
+          </PromptInputFooter>
+        </PromptInput>
       </div>
     </div>
   );

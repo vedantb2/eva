@@ -7,7 +7,6 @@ import {
   AccordionContent,
 } from "@/lib/components/ui/accordion";
 import { Button } from "@/lib/components/ui/button";
-import { Textarea } from "@/lib/components/ui/textarea";
 import { Spinner } from "@/lib/components/ui/spinner";
 import { Badge } from "@/lib/components/ui/badge";
 import {
@@ -19,7 +18,6 @@ import {
 } from "@/lib/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
 import {
-  IconUser,
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
@@ -27,27 +25,48 @@ import {
   IconClipboardList,
   IconFileText,
   IconGitPullRequest,
-  IconArrowUp,
   IconWorld,
   IconSparkles,
   IconSend,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
 import Link from "next/link";
 import Image from "next/image";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import type { FunctionReturnType } from "convex/server";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/lib/components/ai-elements/conversation";
+import {
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+} from "@/lib/components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/lib/components/ai-elements/reasoning";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/lib/components/ai-elements/prompt-input";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
-type Message = Session["messages"][number];
-type SessionMode = NonNullable<Message["mode"]>;
+type SessionMessage = Session["messages"][number];
+type SessionMode = NonNullable<SessionMessage["mode"]>;
 
 interface ChatPanelProps {
   sessionId: string;
@@ -55,7 +74,7 @@ interface ChatPanelProps {
   branchName?: string;
   prUrl?: string;
   summary?: string[];
-  messages: Message[];
+  messages: SessionMessage[];
   planContent?: string;
   streamingActivity?: string;
   isSandboxActive: boolean;
@@ -77,8 +96,6 @@ export function ChatPanel({
   onSandboxToggle,
 }: ChatPanelProps) {
   const { repo } = useRepo();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -112,10 +129,6 @@ export function ChatPanel({
     },
   );
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   const sendToApi = useCallback(
     async (message: string, sendMode: SessionMode, sendModel: ClaudeModel) => {
       const response = await fetch("/api/inngest/send", {
@@ -133,10 +146,9 @@ export function ChatPanel({
     [sessionId],
   );
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const content = input.trim();
-    setInput("");
+  const handleSend = async (text: string) => {
+    if (!text.trim()) return;
+    const content = text.trim();
     setIsSending(true);
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
@@ -211,6 +223,15 @@ export function ChatPanel({
   };
 
   const isInputDisabled = !isSandboxActive || isSending || isExecuting;
+  const submitStatus = isExecuting
+    ? lastAssistantHasNoContent ? "streaming" : "submitted"
+    : undefined;
+
+  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+    await handleSend(text);
+  };
+
+  const filteredMessages = messages.filter((m) => m.mode !== "flag");
 
   return (
     <div className="flex flex-col h-full">
@@ -285,27 +306,21 @@ export function ChatPanel({
           </AccordionItem>
         </Accordion>
       )}
-      <div className="flex-1 overflow-y-auto scrollbar p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="text-center py-12 text-neutral-500">
-            <p className="text-sm">
-              {isSandboxActive
-                ? "No messages yet. Start the conversation!"
-                : "Sandbox is inactive. Start the sandbox to begin chatting."}
-            </p>
-          </div>
-        ) : (
-          messages
-            .filter((m) => m.mode !== "flag")
-            .map((message, index) => (
-              <div
-                key={index}
-                className={`flex flex-col ${
-                  message.role === "user" ? "items-end" : "items-start"
-                }`}
-              >
+      <Conversation className="flex-1">
+        <ConversationContent className="gap-4 p-4">
+          {filteredMessages.length === 0 ? (
+            <ConversationEmptyState
+              title={
+                isSandboxActive
+                  ? "No messages yet. Start the conversation!"
+                  : "Sandbox is inactive. Start the sandbox to begin chatting."
+              }
+            />
+          ) : (
+            filteredMessages.map((message, index) => (
+              <AIMessage key={index} from={message.role}>
                 {message.role === "assistant" && (
-                  <div className="mb-1.5 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full overflow-hidden">
                       <Image
                         src="/icon.png"
@@ -314,57 +329,53 @@ export function ChatPanel({
                         height={28}
                       />
                     </div>
-                    <span className="text-xs font-medium text-neutral-500">Eva</span>
+                    <span className="text-xs font-medium text-muted-foreground">Eva</span>
                   </div>
                 )}
-                <div
-                  className={`px-3 py-2 rounded-xl ${
+                <MessageContent
+                  className={
                     message.role === "user"
-                      ? "max-w-[85%] bg-primary text-white rounded-br-none"
-                      : "bg-neutral-100 dark:bg-neutral-800 rounded-tl-none"
-                  }`}
+                      ? "rounded-xl rounded-br-none bg-primary text-primary-foreground px-3 py-2"
+                      : "rounded-xl rounded-tl-none bg-muted px-3 py-2"
+                  }
                 >
                   {message.role === "assistant" && !message.content ? (
-                    <>
-                      <pre className="text-sm whitespace-pre-wrap break-words text-neutral-500">
+                    <Reasoning isStreaming defaultOpen>
+                      <ReasoningTrigger
+                        getThinkingMessage={(streaming) =>
+                          streaming ? "Working..." : "Processing complete"
+                        }
+                      />
+                      <ReasoningContent>
                         {streamingActivity || "Starting..."}
-                      </pre>
-                      <Spinner size="sm" className="mt-2" />
-                    </>
+                      </ReasoningContent>
+                    </Reasoning>
                   ) : (
                     <>
                       {message.role === "assistant" ? (
-                        <Streamdown
-                          plugins={{ code }}
-                          className="prose prose-sm dark:prose-invert max-w-none"
-                        >
+                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                           {message.content}
-                        </Streamdown>
+                        </MessageResponse>
                       ) : (
                         <p className="text-sm whitespace-pre-wrap break-words">
                           {message.content}
                         </p>
                       )}
-                      {message.role === "assistant" &&
-                        message.activityLog && (
-                          <Accordion type="single" collapsible className="mt-2 px-0">
-                            <AccordionItem value="logs" className="border-b-0">
-                              <AccordionTrigger className="py-1 text-xs text-neutral-500">
-                                View logs
-                              </AccordionTrigger>
-                              <AccordionContent className="pb-2 overflow-hidden">
-                                <pre className="text-xs whitespace-pre-wrap break-all text-neutral-500 max-h-60 overflow-y-auto w-0 min-w-full">
-                                  {message.activityLog}
-                                </pre>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        )}
+                      {message.role === "assistant" && message.activityLog && (
+                        <Reasoning defaultOpen={false}>
+                          <ReasoningTrigger
+                            getThinkingMessage={() => "View logs"}
+                          />
+                          <ReasoningContent>
+                            {message.activityLog}
+                          </ReasoningContent>
+                        </Reasoning>
+                      )}
                     </>
                   )}
-                </div>
+                </MessageContent>
                 {message.mode && message.role === "user" && (
-                  <div className="flex items-center gap-1 mt-1 text-xs text-neutral-500">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     {message.mode === "execute" && (
                       <>
                         <IconCode className="w-3 h-3" /> Execute
@@ -383,31 +394,22 @@ export function ChatPanel({
                   </div>
                 )}
                 {message.role === "user" && (
-                  <div className="mt-1.5">
+                  <div className="mt-0.5">
                     {message.userId ? (
-                      <UserInitials
-                        userId={message.userId}
-                        hideLastSeen
-                        size="md"
-                      />
+                      <UserInitials userId={message.userId} hideLastSeen size="md" />
                     ) : (
                       <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                        <IconUser className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
+                        <span className="text-xs text-muted-foreground">U</span>
                       </div>
                     )}
                   </div>
                 )}
-              </div>
+              </AIMessage>
             ))
-        )}
-        {isSending && (
-          <div className="flex gap-3">
-            <Spinner size="sm" />
-            <span className="text-sm text-neutral-500">Sending...</span>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
       <div className="px-3 pb-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center gap-1 mb-2">
           {prUrl && (
@@ -441,77 +443,46 @@ export function ChatPanel({
             </Button>
           )}
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-        >
-          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                !isSandboxActive
-                  ? "Start the sandbox to begin chatting..."
-                  : mode === "execute"
-                    ? "Describe the changes to make to Eva..."
-                    : mode === "ask"
-                      ? "Ask Eva a question about the codebase..."
-                      : "Describe what you want to build to Eva..."
-              }
-              rows={4}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              className="bg-transparent border-none shadow-none focus-visible:ring-0"
+        <PromptInput onSubmit={handlePromptSubmit}>
+          <PromptInputTextarea
+            placeholder={
+              !isSandboxActive
+                ? "Start the sandbox to begin chatting..."
+                : mode === "execute"
+                  ? "Describe the changes to make to Eva..."
+                  : mode === "ask"
+                    ? "Ask Eva a question about the codebase..."
+                    : "Describe what you want to build to Eva..."
+            }
+            disabled={isInputDisabled}
+          />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="execute" className="text-xs px-2 py-1 gap-1">
+                    <IconCode className="w-3 h-3" />
+                    Execute
+                  </TabsTrigger>
+                  <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
+                    <IconMessageCircle2 className="w-3 h-3" />
+                    Ask
+                  </TabsTrigger>
+                  <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
+                    <IconClipboardList className="w-3 h-3" />
+                    Plan
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+            </PromptInputTools>
+            <PromptInputSubmit
+              status={submitStatus}
+              onStop={handleCancel}
               disabled={isInputDisabled}
             />
-            <div className="flex items-center justify-between px-2 pb-2">
-              <div className="flex items-center gap-2">
-                <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="execute" className="text-xs px-2 py-1 gap-1">
-                      <IconCode className="w-3 h-3" />
-                      Execute
-                    </TabsTrigger>
-                    <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
-                      <IconMessageCircle2 className="w-3 h-3" />
-                      Ask
-                    </TabsTrigger>
-                    <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
-                      <IconClipboardList className="w-3 h-3" />
-                      Plan
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
-              </div>
-              {isExecuting ? (
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  className="rounded-full h-8 w-8"
-                  onClick={handleCancel}
-                >
-                  <IconPlayerStop size={16} />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="rounded-full h-8 w-8"
-                  disabled={isInputDisabled || !input.trim()}
-                >
-                  {isSending ? <Spinner size="sm" /> : <IconArrowUp size={16} />}
-                </Button>
-              )}
-            </div>
-          </div>
-        </form>
+          </PromptInputFooter>
+        </PromptInput>
       </div>
       <Dialog open={showReviewModal} onOpenChange={(v) => { if (!v) setShowReviewModal(false); }}>
         <DialogContent>
@@ -544,12 +515,9 @@ export function ChatPanel({
           <DialogHeader>
             <DialogTitle>Implementation Plan</DialogTitle>
           </DialogHeader>
-          <Streamdown
-            plugins={{ code }}
-            className="prose prose-sm dark:prose-invert max-w-none"
-          >
-            {planContent}
-          </Streamdown>
+          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+            {planContent ?? ""}
+          </MessageResponse>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
               Close

@@ -11,6 +11,7 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/streamdown/dist/**/*.js",
   ],
   theme: {
     extend: {

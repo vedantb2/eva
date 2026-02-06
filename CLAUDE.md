@@ -128,6 +128,16 @@ The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona s
 - `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
 - `ensureProjectSandbox()` - Create or reuse existing sandbox
 
+### AI Elements SDK
+
+Chat UIs in sessions and research queries use AI Elements SDK components (`web/lib/components/ai-elements/`):
+- `Conversation` / `ConversationContent` / `ConversationScrollButton` - auto-scrolling message container
+- `Message` / `MessageContent` / `MessageResponse` - message rendering with Streamdown markdown
+- `Reasoning` / `ReasoningTrigger` / `ReasoningContent` - collapsible activity logs
+- `PromptInput` / `PromptInputTextarea` / `PromptInputSubmit` / `PromptInputFooter` / `PromptInputTools` - composable input form
+
+These are source-code components (like shadcn/ui), adapted for Tailwind v3. They depend on UI primitives in `web/lib/components/ui/` (collapsible, input-group, button-group, etc.).
+
 ## Conventions
 
 - Use `@/*` import alias (maps to web root)

@@ -7,9 +7,18 @@ import { GenericId as Id } from "convex/values";
 import { serverEnv } from "@/env/server";
 
 const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
-const activePtyHandles = new Map<string, Awaited<ReturnType<typeof createPtyConnection>>>();
 
-async function createPtyConnection(sandbox: Awaited<ReturnType<typeof daytona.get>>, ptyId: string, cols: number, rows: number) {
+const activePtyHandles = new Map<
+  string,
+  Awaited<ReturnType<typeof createPtyConnection>>
+>();
+
+async function createPtyConnection(
+  sandbox: Awaited<ReturnType<typeof daytona.get>>,
+  ptyId: string,
+  cols: number,
+  rows: number,
+) {
   const outputBuffer: string[] = [];
   let isConnected = false;
 
@@ -93,7 +102,7 @@ export async function POST(request: NextRequest) {
         await new Promise((r) => setTimeout(r, 50));
         return NextResponse.json({
           success: true,
-          output: connection.getOutput()
+          output: connection.getOutput(),
         });
       }
       return NextResponse.json({ error: "PTY not connected" }, { status: 400 });
@@ -104,7 +113,7 @@ export async function POST(request: NextRequest) {
       if (connection && connection.isConnected()) {
         return NextResponse.json({
           connected: true,
-          output: connection.getOutput()
+          output: connection.getOutput(),
         });
       }
       return NextResponse.json({ connected: false, output: "" });
@@ -115,13 +124,23 @@ export async function POST(request: NextRequest) {
       const sandbox = await daytona.get(session.sandboxId);
 
       try {
-        connection = await createPtyConnection(sandbox, ptyId, cols || 120, rows || 30);
+        connection = await createPtyConnection(
+          sandbox,
+          ptyId,
+          cols || 120,
+          rows || 30,
+        );
         activePtyHandles.set(ptyKey, connection);
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         if (errMsg.includes("already exists")) {
           await sandbox.process.killPtySession(ptyId);
-          connection = await createPtyConnection(sandbox, ptyId, cols || 120, rows || 30);
+          connection = await createPtyConnection(
+            sandbox,
+            ptyId,
+            cols || 120,
+            rows || 30,
+          );
           activePtyHandles.set(ptyKey, connection);
         } else {
           throw e;
@@ -149,7 +168,7 @@ export async function POST(request: NextRequest) {
     console.error("PTY error:", errorMessage);
     return NextResponse.json(
       { error: `PTY error: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

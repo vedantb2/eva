@@ -15,6 +15,14 @@ import {
 
 const PR_PATTERN = /create\s*(a\s*)?pr|open\s*pr|make\s*pr/i;
 
+function getResponseLengthInstruction(responseLength: string): string {
+  if (responseLength === "concise")
+    return "\n\n## Response Length\nKeep your response very concise and brief. Use short sentences, bullet points where possible, and avoid unnecessary detail.";
+  if (responseLength === "detailed")
+    return "\n\n## Response Length\nProvide a detailed and thorough response. Include examples, explanations, and supporting context where helpful.";
+  return "";
+}
+
 export const sessionExecute = inngest.createFunction(
   {
     id: "session-execute",
@@ -41,6 +49,7 @@ export const sessionExecute = inngest.createFunction(
       message,
       mode = "execute",
       model = "sonnet",
+      responseLength = "default",
     } = event.data;
     const convex = createConvex(clerkToken);
 
@@ -168,7 +177,7 @@ CRITICAL response rules:
 - Write for someone who does NOT know programming - avoid technical jargon
 - If you must mention a file, just say the filename without the full path
 - Be direct and answer the question simply
-- DO NOT modify any files`;
+- DO NOT modify any files${getResponseLengthInstruction(responseLength)}`;
 
         await convex.mutation(api.sessions.addMessage, {
           id: sessionId as Id<"sessions">,
@@ -274,7 +283,7 @@ ${message}
 - Be specific about what files and changes are needed in the plan
 - If this is the first message, create plan.md with initial structure based on the user's request
 - If plan.md already exists, update it based on the new information from the conversation
-- Do NOT commit or push any changes`;
+- Do NOT commit or push any changes${getResponseLengthInstruction(responseLength)}`;
 
         await convex.mutation(api.sessions.addMessage, {
           id: sessionId as Id<"sessions">,
@@ -295,8 +304,7 @@ ${message}
         });
 
         return {
-          text:
-            claudeResult.result || "I couldn't process your message.",
+          text: claudeResult.result || "I couldn't process your message.",
           activityLog: claudeResult.activityLog,
           sandboxId: sandboxData.sandboxId,
         };
@@ -388,7 +396,7 @@ ${message}
 - Do NOT run build, lint, test, or dev commands
 - Make minimal, focused changes
 - Use the repository's lockfile to determine the correct package manager
-- The GITHUB_TOKEN environment variable is set for git operations`;
+- The GITHUB_TOKEN environment variable is set for git operations${getResponseLengthInstruction(responseLength)}`;
 
       await convex.mutation(api.sessions.addMessage, {
         id: sessionId as Id<"sessions">,

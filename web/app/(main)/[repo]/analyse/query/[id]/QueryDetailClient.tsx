@@ -4,7 +4,14 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useState } from "react";
-import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
+import {
+  ModelSelector,
+  type ClaudeModel,
+} from "@/lib/components/ui/ModelSelector";
+import {
+  ResponseLengthSelector,
+  type ResponseLength,
+} from "@/lib/components/ui/ResponseLengthSelector";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
@@ -45,6 +52,8 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
+  const [responseLength, setResponseLength] =
+    useState<ResponseLength>("default");
 
   const handleSend = async (text: string) => {
     if (!text.trim() || isSending) return;
@@ -60,6 +69,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             question: text.trim(),
             repoId: repo._id,
             model,
+            responseLength,
           },
         }),
       });
@@ -114,7 +124,9 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                         height={32}
                       />
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Eva
+                    </span>
                   </div>
                 )}
                 <MessageContent
@@ -148,7 +160,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                 {message.role === "user" && (
                   <div className="mt-0.5">
                     {message.userId ? (
-                      <UserInitials userId={message.userId} hideLastSeen size="md" />
+                      <UserInitials
+                        userId={message.userId}
+                        hideLastSeen
+                        size="md"
+                      />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">U</span>
@@ -170,7 +186,16 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           />
           <PromptInputFooter>
             <PromptInputTools>
-              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+              <ModelSelector
+                value={model}
+                onChange={setModel}
+                isDisabled={isSending}
+              />
+              <ResponseLengthSelector
+                value={responseLength}
+                onChange={setResponseLength}
+                isDisabled={isSending}
+              />
             </PromptInputTools>
             <PromptInputSubmit
               status={isSending ? "submitted" : undefined}

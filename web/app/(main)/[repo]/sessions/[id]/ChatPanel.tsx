@@ -30,7 +30,14 @@ import {
   IconSend,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
-import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
+import {
+  ModelSelector,
+  type ClaudeModel,
+} from "@/lib/components/ui/ModelSelector";
+import {
+  ResponseLengthSelector,
+  type ResponseLength,
+} from "@/lib/components/ui/ResponseLengthSelector";
 import Link from "next/link";
 import Image from "next/image";
 import { useMutation } from "convex/react";
@@ -103,6 +110,8 @@ export function ChatPanel({
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
   const [model, setModel] = useState<ClaudeModel>("sonnet");
+  const [responseLength, setResponseLength] =
+    useState<ResponseLength>("default");
   const typedSessionId = sessionId as Id<"sessions">;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
@@ -130,13 +139,24 @@ export function ChatPanel({
   );
 
   const sendToApi = useCallback(
-    async (message: string, sendMode: SessionMode, sendModel: ClaudeModel) => {
+    async (
+      message: string,
+      sendMode: SessionMode,
+      sendModel: ClaudeModel,
+      sendResponseLength: ResponseLength,
+    ) => {
       const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "session/execute",
-          data: { sessionId, message, mode: sendMode, model: sendModel },
+          data: {
+            sessionId,
+            message,
+            mode: sendMode,
+            model: sendModel,
+            responseLength: sendResponseLength,
+          },
         }),
       });
       if (!response.ok) {
@@ -152,7 +172,7 @@ export function ChatPanel({
     setIsSending(true);
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
-      await sendToApi(content, mode, model);
+      await sendToApi(content, mode, model, responseLength);
     } catch {
       setIsSending(false);
     }
@@ -224,7 +244,9 @@ export function ChatPanel({
 
   const isInputDisabled = !isSandboxActive || isSending || isExecuting;
   const submitStatus = isExecuting
-    ? lastAssistantHasNoContent ? "streaming" : "submitted"
+    ? lastAssistantHasNoContent
+      ? "streaming"
+      : "submitted"
     : undefined;
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
@@ -261,10 +283,16 @@ export function ChatPanel({
             size="icon"
             variant="secondary"
             onClick={handleGenerateSummary}
-            disabled={isSummarizing || !isSandboxActive || messages.length === 0}
+            disabled={
+              isSummarizing || !isSandboxActive || messages.length === 0
+            }
             className="h-8 w-8 text-primary"
           >
-            {isSummarizing ? <Spinner size="sm" /> : <IconSparkles className="size-5" />}
+            {isSummarizing ? (
+              <Spinner size="sm" />
+            ) : (
+              <IconSparkles className="size-5" />
+            )}
           </Button>
           <Button
             size="icon"
@@ -329,7 +357,9 @@ export function ChatPanel({
                         height={28}
                       />
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Eva
+                    </span>
                   </div>
                 )}
                 <MessageContent
@@ -396,7 +426,11 @@ export function ChatPanel({
                 {message.role === "user" && (
                   <div className="mt-0.5">
                     {message.userId ? (
-                      <UserInitials userId={message.userId} hideLastSeen size="md" />
+                      <UserInitials
+                        userId={message.userId}
+                        hideLastSeen
+                        size="md"
+                      />
                     ) : (
                       <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">U</span>
@@ -458,9 +492,15 @@ export function ChatPanel({
           />
           <PromptInputFooter>
             <PromptInputTools>
-              <Tabs value={mode} onValueChange={(v) => setMode(v as SessionMode)}>
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v as SessionMode)}
+              >
                 <TabsList className="h-8">
-                  <TabsTrigger value="execute" className="text-xs px-2 py-1 gap-1">
+                  <TabsTrigger
+                    value="execute"
+                    className="text-xs px-2 py-1 gap-1"
+                  >
                     <IconCode className="w-3 h-3" />
                     Execute
                   </TabsTrigger>
@@ -474,7 +514,16 @@ export function ChatPanel({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <ModelSelector value={model} onChange={setModel} isDisabled={isInputDisabled} />
+              <ModelSelector
+                value={model}
+                onChange={setModel}
+                isDisabled={isInputDisabled}
+              />
+              <ResponseLengthSelector
+                value={responseLength}
+                onChange={setResponseLength}
+                isDisabled={isInputDisabled}
+              />
             </PromptInputTools>
             <PromptInputSubmit
               status={submitStatus}
@@ -484,17 +533,22 @@ export function ChatPanel({
           </PromptInputFooter>
         </PromptInput>
       </div>
-      <Dialog open={showReviewModal} onOpenChange={(v) => { if (!v) setShowReviewModal(false); }}>
+      <Dialog
+        open={showReviewModal}
+        onOpenChange={(v) => {
+          if (!v) setShowReviewModal(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send for Code Review</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            By clicking this you confirm that all your changes have been
-            tested in your session, you are happy with those changes, have
-            generated a summary and agree with the changes. A developer will
-            then review the code changes Eva has made and get in contact to
-            confirm if they are happy before merging into staging/production.
+            By clicking this you confirm that all your changes have been tested
+            in your session, you are happy with those changes, have generated a
+            summary and agree with the changes. A developer will then review the
+            code changes Eva has made and get in contact to confirm if they are
+            happy before merging into staging/production.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowReviewModal(false)}>
@@ -510,7 +564,12 @@ export function ChatPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={showPlanModal} onOpenChange={(v) => { if (!v) setShowPlanModal(false); }}>
+      <Dialog
+        open={showPlanModal}
+        onOpenChange={(v) => {
+          if (!v) setShowPlanModal(false);
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Implementation Plan</DialogTitle>

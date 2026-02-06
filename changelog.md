@@ -1,5 +1,12 @@
 # Changelog
 
+## Add response length selector to chat UIs - 2026-02-06
+
+- Created `ResponseLengthSelector` component with concise/default/detailed options
+- Added response length selector to sessions `ChatPanel.tsx` and research queries `QueryDetailClient.tsx` toolbars
+- Wired response length through Inngest event data to `session-execute.ts` (ask/plan/execute modes) and `execute-research-query.ts`
+- Injected response length instructions into Claude CLI prompt strings
+
 ## Refactor Sessions + Queries chat UI with AI Elements SDK - 2026-02-06
 
 - Installed AI Elements SDK components (message, conversation, prompt-input, reasoning) as source code in `web/lib/components/ai-elements/`
@@ -39,6 +46,6 @@
 - Updated tailwind.config.js to remove HeroUI plugin and add shadcn color config
 - Replaced HeroUIProvider with TooltipProvider in ClientProvider.tsx
 - Created useDisclosure hook replacement at lib/hooks/use-disclosure.ts
-- Replaced all HeroUI-specific Tailwind classes (text-default-*, bg-default-*, border-divider) with shadcn equivalents
+- Replaced all HeroUI-specific Tailwind classes (text-default-_, bg-default-_, border-divider) with shadcn equivalents
 - Added components.json for shadcn CLI configuration
 - Installed Radix UI primitives and class-variance-authority dependencies

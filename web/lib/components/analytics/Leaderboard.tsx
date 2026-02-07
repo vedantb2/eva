@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@conductor/ui";
 import { IconTrophy, IconUser } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 
 type LeaderboardEntry = FunctionReturnType<
   typeof api.analytics.getLeaderboard

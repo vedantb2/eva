@@ -13,7 +13,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";

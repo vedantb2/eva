@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { Checkbox, Input, Button } from "@conductor/ui";
 import { IconPlus, IconSubtask, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";

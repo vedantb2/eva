@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useTheme } from "next-themes";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 
 interface ThemeContextType {
   theme: string;

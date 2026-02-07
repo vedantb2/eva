@@ -1,8 +1,8 @@
 "use client";
 
-import type { Id } from "conductor-backend";
+import type { Id } from "@conductor/backend";
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
 import { IconGitBranch, IconDots, IconTrash } from "@tabler/icons-react";

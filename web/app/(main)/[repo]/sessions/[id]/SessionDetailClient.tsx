@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { useState, useEffect } from "react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { Card, CardContent, Button, Spinner } from "@conductor/ui";

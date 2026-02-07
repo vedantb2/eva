@@ -1,6 +1,6 @@
 import { inngest } from "../client";
-import type { Id } from "conductor-backend";
-import { api } from "conductor-backend";
+import type { Id } from "@conductor/backend";
+import { api } from "@conductor/backend";
 import { createConvex } from "@/lib/convex-auth";
 import {
   getSandbox,

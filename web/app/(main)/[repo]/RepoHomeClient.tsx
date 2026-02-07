@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { Spinner, Card, CardContent } from "@conductor/ui";
 import {

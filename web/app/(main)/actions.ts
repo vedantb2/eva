@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { clientEnv } from "@/env/client";
 import { getAppOctokit, listInstallationRepos } from "@/lib/github/client";
 

@@ -18,7 +18,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface QuickTaskModalProps {

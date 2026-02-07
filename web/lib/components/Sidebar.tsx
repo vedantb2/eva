@@ -32,7 +32,7 @@ import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import {
   DropdownMenu,
   DropdownMenuTrigger,

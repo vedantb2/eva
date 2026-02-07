@@ -57,8 +57,8 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useMutation } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import type { FunctionReturnType } from "convex/server";

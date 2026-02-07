@@ -7,7 +7,7 @@ import {
   useUser,
 } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
@@ -22,7 +22,7 @@ import {
 import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
-import type { Id } from "conductor-backend";
+import type { Id } from "@conductor/backend";
 
 function useTheme() {
   const syncedTheme = useQuery(api.auth.getTheme);

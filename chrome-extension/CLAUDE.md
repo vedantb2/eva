@@ -47,7 +47,7 @@ src/
 - **Messaging**: Typed discriminated union messages (`src/shared/messaging.ts`) between background, content, and sidepanel
 - **React Fiber Inspection**: `react-extractor.ts` reads React DevTools hook to extract component trees, props, hooks from inspected elements
 - **Styling**: HSL CSS variables for theming, class-based dark mode, stored in `chrome.storage.local`
-- **API Types**: Imported directly from `conductor-backend` workspace package (no code generation needed)
+- **API Types**: Imported directly from `@conductor/backend` workspace package (no code generation needed)
 
 ## Backend Integration
 

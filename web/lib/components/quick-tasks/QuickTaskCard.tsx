@@ -9,7 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@conductor/ui";
-import type { Id } from "conductor-backend";
+import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import {
   IconGitBranch,
@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import {

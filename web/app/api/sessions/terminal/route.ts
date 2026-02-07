@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
-import type { Id } from "conductor-backend";
+import type { Id } from "@conductor/backend";
 import {
   getSandbox,
   WORKSPACE_DIR,

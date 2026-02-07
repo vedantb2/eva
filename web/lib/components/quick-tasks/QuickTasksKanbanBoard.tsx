@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";

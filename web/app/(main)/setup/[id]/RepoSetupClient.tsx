@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { Container } from "@/lib/components/ui/Container";
 import { IconBrandGithub, IconCheck, IconLoader2 } from "@tabler/icons-react";
 

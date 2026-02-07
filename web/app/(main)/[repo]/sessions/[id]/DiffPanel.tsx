@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "conductor-backend";
+import type { api } from "@conductor/backend";
 import { IconFilePlus, IconFileCode, IconFileX } from "@tabler/icons-react";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;

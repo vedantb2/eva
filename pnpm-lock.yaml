@@ -52,6 +52,9 @@ importers:
       '@clerk/chrome-extension':
         specifier: ^2.8.20
         version: 2.9.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@types/react@19.0.10)(bs58@5.0.0)(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(react-dom@19.2.1(react@19.2.1))(react-native@0.76.5(@babel/core@7.29.0)(@babel/preset-env@7.29.0(@babel/core@7.29.0))(@types/react@19.0.10)(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@5.0.10))(react@19.2.1)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.1))(utf-8-validate@5.0.10)(zod@4.3.6)
+      '@conductor/backend':
+        specifier: workspace:*
+        version: link:../backend
       '@conductor/ui':
         specifier: workspace:*
         version: link:../packages/ui
@@ -112,9 +115,6 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      conductor-backend:
-        specifier: workspace:*
-        version: link:../backend
       convex:
         specifier: ^1.31.6
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
@@ -436,6 +436,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^6.24.0
         version: 6.37.3(next@15.5.7(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@conductor/backend':
+        specifier: workspace:*
+        version: link:../backend
       '@conductor/ui':
         specifier: workspace:*
         version: link:../packages/ui
@@ -577,9 +580,6 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      conductor-backend:
-        specifier: workspace:*
-        version: link:../backend
       convex:
         specifier: ^1.24.1
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)

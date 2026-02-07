@@ -6,7 +6,7 @@ import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 
 type Doc = FunctionReturnType<typeof api.docs.list>[number];
 

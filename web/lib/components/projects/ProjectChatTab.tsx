@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";

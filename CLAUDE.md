@@ -41,7 +41,7 @@ npx tsc              # TypeScript type check
 This is a monorepo (pnpm workspaces) with four apps and one shared package:
 
 - **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
-- **backend/** also serves as a shared package (`conductor-backend`) exporting Convex types (`Id`, `Doc`, `api`, `internal`)
+- **backend/** also serves as a shared package (`@conductor/backend`) exporting Convex types (`Id`, `Doc`, `api`, `internal`)
 - **web/** - Next.js 15 frontend (App Router, Turbopack)
 - **backend/** - Convex serverless backend (real-time database + API)
 - **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
@@ -153,7 +153,7 @@ Web-only components (accordion, avatar, badge, card, checkbox, label, popover, p
 
 - Use `@/*` import alias (maps to web root)
 - Convex queries/mutations use validators - always use `.withIndex()` for efficient queries
-- Import `api`, `Id`, `Doc` from `conductor-backend` (NOT from `convex/values` or a local api.ts)
+- Import `api`, `Id`, `Doc` from `@conductor/backend` (NOT from `convex/values` or a local api.ts)
 - Use `FunctionReturnType` from Convex to derive types instead of manually defining interfaces
 - Forms use React Hook Form + Zod validation
 - Dark mode via next-themes with HSL CSS variables

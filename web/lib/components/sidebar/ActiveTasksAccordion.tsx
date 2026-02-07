@@ -7,10 +7,10 @@ import {
   AccordionContent,
 } from "@conductor/ui";
 import { useQuery } from "convex/react";
-import { api } from "conductor-backend";
+import { api } from "@conductor/backend";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
-import type { Id } from "conductor-backend";
+import type { Id } from "@conductor/backend";
 import Link from "next/link";
 
 interface ActiveTasksAccordionProps {

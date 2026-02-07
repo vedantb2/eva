@@ -26,8 +26,8 @@ import {
   ReasoningContent,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "conductor-backend";
-import type { Id } from "conductor-backend";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import {
   statusConfig,
   TASK_STATUSES,

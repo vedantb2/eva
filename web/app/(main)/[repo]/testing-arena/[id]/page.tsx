@@ -65,7 +65,13 @@ function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
   );
 }
 
-function ReportCard({ report }: { report: EvaluationReport }) {
+function ReportCard({
+  report,
+  streamingActivity,
+}: {
+  report: EvaluationReport;
+  streamingActivity?: string;
+}) {
   const [showPassed, setShowPassed] = useState(false);
 
   const passed = report.results.filter((r) => r.passed);
@@ -85,8 +91,8 @@ function ReportCard({ report }: { report: EvaluationReport }) {
         {report.status === "running" && (
           <div className="flex items-center gap-3">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-primary" />
-            <span className="text-sm text-neutral-500">
-              Evaluating codebase...
+            <span className="text-sm text-neutral-500 truncate">
+              {streamingActivity || "Evaluating codebase..."}
             </span>
           </div>
         )}
@@ -204,8 +210,10 @@ function ReportCard({ report }: { report: EvaluationReport }) {
 
 function CodeTestingContent({
   reports,
+  streamingActivity,
 }: {
   reports: EvaluationReport[] | undefined;
+  streamingActivity?: string;
 }) {
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -224,7 +232,13 @@ function CodeTestingContent({
         ) : (
           <div className="space-y-4">
             {reports.map((report) => (
-              <ReportCard key={report._id} report={report} />
+              <ReportCard
+                key={report._id}
+                report={report}
+                streamingActivity={
+                  report.status === "running" ? streamingActivity : undefined
+                }
+              />
             ))}
           </div>
         )}
@@ -244,6 +258,11 @@ export default function TestingArenaDocPage({
   const reports = useQuery(
     api.evaluationReports.listByDoc,
     doc ? { docId: doc._id } : "skip",
+  );
+  const runningReport = reports?.find((r) => r.status === "running");
+  const streaming = useQuery(
+    api.streaming.get,
+    runningReport ? { entityId: runningReport._id } : "skip",
   );
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("code");
@@ -312,7 +331,10 @@ export default function TestingArenaDocPage({
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === "code" ? (
-          <CodeTestingContent reports={reports} />
+          <CodeTestingContent
+            reports={reports}
+            streamingActivity={streaming?.currentActivity}
+          />
         ) : (
           <UITestingPanel />
         )}

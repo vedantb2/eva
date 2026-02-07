@@ -2,7 +2,13 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { getSandbox, getGitHubToken, getOrCreateSandbox, runClaudeCLI, extractJsonFromText } from "../sandbox";
+import {
+  getSandbox,
+  getGitHubToken,
+  getOrCreateSandbox,
+  runClaudeCLIStreaming,
+  extractJsonFromText,
+} from "../sandbox";
 
 export const summarizeSession = inngest.createFunction(
   { id: "summarize-session", retries: 2 },
@@ -56,15 +62,26 @@ ${conversation}
 
 Respond with ONLY a JSON array of strings, no other text. Example: ["Built login page", "Fixed API auth bug"]`;
 
-      const claudeResult = await runClaudeCLI(sandbox, prompt, {
+      const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "haiku",
         allowedTools: [],
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: sessionId,
+            currentActivity,
+          });
+        },
       });
+
+      await convex.mutation(api.streaming.clear, { entityId: sessionId });
 
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (jsonStr) {
         const parsed: unknown = JSON.parse(jsonStr);
-        if (Array.isArray(parsed) && parsed.every((item): item is string => typeof item === "string")) {
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((item): item is string => typeof item === "string")
+        ) {
           return parsed;
         }
       }
@@ -79,5 +96,5 @@ Respond with ONLY a JSON array of strings, no other text. Example: ["Built login
     });
 
     return { success: true };
-  }
+  },
 );

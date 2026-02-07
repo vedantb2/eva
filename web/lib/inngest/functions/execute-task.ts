@@ -9,7 +9,7 @@ import {
   syncRepo,
   setupBranch,
   getOrCreateSandbox,
-  runClaudeCLI,
+  runClaudeCLIStreaming,
 } from "../sandbox";
 
 export const executeTask = inngest.createFunction(
@@ -147,12 +147,20 @@ ${subtasksList}
 - Use the lockfile to determine the package manager
 - GITHUB_TOKEN is already set for git push`;
 
-      const result = await runClaudeCLI(sandbox, prompt, {
+      const result = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 600,
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: taskId,
+            currentActivity,
+          });
+        },
       });
+
+      await convex.mutation(api.streaming.clear, { entityId: taskId });
 
       if (result.isError)
         throw new Error(`Agent failed: ${result.result.slice(0, 500)}`);

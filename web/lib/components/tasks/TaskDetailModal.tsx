@@ -21,6 +21,9 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
@@ -64,6 +67,13 @@ export function TaskDetailModal({
   const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
+  const hasActiveRun = runs?.some(
+    (r) => r.status === "queued" || r.status === "running",
+  );
+  const streaming = useQuery(
+    api.streaming.get,
+    hasActiveRun ? { entityId: taskId } : "skip",
+  );
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
   const startExecution = useMutation(api.agentTasks.startExecution);
@@ -122,10 +132,6 @@ export function TaskDetailModal({
       setIsUploading(false);
     }
   };
-
-  const hasActiveRun = runs?.some(
-    (r) => r.status === "queued" || r.status === "running",
-  );
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const status = task?.status;
@@ -297,6 +303,19 @@ export function TaskDetailModal({
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2">
+                              {run.status === "running" &&
+                                streaming?.currentActivity && (
+                                  <Reasoning isStreaming defaultOpen>
+                                    <ReasoningTrigger
+                                      getThinkingMessage={(s) =>
+                                        s ? "Working..." : "Processing complete"
+                                      }
+                                    />
+                                    <ReasoningContent>
+                                      {streaming.currentActivity}
+                                    </ReasoningContent>
+                                  </Reasoning>
+                                )}
                               {run.resultSummary && (
                                 <p className="text-sm text-foreground/80">
                                   {run.resultSummary}

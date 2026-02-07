@@ -303,6 +303,12 @@ export function ChatPanel({
           </Button>
         </div>
       </div>
+      {!lastAssistantHasNoContent && streamingActivity && (
+        <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+          <Spinner size="sm" />
+          <span className="truncate">{streamingActivity}</span>
+        </div>
+      )}
       {summary && summary.length > 0 && (
         <Accordion type="single" collapsible className="px-4">
           <AccordionItem value="summary" className="border-b-0">

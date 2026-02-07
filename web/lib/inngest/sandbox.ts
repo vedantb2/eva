@@ -3,7 +3,6 @@ import { createAppAuth } from "@octokit/auth-app";
 // @ts-ignore
 import { quote } from "shell-quote";
 import { LlmJson } from "@solvers-hub/llm-json";
-import { spawn } from "child_process";
 import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
 
@@ -176,74 +175,19 @@ export async function updateRemoteUrl(
 type ClaudeModel = "opus" | "sonnet" | "haiku";
 type ClaudeTool = "Read" | "Write" | "Edit" | "Bash" | "Glob" | "Grep";
 
-interface ClaudeCLIOptions {
-  model?: ClaudeModel;
-  allowedTools?: ClaudeTool[];
-  workDir?: string;
-  timeout?: number;
-  outputFormat?: "json" | "text";
-  sessionId?: string;
-  resumeSessionId?: string;
-}
-
 interface ClaudeCLIResult {
   result: string;
   isError: boolean;
   activityLog: string;
+  claudeSessionId?: string;
 }
 
-export async function runClaudeCLI(
-  sandbox: Sandbox,
-  prompt: string,
-  options: ClaudeCLIOptions = {},
-): Promise<ClaudeCLIResult> {
-  const {
-    model = "sonnet",
-    allowedTools = ["Read", "Glob", "Grep"],
-    workDir = WORKSPACE_DIR,
-    timeout = 300,
-    outputFormat,
-    sessionId,
-    resumeSessionId,
-  } = options;
-
-  const escapedPrompt = quote([prompt]);
-  const toolsArg =
-    allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const sessionArg = sessionId ? `--session-id ${sessionId}` : "";
-  const resumeArg = resumeSessionId ? `--resume ${resumeSessionId}` : "";
-
-  const cmdResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} ${sessionArg} ${resumeArg} ${outputFormat === "json" ? "--output-format json" : ""}`,
-    "/",
-    undefined,
-    timeout,
-  );
-
-  const output = (cmdResult.result || "").trim();
-
-  try {
-    const json = JSON.parse(output);
-    const messages = Array.isArray(json) ? json : [json];
-    const resultMsg = messages.find(
-      (m: Record<string, unknown>) => m.type === "result",
-    );
-
-    if (resultMsg) {
-      const result = resultMsg.result ?? "";
-      return {
-        result: typeof result === "string" ? result : JSON.stringify(result),
-        isError: Boolean(resultMsg.is_error),
-        activityLog: "",
-      };
-    }
-  } catch {
-    // Fall through
-  }
-  return { result: output, isError: false, activityLog: "" };
-}
-
-interface StreamingClaudeCLIOptions extends ClaudeCLIOptions {
+interface StreamingClaudeCLIOptions {
+  model?: ClaudeModel;
+  allowedTools?: ClaudeTool[];
+  workDir?: string;
+  timeout?: number;
+  resumeSessionId?: string;
   onOutput: (displayLog: string) => Promise<void>;
   flushIntervalMs?: number;
 }
@@ -339,14 +283,12 @@ export async function runClaudeCLIStreaming(
     timeout = 300,
     onOutput,
     flushIntervalMs = 500,
-    sessionId,
     resumeSessionId,
   } = options;
 
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const sessionArg = sessionId ? `--session-id ${sessionId}` : "";
   const resumeArg = resumeSessionId ? `--resume ${resumeSessionId}` : "";
 
   let rawOutput = "";
@@ -381,7 +323,7 @@ export async function runClaudeCLIStreaming(
 
   try {
     await ptyHandle.sendInput(
-      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} ${sessionArg} ${resumeArg} --output-format stream-json; exit\n`,
+      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} ${resumeArg} --output-format stream-json; exit\n`,
     );
 
     // Kill the PTY if it exceeds the timeout
@@ -397,7 +339,11 @@ export async function runClaudeCLIStreaming(
   }
 
   let activityLog = "";
-  let resultEvent: { result: string; isError: boolean } | null = null;
+  let resultEvent: {
+    result: string;
+    isError: boolean;
+    claudeSessionId?: string;
+  } | null = null;
   for (const line of rawOutput.split("\n")) {
     const clean = stripAnsi(line).trim();
     if (!clean) continue;
@@ -412,6 +358,10 @@ export async function runClaudeCLIStreaming(
         resultEvent = {
           result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
+          claudeSessionId:
+            typeof parsed.session_id === "string"
+              ? parsed.session_id
+              : undefined,
         };
       }
     } catch {}
@@ -542,245 +492,4 @@ export async function takeWebScreenshot(
   if (result.exitCode !== 0) {
     throw new Error(`Screenshot failed: ${(result.result || "").slice(-400)}`);
   }
-}
-
-interface DirectClaudeCLIOptions {
-  model?: ClaudeModel;
-  allowedTools?: string[];
-  disallowedTools?: string[];
-  workDir?: string;
-  timeout?: number;
-  mcpConfigPath?: string;
-}
-
-interface DirectStreamingClaudeCLIOptions extends DirectClaudeCLIOptions {
-  onOutput: (displayLog: string) => Promise<void>;
-  flushIntervalMs?: number;
-}
-
-export async function runClaudeCodeDirect(
-  prompt: string,
-  options: DirectClaudeCLIOptions = {},
-): Promise<ClaudeCLIResult> {
-  const {
-    model = "sonnet",
-    allowedTools = [],
-    disallowedTools = [],
-    workDir = process.cwd(),
-    timeout = 300,
-    mcpConfigPath,
-  } = options;
-
-  const { ANTHROPIC_API_KEY: _, ...restEnv } = process.env;
-  const env = {
-    ...restEnv,
-    CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-    CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
-    CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
-  };
-
-  return new Promise((resolve, reject) => {
-    const args = [
-      "npx",
-      "@anthropic-ai/claude-code",
-      "-p",
-      "--dangerously-skip-permissions",
-      "--model",
-      model,
-      "--output-format",
-      "json",
-    ];
-
-    if (allowedTools.length > 0) {
-      args.push("--allowedTools", allowedTools.join(","));
-    }
-
-    if (disallowedTools.length > 0) {
-      args.push("--disallowedTools", disallowedTools.join(","));
-    }
-
-    if (mcpConfigPath) {
-      args.push("--mcp-config", mcpConfigPath);
-    }
-
-    const child = spawn(args.join(" "), {
-      cwd: workDir,
-      env,
-      shell: true,
-    });
-
-    let output = "";
-    let errorOutput = "";
-
-    const timeoutId = setTimeout(() => {
-      child.kill();
-      reject(new Error(`Claude Code CLI timed out after ${timeout}s`));
-    }, timeout * 1000);
-
-    child.stdout.on("data", (data: Buffer) => {
-      output += data.toString();
-    });
-    child.stderr.on("data", (data: Buffer) => {
-      errorOutput += data.toString();
-    });
-
-    child.stdin.write(prompt);
-    child.stdin.end();
-
-    child.on("close", (code: number | null) => {
-      clearTimeout(timeoutId);
-      const trimmed = output.trim();
-      try {
-        const json = JSON.parse(trimmed);
-        const messages = Array.isArray(json) ? json : [json];
-        const resultMsg = messages.find(
-          (m: Record<string, unknown>) => m.type === "result",
-        );
-        if (resultMsg) {
-          const result = resultMsg.result ?? "";
-          resolve({
-            result:
-              typeof result === "string" ? result : JSON.stringify(result),
-            isError: Boolean(resultMsg.is_error),
-            activityLog: "",
-          });
-          return;
-        }
-      } catch {}
-      resolve({
-        result: trimmed || errorOutput,
-        isError: code !== 0,
-        activityLog: "",
-      });
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
-    });
-  });
-}
-
-export async function runClaudeCodeDirectStreaming(
-  prompt: string,
-  options: DirectStreamingClaudeCLIOptions,
-): Promise<ClaudeCLIResult> {
-  const {
-    model = "sonnet",
-    allowedTools = [],
-    disallowedTools = [],
-    workDir = process.cwd(),
-    timeout = 300,
-    mcpConfigPath,
-    onOutput,
-    flushIntervalMs = 500,
-  } = options;
-
-  const { ANTHROPIC_API_KEY: _, ...restEnv } = process.env;
-  const env = {
-    ...restEnv,
-    CLAUDE_CODE_OAUTH_TOKEN: serverEnv.CLAUDE_CODE_OAUTH_TOKEN,
-    CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
-    CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
-  };
-
-  return new Promise((resolve, reject) => {
-    const args = [
-      "npx",
-      "@anthropic-ai/claude-code",
-      "-p",
-      "--verbose",
-      "--dangerously-skip-permissions",
-      "--model",
-      model,
-      "--output-format",
-      "stream-json",
-    ];
-
-    if (allowedTools.length > 0) {
-      args.push("--allowedTools", allowedTools.join(","));
-    }
-    if (disallowedTools.length > 0) {
-      args.push("--disallowedTools", disallowedTools.join(","));
-    }
-    if (mcpConfigPath) {
-      args.push("--mcp-config", mcpConfigPath);
-    }
-
-    const child = spawn(args.join(" "), {
-      cwd: workDir,
-      env,
-      shell: true,
-    });
-
-    let rawOutput = "";
-    let lastProcessed = 0;
-
-    const timeoutId = setTimeout(() => {
-      child.kill();
-      reject(new Error(`Claude Code CLI timed out after ${timeout}s`));
-    }, timeout * 1000);
-
-    const interval = setInterval(async () => {
-      if (rawOutput.length <= lastProcessed) return;
-      const pending = rawOutput.slice(lastProcessed);
-      const lastNewline = pending.lastIndexOf("\n");
-      if (lastNewline === -1) return;
-      lastProcessed += lastNewline + 1;
-      let latestActivity: string | null = null;
-      for (const line of pending.slice(0, lastNewline).split("\n")) {
-        const clean = stripAnsi(line).trim();
-        if (!clean) continue;
-        const formatted = formatStreamEvent(clean);
-        if (formatted) latestActivity = formatted;
-      }
-      if (latestActivity) await onOutput(latestActivity).catch(() => {});
-    }, flushIntervalMs);
-
-    child.stdout.on("data", (data: Buffer) => {
-      rawOutput += data.toString();
-    });
-    child.stderr.on("data", () => {});
-
-    child.stdin.write(prompt);
-    child.stdin.end();
-
-    child.on("close", () => {
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-
-      let activityLog = "";
-      let resultEvent: { result: string; isError: boolean } | null = null;
-      for (const line of rawOutput.split("\n")) {
-        const clean = stripAnsi(line).trim();
-        if (!clean) continue;
-        const formatted = formatStreamEvent(clean);
-        if (formatted) {
-          activityLog += (activityLog ? "\n" : "") + formatted;
-        }
-        try {
-          const parsed = JSON.parse(clean);
-          if (parsed.type === "result") {
-            const r = parsed.result ?? "";
-            resultEvent = {
-              result: typeof r === "string" ? r : JSON.stringify(r),
-              isError: Boolean(parsed.is_error),
-            };
-          }
-        } catch {}
-      }
-
-      if (resultEvent) {
-        resolve({ ...resultEvent, activityLog });
-      } else {
-        resolve({ result: rawOutput, isError: false, activityLog });
-      }
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-      reject(err);
-    });
-  });
 }

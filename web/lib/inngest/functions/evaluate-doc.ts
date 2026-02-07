@@ -2,7 +2,14 @@ import { inngest } from "../client";
 import { GenericId as Id } from "convex/values";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, getGitHubToken, syncRepo, runClaudeCLI, extractJsonFromText } from "../sandbox";
+import {
+  createSandbox,
+  getSandbox,
+  getGitHubToken,
+  syncRepo,
+  runClaudeCLIStreaming,
+  extractJsonFromText,
+} from "../sandbox";
 
 interface EvaluationResult {
   results: Array<{ requirement: string; passed: boolean; detail: string }>;
@@ -46,8 +53,12 @@ export const evaluateDoc = inngest.createFunction(
     });
 
     const { doc, repo } = await step.run("fetch-data", async () => {
-      const docData = await convex.query(api.docs.get, { id: docId as Id<"docs"> });
-      const repoData = await convex.query(api.githubRepos.get, { id: repoId as Id<"githubRepos"> });
+      const docData = await convex.query(api.docs.get, {
+        id: docId as Id<"docs">,
+      });
+      const repoData = await convex.query(api.githubRepos.get, {
+        id: repoId as Id<"githubRepos">,
+      });
       if (!docData || !repoData) {
         throw new Error("Doc or repo not found");
       }
@@ -93,9 +104,15 @@ Search for relevant files, read implementations, and note what you find.
 Be thorough — check routes, components, API handlers, database schemas, and business logic.
 Do NOT output JSON. Reason through each requirement and gather facts.`;
 
-      await runClaudeCLI(sandbox, explorationPrompt, {
+      await runClaudeCLIStreaming(sandbox, explorationPrompt, {
         model: "opus",
         allowedTools: ["Read", "Glob", "Grep"],
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: reportId,
+            currentActivity,
+          });
+        },
       });
     });
 
@@ -117,9 +134,15 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
 
 {"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}`;
 
-      const claudeResult = await runClaudeCLI(sandbox, jsonPrompt, {
+      const claudeResult = await runClaudeCLIStreaming(sandbox, jsonPrompt, {
         model: "opus",
         allowedTools: [],
+        onOutput: async (currentActivity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: reportId,
+            currentActivity,
+          });
+        },
       });
 
       if (claudeResult.isError) {
@@ -129,7 +152,11 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
       const jsonStr = extractJsonFromText(claudeResult.result);
       if (!jsonStr) {
         return {
-          results: requirements.map((r) => ({ requirement: r, passed: false, detail: "Failed to parse evaluation" })),
+          results: requirements.map((r) => ({
+            requirement: r,
+            passed: false,
+            detail: "Failed to parse evaluation",
+          })),
           summary: `Failed to parse evaluation results. Raw output: ${claudeResult.result.slice(0, 300)}`,
         };
       }
@@ -137,20 +164,34 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
       const parsed: Partial<EvaluationResult> = JSON.parse(jsonStr);
 
       const results = Array.isArray(parsed.results)
-        ? parsed.results.map((item: { requirement?: string; passed?: boolean; detail?: string }) => ({
-            requirement: item.requirement || "",
-            passed: item.passed === true,
-            detail: item.detail || "",
-          }))
-        : requirements.map((r) => ({ requirement: r, passed: false, detail: "No evaluation produced" }));
+        ? parsed.results.map(
+            (item: {
+              requirement?: string;
+              passed?: boolean;
+              detail?: string;
+            }) => ({
+              requirement: item.requirement || "",
+              passed: item.passed === true,
+              detail: item.detail || "",
+            }),
+          )
+        : requirements.map((r) => ({
+            requirement: r,
+            passed: false,
+            detail: "No evaluation produced",
+          }));
 
       return {
         results,
-        summary: typeof parsed.summary === "string" ? parsed.summary : "Evaluation completed",
+        summary:
+          typeof parsed.summary === "string"
+            ? parsed.summary
+            : "Evaluation completed",
       };
     });
 
     await step.run("cleanup-sandbox", async () => {
+      await convex.mutation(api.streaming.clear, { entityId: reportId });
       try {
         const sandbox = await getSandbox(sandboxData.sandboxId);
         await sandbox.delete();
@@ -168,5 +209,5 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
     });
 
     return { success: true };
-  }
+  },
 );

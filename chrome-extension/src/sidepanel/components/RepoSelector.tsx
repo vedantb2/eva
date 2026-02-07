@@ -1,4 +1,10 @@
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RepoSelectorProps {
   repos: Array<{
@@ -23,18 +29,18 @@ export function RepoSelector({
     );
   }
 
-  const options = repos.map((repo) => ({
-    value: repo._id,
-    label: `${repo.owner}/${repo.name}`,
-  }));
-
   return (
-    <Select
-      value={selectedRepoId || ""}
-      options={options}
-      onChange={onRepoChange}
-      placeholder="Select repository..."
-      className="flex-1 min-w-[180px]"
-    />
+    <Select value={selectedRepoId || ""} onValueChange={onRepoChange}>
+      <SelectTrigger className="flex-1 min-w-[180px]">
+        <SelectValue placeholder="Select repository..." />
+      </SelectTrigger>
+      <SelectContent>
+        {repos.map((repo) => (
+          <SelectItem key={repo._id} value={repo._id}>
+            {repo.owner}/{repo.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

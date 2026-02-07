@@ -1,5 +1,17 @@
 # Changelog
 
+## Port AI Elements SDK to Chrome extension - 2026-02-06
+
+- Ported AI Elements components (conversation, message, prompt-input, reasoning, shimmer) from web app to `chrome-extension/src/components/ai-elements/`
+- Refactored `ChatPanel.tsx` to use `Conversation` for auto-scroll, `Message`/`MessageResponse` for message rendering, `Reasoning` for collapsible activity logs and loading state, and `PromptInput` for the input area
+- Replaced custom bouncing dots loading indicator with `Reasoning isStreaming` component
+- Replaced raw textarea + manual key handling with `PromptInput` compound component
+- Replaced custom scroll management with `Conversation`/`ConversationScrollButton`
+- Added 7 new shadcn UI primitives: input-group, spinner, button-group, hover-card, command, dropdown-menu, separator
+- Replaced custom options-array `Select` with shadcn compound component pattern and updated `RepoSelector.tsx`
+- Added `icon-sm` button size variant and `textarea.tsx` primitive
+- Installed dependencies: use-stick-to-bottom, streamdown + plugins, motion, nanoid, lucide-react, Radix primitives, cmdk
+
 ## Design cleanup: ChatGPT-style minimalism - 2026-02-06
 
 - Flattened all CSS shadow variables to `none` across light and dark modes for a flat, clean aesthetic

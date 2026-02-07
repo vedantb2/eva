@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -13,7 +12,6 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import {
-  IconArrowUp,
   IconCheck,
   IconChevronRight,
   IconFlag,
@@ -28,6 +26,30 @@ import {
 } from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -85,13 +107,11 @@ export function ChatPanel({
   const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>(
     [],
   );
-  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
   const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(
     null,
   );
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
@@ -127,10 +147,6 @@ export function ChatPanel({
     currentSession?.messages ?? (sessionId ? [] : ephemeralMessages);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [currentSession?.messages, ephemeralMessages]);
-
-  useEffect(() => {
     if (!isLoading) return;
     if (
       messages.length > 0 &&
@@ -156,10 +172,9 @@ export function ChatPanel({
     [sessionId, addMessage],
   );
 
-  const handleSend = async () => {
-    if (!input.trim() || !selectedRepoId || isLoading) return;
+  const handleSend = async (text: string) => {
+    if (!text.trim() || !selectedRepoId || isLoading) return;
 
-    setInput("");
     setIsLoading(true);
 
     if (mode === "flag") {
@@ -172,12 +187,12 @@ export function ChatPanel({
 
         await appendMessage({
           role: "user",
-          content: input,
+          content: text,
           timestamp: Date.now(),
           mode: "flag",
         });
 
-        let fullDescription = input;
+        let fullDescription = text;
 
         if (pageUrl) {
           fullDescription += `\n\nThis issue must be resolved on the following page: ${pageUrl}
@@ -199,7 +214,7 @@ Please review all components and files used on this page before implementing the
 
         await createQuickTask({
           repoId: selectedRepoId as Id<"githubRepos">,
-          title: input.slice(0, 100),
+          title: text.slice(0, 100),
           description: fullDescription,
         });
 
@@ -228,12 +243,12 @@ Please review all components and files used on this page before implementing the
         });
         const pageUrl = tab?.url || "";
         const fullMessage = pageUrl
-          ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${input}`
-          : input;
+          ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${text}`
+          : text;
 
         await appendMessage({
           role: "user",
-          content: input,
+          content: text,
           timestamp: Date.now(),
           mode: "ask",
         });
@@ -267,13 +282,6 @@ Please review all components and files used on this page before implementing the
         });
         setIsLoading(false);
       }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
     }
   };
 
@@ -344,186 +352,184 @@ Please review all components and files used on this page before implementing the
       : "Describe an issue to Eva to flag...";
   };
 
+  const isInputDisabled = !selectedRepoId || isLoading || isLoadingSession;
+
+  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+    await handleSend(text);
+  };
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div
-        className={`flex-1 p-4 space-y-4 ${messages.length > 0 ? "overflow-y-auto" : "overflow-hidden"}`}
-      >
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-            <div className="mb-3 rounded-full bg-muted p-4">
-              {mode === "ask" ? (
-                <IconMessageCircle size={28} className="text-primary" />
-              ) : (
-                <IconFlag size={28} className="text-primary" />
-              )}
-            </div>
-            <p className="font-medium text-foreground text-sm mb-1">
-              {mode === "ask"
-                ? "Ask Eva questions about your codebase"
-                : capturedContexts.length > 0
-                  ? "Describe the issue you want to flag to Eva"
-                  : "Flag an issue for Eva"}
-            </p>
-            <p className="text-xs max-w-[200px]">
-              {mode === "ask"
-                ? "Get AI-powered answers by Eva"
-                : "Use the select tool to capture element context"}
-            </p>
-          </div>
-        )}
+      <Conversation className="flex-1">
+        <ConversationContent className="gap-4 p-4">
+          {messages.length === 0 ? (
+            <ConversationEmptyState
+              icon={
+                mode === "ask" ? (
+                  <IconMessageCircle size={28} className="text-primary" />
+                ) : (
+                  <IconFlag size={28} className="text-primary" />
+                )
+              }
+              title={
+                mode === "ask"
+                  ? "Ask Eva questions about your codebase"
+                  : capturedContexts.length > 0
+                    ? "Describe the issue you want to flag to Eva"
+                    : "Flag an issue for Eva"
+              }
+              description={
+                mode === "ask"
+                  ? "Get AI-powered answers by Eva"
+                  : "Use the select tool to capture element context"
+              }
+            />
+          ) : (
+            messages.map((message, index) => {
+              const prev = index > 0 ? messages[index - 1] : undefined;
+              const isFlagResponse =
+                message.role === "assistant" && prev?.mode === "flag";
 
-        {messages.map((message, index) => {
-          const prev = index > 0 ? messages[index - 1] : undefined;
-          const isFlagResponse =
-            message.role === "assistant" && prev?.mode === "flag";
+              return (
+                <AIMessage key={index} from={message.role}>
+                  {message.role === "assistant" && (
+                    <div className="flex items-center gap-2">
+                      <img
+                        src="/icons/icon.png"
+                        alt="Eva"
+                        className="flex-shrink-0 w-7 h-7 rounded-full"
+                      />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Eva
+                      </span>
+                    </div>
+                  )}
+                  <MessageContent
+                    className={
+                      message.role === "user"
+                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                        : "px-1 py-2"
+                    }
+                  >
+                    {isFlagResponse && prev ? (
+                      <Collapsible className="rounded-xl rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
+                          <IconCheck
+                            size={16}
+                            className="text-primary shrink-0"
+                          />
+                          <span className="flex-1 text-left">
+                            Issue flagged and task created
+                          </span>
+                          <IconChevronRight
+                            size={14}
+                            className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+                          />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
+                          <p className="font-medium">
+                            {prev.content.slice(0, 100)}
+                          </p>
+                          <p className="text-muted-foreground whitespace-pre-wrap break-words">
+                            {message.content}
+                          </p>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ) : message.role === "assistant" && !message.content ? (
+                      <Reasoning isStreaming defaultOpen>
+                        <ReasoningTrigger
+                          getThinkingMessage={(streaming) =>
+                            streaming ? "Working..." : "Processing complete"
+                          }
+                        />
+                        <ReasoningContent>
+                          {message.activityLog || "Starting..."}
+                        </ReasoningContent>
+                      </Reasoning>
+                    ) : (
+                      <>
+                        {message.role === "assistant" ? (
+                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                            {message.content}
+                          </MessageResponse>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words text-sm">
+                            {message.content}
+                          </p>
+                        )}
+                        {message.role === "assistant" &&
+                          message.activityLog && (
+                            <Reasoning defaultOpen={false}>
+                              <ReasoningTrigger
+                                getThinkingMessage={() => "View logs"}
+                              />
+                              <ReasoningContent>
+                                {message.activityLog}
+                              </ReasoningContent>
+                            </Reasoning>
+                          )}
+                      </>
+                    )}
+                  </MessageContent>
+                  {message.role === "user" &&
+                    message.mode &&
+                    (message.mode === "ask" || message.mode === "flag") && (
+                      <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1 ml-auto">
+                        {message.mode === "ask" ? (
+                          <IconMessageCircle size={12} />
+                        ) : (
+                          <IconFlag size={12} />
+                        )}
+                        {message.mode === "ask" ? "Ask" : "Flag"}
+                      </span>
+                    )}
+                  {message.role === "user" && (
+                    <div className="mt-0.5 ml-auto">
+                      <UserAvatar userId={message.userId} />
+                    </div>
+                  )}
+                </AIMessage>
+              );
+            })
+          )}
 
-          return (
-            <div
-              key={index}
-              className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
-            >
-              {message.role === "assistant" && (
-                <div className="mb-1.5 flex items-center gap-2">
+          {isLoading &&
+            messages.length > 0 &&
+            messages[messages.length - 1].role !== "assistant" && (
+              <AIMessage from="assistant">
+                <div className="flex items-center gap-2">
                   <img
                     src="/icons/icon.png"
                     alt="Eva"
                     className="flex-shrink-0 w-7 h-7 rounded-full"
                   />
-                  <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Eva
+                  </span>
                 </div>
-              )}
-              <div
-                className={`flex flex-col min-w-0 ${message.role === "user" ? "max-w-[85%] items-end" : "items-start"}`}
-              >
-                {isFlagResponse && prev ? (
-                  <Collapsible className="rounded-xl rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
-                    <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
-                      <IconCheck size={16} className="text-primary shrink-0" />
-                      <span className="flex-1 text-left">
-                        Issue flagged and task created
-                      </span>
-                      <IconChevronRight
-                        size={14}
-                        className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
-                      />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
-                      <p className="font-medium">
-                        {prev.content.slice(0, 100)}
-                      </p>
-                      <p className="text-muted-foreground whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ) : (
-                  <div
-                    className={`rounded-xl px-3 py-2 overflow-hidden break-words ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-none"
-                        : "bg-muted text-card-foreground rounded-tl-none"
-                    }`}
-                  >
-                    {message.role === "assistant" &&
-                    !message.content &&
-                    message.activityLog ? (
-                      <>
-                        <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
-                          {message.activityLog}
-                        </pre>
-                        <div className="flex gap-1 mt-2">
-                          <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
-                          <span
-                            className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
-                            style={{ animationDelay: "0.1s" }}
-                          />
-                          <span
-                            className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
-                            style={{ animationDelay: "0.2s" }}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="whitespace-pre-wrap break-words text-sm">
-                          {message.content}
-                        </p>
-                        {message.role === "assistant" &&
-                          message.activityLog && (
-                            <Collapsible>
-                              <CollapsibleTrigger className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                                <IconChevronRight
-                                  size={12}
-                                  className="transition-transform group-data-[state=open]:rotate-90"
-                                />
-                                View logs
-                              </CollapsibleTrigger>
-                              <CollapsibleContent className="pt-1 pb-1 overflow-hidden">
-                                <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
-                                  {message.activityLog}
-                                </pre>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
-                      </>
-                    )}
-                  </div>
-                )}
-                {message.role === "user" &&
-                  message.mode &&
-                  (message.mode === "ask" || message.mode === "flag") && (
-                    <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      {message.mode === "ask" ? (
-                        <IconMessageCircle size={12} />
-                      ) : (
-                        <IconFlag size={12} />
-                      )}
-                      {message.mode === "ask" ? "Ask" : "Flag"}
-                    </span>
-                  )}
-              </div>
-              {message.role === "user" && (
-                <div className="mt-1.5">
-                  <UserAvatar userId={message.userId} />
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {isLoading && (
-          <div className="flex flex-col items-start">
-            <div className="mb-1.5 flex items-center gap-2">
-              <img
-                src="/icons/icon.png"
-                alt="Eva"
-                className="flex-shrink-0 w-7 h-7 rounded-full"
-              />
-              <span className="text-xs font-medium text-muted-foreground">Eva</span>
-            </div>
-            <div className="bg-muted rounded-xl rounded-tl-none px-3 py-2">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" />
-                <span
-                  className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
+                <MessageContent className="px-1 py-2">
+                  <Reasoning isStreaming defaultOpen>
+                    <ReasoningTrigger
+                      getThinkingMessage={(streaming) =>
+                        streaming ? "Working..." : "Processing complete"
+                      }
+                    />
+                    <ReasoningContent>Starting...</ReasoningContent>
+                  </Reasoning>
+                </MessageContent>
+              </AIMessage>
+            )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       <div className="p-4 border-t border-border space-y-3">
         {capturedContexts.map((ctx, i) => (
-          <ContextPreview key={ctx.metadata.capturedAt} context={ctx} onClear={() => onClearContext(i)} />
+          <ContextPreview
+            key={ctx.metadata.capturedAt}
+            context={ctx}
+            onClear={() => onClearContext(i)}
+          />
         ))}
 
         <div className="flex items-center gap-3">
@@ -572,36 +578,19 @@ Please review all components and files used on this page before implementing the
           </Tabs>
         </div>
 
-        <div className="flex gap-2 items-end bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+        <PromptInput onSubmit={handlePromptSubmit}>
+          <PromptInputTextarea
             placeholder={getPlaceholder()}
-            disabled={!selectedRepoId || isLoading || isLoadingSession}
-            minLength={3}
-            rows={5}
-            className="flex-1 min-h-[4.5rem] resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isInputDisabled}
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleSend}
-                disabled={
-                  !input.trim() ||
-                  !selectedRepoId ||
-                  isLoading ||
-                  isLoadingSession
-                }
-                size="icon"
-                className="mt-auto rounded-full mr-2 mb-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <IconArrowUp size={18} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Send message</TooltipContent>
-          </Tooltip>
-        </div>
+          <PromptInputFooter>
+            <PromptInputTools />
+            <PromptInputSubmit
+              status={isLoading ? "submitted" : undefined}
+              disabled={isInputDisabled}
+            />
+          </PromptInputFooter>
+        </PromptInput>
       </div>
     </div>
   );

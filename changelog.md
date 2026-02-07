@@ -1,5 +1,14 @@
 # Changelog
 
+## Refactor terminal PTY route — remove duplication, add serverless resilience and resize support - 2026-02-07
+
+- Removed duplicate `Daytona` instance from terminal route, now imports `getSandbox` and `WORKSPACE_DIR` from shared `sandbox.ts`
+- Added `connectPty` reconnection fallback so `input`/`poll` actions recover on serverless cold starts instead of failing
+- Added `resize` action using Daytona SDK's `resizePtySession()` to send SIGWINCH on terminal resize
+- Updated `TerminalPanel.tsx` to POST new cols/rows to backend after `FitAddon.fit()`
+- Added `TERM: "xterm-256color"` env to PTY creation for proper terminal rendering
+- Removed unnecessary 50ms/100ms sleep delays after input and connection
+
 ## Extract shared `@conductor/ui` workspace package - 2026-02-07
 
 - Created `packages/ui/` as a source-only pnpm workspace package (`@conductor/ui`) — no build step needed

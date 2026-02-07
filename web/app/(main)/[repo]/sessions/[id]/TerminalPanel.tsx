@@ -219,12 +219,18 @@ export function TerminalPanel({
     const handleResize = () => {
       if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
+        const { cols, rows } = terminalInstanceRef.current;
+        fetch("/api/sessions/terminal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, action: "resize", cols, rows }),
+        }).catch(() => {});
       }
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [sessionId]);
 
   if (!isActive || !sandboxId) {
     return (

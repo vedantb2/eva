@@ -1,58 +1,112 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Daytona } from "@daytonaio/sdk";
+import { Sandbox } from "@daytonaio/sdk";
 import { api } from "@/api";
 import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
 import { GenericId as Id } from "convex/values";
-import { serverEnv } from "@/env/server";
+import { getSandbox, WORKSPACE_DIR } from "@/lib/inngest/sandbox";
 
-const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
+type PtyConnection = {
+  getOutput: () => string;
+  sendInput: (input: string) => Promise<void>;
+  isConnected: () => boolean;
+  disconnect: () => Promise<void>;
+};
 
-const activePtyHandles = new Map<
-  string,
-  Awaited<ReturnType<typeof createPtyConnection>>
->();
+const activePtyHandles = new Map<string, PtyConnection>();
 
-async function createPtyConnection(
-  sandbox: Awaited<ReturnType<typeof daytona.get>>,
-  ptyId: string,
-  cols: number,
-  rows: number,
-) {
+function createBufferedHandlers() {
   const outputBuffer: string[] = [];
-  let isConnected = false;
-
-  const ptyHandle = await sandbox.process.createPty({
-    id: ptyId,
-    cols,
-    rows,
-    cwd: "/workspace/repo",
-    onData: (data) => {
+  let connected = false;
+  return {
+    onData: (data: Uint8Array) => {
       const text = new TextDecoder().decode(data);
       outputBuffer.push(text);
-      if (outputBuffer.length > 1000) {
-        outputBuffer.shift();
-      }
+      if (outputBuffer.length > 1000) outputBuffer.shift();
     },
-  });
-
-  await ptyHandle.waitForConnection();
-  isConnected = true;
-
-  return {
-    ptyHandle,
     getOutput: () => {
       const output = outputBuffer.join("");
       outputBuffer.length = 0;
       return output;
     },
+    setConnected: (v: boolean) => {
+      connected = v;
+    },
+    isConnected: () => connected,
+  };
+}
+
+async function createPtyConnection(
+  sandbox: Sandbox,
+  ptyId: string,
+  cols: number,
+  rows: number,
+): Promise<PtyConnection> {
+  const buf = createBufferedHandlers();
+
+  const ptyHandle = await sandbox.process.createPty({
+    id: ptyId,
+    cols,
+    rows,
+    cwd: WORKSPACE_DIR,
+    envs: { TERM: "xterm-256color" },
+    onData: buf.onData,
+  });
+
+  await ptyHandle.waitForConnection();
+  buf.setConnected(true);
+
+  return {
+    getOutput: buf.getOutput,
     sendInput: (input: string) => ptyHandle.sendInput(input),
-    isConnected: () => isConnected,
+    isConnected: buf.isConnected,
     disconnect: async () => {
-      isConnected = false;
+      buf.setConnected(false);
       await ptyHandle.disconnect();
     },
   };
+}
+
+async function reconnectPtyConnection(
+  sandbox: Sandbox,
+  ptyId: string,
+): Promise<PtyConnection> {
+  const buf = createBufferedHandlers();
+
+  const ptyHandle = await sandbox.process.connectPty(ptyId, {
+    onData: buf.onData,
+  });
+
+  await ptyHandle.waitForConnection();
+  buf.setConnected(true);
+
+  return {
+    getOutput: buf.getOutput,
+    sendInput: (input: string) => ptyHandle.sendInput(input),
+    isConnected: buf.isConnected,
+    disconnect: async () => {
+      buf.setConnected(false);
+      await ptyHandle.disconnect();
+    },
+  };
+}
+
+async function getOrReconnectPty(
+  sandboxId: string,
+  ptyKey: string,
+  ptyId: string,
+): Promise<PtyConnection | null> {
+  const existing = activePtyHandles.get(ptyKey);
+  if (existing && existing.isConnected()) return existing;
+
+  try {
+    const sandbox = await getSandbox(sandboxId);
+    const connection = await reconnectPtyConnection(sandbox, ptyId);
+    activePtyHandles.set(ptyKey, connection);
+    return connection;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -95,11 +149,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === "resize" && cols && rows) {
+      const sandbox = await getSandbox(session.sandboxId);
+      await sandbox.process.resizePtySession(ptyId, cols, rows);
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "input" && input) {
-      const connection = activePtyHandles.get(ptyKey);
-      if (connection && connection.isConnected()) {
+      const connection = await getOrReconnectPty(
+        session.sandboxId,
+        ptyKey,
+        ptyId,
+      );
+      if (connection) {
         await connection.sendInput(input);
-        await new Promise((r) => setTimeout(r, 50));
         return NextResponse.json({
           success: true,
           output: connection.getOutput(),
@@ -109,8 +172,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "poll") {
-      const connection = activePtyHandles.get(ptyKey);
-      if (connection && connection.isConnected()) {
+      const connection = await getOrReconnectPty(
+        session.sandboxId,
+        ptyKey,
+        ptyId,
+      );
+      if (connection) {
         return NextResponse.json({
           connected: true,
           output: connection.getOutput(),
@@ -121,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     let connection = activePtyHandles.get(ptyKey);
     if (!connection || !connection.isConnected()) {
-      const sandbox = await daytona.get(session.sandboxId);
+      const sandbox = await getSandbox(session.sandboxId);
 
       try {
         connection = await createPtyConnection(
@@ -154,8 +221,6 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-
-    await new Promise((r) => setTimeout(r, 100));
 
     return NextResponse.json({
       ptySessionId: ptyId,

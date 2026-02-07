@@ -26,7 +26,7 @@ async function createPtyConnection(
     id: ptyId,
     cols,
     rows,
-    cwd: "/home/daytona/workspace",
+    cwd: "/workspace/repo",
     onData: (data) => {
       const text = new TextDecoder().decode(data);
       outputBuffer.push(text);

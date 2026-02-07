@@ -10,11 +10,11 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@/lib/components/ui/accordion";
+  Badge,
+} from "@conductor/ui";
 import { ProjectTaskCard } from "./ProjectTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
-import { Badge } from "@/lib/components/ui/badge";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
 type TaskStatus = Task["status"];

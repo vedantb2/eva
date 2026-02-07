@@ -8,8 +8,9 @@ import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import { Card, CardContent } from "@/lib/components/ui/card";
 import {
+  Card,
+  CardContent,
   Button,
   Dialog,
   DialogContent,

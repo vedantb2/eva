@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/lib/components/ui/badge";
+import { Badge } from "@conductor/ui";
 import {
   IconNotes,
   IconCheck,
@@ -19,7 +19,13 @@ export const PROJECT_PHASES: ProjectPhase[] = [
 
 export const phaseConfig: Record<
   ProjectPhase,
-  { bg: string; cardBg: string; text: string; label: string; icon: typeof IconNotes }
+  {
+    bg: string;
+    cardBg: string;
+    text: string;
+    label: string;
+    icon: typeof IconNotes;
+  }
 > = {
   draft: {
     bg: "bg-neutral-200 dark:bg-neutral-700",

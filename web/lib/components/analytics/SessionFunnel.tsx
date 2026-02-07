@@ -1,7 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/lib/components/ui/card";
-import { Progress } from "@/lib/components/ui/progress";
+import { Card, CardContent, Progress } from "@conductor/ui";
 
 interface SessionFunnelProps {
   totalSessions: number;

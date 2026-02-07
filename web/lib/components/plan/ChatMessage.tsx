@@ -1,14 +1,16 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/lib/components/ui/avatar";
-import { Card, CardContent } from "@/lib/components/ui/card";
 import {
+  Avatar,
+  AvatarFallback,
+  Card,
+  CardContent,
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@/lib/components/ui/accordion";
-import { Spinner } from "@conductor/ui";
+  Spinner,
+} from "@conductor/ui";
 import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
 import { Streamdown } from "streamdown";

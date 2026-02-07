@@ -6,8 +6,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/api";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { Card, CardContent } from "@/lib/components/ui/card";
-import { Button, Spinner } from "@conductor/ui";
+import { Card, CardContent, Button, Spinner } from "@conductor/ui";
 import {
   IconBrandGithub,
   IconPlus,

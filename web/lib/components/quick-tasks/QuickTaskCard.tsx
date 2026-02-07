@@ -1,6 +1,14 @@
 "use client";
 
-import { Card, CardContent } from "@/lib/components/ui/card";
+import {
+  Card,
+  CardContent,
+  Checkbox,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@conductor/ui";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import {
@@ -13,13 +21,6 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@conductor/ui";
-import { Checkbox } from "@/lib/components/ui/checkbox";
 import {
   statusConfig,
   type TaskStatus,

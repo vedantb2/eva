@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input } from "@conductor/ui";
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Button, Input, Card, CardContent } from "@conductor/ui";
 import {
   IconCheck,
   IconPencil,

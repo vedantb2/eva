@@ -1,7 +1,6 @@
 "use client";
 
-import { Card, CardHeader, CardContent } from "@/lib/components/ui/card";
-import { Badge } from "@/lib/components/ui/badge";
+import { Card, CardHeader, CardContent, Badge } from "@conductor/ui";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 import type { IconCircle } from "@tabler/icons-react";

@@ -16,14 +16,12 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
-import { Badge } from "@/lib/components/ui/badge";
-import {
+  Badge,
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@/lib/components/ui/accordion";
+} from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";

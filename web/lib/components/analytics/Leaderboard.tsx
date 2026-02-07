@@ -1,11 +1,13 @@
 "use client";
 
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Card, CardContent } from "@conductor/ui";
 import { IconTrophy, IconUser } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/api";
 
-type LeaderboardEntry = FunctionReturnType<typeof api.analytics.getLeaderboard>[number];
+type LeaderboardEntry = FunctionReturnType<
+  typeof api.analytics.getLeaderboard
+>[number];
 
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
@@ -48,7 +50,11 @@ export function Leaderboard({ entries }: LeaderboardProps) {
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
-                {index === 0 ? <IconTrophy size={18} className="mx-auto" /> : index + 1}
+                {index === 0 ? (
+                  <IconTrophy size={18} className="mx-auto" />
+                ) : (
+                  index + 1
+                )}
               </div>
               <div className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
                 <IconUser size={16} className="text-neutral-500" />

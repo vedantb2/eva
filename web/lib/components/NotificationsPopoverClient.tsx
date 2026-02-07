@@ -8,8 +8,6 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from "@/lib/components/ui/popover";
-import {
   Button,
   Separator,
   Spinner,
@@ -17,8 +15,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Badge,
 } from "@conductor/ui";
-import { Badge } from "@/lib/components/ui/badge";
 import {
   IconBell,
   IconChecks,
@@ -34,7 +32,7 @@ import {
 import dayjs from "@/lib/dates";
 import { GenericId as Id } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
-import type { BadgeProps } from "@/lib/components/ui/badge";
+import type { BadgeProps } from "@conductor/ui";
 
 type Notification = FunctionReturnType<typeof api.notifications.list>[number];
 

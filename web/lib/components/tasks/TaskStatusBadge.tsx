@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/lib/components/ui/badge";
+import { Badge } from "@conductor/ui";
 import {
   IconCircle,
   IconClock,
@@ -30,7 +30,14 @@ interface TaskStatusBadgeProps {
 
 export const statusConfig: Record<
   TaskStatus,
-  { bg: string; cardBg: string; bar: string; text: string; label: string; icon: typeof IconCircle }
+  {
+    bg: string;
+    cardBg: string;
+    bar: string;
+    text: string;
+    label: string;
+    icon: typeof IconCircle;
+  }
 > = {
   todo: {
     bg: "bg-neutral-200 dark:bg-neutral-700",

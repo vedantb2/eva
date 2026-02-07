@@ -5,7 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@/lib/components/ui/accordion";
+} from "@conductor/ui";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
@@ -18,7 +18,10 @@ interface ActiveTasksAccordionProps {
   repoSlug: string;
 }
 
-export function ActiveTasksAccordion({ repoId, repoSlug }: ActiveTasksAccordionProps) {
+export function ActiveTasksAccordion({
+  repoId,
+  repoSlug,
+}: ActiveTasksAccordionProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
   const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 

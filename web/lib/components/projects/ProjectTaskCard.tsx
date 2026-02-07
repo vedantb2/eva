@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Card, CardContent } from "@conductor/ui";
 import { GenericId as Id } from "convex/values";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
@@ -8,7 +8,10 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
-import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
+import {
+  statusConfig,
+  type TaskStatus,
+} from "@/lib/components/tasks/TaskStatusBadge";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 
 interface ProjectTaskCardProps {
@@ -63,7 +66,9 @@ export function ProjectTaskCard({
           </div>
         </div>
         {description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">{description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {description}
+          </p>
         )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {createdBy && <UserInitials userId={createdBy} />}

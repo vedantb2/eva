@@ -3,8 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { Checkbox } from "@/lib/components/ui/checkbox";
-import { Input, Button } from "@conductor/ui";
+import { Checkbox, Input, Button } from "@conductor/ui";
 import { IconPlus, IconSubtask, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 

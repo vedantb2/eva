@@ -5,8 +5,6 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@/lib/components/ui/accordion";
-import {
   Button,
   Spinner,
   Dialog,
@@ -17,6 +15,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  Badge,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -34,7 +33,6 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@conductor/ui";
-import { Badge } from "@/lib/components/ui/badge";
 import {
   IconPlayerPlay,
   IconPlayerStop,

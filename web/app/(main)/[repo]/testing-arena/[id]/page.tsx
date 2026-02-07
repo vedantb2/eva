@@ -5,8 +5,14 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import { Card, CardContent } from "@/lib/components/ui/card";
+import {
+  Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Card,
+  CardContent,
+} from "@conductor/ui";
 import {
   IconPlayerPlay,
   IconCheck,

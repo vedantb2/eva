@@ -3,8 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Spinner } from "@conductor/ui";
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Spinner, Card, CardContent } from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconPercentage,

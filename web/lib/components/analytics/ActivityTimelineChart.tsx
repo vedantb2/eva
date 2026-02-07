@@ -11,16 +11,31 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Card, CardContent } from "@conductor/ui";
 import dayjs from "@/lib/dates";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+);
 
 interface ActivityTimelineChartProps {
-  timeline: Array<{ date: number; sessions: number; runs: number; tasks: number }>;
+  timeline: Array<{
+    date: number;
+    sessions: number;
+    runs: number;
+    tasks: number;
+  }>;
 }
 
-export function ActivityTimelineChart({ timeline }: ActivityTimelineChartProps) {
+export function ActivityTimelineChart({
+  timeline,
+}: ActivityTimelineChartProps) {
   const labels = timeline.map((e) => dayjs(e.date).format("M/D"));
   const chartData = {
     labels,

@@ -8,7 +8,7 @@ import {
   BarElement,
   Tooltip,
 } from "chart.js";
-import { Card, CardContent } from "@/lib/components/ui/card";
+import { Card, CardContent } from "@conductor/ui";
 import dayjs from "@/lib/dates";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

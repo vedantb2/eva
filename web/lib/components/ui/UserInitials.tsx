@@ -1,7 +1,12 @@
 import { api } from "@/api";
 import dayjs from "@/lib/dates";
-import { Avatar, AvatarFallback } from "@/lib/components/ui/avatar";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import {
+  Avatar,
+  AvatarFallback,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@conductor/ui";
 import { useQuery } from "convex/react";
 import { GenericId as Id } from "convex/values";
 

@@ -47,6 +47,7 @@ function buildContentScript() {
         esbuild: { charset: "ascii" },
         logLevel: "warn",
         build: {
+          minify: "esbuild",
           write: true,
           outDir: resolve(__dirname, "dist"),
           emptyOutDir: false,

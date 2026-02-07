@@ -24,6 +24,12 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
   },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.10",
+      "@types/react-dom": "19.0.4"
+    }
+  },
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",

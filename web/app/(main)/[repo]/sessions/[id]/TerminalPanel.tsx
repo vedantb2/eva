@@ -14,6 +14,36 @@ interface TerminalPanelProps {
   isActive: boolean;
 }
 
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAY_MS = 1000;
+
+function isControlMessage(
+  data: unknown,
+): data is { type: string; status: string; error?: string } {
+  if (typeof data !== "object" || data === null || !("type" in data))
+    return false;
+  const obj: Record<string, unknown> = Object.assign({}, data);
+  return obj.type === "control";
+}
+
+async function fetchWsUrl(
+  sessionId: string,
+  cols: number,
+  rows: number,
+): Promise<{ wsUrl: string; ptySessionId: string }> {
+  const params = new URLSearchParams({
+    sessionId,
+    cols: String(cols),
+    rows: String(rows),
+  });
+  const response = await fetch(`/api/sessions/terminal?${params}`);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to get terminal URL");
+  }
+  return data;
+}
+
 export function TerminalPanel({
   sessionId,
   sandboxId,
@@ -25,8 +55,9 @@ export function TerminalPanel({
   const [retryCount, setRetryCount] = useState(0);
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const connectedRef = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const intentionalCloseRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
     if (!isActive || !sandboxId || !terminalRef.current) {
@@ -34,19 +65,102 @@ export function TerminalPanel({
     }
 
     let isMounted = true;
+    const decoder = new TextDecoder();
+
+    const connectWebSocket = async (terminal: Terminal) => {
+      const { wsUrl } = await fetchWsUrl(
+        sessionId,
+        terminal.cols,
+        terminal.rows,
+      );
+
+      if (!isMounted) return;
+
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = "arraybuffer";
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        reconnectAttemptsRef.current = 0;
+      };
+
+      ws.onmessage = (event) => {
+        if (!terminalInstanceRef.current) return;
+
+        if (typeof event.data === "string") {
+          try {
+            const parsed: unknown = JSON.parse(event.data);
+            if (isControlMessage(parsed)) {
+              if (parsed.status === "connected") {
+                terminalInstanceRef.current.writeln(
+                  "\x1b[32m● Connected to sandbox\x1b[0m\r\n",
+                );
+                return;
+              }
+              if (parsed.status === "error") {
+                terminalInstanceRef.current.writeln(
+                  `\x1b[31m● Error: ${parsed.error ?? "unknown"}\x1b[0m`,
+                );
+                return;
+              }
+              return;
+            }
+          } catch {
+            // Not JSON — treat as terminal output
+          }
+          terminalInstanceRef.current.write(event.data);
+        } else {
+          terminalInstanceRef.current.write(
+            decoder.decode(event.data, { stream: true }),
+          );
+        }
+      };
+
+      ws.onclose = () => {
+        if (
+          !isMounted ||
+          intentionalCloseRef.current ||
+          reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
+        ) {
+          return;
+        }
+
+        reconnectAttemptsRef.current++;
+        if (terminalInstanceRef.current) {
+          terminalInstanceRef.current.writeln(
+            `\r\n\x1b[33m● Reconnecting (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`,
+          );
+        }
+
+        setTimeout(() => {
+          if (isMounted && terminalInstanceRef.current) {
+            connectWebSocket(terminalInstanceRef.current).catch(() => {});
+          }
+        }, RECONNECT_DELAY_MS);
+      };
+
+      terminal.onData((data) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data);
+        }
+      });
+    };
 
     const initTerminal = async () => {
       setIsLoading(true);
       setError(null);
+      intentionalCloseRef.current = false;
+      reconnectAttemptsRef.current = 0;
 
       try {
+        if (wsRef.current) {
+          intentionalCloseRef.current = true;
+          wsRef.current.close();
+          wsRef.current = null;
+        }
         if (terminalInstanceRef.current) {
           terminalInstanceRef.current.dispose();
         }
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-        }
-        connectedRef.current = false;
 
         const terminal = new Terminal({
           cursorBlink: true,
@@ -69,116 +183,14 @@ export function TerminalPanel({
         terminal.loadAddon(webLinksAddon);
         terminal.open(terminalRef.current!);
 
-        setTimeout(() => {
-          fitAddon.fit();
-        }, 0);
+        setTimeout(() => fitAddon.fit(), 0);
 
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
 
         terminal.writeln("\x1b[33m● Connecting to sandbox...\x1b[0m");
 
-        const connectToTerminal = async () => {
-          const response = await fetch("/api/sessions/terminal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId,
-              cols: terminal.cols,
-              rows: terminal.rows,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || "Failed to initialize terminal");
-          }
-
-          return data;
-        };
-
-        const data = await connectToTerminal();
-
-        if (!isMounted) return;
-
-        if (data.connected) {
-          connectedRef.current = true;
-          terminal.writeln("\x1b[32m● Connected to sandbox\x1b[0m\r\n");
-
-          if (data.output) {
-            terminal.write(data.output);
-          }
-
-          terminal.onData(async (inputData) => {
-            if (!connectedRef.current) return;
-
-            try {
-              const response = await fetch("/api/sessions/terminal", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  sessionId,
-                  action: "input",
-                  input: inputData,
-                }),
-              });
-              const result = await response.json();
-              if (result.output && terminalInstanceRef.current) {
-                terminalInstanceRef.current.write(result.output);
-              }
-            } catch {
-              // Ignore input errors
-            }
-          });
-
-          pollingRef.current = setInterval(async () => {
-            if (!connectedRef.current || !isMounted) return;
-
-            try {
-              const response = await fetch("/api/sessions/terminal", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sessionId, action: "poll" }),
-              });
-              const result = await response.json();
-
-              if (!result.connected && connectedRef.current) {
-                connectedRef.current = false;
-                if (terminalInstanceRef.current) {
-                  terminalInstanceRef.current.writeln(
-                    "\r\n\x1b[33m● Reconnecting...\x1b[0m",
-                  );
-                }
-                try {
-                  const reconnectData = await connectToTerminal();
-                  if (reconnectData.connected && isMounted) {
-                    connectedRef.current = true;
-                    if (terminalInstanceRef.current) {
-                      terminalInstanceRef.current.writeln(
-                        "\x1b[32m● Reconnected\x1b[0m\r\n",
-                      );
-                      if (reconnectData.output) {
-                        terminalInstanceRef.current.write(reconnectData.output);
-                      }
-                    }
-                  }
-                } catch {
-                  // Will retry on next poll
-                }
-                return;
-              }
-
-              if (result.output && terminalInstanceRef.current) {
-                terminalInstanceRef.current.write(result.output);
-              }
-            } catch {
-              // Ignore polling errors
-            }
-          }, 200);
-        } else {
-          terminal.writeln("\x1b[31m● Failed to connect\x1b[0m");
-        }
+        await connectWebSocket(terminal);
       } catch (err) {
         if (isMounted) {
           setError(
@@ -198,10 +210,10 @@ export function TerminalPanel({
 
     return () => {
       isMounted = false;
-      connectedRef.current = false;
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
+      intentionalCloseRef.current = true;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
       if (terminalInstanceRef.current) {
         terminalInstanceRef.current.dispose();

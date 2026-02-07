@@ -12,6 +12,7 @@ const config = {
     "./lib/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
     "./node_modules/streamdown/dist/**/*.js",
+    "../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {

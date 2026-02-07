@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 

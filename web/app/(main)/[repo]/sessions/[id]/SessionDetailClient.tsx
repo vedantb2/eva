@@ -6,7 +6,7 @@ import { GenericId as Id } from "convex/values";
 import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
@@ -26,7 +26,8 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const handleSandboxToggle = async (action: "start" | "stop") => {
     setIsSandboxToggling(true);
     try {
-      const eventName = action === "start" ? "session/sandbox.start" : "session/sandbox.stop";
+      const eventName =
+        action === "start" ? "session/sandbox.start" : "session/sandbox.stop";
       const response = await fetch("/api/inngest/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -4,15 +4,19 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
 import {
+  Button,
+  Input,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@conductor/ui";
 import {
   IconBrain,
   IconSearch,
@@ -28,12 +32,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/lib/components/ui/dropdown-menu";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import dayjs from "@/lib/dates";
 
@@ -106,7 +104,10 @@ export default function ResearchLayout({
   const sidebar = (
     <>
       <div className="p-3 relative">
-        <IconSearch size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <IconSearch
+          size={16}
+          className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
         <Input
           placeholder="Search queries..."
           value={searchQuery}
@@ -195,7 +196,10 @@ export default function ResearchLayout({
                                       })
                                     }
                                   >
-                                    <IconTrash size={16} className="mr-2 h-4 w-4" />
+                                    <IconTrash
+                                      size={16}
+                                      className="mr-2 h-4 w-4"
+                                    />
                                     Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -211,10 +215,7 @@ export default function ResearchLayout({
                                     .map((m) => m.userId),
                                 ),
                               ].map((id) => (
-                                <UserInitials
-                                  key={id}
-                                  userId={id!}
-                                />
+                                <UserInitials key={id} userId={id!} />
                               ))}
                             </div>
                             <span className="text-xs text-neutral-500 ml-auto">
@@ -282,7 +283,12 @@ export default function ResearchLayout({
     >
       {children}
 
-      <Dialog open={!!queryToDelete} onOpenChange={(v) => { if (!v) setQueryToDelete(null); }}>
+      <Dialog
+        open={!!queryToDelete}
+        onOpenChange={(v) => {
+          if (!v) setQueryToDelete(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Query</DialogTitle>
@@ -326,7 +332,9 @@ export default function ResearchLayout({
             <DialogTitle>New Query</DialogTitle>
           </DialogHeader>
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Query Title</label>
+            <label className="text-sm font-medium mb-1.5 block">
+              Query Title
+            </label>
             <Input
               placeholder="e.g., Analyze user metrics"
               value={newQueryTitle}

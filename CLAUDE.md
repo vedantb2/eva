@@ -40,8 +40,9 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo with four apps:
+This is a monorepo (pnpm workspaces) with four apps and one shared package:
 
+- **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
 - **web/** - Next.js 15 frontend (App Router, Turbopack)
 - **backend/** - Convex serverless backend (real-time database + API)
 - **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
@@ -111,6 +112,7 @@ backend/convex/
 ### Inngest Background Jobs
 
 Located in `web/lib/inngest/functions/`:
+
 - **execute-task** - Runs agent tasks in Daytona sandbox
 - **session-execute** - Executes commands within a session sandbox
 - **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
@@ -123,20 +125,31 @@ Located in `web/lib/inngest/functions/`:
 ### Sandbox Execution
 
 The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona sandbox operations:
+
 - `getGitHubToken()` - Gets installation token from GitHub App
 - `cloneRepo()` / `setupBranch()` - Git operations in sandbox
 - `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
 - `ensureProjectSandbox()` - Create or reuse existing sandbox
 
-### AI Elements SDK
+### Shared UI Package (`packages/ui/`)
 
-Chat UIs in sessions and research queries use AI Elements SDK components (`web/lib/components/ai-elements/`):
-- `Conversation` / `ConversationContent` / `ConversationScrollButton` - auto-scrolling message container
-- `Message` / `MessageContent` / `MessageResponse` - message rendering with Streamdown markdown
-- `Reasoning` / `ReasoningTrigger` / `ReasoningContent` - collapsible activity logs
-- `PromptInput` / `PromptInputTextarea` / `PromptInputSubmit` / `PromptInputFooter` / `PromptInputTools` - composable input form
+Shared UI primitives and AI Elements components live in `@conductor/ui` (source-only, no build step). Both web/ and chrome-extension/ import from this package:
 
-These are source-code components (like shadcn/ui), adapted for Tailwind v3. They depend on UI primitives in `web/lib/components/ui/` (collapsible, input-group, button-group, etc.).
+```typescript
+import {
+  Button,
+  cn,
+  Dialog,
+  Conversation,
+  MessageResponse,
+} from "@conductor/ui";
+```
+
+**UI primitives:** button, button-group, collapsible, command, dialog, dropdown-menu, hover-card, input, input-group, select, separator, spinner, tabs, textarea, tooltip
+
+**AI Elements:** Conversation, Message, PromptInput, Reasoning, Shimmer
+
+Web-only components (accordion, avatar, badge, card, checkbox, label, popover, progress) remain in `web/lib/components/ui/`.
 
 ## Conventions
 

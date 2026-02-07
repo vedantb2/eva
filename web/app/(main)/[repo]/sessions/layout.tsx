@@ -4,22 +4,20 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
 import {
+  Button,
+  Input,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/lib/components/ui/dropdown-menu";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Spinner,
+} from "@conductor/ui";
 import {
   IconTerminal2,
   IconArchive,
@@ -121,7 +119,10 @@ export default function SessionsLayout({
     <>
       <div className="p-3">
         <div className="relative">
-          <IconSearch size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <IconSearch
+            size={16}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             placeholder="Search sessions..."
             className="h-8 pl-8 text-sm"
@@ -232,7 +233,12 @@ export default function SessionsLayout({
     >
       {children}
 
-      <Dialog open={!!sessionToArchive} onOpenChange={(v) => { if (!v) setSessionToArchive(null); }}>
+      <Dialog
+        open={!!sessionToArchive}
+        onOpenChange={(v) => {
+          if (!v) setSessionToArchive(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Archive Session</DialogTitle>
@@ -246,7 +252,10 @@ export default function SessionsLayout({
             list. The session data will be preserved but no longer accessible.
           </p>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setSessionToArchive(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => setSessionToArchive(null)}
+            >
               Cancel
             </Button>
             <Button

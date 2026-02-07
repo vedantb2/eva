@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@conductor/ui";
 
 interface RepoSelectorProps {
   repos: Array<{

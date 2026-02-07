@@ -6,7 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/lib/components/ui/select";
+} from "@conductor/ui";
 
 export type ResponseLength = "concise" | "default" | "detailed";
 

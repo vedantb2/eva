@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
+import { Button, Input } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -56,7 +55,11 @@ export function ProjectPlanTab({
     setIsLoading(true);
     try {
       if (projectPhase === "draft") {
-        await updateProject({ id: projectId, generatedSpec, phase: "finalized" });
+        await updateProject({
+          id: projectId,
+          generatedSpec,
+          phase: "finalized",
+        });
       }
       await startDevelopment({ projectId });
       router.push(`/${repoSlug}/projects/${projectId}`);
@@ -90,18 +93,28 @@ export function ProjectPlanTab({
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <IconCircleCheck size={20} className="text-emerald-600 dark:text-emerald-400" />
+            <IconCircleCheck
+              size={20}
+              className="text-emerald-600 dark:text-emerald-400"
+            />
             <h2 className="text-xl font-bold">{parsedSpec.title}</h2>
           </div>
           <p className="text-muted-foreground">{parsedSpec.description}</p>
         </div>
 
         <div>
-          <h3 className="font-semibold mb-3">Tasks ({parsedSpec.tasks.length})</h3>
+          <h3 className="font-semibold mb-3">
+            Tasks ({parsedSpec.tasks.length})
+          </h3>
           <div className="space-y-1">
             {parsedSpec.tasks.map((task, i) => (
-              <div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted">
-                <span className="text-muted-foreground font-mono text-sm w-6">{i + 1}.</span>
+              <div
+                key={i}
+                className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted"
+              >
+                <span className="text-muted-foreground font-mono text-sm w-6">
+                  {i + 1}.
+                </span>
                 <span className="text-sm flex-1">{task.title}</span>
                 {task.dependencies.length > 0 && (
                   <span className="text-xs text-muted-foreground">
@@ -153,10 +166,7 @@ export function ProjectPlanTab({
                   <IconArrowBack size={18} />
                   Keep Interviewing
                 </Button>
-                <Button
-                  onClick={handleStartDevelopment}
-                  disabled={isLoading}
-                >
+                <Button onClick={handleStartDevelopment} disabled={isLoading}>
                   <IconRocket size={18} />
                   {isLoading ? "Starting..." : "Accept Plan"}
                 </Button>

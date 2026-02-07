@@ -6,7 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/lib/components/ui/select";
+} from "@conductor/ui";
 
 export type ClaudeModel = "opus" | "sonnet" | "haiku";
 
@@ -22,7 +22,11 @@ interface ModelSelectorProps {
   isDisabled?: boolean;
 }
 
-export function ModelSelector({ value, onChange, isDisabled }: ModelSelectorProps) {
+export function ModelSelector({
+  value,
+  onChange,
+  isDisabled,
+}: ModelSelectorProps) {
   return (
     <Select
       value={value}

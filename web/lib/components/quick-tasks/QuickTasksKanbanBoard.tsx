@@ -9,15 +9,15 @@ import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Card, CardContent } from "@/lib/components/ui/card";
-import { Button } from "@/lib/components/ui/button";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Spinner,
+} from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -40,7 +40,9 @@ export function QuickTasksKanbanBoard({
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
+    null,
+  );
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -65,9 +67,7 @@ export function QuickTasksKanbanBoard({
   };
 
   const todoTasks = tasks.filter((t) => t.status === "todo");
-  const ownedTodoTasks = todoTasks.filter(
-    (t) => t.createdBy === currentUserId,
-  );
+  const ownedTodoTasks = todoTasks.filter((t) => t.createdBy === currentUserId);
   const skippedCount = todoTasks.length - ownedTodoTasks.length;
 
   const handleFixAll = async () => {
@@ -121,7 +121,11 @@ export function QuickTasksKanbanBoard({
               onClick={() => setIsConfirmOpen(true)}
               disabled={isFixingAll}
             >
-              {isFixingAll ? <Spinner size="sm" /> : <IconPlayerPlay size={14} />}
+              {isFixingAll ? (
+                <Spinner size="sm" />
+              ) : (
+                <IconPlayerPlay size={14} />
+              )}
               Fix All
             </Button>
           ) : null
@@ -161,14 +165,13 @@ export function QuickTasksKanbanBoard({
                 </p>
                 {skippedCount > 0 && (
                   <p className="text-amber-600 dark:text-amber-400">
-                    {skippedCount} task{skippedCount !== 1 && "s"} created
-                    by others will be skipped. Only the task owner can run
-                    Eva.
+                    {skippedCount} task{skippedCount !== 1 && "s"} created by
+                    others will be skipped. Only the task owner can run Eva.
                   </p>
                 )}
                 <p>
-                  If there is an issue, Eva will return the task to To Do
-                  with a red border.
+                  If there is an issue, Eva will return the task to To Do with a
+                  red border.
                 </p>
                 <p>If successful, she will move it to Code Review.</p>
               </>

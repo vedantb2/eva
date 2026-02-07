@@ -15,31 +15,25 @@ import {
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
-import { Spinner } from "@/lib/components/ui/spinner";
 import {
+  Spinner,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-} from "@/lib/components/ai-elements/conversation";
-import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-} from "@/lib/components/ai-elements/message";
-import {
   Reasoning,
   ReasoningTrigger,
   ReasoningContent,
-} from "@/lib/components/ai-elements/reasoning";
-import {
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
   type PromptInputMessage,
-} from "@/lib/components/ai-elements/prompt-input";
+} from "@conductor/ui";
 
 interface QueryDetailClientProps {
   queryId: string;

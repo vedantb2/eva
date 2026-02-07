@@ -4,8 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@/lib/components/ui/button";
-import { Spinner } from "@/lib/components/ui/spinner";
+import { Button, Spinner } from "@conductor/ui";
 import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -38,12 +37,12 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
       childPadding={false}
       fillHeight
       headerRight={
-        <Button
-          size="sm"
-          onClick={handleCreate}
-          disabled={isCreating}
-        >
-          {isCreating ? <Spinner size="sm" /> : <IconPlus className="mr-2 h-4 w-4" />}
+        <Button size="sm" onClick={handleCreate} disabled={isCreating}>
+          {isCreating ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconPlus className="mr-2 h-4 w-4" />
+          )}
           New Doc
         </Button>
       }

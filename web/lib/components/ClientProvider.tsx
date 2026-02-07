@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { TooltipProvider } from "@/lib/components/ui/tooltip";
+import { TooltipProvider } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
 
 if (!clientEnv.NEXT_PUBLIC_CONVEX_URL) {
@@ -26,9 +26,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
           disableTransitionOnChange
         >
           <ThemeProvider>
-            <TooltipProvider>
-              {children}
-            </TooltipProvider>
+            <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>
         </NextThemesProvider>
       </ConvexQueryCacheProvider>

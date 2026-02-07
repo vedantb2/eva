@@ -16,7 +16,7 @@ import {
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";
-import { Spinner } from "@/lib/components/ui/spinner";
+import { Spinner } from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconPercentage,
@@ -64,7 +64,9 @@ export function AnalyticsClient() {
   return (
     <PageWrapper
       title="Analytics"
-      headerRight={<TimeRangeFilter value={timeRange} onChange={setTimeRange} />}
+      headerRight={
+        <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
+      }
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

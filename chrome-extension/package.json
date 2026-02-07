@@ -10,6 +10,7 @@
     "api": "npx convex-helpers ts-api-spec --output-file src/api"
   },
   "dependencies": {
+    "@conductor/ui": "workspace:*",
     "@clerk/chrome-extension": "^2.8.20",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",

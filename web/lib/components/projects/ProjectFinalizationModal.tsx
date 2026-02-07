@@ -7,9 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Button } from "@/lib/components/ui/button";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Button,
+  Spinner,
+} from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -79,19 +79,29 @@ export function ProjectFinalizationModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader className="flex flex-col gap-1">
           <DialogTitle>
             <span className="flex items-center gap-2 text-sm sm:text-base">
-              <IconCircleCheck size={20} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <IconCircleCheck
+                size={20}
+                className="text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+              />
               Plan Generated
             </span>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-base sm:text-lg">{parsedSpec.title}</h3>
+            <h3 className="font-semibold text-base sm:text-lg">
+              {parsedSpec.title}
+            </h3>
             <p className="text-muted-foreground text-xs sm:text-sm">
               {parsedSpec.description}
             </p>
@@ -106,7 +116,9 @@ export function ProjectFinalizationModal({
                   key={i}
                   className="flex items-start gap-2 text-xs sm:text-sm bg-muted p-2 rounded"
                 >
-                  <span className="text-muted-foreground font-mono flex-shrink-0">{i + 1}.</span>
+                  <span className="text-muted-foreground font-mono flex-shrink-0">
+                    {i + 1}.
+                  </span>
                   <div className="min-w-0">
                     <span className="font-medium">{task.title}</span>
                     {task.dependencies.length > 0 && (

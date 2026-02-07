@@ -8,7 +8,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/lib/components/ui/accordion";
-import { Spinner } from "@/lib/components/ui/spinner";
+import { Spinner } from "@conductor/ui";
 import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
@@ -44,7 +44,9 @@ export function ChatMessage({
               height={24}
               className="rounded-full"
             />
-            <AvatarFallback className="bg-neutral-200 text-foreground/80">E</AvatarFallback>
+            <AvatarFallback className="bg-neutral-200 text-foreground/80">
+              E
+            </AvatarFallback>
           </Avatar>
           <span className="text-xs font-medium text-muted-foreground">Eva</span>
         </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ModelSelector, type ClaudeModel } from "@/lib/components/ui/ModelSelector";
-import { Button } from "@/lib/components/ui/button";
-import { Textarea } from "@/lib/components/ui/textarea";
-import { Spinner } from "@/lib/components/ui/spinner";
+import {
+  ModelSelector,
+  type ClaudeModel,
+} from "@/lib/components/ui/ModelSelector";
+import { Button, Textarea, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
@@ -89,7 +90,11 @@ export function ProjectChatArea({
               disabled={isSending}
             />
             <div className="flex items-center justify-between px-2 pb-2">
-              <ModelSelector value={model} onChange={setModel} isDisabled={isSending} />
+              <ModelSelector
+                value={model}
+                onChange={setModel}
+                isDisabled={isSending}
+              />
               <Button
                 type="submit"
                 size="icon"

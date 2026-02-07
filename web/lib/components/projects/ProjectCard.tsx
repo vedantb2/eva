@@ -11,13 +11,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/lib/components/ui/dropdown-menu";
-import { Button } from "@/lib/components/ui/button";
-import {
+  Button,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/lib/components/ui/tooltip";
+} from "@conductor/ui";
 import dayjs from "@/lib/dates";
 import {
   statusConfig,

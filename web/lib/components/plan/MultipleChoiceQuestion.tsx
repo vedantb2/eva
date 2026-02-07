@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
+import { Button, Input } from "@conductor/ui";
 import { Card, CardContent } from "@/lib/components/ui/card";
-import { IconCheck, IconPencil, IconArrowRight, IconLoader2 } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconPencil,
+  IconArrowRight,
+  IconLoader2,
+} from "@tabler/icons-react";
 
 interface OptionItem {
   label: string;
@@ -41,7 +45,9 @@ export function MultipleChoiceQuestion({
     }
   };
 
-  const canSubmit = isOther ? customAnswer.trim().length > 0 : selected.length > 0;
+  const canSubmit = isOther
+    ? customAnswer.trim().length > 0
+    : selected.length > 0;
   const optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   return (
@@ -69,16 +75,23 @@ export function MultipleChoiceQuestion({
                   className={`
                     w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5
                     text-[11px] font-bold tracking-wide transition-all duration-200
-                    ${isSelected
-                      ? "bg-primary text-white shadow-sm"
-                      : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
+                    ${
+                      isSelected
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
                     }
                   `}
                 >
-                  {isSelected ? <IconCheck size={13} strokeWidth={3} /> : letter}
+                  {isSelected ? (
+                    <IconCheck size={13} strokeWidth={3} />
+                  ) : (
+                    letter
+                  )}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <span className={`text-sm leading-snug font-medium ${isSelected ? "text-primary" : "text-neutral-700 dark:text-neutral-300"}`}>
+                  <span
+                    className={`text-sm leading-snug font-medium ${isSelected ? "text-primary" : "text-neutral-700 dark:text-neutral-300"}`}
+                  >
                     {option.label}
                   </span>
                   <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
@@ -103,20 +116,30 @@ export function MultipleChoiceQuestion({
               <span
                 className={`
                   w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200
-                  ${isOther
-                    ? "bg-primary text-white shadow-sm"
-                    : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
+                  ${
+                    isOther
+                      ? "bg-primary text-white shadow-sm"
+                      : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
                   }
                 `}
               >
-                {isOther ? <IconCheck size={13} strokeWidth={3} /> : <IconPencil size={13} />}
+                {isOther ? (
+                  <IconCheck size={13} strokeWidth={3} />
+                ) : (
+                  <IconPencil size={13} />
+                )}
               </span>
-              <span className={`flex-1 text-sm ${isOther ? "text-primary font-medium" : "text-neutral-500"}`}>
+              <span
+                className={`flex-1 text-sm ${isOther ? "text-primary font-medium" : "text-neutral-500"}`}
+              >
                 Other...
               </span>
             </div>
             {isOther && (
-              <div className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-200" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Input
                   value={customAnswer}
                   onChange={(e) => setCustomAnswer(e.target.value)}
@@ -145,7 +168,9 @@ export function MultipleChoiceQuestion({
           <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : null}
         Submit
-        {!isLoading && <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />}
+        {!isLoading && (
+          <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />
+        )}
       </Button>
     </div>
   );

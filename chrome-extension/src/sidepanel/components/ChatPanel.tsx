@@ -5,12 +5,33 @@ import { api } from "@/api";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/components/ui/tooltip";
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@conductor/ui";
 import {
   IconCheck,
   IconChevronRight,
@@ -19,37 +40,8 @@ import {
   IconMessageCircle,
   IconUser,
 } from "@tabler/icons-react";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
 import type { ExtractedContext } from "@/shared/types";
 import { GenericId as Id } from "convex/values";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationEmptyState,
-  ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
-import {
-  Message as AIMessage,
-  MessageContent,
-  MessageResponse,
-} from "@/components/ai-elements/message";
-import {
-  Reasoning,
-  ReasoningTrigger,
-  ReasoningContent,
-} from "@/components/ai-elements/reasoning";
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
-  type PromptInputMessage,
-} from "@/components/ai-elements/prompt-input";
 
 const API_URL = import.meta.env.VITE_API_URL;
 

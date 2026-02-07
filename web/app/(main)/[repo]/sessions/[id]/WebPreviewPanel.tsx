@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner } from "@/lib/components/ui/spinner";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
+import { Spinner, Button, Input } from "@conductor/ui";
 import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
 
 interface WebPreviewPanelProps {
@@ -101,15 +99,14 @@ export function WebPreviewPanel({
           disabled={isLoading}
           className="h-8 w-8"
         >
-          {isLoading ? <Spinner size="sm" /> : <IconRefresh className="w-4 h-4" />}
+          {isLoading ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconRefresh className="w-4 h-4" />
+          )}
         </Button>
         {previewInfo && (
-          <Button
-            size="icon"
-            variant="secondary"
-            className="h-8 w-8"
-            asChild
-          >
+          <Button size="icon" variant="secondary" className="h-8 w-8" asChild>
             <a href={previewInfo.url} target="_blank" rel="noopener noreferrer">
               <IconExternalLink className="w-4 h-4" />
             </a>
@@ -130,11 +127,7 @@ export function WebPreviewPanel({
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <p className="text-sm text-red-500">{error}</p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handlePortSubmit}
-            >
+            <Button size="sm" variant="secondary" onClick={handlePortSubmit}>
               <IconRefresh className="w-4 h-4" />
               Retry
             </Button>

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 
 interface SelectionToolProps {
   capturedCount?: number;
@@ -7,7 +7,11 @@ interface SelectionToolProps {
   onActiveChange: (active: boolean) => void;
 }
 
-export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: SelectionToolProps) {
+export function SelectionTool({
+  capturedCount = 0,
+  isActive,
+  onActiveChange,
+}: SelectionToolProps) {
   const prevActiveRef = useRef(isActive);
 
   useEffect(() => {
@@ -23,7 +27,8 @@ export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: S
   useEffect(() => {
     if (prevActiveRef.current && !isActive) {
       chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-        if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_SELECTION" });
+        if (tab?.id)
+          chrome.tabs.sendMessage(tab.id, { type: "STOP_SELECTION" });
       });
     }
     prevActiveRef.current = isActive;
@@ -34,7 +39,10 @@ export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: S
       onActiveChange(false);
       return;
     }
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     if (!tab?.id) return;
     chrome.tabs.sendMessage(tab.id, { type: "START_SELECTION" }, (response) => {
       if (chrome.runtime.lastError) {
@@ -66,12 +74,24 @@ export function SelectionTool({ capturedCount = 0, isActive, onActiveChange }: S
               {capturedCount}
             </span>
           )}
-          <svg className="relative w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+          <svg
+            className="relative w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+            />
           </svg>
         </button>
       </TooltipTrigger>
-      <TooltipContent>{isActive ? "Cancel selection" : "Select element"}</TooltipContent>
+      <TooltipContent>
+        {isActive ? "Cancel selection" : "Select element"}
+      </TooltipContent>
     </Tooltip>
   );
 }

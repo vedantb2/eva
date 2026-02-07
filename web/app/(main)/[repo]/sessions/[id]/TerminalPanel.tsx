@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Spinner } from "@/lib/components/ui/spinner";
+import { Spinner, Button } from "@conductor/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
-import { Button } from "@/lib/components/ui/button";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -15,7 +14,11 @@ interface TerminalPanelProps {
   isActive: boolean;
 }
 
-export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelProps) {
+export function TerminalPanel({
+  sessionId,
+  sandboxId,
+  isActive,
+}: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +117,11 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
               const response = await fetch("/api/sessions/terminal", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sessionId, action: "input", input: inputData }),
+                body: JSON.stringify({
+                  sessionId,
+                  action: "input",
+                  input: inputData,
+                }),
               });
               const result = await response.json();
               if (result.output && terminalInstanceRef.current) {
@@ -139,14 +146,18 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
               if (!result.connected && connectedRef.current) {
                 connectedRef.current = false;
                 if (terminalInstanceRef.current) {
-                  terminalInstanceRef.current.writeln("\r\n\x1b[33m● Reconnecting...\x1b[0m");
+                  terminalInstanceRef.current.writeln(
+                    "\r\n\x1b[33m● Reconnecting...\x1b[0m",
+                  );
                 }
                 try {
                   const reconnectData = await connectToTerminal();
                   if (reconnectData.connected && isMounted) {
                     connectedRef.current = true;
                     if (terminalInstanceRef.current) {
-                      terminalInstanceRef.current.writeln("\x1b[32m● Reconnected\x1b[0m\r\n");
+                      terminalInstanceRef.current.writeln(
+                        "\x1b[32m● Reconnected\x1b[0m\r\n",
+                      );
                       if (reconnectData.output) {
                         terminalInstanceRef.current.write(reconnectData.output);
                       }
@@ -170,7 +181,11 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
         }
       } catch (err) {
         if (isMounted) {
-          setError(err instanceof Error ? err.message : "Failed to initialize terminal");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to initialize terminal",
+          );
         }
       } finally {
         if (isMounted) {
@@ -216,7 +231,9 @@ export function TerminalPanel({ sessionId, sandboxId, isActive }: TerminalPanelP
       <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
         <IconTerminal2 className="w-12 h-12 opacity-50" />
         <p className="text-sm">
-          {!isActive ? "Start the sandbox to use the terminal" : "Waiting for sandbox..."}
+          {!isActive
+            ? "Start the sandbox to use the terminal"
+            : "Waiting for sandbox..."}
         </p>
       </div>
     );

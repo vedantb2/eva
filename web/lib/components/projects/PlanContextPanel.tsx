@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/lib/components/ui/button";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/lib/components/ui/dialog";
+} from "@conductor/ui";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import {
   IconFileText,
@@ -75,15 +75,15 @@ export function PlanContextPanel({
               <p className="text-muted-foreground">{parsedSpec.description}</p>
             </div>
             <div className="space-y-2">
-              <h4 className="font-medium">
-                Tasks ({parsedSpec.tasks.length})
-              </h4>
+              <h4 className="font-medium">Tasks ({parsedSpec.tasks.length})</h4>
               {parsedSpec.tasks.map((task, i) => (
                 <div
                   key={i}
                   className="flex items-start gap-2 p-2 bg-muted rounded"
                 >
-                  <span className="text-muted-foreground font-mono">{i + 1}.</span>
+                  <span className="text-muted-foreground font-mono">
+                    {i + 1}.
+                  </span>
                   <span>{task.title}</span>
                 </div>
               ))}
@@ -127,9 +127,14 @@ export function PlanContextPanel({
                   {!isUser && (
                     <div className="mb-1.5 flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-                        <IconRobot size={16} className="text-muted-foreground" />
+                        <IconRobot
+                          size={16}
+                          className="text-muted-foreground"
+                        />
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">Eva</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Eva
+                      </span>
                     </div>
                   )}
                   <div
@@ -154,10 +159,7 @@ export function PlanContextPanel({
                   </div>
                   {isUser && (
                     <div className="mt-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-primary/10">
-                      <IconUser
-                        size={16}
-                        className="text-primary"
-                      />
+                      <IconUser size={16} className="text-primary" />
                     </div>
                   )}
                 </div>

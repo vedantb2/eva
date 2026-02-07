@@ -6,17 +6,35 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/lib/components/ui/accordion";
-import { Button } from "@/lib/components/ui/button";
-import { Spinner } from "@/lib/components/ui/spinner";
-import { Badge } from "@/lib/components/ui/badge";
 import {
+  Button,
+  Spinner,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@conductor/ui";
+import { Badge } from "@/lib/components/ui/badge";
 import {
   IconPlayerPlay,
   IconPlayerStop,
@@ -46,30 +64,6 @@ import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import type { FunctionReturnType } from "convex/server";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationEmptyState,
-  ConversationScrollButton,
-} from "@/lib/components/ai-elements/conversation";
-import {
-  Message as AIMessage,
-  MessageContent,
-  MessageResponse,
-} from "@/lib/components/ai-elements/message";
-import {
-  Reasoning,
-  ReasoningTrigger,
-  ReasoningContent,
-} from "@/lib/components/ai-elements/reasoning";
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
-  type PromptInputMessage,
-} from "@/lib/components/ai-elements/prompt-input";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];

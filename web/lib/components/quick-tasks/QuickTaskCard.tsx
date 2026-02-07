@@ -3,7 +3,11 @@
 import { Card, CardContent } from "@/lib/components/ui/card";
 import { GenericId as Id } from "convex/values";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
-import { IconGitBranch, IconGitPullRequest, IconDotsVertical } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconGitPullRequest,
+  IconDotsVertical,
+} from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
@@ -14,9 +18,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/lib/components/ui/dropdown-menu";
+} from "@conductor/ui";
 import { Checkbox } from "@/lib/components/ui/checkbox";
-import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
+import {
+  statusConfig,
+  type TaskStatus,
+} from "@/lib/components/tasks/TaskStatusBadge";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -71,19 +78,34 @@ export function QuickTaskCard({
               <div onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" className="p-1 rounded hover:bg-muted transition-colors">
-                      <IconDotsVertical size={14} className="text-muted-foreground" />
+                    <button
+                      type="button"
+                      className="p-1 rounded hover:bg-muted transition-colors"
+                    >
+                      <IconDotsVertical
+                        size={14}
+                        className="text-muted-foreground"
+                      />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     {branchName && (
-                      <DropdownMenuItem onClick={() => window.open(`https://github.com/${fullName}/tree/${branchName}`, "_blank")}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          window.open(
+                            `https://github.com/${fullName}/tree/${branchName}`,
+                            "_blank",
+                          )
+                        }
+                      >
                         <IconGitBranch className="mr-2 h-4 w-4" />
                         View Branch
                       </DropdownMenuItem>
                     )}
                     {latestPrUrl && (
-                      <DropdownMenuItem onClick={() => window.open(latestPrUrl, "_blank")}>
+                      <DropdownMenuItem
+                        onClick={() => window.open(latestPrUrl, "_blank")}
+                      >
                         <IconGitPullRequest className="mr-2 h-4 w-4" />
                         View PR
                       </DropdownMenuItem>
@@ -96,7 +118,9 @@ export function QuickTaskCard({
         </div>
         <div className="flex items-center justify-between mt-1">
           {createdBy && <UserInitials userId={createdBy} />}
-          <span className="text-xs text-muted-foreground ml-auto">{dayjs(createdAt).fromNow()}</span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {dayjs(createdAt).fromNow()}
+          </span>
         </div>
       </CardContent>
     </Card>

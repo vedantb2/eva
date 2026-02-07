@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { IconChevronDown } from "@tabler/icons-react";
-import { cn } from "@/lib/utils/cn";
+import { cn } from "@conductor/ui";
 
 const Accordion = AccordionPrimitive.Root;
 

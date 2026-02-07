@@ -4,8 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { Checkbox } from "@/lib/components/ui/checkbox";
-import { Input } from "@/lib/components/ui/input";
-import { Button } from "@/lib/components/ui/button";
+import { Input, Button } from "@conductor/ui";
 import { IconPlus, IconSubtask, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -48,7 +47,9 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
   };
 
   if (subtasks === undefined) {
-    return <div className="text-sm text-muted-foreground">Loading subtasks...</div>;
+    return (
+      <div className="text-sm text-muted-foreground">Loading subtasks...</div>
+    );
   }
 
   return (
@@ -63,11 +64,7 @@ export function SubtaskList({ taskId, readOnly }: SubtaskListProps) {
           )}
         </h4>
         {!isAdding && !readOnly && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setIsAdding(true)}
-          >
+          <Button size="sm" variant="ghost" onClick={() => setIsAdding(true)}>
             <IconPlus size={14} className="mr-1" />
             Add
           </Button>

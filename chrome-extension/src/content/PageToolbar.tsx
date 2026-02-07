@@ -1,8 +1,12 @@
 import { useRef, useCallback, useSyncExternalStore } from "react";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
-import { getAnnotationState, subscribeAnnotation, togglePinsHidden } from "./AnnotationOverlay";
+import {
+  getAnnotationState,
+  subscribeAnnotation,
+  togglePinsHidden,
+} from "./AnnotationOverlay";
 import { subscribeDark, getDark } from "./theme";
-import { Button } from "@/components/ui/button";
+import { Button } from "@conductor/ui";
 import type { StoredPin } from "@/shared/messaging";
 
 interface ToolbarState {
@@ -14,7 +18,14 @@ interface ToolbarState {
   version: number;
 }
 
-let _toolbar: ToolbarState = { visible: false, feedback: null, loading: false, x: -1, y: -1, version: 0 };
+let _toolbar: ToolbarState = {
+  visible: false,
+  feedback: null,
+  loading: false,
+  x: -1,
+  y: -1,
+  version: 0,
+};
 const _toolbarSubs = new Set<() => void>();
 function _toolbarEmit() {
   _toolbarSubs.forEach((s) => s());
@@ -31,7 +42,12 @@ export function hideToolbar() {
 }
 
 export function setToolbarFeedback(message: string, type: "success" | "error") {
-  _toolbar = { ..._toolbar, feedback: { message, type }, loading: false, version: _toolbar.version + 1 };
+  _toolbar = {
+    ..._toolbar,
+    feedback: { message, type },
+    loading: false,
+    version: _toolbar.version + 1,
+  };
   _toolbarEmit();
   setTimeout(() => {
     _toolbar = { ..._toolbar, feedback: null, version: _toolbar.version + 1 };
@@ -43,23 +59,42 @@ function getPageUrl(): string {
   return window.location.origin + window.location.pathname;
 }
 
-function sendPins(type: "TOOLBAR_ADD_QUICK_TASKS" | "TOOLBAR_ADD_TO_PROJECT", pins: Record<string, StoredPin>) {
+function sendPins(
+  type: "TOOLBAR_ADD_QUICK_TASKS" | "TOOLBAR_ADD_TO_PROJECT",
+  pins: Record<string, StoredPin>,
+) {
   _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };
   _toolbarEmit();
-  chrome.runtime.sendMessage({ type, payload: { pageUrl: getPageUrl(), pins } });
+  chrome.runtime.sendMessage({
+    type,
+    payload: { pageUrl: getPageUrl(), pins },
+  });
 }
 
 function dividerStyle(dark: boolean): React.CSSProperties {
-  return { width: 1, height: 20, background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)" };
+  return {
+    width: 1,
+    height: 20,
+    background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)",
+  };
 }
 
 function feedbackStyle(type: "success" | "error"): React.CSSProperties {
-  return { fontSize: 12, color: type === "success" ? "#16a34a" : "#dc2626", fontWeight: 500 };
+  return {
+    fontSize: 12,
+    color: type === "success" ? "#16a34a" : "#dc2626",
+    fontWeight: 500,
+  };
 }
 
 export function PageToolbar() {
   const toolbar = useSyncExternalStore(
-    (cb) => { _toolbarSubs.add(cb); return () => { _toolbarSubs.delete(cb); }; },
+    (cb) => {
+      _toolbarSubs.add(cb);
+      return () => {
+        _toolbarSubs.delete(cb);
+      };
+    },
     () => _toolbar,
   );
   const ext = useSyncExternalStore(subscribeAnnotation, getAnnotationState);
@@ -78,7 +113,12 @@ export function PageToolbar() {
     const el = elRef.current;
     if (el && _toolbar.x === -1) {
       const rect = el.getBoundingClientRect();
-      _toolbar = { ..._toolbar, x: rect.left, y: rect.top, version: _toolbar.version + 1 };
+      _toolbar = {
+        ..._toolbar,
+        x: rect.left,
+        y: rect.top,
+        version: _toolbar.version + 1,
+      };
       _toolbarEmit();
     }
     startX.current = _toolbar.x;
@@ -91,8 +131,20 @@ export function PageToolbar() {
     const el = elRef.current;
     const w = el ? el.offsetWidth : 300;
     const h = el ? el.offsetHeight : 40;
-    const nx = Math.max(0, Math.min(window.innerWidth - w, startX.current + (e.clientX - dragStartX.current)));
-    const ny = Math.max(0, Math.min(window.innerHeight - h, startY.current + (e.clientY - dragStartY.current)));
+    const nx = Math.max(
+      0,
+      Math.min(
+        window.innerWidth - w,
+        startX.current + (e.clientX - dragStartX.current),
+      ),
+    );
+    const ny = Math.max(
+      0,
+      Math.min(
+        window.innerHeight - h,
+        startY.current + (e.clientY - dragStartY.current),
+      ),
+    );
     _toolbar = { ..._toolbar, x: nx, y: ny, version: _toolbar.version + 1 };
     _toolbarEmit();
   }, []);
@@ -118,8 +170,12 @@ export function PageToolbar() {
     borderRadius: 9999,
     background: dark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)",
     backdropFilter: "blur(12px)",
-    boxShadow: dark ? "0 4px 24px rgba(0,0,0,0.25)" : "0 4px 24px rgba(0,0,0,0.1)",
-    border: dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
+    boxShadow: dark
+      ? "0 4px 24px rgba(0,0,0,0.25)"
+      : "0 4px 24px rgba(0,0,0,0.1)",
+    border: dark
+      ? "1px solid rgba(255,255,255,0.1)"
+      : "1px solid rgba(0,0,0,0.08)",
     fontSize: 13,
     color: dark ? "#e4e4e7" : "#27272a",
     whiteSpace: "nowrap",
@@ -139,7 +195,9 @@ export function PageToolbar() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <span style={{ fontWeight: 600, color: "#975799", fontSize: 13 }}>Eva</span>
+      <span style={{ fontWeight: 600, color: "#975799", fontSize: 13 }}>
+        Eva
+      </span>
       <div style={dividerStyle(dark)} />
       <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 12 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
@@ -157,7 +215,9 @@ export function PageToolbar() {
       </Button>
       <div style={dividerStyle(dark)} />
       {toolbar.feedback ? (
-        <span style={feedbackStyle(toolbar.feedback.type)}>{toolbar.feedback.message}</span>
+        <span style={feedbackStyle(toolbar.feedback.type)}>
+          {toolbar.feedback.message}
+        </span>
       ) : (
         <>
           <Button

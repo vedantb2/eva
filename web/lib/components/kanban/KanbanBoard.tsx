@@ -12,21 +12,24 @@ import {
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
-import { statusConfig, type TaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
+import {
+  statusConfig,
+  type TaskStatus,
+} from "@/lib/components/tasks/TaskStatusBadge";
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
 import {
+  Button,
+  Input,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-} from "@/lib/components/ui/dropdown-menu";
+} from "@conductor/ui";
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 
 interface BaseTask {
@@ -188,10 +191,7 @@ export function KanbanBoard<T extends BaseTask>({
       <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="sm"
-            >
+            <Button variant="secondary" size="sm">
               <IconFilter size={16} />
               {visibleStatuses.size === KANBAN_STATUSES.length
                 ? "All Columns"
@@ -216,7 +216,10 @@ export function KanbanBoard<T extends BaseTask>({
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="relative w-1/2 mx-auto">
-          <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <IconSearch
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             placeholder="Search tasks..."
             className="pl-9 pr-8 h-8 text-sm"

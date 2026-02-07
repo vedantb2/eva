@@ -6,7 +6,7 @@ import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -68,10 +68,7 @@ export function QuickTasksClient() {
                     Cancel
                   </Button>
                   {selectedIds.size > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={() => setIsGroupModalOpen(true)}
-                    >
+                    <Button size="sm" onClick={() => setIsGroupModalOpen(true)}>
                       <IconFolders className="mr-2 h-4 w-4" />
                       Group {selectedIds.size} into Project
                     </Button>
@@ -87,10 +84,7 @@ export function QuickTasksClient() {
                   Select
                 </Button>
               ))}
-            <Button
-              size="sm"
-              onClick={() => setIsCreating(true)}
-            >
+            <Button size="sm" onClick={() => setIsCreating(true)}>
               <IconPlus className="mr-2 h-4 w-4" />
               New Task
             </Button>

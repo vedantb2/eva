@@ -1,5 +1,16 @@
 # Changelog
 
+## Extract shared `@conductor/ui` workspace package - 2026-02-07
+
+- Created `packages/ui/` as a source-only pnpm workspace package (`@conductor/ui`) — no build step needed
+- Moved 15 shared UI components (button, button-group, collapsible, command, dialog, dropdown-menu, hover-card, input, input-group, select, separator, spinner, tabs, textarea, tooltip) into the shared package
+- Moved 5 ai-elements components (conversation, message, prompt-input, reasoning, shimmer) into the shared package
+- Moved shared `cn` utility (clsx + tailwind-merge) into the shared package
+- Updated ~67 files in `web/` and ~20 files in `chrome-extension/` to import from `@conductor/ui`
+- Deleted all duplicate component files from both codebases
+- Added `pnpm-workspace.yaml` to enable monorepo workspace linking
+- Updated Tailwind configs in both apps to scan shared package for classes
+
 ## Port AI Elements SDK to Chrome extension - 2026-02-06
 
 - Ported AI Elements components (conversation, message, prompt-input, reasoning, shimmer) from web app to `chrome-extension/src/components/ai-elements/`

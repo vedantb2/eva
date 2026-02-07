@@ -12,13 +12,13 @@ import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
 import { RepoSelector } from "./components/RepoSelector";
 import { SessionSidebar } from "./components/SessionSidebar";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-} from "@/components/ui/tooltip";
+} from "@conductor/ui";
 import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
@@ -86,7 +86,9 @@ function AuthenticatedApp() {
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
-  const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>([]);
+  const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(
+    [],
+  );
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -98,7 +100,9 @@ function AuthenticatedApp() {
     pins: Record<string, StoredPin>;
   } | null>(null);
   const [newProjectTitle, setNewProjectTitle] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
   const [isCreatingTasks, setIsCreatingTasks] = useState(false);
 
   const createSession = useMutation(api.sessions.create);
@@ -126,10 +130,15 @@ function AuthenticatedApp() {
   }, []);
 
   const toggleToolbar = useCallback(async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     if (!tab?.id) return;
     const next = !toolbarVisible;
-    chrome.tabs.sendMessage(tab.id, { type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR" });
+    chrome.tabs.sendMessage(tab.id, {
+      type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+    });
     setToolbarVisibleMutation({ visible: next });
   }, [toolbarVisible, setToolbarVisibleMutation]);
 
@@ -157,7 +166,10 @@ function AuthenticatedApp() {
           console.error("Failed to create task:", e);
         }
       }
-      sendToolbarResult(created > 0, `Created ${created} task${created !== 1 ? "s" : ""}`);
+      sendToolbarResult(
+        created > 0,
+        `Created ${created} task${created !== 1 ? "s" : ""}`,
+      );
     },
     [selectedRepoId, createQuickTask, buildDescription, sendToolbarResult],
   );
@@ -194,7 +206,10 @@ function AuthenticatedApp() {
             taskIds,
           });
         }
-        sendToolbarResult(true, `Added ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""} to project`);
+        sendToolbarResult(
+          true,
+          `Added ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""} to project`,
+        );
       } catch (e) {
         console.error("Failed to assign to project:", e);
         sendToolbarResult(false, "Failed to assign to project");
@@ -205,8 +220,15 @@ function AuthenticatedApp() {
     setSelectedProjectId(null);
     setIsCreatingTasks(false);
   }, [
-    pendingProjectPins, selectedRepoId, selectedProjectId, newProjectTitle,
-    createQuickTask, assignToProject, createFromTasks, buildDescription, sendToolbarResult,
+    pendingProjectPins,
+    selectedRepoId,
+    selectedProjectId,
+    newProjectTitle,
+    createQuickTask,
+    assignToProject,
+    createFromTasks,
+    buildDescription,
+    sendToolbarResult,
   ]);
 
   useEffect(() => {
@@ -249,10 +271,13 @@ function AuthenticatedApp() {
   }, []);
 
   useEffect(() => {
-    if (syncedToolbarVisible === undefined || syncedToolbarVisible === null) return;
+    if (syncedToolbarVisible === undefined || syncedToolbarVisible === null)
+      return;
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR" });
+        chrome.tabs.sendMessage(tab.id, {
+          type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+        });
       }
     });
   }, [syncedToolbarVisible]);
@@ -270,7 +295,10 @@ function AuthenticatedApp() {
       _sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type === "ELEMENT_CAPTURED" && message.payload) {
-        setCapturedContexts(prev => [...prev, message.payload as unknown as ExtractedContext]);
+        setCapturedContexts((prev) => [
+          ...prev,
+          message.payload as unknown as ExtractedContext,
+        ]);
       }
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -287,17 +315,18 @@ function AuthenticatedApp() {
         handleAddAllQuickTasks(pageUrl, pins);
       }
       if (message.type === "TOOLBAR_ADD_TO_PROJECT" && message.payload) {
-        setPendingProjectPins(message.payload as unknown as {
-          pageUrl: string;
-          pins: Record<string, StoredPin>;
-        });
+        setPendingProjectPins(
+          message.payload as unknown as {
+            pageUrl: string;
+            pins: Record<string, StoredPin>;
+          },
+        );
       }
     };
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, [handleAddAllQuickTasks, syncedToolbarVisible]);
-
 
   useEffect(() => {
     if (selectedRepoId && user?.id) {
@@ -318,7 +347,7 @@ function AuthenticatedApp() {
     if (index === undefined) {
       setCapturedContexts([]);
     } else {
-      setCapturedContexts(prev => prev.filter((_, i) => i !== index));
+      setCapturedContexts((prev) => prev.filter((_, i) => i !== index));
     }
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
   };
@@ -385,12 +414,17 @@ function AuthenticatedApp() {
         <div className="border-b border-border bg-muted/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
-              Add {Object.keys(pendingProjectPins.pins).length} annotations to project
+              Add {Object.keys(pendingProjectPins.pins).length} annotations to
+              project
             </p>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setPendingProjectPins(null); setNewProjectTitle(""); setSelectedProjectId(null); }}
+              onClick={() => {
+                setPendingProjectPins(null);
+                setNewProjectTitle("");
+                setSelectedProjectId(null);
+              }}
             >
               Cancel
             </Button>
@@ -400,32 +434,46 @@ function AuthenticatedApp() {
               type="text"
               placeholder="New project title..."
               value={newProjectTitle}
-              onChange={(e) => { setNewProjectTitle(e.target.value); setSelectedProjectId(null); }}
+              onChange={(e) => {
+                setNewProjectTitle(e.target.value);
+                setSelectedProjectId(null);
+              }}
               className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {projects && projects.length > 0 && (
               <div className="max-h-32 overflow-y-auto space-y-1">
-                <p className="text-xs text-muted-foreground">Or pick existing:</p>
-                {projects.filter((p) => p.phase !== "completed").map((project) => (
-                  <button
-                    key={project._id}
-                    onClick={() => { setSelectedProjectId(project._id); setNewProjectTitle(""); }}
-                    className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      selectedProjectId === project._id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-accent"
-                    }`}
-                  >
-                    {project.title}
-                    <span className="ml-2 text-xs opacity-60">{project.phase}</span>
-                  </button>
-                ))}
+                <p className="text-xs text-muted-foreground">
+                  Or pick existing:
+                </p>
+                {projects
+                  .filter((p) => p.phase !== "completed")
+                  .map((project) => (
+                    <button
+                      key={project._id}
+                      onClick={() => {
+                        setSelectedProjectId(project._id);
+                        setNewProjectTitle("");
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        selectedProjectId === project._id
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent"
+                      }`}
+                    >
+                      {project.title}
+                      <span className="ml-2 text-xs opacity-60">
+                        {project.phase}
+                      </span>
+                    </button>
+                  ))}
               </div>
             )}
           </div>
           <Button
             size="sm"
-            disabled={isCreatingTasks || (!newProjectTitle.trim() && !selectedProjectId)}
+            disabled={
+              isCreatingTasks || (!newProjectTitle.trim() && !selectedProjectId)
+            }
             onClick={handleConfirmProject}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >

@@ -7,8 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-} from "@/lib/components/ui/dropdown-menu";
-import { Button } from "@/lib/components/ui/button";
+  Button,
+} from "@conductor/ui";
 import {
   IconGitBranch,
   IconSelector,

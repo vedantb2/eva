@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 import {
   IconPlus,
   IconLayoutSidebarLeftCollapse,

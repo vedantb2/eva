@@ -6,22 +6,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Button } from "@/lib/components/ui/button";
-import { Badge } from "@/lib/components/ui/badge";
-import {
+  Button,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/lib/components/ui/select";
-import { Textarea } from "@/lib/components/ui/textarea";
-import {
+  Textarea,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/lib/components/ui/tooltip";
+} from "@conductor/ui";
+import { Badge } from "@/lib/components/ui/badge";
 import {
   Accordion,
   AccordionItem,
@@ -31,7 +27,11 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { GenericId as Id } from "convex/values";
-import { statusConfig, TASK_STATUSES, type TaskStatus } from "./TaskStatusBadge";
+import {
+  statusConfig,
+  TASK_STATUSES,
+  type TaskStatus,
+} from "./TaskStatusBadge";
 import { SubtaskList } from "./SubtaskList";
 import {
   IconPlayerPlay,
@@ -175,8 +175,15 @@ export function TaskDetailModal({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
-        <DialogContent className={`${showChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(v) => {
+          if (!v) onClose();
+        }}
+      >
+        <DialogContent
+          className={`${showChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
+        >
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center gap-2">
@@ -259,10 +266,7 @@ export function TaskDetailModal({
                       <IconTerminal2 size={16} />
                       Agent Runs ({runs.length})
                     </h4>
-                    <Accordion
-                      type="multiple"
-                      className="space-y-2"
-                    >
+                    <Accordion type="multiple" className="space-y-2">
                       {runs.map((run) => (
                         <AccordionItem
                           key={run._id}
@@ -418,7 +422,11 @@ export function TaskDetailModal({
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                     >
-                      {isUploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconUpload size={14} />}
+                      {isUploading ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconUpload size={14} />
+                      )}
                       Upload Proof
                     </Button>
                   </div>
@@ -441,16 +449,22 @@ export function TaskDetailModal({
                   >
                     <SelectTrigger className="h-8 text-sm">
                       <SelectValue>
-                        {status ? (() => {
-                          const config = statusConfig[status as TaskStatus];
-                          const Icon = config.icon;
-                          return (
-                            <div className={`flex items-center gap-1.5 ${config.text}`}>
-                              <Icon size={14} />
-                              <span className="text-sm">{config.label}</span>
-                            </div>
-                          );
-                        })() : null}
+                        {status
+                          ? (() => {
+                              const config = statusConfig[status as TaskStatus];
+                              const Icon = config.icon;
+                              return (
+                                <div
+                                  className={`flex items-center gap-1.5 ${config.text}`}
+                                >
+                                  <Icon size={14} />
+                                  <span className="text-sm">
+                                    {config.label}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          : null}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -471,10 +485,7 @@ export function TaskDetailModal({
                     </SelectContent>
                   </Select>
                   {isBlocked && (
-                    <Badge
-                      variant="warning"
-                      className="mt-1.5"
-                    >
+                    <Badge variant="warning" className="mt-1.5">
                       Blocked
                     </Badge>
                   )}
@@ -639,15 +650,23 @@ export function TaskDetailModal({
                     <div>
                       <Button
                         onClick={handleStartExecution}
-                        disabled={isStarting || isBlocked || hasActiveRun || !isOwner}
+                        disabled={
+                          isStarting || isBlocked || hasActiveRun || !isOwner
+                        }
                       >
-                        {isStarting ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlayerPlay size={18} />}
+                        {isStarting ? (
+                          <IconLoader2 size={18} className="animate-spin" />
+                        ) : (
+                          <IconPlayerPlay size={18} />
+                        )}
                         {hasActiveRun ? "Running..." : "Run Eva"}
                       </Button>
                     </div>
                   </TooltipTrigger>
                   {!isOwner && (
-                    <TooltipContent>Only the task owner can run Eva</TooltipContent>
+                    <TooltipContent>
+                      Only the task owner can run Eva
+                    </TooltipContent>
                   )}
                 </Tooltip>
               ) : latestPrUrl &&
@@ -667,7 +686,12 @@ export function TaskDetailModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={showDeleteConfirm} onOpenChange={(v) => { if (!v) setShowDeleteConfirm(false); }}>
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(v) => {
+          if (!v) setShowDeleteConfirm(false);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Delete Task</DialogTitle>
@@ -702,7 +726,10 @@ export function TaskDetailModal({
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
               Cancel
             </Button>
             <Button

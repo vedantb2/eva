@@ -7,7 +7,13 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/lib/components/ui/tooltip";
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -21,14 +27,6 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { Button } from "@/lib/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/lib/components/ui/dialog";
 
 interface ProjectDetailClientProps {
   projectId: string;

@@ -7,11 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
-import { Textarea } from "@/lib/components/ui/textarea";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Button,
+  Input,
+  Textarea,
+  Spinner,
+} from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -53,7 +53,12 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>

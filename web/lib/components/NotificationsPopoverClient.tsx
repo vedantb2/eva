@@ -4,17 +4,21 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import { useDisclosure } from "@/lib/hooks/use-disclosure";
-import { Popover, PopoverTrigger, PopoverContent } from "@/lib/components/ui/popover";
-import { Button } from "@/lib/components/ui/button";
-import { Badge } from "@/lib/components/ui/badge";
-import { Separator } from "@/lib/components/ui/separator";
-import { Spinner } from "@/lib/components/ui/spinner";
 import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/lib/components/ui/popover";
+import {
+  Button,
+  Separator,
+  Spinner,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/lib/components/ui/dialog";
+} from "@conductor/ui";
+import { Badge } from "@/lib/components/ui/badge";
 import {
   IconBell,
   IconChecks,
@@ -43,14 +47,26 @@ const typeConfig: Record<
     label: "Routine",
     badgeVariant: "secondary",
   },
-  export_ready: { icon: IconFileExport, label: "Export", badgeVariant: "default" },
-  task_complete: { icon: IconCheck, label: "Task Done", badgeVariant: "success" },
+  export_ready: {
+    icon: IconFileExport,
+    label: "Export",
+    badgeVariant: "default",
+  },
+  task_complete: {
+    icon: IconCheck,
+    label: "Task Done",
+    badgeVariant: "success",
+  },
   task_assigned: {
     icon: IconUserPlus,
     label: "Assigned",
     badgeVariant: "warning",
   },
-  comment_added: { icon: IconMessage, label: "Comment", badgeVariant: "default" },
+  comment_added: {
+    icon: IconMessage,
+    label: "Comment",
+    badgeVariant: "default",
+  },
   run_completed: {
     icon: IconPlayerPlay,
     label: "Run Done",
@@ -93,7 +109,12 @@ export function NotificationsPopoverClient() {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent side="right" align="end" sideOffset={12} className="p-0 w-80">
+        <PopoverContent
+          side="right"
+          align="end"
+          sideOffset={12}
+          className="p-0 w-80"
+        >
           <div className="flex items-center justify-start px-3 py-2.5">
             <span className="text-sm font-semibold">Notifications</span>
             {unreadCount > 0 && (
@@ -138,10 +159,15 @@ export function NotificationsPopoverClient() {
                       }}
                       className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-muted transition-colors ${n.read ? "opacity-60" : ""}`}
                     >
-                      <Icon size={16} className="text-muted-foreground flex-shrink-0" />
+                      <Icon
+                        size={16}
+                        className="text-muted-foreground flex-shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">{dayjs(n.createdAt).fromNow()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {dayjs(n.createdAt).fromNow()}
+                        </p>
                       </div>
                       {!n.read && (
                         <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
@@ -155,7 +181,12 @@ export function NotificationsPopoverClient() {
         </PopoverContent>
       </Popover>
 
-      <Dialog open={!!selected} onOpenChange={(v) => { if (!v) setSelectedId(null); }}>
+      <Dialog
+        open={!!selected}
+        onOpenChange={(v) => {
+          if (!v) setSelectedId(null);
+        }}
+      >
         <DialogContent>
           {selected &&
             (() => {

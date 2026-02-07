@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Command } from "cmdk";
-import { Dialog, DialogContent } from "@/lib/components/ui/dialog";
+import { Dialog, DialogContent } from "@conductor/ui";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
@@ -61,7 +61,10 @@ export function SpotlightSearch() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent hideCloseButton className="p-0 gap-0 top-[30%] translate-y-0 max-w-lg">
+      <DialogContent
+        hideCloseButton
+        className="p-0 gap-0 top-[30%] translate-y-0 max-w-lg"
+      >
         <Command className="flex flex-col" shouldFilter>
           <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
             <IconSearch className="w-4 h-4 text-neutral-400 flex-shrink-0" />
@@ -82,42 +85,74 @@ export function SpotlightSearch() {
             </Command.Empty>
 
             <Command.Group heading="Pages" className={headingClass}>
-              <Command.Item value="Projects" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/projects`)}>
+              <Command.Item
+                value="Projects"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/projects`)}
+              >
                 <IconLayoutKanban className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Projects</span>
                 <span className="text-xs text-neutral-400">Build</span>
               </Command.Item>
-              <Command.Item value="Quick Tasks" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}>
+              <Command.Item
+                value="Quick Tasks"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}
+              >
                 <IconChecklist className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Quick Tasks</span>
                 <span className="text-xs text-neutral-400">Fix</span>
               </Command.Item>
-              <Command.Item value="Sessions" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/sessions`)}>
+              <Command.Item
+                value="Sessions"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/sessions`)}
+              >
                 <IconTerminal2 className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Sessions</span>
                 <span className="text-xs text-neutral-400">Fix</span>
               </Command.Item>
-              <Command.Item value="Documents" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/docs`)}>
+              <Command.Item
+                value="Documents"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/docs`)}
+              >
                 <IconFileText className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Documents</span>
                 <span className="text-xs text-neutral-400">Test</span>
               </Command.Item>
-              <Command.Item value="Testing Arena" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/testing-arena`)}>
+              <Command.Item
+                value="Testing Arena"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/testing-arena`)}
+              >
                 <IconFlask className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Testing Arena</span>
                 <span className="text-xs text-neutral-400">Test</span>
               </Command.Item>
-              <Command.Item value="Analyse" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/analyse`)}>
+              <Command.Item
+                value="Analyse"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/analyse`)}
+              >
                 <IconBrain className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Analyse</span>
                 <span className="text-xs text-neutral-400">Data</span>
               </Command.Item>
-              <Command.Item value="Stats" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/stats`)}>
+              <Command.Item
+                value="Stats"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/stats`)}
+              >
                 <IconChartBar className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Stats</span>
                 <span className="text-xs text-neutral-400">Analytics</span>
               </Command.Item>
-              <Command.Item value="Admin" className={itemClass} onSelect={() => handleSelect(`/${repoSlug}/admin`)}>
+              <Command.Item
+                value="Admin"
+                className={itemClass}
+                onSelect={() => handleSelect(`/${repoSlug}/admin`)}
+              >
                 <IconShield className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Admin</span>
                 <span className="text-xs text-neutral-400">Settings</span>
@@ -131,7 +166,9 @@ export function SpotlightSearch() {
                     key={p._id}
                     value={`${p.title} ${p.description ?? ""}`}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/projects/${p._id}`)}
+                    onSelect={() =>
+                      handleSelect(`/${repoSlug}/projects/${p._id}`)
+                    }
                   >
                     <IconLayoutKanban className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{p.title}</span>
@@ -165,7 +202,9 @@ export function SpotlightSearch() {
                     key={s._id}
                     value={s.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/sessions/${s._id}`)}
+                    onSelect={() =>
+                      handleSelect(`/${repoSlug}/sessions/${s._id}`)
+                    }
                   >
                     <IconTerminal2 className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{s.title}</span>
@@ -199,7 +238,9 @@ export function SpotlightSearch() {
                     key={`test-${d._id}`}
                     value={`test ${d.title}`}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/testing-arena/${d._id}`)}
+                    onSelect={() =>
+                      handleSelect(`/${repoSlug}/testing-arena/${d._id}`)
+                    }
                   >
                     <IconFlask className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
@@ -216,11 +257,15 @@ export function SpotlightSearch() {
                     key={rq._id}
                     value={rq.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/analyse/query/${rq._id}`)}
+                    onSelect={() =>
+                      handleSelect(`/${repoSlug}/analyse/query/${rq._id}`)
+                    }
                   >
                     <IconBrain className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{rq.title}</span>
-                    <span className="text-xs text-neutral-400">Analysis Query</span>
+                    <span className="text-xs text-neutral-400">
+                      Analysis Query
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>

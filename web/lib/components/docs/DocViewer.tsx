@@ -3,21 +3,20 @@
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { api } from "@/api";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
-import { Textarea } from "@/lib/components/ui/textarea";
 import {
+  Button,
+  Input,
+  Textarea,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/lib/components/ui/tooltip";
+  Spinner,
+} from "@conductor/ui";
 import {
   IconTrash,
   IconPlus,
@@ -29,7 +28,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
-import { Spinner } from "@/lib/components/ui/spinner";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

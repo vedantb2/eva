@@ -7,18 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
-import { Textarea } from "@/lib/components/ui/textarea";
-import {
+  Button,
+  Input,
+  Textarea,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/lib/components/ui/select";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Spinner,
+} from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -60,7 +58,12 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Quick Task</DialogTitle>
@@ -93,7 +96,11 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               <SelectContent>
                 {(users ?? []).map((user) => (
                   <SelectItem key={user._id} value={user._id}>
-                    {user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed User"}
+                    {user.fullName ||
+                      [user.firstName, user.lastName]
+                        .filter(Boolean)
+                        .join(" ") ||
+                      "Unnamed User"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -104,10 +111,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isLoading || !title.trim()}
-          >
+          <Button onClick={handleSubmit} disabled={isLoading || !title.trim()}>
             {isLoading && <Spinner size="sm" />}
             Create Task
           </Button>

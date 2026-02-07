@@ -13,6 +13,7 @@
     "inngest": "npx inngest-cli dev"
   },
   "dependencies": {
+    "@conductor/ui": "workspace:*",
     "@ai-sdk/mcp": "^0.0.13",
     "@ai-sdk/react": "^3.0.72",
     "@anthropic-ai/claude-code": "^2.1.6",

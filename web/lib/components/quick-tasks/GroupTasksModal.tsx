@@ -13,11 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/lib/components/ui/dialog";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/lib/components/ui/tabs";
-import { Spinner } from "@/lib/components/ui/spinner";
+  Button,
+  Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Spinner,
+} from "@conductor/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface GroupTasksModalProps {
@@ -36,7 +39,8 @@ export function GroupTasksModal({
   const { repo, fullName } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | null>(null);
+  const [selectedProjectId, setSelectedProjectId] =
+    useState<Id<"projects"> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("new");
 
@@ -81,17 +85,27 @@ export function GroupTasksModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            Group {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} into project
+            Group {selectedTaskIds.size} task
+            {selectedTaskIds.size !== 1 ? "s" : ""} into project
           </DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full">
-            <TabsTrigger value="new" className="flex-1">New Project</TabsTrigger>
-            <TabsTrigger value="existing" className="flex-1">Existing Project</TabsTrigger>
+            <TabsTrigger value="new" className="flex-1">
+              New Project
+            </TabsTrigger>
+            <TabsTrigger value="existing" className="flex-1">
+              Existing Project
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="new">
             <div className="pt-2 space-y-1.5">
@@ -106,33 +120,39 @@ export function GroupTasksModal({
           </TabsContent>
           <TabsContent value="existing">
             <div className="pt-2 space-y-2 max-h-80 overflow-y-auto">
-              {projects?.filter((p) => p.phase === "active" || p.phase === "completed").length === 0 && (
+              {projects?.filter(
+                (p) => p.phase === "active" || p.phase === "completed",
+              ).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No active projects
                 </p>
               )}
-              {projects?.filter((p) => p.phase === "active" || p.phase === "completed").map((project) => (
-                <button
-                  key={project._id}
-                  type="button"
-                  onClick={() => setSelectedProjectId(project._id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
-                    selectedProjectId === project._id
-                      ? "border-primary bg-primary/10"
-                      : "border-transparent bg-muted hover:bg-muted"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{project.title}</span>
-                    <ProjectPhaseBadge phase={project.phase} />
-                  </div>
-                  {project.description && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {project.description}
-                    </p>
-                  )}
-                </button>
-              ))}
+              {projects
+                ?.filter((p) => p.phase === "active" || p.phase === "completed")
+                .map((project) => (
+                  <button
+                    key={project._id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(project._id)}
+                    className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
+                      selectedProjectId === project._id
+                        ? "border-primary bg-primary/10"
+                        : "border-transparent bg-muted hover:bg-muted"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {project.title}
+                      </span>
+                      <ProjectPhaseBadge phase={project.phase} />
+                    </div>
+                    {project.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                        {project.description}
+                      </p>
+                    )}
+                  </button>
+                ))}
             </div>
           </TabsContent>
         </Tabs>

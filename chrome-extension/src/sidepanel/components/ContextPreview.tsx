@@ -1,7 +1,13 @@
 import { useState } from "react";
 import type { ExtractedContext } from "@/shared/types";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@conductor/ui";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
 import "highlight.js/styles/github-dark.min.css";
@@ -79,7 +85,9 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
                 <code
                   className="hljs text-xs"
                   dangerouslySetInnerHTML={{
-                    __html: hljs.highlight(context.element.outerHTML, { language: "xml" }).value,
+                    __html: hljs.highlight(context.element.outerHTML, {
+                      language: "xml",
+                    }).value,
                   }}
                 />
               </pre>

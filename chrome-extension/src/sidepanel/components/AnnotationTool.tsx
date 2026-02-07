@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { IconMapPin } from "@tabler/icons-react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/api";
 import type { ExtractedContext } from "@/shared/types";
@@ -20,12 +20,18 @@ interface AnnotationToolProps {
   onActiveChange: (active: boolean) => void;
 }
 
-export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: AnnotationToolProps) {
+export function AnnotationTool({
+  onAnnotationTask,
+  isActive,
+  onActiveChange,
+}: AnnotationToolProps) {
   const [tabUrl, setTabUrl] = useState<string | null>(null);
   const lastPushedRef = useRef<string | null>(null);
   const prevActiveRef = useRef(isActive);
 
-  const pageUrl = tabUrl ? new URL(tabUrl).origin + new URL(tabUrl).pathname : null;
+  const pageUrl = tabUrl
+    ? new URL(tabUrl).origin + new URL(tabUrl).pathname
+    : null;
 
   const savedPins = useQuery(
     api.annotations.getByUrl,
@@ -66,12 +72,19 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
 
   useEffect(() => {
     if (savedPins === undefined) return;
-    const pins: Record<string, StoredPin> = savedPins ? JSON.parse(savedPins) : {};
+    const pins: Record<string, StoredPin> = savedPins
+      ? JSON.parse(savedPins)
+      : {};
     pushToContentScript(pins);
   }, [savedPins, pushToContentScript]);
 
   useEffect(() => {
-    const handleMessage = (message: { type: string; payload?: AnnotationPayload | { pageUrl: string; pins: Record<string, StoredPin> } }) => {
+    const handleMessage = (message: {
+      type: string;
+      payload?:
+        | AnnotationPayload
+        | { pageUrl: string; pins: Record<string, StoredPin> };
+    }) => {
       if (message.type === "SAVE_ANNOTATION_TASK" && message.payload) {
         onAnnotationTask(message.payload as AnnotationPayload);
       }
@@ -79,7 +92,10 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
         onActiveChange(false);
       }
       if (message.type === "ANNOTATIONS_CHANGED" && message.payload) {
-        const { pageUrl: url, pins } = message.payload as { pageUrl: string; pins: Record<string, StoredPin> };
+        const { pageUrl: url, pins } = message.payload as {
+          pageUrl: string;
+          pins: Record<string, StoredPin>;
+        };
         lastPushedRef.current = JSON.stringify(pins);
         if (Object.keys(pins).length === 0) {
           removeAnnotations({ pageUrl: url });
@@ -89,18 +105,28 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
       }
       if (message.type === "REQUEST_ANNOTATIONS" && savedPins !== undefined) {
         lastPushedRef.current = null;
-        const pins: Record<string, StoredPin> = savedPins ? JSON.parse(savedPins) : {};
+        const pins: Record<string, StoredPin> = savedPins
+          ? JSON.parse(savedPins)
+          : {};
         pushToContentScript(pins);
       }
     };
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
-  }, [onAnnotationTask, onActiveChange, saveAnnotations, removeAnnotations, savedPins, pushToContentScript]);
+  }, [
+    onAnnotationTask,
+    onActiveChange,
+    saveAnnotations,
+    removeAnnotations,
+    savedPins,
+    pushToContentScript,
+  ]);
 
   useEffect(() => {
     if (prevActiveRef.current && !isActive) {
       chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-        if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: "STOP_ANNOTATION" });
+        if (tab?.id)
+          chrome.tabs.sendMessage(tab.id, { type: "STOP_ANNOTATION" });
       });
     }
     prevActiveRef.current = isActive;
@@ -111,18 +137,28 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
       onActiveChange(false);
       return;
     }
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     if (!tab?.id) return;
     lastPushedRef.current = null;
-    chrome.tabs.sendMessage(tab.id, { type: "START_ANNOTATION" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Failed to start annotation:", chrome.runtime.lastError);
-        return;
-      }
-      if (response?.success) {
-        onActiveChange(true);
-      }
-    });
+    chrome.tabs.sendMessage(
+      tab.id,
+      { type: "START_ANNOTATION" },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "Failed to start annotation:",
+            chrome.runtime.lastError,
+          );
+          return;
+        }
+        if (response?.success) {
+          onActiveChange(true);
+        }
+      },
+    );
   };
 
   return (
@@ -142,7 +178,9 @@ export function AnnotationTool({ onAnnotationTask, isActive, onActiveChange }: A
           <IconMapPin className="relative w-5 h-5" />
         </button>
       </TooltipTrigger>
-      <TooltipContent>{isActive ? "Stop annotating" : "Annotate page"}</TooltipContent>
+      <TooltipContent>
+        {isActive ? "Stop annotating" : "Annotate page"}
+      </TooltipContent>
     </Tooltip>
   );
 }

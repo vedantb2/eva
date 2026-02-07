@@ -8,6 +8,7 @@ const config = {
     "./sidepanel.html",
     "./src/**/*.{ts,tsx}",
     "./node_modules/streamdown/dist/**/*.js",
+    "../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {

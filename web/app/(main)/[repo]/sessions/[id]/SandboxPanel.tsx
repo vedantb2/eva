@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/lib/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import { IconTerminal2, IconWorld, IconGitBranch } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/api";

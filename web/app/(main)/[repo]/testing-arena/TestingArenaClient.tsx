@@ -4,8 +4,15 @@ import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@/lib/components/ui/button";
-import { Input } from "@/lib/components/ui/input";
+import {
+  Button,
+  Input,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@conductor/ui";
 import {
   IconPlayerPlay,
   IconFileText,
@@ -13,13 +20,6 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/lib/components/ui/dialog";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { GenericId as Id } from "convex/values";
@@ -68,7 +68,10 @@ function DocsListPanel({
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
       <div className="px-4 py-2 pb-4 relative">
-        <IconSearch size={14} className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <IconSearch
+          size={14}
+          className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
         <Input
           placeholder="Search docs..."
           className="pl-8 pr-8 h-8 text-sm"
@@ -169,7 +172,12 @@ export function TestingArenaClient({
           <div className="col-span-3 h-full overflow-hidden">{children}</div>
         </div>
       </PageWrapper>
-      <Dialog open={showTestAllModal} onOpenChange={(v) => { if (!v) setShowTestAllModal(false); }}>
+      <Dialog
+        open={showTestAllModal}
+        onOpenChange={(v) => {
+          if (!v) setShowTestAllModal(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Test All Documents</DialogTitle>
@@ -185,12 +193,13 @@ export function TestingArenaClient({
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowTestAllModal(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowTestAllModal(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleTestAll}>
-              Yes save me Eva
-            </Button>
+            <Button onClick={handleTestAll}>Yes save me Eva</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -5,7 +5,21 @@ import { api } from "@/api";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { GenericId as Id } from "convex/values";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@/lib/components/ui/button";
+import {
+  Button,
+  Input,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
@@ -23,24 +37,8 @@ import {
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
-import { Input } from "@/lib/components/ui/input";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/lib/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/lib/components/ui/dialog";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
 const SORT_FIELDS = [
@@ -131,10 +129,7 @@ export function ProjectsClient() {
         title="Projects"
         fillHeight
         headerRight={
-          <Button
-            size="sm"
-            onClick={() => setIsCreating(true)}
-          >
+          <Button size="sm" onClick={() => setIsCreating(true)}>
             <IconPlus size={16} />
             New Project
           </Button>
@@ -158,10 +153,7 @@ export function ProjectsClient() {
               <div className="flex items-center gap-2 flex-wrap">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                    >
+                    <Button variant="secondary" size="sm">
                       <IconFilter size={16} />
                       {visiblePhases.size === PROJECT_PHASES.length
                         ? "All Columns"
@@ -187,10 +179,7 @@ export function ProjectsClient() {
                 </DropdownMenu>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                    >
+                    <Button variant="secondary" size="sm">
                       {sortDirection === "asc" ? (
                         <IconSortAscending size={16} />
                       ) : (
@@ -228,7 +217,10 @@ export function ProjectsClient() {
                 </Button>
               </div>
               <div className="relative w-1/2 mx-auto">
-                <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <IconSearch
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <Input
                   placeholder="Search projects..."
                   className="pl-9 pr-8 h-8 text-sm"
@@ -293,7 +285,12 @@ export function ProjectsClient() {
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
       />
-      <Dialog open={!!projectToDelete} onOpenChange={(v) => { if (!v) setProjectToDelete(null); }}>
+      <Dialog
+        open={!!projectToDelete}
+        onOpenChange={(v) => {
+          if (!v) setProjectToDelete(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
@@ -314,7 +311,10 @@ export function ProjectsClient() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setProjectToDelete(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => setProjectToDelete(null)}
+            >
               Cancel
             </Button>
             <Button

@@ -2,7 +2,7 @@
 
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 
 export function ThemeToggleClient() {
   const { theme, toggleTheme, mounted } = useThemeContext();

@@ -13,7 +13,7 @@ import {
   IconLayoutSidebarRightExpand,
   IconMessageCircle,
 } from "@tabler/icons-react";
-import { Button } from "@/lib/components/ui/button";
+import { Button } from "@conductor/ui";
 
 interface Project {
   _id: Id<"projects">;
@@ -97,9 +97,9 @@ export function ProjectActiveLayout({
           </Button>
         </div>
         {!tasksCollapsed && (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ProjectTaskListPanel projectId={projectId} />
-            </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ProjectTaskListPanel projectId={projectId} />
+          </div>
         )}
       </div>
       <div className="flex-1 flex items-center justify-center">

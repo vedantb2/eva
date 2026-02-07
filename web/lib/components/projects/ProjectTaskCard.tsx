@@ -1,11 +1,11 @@
 "use client";
 
 import { Card, CardContent } from "@conductor/ui";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
 import {

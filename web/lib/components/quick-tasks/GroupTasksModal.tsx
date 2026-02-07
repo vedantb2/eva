@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
+import { api } from "conductor-backend";
+import type { Id } from "conductor-backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";

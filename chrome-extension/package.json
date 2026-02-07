@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "preview": "vite preview",
-    "api": "npx convex-helpers ts-api-spec --output-file src/api"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@conductor/ui": "workspace:*",
+    "conductor-backend": "workspace:*",
     "@clerk/chrome-extension": "^2.8.20",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -45,12 +45,12 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.287",
+    "@types/node": "^22.18.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.1",
     "ai": "^6.0.75",
     "autoprefixer": "^10.4.20",
-    "convex-helpers": "^0.1.111",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",

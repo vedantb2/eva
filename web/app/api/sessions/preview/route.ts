@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Daytona } from "@daytonaio/sdk";
 import { createClerkClient } from "@clerk/backend";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
 import { serverEnv } from "@/env/server";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 
 const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const clerk = createClerkClient({ secretKey: serverEnv.CLERK_SECRET_KEY });

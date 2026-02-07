@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -22,7 +22,7 @@ import {
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 
 interface Doc {
   _id: Id<"docs">;

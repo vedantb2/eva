@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import {
   Tooltip,
   TooltipTrigger,
@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";

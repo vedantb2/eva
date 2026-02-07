@@ -1,9 +1,9 @@
 "use client";
 
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import usePresence from "@convex-dev/presence/react";
 import { useQuery } from "convex/react";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 
 function PresenceHeartbeat() {
   const userId = useQuery(api.auth.me);

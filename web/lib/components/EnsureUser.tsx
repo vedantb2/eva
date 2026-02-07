@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 
 export function EnsureUser({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();

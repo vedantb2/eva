@@ -1,9 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { useTheme } from "next-themes";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 
 interface ThemeContextType {
   theme: string;
@@ -66,4 +72,4 @@ export function useThemeContext() {
     throw new Error("useThemeContext must be used within a ThemeProvider");
   }
   return context;
-} 
+}

@@ -1,6 +1,6 @@
 import { inngest } from "../client";
-import { GenericId as Id } from "convex/values";
-import { api } from "@/api";
+import type { Id } from "conductor-backend";
+import { api } from "conductor-backend";
 import { createConvex } from "@/lib/convex-auth";
 
 export const buildProject = inngest.createFunction(

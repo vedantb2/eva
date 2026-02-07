@@ -2,6 +2,9 @@
   "name": "conductor-backend",
   "version": "1.0.0",
   "private": true,
+  "exports": {
+    ".": "./index.ts"
+  },
   "scripts": {
     "dev": "npx convex dev",
     "deploy": "npx convex deploy"

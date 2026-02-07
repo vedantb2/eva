@@ -1,6 +1,6 @@
 import { inngest } from "../client";
-import { GenericId as Id } from "convex/values";
-import { api } from "@/api";
+import type { Id } from "conductor-backend";
+import { api } from "conductor-backend";
 import { createConvex } from "@/lib/convex-auth";
 import { generateText, tool, stepCountIs } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -30,7 +30,8 @@ async function runConvexQuery(queryCode: string): Promise<string> {
   );
   if (!res.ok) throw new Error(`Convex query failed: ${res.status}`);
   const { status, value } = queryResultSchema.parse(await res.json());
-  if (status !== "success") throw new Error(`Query error: ${JSON.stringify(value)}`);
+  if (status !== "success")
+    throw new Error(`Query error: ${JSON.stringify(value)}`);
   return JSON.stringify(value);
 }
 

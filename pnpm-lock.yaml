@@ -112,6 +112,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      conductor-backend:
+        specifier: workspace:*
+        version: link:../backend
       convex:
         specifier: ^1.31.6
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
@@ -149,6 +152,9 @@ importers:
       '@types/chrome':
         specifier: ^0.0.287
         version: 0.0.287
+      '@types/node':
+        specifier: ^22.18.5
+        version: 22.19.9
       '@types/react':
         specifier: 19.0.10
         version: 19.0.10
@@ -157,16 +163,13 @@ importers:
         version: 19.0.4(@types/react@19.0.10)
       '@vitejs/plugin-react':
         specifier: ^4.4.1
-        version: 4.7.0(vite@6.4.1(@types/node@24.10.11)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2))
+        version: 4.7.0(vite@6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2))
       ai:
         specifier: ^6.0.75
         version: 6.0.75(zod@4.3.6)
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.24(postcss@8.5.6)
-      convex-helpers:
-        specifier: ^0.1.111
-        version: 0.1.111(@standard-schema/spec@1.1.0)(convex@1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(zod@4.3.6)
       postcss:
         specifier: ^8.5.3
         version: 8.5.6
@@ -181,7 +184,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.3.5
-        version: 6.4.1(@types/node@24.10.11)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2)
+        version: 6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2)
 
   mobile:
     dependencies:
@@ -574,6 +577,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      conductor-backend:
+        specifier: workspace:*
+        version: link:../backend
       convex:
         specifier: ^1.24.1
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
@@ -20297,7 +20303,7 @@ snapshots:
 
   '@vercel/oidc@3.1.0': {}
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@24.10.11)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2))':
+  '@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2))':
     dependencies:
       '@babel/core': 7.29.0
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.29.0)
@@ -20305,7 +20311,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 6.4.1(@types/node@24.10.11)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2)
+      vite: 6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -26836,7 +26842,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  vite@6.4.1(@types/node@24.10.11)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2):
+  vite@6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(yaml@2.8.2):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -26845,7 +26851,7 @@ snapshots:
       rollup: 4.57.1
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.10.11
+      '@types/node': 22.19.9
       fsevents: 2.3.3
       jiti: 1.21.7
       lightningcss: 1.27.0

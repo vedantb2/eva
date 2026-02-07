@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
-import { Id } from "./_generated/dataModel";
 
 const dependencyValidator = v.object({
   _id: v.id("taskDependencies"),
@@ -48,7 +47,7 @@ export const getDependencies = query({
       title: v.string(),
       status: v.string(),
       taskNumber: v.optional(v.number()),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);

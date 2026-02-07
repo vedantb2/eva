@@ -4,16 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "turbo": "npm run api && next dev --turbopack",
-    "build": "npm run api:prod && next build",
+    "turbo": "next dev --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "api": "npx convex-helpers ts-api-spec --output-file api",
-    "api:prod": "npx convex-helpers ts-api-spec --prod --output-file api",
     "inngest": "npx inngest-cli dev"
   },
   "dependencies": {
     "@conductor/ui": "workspace:*",
+    "conductor-backend": "workspace:*",
     "@ai-sdk/mcp": "^0.0.13",
     "@ai-sdk/react": "^3.0.72",
     "@anthropic-ai/claude-code": "^2.1.6",

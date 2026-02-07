@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,

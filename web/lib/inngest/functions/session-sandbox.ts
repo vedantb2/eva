@@ -1,8 +1,14 @@
 import { inngest } from "../client";
-import { GenericId as Id } from "convex/values";
-import { api } from "@/api";
+import type { Id } from "conductor-backend";
+import { api } from "conductor-backend";
 import { createConvex } from "@/lib/convex-auth";
-import { createSandbox, getSandbox, WORKSPACE_DIR, getGitHubToken, updateRemoteUrl } from "../sandbox";
+import {
+  createSandbox,
+  getSandbox,
+  WORKSPACE_DIR,
+  getGitHubToken,
+  updateRemoteUrl,
+} from "../sandbox";
 
 export const startSandbox = inngest.createFunction(
   { id: "start-sandbox", retries: 2 },
@@ -47,7 +53,7 @@ export const startSandbox = inngest.createFunction(
         `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${branchName} && pnpm install`,
         "/",
         undefined,
-        120
+        120,
       );
 
       await convex.mutation(api.sessions.updateSandbox, {
@@ -60,7 +66,7 @@ export const startSandbox = inngest.createFunction(
         `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
         "/",
         undefined,
-        10
+        10,
       );
 
       await convex.mutation(api.sessions.updateStatus, {
@@ -84,7 +90,7 @@ export const startSandbox = inngest.createFunction(
     });
 
     return { success: true, sandboxId: sandboxData.sandboxId };
-  }
+  },
 );
 
 export const stopSandbox = inngest.createFunction(
@@ -123,5 +129,5 @@ export const stopSandbox = inngest.createFunction(
         content: "Sandbox stopped. Start the sandbox to continue working.",
       });
     });
-  }
+  },
 );

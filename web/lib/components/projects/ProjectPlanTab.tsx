@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Button, Input } from "@conductor/ui";
 import { useMutation } from "convex/react";
-import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
+import { api } from "conductor-backend";
+import type { Id } from "conductor-backend";
 import { useRouter } from "next/navigation";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import {

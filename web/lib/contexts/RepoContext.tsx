@@ -2,11 +2,13 @@
 
 import { createContext, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { decodeRepoSlug } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
 
-type Repo = NonNullable<FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>>;
+type Repo = NonNullable<
+  FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>
+>;
 
 interface RepoContextType {
   repo: Repo;
@@ -62,9 +64,7 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
     );
   }
 
-  return (
-    <RepoContext.Provider value={value}>{children}</RepoContext.Provider>
-  );
+  return <RepoContext.Provider value={value}>{children}</RepoContext.Provider>;
 }
 
 export function useRepo() {

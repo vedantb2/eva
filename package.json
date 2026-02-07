@@ -12,8 +12,6 @@
     "turbo": "npm run turbo --prefix ./web",
     "convex": "npm run dev --prefix ./backend",
     "convex:deploy": "npm run deploy --prefix ./backend",
-    "api:web": "npm run api --prefix ./web",
-    "api:ext": "npm run api --prefix ./chrome-extension",
     "inngest": "npm run inngest --prefix ./web",
     "ext:dev": "npm run dev --prefix ./chrome-extension",
     "ext:build": "npm run build --prefix ./chrome-extension",

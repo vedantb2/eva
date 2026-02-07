@@ -9,7 +9,6 @@
 ```bash
 pnpm dev        # Watch mode build (Vite)
 pnpm build      # Production build → dist/
-pnpm api        # Regenerate Convex API types (src/api.ts)
 npx tsc         # Type check
 ```
 
@@ -48,11 +47,12 @@ src/
 - **Messaging**: Typed discriminated union messages (`src/shared/messaging.ts`) between background, content, and sidepanel
 - **React Fiber Inspection**: `react-extractor.ts` reads React DevTools hook to extract component trees, props, hooks from inspected elements
 - **Styling**: HSL CSS variables for theming, class-based dark mode, stored in `chrome.storage.local`
-- **API Types**: Auto-generated `src/api.ts` from Convex backend — run `pnpm api` to regenerate
+- **API Types**: Imported directly from `conductor-backend` workspace package (no code generation needed)
 
 ## Backend Integration
 
 Connects to the same Convex backend as the web app:
+
 - `api.githubRepos.list` — list repos
 - `api.sessions.*` — session CRUD + messaging
 - `api.agentTasks.createQuickTask` — create tasks from annotations
@@ -62,6 +62,7 @@ Environment variables (`VITE_CONVEX_URL`, `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_AP
 ## Build Output
 
 Vite produces `dist/` with:
+
 - `manifest.json`, `sidepanel.html`
 - `background.js` (service worker)
 - `content.js` (IIFE format, no module imports)

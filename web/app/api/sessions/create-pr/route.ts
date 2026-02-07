@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createConvex } from "@/lib/convex-auth";
 import { createPullRequest } from "@/lib/github/client";
-import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
+import { api } from "conductor-backend";
+import type { Id } from "conductor-backend";
 
 export async function POST(request: NextRequest) {
   const { userId, getToken } = await auth();

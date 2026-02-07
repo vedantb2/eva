@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@/api";
+import type { api } from "conductor-backend";
 import { IconFilePlus, IconFileCode, IconFileX } from "@tabler/icons-react";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
@@ -15,12 +15,16 @@ const statusConfig = {
 };
 
 function getConfig(status: string) {
-  return statusConfig[status as keyof typeof statusConfig] ?? statusConfig.modified;
+  return (
+    statusConfig[status as keyof typeof statusConfig] ?? statusConfig.modified
+  );
 }
 
 function DiffLine({ line }: { line: string }) {
   if (line.startsWith("+") && !line.startsWith("+++")) {
-    return <div className="bg-green-500/10 text-green-400 px-3 py-0">{line}</div>;
+    return (
+      <div className="bg-green-500/10 text-green-400 px-3 py-0">{line}</div>
+    );
   }
   if (line.startsWith("-") && !line.startsWith("---")) {
     return <div className="bg-red-500/10 text-red-400 px-3 py-0">{line}</div>;
@@ -31,7 +35,11 @@ function DiffLine({ line }: { line: string }) {
   return <div className="text-neutral-400 px-3 py-0">{line}</div>;
 }
 
-export function DiffPanel({ fileDiffs }: { fileDiffs: FileDiff[] | undefined }) {
+export function DiffPanel({
+  fileDiffs,
+}: {
+  fileDiffs: FileDiff[] | undefined;
+}) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   if (!fileDiffs || fileDiffs.length === 0) {

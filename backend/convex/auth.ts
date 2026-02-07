@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { themeValidator } from "./validators";
 
 export async function getCurrentUserId(
-  ctx: QueryCtx | MutationCtx
+  ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
@@ -83,11 +83,11 @@ async function runMigration(
   ctx: MutationCtx,
   clerkUserId: string,
   userId: Id<"users">,
-  email: string
+  email: string,
 ): Promise<undefined> {
   const now = Date.now();
 
-  const migrationId = await ctx.db.insert("userMigrations", {
+  await ctx.db.insert("userMigrations", {
     clerkUserId,
     userId,
     email,
@@ -107,7 +107,7 @@ export const me = query({
 export const isCurrentUserAdmin = query({
   args: {},
   returns: v.boolean(),
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const userId = await getCurrentUserId(ctx);
     if (!userId) {
       return false;
@@ -124,7 +124,7 @@ export const ensureUserExists = mutation({
     userId: v.id("users"),
     wasCreated: v.boolean(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");

@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { Container } from "@/lib/components/ui/Container";
 import { IconBrandGithub, IconCheck, IconLoader2 } from "@tabler/icons-react";
 
@@ -71,8 +71,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
             installationId: Number(installationId),
           });
           setAddedRepos((prev) => new Set([...prev, repo.fullName]));
-        } catch {
-        }
+        } catch {}
       }
     }
 
@@ -131,7 +130,9 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                   <p className="font-medium text-sm sm:text-base text-neutral-900 dark:text-white truncate">
                     {repo.name}
                   </p>
-                  <p className="text-xs sm:text-sm text-neutral-500 truncate">{repo.owner}</p>
+                  <p className="text-xs sm:text-sm text-neutral-500 truncate">
+                    {repo.owner}
+                  </p>
                 </div>
               </div>
               {addedRepos.has(repo.fullName) ? (
@@ -148,7 +149,9 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                         name: repo.name,
                         installationId: Number(installationId),
                       });
-                      setAddedRepos((prev) => new Set([...prev, repo.fullName]));
+                      setAddedRepos(
+                        (prev) => new Set([...prev, repo.fullName]),
+                      );
                     } catch {}
                   }}
                   className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-primary text-white rounded-lg hover:bg-primary/80 flex-shrink-0"

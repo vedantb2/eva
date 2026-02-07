@@ -11,8 +11,6 @@ pnpm dev            # Start web dev server (Next.js with Turbopack)
 pnpm convex         # Start Convex backend dev server
 pnpm convex:deploy  # Deploy Convex backend
 pnpm inngest        # Start Inngest dev server for background jobs
-pnpm api:web        # Generate Convex API types for web
-pnpm api:ext        # Generate Convex API types for chrome-extension
 pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
 ```
@@ -20,7 +18,7 @@ pnpm ext:build      # Build chrome extension
 **Web-specific commands (from /web):**
 
 ```bash
-pnpm turbo        # Dev server with API generation
+pnpm turbo        # Dev server
 pnpm build        # Production build
 pnpm lint         # ESLint
 ```
@@ -43,6 +41,7 @@ npx tsc              # TypeScript type check
 This is a monorepo (pnpm workspaces) with four apps and one shared package:
 
 - **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
+- **backend/** also serves as a shared package (`conductor-backend`) exporting Convex types (`Id`, `Doc`, `api`, `internal`)
 - **web/** - Next.js 15 frontend (App Router, Turbopack)
 - **backend/** - Convex serverless backend (real-time database + API)
 - **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
@@ -76,7 +75,6 @@ web/
 │   ├── github/       # GitHub API utilities
 │   ├── inngest/      # Background job definitions and sandbox helpers
 │   └── prompts/      # AI system prompts
-├── api.ts            # Generated Convex API types (from pnpm api:web)
 ├── env/
 │   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
 │   └── server.ts     # Server-side env vars
@@ -155,6 +153,7 @@ Web-only components (accordion, avatar, badge, card, checkbox, label, popover, p
 
 - Use `@/*` import alias (maps to web root)
 - Convex queries/mutations use validators - always use `.withIndex()` for efficient queries
+- Import `api`, `Id`, `Doc` from `conductor-backend` (NOT from `convex/values` or a local api.ts)
 - Use `FunctionReturnType` from Convex to derive types instead of manually defining interfaces
 - Forms use React Hook Form + Zod validation
 - Dark mode via next-themes with HSL CSS variables

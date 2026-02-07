@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { useDisclosure } from "@/lib/hooks/use-disclosure";
 import {
   Popover,
@@ -30,7 +30,7 @@ import {
   IconBellOff,
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import type { FunctionReturnType } from "convex/server";
 import type { BadgeProps } from "@conductor/ui";
 

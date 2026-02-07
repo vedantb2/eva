@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { IconMapPin } from "@tabler/icons-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
 

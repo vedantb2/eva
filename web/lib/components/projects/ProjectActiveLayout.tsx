@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { PlanContextPanel } from "./PlanContextPanel";
 import { ProjectChatArea } from "./ProjectChatArea";

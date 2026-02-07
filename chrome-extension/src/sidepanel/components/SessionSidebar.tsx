@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
-import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
+import { api } from "conductor-backend";
+import type { Id } from "conductor-backend";
 import { IconPlus, IconMessage } from "@tabler/icons-react";
 import { Button, Dialog, DialogContent, DialogTitle } from "@conductor/ui";
 import { UserButton, useUser } from "@clerk/chrome-extension";

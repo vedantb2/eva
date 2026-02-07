@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { clientEnv } from "@/env/client";
 import { getAppOctokit, listInstallationRepos } from "@/lib/github/client";
 
@@ -38,8 +38,7 @@ export async function syncGitHubRepos(): Promise<{
             installationId: installation.id,
           });
           totalAdded++;
-        } catch {
-        }
+        } catch {}
       }
     }
 

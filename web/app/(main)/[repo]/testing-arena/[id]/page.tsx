@@ -2,9 +2,9 @@
 
 import { use, useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 import {
   Button,
   Tabs,

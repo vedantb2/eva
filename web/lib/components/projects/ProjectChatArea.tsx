@@ -7,8 +7,8 @@ import {
 } from "@/lib/components/ui/ModelSelector";
 import { Button, Textarea, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
-import { api } from "@/api";
-import { GenericId as Id } from "convex/values";
+import { api } from "conductor-backend";
+import type { Id } from "conductor-backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconArrowUp, IconMessageCircle } from "@tabler/icons-react";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";

@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import dayjs from "@/lib/dates";
 import {
   Avatar,
@@ -8,7 +8,7 @@ import {
   TooltipContent,
 } from "@conductor/ui";
 import { useQuery } from "convex/react";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 
 export function UserInitials({
   userId,

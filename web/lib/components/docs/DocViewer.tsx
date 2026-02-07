@@ -2,7 +2,7 @@
 
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import {
   Button,
   Input,

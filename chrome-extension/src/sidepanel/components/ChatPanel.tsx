@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
@@ -41,7 +41,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { GenericId as Id } from "convex/values";
+import type { Id } from "conductor-backend";
 
 const API_URL = import.meta.env.VITE_API_URL;
 

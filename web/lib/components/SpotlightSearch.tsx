@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { Dialog, DialogContent } from "@conductor/ui";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { api } from "@/api";
+import { api } from "conductor-backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   IconSearch,

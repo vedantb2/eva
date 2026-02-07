@@ -13,6 +13,17 @@ const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const llmJson = new LlmJson({ attemptCorrection: true });
 
 export const WORKSPACE_DIR = "/workspace/repo";
+const SESSION_VOLUME_NAME = "eva-volume";
+const SESSION_VOLUME_MOUNT = "/home/eva/.claude";
+
+type Volume = Awaited<ReturnType<typeof daytona.volume.get>>;
+let cachedVolume: Volume | null = null;
+async function getSessionVolume(): Promise<Volume> {
+  if (!cachedVolume) {
+    cachedVolume = await daytona.volume.get(SESSION_VOLUME_NAME);
+  }
+  return cachedVolume;
+}
 
 export async function createSandbox(
   githubToken: string,
@@ -20,6 +31,7 @@ export async function createSandbox(
   extraEnvVars?: Record<string, string>,
   networkAllowList?: string,
 ): Promise<Sandbox> {
+  const volume = await getSessionVolume();
   const sandbox = await daytona.create(
     {
       snapshot: SNAPSHOT_NAME,
@@ -34,6 +46,7 @@ export async function createSandbox(
         CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
         ...extraEnvVars,
       },
+      volumes: [{ volumeId: volume.id, mountPath: SESSION_VOLUME_MOUNT }],
       autoStopInterval: 15,
       autoDeleteInterval: 30,
       ephemeral: ephemeral ? true : false,
@@ -137,6 +150,8 @@ interface ClaudeCLIOptions {
   workDir?: string;
   timeout?: number;
   outputFormat?: "json" | "text";
+  sessionId?: string;
+  resumeSessionId?: string;
 }
 
 interface ClaudeCLIResult {
@@ -156,14 +171,18 @@ export async function runClaudeCLI(
     workDir = WORKSPACE_DIR,
     timeout = 300,
     outputFormat,
+    sessionId,
+    resumeSessionId,
   } = options;
 
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
+  const sessionArg = sessionId ? `--session-id ${sessionId}` : "";
+  const resumeArg = resumeSessionId ? `--resume ${resumeSessionId}` : "";
 
   const cmdResult = await sandbox.process.executeCommand(
-    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} ${outputFormat === "json" ? "--output-format json" : ""}`,
+    `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} ${sessionArg} ${resumeArg} ${outputFormat === "json" ? "--output-format json" : ""}`,
     "/",
     undefined,
     timeout,
@@ -288,11 +307,15 @@ export async function runClaudeCLIStreaming(
     timeout = 300,
     onOutput,
     flushIntervalMs = 500,
+    sessionId,
+    resumeSessionId,
   } = options;
 
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
+  const sessionArg = sessionId ? `--session-id ${sessionId}` : "";
+  const resumeArg = resumeSessionId ? `--resume ${resumeSessionId}` : "";
 
   let rawOutput = "";
   let lastProcessed = 0;
@@ -325,9 +348,8 @@ export async function runClaudeCLIStreaming(
   }, flushIntervalMs);
 
   try {
-    // "; exit" closes the shell when Claude finishes, causing wait() to resolve
     await ptyHandle.sendInput(
-      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json; exit\n`,
+      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} ${sessionArg} ${resumeArg} --output-format stream-json; exit\n`,
     );
 
     // Kill the PTY if it exceeds the timeout
@@ -457,7 +479,9 @@ export async function detectPackageManager(
 }
 
 // TODO: move agent-browser install to eva-snapshot, then remove this function
-export async function installScreenshotBrowser(sandbox: Sandbox): Promise<void> {
+export async function installScreenshotBrowser(
+  sandbox: Sandbox,
+): Promise<void> {
   const result = await sandbox.process.executeCommand(
     "npm install -g agent-browser 2>&1 && agent-browser install 2>&1",
     "/",
@@ -465,7 +489,9 @@ export async function installScreenshotBrowser(sandbox: Sandbox): Promise<void> 
     120,
   );
   if (result.exitCode !== 0) {
-    throw new Error(`agent-browser install failed: ${(result.result || "").slice(-400)}`);
+    throw new Error(
+      `agent-browser install failed: ${(result.result || "").slice(-400)}`,
+    );
   }
 }
 // TODO: end snapshot section
@@ -527,8 +553,10 @@ export async function runClaudeCodeDirect(
       "@anthropic-ai/claude-code",
       "-p",
       "--dangerously-skip-permissions",
-      "--model", model,
-      "--output-format", "json",
+      "--model",
+      model,
+      "--output-format",
+      "json",
     ];
 
     if (allowedTools.length > 0) {
@@ -557,8 +585,12 @@ export async function runClaudeCodeDirect(
       reject(new Error(`Claude Code CLI timed out after ${timeout}s`));
     }, timeout * 1000);
 
-    child.stdout.on("data", (data: Buffer) => { output += data.toString(); });
-    child.stderr.on("data", (data: Buffer) => { errorOutput += data.toString(); });
+    child.stdout.on("data", (data: Buffer) => {
+      output += data.toString();
+    });
+    child.stderr.on("data", (data: Buffer) => {
+      errorOutput += data.toString();
+    });
 
     child.stdin.write(prompt);
     child.stdin.end();
@@ -569,18 +601,25 @@ export async function runClaudeCodeDirect(
       try {
         const json = JSON.parse(trimmed);
         const messages = Array.isArray(json) ? json : [json];
-        const resultMsg = messages.find((m: Record<string, unknown>) => m.type === "result");
+        const resultMsg = messages.find(
+          (m: Record<string, unknown>) => m.type === "result",
+        );
         if (resultMsg) {
           const result = resultMsg.result ?? "";
           resolve({
-            result: typeof result === "string" ? result : JSON.stringify(result),
+            result:
+              typeof result === "string" ? result : JSON.stringify(result),
             isError: Boolean(resultMsg.is_error),
             activityLog: "",
           });
           return;
         }
       } catch {}
-      resolve({ result: trimmed || errorOutput, isError: code !== 0, activityLog: "" });
+      resolve({
+        result: trimmed || errorOutput,
+        isError: code !== 0,
+        activityLog: "",
+      });
     });
 
     child.on("error", (err) => {
@@ -620,8 +659,10 @@ export async function runClaudeCodeDirectStreaming(
       "-p",
       "--verbose",
       "--dangerously-skip-permissions",
-      "--model", model,
-      "--output-format", "stream-json",
+      "--model",
+      model,
+      "--output-format",
+      "stream-json",
     ];
 
     if (allowedTools.length > 0) {
@@ -664,7 +705,9 @@ export async function runClaudeCodeDirectStreaming(
       if (latestActivity) await onOutput(latestActivity).catch(() => {});
     }, flushIntervalMs);
 
-    child.stdout.on("data", (data: Buffer) => { rawOutput += data.toString(); });
+    child.stdout.on("data", (data: Buffer) => {
+      rawOutput += data.toString();
+    });
     child.stderr.on("data", () => {});
 
     child.stdin.write(prompt);

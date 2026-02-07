@@ -44,6 +44,7 @@ function buildContentScript() {
             ],
           },
         },
+        esbuild: { charset: "ascii" },
         logLevel: "warn",
         build: {
           write: true,

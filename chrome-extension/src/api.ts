@@ -965,6 +965,7 @@ export type PublicApiType = {
           timestamp: number;
           userId?: Id<"users">;
         }>;
+        planContent?: string;
         prUrl?: string;
         ptySessionId?: string;
         repoId: Id<"githubRepos">;
@@ -995,6 +996,7 @@ export type PublicApiType = {
           timestamp: number;
           userId?: Id<"users">;
         }>;
+        planContent?: string;
         prUrl?: string;
         ptySessionId?: string;
         repoId: Id<"githubRepos">;
@@ -1093,6 +1095,12 @@ export type PublicApiType = {
         messages: Array<{ content: string; role: "user" | "assistant" }>;
         repoId: string;
       }
+    >;
+    updatePlanContent: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"sessions">; planContent: string },
+      null
     >;
     updateLastMessage: FunctionReference<
       "mutation",
@@ -1820,6 +1828,21 @@ export type PublicApiType = {
       },
       any
     >;
+  };
+  streaming: {
+    get: FunctionReference<
+      "query",
+      "public",
+      { entityId: string },
+      { currentActivity: string } | null
+    >;
+    set: FunctionReference<
+      "mutation",
+      "public",
+      { currentActivity: string; entityId: string },
+      null
+    >;
+    clear: FunctionReference<"mutation", "public", { entityId: string }, null>;
   };
 };
 export type InternalApiType = {};

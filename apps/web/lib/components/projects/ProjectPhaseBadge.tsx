@@ -28,29 +28,29 @@ export const phaseConfig: Record<
   }
 > = {
   draft: {
-    bg: "bg-neutral-200 dark:bg-neutral-700",
-    cardBg: "bg-white dark:bg-neutral-900",
-    text: "text-neutral-600 dark:text-neutral-300",
+    bg: "bg-secondary",
+    cardBg: "bg-card",
+    text: "text-muted-foreground",
     label: "Draft",
     icon: IconNotes,
   },
   finalized: {
     bg: "bg-primary/15",
-    cardBg: "bg-white dark:bg-neutral-900",
+    cardBg: "bg-card",
     text: "text-primary",
     label: "Finalized",
     icon: IconCheck,
   },
   active: {
     bg: "bg-yellow-200 dark:bg-yellow-900/60",
-    cardBg: "bg-white dark:bg-neutral-900",
+    cardBg: "bg-card",
     text: "text-yellow-700 dark:text-yellow-400",
     label: "Active",
     icon: IconClock,
   },
   completed: {
     bg: "bg-green-200 dark:bg-green-900/60",
-    cardBg: "bg-white dark:bg-neutral-900",
+    cardBg: "bg-card",
     text: "text-green-700 dark:text-green-400",
     label: "Completed",
     icon: IconCircleCheck,

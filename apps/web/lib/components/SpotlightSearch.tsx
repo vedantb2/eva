@@ -20,10 +20,10 @@ import {
 } from "@tabler/icons-react";
 
 const itemClass =
-  "flex items-center gap-3 px-4 py-2 text-sm rounded-md mx-2 cursor-pointer text-neutral-700 dark:text-neutral-300 data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary";
+  "flex items-center gap-3 px-4 py-2 text-sm rounded-md mx-2 cursor-pointer text-muted-foreground data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary";
 
 const headingClass =
-  "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-neutral-400 dark:[&_[cmdk-group-heading]]:text-neutral-500 [&_[cmdk-group-heading]]:uppercase";
+  "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";
 
 export function SpotlightSearch() {
   const [isOpen, setIsOpen] = useState(false);
@@ -66,21 +66,21 @@ export function SpotlightSearch() {
         className="p-0 gap-0 top-[30%] translate-y-0 max-w-lg"
       >
         <Command className="flex flex-col" shouldFilter>
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
-            <IconSearch className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <IconSearch className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <Command.Input
               autoFocus
               placeholder="Search pages, projects, sessions..."
               value={search}
               onValueChange={setSearch}
-              className="flex-1 bg-transparent outline-none text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400"
+              className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
             />
-            <kbd className="text-[10px] text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-mono">
+            <kbd className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">
               ESC
             </kbd>
           </div>
           <Command.List className="max-h-80 overflow-y-auto py-2">
-            <Command.Empty className="text-sm text-neutral-500 text-center py-8">
+            <Command.Empty className="text-sm text-muted-foreground text-center py-8">
               No results found
             </Command.Empty>
 
@@ -92,7 +92,7 @@ export function SpotlightSearch() {
               >
                 <IconLayoutKanban className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Projects</span>
-                <span className="text-xs text-neutral-400">Build</span>
+                <span className="text-xs text-muted-foreground">Build</span>
               </Command.Item>
               <Command.Item
                 value="Quick Tasks"
@@ -101,7 +101,7 @@ export function SpotlightSearch() {
               >
                 <IconChecklist className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Quick Tasks</span>
-                <span className="text-xs text-neutral-400">Fix</span>
+                <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item
                 value="Sessions"
@@ -110,7 +110,7 @@ export function SpotlightSearch() {
               >
                 <IconTerminal2 className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Sessions</span>
-                <span className="text-xs text-neutral-400">Fix</span>
+                <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item
                 value="Documents"
@@ -119,7 +119,7 @@ export function SpotlightSearch() {
               >
                 <IconFileText className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Documents</span>
-                <span className="text-xs text-neutral-400">Test</span>
+                <span className="text-xs text-muted-foreground">Test</span>
               </Command.Item>
               <Command.Item
                 value="Testing Arena"
@@ -128,7 +128,7 @@ export function SpotlightSearch() {
               >
                 <IconFlask className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Testing Arena</span>
-                <span className="text-xs text-neutral-400">Test</span>
+                <span className="text-xs text-muted-foreground">Test</span>
               </Command.Item>
               <Command.Item
                 value="Analyse"
@@ -137,7 +137,7 @@ export function SpotlightSearch() {
               >
                 <IconBrain className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Analyse</span>
-                <span className="text-xs text-neutral-400">Data</span>
+                <span className="text-xs text-muted-foreground">Data</span>
               </Command.Item>
               <Command.Item
                 value="Stats"
@@ -146,7 +146,7 @@ export function SpotlightSearch() {
               >
                 <IconChartBar className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Stats</span>
-                <span className="text-xs text-neutral-400">Analytics</span>
+                <span className="text-xs text-muted-foreground">Analytics</span>
               </Command.Item>
               <Command.Item
                 value="Admin"
@@ -155,7 +155,7 @@ export function SpotlightSearch() {
               >
                 <IconShield className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">Admin</span>
-                <span className="text-xs text-neutral-400">Settings</span>
+                <span className="text-xs text-muted-foreground">Settings</span>
               </Command.Item>
             </Command.Group>
 
@@ -172,7 +172,9 @@ export function SpotlightSearch() {
                   >
                     <IconLayoutKanban className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{p.title}</span>
-                    <span className="text-xs text-neutral-400">{p.phase}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {p.phase}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -189,7 +191,9 @@ export function SpotlightSearch() {
                   >
                     <IconChecklist className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{t.title}</span>
-                    <span className="text-xs text-neutral-400">{t.status}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t.status}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -208,7 +212,9 @@ export function SpotlightSearch() {
                   >
                     <IconTerminal2 className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{s.title}</span>
-                    <span className="text-xs text-neutral-400">{s.status}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {s.status}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -225,7 +231,7 @@ export function SpotlightSearch() {
                   >
                     <IconFileText className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
-                    <span className="text-xs text-neutral-400">Doc</span>
+                    <span className="text-xs text-muted-foreground">Doc</span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -244,7 +250,7 @@ export function SpotlightSearch() {
                   >
                     <IconFlask className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
-                    <span className="text-xs text-neutral-400">Test</span>
+                    <span className="text-xs text-muted-foreground">Test</span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -263,7 +269,7 @@ export function SpotlightSearch() {
                   >
                     <IconBrain className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 truncate">{rq.title}</span>
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-muted-foreground">
                       Analysis Query
                     </span>
                   </Command.Item>

@@ -40,10 +40,10 @@ export const statusConfig: Record<
   }
 > = {
   todo: {
-    bg: "bg-neutral-200 dark:bg-neutral-700",
-    cardBg: "bg-neutral-200/40 dark:bg-neutral-800",
-    bar: "bg-neutral-400 dark:bg-neutral-500",
-    text: "text-neutral-600 dark:text-neutral-300",
+    bg: "bg-secondary",
+    cardBg: "bg-secondary",
+    bar: "bg-muted-foreground",
+    text: "text-muted-foreground",
     label: "To Do",
     icon: IconCircle,
   },

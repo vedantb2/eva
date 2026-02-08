@@ -1,5 +1,21 @@
 # Changelog
 
+## ChatGPT-inspired UI modernization - 2026-02-08
+
+- Replaced card-on-card secondary sidebars with clean border separators (SidebarLayoutWrapper) — affects Sessions, Analyse, Admin, Testing Arena, and Docs layouts
+- Added border-right to main sidebar and border-top footer separator for cleaner visual structure
+- Slimmed PageWrapper header padding for a lighter, less chrome-heavy feel
+- Migrated all 50 files with hardcoded `neutral-*` Tailwind colors to semantic design tokens (`bg-secondary`, `text-foreground`, `text-muted-foreground`, `border-border`, etc.)
+- Eliminated all `dark:bg-neutral-*` / `dark:text-neutral-*` paired classes — dark mode now handled entirely by semantic tokens
+- Updated RepoHome stat cards, repo listing cards, welcome banner, and empty states to use semantic tokens
+
+## Replace neutral-\* colors with semantic design tokens (batch 2) - 2026-02-08
+
+- Replaced all hardcoded `neutral-*` Tailwind classes with semantic tokens across 15 files
+- Files: SpotlightSearch, NotificationsPopoverClient, ThemeToggleClient, TaskDetailModal, TaskStatusBadge, ChatMessage, MultipleChoiceQuestion, Leaderboard, StatCard, PRsOverTimeChart, ActivityTimelineChart, SessionFunnel, KanbanColumn, ProjectPhaseBadge, RepoContext
+- Mapping: `bg-neutral-50/100` -> `bg-secondary`, `bg-neutral-800/900/950` -> `bg-secondary`/`bg-background`, `text-neutral-400/500/600` -> `text-muted-foreground`, `text-neutral-900`/`text-white` (theme) -> `text-foreground`, `border-neutral-*` -> `border-border`, `hover:bg-neutral-*` -> `hover:bg-muted`, `bg-white dark:bg-neutral-900` -> `bg-card`/`bg-background`
+- Collapsed light+dark variant pairs into single semantic tokens (dark mode handled automatically)
+
 ## Soft UI sidebar redesign - 2026-02-08
 
 - Bumped global `--radius` from `0.75rem` to `1rem` for rounder, softer geometry across all components

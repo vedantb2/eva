@@ -246,7 +246,7 @@ export function TerminalPanel({
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
         <IconTerminal2 className="w-12 h-12 opacity-50" />
         <p className="text-sm">
           {!isActive
@@ -259,8 +259,8 @@ export function TerminalPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
-        <p className="text-sm text-red-500">{error}</p>
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+        <p className="text-sm text-destructive">{error}</p>
         <Button
           size="sm"
           variant="secondary"
@@ -274,9 +274,9 @@ export function TerminalPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-neutral-900 relative">
+    <div className="h-full flex flex-col bg-[#1a1a1a] relative">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a] z-10">
           <Spinner size="lg" />
         </div>
       )}

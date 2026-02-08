@@ -167,7 +167,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     <div className="flex h-full">
       <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-border">
         <div className="p-4">
-          <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
+          <h1 className="text-lg font-semibold text-foreground">
             {query.title}
           </h1>
         </div>
@@ -310,7 +310,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                           size="md"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                           <span className="text-xs text-muted-foreground">
                             U
                           </span>

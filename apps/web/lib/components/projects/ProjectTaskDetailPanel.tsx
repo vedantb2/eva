@@ -65,7 +65,7 @@ export function ProjectTaskDetailPanel({
   return (
     <>
       <div className="flex flex-col h-full overflow-y-auto scrollbar">
-        <div className="flex items-center justify-between p-4 border-b dark:border-neutral-700">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-muted-foreground font-mono text-sm flex-shrink-0">
               #{task.taskNumber}

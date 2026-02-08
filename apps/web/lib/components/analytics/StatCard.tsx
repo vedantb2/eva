@@ -17,22 +17,16 @@ export function StatCard({
   subtitle,
 }: StatCardProps) {
   return (
-    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+    <Card className="shadow-none border border-border">
       <CardContent className="flex flex-row items-center gap-3 p-4">
-        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+        <div className="p-2 rounded-lg bg-secondary text-muted-foreground">
           <Icon size={20} />
         </div>
         <div>
-          <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-            {value}
-          </p>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {label}
-          </p>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
+          <p className="text-sm text-muted-foreground">{label}</p>
           {subtitle && (
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              {subtitle}
-            </p>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}
         </div>
       </CardContent>

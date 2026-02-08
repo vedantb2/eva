@@ -51,9 +51,7 @@ export default function SavedQueriesPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4">
-        <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
-          Saved Queries
-        </h1>
+        <h1 className="text-lg font-semibold text-foreground">Saved Queries</h1>
         <p className="text-xs text-muted-foreground mt-1">
           {savedQueries.length} saved{" "}
           {savedQueries.length === 1 ? "query" : "queries"}

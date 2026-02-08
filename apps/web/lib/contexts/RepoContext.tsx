@@ -53,10 +53,10 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
   if (repo === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Repository not found
         </h1>
-        <p className="text-neutral-500 dark:text-neutral-400">
+        <p className="text-muted-foreground">
           The repository &quot;{fullName}&quot; does not exist or you don&apos;t
           have access to it.
         </p>

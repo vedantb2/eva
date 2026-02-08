@@ -40,9 +40,9 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
   };
 
   return (
-    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+    <Card className="shadow-none border border-border">
       <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
+        <h3 className="text-sm font-semibold text-foreground mb-4">
           PRs Shipped Over Time
         </h3>
         <div className="h-64">

@@ -24,10 +24,10 @@ export function SidebarLayoutWrapper({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex-1 pl-1 overflow-hidden bg-background">
-      <div className="h-full flex flex-row overflow-hidden bg-card rounded-l-3xl">
+    <div className="flex-1 overflow-hidden bg-background">
+      <div className="h-full flex flex-row overflow-hidden bg-background">
         <div
-          className={`${collapsed ? "w-10" : "w-72"} flex flex-col bg-card transition-all duration-200`}
+          className={`${collapsed ? "w-10" : "w-72"} flex flex-col border-r border-border transition-all duration-200`}
         >
           <div
             className={`p-3 pt-4 pb-3 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}

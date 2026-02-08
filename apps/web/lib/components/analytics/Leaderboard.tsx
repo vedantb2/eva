@@ -15,21 +15,21 @@ interface LeaderboardProps {
 
 const rankColors = [
   "text-yellow-500",
-  "text-neutral-400",
+  "text-muted-foreground",
   "text-amber-600",
-  "text-neutral-500",
-  "text-neutral-500",
+  "text-muted-foreground",
+  "text-muted-foreground",
 ];
 
 export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
-      <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+      <Card className="shadow-none border border-border">
         <CardContent className="p-4">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
+          <h3 className="text-sm font-semibold text-foreground mb-4">
             Top Contributors
           </h3>
-          <div className="py-8 text-center text-neutral-500 dark:text-neutral-400">
+          <div className="py-8 text-center text-muted-foreground">
             No activity yet
           </div>
         </CardContent>
@@ -38,16 +38,16 @@ export function Leaderboard({ entries }: LeaderboardProps) {
   }
 
   return (
-    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+    <Card className="shadow-none border border-border">
       <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
+        <h3 className="text-sm font-semibold text-foreground mb-4">
           Top Contributors
         </h3>
         <div className="space-y-3">
           {entries.map((entry, index) => (
             <div
               key={entry.clerkId}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
                 {index === 0 ? (
@@ -56,26 +56,26 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   index + 1
                 )}
               </div>
-              <div className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
-                <IconUser size={16} className="text-neutral-500" />
+              <div className="p-2 rounded-full bg-secondary">
+                <IconUser size={16} className="text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                <p className="text-sm font-medium text-foreground truncate">
                   {entry.fullName || "Unknown User"}
                 </p>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="text-right">
-                  <p className="font-semibold text-neutral-900 dark:text-white">
+                  <p className="font-semibold text-foreground">
                     {entry.prsCreated}
                   </p>
-                  <p className="text-neutral-500">PRs</p>
+                  <p className="text-muted-foreground">PRs</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-neutral-900 dark:text-white">
+                  <p className="font-semibold text-foreground">
                     {entry.tasksCompleted}
                   </p>
-                  <p className="text-neutral-500">tasks</p>
+                  <p className="text-muted-foreground">tasks</p>
                 </div>
               </div>
             </div>

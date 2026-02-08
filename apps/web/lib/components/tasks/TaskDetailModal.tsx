@@ -603,7 +603,7 @@ export function TaskDetailModal({
                   </div>
                   <form
                     onSubmit={handleAddComment}
-                    className="flex gap-2 items-center bg-white dark:bg-neutral-800 rounded-lg"
+                    className="flex gap-2 items-center bg-card rounded-lg"
                   >
                     <Textarea
                       rows={3}

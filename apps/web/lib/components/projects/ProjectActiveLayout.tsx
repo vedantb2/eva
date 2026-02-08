@@ -74,9 +74,9 @@ export function ProjectActiveLayout({
   const selectedTask = tasks?.find((t) => t._id === selectedTaskId) ?? null;
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-neutral-800/40">
+    <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
       <div
-        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r dark:border-neutral-700 flex flex-col transition-all`}
+        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r border-border flex flex-col transition-all`}
       >
         <div
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
@@ -121,10 +121,7 @@ export function ProjectActiveLayout({
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-            <IconChecklist
-              size={32}
-              className="text-neutral-300 dark:text-neutral-600"
-            />
+            <IconChecklist size={32} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               Select a task to view details
             </p>
@@ -132,7 +129,7 @@ export function ProjectActiveLayout({
         )}
       </div>
       {chatOpen && (
-        <div className="w-1/4 h-full border-l dark:border-neutral-700 flex flex-col">
+        <div className="w-1/4 h-full border-l border-border flex flex-col">
           <div className="flex items-center justify-between px-2 py-1">
             <div className="flex flex-row gap-1 items-center text-primary">
               <IconMessageCircle size={14} />

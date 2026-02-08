@@ -59,7 +59,7 @@ export function ProjectTaskListPanel({
     <div className="h-full overflow-y-auto scrollbar">
       <Accordion
         type="multiple"
-        className="px-0 [&_hr]:bg-neutral-100 dark:[&_hr]:bg-neutral-800"
+        className="px-0 [&_hr]:bg-border"
         defaultValue={defaultExpandedKeys}
       >
         {STATUS_ORDER.map((status) => {

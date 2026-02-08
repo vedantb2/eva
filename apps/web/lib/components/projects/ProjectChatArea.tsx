@@ -59,9 +59,9 @@ export function ProjectChatArea({
           <div className="flex flex-col items-center justify-center h-full text-center">
             <IconMessageCircle
               size={32}
-              className="text-neutral-300 dark:text-neutral-600 mb-2"
+              className="text-muted-foreground mb-2"
             />
-            <p className="text-sm text-neutral-400">No messages yet</p>
+            <p className="text-sm text-muted-foreground">No messages yet</p>
           </div>
         )}
         {conversationHistory.map((m, i) => (

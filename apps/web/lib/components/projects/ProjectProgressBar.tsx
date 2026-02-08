@@ -26,7 +26,7 @@ export function ProjectProgressBar({
     <Tooltip>
       <TooltipTrigger asChild>
         <div
-          className={`flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700 ${className ?? ""}`}
+          className={`flex h-1.5 overflow-hidden rounded-full bg-secondary ${className ?? ""}`}
         >
           {TASK_STATUSES.map((status) => {
             const count = progress[status];

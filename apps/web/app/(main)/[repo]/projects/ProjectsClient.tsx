@@ -270,7 +270,7 @@ export function ProjectsClient() {
                       />
                     ))}
                     {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                      <p className="text-xs text-neutral-400 text-center py-4">
+                      <p className="text-xs text-muted-foreground text-center py-4">
                         No projects
                       </p>
                     )}

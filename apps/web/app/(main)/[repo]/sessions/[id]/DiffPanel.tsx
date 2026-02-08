@@ -32,7 +32,7 @@ function DiffLine({ line }: { line: string }) {
   if (line.startsWith("@@")) {
     return <div className="text-blue-400 px-3 py-0">{line}</div>;
   }
-  return <div className="text-neutral-400 px-3 py-0">{line}</div>;
+  return <div className="text-muted-foreground px-3 py-0">{line}</div>;
 }
 
 export function DiffPanel({
@@ -44,7 +44,7 @@ export function DiffPanel({
 
   if (!fileDiffs || fileDiffs.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-neutral-500">
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         No file changes yet. Execute a task to see diffs.
       </div>
     );
@@ -55,7 +55,7 @@ export function DiffPanel({
 
   return (
     <div className="flex h-full">
-      <div className="w-56 border-r border-neutral-200 dark:border-neutral-800 overflow-y-auto flex-shrink-0">
+      <div className="w-56 border-r border-border overflow-y-auto flex-shrink-0">
         {fileDiffs.map((d) => {
           const config = getConfig(d.status);
           const Icon = config.icon;
@@ -63,12 +63,12 @@ export function DiffPanel({
             <button
               key={d.file}
               onClick={() => setSelectedFile(d.file)}
-              className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-                active === d.file ? "bg-neutral-100 dark:bg-neutral-800" : ""
+              className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-muted ${
+                active === d.file ? "bg-muted" : ""
               }`}
             >
               <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${config.color}`} />
-              <span className="truncate text-neutral-300">{d.file}</span>
+              <span className="truncate text-muted-foreground">{d.file}</span>
             </button>
           );
         })}
@@ -81,7 +81,7 @@ export function DiffPanel({
             ))}
           </pre>
         ) : (
-          <div className="flex items-center justify-center h-full text-neutral-500">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
             Select a file to view changes
           </div>
         )}

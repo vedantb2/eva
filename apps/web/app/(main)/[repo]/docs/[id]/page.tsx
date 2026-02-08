@@ -16,7 +16,7 @@ export default function DocPage({
 
   if (doc === undefined) {
     return (
-      <div className="h-full flex items-center justify-center bg-white dark:bg-neutral-900">
+      <div className="h-full flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
@@ -24,7 +24,7 @@ export default function DocPage({
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-900 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
         <p>Document not found</p>
       </div>
     );

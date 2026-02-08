@@ -55,12 +55,12 @@ function ReportCard({
   const passRate = total > 0 ? Math.round((passed.length / total) * 100) : 0;
 
   return (
-    <Card className="shadow-none bg-neutral-100 dark:bg-neutral-800/50">
+    <Card className="shadow-none bg-secondary">
       <CardContent className="flex flex-col gap-4 p-4">
         {report.status === "running" && (
           <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-primary" />
-            <span className="text-sm text-neutral-500 truncate">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-border border-t-primary" />
+            <span className="text-sm text-muted-foreground truncate">
               {streamingActivity || "Evaluating codebase..."}
             </span>
           </div>
@@ -76,14 +76,14 @@ function ReportCard({
           <div className="flex flex-col gap-4">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-3xl font-semibold text-neutral-900 dark:text-white tabular-nums">
+                <p className="text-3xl font-semibold text-foreground tabular-nums">
                   {passed.length}/{total}
                 </p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {passRate}% passed
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1 tabular-nums">
                   <IconCheck size={14} className="text-primary" />
                   {passed.length}
@@ -93,12 +93,12 @@ function ReportCard({
                   {failed.length}
                 </span>
               </div>
-              <span className="text-sm text-neutral-400 tabular-nums ml-auto">
+              <span className="text-sm text-muted-foreground tabular-nums ml-auto">
                 {dayjs(report.createdAt).fromNow()}
               </span>
             </div>
 
-            <div className="h-1 rounded-full bg-neutral-200/70 dark:bg-neutral-700/60 overflow-hidden flex">
+            <div className="h-1 rounded-full bg-secondary overflow-hidden flex">
               {passed.length > 0 && (
                 <div
                   className="h-full bg-primary"
@@ -108,7 +108,7 @@ function ReportCard({
             </div>
 
             {report.summary && (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 {report.summary}
               </p>
             )}
@@ -122,10 +122,10 @@ function ReportCard({
                       className="mt-0.5 text-red-500 flex-shrink-0"
                     />
                     <div className="min-w-0">
-                      <p className="text-sm text-neutral-900 dark:text-white">
+                      <p className="text-sm text-foreground">
                         {item.requirement}
                       </p>
-                      <p className="text-xs text-neutral-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {item.detail}
                       </p>
                     </div>
@@ -139,7 +139,7 @@ function ReportCard({
                 <button
                   type="button"
                   onClick={() => setShowPassed(!showPassed)}
-                  className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassed ? (
                     <IconChevronDown size={14} />
@@ -157,10 +157,10 @@ function ReportCard({
                           className="mt-0.5 text-primary flex-shrink-0"
                         />
                         <div className="min-w-0">
-                          <p className="text-sm text-neutral-900 dark:text-white">
+                          <p className="text-sm text-foreground">
                             {item.requirement}
                           </p>
-                          <p className="text-xs text-neutral-400 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {item.detail}
                           </p>
                         </div>
@@ -192,7 +192,7 @@ function CodeTestingContent({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
         ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-neutral-400">
+          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
             <p className="text-sm">No test runs yet</p>
             <p className="text-xs mt-1">
               Click &quot;Run Test&quot; to evaluate this doc
@@ -255,7 +255,7 @@ export default function TestingArenaDocPage({
 
   if (doc === undefined) {
     return (
-      <div className="h-full flex items-center justify-center bg-white dark:bg-neutral-900">
+      <div className="h-full flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
@@ -263,14 +263,14 @@ export default function TestingArenaDocPage({
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-900 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
         <p>Document not found</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

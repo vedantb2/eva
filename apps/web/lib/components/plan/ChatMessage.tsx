@@ -38,7 +38,7 @@ export function ChatMessage({
     <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       {!isUser && (
         <div className="mb-1.5 flex items-center gap-2">
-          <Avatar className="flex-shrink-0 h-8 w-8 bg-neutral-200">
+          <Avatar className="flex-shrink-0 h-8 w-8 bg-secondary">
             <Image
               src="/icon.png"
               alt="Assistant"
@@ -46,7 +46,7 @@ export function ChatMessage({
               height={24}
               className="rounded-full"
             />
-            <AvatarFallback className="bg-neutral-200 text-foreground/80">
+            <AvatarFallback className="bg-secondary text-foreground/80">
               E
             </AvatarFallback>
           </Avatar>

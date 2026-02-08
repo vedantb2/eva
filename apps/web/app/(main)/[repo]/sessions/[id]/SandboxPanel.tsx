@@ -71,7 +71,7 @@ export function SandboxPanel({
   }, [isActive, sandboxId, fetchPreview]);
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+    <div className="h-full flex flex-col bg-card border-r border-border">
       <div className="flex items-center justify-between gap-2 p-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="gap-1">
@@ -84,11 +84,11 @@ export function SandboxPanel({
           </TabsList>
         </Tabs>
         {activeTab === "preview" && isActive && sandboxId && (
-          <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 gap-1.5">
+          <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-border bg-secondary px-2 gap-1.5">
             <button
               onClick={fetchPreview}
               disabled={isLoading}
-              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 disabled:opacity-50"
+              className="text-muted-foreground hover:text-foreground disabled:opacity-50"
             >
               {isLoading ? (
                 <Spinner size="sm" />
@@ -96,7 +96,7 @@ export function SandboxPanel({
                 <IconRefresh className="w-3.5 h-3.5" />
               )}
             </button>
-            <span className="flex-1 text-xs text-neutral-500 dark:text-neutral-400 truncate select-all">
+            <span className="flex-1 text-xs text-muted-foreground truncate select-all">
               {previewInfo?.url ?? "Loading..."}
             </span>
             {previewInfo && (
@@ -104,7 +104,7 @@ export function SandboxPanel({
                 href={previewInfo.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <IconExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -140,7 +140,7 @@ export function SandboxPanel({
           </div>
         </div>
         {terminalOpen && (
-          <div className="h-1/2 min-h-0 overflow-hidden border-t border-neutral-200 dark:border-neutral-800">
+          <div className="h-1/2 min-h-0 overflow-hidden border-t border-border">
             <TerminalPanel
               sessionId={sessionId}
               sandboxId={sandboxId}

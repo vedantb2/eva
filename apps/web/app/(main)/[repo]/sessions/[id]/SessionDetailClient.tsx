@@ -50,7 +50,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-neutral-500">
+          <p className="text-muted-foreground">
             This session does not exist or has been deleted.
           </p>
         </div>

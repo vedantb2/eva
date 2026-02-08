@@ -28,9 +28,9 @@ export function PageWrapper({
   const router = useRouter();
 
   return (
-    <div className="flex-1 pl-1 overflow-hidden bg-neutral-100 dark:bg-neutral-950">
-      <div className="h-full flex flex-col overflow-hidden bg-white dark:bg-neutral-900 rounded-l-3xl">
-        <div className="relative p-4 py-3 flex items-center gap-3">
+    <div className="flex-1 overflow-hidden bg-background">
+      <div className="h-full flex flex-col overflow-hidden bg-card">
+        <div className="relative px-4 py-2.5 flex items-center gap-3">
           {showBack && (
             <Button
               size="icon"
@@ -38,14 +38,11 @@ export function PageWrapper({
               onClick={onBack ?? (() => router.back())}
               className="flex-shrink-0 rounded-full"
             >
-              <IconArrowLeft
-                size={16}
-                className="text-neutral-600 dark:text-neutral-400"
-              />
+              <IconArrowLeft size={16} className="text-muted-foreground" />
             </Button>
           )}
           {title && (
-            <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+            <h1 className="text-xl font-semibold text-foreground truncate">
               {title}
             </h1>
           )}
@@ -61,7 +58,7 @@ export function PageWrapper({
           )}
         </div>
         <div
-          className={`flex-1 min-h-0 bg-white dark:bg-neutral-900 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
+          className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
             className={`flex flex-col gap-4 ${childPadding ? "px-4 py-2" : ""}  ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}

@@ -38,13 +38,13 @@ function Sparkline({ points, id }: { points: number[]; id: string }) {
         <linearGradient id={gradientId} x1="0.5" y1="0" x2="1" y2="0">
           <stop
             offset="0%"
-            className="[stop-color:theme(colors.neutral.400)] dark:[stop-color:theme(colors.neutral.600)]"
-            stopOpacity={0.5}
+            className="[stop-color:var(--muted-foreground)]"
+            stopOpacity={0.3}
           />
           <stop
             offset="100%"
-            className="[stop-color:theme(colors.neutral.400)] dark:[stop-color:theme(colors.neutral.400)]"
-            stopOpacity={1}
+            className="[stop-color:var(--muted-foreground)]"
+            stopOpacity={0.6}
           />
         </linearGradient>
       </defs>
@@ -82,17 +82,15 @@ function StatCard({
   color: string;
 }) {
   return (
-    <Card className="shadow-none bg-neutral-50 dark:bg-neutral-800/50">
+    <Card className="shadow-none bg-secondary">
       <CardContent className="p-6 flex flex-row items-center justify-between gap-4">
         <div className="flex flex-col gap-3 min-w-0">
-          <Icon size={24} className="text-neutral-400 dark:text-neutral-500" />
+          <Icon size={24} className="text-muted-foreground" />
           <div>
-            <p className="text-3xl font-semibold text-neutral-900 dark:text-white tabular-nums">
+            <p className="text-3xl font-semibold text-foreground tabular-nums">
               {value}
             </p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-              {label}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">{label}</p>
           </div>
         </div>
         <Sparkline points={seededPoints(seed)} id={color} />
@@ -136,7 +134,7 @@ export function RepoHomeClient() {
             Eva's Stats
           </span>
         </div>
-        <p className="text-base font-medium text-neutral-400 dark:text-neutral-500">
+        <p className="text-base font-medium text-muted-foreground">
           {repo.owner}/{repo.name}
         </p>
         <div className="grid grid-cols-2 gap-4">

@@ -443,7 +443,7 @@ export function ChatPanel({
                         size="md"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">U</span>
                       </div>
                     )}
@@ -554,7 +554,7 @@ export function ChatPanel({
           <DialogHeader>
             <DialogTitle>Send for Code Review</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          <p className="text-sm text-muted-foreground">
             By clicking this you confirm that all your changes have been tested
             in your session, you are happy with those changes, have generated a
             summary and agree with the changes. A developer will then review the

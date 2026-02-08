@@ -22,7 +22,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-900">
+    <div className="min-h-screen bg-background">
       {children}
       <PresenceHeartbeat />
     </div>

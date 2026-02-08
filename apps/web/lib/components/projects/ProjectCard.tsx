@@ -81,7 +81,7 @@ export function ProjectCard({
             <Button
               size="icon"
               variant="ghost"
-              className="size-4 flex shrink-0 text-neutral-400 hover:text-neutral-600"
+              className="size-4 flex shrink-0 text-muted-foreground hover:text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />
@@ -135,16 +135,16 @@ export function ProjectCard({
       </div>
       <Link href={projectUrl} className="block">
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-primary transition-colors truncate">
+          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {title}
           </h3>
         </div>
         {description ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2">
             {description}
           </p>
         ) : rawInput ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2">
             {rawInput}
           </p>
         ) : null}

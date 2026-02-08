@@ -55,7 +55,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     return (
       <PageWrapper>
         <div className="py-12 text-center">
-          <p className="text-neutral-500">Project not found</p>
+          <p className="text-muted-foreground">Project not found</p>
         </div>
       </PageWrapper>
     );

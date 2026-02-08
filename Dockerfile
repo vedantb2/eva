@@ -24,5 +24,5 @@ ARG GITHUB_TOKEN
 RUN git clone https://x-access-token:${GITHUB_TOKEN}@github.com/vedantb2/conductor.git repo
 
 # Pre-install dependencies so sandbox startup only needs git pull + pnpm install delta
-WORKDIR /workspace/repo/web
+WORKDIR /workspace/repo/apps/web
 RUN pnpm install

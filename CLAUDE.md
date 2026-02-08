@@ -11,28 +11,26 @@ pnpm dev            # Start web dev server (Next.js with Turbopack)
 pnpm convex         # Start Convex backend dev server
 pnpm convex:deploy  # Deploy Convex backend
 pnpm inngest        # Start Inngest dev server for background jobs
-pnpm api:web        # Generate Convex API types for web
-pnpm api:ext        # Generate Convex API types for chrome-extension
 pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
 ```
 
-**Web-specific commands (from /web):**
+**Web-specific commands (from /apps/web):**
 
 ```bash
-pnpm turbo        # Dev server with API generation
+pnpm turbo        # Dev server
 pnpm build        # Production build
 pnpm lint         # ESLint
 ```
 
-**Backend-specific commands (from /backend):**
+**Backend-specific commands (from /packages/backend):**
 
 ```bash
 npx convex dev       # Dev server with hot reload
 npx convex deploy    # Deploy to production
 ```
 
-**Type checking (from /web):**
+**Type checking (from /apps/web):**
 
 ```bash
 npx tsc              # TypeScript type check
@@ -40,12 +38,14 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo with four apps:
+This is a monorepo (pnpm workspaces) with four apps and two shared packages:
 
-- **web/** - Next.js 15 frontend (App Router, Turbopack)
-- **backend/** - Convex serverless backend (real-time database + API)
-- **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
-- **mobile/** - Expo/React Native app (NativeWind for styling)
+- **apps/web/** - Next.js 15 frontend (App Router, Turbopack)
+- **apps/chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
+- **apps/mobile/** - Expo/React Native app (NativeWind for styling)
+- **apps/teams-bot/** - Microsoft Teams bot
+- **packages/backend/** - Convex serverless backend + shared package (`@conductor/backend`) exporting types (`Id`, `Doc`, `api`, `internal`)
+- **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
 
 ### Tech Stack
 
@@ -58,7 +58,7 @@ This is a monorepo with four apps:
 ### Code Organization
 
 ```
-web/
+apps/web/
 ├── app/              # Next.js App Router pages
 │   ├── (main)/       # Protected routes requiring auth
 │   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analyse, admin, docs, quick-tasks, testing-arena)
@@ -75,12 +75,11 @@ web/
 │   ├── github/       # GitHub API utilities
 │   ├── inngest/      # Background job definitions and sandbox helpers
 │   └── prompts/      # AI system prompts
-├── api.ts            # Generated Convex API types (from pnpm api:web)
 ├── env/
 │   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
 │   └── server.ts     # Server-side env vars
 
-backend/convex/
+packages/backend/convex/
 ├── schema.ts         # Database schema with all table definitions
 ├── agentTasks.ts     # Task CRUD operations
 ├── agentRuns.ts      # Execution tracking
@@ -110,7 +109,8 @@ backend/convex/
 
 ### Inngest Background Jobs
 
-Located in `web/lib/inngest/functions/`:
+Located in `apps/web/lib/inngest/functions/`:
+
 - **execute-task** - Runs agent tasks in Daytona sandbox
 - **session-execute** - Executes commands within a session sandbox
 - **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
@@ -122,26 +122,38 @@ Located in `web/lib/inngest/functions/`:
 
 ### Sandbox Execution
 
-The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona sandbox operations:
+The `apps/web/lib/inngest/sandbox.ts` module provides utilities for Daytona sandbox operations:
+
 - `getGitHubToken()` - Gets installation token from GitHub App
 - `cloneRepo()` / `setupBranch()` - Git operations in sandbox
 - `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
 - `ensureProjectSandbox()` - Create or reuse existing sandbox
 
-### AI Elements SDK
+### Shared UI Package (`packages/ui/`)
 
-Chat UIs in sessions and research queries use AI Elements SDK components (`web/lib/components/ai-elements/`):
-- `Conversation` / `ConversationContent` / `ConversationScrollButton` - auto-scrolling message container
-- `Message` / `MessageContent` / `MessageResponse` - message rendering with Streamdown markdown
-- `Reasoning` / `ReasoningTrigger` / `ReasoningContent` - collapsible activity logs
-- `PromptInput` / `PromptInputTextarea` / `PromptInputSubmit` / `PromptInputFooter` / `PromptInputTools` - composable input form
+Shared UI primitives and AI Elements components live in `@conductor/ui` (source-only, no build step). Both web/ and chrome-extension/ import from this package:
 
-These are source-code components (like shadcn/ui), adapted for Tailwind v3. They depend on UI primitives in `web/lib/components/ui/` (collapsible, input-group, button-group, etc.).
+```typescript
+import {
+  Button,
+  cn,
+  Dialog,
+  Conversation,
+  MessageResponse,
+} from "@conductor/ui";
+```
+
+**UI primitives:** button, button-group, collapsible, command, dialog, dropdown-menu, hover-card, input, input-group, select, separator, spinner, tabs, textarea, tooltip
+
+**AI Elements:** Conversation, Message, PromptInput, Reasoning, Shimmer
+
+Web-only components (accordion, avatar, badge, card, checkbox, label, popover, progress) remain in `apps/web/lib/components/ui/`.
 
 ## Conventions
 
 - Use `@/*` import alias (maps to web root)
 - Convex queries/mutations use validators - always use `.withIndex()` for efficient queries
+- Import `api`, `Id`, `Doc` from `@conductor/backend` (NOT from `convex/values` or a local api.ts)
 - Use `FunctionReturnType` from Convex to derive types instead of manually defining interfaces
 - Forms use React Hook Form + Zod validation
 - Dark mode via next-themes with HSL CSS variables

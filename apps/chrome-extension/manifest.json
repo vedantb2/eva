@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Eva Assist",
+  "version": "1.0.0",
+  "description": "AI-powered assistant for asking questions and flagging issues in your codebase",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArdxyGE5DB2mJ3PMqVE5k2FzppoBlrAGBDHss5gTiT+32LE6Q/bdrzKKULhl3s87FRRDOXsHil3/liQmnOeOAE07DWp9N0DoD2Yk/MrgrjI/aOFb01deCjcfim0K6z8YRIBvWXxXxmX1dE154I6uqF1jtk9gciy1RePSE1/yxQCM/joCDxerCt3saR5xJ7Ql8jG2Re9jvitYfrFL4Wtfq3nHq2u1CevegZAMIbL4cJE0RGvGlEHtj+La9WQr1cQ5gzSnk5ehHJNO3IpP6t1v0QvWoBSS76K4BKP0ivh58Vlwjv1dBb0i0khjNOX+SsupDR2gIMLnoMJ+K9ur/ps5lSwIDAQAB",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "sidePanel",
+    "scripting",
+    "tabs",
+    "cookies"
+  ],
+  "host_permissions": ["<all_urls>", "https://*.clerk.accounts.dev/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon.png",
+      "32": "icons/icon.png",
+      "48": "icons/icon.png",
+      "128": "icons/icon.png"
+    },
+    "default_title": "Open Eva Assist"
+  },
+  "icons": {
+    "16": "icons/icon.png",
+    "32": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

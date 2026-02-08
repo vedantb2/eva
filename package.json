@@ -1,28 +1,32 @@
 {
   "private": true,
   "scripts": {
-    "start": "npm run start --prefix ./mobile",
-    "android": "npm run android --prefix ./mobile",
-    "build:dev": "npm run build:dev --prefix ./mobile",
-    "build:preview": "npm run build:preview --prefix ./mobile",
-    "build:prod": "npm run build:prod --prefix ./mobile",
-    "update:dev": "npm run update:dev --prefix ./mobile",
-    "update:preview": "npm run update:preview --prefix ./mobile",
-    "dev": "npm run dev --prefix ./web",
-    "turbo": "npm run turbo --prefix ./web",
-    "convex": "npm run dev --prefix ./backend",
-    "convex:deploy": "npm run deploy --prefix ./backend",
-    "api:web": "npm run api --prefix ./web",
-    "api:ext": "npm run api --prefix ./chrome-extension",
-    "inngest": "npm run inngest --prefix ./web",
-    "ext:dev": "npm run dev --prefix ./chrome-extension",
-    "ext:build": "npm run build --prefix ./chrome-extension",
+    "start": "pnpm --filter eva start",
+    "android": "pnpm --filter eva android",
+    "build:dev": "pnpm --filter eva build:dev",
+    "build:preview": "pnpm --filter eva build:preview",
+    "build:prod": "pnpm --filter eva build:prod",
+    "update:dev": "pnpm --filter eva update:dev",
+    "update:preview": "pnpm --filter eva update:preview",
+    "dev": "pnpm --filter conductor dev",
+    "turbo": "pnpm --filter conductor turbo",
+    "convex": "pnpm --filter @conductor/backend dev",
+    "convex:deploy": "pnpm --filter @conductor/backend deploy",
+    "inngest": "pnpm --filter conductor inngest",
+    "ext:dev": "pnpm --filter eva-assist-extension dev",
+    "ext:build": "pnpm --filter eva-assist-extension build",
     "snapshot:delete": "daytona snapshot delete eva-snapshot",
     "snapshot:create": "daytona snapshot create eva-snapshot --dockerfile Dockerfile",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.10",
+      "@types/react-dom": "19.0.4"
+    }
   },
   "devDependencies": {
     "husky": "^9.1.7",

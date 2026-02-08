@@ -27,6 +27,7 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { PlanContextPanel } from "@/lib/components/projects/PlanContextPanel";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -89,6 +90,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 <span className="text-xs">View PR</span>
               </Link>
             </Button>
+          )}
+          {!isDraftOrFinalized && project.generatedSpec && (
+            <PlanContextPanel
+              generatedSpec={project.generatedSpec}
+              conversationHistory={project.conversationHistory}
+            />
           )}
         </div>
       }

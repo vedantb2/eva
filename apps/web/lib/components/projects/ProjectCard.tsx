@@ -18,9 +18,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Button,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -31,10 +28,7 @@ import {
   Textarea,
 } from "@conductor/ui";
 import dayjs from "@/lib/dates";
-import {
-  statusConfig,
-  TASK_STATUSES,
-} from "@/lib/components/tasks/TaskStatusBadge";
+import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -68,9 +62,6 @@ export function ProjectCard({
   const [editDescription, setEditDescription] = useState(description ?? "");
   const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
-  const progress = useQuery(api.projects.getTaskProgress, {
-    projectId: projectId as Id<"projects">,
-  });
   const project = useQuery(api.projects.get, { id: projectId });
   const participantIds = [
     ...new Set(
@@ -157,40 +148,7 @@ export function ProjectCard({
             {rawInput}
           </p>
         ) : null}
-        {progress && progress.total > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                {TASK_STATUSES.map((status) => {
-                  const count = progress[status];
-                  if (count === 0) return null;
-                  return (
-                    <div
-                      key={status}
-                      className={statusConfig[status].bar}
-                      style={{ width: `${(count / progress.total) * 100}%` }}
-                    />
-                  );
-                })}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="flex flex-col gap-1">
-                {TASK_STATUSES.filter((s) => progress[s] > 0).map((s) => {
-                  const Icon = statusConfig[s].icon;
-                  return (
-                    <span
-                      key={s}
-                      className={`flex items-center gap-1.5 ${statusConfig[s].text}`}
-                    >
-                      <Icon size={12} /> {progress[s]} {statusConfig[s].label}
-                    </span>
-                  );
-                })}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <ProjectProgressBar projectId={projectId} className="mt-2" />
         <div className="mt-4 flex items-center justify-between">
           <div className="flex -space-x-1">
             {participantIds.length > 0 ? (

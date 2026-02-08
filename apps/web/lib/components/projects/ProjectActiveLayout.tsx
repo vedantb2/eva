@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
-import { PlanContextPanel } from "./PlanContextPanel";
 import { ProjectChatArea } from "./ProjectChatArea";
+import { ProjectTaskDetailPanel } from "./ProjectTaskDetailPanel";
+import { ProjectProgressBar } from "./ProjectProgressBar";
 import {
   IconChecklist,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
   IconMessageCircle,
+  IconX,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
 
@@ -44,7 +46,12 @@ export function ProjectActiveLayout({
 }: ProjectActiveLayoutProps) {
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
+    null,
+  );
+
+  const tasks = useQuery(api.agentTasks.listByProject, { projectId });
 
   useEffect(() => {
     if (
@@ -63,20 +70,17 @@ export function ProjectActiveLayout({
       }).catch(() => {});
     }
   }, [project.phase, project.sandboxId, project._id]);
+
+  const selectedTask = tasks?.find((t) => t._id === selectedTaskId) ?? null;
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-neutral-800/40">
       <div
         className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r dark:border-neutral-700 flex flex-col transition-all`}
       >
-        <div className="flex items-center justify-between">
-          {!tasksCollapsed && project.generatedSpec && (
-            <div className="border-t dark:border-neutral-700">
-              <PlanContextPanel
-                generatedSpec={project.generatedSpec}
-                conversationHistory={project.conversationHistory}
-              />
-            </div>
-          )}
+        <div
+          className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
+        >
           {!tasksCollapsed && (
             <div className="flex flex-row items-center gap-1 mx-auto text-primary">
               <IconChecklist size={14} />
@@ -97,46 +101,61 @@ export function ProjectActiveLayout({
           </Button>
         </div>
         {!tasksCollapsed && (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ProjectTaskListPanel projectId={projectId} />
+          <>
+            <ProjectProgressBar projectId={projectId} className="mx-3 mb-2" />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ProjectTaskListPanel
+                tasks={tasks ?? []}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {selectedTask ? (
+          <ProjectTaskDetailPanel
+            taskId={selectedTask._id}
+            onOpenChat={() => setChatOpen(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+            <IconChecklist
+              size={32}
+              className="text-neutral-300 dark:text-neutral-600"
+            />
+            <p className="text-sm text-muted-foreground">
+              Select a task to view details
+            </p>
           </div>
         )}
       </div>
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-neutral-400">Sandbox (coming soon)</p>
-      </div>
-      <div
-        className={`${chatCollapsed ? "w-8" : "w-1/4"} h-full border-l dark:border-neutral-700 flex flex-col transition-all`}
-      >
-        <div className="flex items-center justify-start">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="rounded-none text-primary"
-            onClick={() => setChatCollapsed(!chatCollapsed)}
-          >
-            {chatCollapsed ? (
-              <IconLayoutSidebarRightExpand size={16} />
-            ) : (
-              <IconLayoutSidebarRightCollapse size={16} />
-            )}
-          </Button>
-          {!chatCollapsed && (
-            <div className="flex flex-row gap-1 items-center mx-auto text-primary">
+      {chatOpen && (
+        <div className="w-1/4 h-full border-l dark:border-neutral-700 flex flex-col">
+          <div className="flex items-center justify-between px-2 py-1">
+            <div className="flex flex-row gap-1 items-center text-primary">
               <IconMessageCircle size={14} />
-              <p className="text-sm font-semibold ">Chat</p>
+              <p className="text-sm font-semibold">Chat</p>
             </div>
-          )}
-        </div>
-        {!chatCollapsed && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground"
+              onClick={() => setChatOpen(false)}
+            >
+              <IconX size={14} />
+            </Button>
+          </div>
           <div className="flex-1 min-h-0 overflow-hidden">
             <ProjectChatArea
               projectId={projectId}
               conversationHistory={project.conversationHistory}
+              selectedTaskTitle={selectedTask?.title}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

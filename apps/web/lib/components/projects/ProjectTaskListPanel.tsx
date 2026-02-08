@@ -1,10 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useState, useMemo } from "react";
+import { api } from "@conductor/backend";
+import { useMemo } from "react";
 import {
   Accordion,
   AccordionItem,
@@ -13,7 +12,6 @@ import {
   Badge,
 } from "@conductor/ui";
 import { ProjectTaskCard } from "./ProjectTaskCard";
-import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
@@ -28,17 +26,17 @@ const STATUS_ORDER: TaskStatus[] = [
 ];
 
 interface ProjectTaskListPanelProps {
-  projectId: Id<"projects">;
+  tasks: Task[];
+  selectedTaskId: Id<"agentTasks"> | null;
+  onSelectTask: (id: Id<"agentTasks">) => void;
 }
 
-export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
-  const tasks = useQuery(api.agentTasks.listByProject, { projectId });
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
-    null,
-  );
-
+export function ProjectTaskListPanel({
+  tasks,
+  selectedTaskId,
+  onSelectTask,
+}: ProjectTaskListPanelProps) {
   const groupedTasks = useMemo(() => {
-    if (!tasks) return null;
     const groups: Record<TaskStatus, Task[]> = {
       todo: [],
       in_progress: [],
@@ -51,14 +49,6 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
     }
     return groups;
   }, [tasks]);
-
-  if (!tasks || !groupedTasks) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-      </div>
-    );
-  }
 
   const nonEmptyStatuses = STATUS_ORDER.filter(
     (status) => groupedTasks[status].length > 0,
@@ -106,7 +96,8 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
                       description={task.description}
                       status={task.status}
                       createdBy={task.createdBy}
-                      onClick={() => setSelectedTaskId(task._id)}
+                      isSelected={selectedTaskId === task._id}
+                      onClick={() => onSelectTask(task._id)}
                     />
                   ))
                 )}
@@ -115,13 +106,6 @@ export function ProjectTaskListPanel({ projectId }: ProjectTaskListPanelProps) {
           );
         })}
       </Accordion>
-      {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={!!selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          taskId={selectedTaskId}
-        />
-      )}
     </div>
   );
 }

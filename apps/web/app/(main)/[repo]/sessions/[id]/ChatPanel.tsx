@@ -429,7 +429,7 @@ export function ChatPanel({
                     )}
                     {message.mode === "plan" && (
                       <>
-                        <IconClipboardList className="w-3 h-3" /> Plan
+                        <IconClipboardList className="w-3 h-3" /> PRD
                       </>
                     )}
                   </div>
@@ -484,7 +484,7 @@ export function ChatPanel({
               onClick={() => setShowPlanModal(true)}
             >
               <IconFileText className="w-3 h-3" />
-              View Plan
+              View PRD
             </Button>
           )}
         </div>
@@ -497,7 +497,7 @@ export function ChatPanel({
                   ? "Describe the changes to make to Eva..."
                   : mode === "ask"
                     ? "Ask Eva a question about the codebase..."
-                    : "Describe what you want to build to Eva..."
+                    : "Describe the feature or product requirements to Eva..."
             }
             disabled={isInputDisabled}
           />
@@ -521,7 +521,7 @@ export function ChatPanel({
                   </TabsTrigger>
                   <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
                     <IconClipboardList className="w-3 h-3" />
-                    Plan
+                    PRD
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -583,7 +583,7 @@ export function ChatPanel({
       >
         <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Implementation Plan</DialogTitle>
+            <DialogTitle>Product Plan</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
             <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -593,6 +593,16 @@ export function ChatPanel({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
               Close
+            </Button>
+            <Button
+              className="bg-green-600 text-white hover:bg-green-700"
+              onClick={() => {
+                setShowPlanModal(false);
+                setMode("execute");
+              }}
+            >
+              <IconCode className="w-3.5 h-3.5" />
+              Approve Plan
             </Button>
           </DialogFooter>
         </DialogContent>

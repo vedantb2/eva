@@ -134,7 +134,7 @@ export function BranchSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-xl bg-muted/60">
+      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-xl bg-muted/30">
         <IconLoader2 className="w-4 h-4 text-muted-foreground/60 animate-spin" />
         <span className="text-sm text-muted-foreground/60">
           Loading branches...
@@ -148,7 +148,7 @@ export function BranchSelector({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -183,7 +183,7 @@ export function BranchSelector({
       </DropdownMenu>
       <Button
         size="icon"
-        variant="secondary"
+        variant="ghost"
         onClick={handleSync}
         disabled={syncing}
         title="Sync branches from GitHub"

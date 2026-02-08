@@ -54,7 +54,7 @@ export function ActiveTasksAccordion({
           <div className="space-y-0.5 px-3">
             {tasks.map((task) => (
               <Link key={task._id} href={getTaskLink(task)}>
-                <div className="flex items-center justify-between p-2 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer">
+                <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground truncate">
                       {task.title}

@@ -30,14 +30,14 @@ export function SidebarLayoutWrapper({
           className={`${collapsed ? "w-10" : "w-72"} flex flex-col bg-card transition-all duration-200`}
         >
           <div
-            className={`p-2 pt-3 pb-2 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}
+            className={`p-3 pt-4 pb-3 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}
           >
             {!collapsed && (
               <>
-                <h1 className="text-xl font-semibold text-foreground pl-2">
+                <h1 className="text-xl font-semibold text-foreground pl-3">
                   {title}
                 </h1>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {onAdd && (
                     <Button size="icon-sm" onClick={onAdd}>
                       <IconPlus size={16} />

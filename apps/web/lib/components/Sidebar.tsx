@@ -316,9 +316,9 @@ export function Sidebar() {
                                   href={item.href}
                                   onClick={() => setMobileOpen(false)}
                                   title={collapsed ? item.name : undefined}
-                                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
-                                      ? "bg-primary/10 text-primary font-medium"
+                                      ? "bg-accent text-primary font-medium"
                                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                   }`}
                                 >
@@ -354,9 +354,9 @@ export function Sidebar() {
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     title={collapsed ? item.name : undefined}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
-                        ? "bg-primary/10 text-primary font-medium"
+                        ? "bg-accent text-primary font-medium"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >

@@ -1,5 +1,20 @@
 # Changelog
 
+## Soft UI sidebar redesign - 2026-02-08
+
+- Bumped global `--radius` from `0.75rem` to `1rem` for rounder, softer geometry across all components
+- Gentler hover states on nav items and task list (`bg-muted/40` instead of `bg-muted/60`)
+- More generous vertical padding on nav links (`py-2.5`) for a spacious, comfortable feel
+- Softened active tasks accordion: gentler hover, more padding on task items
+- Softened branch selector: lighter loading state bg (`bg-muted/30`), ghost sync button, wider gap
+- Kept grouped navigation structure (BUILD/FIX/TEST/DATA) intact
+- **All SidebarLayoutWrapper consumers updated** to Soft UI:
+  - Sessions layout: replaced all `neutral-*`/`dark:` overrides with semantic tokens, added `rounded-xl` + `mx-2` on session items
+  - Analyse layout: same treatment on query items and resource links (Saved queries, Routines, Files)
+  - Admin layout: nav items now use `hover:bg-muted/40` and `text-muted-foreground`, icon color inherits from parent
+  - Testing Arena: doc list items get `rounded-xl` + softer hover, empty states use `text-muted-foreground`
+  - DocsList component: same rounded items + semantic color treatment
+
 ## Session PRD mode + Project active layout redesign - 2026-02-08
 
 ### Session PRD mode (was "Plan mode")

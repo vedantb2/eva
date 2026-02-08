@@ -132,13 +132,13 @@ export default function ResearchLayout({
         ) : (
           <div className="py-2 space-y-8">
             <div>
-              <p className="px-4 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+              <p className="px-4 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Queries
               </p>
               {filteredQueries.length === 0 ? (
                 <div className="p-4 text-center">
-                  <IconBrain className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
-                  <p className="text-sm text-neutral-500">
+                  <IconBrain className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
                     {queries.length === 0
                       ? "No queries yet"
                       : "No matches found"}
@@ -151,10 +151,8 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`px-4 py-2 cursor-pointer transition-all group ${
-                          isSelected
-                            ? "bg-primary/10"
-                            : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        className={`px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all group ${
+                          isSelected ? "bg-accent" : "hover:bg-muted"
                         }`}
                       >
                         <Link
@@ -164,9 +162,7 @@ export default function ResearchLayout({
                           <div className="flex items-center justify-between gap-2">
                             <h3
                               className={`text-sm font-medium truncate flex-1 ${
-                                isSelected
-                                  ? "text-primary"
-                                  : "text-neutral-900 dark:text-white"
+                                isSelected ? "text-primary" : "text-foreground"
                               }`}
                             >
                               {query.title}
@@ -181,7 +177,7 @@ export default function ResearchLayout({
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-neutral-400"
+                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground"
                                   >
                                     <IconDotsVertical size={14} />
                                   </button>
@@ -218,7 +214,7 @@ export default function ResearchLayout({
                                 <UserInitials key={id} userId={id!} />
                               ))}
                             </div>
-                            <span className="text-xs text-neutral-500 ml-auto">
+                            <span className="text-xs text-muted-foreground ml-auto">
                               {dayjs(query._creationTime).fromNow()}
                             </span>
                           </div>
@@ -230,16 +226,16 @@ export default function ResearchLayout({
               )}
             </div>
             <div>
-              <p className="px-4 mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+              <p className="px-4 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Resources
               </p>
               <div>
                 <Link
                   href={baseUrl + "/saved-queries"}
-                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isSavedQueriesPage
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                      ? "bg-accent text-primary font-medium"
+                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconBookmark size={14} />
@@ -247,10 +243,10 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
-                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isRoutinesPage
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                      ? "bg-accent text-primary font-medium"
+                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconRefresh size={14} />
@@ -258,10 +254,10 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/files"}
-                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isFilesPage
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                      ? "bg-accent text-primary font-medium"
+                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconFolder size={14} />

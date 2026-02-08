@@ -138,8 +138,8 @@ export default function SessionsLayout({
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center">
-            <IconTerminal2 className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
-            <p className="text-sm text-neutral-500">
+            <IconTerminal2 className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
               {sessions.length === 0 ? "No sessions yet" : "No matches found"}
             </p>
           </div>
@@ -150,19 +150,15 @@ export default function SessionsLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-4 py-2 cursor-pointer transition-all group ${
-                    isSelected
-                      ? "bg-primary/10"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className={`px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all group ${
+                    isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >
                   <Link href={baseUrl + "/" + session._id} className="block">
                     <div className="flex items-center justify-between gap-2">
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${
-                          isSelected
-                            ? "text-primary"
-                            : "text-neutral-900 dark:text-white"
+                          isSelected ? "text-primary" : "text-foreground"
                         }`}
                       >
                         {session.title}
@@ -177,7 +173,7 @@ export default function SessionsLayout({
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-neutral-400"
+                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground"
                             >
                               <IconDotsVertical size={14} />
                             </button>
@@ -211,7 +207,7 @@ export default function SessionsLayout({
                           <UserInitials key={id} userId={id!} />
                         ))}
                       </div>
-                      <span className="text-xs text-neutral-500 ml-auto">
+                      <span className="text-xs text-muted-foreground ml-auto">
                         {dayjs(session._creationTime).fromNow()}
                       </span>
                     </div>

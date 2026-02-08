@@ -24,8 +24,8 @@ import {
   MessageContent,
   MessageResponse,
   Reasoning,
+  CollapsibleContent,
   ReasoningTrigger,
-  ReasoningContent,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -44,6 +44,7 @@ import {
   IconWorld,
   IconSparkles,
   IconSend,
+  IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -79,6 +80,7 @@ interface ChatPanelProps {
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
+  onCollapse: () => void;
 }
 
 export function ChatPanel({
@@ -93,6 +95,7 @@ export function ChatPanel({
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
+  onCollapse,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
@@ -249,7 +252,15 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between p-3">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={onCollapse}
+        >
+          <IconLayoutSidebarRightCollapse size={16} />
+        </Button>
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
             {title}
@@ -370,9 +381,11 @@ export function ChatPanel({
                           streaming ? "Working..." : "Processing complete"
                         }
                       />
-                      <ReasoningContent>
-                        {streamingActivity || "Starting..."}
-                      </ReasoningContent>
+                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                        <pre className="whitespace-pre-wrap font-mono text-xs">
+                          {streamingActivity || "Starting..."}
+                        </pre>
+                      </CollapsibleContent>
                     </Reasoning>
                   ) : (
                     <>
@@ -390,9 +403,11 @@ export function ChatPanel({
                           <ReasoningTrigger
                             getThinkingMessage={() => "View logs"}
                           />
-                          <ReasoningContent>
-                            {message.activityLog}
-                          </ReasoningContent>
+                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                              {message.activityLog}
+                            </pre>
+                          </CollapsibleContent>
                         </Reasoning>
                       )}
                     </>
@@ -564,13 +579,15 @@ export function ChatPanel({
           if (!v) setShowPlanModal(false);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Implementation Plan</DialogTitle>
           </DialogHeader>
-          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-            {planContent ?? ""}
-          </MessageResponse>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+              {planContent ?? ""}
+            </MessageResponse>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
               Close

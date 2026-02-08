@@ -19,6 +19,9 @@ import {
   IconX,
   IconCode,
   IconChevronDown,
+  IconBookmark,
+  IconBookmarkFilled,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useMutation } from "convex/react";
 import Image from "next/image";
@@ -57,6 +60,9 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const typedQueryId = queryId as Id<"researchQueries">;
   const query = useQuery(api.researchQueries.get, { id: typedQueryId });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
+  const savedQueries = useQuery(api.savedQueries.list, { repoId: repo._id });
+  const createSavedQuery = useMutation(api.savedQueries.create);
+  const removeSavedQuery = useMutation(api.savedQueries.remove);
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
@@ -119,6 +125,22 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     });
   };
 
+  const isQuerySaved = (queryCode: string) =>
+    savedQueries?.some((sq) => sq.query === queryCode) ?? false;
+
+  const handleSaveQuery = async (queryCode: string, question: string) => {
+    await createSavedQuery({
+      repoId: repo._id,
+      title: question,
+      query: queryCode,
+      researchQueryId: typedQueryId,
+    });
+  };
+
+  const handleRemoveSavedQuery = async (savedQueryId: Id<"savedQueries">) => {
+    await removeSavedQuery({ id: savedQueryId });
+  };
+
   if (query === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -150,7 +172,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           </h1>
         </div>
         <Conversation className="flex-1">
-          <ConversationContent className="gap-4 p-6">
+          <ConversationContent className="gap-4 p-6 justify-end">
             {query.messages.length === 0 ? (
               <ConversationEmptyState title="No messages yet. Start the conversation!" />
             ) : (
@@ -241,9 +263,34 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                               />
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                              <pre className="mt-2 rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                                <code>{message.queryCode}</code>
-                              </pre>
+                              <div className="mt-2 space-y-2">
+                                <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
+                                  <code>{message.queryCode}</code>
+                                </pre>
+                                {isQuerySaved(message.queryCode) ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <IconBookmarkFilled size={14} />
+                                    <span>Saved</span>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const userMsg =
+                                        query.messages[index - 1]?.content ??
+                                        query.title;
+                                      handleSaveQuery(
+                                        message.queryCode ?? "",
+                                        userMsg,
+                                      );
+                                    }}
+                                  >
+                                    <IconBookmark size={14} />
+                                    Save query
+                                  </Button>
+                                )}
+                              </div>
                             </CollapsibleContent>
                           </Collapsible>
                         )}
@@ -323,16 +370,43 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             )}
           </Button>
           {!panelCollapsed && (
-            <p className="text-sm font-semibold text-primary">
-              Insights & Artifacts
-            </p>
+            <p className="text-sm font-semibold text-primary">Saved Queries</p>
           )}
         </div>
         {!panelCollapsed && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <p className="text-xs text-muted-foreground/60">
-              Pinned findings and data will appear here
-            </p>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {!savedQueries || savedQueries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2">
+                <IconBookmark size={20} className="text-muted-foreground/40" />
+                <p className="text-xs text-muted-foreground/60">
+                  No saved queries yet
+                </p>
+              </div>
+            ) : (
+              savedQueries.map((sq) => (
+                <div
+                  key={sq._id}
+                  className="rounded-lg bg-secondary p-3 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-medium text-foreground line-clamp-2">
+                      {sq.title}
+                    </p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveSavedQuery(sq._id)}
+                    >
+                      <IconTrash size={12} />
+                    </Button>
+                  </div>
+                  <pre className="rounded bg-background p-2 text-[10px] overflow-x-auto max-h-20">
+                    <code>{sq.query}</code>
+                  </pre>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

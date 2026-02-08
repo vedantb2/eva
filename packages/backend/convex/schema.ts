@@ -230,6 +230,7 @@ const schema = defineSchema({
   savedQueries: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
+    researchQueryId: v.optional(v.id("researchQueries")),
     title: v.string(),
     query: v.string(),
     createdAt: v.number(),

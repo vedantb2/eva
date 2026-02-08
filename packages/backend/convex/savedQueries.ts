@@ -7,6 +7,7 @@ const savedQueryValidator = v.object({
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
+  researchQueryId: v.optional(v.id("researchQueries")),
   title: v.string(),
   query: v.string(),
   createdAt: v.number(),
@@ -41,6 +42,7 @@ export const create = mutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     query: v.string(),
+    researchQueryId: v.optional(v.id("researchQueries")),
   },
   returns: v.id("savedQueries"),
   handler: async (ctx, args) => {
@@ -50,6 +52,7 @@ export const create = mutation({
     return await ctx.db.insert("savedQueries", {
       repoId: args.repoId,
       userId,
+      researchQueryId: args.researchQueryId,
       title: args.title,
       query: args.query,
       createdAt: now,

@@ -7,10 +7,7 @@ import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Button } from "@conductor/ui";
-import {
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
-} from "@tabler/icons-react";
+import { IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 
 interface SessionDetailClientProps {
   sessionId: string;
@@ -65,7 +62,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
 
   return (
     <div className="flex h-full">
-      <div className="flex-1">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <SandboxPanel
           sessionId={sessionId}
           sandboxId={session.sandboxId}
@@ -76,21 +73,18 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
       <div
         className={`${chatCollapsed ? "w-10" : "w-2/5"} flex flex-col transition-all duration-200`}
       >
-        <div className="flex items-center p-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="flex-shrink-0"
-            onClick={() => setChatCollapsed(!chatCollapsed)}
-          >
-            {chatCollapsed ? (
+        {chatCollapsed ? (
+          <div className="flex items-center justify-center p-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="flex-shrink-0"
+              onClick={() => setChatCollapsed(false)}
+            >
               <IconLayoutSidebarRightExpand size={16} />
-            ) : (
-              <IconLayoutSidebarRightCollapse size={16} />
-            )}
-          </Button>
-        </div>
-        {!chatCollapsed && (
+            </Button>
+          </div>
+        ) : (
           <div className="flex-1 min-h-0 overflow-hidden">
             <ChatPanel
               sessionId={sessionId}
@@ -104,6 +98,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxToggling}
               onSandboxToggle={handleSandboxToggle}
+              onCollapse={() => setChatCollapsed(true)}
             />
           </div>
         )}

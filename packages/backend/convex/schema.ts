@@ -14,6 +14,7 @@ import {
   userFlowValidator,
   notificationTypeValidator,
   roleUserValidator,
+  queryConfirmationStatusValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -216,6 +217,8 @@ const schema = defineSchema({
         content: v.string(),
         timestamp: v.number(),
         userId: v.optional(v.id("users")),
+        queryCode: v.optional(v.string()),
+        status: v.optional(queryConfirmationStatusValidator),
       }),
     ),
     createdAt: v.number(),
@@ -227,6 +230,7 @@ const schema = defineSchema({
   savedQueries: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
+    researchQueryId: v.optional(v.id("researchQueries")),
     title: v.string(),
     query: v.string(),
     createdAt: v.number(),

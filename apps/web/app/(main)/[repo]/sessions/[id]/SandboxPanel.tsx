@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import { IconTerminal2, IconWorld, IconGitBranch } from "@tabler/icons-react";
+import { useEffect, useState, useCallback } from "react";
+import { Button, Spinner, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import {
+  IconTerminal2,
+  IconWorld,
+  IconGitBranch,
+  IconRefresh,
+  IconExternalLink,
+} from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
@@ -10,6 +16,11 @@ import { WebPreviewPanel } from "./WebPreviewPanel";
 import { DiffPanel } from "./DiffPanel";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
+
+interface PreviewInfo {
+  url: string;
+  port: number;
+}
 
 interface SandboxPanelProps {
   sessionId: string;
@@ -25,51 +36,118 @@ export function SandboxPanel({
   fileDiffs,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("preview");
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  const fetchPreview = useCallback(async () => {
+    if (!sandboxId || !isActive) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/sessions/preview?sessionId=${sessionId}&port=3000`,
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to get preview URL");
+      }
+      const data = await response.json();
+      setPreviewInfo(data);
+      setIframeKey((k) => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load preview");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sandboxId, isActive, sessionId]);
+
+  useEffect(() => {
+    if (isActive && sandboxId) {
+      fetchPreview();
+    }
+  }, [isActive, sandboxId, fetchPreview]);
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
-      <div className="p-3">
+      <div className="flex items-center justify-between gap-2 p-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="gap-2">
+          <TabsList className="gap-1">
             <TabsTrigger value="preview">
-              <div className="flex items-center gap-1.5">
-                <IconWorld className="w-4 h-4" />
-                <span>Preview</span>
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="terminal">
-              <div className="flex items-center gap-1.5">
-                <IconTerminal2 className="w-4 h-4" />
-                <span>Terminal</span>
-              </div>
+              <IconWorld className="w-4 h-4" />
             </TabsTrigger>
             <TabsTrigger value="diffs">
-              <div className="flex items-center gap-1.5">
-                <IconGitBranch className="w-4 h-4" />
-                <span>Diffs</span>
-              </div>
+              <IconGitBranch className="w-4 h-4" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {activeTab === "preview" && isActive && sandboxId && (
+          <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 gap-1.5">
+            <button
+              onClick={fetchPreview}
+              disabled={isLoading}
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Spinner size="sm" />
+              ) : (
+                <IconRefresh className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <span className="flex-1 text-xs text-neutral-500 dark:text-neutral-400 truncate select-all">
+              {previewInfo?.url ?? "Loading..."}
+            </span>
+            {previewInfo && (
+              <a
+                href={previewInfo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+              >
+                <IconExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+        )}
+        <Button
+          variant={terminalOpen ? "secondary" : "ghost"}
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setTerminalOpen(!terminalOpen)}
+        >
+          <IconTerminal2 className="w-4 h-4" />
+        </Button>
       </div>
-      <div className="flex-1 overflow-hidden relative">
-        <div className={activeTab === "preview" ? "h-full" : "hidden"}>
-          <WebPreviewPanel
-            sessionId={sessionId}
-            sandboxId={sandboxId}
-            isActive={isActive}
-          />
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div
+          className={`overflow-hidden min-h-0 ${terminalOpen ? "h-1/2" : "flex-1"}`}
+        >
+          <div className={activeTab === "preview" ? "h-full" : "hidden"}>
+            <WebPreviewPanel
+              isActive={isActive}
+              sandboxId={sandboxId}
+              previewInfo={previewInfo}
+              isLoading={isLoading}
+              error={error}
+              iframeKey={iframeKey}
+              onRetry={fetchPreview}
+            />
+          </div>
+          <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
+            <DiffPanel fileDiffs={fileDiffs} />
+          </div>
         </div>
-        <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
-          <TerminalPanel
-            sessionId={sessionId}
-            sandboxId={sandboxId}
-            isActive={isActive}
-          />
-        </div>
-        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-          <DiffPanel fileDiffs={fileDiffs} />
-        </div>
+        {terminalOpen && (
+          <div className="h-1/2 min-h-0 overflow-hidden border-t border-neutral-200 dark:border-neutral-800">
+            <TerminalPanel
+              sessionId={sessionId}
+              sandboxId={sandboxId}
+              isActive={isActive}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

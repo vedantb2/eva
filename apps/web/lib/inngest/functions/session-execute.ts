@@ -255,7 +255,7 @@ CRITICAL response rules:
 
         const existingPlan = session.planContent || "";
 
-        const prompt = `You are a planning assistant helping a non-technical business user design an implementation plan for a codebase.
+        const prompt = `You are a product planning assistant helping define a PRD (Product Requirements Document) for a feature or change. You iteratively refine the plan based on user feedback until they approve it.
 
 ## Repository: ${repo.owner}/${repo.name}
 
@@ -269,20 +269,15 @@ ${existingPlan || "No plan created yet."}
 ${message}
 
 ## Instructions:
-1. Use Glob, Grep, Read to explore the codebase as needed to answer the user's question
-2. Ask clarifying questions about requirements when needed
-3. After each interaction, create or update plan.md in the repository root with the current state of the plan
-4. The plan should be a living document - add sections incrementally as you learn more
-5. Structure plan.md with: Overview, Files to Modify, Implementation Steps, Dependencies/Prerequisites
+1. Use Glob, Grep, Read to explore the codebase and understand what already exists
+2. Create or update plan.md in the repository root with the full PRD
+3. Refine the existing plan based on user feedback — don't rewrite from scratch unless asked
+4. Structure plan.md with: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope
 
 ## Rules:
-- You may ONLY write to plan.md in the repository root - do NOT modify any other files
-- Use the Write tool to create/update plan.md
-- Write for a non-technical audience - avoid jargon, explain concepts simply
-- Keep your conversational response SHORT (2-4 sentences)
-- Be specific about what files and changes are needed in the plan
-- If this is the first message, create plan.md with initial structure based on the user's request
-- If plan.md already exists, update it based on the new information from the conversation
+- You may ONLY write to plan.md — do NOT modify any other files
+- Keep your conversational response SHORT (1-2 sentences summarizing what changed in the plan)
+- Write for a non-technical audience — focus on WHAT to build and WHY, not HOW
 - Do NOT commit or push any changes${getResponseLengthInstruction(responseLength)}`;
 
         await convex.mutation(api.sessions.addMessage, {
@@ -375,13 +370,16 @@ ${message}
       const beforeHead = (headResult.result || "").trim();
 
       const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
+      const planContext = session.planContent
+        ? `\n\n## Approved Product Plan:\n${session.planContent}\n\nUse this plan as context for what to build and why. Follow the goals, user stories, and acceptance criteria defined above.`
+        : "";
       const prompt = `You are working on an ongoing session. The user has requested the following task:
 
 ## User Request:
 ${message}
 
 ## Repository: ${repo.owner}/${repo.name}
-## Branch: ${sandboxData.branchName}
+## Branch: ${sandboxData.branchName}${planContext}
 
 ## Instructions:
 1. Read the CLAUDE.md file if it exists to understand the codebase

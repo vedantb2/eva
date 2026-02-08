@@ -52,15 +52,15 @@ export const summarizeSession = inngest.createFunction(
 
       const conversation = session.messages
         .filter((m) => m.mode !== "flag")
-        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+        .map((m) => m.content)
         .join("\n\n");
 
-      const prompt = `Summarize the following session conversation into 3-6 concise bullet points. Each bullet should capture a key topic, decision, or action from the conversation.
+      const prompt = `Summarize what was accomplished in this coding session into 3-6 short bullet points. Focus on concrete outcomes: features built, bugs fixed, files changed, decisions made. Be direct and specific.
 
-Conversation:
+Session log:
 ${conversation}
 
-Respond with ONLY a JSON array of strings, no other text. Example: ["Built login page", "Fixed API auth bug"]`;
+Respond with ONLY a JSON array of strings, no other text. Example: ["Built login page with form validation", "Fixed auth token refresh bug"]`;
 
       const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "haiku",

@@ -1,6 +1,9 @@
 export { inngest } from "./client";
 export { executeTask } from "./functions/execute-task";
-export { executeResearchQuery } from "./functions/execute-research-query";
+export {
+  generateResearchQuery,
+  confirmResearchQuery,
+} from "./functions/execute-research-query";
 export { evaluateDoc } from "./functions/evaluate-doc";
 export { cleanupProjectSandbox } from "./functions/cleanup-project-sandbox";
 export { interviewQuestion } from "./functions/interview-question";

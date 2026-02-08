@@ -40,31 +40,6 @@ interface EvaluationReport {
   createdAt: number;
 }
 
-function StatusBadge({ status }: { status: EvaluationReport["status"] }) {
-  const config = {
-    pending: {
-      dot: "bg-yellow-500",
-      text: "text-yellow-600 dark:text-yellow-400",
-    },
-    running: {
-      dot: "bg-primary animate-pulse",
-      text: "text-primary",
-    },
-    completed: {
-      dot: "bg-green-500",
-      text: "text-green-600 dark:text-green-400",
-    },
-    error: { dot: "bg-red-500", text: "text-red-600 dark:text-red-400" },
-  };
-  const { dot, text } = config[status];
-  return (
-    <span className={`flex items-center gap-1.5 text-xs font-medium ${text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      {status}
-    </span>
-  );
-}
-
 function ReportCard({
   report,
   streamingActivity,
@@ -82,12 +57,6 @@ function ReportCard({
   return (
     <Card className="shadow-none bg-neutral-100 dark:bg-neutral-800/50">
       <CardContent className="flex flex-col gap-4 p-4">
-        <div className="flex items-center justify-between">
-          {report.status !== "completed" && (
-            <StatusBadge status={report.status} />
-          )}
-        </div>
-
         {report.status === "running" && (
           <div className="flex items-center gap-3">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-200 dark:border-neutral-700 border-t-primary" />
@@ -304,9 +273,18 @@ export default function TestingArenaDocPage({
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
       <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
-            {doc.title}
-          </h2>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="h-8">
+              <TabsTrigger value="code" className="text-xs">
+                <IconCode size={14} />
+                <span>Code Testing</span>
+              </TabsTrigger>
+              <TabsTrigger value="ui" className="text-xs">
+                <IconWorld size={14} />
+                <span>UI Testing</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button
             size="sm"
             onClick={activeTab === "code" ? handleRunTest : undefined}
@@ -316,18 +294,6 @@ export default function TestingArenaDocPage({
             {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
           </Button>
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="h-8">
-            <TabsTrigger value="code" className="text-xs">
-              <IconCode size={14} />
-              <span>Code Testing</span>
-            </TabsTrigger>
-            <TabsTrigger value="ui" className="text-xs">
-              <IconWorld size={14} />
-              <span>UI Testing</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === "code" ? (

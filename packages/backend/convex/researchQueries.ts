@@ -1,13 +1,15 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
-import { roleValidator } from "./validators";
+import { roleValidator, queryConfirmationStatusValidator } from "./validators";
 
 const messageValidator = v.object({
   role: roleValidator,
   content: v.string(),
   timestamp: v.number(),
   userId: v.optional(v.id("users")),
+  queryCode: v.optional(v.string()),
+  status: v.optional(queryConfirmationStatusValidator),
 });
 
 const researchQueryValidator = v.object({
@@ -78,6 +80,8 @@ export const addMessage = mutation({
     id: v.id("researchQueries"),
     role: roleValidator,
     content: v.string(),
+    queryCode: v.optional(v.string()),
+    status: v.optional(queryConfirmationStatusValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -97,6 +101,8 @@ export const addMessage = mutation({
           content: args.content,
           timestamp: Date.now(),
           userId,
+          queryCode: args.queryCode,
+          status: args.status,
         },
       ],
       updatedAt: Date.now(),
@@ -109,6 +115,7 @@ export const updateLastMessage = mutation({
   args: {
     id: v.id("researchQueries"),
     content: v.string(),
+    queryCode: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -120,6 +127,32 @@ export const updateLastMessage = mutation({
     const last = messages[messages.length - 1];
     if (!last) return null;
     last.content = args.content;
+    if (args.queryCode !== undefined) last.queryCode = args.queryCode;
+    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const updateMessageStatus = mutation({
+  args: {
+    id: v.id("researchQueries"),
+    messageIndex: v.number(),
+    status: queryConfirmationStatusValidator,
+    content: v.optional(v.string()),
+    queryCode: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const query = await ctx.db.get(args.id);
+    if (!query) throw new Error("Query not found");
+    const messages = [...query.messages];
+    const msg = messages[args.messageIndex];
+    if (!msg) return null;
+    msg.status = args.status;
+    if (args.content !== undefined) msg.content = args.content;
+    if (args.queryCode !== undefined) msg.queryCode = args.queryCode;
     await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
     return null;
   },

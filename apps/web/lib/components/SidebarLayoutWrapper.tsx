@@ -29,7 +29,9 @@ export function SidebarLayoutWrapper({
         <div
           className={`${collapsed ? "w-10" : "w-72"} border-r border-neutral-200 dark:border-neutral-800 flex flex-col bg-white dark:bg-neutral-900 transition-all duration-200`}
         >
-          <div className="p-2 pt-3 pb-2 flex items-center justify-between">
+          <div
+            className={`p-2 pt-3 pb-2 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}
+          >
             {!collapsed && (
               <>
                 <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 pl-2">

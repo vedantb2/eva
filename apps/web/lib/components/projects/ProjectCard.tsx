@@ -1,11 +1,17 @@
 "use client";
 
 import type { Id } from "@conductor/backend";
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@/lib/components/ui/UserInitials";
 import Link from "next/link";
-import { IconGitBranch, IconDots, IconTrash } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconDots,
+  IconTrash,
+  IconPencil,
+} from "@tabler/icons-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -15,6 +21,14 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
+  Label,
+  Textarea,
 } from "@conductor/ui";
 import dayjs from "@/lib/dates";
 import {
@@ -49,6 +63,10 @@ export function ProjectCard({
   cardBg,
   onDelete,
 }: ProjectCardProps) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState(description ?? "");
+  const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
   const progress = useQuery(api.projects.getTaskProgress, {
     projectId: projectId as Id<"projects">,
@@ -92,6 +110,22 @@ export function ProjectCard({
                 View Branch
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem
+              disabled={!isOwner}
+              onClick={() => {
+                setEditTitle(title);
+                setEditDescription(description ?? "");
+                setEditOpen(true);
+              }}
+            >
+              <IconPencil size={16} className="mr-2 h-4 w-4" />
+              Edit Details
+              {!isOwner && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  Owner only
+                </span>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
               disabled={!isOwner}
@@ -172,6 +206,55 @@ export function ProjectCard({
           </span>
         </div>
       </Link>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await updateProject({
+                id: projectId,
+                title: editTitle,
+                description: editDescription || undefined,
+              });
+              setEditOpen(false);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!editTitle.trim()}>
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

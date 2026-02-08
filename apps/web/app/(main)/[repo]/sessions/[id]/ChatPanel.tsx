@@ -24,8 +24,8 @@ import {
   MessageContent,
   MessageResponse,
   Reasoning,
+  CollapsibleContent,
   ReasoningTrigger,
-  ReasoningContent,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -44,6 +44,7 @@ import {
   IconWorld,
   IconSparkles,
   IconSend,
+  IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -79,6 +80,7 @@ interface ChatPanelProps {
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
+  onCollapse: () => void;
 }
 
 export function ChatPanel({
@@ -93,6 +95,7 @@ export function ChatPanel({
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
+  onCollapse,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
@@ -249,16 +252,15 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-base font-semibold text-neutral-900 dark:text-white truncate max-w-[200px]">
-            {title}
-          </h1>
-          <div
-            className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isSandboxActive ? "bg-green-500" : "bg-neutral-300 dark:bg-neutral-600"}`}
-            title={isSandboxActive ? "Active" : "Inactive"}
-          />
-        </div>
+      <div className="flex items-center justify-between p-3">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={onCollapse}
+        >
+          <IconLayoutSidebarRightCollapse size={16} />
+        </Button>
         <div className="flex items-center gap-2">
           {branchName && !prUrl && (
             <Button
@@ -279,11 +281,16 @@ export function ChatPanel({
               isSummarizing || !isSandboxActive || messages.length === 0
             }
             className="h-8 w-8 text-primary"
+            title={
+              summary && summary.length > 0
+                ? "Regenerate summary"
+                : "Generate summary"
+            }
           >
             {isSummarizing ? (
               <Spinner size="sm" />
             ) : (
-              <IconSparkles className="size-5" />
+              <IconSparkles className="w-4 h-4" />
             )}
           </Button>
           <Button
@@ -303,14 +310,13 @@ export function ChatPanel({
           </Button>
         </div>
       </div>
-      {!lastAssistantHasNoContent && streamingActivity && (
-        <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-          <Spinner size="sm" />
-          <span className="truncate">{streamingActivity}</span>
-        </div>
-      )}
-      {summary && summary.length > 0 && (
-        <Accordion type="single" collapsible className="px-4">
+      {(streamingActivity || (summary && summary.length > 0)) && (
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue={streamingActivity ? "summary" : undefined}
+          className="px-4"
+        >
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">
               <div className="flex flex-row gap-2 items-center text-primary">
@@ -319,11 +325,18 @@ export function ChatPanel({
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
-              <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
-                {summary.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
+              {streamingActivity ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                  <Spinner size="sm" />
+                  <span className="truncate">{streamingActivity}</span>
+                </div>
+              ) : summary && summary.length > 0 ? (
+                <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
+                  {summary.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -370,9 +383,11 @@ export function ChatPanel({
                           streaming ? "Working..." : "Processing complete"
                         }
                       />
-                      <ReasoningContent>
-                        {streamingActivity || "Starting..."}
-                      </ReasoningContent>
+                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                        <pre className="whitespace-pre-wrap font-mono text-xs">
+                          {streamingActivity || "Starting..."}
+                        </pre>
+                      </CollapsibleContent>
                     </Reasoning>
                   ) : (
                     <>
@@ -390,9 +405,11 @@ export function ChatPanel({
                           <ReasoningTrigger
                             getThinkingMessage={() => "View logs"}
                           />
-                          <ReasoningContent>
-                            {message.activityLog}
-                          </ReasoningContent>
+                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                              {message.activityLog}
+                            </pre>
+                          </CollapsibleContent>
                         </Reasoning>
                       )}
                     </>
@@ -412,7 +429,7 @@ export function ChatPanel({
                     )}
                     {message.mode === "plan" && (
                       <>
-                        <IconClipboardList className="w-3 h-3" /> Plan
+                        <IconClipboardList className="w-3 h-3" /> PRD
                       </>
                     )}
                   </div>
@@ -467,7 +484,7 @@ export function ChatPanel({
               onClick={() => setShowPlanModal(true)}
             >
               <IconFileText className="w-3 h-3" />
-              View Plan
+              View PRD
             </Button>
           )}
         </div>
@@ -480,7 +497,7 @@ export function ChatPanel({
                   ? "Describe the changes to make to Eva..."
                   : mode === "ask"
                     ? "Ask Eva a question about the codebase..."
-                    : "Describe what you want to build to Eva..."
+                    : "Describe the feature or product requirements to Eva..."
             }
             disabled={isInputDisabled}
           />
@@ -504,7 +521,7 @@ export function ChatPanel({
                   </TabsTrigger>
                   <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
                     <IconClipboardList className="w-3 h-3" />
-                    Plan
+                    PRD
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -564,16 +581,28 @@ export function ChatPanel({
           if (!v) setShowPlanModal(false);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Implementation Plan</DialogTitle>
+            <DialogTitle>Product Plan</DialogTitle>
           </DialogHeader>
-          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-            {planContent ?? ""}
-          </MessageResponse>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+              {planContent ?? ""}
+            </MessageResponse>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
               Close
+            </Button>
+            <Button
+              className="bg-green-600 text-white hover:bg-green-700"
+              onClick={() => {
+                setShowPlanModal(false);
+                setMode("execute");
+              }}
+            >
+              <IconCode className="w-3.5 h-3.5" />
+              Approve Plan
             </Button>
           </DialogFooter>
         </DialogContent>

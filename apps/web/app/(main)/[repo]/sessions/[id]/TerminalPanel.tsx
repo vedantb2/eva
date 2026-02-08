@@ -274,7 +274,7 @@ export function TerminalPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-neutral-900">
+    <div className="h-full flex flex-col bg-neutral-900 relative">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-10">
           <Spinner size="lg" />

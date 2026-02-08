@@ -83,3 +83,9 @@ export const roleUserValidator = v.union(
   v.literal("business"),
   v.literal("dev"),
 );
+
+export const queryConfirmationStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("confirmed"),
+  v.literal("cancelled"),
+);

@@ -88,6 +88,26 @@ packages/backend/convex/
 └── analytics.ts      # Stats queries
 ```
 
+### Sessions vs Projects
+
+**Sessions** = interactive pair programming with AI. User has an initial idea and wants to develop it iteratively.
+
+- User drives each step by sending messages one at a time
+- Three modes: Execute (make changes), Ask (read-only Q&A), PRD (lightweight product requirements)
+- PRD mode produces a free-form requirements doc via conversation, user approves then switches to execute
+- One conversation, one branch, manual control
+- Best for: quick changes, bug fixes, small features, exploring/developing ideas
+
+**Projects** = autonomous feature builder. User has the final idea and wants to know how to get there, including edge cases.
+
+- Structured interview flow (multiple choice questions) builds a comprehensive spec
+- Auto-generates a task breakdown from the spec
+- Executes ALL tasks autonomously without user input per task
+- Has lifecycle phases (draft → finalized → active → completed)
+- Best for: large features, multi-file changes, "build this and come back when it's done"
+
+Keep these distinct: sessions should stay interactive and lightweight, projects should stay autonomous and structured. Don't add interview/task-breakdown to sessions or free-form chat to projects.
+
 ### Key Data Models
 
 - **boards** - Kanban boards linked to GitHub repos

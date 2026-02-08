@@ -70,14 +70,13 @@ function SortableItem<T extends BaseTask>({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    cursor: "grab",
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      className={`cursor-grab ${isDragging ? "opacity-50" : ""}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}

@@ -61,7 +61,7 @@ export function ProjectTaskCard({
                 onClick={(e) => e.stopPropagation()}
                 className="flex-shrink-0 p-1 rounded hover:bg-muted transition-colors"
               >
-                <IconGitPullRequest size={14} className="text-emerald-500" />
+                <IconGitPullRequest size={14} className="text-success" />
               </Link>
             )}
             <DependencyBadge isBlocked={isBlocked ?? false} status={status} />

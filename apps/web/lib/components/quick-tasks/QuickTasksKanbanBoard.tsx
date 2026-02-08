@@ -157,7 +157,7 @@ export function QuickTasksKanbanBoard({
           <DialogHeader>
             <DialogTitle>Complete All Tasks</DialogTitle>
           </DialogHeader>
-          <div className="text-sm text-foreground/80 space-y-2">
+          <div className="text-sm text-muted-foreground space-y-2">
             {ownedTodoTasks.length > 0 ? (
               <>
                 <p>
@@ -165,7 +165,7 @@ export function QuickTasksKanbanBoard({
                   {ownedTodoTasks.length !== 1 && "s"} you created.
                 </p>
                 {skippedCount > 0 && (
-                  <p className="text-amber-600 dark:text-amber-400">
+                  <p className="text-warning">
                     {skippedCount} task{skippedCount !== 1 && "s"} created by
                     others will be skipped. Only the task owner can run Eva.
                   </p>

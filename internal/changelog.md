@@ -1,6 +1,36 @@
 # Changelog
 
-## Design audit — 3-phase UI consistency overhaul - 2026-02-08
+## Design audit #2 — semantic color token system + consistency sweep - 2026-02-08
+
+### Phase 1 — Status color tokens & critical fixes
+
+- Added 17 new CSS variables (light + dark) for 4-status color system: `--status-progress`, `--status-business-review`, `--status-code-review`, `--status-done` — each with DEFAULT, bg, subtle, and bar variants
+- Added `--warning-bg` and `--success-bg` tokens for callout backgrounds
+- Registered all status tokens in tailwind.config.js under `colors.status`
+- Replaced all hardcoded yellow/orange/purple/green in `TaskStatusBadge.tsx` and `ProjectPhaseBadge.tsx` with semantic status tokens
+- Replaced all `text-amber-*`/`bg-amber-*` warning colors across 5 files (sessions/layout, ProjectsClient, QuickTasksKanbanBoard, TaskDetailModal, ProjectTaskDetailPanel) with `text-warning`/`bg-warning`/`bg-warning-bg` tokens
+- Replaced presence indicator colors in `UserInitials.tsx` (`bg-emerald-500` → `bg-success`, `bg-amber-500` → `bg-warning`)
+- Standardized 4 empty state pages (sessions, analyse, docs, testing-arena) to use `EmptyState` component
+- Eliminated all `text-foreground/80` opacity modifiers across 8 files → `text-muted-foreground`
+
+### Phase 2 — Refinement
+
+- Replaced Spinner loading with Skeleton loaders in ProjectsClient and QuickTasksClient
+- Standardized all dialog cancel buttons from `variant="secondary"` to `variant="ghost"` across 7 files
+- Fixed search icon position in sessions/layout (`left-2.5` → `left-3`)
+- Replaced custom `<button>` elements with `<Button>` component in sessions/layout, QuickTaskCard, and analyse/layout
+
+### Phase 3 — Remaining hardcoded colors
+
+- Replaced all `text-green-600`/`bg-green-600` in ChatPanel.tsx (5 instances) with `text-success`/`bg-success text-success-foreground`
+- Replaced `bg-green-100 dark:bg-green-900/30` and `text-green-700 dark:text-green-400` in DependencyBadge with `bg-status-done-bg`/`text-status-done`
+- Replaced `text-emerald-600 dark:text-emerald-400` in ProjectFinalizationModal and ProjectPlanTab with `text-success`
+- Replaced `bg-emerald-50 dark:bg-emerald-900/20` in ProjectPlanTab with `bg-success-bg`
+- Replaced `text-emerald-500` in ProjectTaskCard with `text-success`
+- Replaced `text-green-600` in RepoSetupClient with `text-success`
+- Left DiffPanel git diff colors (green/red/blue) and Leaderboard medal colors (gold/bronze) as intentionally decorative
+
+## Design audit #1 — 3-phase UI consistency overhaul - 2026-02-08
 
 ### Phase 1 — Critical fixes
 

@@ -15,84 +15,25 @@ import { Icon as TablerIcon } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
 
-function Sparkline({ points, id }: { points: number[]; id: string }) {
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const range = max - min || 1;
-  const h = 48;
-  const w = 120;
-  const step = w / (points.length - 1);
-
-  const d = points
-    .map((p, i) => {
-      const x = i * step;
-      const y = h - ((p - min) / range) * (h - 4) - 2;
-      return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
-    })
-    .join(" ");
-
-  const gradientId = "spark-" + id;
-
-  return (
-    <svg width={w} height={h} className="flex-shrink-0">
-      <defs>
-        <linearGradient id={gradientId} x1="0.5" y1="0" x2="1" y2="0">
-          <stop
-            offset="0%"
-            className="[stop-color:var(--muted-foreground)]"
-            stopOpacity={0.3}
-          />
-          <stop
-            offset="100%"
-            className="[stop-color:var(--muted-foreground)]"
-            stopOpacity={0.6}
-          />
-        </linearGradient>
-      </defs>
-      <path
-        d={d}
-        fill="none"
-        stroke={"url(#" + gradientId + ")"}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function seededPoints(seed: number): number[] {
-  let s = seed + 1;
-  return Array.from({ length: 7 }, () => {
-    s = (s * 16807 + 5) % 2147483647;
-    return s % 100;
-  });
-}
-
 function StatCard({
   icon: Icon,
   label,
   value,
-  seed,
 }: {
   icon: TablerIcon;
   label: string;
   value: string | number;
-  seed: number;
 }) {
   return (
     <Card className="bg-secondary">
-      <CardContent className="p-6 flex flex-row items-center justify-between gap-4">
-        <div className="flex flex-col gap-3 min-w-0">
-          <Icon size={24} className="text-muted-foreground" />
-          <div>
-            <p className="text-3xl font-semibold text-foreground tabular-nums">
-              {value}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">{label}</p>
-          </div>
+      <CardContent className="p-6 flex flex-col gap-3">
+        <Icon size={24} className="text-muted-foreground" />
+        <div>
+          <p className="text-3xl font-semibold text-foreground tabular-nums">
+            {value}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">{label}</p>
         </div>
-        <Sparkline points={seededPoints(seed)} id={String(seed)} />
       </CardContent>
     </Card>
   );
@@ -149,25 +90,21 @@ export function RepoHomeClient() {
             icon={IconGitPullRequest}
             label="PRs Shipped"
             value={impactStats.prsShipped}
-            seed={1}
           />
           <StatCard
             icon={IconPercentage}
             label="Cook Rate"
             value={impactStats.shipRate + "%"}
-            seed={2}
           />
           <StatCard
             icon={IconUsers}
             label="Cookers Now"
             value={activeUsers.count}
-            seed={3}
           />
           <StatCard
             icon={IconChecklist}
             label="Tasks Done"
             value={impactStats.tasksCompleted}
-            seed={4}
           />
         </div>
       </div>

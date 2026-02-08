@@ -155,7 +155,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <DialogTitle>Build Project</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               This will allow Eva to autonomously work through all tasks in
               sequence until the project is fully built.
             </p>
@@ -166,10 +166,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setIsBuildModalOpen(false)}
-            >
+            <Button variant="ghost" onClick={() => setIsBuildModalOpen(false)}>
               Cancel
             </Button>
             <Button

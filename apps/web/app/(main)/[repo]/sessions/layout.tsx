@@ -122,7 +122,7 @@ export default function SessionsLayout({
         <div className="relative">
           <IconSearch
             size={16}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             placeholder="Search sessions..."
@@ -159,12 +159,12 @@ export default function SessionsLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all group ${
+                  className={`px-3 pt-1 pb-2 mx-2 rounded-xl cursor-pointer transition-all group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >
                   <Link href={baseUrl + "/" + session._id} className="block">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between">
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${
                           isSelected ? "text-primary" : "text-foreground"
@@ -180,16 +180,17 @@ export default function SessionsLayout({
                       >
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground"
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="opacity-0 group-hover:opacity-100"
                             >
                               <IconDotsVertical size={14} />
-                            </button>
+                            </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              className="text-amber-600"
+                              className="text-warning"
                               onClick={() =>
                                 setSessionToArchive({
                                   id: session._id,
@@ -197,7 +198,7 @@ export default function SessionsLayout({
                                 })
                               }
                             >
-                              <IconArchive size={16} className="mr-2" />
+                              <IconArchive size={16} />
                               Archive
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -248,7 +249,7 @@ export default function SessionsLayout({
           <DialogHeader>
             <DialogTitle>Archive Session</DialogTitle>
           </DialogHeader>
-          <p className="text-foreground/80">
+          <p className="text-muted-foreground">
             Are you sure you want to archive{" "}
             <strong>{sessionToArchive?.title}</strong>?
           </p>
@@ -257,14 +258,11 @@ export default function SessionsLayout({
             list. The session data will be preserved but no longer accessible.
           </p>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setSessionToArchive(null)}
-            >
+            <Button variant="ghost" onClick={() => setSessionToArchive(null)}>
               Cancel
             </Button>
             <Button
-              className="bg-amber-600 text-white hover:bg-amber-700"
+              className="bg-warning text-warning-foreground"
               onClick={handleArchive}
               disabled={isArchiving}
             >
@@ -303,7 +301,7 @@ export default function SessionsLayout({
           </div>
           <DialogFooter>
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={() => {
                 setIsCreateModalOpen(false);
                 setNewSessionTitle("");

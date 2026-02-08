@@ -75,6 +75,34 @@ const config = {
           4: "var(--chart-4)",
           5: "var(--chart-5)",
         },
+        "warning-bg": "var(--warning-bg)",
+        "success-bg": "var(--success-bg)",
+        status: {
+          progress: {
+            DEFAULT: "var(--status-progress)",
+            bg: "var(--status-progress-bg)",
+            subtle: "var(--status-progress-subtle)",
+            bar: "var(--status-progress-bar)",
+          },
+          "business-review": {
+            DEFAULT: "var(--status-business-review)",
+            bg: "var(--status-business-review-bg)",
+            subtle: "var(--status-business-review-subtle)",
+            bar: "var(--status-business-review-bar)",
+          },
+          "code-review": {
+            DEFAULT: "var(--status-code-review)",
+            bg: "var(--status-code-review-bg)",
+            subtle: "var(--status-code-review-subtle)",
+            bar: "var(--status-code-review-bar)",
+          },
+          done: {
+            DEFAULT: "var(--status-done)",
+            bg: "var(--status-done-bg)",
+            subtle: "var(--status-done-subtle)",
+            bar: "var(--status-done-bar)",
+          },
+        },
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",

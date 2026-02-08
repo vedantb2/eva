@@ -1,10 +1,12 @@
+"use client";
+
 import { IconFileText } from "@tabler/icons-react";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export default function DocsPage() {
   return (
-    <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
-      <IconFileText size={48} className="mb-3" />
-      <p>Select a document to view</p>
+    <div className="flex items-center justify-center h-full">
+      <EmptyState icon={IconFileText} title="Select a document to view" />
     </div>
   );
 }

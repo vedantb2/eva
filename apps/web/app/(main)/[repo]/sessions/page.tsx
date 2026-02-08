@@ -1,17 +1,15 @@
+"use client";
+
 import { IconTerminal2 } from "@tabler/icons-react";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export default function SessionsPage() {
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <IconTerminal2
-          size={48}
-          className="mx-auto text-muted-foreground mb-4"
-        />
-        <p className="text-muted-foreground">
-          Select a session to view the conversation
-        </p>
-      </div>
+      <EmptyState
+        icon={IconTerminal2}
+        title="Select a session to view the conversation"
+      />
     </div>
   );
 }

@@ -79,9 +79,9 @@ export function ProjectCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              size="icon"
+              size="icon-sm"
               variant="ghost"
-              className="size-4 flex shrink-0 text-muted-foreground hover:text-foreground"
+              className="flex shrink-0 text-muted-foreground hover:text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />

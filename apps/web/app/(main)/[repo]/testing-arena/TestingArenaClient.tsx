@@ -97,10 +97,10 @@ function DocsListPanel({
               <Link
                 key={doc._id}
                 href={href}
-                className={`w-full text-left px-4 py-2.5 mx-1 rounded-xl transition-colors flex items-center gap-3 ${
+                className={`text-left px-4 py-2.5 mx-2 rounded-xl transition-colors flex items-center gap-3 ${
                   isSelected
                     ? "bg-accent text-primary font-medium"
-                    : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <IconFileText size={16} className="flex-shrink-0" />
@@ -164,7 +164,7 @@ export function TestingArenaClient({
             <DialogTitle>Test All Documents</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
               documents?
             </p>
@@ -174,10 +174,7 @@ export function TestingArenaClient({
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setShowTestAllModal(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
             <Button onClick={handleTestAll}>Yes save me Eva</Button>

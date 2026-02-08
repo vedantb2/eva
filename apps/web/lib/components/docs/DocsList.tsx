@@ -73,10 +73,10 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
               <Link
                 key={doc._id}
                 href={href}
-                className={`w-full text-left px-4 py-2.5 mx-1 rounded-xl transition-colors flex items-center gap-3 ${
+                className={`mx-2 text-left px-4 py-2.5 rounded-xl transition-colors flex items-center gap-3 ${
                   isSelected
                     ? "bg-accent text-primary font-medium"
-                    : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <IconFileText size={16} className="flex-shrink-0" />

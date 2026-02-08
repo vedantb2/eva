@@ -46,7 +46,7 @@ export function ChatMessage({
               height={24}
               className="rounded-full"
             />
-            <AvatarFallback className="bg-secondary text-foreground/80">
+            <AvatarFallback className="bg-secondary text-muted-foreground">
               E
             </AvatarFallback>
           </Avatar>

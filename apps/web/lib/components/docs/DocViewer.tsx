@@ -331,7 +331,7 @@ function DocEditor({ doc }: { doc: Doc }) {
             <DialogTitle>Delete Document</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to delete <strong>{doc.title}</strong>?
             </p>
             <p className="text-sm text-muted-foreground mt-2">
@@ -339,10 +339,7 @@ function DocEditor({ doc }: { doc: Doc }) {
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setShowDeleteModal(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
             <Button

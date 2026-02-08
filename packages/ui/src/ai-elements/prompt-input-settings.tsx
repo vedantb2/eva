@@ -10,6 +10,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../ui/dropdown-menu";
+import { IconBrain, IconTextResize, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 
 export type ClaudeModel = "opus" | "sonnet" | "haiku";
@@ -64,28 +65,15 @@ export function PromptInputSettings({
           )}
           disabled={disabled}
         >
-          {icon ?? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-            </svg>
-          )}
+          {icon ?? <IconDots size={16} />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Model</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>
+            <IconBrain size={14} />
+            Model
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
               value={model}
@@ -103,7 +91,10 @@ export function PromptInputSettings({
         </DropdownMenuSub>
         {onResponseLengthChange && responseLength !== undefined && (
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Response length</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>
+              <IconTextResize size={14} />
+              Response length
+            </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               <DropdownMenuRadioGroup
                 value={responseLength}

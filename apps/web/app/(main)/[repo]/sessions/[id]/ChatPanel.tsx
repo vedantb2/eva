@@ -260,7 +260,7 @@ export function ChatPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="text-green-600"
+              className="text-success"
               onClick={() => setShowReviewModal(true)}
             >
               <IconSend size={12} />
@@ -292,7 +292,7 @@ export function ChatPanel({
             variant={isSandboxActive ? "destructive" : "secondary"}
             onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
             disabled={isSandboxToggling}
-            className={`h-8 w-8 ${!isSandboxActive ? "text-green-600" : ""}`}
+            className={`h-8 w-8 ${!isSandboxActive ? "text-success" : ""}`}
           >
             {isSandboxToggling ? (
               <Spinner size="sm" />
@@ -474,7 +474,7 @@ export function ChatPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="text-green-600 h-6"
+              className="text-success h-6"
               onClick={() => setShowPlanModal(true)}
             >
               <IconFileText className="w-3 h-3" />
@@ -557,7 +557,7 @@ export function ChatPanel({
               Cancel
             </Button>
             <Button
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={handleCreatePr}
               disabled={isCreatingPr}
             >
@@ -586,7 +586,7 @@ export function ChatPanel({
               Close
             </Button>
             <Button
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={() => {
                 setShowPlanModal(false);
                 setMode("execute");

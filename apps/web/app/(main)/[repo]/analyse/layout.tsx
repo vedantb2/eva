@@ -184,12 +184,13 @@ export default function ResearchLayout({
                             >
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground"
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    className="opacity-0 group-hover:opacity-100"
                                   >
                                     <IconDotsVertical size={14} />
-                                  </button>
+                                  </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                   <DropdownMenuItem
@@ -241,7 +242,7 @@ export default function ResearchLayout({
                   className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isSavedQueriesPage
                       ? "bg-accent text-primary font-medium"
-                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconBookmark size={14} />
@@ -252,7 +253,7 @@ export default function ResearchLayout({
                   className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isRoutinesPage
                       ? "bg-accent text-primary font-medium"
-                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconRefresh size={14} />
@@ -263,7 +264,7 @@ export default function ResearchLayout({
                   className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
                     isFilesPage
                       ? "bg-accent text-primary font-medium"
-                      : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <IconFolder size={14} />
@@ -296,7 +297,7 @@ export default function ResearchLayout({
             <DialogTitle>Delete Query</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to delete{" "}
               <strong>{queryToDelete?.title}</strong>?
             </p>
@@ -306,7 +307,7 @@ export default function ResearchLayout({
             </p>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setQueryToDelete(null)}>
+            <Button variant="ghost" onClick={() => setQueryToDelete(null)}>
               Cancel
             </Button>
             <Button
@@ -351,7 +352,7 @@ export default function ResearchLayout({
           </div>
           <DialogFooter>
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={() => {
                 setIsCreateModalOpen(false);
                 setNewQueryTitle("");

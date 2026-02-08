@@ -28,8 +28,8 @@ export function DependencyBadge({
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-full font-medium",
-          "bg-green-100 dark:bg-green-900/30",
-          "text-green-700 dark:text-green-400",
+          "bg-status-done-bg",
+          "text-status-done",
           size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm",
           className,
         )}

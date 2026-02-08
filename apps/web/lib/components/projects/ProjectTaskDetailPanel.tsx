@@ -84,7 +84,7 @@ export function ProjectTaskDetailPanel({
             {latestPrUrl && (
               <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
                 <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                  <IconGitPullRequest size={14} className="text-emerald-500" />
+                  <IconGitPullRequest size={14} className="text-success" />
                 </a>
               </Button>
             )}
@@ -114,7 +114,7 @@ export function ProjectTaskDetailPanel({
               <h4 className="text-xs font-medium text-muted-foreground mb-1">
                 Description
               </h4>
-              <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {task.description.includes("---")
                   ? task.description
                       .slice(0, task.description.indexOf("---"))
@@ -179,7 +179,7 @@ export function ProjectTaskDetailPanel({
                             </Reasoning>
                           )}
                         {run.resultSummary && (
-                          <p className="text-sm text-foreground/80">
+                          <p className="text-sm text-muted-foreground">
                             {run.resultSummary}
                           </p>
                         )}
@@ -211,8 +211,8 @@ export function ProjectTaskDetailPanel({
                                     log.level === "error"
                                       ? "text-destructive"
                                       : log.level === "warn"
-                                        ? "text-amber-600 dark:text-amber-400"
-                                        : "text-foreground/80"
+                                        ? "text-warning"
+                                        : "text-muted-foreground"
                                   }`}
                                 >
                                   <span className="text-muted-foreground flex-shrink-0">

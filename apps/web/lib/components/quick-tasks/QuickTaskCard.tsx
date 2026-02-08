@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   Card,
   CardContent,
   Checkbox,
@@ -79,15 +80,12 @@ export function QuickTaskCard({
               <div onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="p-1 rounded hover:bg-muted transition-colors"
-                    >
+                    <Button size="icon-sm" variant="ghost">
                       <IconDotsVertical
                         size={14}
                         className="text-muted-foreground"
                       />
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     {branchName && (

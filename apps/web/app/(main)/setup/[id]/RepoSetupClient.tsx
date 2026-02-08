@@ -136,7 +136,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                 </div>
               </div>
               {addedRepos.has(repo.fullName) ? (
-                <span className="flex items-center gap-1 text-green-600 text-xs sm:text-sm flex-shrink-0">
+                <span className="flex items-center gap-1 text-success text-xs sm:text-sm flex-shrink-0">
                   <IconCheck className="w-4 h-4" />
                   <span className="hidden sm:inline">Added</span>
                 </span>

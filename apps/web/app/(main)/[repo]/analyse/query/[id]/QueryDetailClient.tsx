@@ -4,14 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
-import {
-  ModelSelector,
-  type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import {
-  ResponseLengthSelector,
-  type ResponseLength,
-} from "@/lib/components/ui/ResponseLengthSelector";
+import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
@@ -45,6 +38,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
   type PromptInputMessage,
   Collapsible,
   CollapsibleTrigger,
@@ -332,15 +326,12 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             />
             <PromptInputFooter>
               <PromptInputTools>
-                <ModelSelector
-                  value={model}
-                  onChange={setModel}
-                  isDisabled={isSending}
-                />
-                <ResponseLengthSelector
-                  value={responseLength}
-                  onChange={setResponseLength}
-                  isDisabled={isSending}
+                <PromptInputSettings
+                  model={model}
+                  onModelChange={setModel}
+                  responseLength={responseLength}
+                  onResponseLengthChange={setResponseLength}
+                  disabled={isSending}
                 />
               </PromptInputTools>
               <PromptInputSubmit
@@ -401,7 +392,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                       <IconTrash size={12} />
                     </Button>
                   </div>
-                  <pre className="rounded bg-background p-2 text-[10px] overflow-x-auto max-h-20">
+                  <pre className="rounded bg-background p-2 text-xs overflow-x-auto max-h-20">
                     <code>{sq.query}</code>
                   </pre>
                 </div>

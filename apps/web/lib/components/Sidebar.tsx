@@ -155,14 +155,14 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-background/80 backdrop-blur-lg">
         <Button
           size="icon"
           variant="ghost"
           onClick={() => setMobileOpen(true)}
           className="-ml-2"
         >
-          <IconMenu2 className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+          <IconMenu2 className="w-5 h-5 text-muted-foreground" />
         </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
@@ -190,7 +190,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-neutral-100 dark:bg-neutral-950 transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-background transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
@@ -221,7 +221,7 @@ export function Sidebar() {
               onClick={() => setMobileOpen(false)}
               className="lg:hidden"
             >
-              <IconX className="w-5 h-5 text-neutral-500" />
+              <IconX className="w-5 h-5 text-muted-foreground" />
             </Button>
             <Button
               size="icon"
@@ -252,11 +252,11 @@ export function Sidebar() {
                             variant="secondary"
                             className="flex items-center gap-2 w-full"
                           >
-                            <IconBrandGithub className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-                            <span className="flex-1 text-left text-sm font-medium text-neutral-900 dark:text-white truncate">
+                            <IconBrandGithub className="w-4 h-4 text-muted-foreground" />
+                            <span className="flex-1 text-left text-sm font-medium text-foreground truncate">
                               {repoFullName}
                             </span>
-                            <IconSelector className="w-4 h-4 text-neutral-500" />
+                            <IconSelector className="w-4 h-4 text-muted-foreground/60" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -272,7 +272,7 @@ export function Sidebar() {
                                   value={rFullName}
                                   className="px-3 py-2 text-sm"
                                 >
-                                  <IconBrandGithub className="mr-2 h-4 w-4 text-neutral-500" />
+                                  <IconBrandGithub className="mr-2 h-4 w-4 text-muted-foreground" />
                                   {rFullName}
                                 </DropdownMenuRadioItem>
                               );
@@ -295,7 +295,7 @@ export function Sidebar() {
                         {!collapsed && (
                           <button
                             onClick={() => toggleGroup(group.label)}
-                            className="flex items-center gap-1.5 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-neutral-400 dark:text-neutral-500 uppercase hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                            className="flex items-center gap-1.5 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-muted-foreground/50 uppercase hover:text-muted-foreground transition-colors"
                           >
                             <group.groupIcon className="w-3 h-3" />
                             {group.label}
@@ -316,17 +316,13 @@ export function Sidebar() {
                                   href={item.href}
                                   onClick={() => setMobileOpen(false)}
                                   title={collapsed ? item.name : undefined}
-                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                                     isActive
-                                      ? "bg-primary/10 text-primary"
-                                      : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white"
+                                      ? "bg-primary/10 text-primary font-medium"
+                                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                   }`}
                                 >
-                                  <item.icon
-                                    className={`size-[16px] flex-shrink-0 ${
-                                      isActive ? "text-primary" : ""
-                                    }`}
-                                  />
+                                  <item.icon className="size-4 flex-shrink-0" />
                                   {!collapsed && item.name}
                                 </Link>
                               );
@@ -349,7 +345,7 @@ export function Sidebar() {
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -358,15 +354,13 @@ export function Sidebar() {
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     title={collapsed ? item.name : undefined}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
                       isActive
-                        ? "bg-primary/5 text-primary"
-                        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white"
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
-                    <item.icon
-                      className={`size-[16px] flex-shrink-0 ${isActive ? "text-primary" : ""}`}
-                    />
+                    <item.icon className="size-4 flex-shrink-0" />
                     {!collapsed && item.name}
                   </Link>
                 );
@@ -374,22 +368,20 @@ export function Sidebar() {
             </div>
           </nav>
 
-          <div
-            className={`pt-3 mt-2 ${collapsed ? "lg:p-2 p-4" : "px-4 py-3"}`}
-          >
+          <div className={`${collapsed ? "lg:p-2 p-4" : "px-3 py-3"}`}>
             <div
               className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}
             >
               <UserButton
                 appearance={{
                   elements: {
-                    avatarBox: "w-9 h-9",
+                    avatarBox: "w-8 h-8",
                   },
                 }}
               />
               {!collapsed && (
                 <>
-                  <p className="flex-1 min-w-0 text-sm font-medium text-neutral-900 dark:text-white truncate">
+                  <p className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                   <ThemeToggleClient />

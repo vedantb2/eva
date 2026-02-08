@@ -39,26 +39,28 @@ export function ActiveTasksAccordion({
   return (
     <Accordion type="multiple" defaultValue={["active-tasks"]} className="px-0">
       <AccordionItem value="active-tasks" className="border-b-0 px-0">
-        <AccordionTrigger className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg hover:no-underline">
+        <AccordionTrigger className="px-3 py-2 hover:bg-muted/60 rounded-xl hover:no-underline">
           <div className="flex items-center gap-2">
             <IconListCheck className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Active Tasks</span>
-            <span className="ml-auto text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
+            <span className="text-sm font-medium text-foreground">
+              Active Tasks
+            </span>
+            <span className="ml-auto text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
               {tasks.length}
             </span>
           </div>
         </AccordionTrigger>
         <AccordionContent className="px-0 pb-0">
-          <div className="space-y-1 px-3">
+          <div className="space-y-0.5 px-3">
             {tasks.map((task) => (
               <Link key={task._id} href={getTaskLink(task)}>
-                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
+                <div className="flex items-center justify-between p-2 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-900 dark:text-white truncate">
+                    <p className="text-sm text-foreground truncate">
                       {task.title}
                     </p>
                     {task.taskNumber && (
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-muted-foreground">
                         Task #{task.taskNumber}
                       </p>
                     )}

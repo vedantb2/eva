@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ExtractedContext } from "@/shared/types";
 import {
+  Button,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -8,6 +9,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@conductor/ui";
+import { IconX } from "@tabler/icons-react";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
 import "highlight.js/styles/github-dark.min.css";
@@ -51,24 +53,9 @@ export function ContextPreview({ context, onClear }: ContextPreviewProps) {
           </CollapsibleTrigger>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={onClear}
-                className="text-muted-foreground hover:text-foreground p-1"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+              <Button variant="ghost" size="icon-sm" onClick={onClear}>
+                <IconX size={16} />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Clear context</TooltipContent>
           </Tooltip>

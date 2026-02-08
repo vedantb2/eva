@@ -68,21 +68,20 @@ export function SessionSidebar({
           ) : (
             <div className="space-y-1 p-2">
               {sessions.map((session) => (
-                <button
+                <Button
                   key={session._id}
+                  variant={
+                    session._id === currentSessionId ? "secondary" : "ghost"
+                  }
+                  className="w-full justify-start gap-2"
                   onClick={() => {
                     onSessionSelect(session._id);
                     onClose();
                   }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-left transition-colors ${
-                    session._id === currentSessionId
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50"
-                  }`}
                 >
                   <IconMessage size={16} className="shrink-0 opacity-50" />
                   <span className="truncate">{session.title}</span>
-                </button>
+                </Button>
               ))}
             </div>
           )}

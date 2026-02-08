@@ -33,6 +33,8 @@ import {
   type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
+  Avatar,
+  AvatarFallback,
 } from "@conductor/ui";
 import {
   IconCheck,
@@ -74,18 +76,22 @@ function UserAvatar({ userId }: { userId?: string }) {
   );
   if (!user) {
     return (
-      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-        <IconUser size={14} className="text-neutral-500" />
-      </div>
+      <Avatar className="h-7 w-7 flex-shrink-0">
+        <AvatarFallback className="bg-neutral-200 dark:bg-neutral-700">
+          <IconUser size={14} className="text-neutral-500" />
+        </AvatarFallback>
+      </Avatar>
     );
   }
   const initials =
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
     "?";
   return (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
-      {initials}
-    </div>
+    <Avatar className="h-7 w-7 flex-shrink-0">
+      <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
   );
 }
 

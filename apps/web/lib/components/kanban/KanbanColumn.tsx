@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardHeader, CardContent, Badge } from "@conductor/ui";
+import { Badge, Card, CardContent, CardHeader } from "@conductor/ui";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 import type { IconCircle } from "@tabler/icons-react";
@@ -38,8 +38,8 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
-      className={`flex-1 min-w-0 h-full transition-colors flex flex-col shadow-none ${
-        isOver ? "bg-muted" : "bg-secondary"
+      className={`flex-1 min-w-0 h-full transition-colors flex flex-col rounded-md ${
+        isOver ? "bg-muted dark:bg-accent" : "bg-background dark:bg-background"
       }`}
     >
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1 flex-shrink-0 space-y-0">

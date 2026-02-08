@@ -1,5 +1,29 @@
 # Changelog
 
+## Replace manual div patterns with UI components - 2026-02-08
+
+- Replaced manual spinner div with `Spinner` component in testing-arena report card
+- Replaced manual progress bar div with `Progress` component in testing-arena
+- Replaced raw `<button>` toggle with `Button` component in testing-arena
+- Replaced card-like div with `Card`/`CardContent` in saved-queries page
+- Replaced 5 raw `<button>` elements with `Button` component in RepoSetupClient (add, add all, done, back)
+- Replaced manual loading spinner (`IconLoader2`) with `Spinner` component in RepoSetupClient
+- Replaced raw refresh `<button>` with `Button` in SandboxPanel
+- Replaced 2 manual avatar divs with `Avatar`/`AvatarFallback` in PlanContextPanel
+- Replaced manual avatar div with `Avatar`/`AvatarFallback` in ChatPanel
+- Replaced manual avatar div with `Avatar`/`AvatarFallback` in QueryDetailClient
+- Replaced notification count `<span>` with `Badge` component in NotificationsPopoverClient
+
+## Flat minimal UI redesign — Inset panel design - 2026-02-08
+
+- Added `bg-card lg:rounded-l-2xl` to MainContent in repo layout for inset panel effect (content area has curved left edge against sidebar)
+- Removed `border-r` from main Sidebar and `border-t` from sidebar user section
+- Removed `border-b` header border and redundant `bg-background`/`bg-card` from PageWrapper (parent now handles backgrounds)
+- Removed all `border-r`/`border-b` from SidebarLayoutWrapper (mobile header, mobile drawer, desktop sidebar)
+- Removed structural borders from 6 project components: ProjectActiveLayout, ProjectTabs, ProjectPlanTab, ProjectTaskDetailPanel, ProjectChatTab, PlanContextPanel
+- Removed structural borders from SpotlightSearch, TaskDetailModal, SandboxPanel, DiffPanel, QueryDetailClient
+- Kept borders on interactive elements (inputs, buttons, accordion items) and timeline indicators
+
 ## Design audit #2 — semantic color token system + consistency sweep - 2026-02-08
 
 ### Phase 1 — Status color tokens & critical fixes

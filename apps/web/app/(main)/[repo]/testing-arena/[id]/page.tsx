@@ -13,6 +13,7 @@ import {
   Card,
   CardContent,
   Spinner,
+  Progress,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -60,7 +61,7 @@ function ReportCard({
       <CardContent className="flex flex-col gap-4 p-4">
         {report.status === "running" && (
           <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-border border-t-primary" />
+            <Spinner size="sm" />
             <span className="text-sm text-muted-foreground truncate">
               {streamingActivity || "Evaluating codebase..."}
             </span>
@@ -99,14 +100,7 @@ function ReportCard({
               </span>
             </div>
 
-            <div className="h-1 rounded-full bg-secondary overflow-hidden flex">
-              {passed.length > 0 && (
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${passRate}%` }}
-                />
-              )}
-            </div>
+            <Progress value={passRate} className="h-1 bg-secondary" />
 
             {report.summary && (
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -137,10 +131,11 @@ function ReportCard({
 
             {passed.length > 0 && (
               <div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setShowPassed(!showPassed)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="px-0 text-muted-foreground hover:text-foreground"
                 >
                   {showPassed ? (
                     <IconChevronDown size={14} />
@@ -148,7 +143,7 @@ function ReportCard({
                     <IconChevronRight size={14} />
                   )}
                   {passed.length} passed
-                </button>
+                </Button>
                 {showPassed && (
                   <div className="mt-2 space-y-1.5 pl-5">
                     {passed.map((item, idx) => (

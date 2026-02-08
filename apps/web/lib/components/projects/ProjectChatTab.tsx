@@ -308,7 +308,7 @@ export function ProjectChatTab({
           )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-border p-4 space-y-3">
+      <div className="p-4 space-y-3">
         {showQuestion && (
           <MultipleChoiceQuestion
             question={currentQuestion.question}

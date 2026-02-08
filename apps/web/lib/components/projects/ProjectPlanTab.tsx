@@ -124,7 +124,7 @@ export function ProjectPlanTab({
         </div>
 
         {!isLocked && (
-          <div className="space-y-3 pt-4 border-t border-border">
+          <div className="space-y-3 pt-4">
             {showRejectInput ? (
               <div className="flex gap-2">
                 <Input

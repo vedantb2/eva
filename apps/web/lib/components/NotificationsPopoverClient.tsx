@@ -9,13 +9,14 @@ import {
   PopoverTrigger,
   PopoverContent,
   Button,
-  Separator,
   Spinner,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Badge,
+  Avatar,
+  AvatarFallback,
 } from "@conductor/ui";
 import {
   IconBell,
@@ -38,40 +39,85 @@ type Notification = FunctionReturnType<typeof api.notifications.list>[number];
 
 const typeConfig: Record<
   Notification["type"],
-  { icon: typeof IconBell; label: string; badgeVariant: BadgeProps["variant"] }
+  {
+    icon: typeof IconBell;
+    label: string;
+    badgeVariant: BadgeProps["variant"];
+    iconBg: string;
+    iconColor: string;
+  }
 > = {
   routine_complete: {
     icon: IconRepeat,
     label: "Routine",
     badgeVariant: "secondary",
+    iconBg: "bg-secondary",
+    iconColor: "text-secondary-foreground",
   },
   export_ready: {
     icon: IconFileExport,
     label: "Export",
     badgeVariant: "default",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
   },
   task_complete: {
     icon: IconCheck,
     label: "Task Done",
     badgeVariant: "success",
+    iconBg: "bg-success/10",
+    iconColor: "text-success",
   },
   task_assigned: {
     icon: IconUserPlus,
     label: "Assigned",
     badgeVariant: "warning",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   comment_added: {
     icon: IconMessage,
     label: "Comment",
     badgeVariant: "default",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
   },
   run_completed: {
     icon: IconPlayerPlay,
     label: "Run Done",
     badgeVariant: "success",
+    iconBg: "bg-success/10",
+    iconColor: "text-success",
   },
-  system: { icon: IconInfoCircle, label: "System", badgeVariant: "outline" },
+  system: {
+    icon: IconInfoCircle,
+    label: "System",
+    badgeVariant: "outline",
+    iconBg: "bg-muted",
+    iconColor: "text-muted-foreground",
+  },
 };
+
+function NotificationIcon({
+  type,
+  size = "sm",
+}: {
+  type: Notification["type"];
+  size?: "sm" | "md";
+}) {
+  const config = typeConfig[type];
+  const Icon = config.icon;
+  const dim = size === "sm" ? "h-8 w-8" : "h-10 w-10";
+  const iconSize = size === "sm" ? 16 : 20;
+
+  return (
+    <Avatar className={`${dim} rounded-lg flex-shrink-0`}>
+      <AvatarFallback className={`rounded-lg ${config.iconBg}`}>
+        <Icon size={iconSize} className={config.iconColor} />
+      </AvatarFallback>
+    </Avatar>
+  );
+}
 
 export function NotificationsPopoverClient() {
   const popover = useDisclosure();
@@ -98,9 +144,9 @@ export function NotificationsPopoverClient() {
             {unreadCount > 0 ? (
               <div className="relative">
                 <IconBell className="size-5" />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px]">
                   {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
+                </Badge>
               </div>
             ) : (
               <IconBell className="size-5" />
@@ -113,66 +159,67 @@ export function NotificationsPopoverClient() {
           sideOffset={12}
           className="p-0 w-80"
         >
-          <div className="flex items-center justify-start px-3 py-2.5">
+          <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-semibold">Notifications</span>
             {unreadCount > 0 && (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => markAllAsRead()}
-                className="ml-auto"
+                className="h-7 text-xs text-muted-foreground"
               >
-                <IconChecks size={14} className="mr-1" />
+                <IconChecks size={14} />
                 Mark all read
               </Button>
             )}
           </div>
-          <Separator />
           <div className="max-h-[360px] overflow-y-auto scrollbar">
             {!notifications ? (
               <div className="flex justify-center py-10">
                 <Spinner size="sm" />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="py-10 text-center">
-                <IconBellOff
-                  size={24}
-                  className="mx-auto text-muted-foreground mb-2"
-                />
+              <div className="py-12 text-center">
+                <Avatar className="mx-auto mb-3 h-10 w-10">
+                  <AvatarFallback>
+                    <IconBellOff size={20} className="text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
                 <p className="text-sm text-muted-foreground">All caught up</p>
               </div>
             ) : (
               <div role="listbox">
-                {notifications.map((n) => {
-                  const config = typeConfig[n.type];
-                  const Icon = config.icon;
-                  return (
-                    <button
-                      key={n._id}
-                      role="option"
-                      aria-selected={false}
-                      onClick={() => {
-                        setSelectedId(n._id);
-                        popover.onClose();
-                      }}
-                      className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-muted transition-colors ${n.read ? "opacity-60" : ""}`}
-                    >
-                      <Icon
-                        size={16}
-                        className="text-muted-foreground flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">
+                {notifications.map((n) => (
+                  <button
+                    key={n._id}
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => {
+                      setSelectedId(n._id);
+                      popover.onClose();
+                    }}
+                    className={`flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${n.read ? "opacity-50" : ""}`}
+                  >
+                    <NotificationIcon type={n.type} />
+                    <div className="flex-1 min-w-0 mt-0.5">
+                      <p className="text-sm font-medium truncate">{n.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge
+                          variant={typeConfig[n.type].badgeVariant}
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
+                          {typeConfig[n.type].label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
                           {dayjs(n.createdAt).fromNow()}
-                        </p>
+                        </span>
                       </div>
-                      {!n.read && (
-                        <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
+                    </div>
+                    {!n.read && (
+                      <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -189,12 +236,11 @@ export function NotificationsPopoverClient() {
           {selected &&
             (() => {
               const config = typeConfig[selected.type];
-              const Icon = config.icon;
               return (
                 <>
                   <DialogHeader>
                     <div className="flex items-center gap-3">
-                      <Icon size={20} className="text-muted-foreground" />
+                      <NotificationIcon type={selected.type} size="md" />
                       <div className="flex-1 min-w-0">
                         <DialogTitle className="text-base font-semibold">
                           {selected.title}

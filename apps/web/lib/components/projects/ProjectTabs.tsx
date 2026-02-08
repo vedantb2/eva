@@ -120,7 +120,7 @@ export function ProjectTabs({
 
   return (
     <div className="h-full grid grid-cols-2">
-      <div className="border-r border-border overflow-y-auto scrollbar">
+      <div className="overflow-y-auto scrollbar">
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}

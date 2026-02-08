@@ -7,6 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Avatar,
+  AvatarFallback,
 } from "@conductor/ui";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import {
@@ -94,7 +96,7 @@ export function PlanContextPanel({
 
       <Dialog open={showChatModal} onOpenChange={setShowChatModal}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="border-b border-border pb-4">
+          <DialogHeader className="pb-4">
             <DialogTitle>
               <div className="flex items-center gap-2">
                 <IconMessage size={20} />
@@ -126,12 +128,14 @@ export function PlanContextPanel({
                 >
                   {!isUser && (
                     <div className="mb-1.5 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-                        <IconRobot
-                          size={16}
-                          className="text-muted-foreground"
-                        />
-                      </div>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          <IconRobot
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="text-xs font-medium text-muted-foreground">
                         Eva
                       </span>
@@ -158,9 +162,11 @@ export function PlanContextPanel({
                     )}
                   </div>
                   {isUser && (
-                    <div className="mt-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-accent">
-                      <IconUser size={16} className="text-primary" />
-                    </div>
+                    <Avatar className="mt-1.5 h-8 w-8">
+                      <AvatarFallback className="bg-accent">
+                        <IconUser size={16} className="text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
                   )}
                 </div>
               );

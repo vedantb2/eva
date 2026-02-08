@@ -136,7 +136,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={repoSlug ? `/${repoSlug}` : "/"}
-          className={`flex items-center gap-1.5 mx-auto`}
+          className={`flex items-center gap-1.5 mx-auto `}
         >
           <Image
             src="/icon.png"
@@ -160,7 +160,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-background border-r border-border transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-background transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >
@@ -171,7 +171,7 @@ export function Sidebar() {
             {!collapsed && (
               <Link
                 href={repoSlug ? `/${repoSlug}` : "/"}
-                className="flex items-center gap-1.5"
+                className="flex items-center gap-1.5 bg-accent rounded-full pr-4"
               >
                 <Image
                   src="/icon.png"
@@ -336,9 +336,7 @@ export function Sidebar() {
             </div>
           </nav>
 
-          <div
-            className={`border-t border-border ${collapsed ? "lg:p-2 p-4" : "px-3 py-3"}`}
-          >
+          <div className={`pt-3 ${collapsed ? "lg:p-2 p-4" : "px-3 py-3"}`}>
             <div
               className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}
             >

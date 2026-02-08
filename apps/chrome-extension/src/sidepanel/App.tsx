@@ -14,6 +14,8 @@ import { RepoSelector } from "./components/RepoSelector";
 import { SessionSidebar } from "./components/SessionSidebar";
 import {
   Button,
+  Input,
+  Spinner,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -364,7 +366,7 @@ function AuthenticatedApp() {
   if (isValidUrl === null || isLoadingRepos) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+        <Spinner />
       </div>
     );
   }
@@ -430,7 +432,7 @@ function AuthenticatedApp() {
             </Button>
           </div>
           <div className="space-y-2">
-            <input
+            <Input
               type="text"
               placeholder="New project title..."
               value={newProjectTitle}
@@ -438,7 +440,7 @@ function AuthenticatedApp() {
                 setNewProjectTitle(e.target.value);
                 setSelectedProjectId(null);
               }}
-              className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              className="text-sm"
             />
             {projects && projects.length > 0 && (
               <div className="max-h-32 overflow-y-auto space-y-1">
@@ -448,23 +450,22 @@ function AuthenticatedApp() {
                 {projects
                   .filter((p) => p.phase !== "completed")
                   .map((project) => (
-                    <button
+                    <Button
                       key={project._id}
+                      variant={
+                        selectedProjectId === project._id ? "default" : "ghost"
+                      }
+                      className="w-full justify-start text-sm"
                       onClick={() => {
                         setSelectedProjectId(project._id);
                         setNewProjectTitle("");
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
-                        selectedProjectId === project._id
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-accent"
-                      }`}
                     >
                       {project.title}
                       <span className="ml-2 text-xs opacity-60">
                         {project.phase}
                       </span>
-                    </button>
+                    </Button>
                   ))}
               </div>
             )}

@@ -1,10 +1,10 @@
 "use client";
 
-import { IconDatabase, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
 
 interface EmptyStateProps {
-  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -13,7 +13,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon: Icon = IconDatabase,
+  icon,
   title,
   description,
   actionLabel,
@@ -23,7 +23,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="flex items-center justify-center w-12 h-12 rounded-full bg-secondary mb-4">
-        <Icon size={24} className="text-muted-foreground" />
+        {icon}
       </div>
       <p className="text-base font-medium text-foreground">{title}</p>
       {description && (

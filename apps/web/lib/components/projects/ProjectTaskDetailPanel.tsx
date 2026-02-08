@@ -66,7 +66,7 @@ export function ProjectTaskDetailPanel({
   return (
     <>
       <div className="flex flex-col h-full overflow-y-auto scrollbar">
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-muted-foreground font-mono text-sm flex-shrink-0">
               #{task.taskNumber}
@@ -124,12 +124,12 @@ export function ProjectTaskDetailPanel({
             </div>
           )}
           {subtasks && subtasks.length > 0 && (
-            <div className="border-t border-border pt-4">
+            <div className="pt-4">
               <SubtaskList taskId={taskId} readOnly={task.status !== "todo"} />
             </div>
           )}
           {runs && runs.length > 0 && (
-            <div className="border-t border-border pt-4">
+            <div className="pt-4">
               <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                 <IconTerminal2 size={14} />
                 Agent Runs ({runs.length})

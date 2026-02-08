@@ -152,7 +152,9 @@ export function ProjectsClient() {
           </div>
         ) : projects.length === 0 ? (
           <EmptyState
-            icon={IconLayoutKanban}
+            icon={
+              <IconLayoutKanban size={24} className="text-muted-foreground" />
+            }
             title="No projects yet"
             description="Create a project to describe a feature and let AI help you break it down into tasks"
             actionLabel="Create Project"

@@ -27,7 +27,7 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex-1 overflow-hidden bg-background">
-      <div className="lg:hidden flex items-center gap-2 px-3 py-2 border-b border-border">
+      <div className="lg:hidden flex items-center gap-2 px-3 py-2">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -53,7 +53,7 @@ export function SidebarLayoutWrapper({
       )}
 
       <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-background border-r border-border transform transition-transform duration-200 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-background transform transition-transform duration-200 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-xl font-semibold text-foreground">{title}</h1>
@@ -77,7 +77,7 @@ export function SidebarLayoutWrapper({
 
       <div className="h-full flex flex-row overflow-hidden bg-background">
         <div
-          className={`hidden lg:flex ${collapsed ? "w-12" : "w-72"} flex-col border-r border-border transition-all duration-200`}
+          className={`hidden lg:flex ${collapsed ? "w-12" : "w-72"} flex-col transition-all duration-200`}
         >
           <div
             className={`px-4 py-3 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}

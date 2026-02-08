@@ -4,60 +4,60 @@
 
 @layer base {
   :root {
-    --background: rgb(250, 253, 252);
-    --foreground: rgb(15, 23, 21);
-    --card: rgb(255, 255, 255);
-    --card-foreground: rgb(15, 23, 21);
-    --popover: rgb(255, 255, 255);
-    --popover-foreground: rgb(15, 23, 21);
-    --primary: rgb(16, 145, 130);
-    --primary-foreground: rgb(255, 255, 255);
-    --secondary: rgb(236, 245, 243);
-    --secondary-foreground: rgb(35, 60, 55);
-    --muted: rgb(240, 244, 243);
-    --muted-foreground: rgb(100, 120, 115);
-    --accent: rgb(224, 240, 236);
-    --accent-foreground: rgb(12, 105, 95);
-    --destructive: rgb(220, 38, 38);
-    --destructive-foreground: rgb(255, 255, 255);
-    --success: rgb(22, 163, 74);
-    --success-foreground: rgb(255, 255, 255);
-    --warning: rgb(217, 119, 6);
-    --warning-foreground: rgb(255, 255, 255);
-    --border: rgb(212, 228, 224);
-    --input: rgb(212, 228, 224);
-    --ring: rgb(16, 145, 130);
-    --chart-1: rgb(16, 145, 130);
-    --chart-2: rgb(59, 130, 146);
-    --chart-3: rgb(217, 159, 60);
-    --chart-4: rgb(192, 75, 95);
-    --chart-5: rgb(90, 130, 80);
-    --warning-bg: rgb(255, 251, 235);
-    --success-bg: rgb(240, 253, 244);
-    --status-progress: rgb(161, 98, 7);
-    --status-progress-bg: rgb(254, 240, 138);
-    --status-progress-subtle: rgb(254, 252, 232);
-    --status-progress-bar: rgb(250, 204, 21);
-    --status-business-review: rgb(194, 65, 12);
-    --status-business-review-bg: rgb(254, 215, 170);
-    --status-business-review-subtle: rgb(255, 247, 237);
-    --status-business-review-bar: rgb(251, 146, 60);
-    --status-code-review: rgb(126, 34, 206);
-    --status-code-review-bg: rgb(233, 213, 255);
-    --status-code-review-subtle: rgb(243, 232, 255);
-    --status-code-review-bar: rgb(192, 132, 252);
-    --status-done: rgb(21, 128, 61);
-    --status-done-bg: rgb(187, 247, 208);
-    --status-done-subtle: rgb(240, 253, 244);
-    --status-done-bar: rgb(74, 222, 128);
-    --sidebar: rgb(247, 252, 250);
-    --sidebar-foreground: rgb(15, 23, 21);
-    --sidebar-primary: rgb(12, 120, 108);
-    --sidebar-primary-foreground: rgb(255, 255, 255);
-    --sidebar-accent: rgb(236, 245, 243);
-    --sidebar-accent-foreground: rgb(12, 120, 108);
-    --sidebar-border: rgb(212, 228, 224);
-    --sidebar-ring: rgb(16, 145, 130);
+    --background: 250 253 252;
+    --foreground: 15 23 21;
+    --card: 255 255 255;
+    --card-foreground: 15 23 21;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 21;
+    --primary: 16 145 130;
+    --primary-foreground: 255 255 255;
+    --secondary: 236 245 243;
+    --secondary-foreground: 35 60 55;
+    --muted: 240 244 243;
+    --muted-foreground: 100 120 115;
+    --accent: 224 240 236;
+    --accent-foreground: 12 105 95;
+    --destructive: 220 38 38;
+    --destructive-foreground: 255 255 255;
+    --success: 22 163 74;
+    --success-foreground: 255 255 255;
+    --warning: 217 119 6;
+    --warning-foreground: 255 255 255;
+    --border: 212 228 224;
+    --input: 212 228 224;
+    --ring: 16 145 130;
+    --chart-1: 16 145 130;
+    --chart-2: 59 130 146;
+    --chart-3: 217 159 60;
+    --chart-4: 192 75 95;
+    --chart-5: 90 130 80;
+    --warning-bg: 255 251 235;
+    --success-bg: 240 253 244;
+    --status-progress: 161 98 7;
+    --status-progress-bg: 254 240 138;
+    --status-progress-subtle: 254 252 232;
+    --status-progress-bar: 250 204 21;
+    --status-business-review: 194 65 12;
+    --status-business-review-bg: 254 215 170;
+    --status-business-review-subtle: 255 247 237;
+    --status-business-review-bar: 251 146 60;
+    --status-code-review: 126 34 206;
+    --status-code-review-bg: 233 213 255;
+    --status-code-review-subtle: 243 232 255;
+    --status-code-review-bar: 192 132 252;
+    --status-done: 21 128 61;
+    --status-done-bg: 187 247 208;
+    --status-done-subtle: 240 253 244;
+    --status-done-bar: 74 222 128;
+    --sidebar: 247 252 250;
+    --sidebar-foreground: 15 23 21;
+    --sidebar-primary: 12 120 108;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 236 245 243;
+    --sidebar-accent-foreground: 12 120 108;
+    --sidebar-border: 212 228 224;
+    --sidebar-ring: 16 145 130;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
@@ -87,60 +87,60 @@
   }
 
   .dark {
-    --background: rgb(15, 23, 21);
-    --foreground: rgb(235, 245, 242);
-    --card: rgb(21, 31, 28);
-    --card-foreground: rgb(235, 245, 242);
-    --popover: rgb(18, 28, 25);
-    --popover-foreground: rgb(235, 245, 242);
-    --primary: rgb(72, 202, 186);
-    --primary-foreground: rgb(15, 23, 21);
-    --secondary: rgb(28, 42, 38);
-    --secondary-foreground: rgb(215, 230, 226);
-    --muted: rgb(26, 40, 36);
-    --muted-foreground: rgb(140, 168, 162);
-    --accent: rgb(32, 50, 45);
-    --accent-foreground: rgb(215, 230, 226);
-    --destructive: rgb(239, 68, 68);
-    --destructive-foreground: rgb(255, 255, 255);
-    --success: rgb(74, 222, 128);
-    --success-foreground: rgb(10, 18, 16);
-    --warning: rgb(251, 191, 36);
-    --warning-foreground: rgb(10, 18, 16);
-    --border: rgb(42, 60, 55);
-    --input: rgb(42, 60, 55);
-    --ring: rgb(72, 202, 186);
-    --chart-1: rgb(72, 202, 186);
-    --chart-2: rgb(85, 170, 185);
-    --chart-3: rgb(230, 180, 80);
-    --chart-4: rgb(210, 100, 120);
-    --chart-5: rgb(120, 170, 110);
-    --warning-bg: rgb(40, 33, 22);
-    --success-bg: rgb(16, 35, 26);
-    --status-progress: rgb(250, 204, 21);
-    --status-progress-bg: rgb(74, 47, 19);
-    --status-progress-subtle: rgb(35, 31, 22);
-    --status-progress-bar: rgb(234, 179, 8);
-    --status-business-review: rgb(251, 146, 60);
-    --status-business-review-bg: rgb(80, 36, 19);
-    --status-business-review-subtle: rgb(37, 27, 21);
-    --status-business-review-bar: rgb(249, 115, 22);
-    --status-code-review: rgb(192, 132, 252);
-    --status-code-review-bg: rgb(59, 26, 89);
-    --status-code-review-subtle: rgb(30, 24, 44);
-    --status-code-review-bar: rgb(168, 85, 247);
-    --status-done: rgb(74, 222, 128);
-    --status-done-bg: rgb(18, 59, 35);
-    --status-done-subtle: rgb(16, 35, 26);
-    --status-done-bar: rgb(34, 197, 94);
-    --sidebar: rgb(15, 23, 21);
-    --sidebar-foreground: rgb(195, 215, 210);
-    --sidebar-primary: rgb(72, 202, 186);
-    --sidebar-primary-foreground: rgb(15, 23, 21);
-    --sidebar-accent: rgb(26, 40, 36);
-    --sidebar-accent-foreground: rgb(235, 245, 242);
-    --sidebar-border: rgb(42, 60, 55);
-    --sidebar-ring: rgb(72, 202, 186);
+    --background: 15 23 21;
+    --foreground: 235 245 242;
+    --card: 21 31 28;
+    --card-foreground: 235 245 242;
+    --popover: 18 28 25;
+    --popover-foreground: 235 245 242;
+    --primary: 72 202 186;
+    --primary-foreground: 15 23 21;
+    --secondary: 28 42 38;
+    --secondary-foreground: 215 230 226;
+    --muted: 26 40 36;
+    --muted-foreground: 140 168 162;
+    --accent: 32 50 45;
+    --accent-foreground: 215 230 226;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --success: 74 222 128;
+    --success-foreground: 10 18 16;
+    --warning: 251 191 36;
+    --warning-foreground: 10 18 16;
+    --border: 42 60 55;
+    --input: 42 60 55;
+    --ring: 72 202 186;
+    --chart-1: 72 202 186;
+    --chart-2: 85 170 185;
+    --chart-3: 230 180 80;
+    --chart-4: 210 100 120;
+    --chart-5: 120 170 110;
+    --warning-bg: 40 33 22;
+    --success-bg: 16 35 26;
+    --status-progress: 250 204 21;
+    --status-progress-bg: 74 47 19;
+    --status-progress-subtle: 35 31 22;
+    --status-progress-bar: 234 179 8;
+    --status-business-review: 251 146 60;
+    --status-business-review-bg: 80 36 19;
+    --status-business-review-subtle: 37 27 21;
+    --status-business-review-bar: 249 115 22;
+    --status-code-review: 192 132 252;
+    --status-code-review-bg: 59 26 89;
+    --status-code-review-subtle: 30 24 44;
+    --status-code-review-bar: 168 85 247;
+    --status-done: 74 222 128;
+    --status-done-bg: 18 59 35;
+    --status-done-subtle: 16 35 26;
+    --status-done-bar: 34 197 94;
+    --sidebar: 15 23 21;
+    --sidebar-foreground: 195 215 210;
+    --sidebar-primary: 72 202 186;
+    --sidebar-primary-foreground: 15 23 21;
+    --sidebar-accent: 26 40 36;
+    --sidebar-accent-foreground: 235 245 242;
+    --sidebar-border: 42 60 55;
+    --sidebar-ring: 72 202 186;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
@@ -183,20 +183,10 @@
 @layer utilities {
   .scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(
-        in srgb,
-        var(--muted-foreground) 30%,
-        transparent
-      )
-      transparent;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.3) transparent;
   }
   .scrollbar:hover {
-    scrollbar-color: color-mix(
-        in srgb,
-        var(--muted-foreground) 50%,
-        transparent
-      )
-      transparent;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.5) transparent;
   }
   .scrollbar::-webkit-scrollbar {
     width: 6px;
@@ -206,10 +196,10 @@
     background: transparent;
   }
   .scrollbar::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+    background: rgb(var(--muted-foreground) / 0.3);
     border-radius: 3px;
   }
   .scrollbar::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+    background: rgb(var(--muted-foreground) / 0.5);
   }
 }

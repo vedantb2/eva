@@ -1,5 +1,34 @@
 # Changelog
 
+## Design audit — 3-phase UI consistency overhaul - 2026-02-08
+
+### Phase 1 — Critical fixes
+
+- Replaced 14 manual spinner `<div>` elements with unified `<Spinner>` component across all loading states
+- Fixed sidebar group labels from `text-[10px] text-muted-foreground/60` to `text-[11px] text-muted-foreground` for WCAG accessibility
+- Standardized icon sizing: converted all `w-N h-N` className patterns to Tabler `size` prop across sidebar, layouts, and components
+- Differentiated `--muted` token from `--secondary` in light mode (was identical `rgb(236, 245, 243)`, now `rgb(240, 244, 243)`)
+- Eliminated non-standard opacity modifiers (`text-muted-foreground/60`, `text-foreground/70`, `bg-muted/30`) — replaced with full semantic tokens
+- Added mobile responsiveness to `SidebarLayoutWrapper` — overlay drawer on mobile, existing sidebar on desktop
+
+### Phase 2 — Refinement
+
+- Standardized PageWrapper header padding to `py-3` (was `py-2.5`)
+- Simplified sidebar navigation: removed collapsible groups (4 toggleable sections for 6 items → flat list with non-interactive section labels)
+- Added `--success` and `--warning` semantic color tokens to globals.css (light + dark) and tailwind.config.js
+- Updated badge `success`/`warning` variants from hardcoded emerald/amber with `dark:` overrides to `bg-success/10 text-success` semantic tokens
+- Standardized all collapsed panel widths to `w-12` (was inconsistent: `w-10` in secondary sidebar, chat, query panel)
+- Removed `mr-2` from 11 button icons — buttons already have `gap-2` built in
+
+### Phase 3 — Polish
+
+- Added `Skeleton` component and replaced spinner loading states with skeleton loaders for repo home stats, session list, and analyse query list
+- Elevated `EmptyState` component: larger icon in rounded circle, `text-base` title, proper `Button` for action, more generous padding
+- Added `border-b border-border` to PageWrapper header for clear visual separation from content
+- Removed dead `shadow-none` class from StatCard (Card has no shadow by default)
+- Removed hardcoded hex color props from StatCard sparklines (gradient already used `var(--muted-foreground)`)
+- Fixed PageWrapper `headerCenter` from fragile absolute positioning to flexbox layout (prevents overlap on narrow viewports)
+
 ## Teal theme + fix broken opacity modifiers - 2026-02-08
 
 - Changed theme color from purple to aqua/teal across web app and chrome extension (globals.css, chrome extension index.css, 3 overlay files with hardcoded hex)

@@ -30,7 +30,7 @@ export function PageWrapper({
   return (
     <div className="flex-1 overflow-hidden bg-background">
       <div className="h-full flex flex-col overflow-hidden bg-card">
-        <div className="relative px-4 py-2.5 flex items-center gap-3">
+        <div className="px-4 py-3 flex items-center gap-3 border-b border-border">
           {showBack && (
             <Button
               size="icon"
@@ -47,7 +47,7 @@ export function PageWrapper({
             </h1>
           )}
           {headerCenter && (
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-center gap-2">
               {headerCenter}
             </div>
           )}

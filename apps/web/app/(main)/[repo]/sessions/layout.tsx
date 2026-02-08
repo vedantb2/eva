@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   Spinner,
 } from "@conductor/ui";
+import { Skeleton } from "@/lib/components/ui/Skeleton";
 import {
   IconTerminal2,
   IconArchive,
@@ -133,12 +134,20 @@ export default function SessionsLayout({
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {sessions === undefined ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+          <div className="px-3 py-2 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="px-3 py-2.5 mx-2 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center">
-            <IconTerminal2 className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+            <IconTerminal2
+              size={32}
+              className="mx-auto text-muted-foreground mb-2"
+            />
             <p className="text-sm text-muted-foreground">
               {sessions.length === 0 ? "No sessions yet" : "No matches found"}
             </p>

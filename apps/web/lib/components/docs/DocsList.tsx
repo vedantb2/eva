@@ -1,7 +1,7 @@
 "use client";
 
 import { IconFile, IconFileText, IconSearch } from "@tabler/icons-react";
-import { Input } from "@conductor/ui";
+import { Input, Spinner } from "@conductor/ui";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -30,7 +30,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+        <Spinner />
       </div>
     );
   }

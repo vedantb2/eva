@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
@@ -46,7 +47,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   if (project === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }

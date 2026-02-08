@@ -99,7 +99,7 @@ export function QuickTaskCard({
                           )
                         }
                       >
-                        <IconGitBranch className="mr-2 h-4 w-4" />
+                        <IconGitBranch size={16} />
                         View Branch
                       </DropdownMenuItem>
                     )}
@@ -107,7 +107,7 @@ export function QuickTaskCard({
                       <DropdownMenuItem
                         onClick={() => window.open(latestPrUrl, "_blank")}
                       >
-                        <IconGitPullRequest className="mr-2 h-4 w-4" />
+                        <IconGitPullRequest size={16} />
                         View PR
                       </DropdownMenuItem>
                     )}

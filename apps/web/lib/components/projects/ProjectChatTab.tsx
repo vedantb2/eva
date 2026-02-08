@@ -328,7 +328,7 @@ export function ProjectChatTab({
             onClick={handleClearChat}
             disabled={isLoading || isLocked || initialMessages.length === 0}
           >
-            <IconTrash className="mr-2 h-4 w-4" />
+            <IconTrash size={16} />
             Clear
           </Button>
         </div>

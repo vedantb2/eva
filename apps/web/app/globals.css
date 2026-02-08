@@ -14,12 +14,16 @@
     --primary-foreground: rgb(255, 255, 255);
     --secondary: rgb(236, 245, 243);
     --secondary-foreground: rgb(35, 60, 55);
-    --muted: rgb(236, 245, 243);
+    --muted: rgb(240, 244, 243);
     --muted-foreground: rgb(100, 120, 115);
     --accent: rgb(224, 240, 236);
     --accent-foreground: rgb(12, 105, 95);
     --destructive: rgb(220, 38, 38);
     --destructive-foreground: rgb(255, 255, 255);
+    --success: rgb(22, 163, 74);
+    --success-foreground: rgb(255, 255, 255);
+    --warning: rgb(217, 119, 6);
+    --warning-foreground: rgb(255, 255, 255);
     --border: rgb(212, 228, 224);
     --input: rgb(212, 228, 224);
     --ring: rgb(16, 145, 130);
@@ -81,6 +85,10 @@
     --accent-foreground: rgb(215, 230, 226);
     --destructive: rgb(239, 68, 68);
     --destructive-foreground: rgb(255, 255, 255);
+    --success: rgb(74, 222, 128);
+    --success-foreground: rgb(10, 18, 16);
+    --warning: rgb(251, 191, 36);
+    --warning-foreground: rgb(10, 18, 16);
     --border: rgb(42, 60, 55);
     --input: rgb(42, 60, 55);
     --ring: rgb(72, 202, 186);

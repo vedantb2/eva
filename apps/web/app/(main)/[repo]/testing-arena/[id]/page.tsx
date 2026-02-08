@@ -12,6 +12,7 @@ import {
   TabsTrigger,
   Card,
   CardContent,
+  Spinner,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -189,7 +190,7 @@ function CodeTestingContent({
       <div className="flex-1 overflow-y-auto scrollbar p-4">
         {reports === undefined ? (
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+            <Spinner />
           </div>
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
@@ -256,7 +257,7 @@ export default function TestingArenaDocPage({
   if (doc === undefined) {
     return (
       <div className="h-full flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }

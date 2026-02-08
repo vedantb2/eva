@@ -352,7 +352,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         </div>
       </div>
       <div
-        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-10" : "w-[33%]"}`}
+        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-12" : "w-[33%]"}`}
       >
         <div
           className={`flex items-center p-2 ${panelCollapsed ? "justify-center" : ""}`}
@@ -377,8 +377,8 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!savedQueries || savedQueries.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2">
-                <IconBookmark size={20} className="text-muted-foreground/40" />
-                <p className="text-xs text-muted-foreground/60">
+                <IconBookmark size={20} className="text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
                   No saved queries yet
                 </p>
               </div>

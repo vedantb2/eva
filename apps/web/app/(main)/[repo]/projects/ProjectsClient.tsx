@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
@@ -137,7 +138,7 @@ export function ProjectsClient() {
       >
         {projects === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <Spinner size="lg" />
           </div>
         ) : projects.length === 0 ? (
           <EmptyState

@@ -3,7 +3,8 @@
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Spinner, Card, CardContent } from "@conductor/ui";
+import { Card, CardContent } from "@conductor/ui";
+import { Skeleton } from "@/lib/components/ui/Skeleton";
 import {
   IconGitPullRequest,
   IconPercentage,
@@ -73,16 +74,14 @@ function StatCard({
   label,
   value,
   seed,
-  color,
 }: {
   icon: TablerIcon;
   label: string;
   value: string | number;
   seed: number;
-  color: string;
 }) {
   return (
-    <Card className="shadow-none bg-secondary">
+    <Card className="bg-secondary">
       <CardContent className="p-6 flex flex-row items-center justify-between gap-4">
         <div className="flex flex-col gap-3 min-w-0">
           <Icon size={24} className="text-muted-foreground" />
@@ -93,7 +92,7 @@ function StatCard({
             <p className="text-sm text-muted-foreground mt-1">{label}</p>
           </div>
         </div>
-        <Sparkline points={seededPoints(seed)} id={color} />
+        <Sparkline points={seededPoints(seed)} id={String(seed)} />
       </CardContent>
     </Card>
   );
@@ -111,8 +110,16 @@ export function RepoHomeClient() {
 
   if (impactStats === undefined || activeUsers === undefined) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Spinner size="lg" />
+      <div className="flex items-center justify-center h-full p-8">
+        <div className="w-full max-w-2xl space-y-6">
+          <Skeleton className="h-10 w-40 rounded-full" />
+          <Skeleton className="h-5 w-48" />
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-md" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -143,28 +150,24 @@ export function RepoHomeClient() {
             label="PRs Shipped"
             value={impactStats.prsShipped}
             seed={1}
-            color="#14b8a6"
           />
           <StatCard
             icon={IconPercentage}
             label="Cook Rate"
             value={impactStats.shipRate + "%"}
             seed={2}
-            color="#06b6d4"
           />
           <StatCard
             icon={IconUsers}
             label="Cookers Now"
             value={activeUsers.count}
             seed={3}
-            color="#8b5cf6"
           />
           <StatCard
             icon={IconChecklist}
             label="Tasks Done"
             value={impactStats.tasksCompleted}
             seed={4}
-            color="#f59e0b"
           />
         </div>
       </div>

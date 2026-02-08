@@ -39,9 +39,9 @@ export function ActiveTasksAccordion({
   return (
     <Accordion type="multiple" defaultValue={["active-tasks"]} className="px-0">
       <AccordionItem value="active-tasks" className="border-b-0 px-0">
-        <AccordionTrigger className="px-3 py-2 hover:bg-muted/60 rounded-xl hover:no-underline">
+        <AccordionTrigger className="px-3 py-2 hover:bg-muted/50 rounded-xl hover:no-underline">
           <div className="flex items-center gap-2">
-            <IconListCheck className="w-4 h-4 text-primary" />
+            <IconListCheck size={16} className="text-primary" />
             <span className="text-sm font-medium text-foreground">
               Active Tasks
             </span>
@@ -54,7 +54,7 @@ export function ActiveTasksAccordion({
           <div className="space-y-0.5 px-3">
             {tasks.map((task) => (
               <Link key={task._id} href={getTaskLink(task)}>
-                <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer">
+                <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground truncate">
                       {task.title}

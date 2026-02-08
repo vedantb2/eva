@@ -38,9 +38,9 @@ export default function SavedQueriesPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center space-y-3">
-          <IconBookmark className="w-12 h-12 mx-auto text-muted-foreground/30" />
+          <IconBookmark className="w-12 h-12 mx-auto text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No saved queries yet</p>
-          <p className="text-xs text-muted-foreground/60">
+          <p className="text-xs text-muted-foreground">
             Save queries from your research conversations to reuse them later
           </p>
         </div>

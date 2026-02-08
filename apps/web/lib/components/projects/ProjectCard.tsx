@@ -97,7 +97,7 @@ export function ProjectCard({
                   )
                 }
               >
-                <IconGitBranch size={16} className="mr-2 h-4 w-4" />
+                <IconGitBranch size={16} />
                 View Branch
               </DropdownMenuItem>
             ) : null}
@@ -109,7 +109,7 @@ export function ProjectCard({
                 setEditOpen(true);
               }}
             >
-              <IconPencil size={16} className="mr-2 h-4 w-4" />
+              <IconPencil size={16} />
               Edit Details
               {!isOwner && (
                 <span className="text-xs text-muted-foreground ml-2">
@@ -122,7 +122,7 @@ export function ProjectCard({
               disabled={!isOwner}
               onClick={onDelete}
             >
-              <IconTrash size={16} className="mr-2 h-4 w-4" />
+              <IconTrash size={16} />
               Delete
               {!isOwner && (
                 <span className="text-xs text-muted-foreground ml-2">

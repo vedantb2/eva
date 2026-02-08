@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
 import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
@@ -45,7 +46,7 @@ function DocsListPanel({
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+        <Spinner />
       </div>
     );
   }

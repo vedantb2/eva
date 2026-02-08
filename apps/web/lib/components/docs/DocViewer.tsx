@@ -132,7 +132,7 @@ function DocEditor({ doc }: { doc: Doc }) {
 
   return (
     <>
-      <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
+      <div className="h-full flex flex-col bg-white dark:bg-neutral-900 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Input
@@ -261,7 +261,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                           updateFlowName(flowIdx, e.target.value)
                         }
                         placeholder={`Flow ${flowIdx + 1}`}
-                        className="h-8 text-sm bg-neutral-50 dark:bg-neutral-900"
+                        className="h-8 text-sm bg-white dark:bg-neutral-900"
                       />
                       <Button
                         size="icon"
@@ -284,7 +284,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                               updateStep(flowIdx, stepIdx, e.target.value)
                             }
                             placeholder="Describe this step"
-                            className="h-8 text-sm bg-neutral-50 dark:bg-neutral-900"
+                            className="h-8 text-sm bg-white dark:bg-neutral-900"
                           />
                           <Button
                             size="icon"

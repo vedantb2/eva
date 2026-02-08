@@ -255,7 +255,7 @@ export default function TestingArenaDocPage({
 
   if (doc === undefined) {
     return (
-      <div className="h-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+      <div className="h-full flex items-center justify-center bg-white dark:bg-neutral-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
@@ -263,14 +263,14 @@ export default function TestingArenaDocPage({
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-900 text-neutral-400">
         <p>Document not found</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 overflow-hidden">
       <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

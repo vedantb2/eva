@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner, Card, CardContent } from "@conductor/ui";
 import {
   IconBookmark,
   IconTrash,
@@ -59,48 +59,47 @@ export default function SavedQueriesPage() {
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {savedQueries.map((sq) => (
-          <div
-            key={sq._id}
-            className="rounded-lg border border-border p-4 space-y-3"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {sq.title}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {new Date(sq.createdAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
+          <Card key={sq._id}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {sq.title}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date(sq.createdAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDelete(sq._id)}
+                >
+                  <IconTrash size={14} />
+                </Button>
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => handleDelete(sq._id)}
-              >
-                <IconTrash size={14} />
-              </Button>
-            </div>
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                <IconCode size={14} />
-                <span>View query</span>
-                <IconChevronDown
-                  size={12}
-                  className="transition-transform group-data-[state=open]:rotate-180"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <pre className="mt-2 rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                  <code>{sq.query}</code>
-                </pre>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                  <IconCode size={14} />
+                  <span>View query</span>
+                  <IconChevronDown
+                    size={12}
+                    className="transition-transform group-data-[state=open]:rotate-180"
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <pre className="mt-2 rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
+                    <code>{sq.query}</code>
+                  </pre>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

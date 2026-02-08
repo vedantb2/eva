@@ -66,7 +66,7 @@ export function SpotlightSearch() {
         className="p-0 gap-0 top-[30%] translate-y-0 max-w-lg"
       >
         <Command className="flex flex-col" shouldFilter>
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-2 px-4 py-3">
             <IconSearch className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <Command.Input
               autoFocus

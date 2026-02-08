@@ -259,13 +259,13 @@ export function TaskDetailModal({
                   })()}
 
                 {subtasks && subtasks.length > 0 && (
-                  <div className="border-t border-border pt-4">
+                  <div className="pt-4">
                     <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
                   </div>
                 )}
 
                 {runs && runs.length > 0 && (
-                  <div className="border-t border-border pt-4">
+                  <div className="pt-4">
                     <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
                       <IconTerminal2 size={16} />
                       Agent Runs ({runs.length})
@@ -375,7 +375,7 @@ export function TaskDetailModal({
                 )}
 
                 {showProofSection && (
-                  <div className="border-t border-border pt-4">
+                  <div className="pt-4">
                     <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
                       <IconPhoto size={14} />
                       Proof of Completion
@@ -450,7 +450,7 @@ export function TaskDetailModal({
                 )}
               </div>
 
-              <div className="border-l border-border pl-4 space-y-4">
+              <div className="pl-4 space-y-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5">Status</p>
                   <Select

@@ -71,7 +71,7 @@ export function SandboxPanel({
   }, [isActive, sandboxId, fetchPreview]);
 
   return (
-    <div className="h-full flex flex-col bg-card border-r border-border">
+    <div className="h-full flex flex-col bg-card">
       <div className="flex items-center justify-between gap-2 p-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="gap-1">
@@ -85,17 +85,18 @@ export function SandboxPanel({
         </Tabs>
         {activeTab === "preview" && isActive && sandboxId && (
           <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-border bg-secondary px-2 gap-1.5">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={fetchPreview}
               disabled={isLoading}
-              className="text-muted-foreground hover:text-foreground disabled:opacity-50"
             >
               {isLoading ? (
                 <Spinner size="sm" />
               ) : (
                 <IconRefresh className="w-3.5 h-3.5" />
               )}
-            </button>
+            </Button>
             <span className="flex-1 text-xs text-muted-foreground truncate select-all">
               {previewInfo?.url ?? "Loading..."}
             </span>
@@ -140,7 +141,7 @@ export function SandboxPanel({
           </div>
         </div>
         {terminalOpen && (
-          <div className="h-1/2 min-h-0 overflow-hidden border-t border-border">
+          <div className="h-1/2 min-h-0 overflow-hidden">
             <TerminalPanel
               sessionId={sessionId}
               sandboxId={sandboxId}

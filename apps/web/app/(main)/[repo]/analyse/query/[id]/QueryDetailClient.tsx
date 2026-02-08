@@ -43,6 +43,8 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  Avatar,
+  AvatarFallback,
 } from "@conductor/ui";
 
 interface QueryDetailClientProps {
@@ -159,7 +161,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   return (
     <div className="flex h-full">
-      <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-border">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         <div className="p-4">
           <h1 className="text-lg font-semibold text-foreground">
             {query.title}
@@ -304,11 +306,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                           size="md"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
                             U
-                          </span>
-                        </div>
+                          </AvatarFallback>
+                        </Avatar>
                       )}
                     </div>
                   )}

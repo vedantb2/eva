@@ -28,9 +28,9 @@ export function PageWrapper({
   const router = useRouter();
 
   return (
-    <div className="flex-1 overflow-hidden bg-background">
-      <div className="h-full flex flex-col overflow-hidden bg-card">
-        <div className="px-4 py-3 flex items-center gap-3 border-b border-border">
+    <div className="flex-1 overflow-hidden">
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-3">
           {showBack && (
             <Button
               size="icon"

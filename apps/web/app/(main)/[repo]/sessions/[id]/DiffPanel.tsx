@@ -55,7 +55,7 @@ export function DiffPanel({
 
   return (
     <div className="flex h-full">
-      <div className="w-56 border-r border-border overflow-y-auto flex-shrink-0">
+      <div className="w-56 overflow-y-auto flex-shrink-0">
         {fileDiffs.map((d) => {
           const config = getConfig(d.status);
           const Icon = config.icon;

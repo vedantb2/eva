@@ -108,7 +108,7 @@ export function QuickTasksClient() {
           </div>
         ) : !hasQuickTasks ? (
           <EmptyState
-            icon={IconChecklist}
+            icon={<IconChecklist size={24} className="text-muted-foreground" />}
             title="No quick tasks"
             description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
             actionLabel="Create Quick Task"

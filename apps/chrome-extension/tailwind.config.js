@@ -2,6 +2,10 @@ import tailwindcssAnimate from "tailwindcss-animate";
 
 /** @type {import('tailwindcss').Config} */
 
+function c(name) {
+  return `rgb(var(--${name}) / <alpha-value>)`;
+}
+
 const config = {
   darkMode: "class",
   content: [
@@ -13,55 +17,55 @@ const config = {
   theme: {
     extend: {
       colors: {
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        border: c("border"),
+        input: c("input"),
+        ring: c("ring"),
+        background: c("background"),
+        foreground: c("foreground"),
         primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT: c("primary"),
+          foreground: c("primary-foreground"),
         },
         secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT: c("secondary"),
+          foreground: c("secondary-foreground"),
         },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT: c("destructive"),
+          foreground: c("destructive-foreground"),
         },
         muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT: c("muted"),
+          foreground: c("muted-foreground"),
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT: c("accent"),
+          foreground: c("accent-foreground"),
         },
         popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT: c("popover"),
+          foreground: c("popover-foreground"),
         },
         card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT: c("card"),
+          foreground: c("card-foreground"),
         },
         sidebar: {
-          DEFAULT: "var(--sidebar)",
-          foreground: "var(--sidebar-foreground)",
-          primary: "var(--sidebar-primary)",
-          "primary-foreground": "var(--sidebar-primary-foreground)",
-          accent: "var(--sidebar-accent)",
-          "accent-foreground": "var(--sidebar-accent-foreground)",
-          border: "var(--sidebar-border)",
-          ring: "var(--sidebar-ring)",
+          DEFAULT: c("sidebar"),
+          foreground: c("sidebar-foreground"),
+          primary: c("sidebar-primary"),
+          "primary-foreground": c("sidebar-primary-foreground"),
+          accent: c("sidebar-accent"),
+          "accent-foreground": c("sidebar-accent-foreground"),
+          border: c("sidebar-border"),
+          ring: c("sidebar-ring"),
         },
         chart: {
-          1: "var(--chart-1)",
-          2: "var(--chart-2)",
-          3: "var(--chart-3)",
-          4: "var(--chart-4)",
-          5: "var(--chart-5)",
+          1: c("chart-1"),
+          2: c("chart-2"),
+          3: c("chart-3"),
+          4: c("chart-4"),
+          5: c("chart-5"),
         },
       },
       borderRadius: {

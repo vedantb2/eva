@@ -33,6 +33,8 @@ import {
   PromptInputSubmit,
   PromptInputSettings,
   type PromptInputMessage,
+  Avatar,
+  AvatarFallback,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -437,9 +439,11 @@ export function ChatPanel({
                         size="md"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">U</span>
-                      </div>
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                          U
+                        </AvatarFallback>
+                      </Avatar>
                     )}
                   </div>
                 )}

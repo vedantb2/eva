@@ -76,7 +76,7 @@ export function ProjectActiveLayout({
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
       <div
-        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full border-r border-border flex flex-col transition-all`}
+        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full flex flex-col transition-all`}
       >
         <div
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
@@ -129,7 +129,7 @@ export function ProjectActiveLayout({
         )}
       </div>
       {chatOpen && (
-        <div className="w-1/4 h-full border-l border-border flex flex-col">
+        <div className="w-1/4 h-full flex flex-col">
           <div className="flex items-center justify-between px-2 py-1">
             <div className="flex flex-row gap-1 items-center text-primary">
               <IconMessageCircle size={14} />

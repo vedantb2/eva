@@ -5,7 +5,8 @@ import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { Container } from "@/lib/components/ui/Container";
-import { IconBrandGithub, IconCheck, IconLoader2 } from "@tabler/icons-react";
+import { Button, Spinner } from "@conductor/ui";
+import { IconBrandGithub, IconCheck } from "@tabler/icons-react";
 
 interface GitHubRepo {
   id: number;
@@ -83,7 +84,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
     return (
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
-          <IconLoader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+          <Spinner size="lg" className="mb-4" />
           <p className="text-muted-foreground">
             {syncing ? "Adding repositories..." : "Loading repositories..."}
           </p>
@@ -97,12 +98,9 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={() => router.push("/")}
-            className="px-4 py-2 bg-secondary rounded-lg"
-          >
+          <Button variant="secondary" onClick={() => router.push("/")}>
             Back to Repositories
-          </button>
+          </Button>
         </div>
       </Container>
     );
@@ -141,7 +139,9 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                   <span className="hidden sm:inline">Added</span>
                 </span>
               ) : (
-                <button
+                <Button
+                  size="sm"
+                  className="flex-shrink-0"
                   onClick={async () => {
                     try {
                       await createRepo({
@@ -154,29 +154,25 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
                       );
                     } catch {}
                   }}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-primary text-white rounded-lg hover:brightness-110 flex-shrink-0"
                 >
                   Add
-                </button>
+                </Button>
               )}
             </div>
           ))}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <button
+          <Button
+            className="flex-1"
             onClick={handleAddAll}
             disabled={repos.length === addedRepos.size}
-            className="flex-1 px-4 py-2 bg-primary text-white text-sm sm:text-base font-medium rounded-lg hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add All & Continue
-          </button>
-          <button
-            onClick={() => router.push("/")}
-            className="px-4 py-2 bg-secondary text-foreground text-sm sm:text-base font-medium rounded-lg hover:bg-muted"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => router.push("/")}>
             Done
-          </button>
+          </Button>
         </div>
       </div>
     </Container>

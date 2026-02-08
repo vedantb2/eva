@@ -1,6 +1,3 @@
 packages:
   - "packages/*"
-  - "web"
-  - "chrome-extension"
-  - "backend"
-  - "mobile"
+  - "apps/*"

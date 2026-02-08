@@ -15,7 +15,7 @@ pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
 ```
 
-**Web-specific commands (from /web):**
+**Web-specific commands (from /apps/web):**
 
 ```bash
 pnpm turbo        # Dev server
@@ -23,14 +23,14 @@ pnpm build        # Production build
 pnpm lint         # ESLint
 ```
 
-**Backend-specific commands (from /backend):**
+**Backend-specific commands (from /packages/backend):**
 
 ```bash
 npx convex dev       # Dev server with hot reload
 npx convex deploy    # Deploy to production
 ```
 
-**Type checking (from /web):**
+**Type checking (from /apps/web):**
 
 ```bash
 npx tsc              # TypeScript type check
@@ -38,14 +38,14 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo (pnpm workspaces) with four apps and one shared package:
+This is a monorepo (pnpm workspaces) with four apps and two shared packages:
 
+- **apps/web/** - Next.js 15 frontend (App Router, Turbopack)
+- **apps/chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
+- **apps/mobile/** - Expo/React Native app (NativeWind for styling)
+- **apps/teams-bot/** - Microsoft Teams bot
+- **packages/backend/** - Convex serverless backend + shared package (`@conductor/backend`) exporting types (`Id`, `Doc`, `api`, `internal`)
 - **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
-- **backend/** also serves as a shared package (`@conductor/backend`) exporting Convex types (`Id`, `Doc`, `api`, `internal`)
-- **web/** - Next.js 15 frontend (App Router, Turbopack)
-- **backend/** - Convex serverless backend (real-time database + API)
-- **chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
-- **mobile/** - Expo/React Native app (NativeWind for styling)
 
 ### Tech Stack
 
@@ -58,7 +58,7 @@ This is a monorepo (pnpm workspaces) with four apps and one shared package:
 ### Code Organization
 
 ```
-web/
+apps/web/
 ├── app/              # Next.js App Router pages
 │   ├── (main)/       # Protected routes requiring auth
 │   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analyse, admin, docs, quick-tasks, testing-arena)
@@ -79,7 +79,7 @@ web/
 │   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
 │   └── server.ts     # Server-side env vars
 
-backend/convex/
+packages/backend/convex/
 ├── schema.ts         # Database schema with all table definitions
 ├── agentTasks.ts     # Task CRUD operations
 ├── agentRuns.ts      # Execution tracking
@@ -109,7 +109,7 @@ backend/convex/
 
 ### Inngest Background Jobs
 
-Located in `web/lib/inngest/functions/`:
+Located in `apps/web/lib/inngest/functions/`:
 
 - **execute-task** - Runs agent tasks in Daytona sandbox
 - **session-execute** - Executes commands within a session sandbox
@@ -122,7 +122,7 @@ Located in `web/lib/inngest/functions/`:
 
 ### Sandbox Execution
 
-The `web/lib/inngest/sandbox-helpers.ts` module provides utilities for Daytona sandbox operations:
+The `apps/web/lib/inngest/sandbox.ts` module provides utilities for Daytona sandbox operations:
 
 - `getGitHubToken()` - Gets installation token from GitHub App
 - `cloneRepo()` / `setupBranch()` - Git operations in sandbox
@@ -147,7 +147,7 @@ import {
 
 **AI Elements:** Conversation, Message, PromptInput, Reasoning, Shimmer
 
-Web-only components (accordion, avatar, badge, card, checkbox, label, popover, progress) remain in `web/lib/components/ui/`.
+Web-only components (accordion, avatar, badge, card, checkbox, label, popover, progress) remain in `apps/web/lib/components/ui/`.
 
 ## Conventions
 

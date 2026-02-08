@@ -134,9 +134,11 @@ export function BranchSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800/50">
-        <IconLoader2 className="w-4 h-4 text-neutral-400 animate-spin" />
-        <span className="text-sm text-neutral-400">Loading branches...</span>
+      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-xl bg-muted/40">
+        <IconLoader2 size={16} className="text-muted-foreground animate-spin" />
+        <span className="text-sm text-muted-foreground">
+          Loading branches...
+        </span>
       </div>
     );
   }
@@ -146,7 +148,7 @@ export function BranchSelector({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -154,11 +156,11 @@ export function BranchSelector({
             variant="secondary"
             className="flex items-center gap-2 flex-1 px-2 py-2 transition-colors"
           >
-            <IconGitBranch className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-            <span className="flex-1 text-left text-sm text-neutral-700 dark:text-neutral-300 truncate">
+            <IconGitBranch size={16} className="text-muted-foreground" />
+            <span className="flex-1 text-left text-sm text-muted-foreground truncate">
               {selectedBranch}
             </span>
-            <IconSelector className="w-4 h-4 text-neutral-400" />
+            <IconSelector size={16} className="text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-64 overflow-auto scrollbar">
@@ -170,9 +172,12 @@ export function BranchSelector({
               <DropdownMenuRadioItem
                 key={branch.name}
                 value={branch.name}
-                className="px-3 py-2 text-sm text-neutral-900 dark:text-white"
+                className="px-3 py-2 text-sm"
               >
-                <IconGitBranch className="mr-2 h-4 w-4 text-neutral-500" />
+                <IconGitBranch
+                  size={16}
+                  className="mr-2 text-muted-foreground"
+                />
                 {branch.name}
               </DropdownMenuRadioItem>
             ))}
@@ -181,14 +186,15 @@ export function BranchSelector({
       </DropdownMenu>
       <Button
         size="icon"
-        variant="secondary"
+        variant="ghost"
         onClick={handleSync}
         disabled={syncing}
         title="Sync branches from GitHub"
         className="h-8 w-8"
       >
         <IconRefresh
-          className={`w-4 h-4 text-neutral-500 dark:text-neutral-400 ${syncing ? "animate-spin" : ""}`}
+          size={16}
+          className={`text-muted-foreground ${syncing ? "animate-spin" : ""}`}
         />
       </Button>
     </div>

@@ -328,7 +328,7 @@ export function SelectionOverlay({
           className="fixed inset-0 pointer-events-none rounded-md"
           style={{
             zIndex: 2147483644,
-            border: "1px solid #975799",
+            border: "1px solid #109182",
             boxSizing: "border-box",
           }}
         />
@@ -337,7 +337,7 @@ export function SelectionOverlay({
           style={{
             zIndex: 2147483644,
             border: "11px solid",
-            borderImage: "linear-gradient(to right, #7a3a7c, #975799) 1",
+            borderImage: "linear-gradient(to right, #0c786c, #109182) 1",
             boxSizing: "border-box",
             filter: "blur(20px)",
             animation: "conductor-glow 0.8s ease-in-out infinite alternate",
@@ -424,7 +424,7 @@ export function SelectionOverlay({
           }}
         >
           <div className="flex items-center gap-2">
-            <span className="font-medium" style={{ color: "#975799" }}>
+            <span className="font-medium" style={{ color: "#109182" }}>
               &lt;{infoData.componentName}&gt;
             </span>
             <span

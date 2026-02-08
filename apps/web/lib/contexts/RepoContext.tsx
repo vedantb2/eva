@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { decodeRepoSlug } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
+import { Spinner } from "@conductor/ui";
 
 type Repo = NonNullable<
   FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>
@@ -45,7 +46,7 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
   if (repo === undefined) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -53,10 +54,10 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
   if (repo === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Repository not found
         </h1>
-        <p className="text-neutral-500 dark:text-neutral-400">
+        <p className="text-muted-foreground">
           The repository &quot;{fullName}&quot; does not exist or you don&apos;t
           have access to it.
         </p>

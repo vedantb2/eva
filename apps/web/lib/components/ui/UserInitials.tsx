@@ -61,7 +61,7 @@ export function UserInitials({
           {!hideLastSeen && user.lastSeenAt && (
             <span
               className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
-                online ? "bg-emerald-500" : "bg-amber-500"
+                online ? "bg-success" : "bg-warning"
               }`}
             />
           )}

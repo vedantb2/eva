@@ -1,6 +1,7 @@
 "use client";
 
 import { IconDatabase, IconPlus } from "@tabler/icons-react";
+import { Button } from "@conductor/ui";
 
 interface EmptyStateProps {
   icon?: React.ComponentType<{ size?: number; className?: string }>;
@@ -20,22 +21,21 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <Icon size={24} className="text-neutral-400 mb-2" />
-      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-        {title}
-      </p>
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-secondary mb-4">
+        <Icon size={24} className="text-muted-foreground" />
+      </div>
+      <p className="text-base font-medium text-foreground">{title}</p>
       {description && (
-        <p className="text-xs text-neutral-500 mt-1">{description}</p>
+        <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
+          {description}
+        </p>
       )}
       {actionLabel && onAction && (
-        <button
-          onClick={onAction}
-          className="flex items-center gap-1 mt-3 text-sm text-primary hover:text-primary/80"
-        >
-          <IconPlus size={14} />
-          <span>{actionLabel}</span>
-        </button>
+        <Button size="sm" onClick={onAction} className="mt-4">
+          <IconPlus size={16} />
+          {actionLabel}
+        </Button>
       )}
       {action}
     </div>

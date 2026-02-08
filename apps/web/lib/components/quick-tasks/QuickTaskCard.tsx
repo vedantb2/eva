@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   Card,
   CardContent,
   Checkbox,
@@ -60,7 +61,7 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow cursor-pointer ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      className={`w-full shadow cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110 transition-all ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
       onClick={isSelecting ? undefined : onClick}
     >
       <CardContent className="p-2 gap-1">
@@ -79,15 +80,12 @@ export function QuickTaskCard({
               <div onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="p-1 rounded hover:bg-muted transition-colors"
-                    >
+                    <Button size="icon-sm" variant="ghost">
                       <IconDotsVertical
                         size={14}
                         className="text-muted-foreground"
                       />
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     {branchName && (
@@ -99,7 +97,7 @@ export function QuickTaskCard({
                           )
                         }
                       >
-                        <IconGitBranch className="mr-2 h-4 w-4" />
+                        <IconGitBranch size={16} />
                         View Branch
                       </DropdownMenuItem>
                     )}
@@ -107,7 +105,7 @@ export function QuickTaskCard({
                       <DropdownMenuItem
                         onClick={() => window.open(latestPrUrl, "_blank")}
                       >
-                        <IconGitPullRequest className="mr-2 h-4 w-4" />
+                        <IconGitPullRequest size={16} />
                         View PR
                       </DropdownMenuItem>
                     )}

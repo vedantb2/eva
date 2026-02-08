@@ -31,6 +31,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
@@ -47,14 +48,7 @@ import {
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
-import {
-  ModelSelector,
-  type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import {
-  ResponseLengthSelector,
-  type ResponseLength,
-} from "@/lib/components/ui/ResponseLengthSelector";
+import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
 import { useMutation } from "convex/react";
@@ -266,7 +260,7 @@ export function ChatPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="text-green-600"
+              className="text-success"
               onClick={() => setShowReviewModal(true)}
             >
               <IconSend size={12} />
@@ -298,7 +292,7 @@ export function ChatPanel({
             variant={isSandboxActive ? "destructive" : "secondary"}
             onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
             disabled={isSandboxToggling}
-            className={`h-8 w-8 ${!isSandboxActive ? "text-green-600" : ""}`}
+            className={`h-8 w-8 ${!isSandboxActive ? "text-success" : ""}`}
           >
             {isSandboxToggling ? (
               <Spinner size="sm" />
@@ -443,7 +437,7 @@ export function ChatPanel({
                         size="md"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">U</span>
                       </div>
                     )}
@@ -480,7 +474,7 @@ export function ChatPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="text-green-600 h-6"
+              className="text-success h-6"
               onClick={() => setShowPlanModal(true)}
             >
               <IconFileText className="w-3 h-3" />
@@ -525,15 +519,12 @@ export function ChatPanel({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <ModelSelector
-                value={model}
-                onChange={setModel}
-                isDisabled={isInputDisabled}
-              />
-              <ResponseLengthSelector
-                value={responseLength}
-                onChange={setResponseLength}
-                isDisabled={isInputDisabled}
+              <PromptInputSettings
+                model={model}
+                onModelChange={setModel}
+                responseLength={responseLength}
+                onResponseLengthChange={setResponseLength}
+                disabled={isInputDisabled}
               />
             </PromptInputTools>
             <PromptInputSubmit
@@ -554,7 +545,7 @@ export function ChatPanel({
           <DialogHeader>
             <DialogTitle>Send for Code Review</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          <p className="text-sm text-muted-foreground">
             By clicking this you confirm that all your changes have been tested
             in your session, you are happy with those changes, have generated a
             summary and agree with the changes. A developer will then review the
@@ -566,7 +557,7 @@ export function ChatPanel({
               Cancel
             </Button>
             <Button
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={handleCreatePr}
               disabled={isCreatingPr}
             >
@@ -595,7 +586,7 @@ export function ChatPanel({
               Close
             </Button>
             <Button
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={() => {
                 setShowPlanModal(false);
                 setMode("execute");

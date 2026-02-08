@@ -2,29 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ModelSelector,
+  Spinner,
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  PromptInputSettings,
   type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import { Button, Textarea, Spinner } from "@conductor/ui";
+  type PromptInputMessage,
+} from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { IconArrowUp, IconMessageCircle } from "@tabler/icons-react";
+import { IconMessageCircle } from "@tabler/icons-react";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface ProjectChatAreaProps {
   projectId: Id<"projects">;
   conversationHistory: ConversationMessage[];
+  selectedTaskTitle?: string;
 }
 
 export function ProjectChatArea({
   projectId,
   conversationHistory,
+  selectedTaskTitle,
 }: ProjectChatAreaProps) {
   const addMessage = useMutation(api.projects.addMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
 
@@ -32,10 +39,9 @@ export function ProjectChatArea({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversationHistory]);
 
-  const handleSend = async () => {
-    const trimmed = input.trim();
+  const handleSubmit = async ({ text }: PromptInputMessage) => {
+    const trimmed = text.trim();
     if (!trimmed || isSending) return;
-    setInput("");
     setIsSending(true);
     try {
       await addMessage({ id: projectId, role: "user", content: trimmed });
@@ -51,9 +57,9 @@ export function ProjectChatArea({
           <div className="flex flex-col items-center justify-center h-full text-center">
             <IconMessageCircle
               size={32}
-              className="text-neutral-300 dark:text-neutral-600 mb-2"
+              className="text-muted-foreground mb-2"
             />
-            <p className="text-sm text-neutral-400">No messages yet</p>
+            <p className="text-sm text-muted-foreground">No messages yet</p>
           </div>
         )}
         {conversationHistory.map((m, i) => (
@@ -67,45 +73,27 @@ export function ProjectChatArea({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t dark:border-neutral-700 p-3">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-        >
-          <div className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-lg">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Send a message..."
-              rows={3}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none"
-              disabled={isSending}
-            />
-            <div className="flex items-center justify-between px-2 pb-2">
-              <ModelSelector
-                value={model}
-                onChange={setModel}
-                isDisabled={isSending}
+      <div className="p-3">
+        <PromptInput onSubmit={handleSubmit}>
+          <PromptInputTextarea
+            placeholder={
+              selectedTaskTitle
+                ? `Discuss "${selectedTaskTitle}"...`
+                : "Send a message..."
+            }
+            disabled={isSending}
+          />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <PromptInputSettings
+                model={model}
+                onModelChange={setModel}
+                disabled={isSending}
               />
-              <Button
-                type="submit"
-                size="icon"
-                className="rounded-full"
-                disabled={!input.trim() || isSending}
-              >
-                {isSending ? <Spinner size="sm" /> : <IconArrowUp size={16} />}
-              </Button>
-            </div>
-          </div>
-        </form>
+            </PromptInputTools>
+            <PromptInputSubmit disabled={isSending} />
+          </PromptInputFooter>
+        </PromptInput>
       </div>
     </div>
   );

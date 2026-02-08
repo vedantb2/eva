@@ -158,7 +158,7 @@ export function PlanContextPanel({
                     )}
                   </div>
                   {isUser && (
-                    <div className="mt-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-primary/10">
+                    <div className="mt-1.5 w-8 h-8 rounded-full flex items-center justify-center bg-accent">
                       <IconUser size={16} className="text-primary" />
                     </div>
                   )}

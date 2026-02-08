@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
   Button,
   Input,
@@ -12,13 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
-import {
-  IconPlayerPlay,
-  IconFileText,
-  IconSearch,
-  IconX,
-} from "@tabler/icons-react";
+import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -50,14 +46,14 @@ function DocsListPanel({
   if (docs === undefined) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+        <Spinner />
       </div>
     );
   }
 
   if (docs.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-neutral-400">
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
         <IconFileText size={32} className="mb-2" />
         <p className="text-sm">No documents yet</p>
         <p className="text-xs mt-1">Create docs to test against</p>
@@ -66,7 +62,7 @@ function DocsListPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+    <div className="h-full flex flex-col">
       <div className="px-4 py-2 pb-4 relative">
         <IconSearch
           size={14}
@@ -90,21 +86,21 @@ function DocsListPanel({
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (
-          <div className="p-4 text-center text-sm text-neutral-400">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             No matches found
           </div>
         ) : (
           filteredDocs.map((doc) => {
             const href = `/${repoSlug}/testing-arena/${doc._id}`;
-            const isSelected = pathname === href;
+            const isSelected = pathname.startsWith(href);
             return (
               <Link
                 key={doc._id}
                 href={href}
-                className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-3 ${
+                className={`text-left px-4 py-2.5 mx-2 rounded-xl transition-colors flex items-center gap-3 ${
                   isSelected
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                    ? "bg-accent text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <IconFileText size={16} className="flex-shrink-0" />
@@ -150,28 +146,13 @@ export function TestingArenaClient({
 
   return (
     <>
-      <PageWrapper
+      <SidebarLayoutWrapper
         title="Testing Arena"
-        childPadding={false}
-        fillHeight
-        headerRight={
-          <Button
-            size="sm"
-            onClick={() => setShowTestAllModal(true)}
-            disabled={isTestingAll || !docs || docs.length === 0}
-          >
-            <IconPlayerPlay size={16} />
-            {isTestingAll ? "Testing..." : "Test All Docs"}
-          </Button>
-        }
+        onAdd={() => setShowTestAllModal(true)}
+        sidebar={<DocsListPanel docs={docs} repoSlug={repoSlug} />}
       >
-        <div className="grid grid-cols-4 grid-rows-[1fr] flex-1 min-h-0">
-          <div className="col-span-1 h-full overflow-hidden">
-            <DocsListPanel docs={docs} repoSlug={repoSlug} />
-          </div>
-          <div className="col-span-3 h-full overflow-hidden">{children}</div>
-        </div>
-      </PageWrapper>
+        {children}
+      </SidebarLayoutWrapper>
       <Dialog
         open={showTestAllModal}
         onOpenChange={(v) => {
@@ -183,7 +164,7 @@ export function TestingArenaClient({
             <DialogTitle>Test All Documents</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
               documents?
             </p>
@@ -193,10 +174,7 @@ export function TestingArenaClient({
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setShowTestAllModal(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
             <Button onClick={handleTestAll}>Yes save me Eva</Button>

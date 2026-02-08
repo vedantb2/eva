@@ -14,18 +14,16 @@ export function SessionFunnel({
   shipRate,
 }: SessionFunnelProps) {
   return (
-    <Card className="shadow-none border border-neutral-200 dark:border-neutral-800">
+    <Card className="shadow-none border border-border">
       <CardContent className="p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+        <h3 className="text-sm font-semibold text-foreground">
           Session to PR Funnel
         </h3>
         <div className="space-y-3">
           <div>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-neutral-600 dark:text-neutral-400">
-                Sessions Created
-              </span>
-              <span className="font-medium text-neutral-900 dark:text-white">
+              <span className="text-muted-foreground">Sessions Created</span>
+              <span className="font-medium text-foreground">
                 {totalSessions}
               </span>
             </div>
@@ -33,10 +31,8 @@ export function SessionFunnel({
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-neutral-600 dark:text-neutral-400">
-                PRs Opened
-              </span>
-              <span className="font-medium text-neutral-900 dark:text-white">
+              <span className="text-muted-foreground">PRs Opened</span>
+              <span className="font-medium text-foreground">
                 {sessionsWithPr}
               </span>
             </div>
@@ -47,11 +43,9 @@ export function SessionFunnel({
             />
           </div>
           <div className="pt-2">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            <p className="text-sm text-muted-foreground">
               Ship Rate:{" "}
-              <span className="font-bold text-neutral-900 dark:text-white">
-                {shipRate}%
-              </span>
+              <span className="font-bold text-foreground">{shipRate}%</span>
             </p>
           </div>
         </div>

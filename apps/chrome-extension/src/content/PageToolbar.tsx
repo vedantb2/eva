@@ -195,7 +195,7 @@ export function PageToolbar() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <span style={{ fontWeight: 600, color: "#975799", fontSize: 13 }}>
+      <span style={{ fontWeight: 600, color: "#109182", fontSize: 13 }}>
         Eva
       </span>
       <div style={dividerStyle(dark)} />
@@ -205,7 +205,7 @@ export function PageToolbar() {
       <Button
         variant="ghost"
         size="icon"
-        className={`w-7 h-7 ${ext.pinsHidden ? "text-neutral-400" : "text-[#975799]"}`}
+        className={`w-7 h-7 ${ext.pinsHidden ? "text-neutral-400" : "text-[#109182]"}`}
         style={{ borderRadius: 9999 }}
         title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
         onPointerDown={(e) => e.stopPropagation()}
@@ -222,7 +222,7 @@ export function PageToolbar() {
         <>
           <Button
             size="sm"
-            className="bg-[#975799] hover:bg-[#a76ba9] text-white text-xs"
+            className="bg-[#109182] hover:bg-[#2db8a4] text-white text-xs"
             style={{ borderRadius: 9999 }}
             disabled={disabled}
             onPointerDown={(e) => e.stopPropagation()}

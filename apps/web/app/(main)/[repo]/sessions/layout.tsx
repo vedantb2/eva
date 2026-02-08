@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   Spinner,
 } from "@conductor/ui";
+import { Skeleton } from "@/lib/components/ui/Skeleton";
 import {
   IconTerminal2,
   IconArchive,
@@ -121,7 +122,7 @@ export default function SessionsLayout({
         <div className="relative">
           <IconSearch
             size={16}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             placeholder="Search sessions..."
@@ -133,13 +134,21 @@ export default function SessionsLayout({
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {sessions === undefined ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+          <div className="px-3 py-2 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="px-3 py-2.5 mx-2 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filteredSessions.length === 0 ? (
           <div className="p-4 text-center">
-            <IconTerminal2 className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
-            <p className="text-sm text-neutral-500">
+            <IconTerminal2
+              size={32}
+              className="mx-auto text-muted-foreground mb-2"
+            />
+            <p className="text-sm text-muted-foreground">
               {sessions.length === 0 ? "No sessions yet" : "No matches found"}
             </p>
           </div>
@@ -150,19 +159,15 @@ export default function SessionsLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-4 py-2 cursor-pointer transition-all group ${
-                    isSelected
-                      ? "bg-primary/10"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className={`px-3 pt-1 pb-2 mx-2 rounded-xl cursor-pointer transition-all group ${
+                    isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >
                   <Link href={baseUrl + "/" + session._id} className="block">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between">
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${
-                          isSelected
-                            ? "text-primary"
-                            : "text-neutral-900 dark:text-white"
+                          isSelected ? "text-primary" : "text-foreground"
                         }`}
                       >
                         {session.title}
@@ -175,16 +180,17 @@ export default function SessionsLayout({
                       >
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted text-neutral-400"
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="opacity-0 group-hover:opacity-100"
                             >
                               <IconDotsVertical size={14} />
-                            </button>
+                            </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              className="text-amber-600"
+                              className="text-warning"
                               onClick={() =>
                                 setSessionToArchive({
                                   id: session._id,
@@ -192,7 +198,7 @@ export default function SessionsLayout({
                                 })
                               }
                             >
-                              <IconArchive size={16} className="mr-2" />
+                              <IconArchive size={16} />
                               Archive
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -211,7 +217,7 @@ export default function SessionsLayout({
                           <UserInitials key={id} userId={id!} />
                         ))}
                       </div>
-                      <span className="text-xs text-neutral-500 ml-auto">
+                      <span className="text-xs text-muted-foreground ml-auto">
                         {dayjs(session._creationTime).fromNow()}
                       </span>
                     </div>
@@ -243,7 +249,7 @@ export default function SessionsLayout({
           <DialogHeader>
             <DialogTitle>Archive Session</DialogTitle>
           </DialogHeader>
-          <p className="text-foreground/80">
+          <p className="text-muted-foreground">
             Are you sure you want to archive{" "}
             <strong>{sessionToArchive?.title}</strong>?
           </p>
@@ -252,14 +258,11 @@ export default function SessionsLayout({
             list. The session data will be preserved but no longer accessible.
           </p>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setSessionToArchive(null)}
-            >
+            <Button variant="ghost" onClick={() => setSessionToArchive(null)}>
               Cancel
             </Button>
             <Button
-              className="bg-amber-600 text-white hover:bg-amber-700"
+              className="bg-warning text-warning-foreground"
               onClick={handleArchive}
               disabled={isArchiving}
             >
@@ -298,7 +301,7 @@ export default function SessionsLayout({
           </div>
           <DialogFooter>
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={() => {
                 setIsCreateModalOpen(false);
                 setNewSessionTitle("");

@@ -1,10 +1,11 @@
+"use client";
 import { IconFileText } from "@tabler/icons-react";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export default function TestingArenaPage() {
   return (
-    <div className="h-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-400">
-      <IconFileText size={48} className="mb-3" />
-      <p>Select a document to test</p>
+    <div className="flex items-center justify-center h-full">
+      <EmptyState icon={IconFileText} title="Select a document to test" />
     </div>
   );
 }

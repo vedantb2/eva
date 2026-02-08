@@ -75,6 +75,15 @@ export default defineConfig({
     },
   },
   build: {
+    ...(process.argv.includes("--watch") && {
+      watch: {
+        exclude: [
+          resolve(__dirname, "../web/**"),
+          resolve(__dirname, "../mobile/**"),
+          resolve(__dirname, "../teams-bot/**"),
+        ],
+      },
+    }),
     outDir: "dist",
     emptyOutDir: true,
     chunkSizeWarningLimit: 3000,

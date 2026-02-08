@@ -6,7 +6,7 @@ import type { Id } from "@conductor/backend";
 import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
-import { Button } from "@conductor/ui";
+import { Button, Spinner } from "@conductor/ui";
 import { IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 
 interface SessionDetailClientProps {
@@ -41,7 +41,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   if (session === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-neutral-500">
+          <p className="text-muted-foreground">
             This session does not exist or has been deleted.
           </p>
         </div>
@@ -71,7 +71,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
         />
       </div>
       <div
-        className={`${chatCollapsed ? "w-10" : "w-2/5"} flex flex-col transition-all duration-200`}
+        className={`${chatCollapsed ? "w-12" : "w-2/5"} flex flex-col transition-all duration-200`}
       >
         {chatCollapsed ? (
           <div className="flex items-center justify-center p-1">

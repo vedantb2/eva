@@ -4,14 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
-import {
-  ModelSelector,
-  type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import {
-  ResponseLengthSelector,
-  type ResponseLength,
-} from "@/lib/components/ui/ResponseLengthSelector";
+import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
@@ -45,6 +38,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
   type PromptInputMessage,
   Collapsible,
   CollapsibleTrigger,
@@ -167,7 +161,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     <div className="flex h-full">
       <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-border">
         <div className="p-4">
-          <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
+          <h1 className="text-lg font-semibold text-foreground">
             {query.title}
           </h1>
         </div>
@@ -310,7 +304,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                           size="md"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                           <span className="text-xs text-muted-foreground">
                             U
                           </span>
@@ -332,15 +326,12 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             />
             <PromptInputFooter>
               <PromptInputTools>
-                <ModelSelector
-                  value={model}
-                  onChange={setModel}
-                  isDisabled={isSending}
-                />
-                <ResponseLengthSelector
-                  value={responseLength}
-                  onChange={setResponseLength}
-                  isDisabled={isSending}
+                <PromptInputSettings
+                  model={model}
+                  onModelChange={setModel}
+                  responseLength={responseLength}
+                  onResponseLengthChange={setResponseLength}
+                  disabled={isSending}
                 />
               </PromptInputTools>
               <PromptInputSubmit
@@ -352,7 +343,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         </div>
       </div>
       <div
-        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-10" : "w-[33%]"}`}
+        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-12" : "w-[33%]"}`}
       >
         <div
           className={`flex items-center p-2 ${panelCollapsed ? "justify-center" : ""}`}
@@ -377,8 +368,8 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!savedQueries || savedQueries.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2">
-                <IconBookmark size={20} className="text-muted-foreground/40" />
-                <p className="text-xs text-muted-foreground/60">
+                <IconBookmark size={20} className="text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
                   No saved queries yet
                 </p>
               </div>
@@ -401,7 +392,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                       <IconTrash size={12} />
                     </Button>
                   </div>
-                  <pre className="rounded bg-background p-2 text-[10px] overflow-x-auto max-h-20">
+                  <pre className="rounded bg-background p-2 text-xs overflow-x-auto max-h-20">
                     <code>{sq.query}</code>
                   </pre>
                 </div>

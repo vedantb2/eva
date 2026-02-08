@@ -137,7 +137,7 @@ export function NotificationsPopoverClient() {
               <div className="py-10 text-center">
                 <IconBellOff
                   size={24}
-                  className="mx-auto text-neutral-300 dark:text-neutral-600 mb-2"
+                  className="mx-auto text-muted-foreground mb-2"
                 />
                 <p className="text-sm text-muted-foreground">All caught up</p>
               </div>

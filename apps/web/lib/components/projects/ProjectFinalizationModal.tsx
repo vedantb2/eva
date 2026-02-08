@@ -91,7 +91,7 @@ export function ProjectFinalizationModal({
             <span className="flex items-center gap-2 text-sm sm:text-base">
               <IconCircleCheck
                 size={20}
-                className="text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                className="text-success flex-shrink-0"
               />
               Plan Generated
             </span>

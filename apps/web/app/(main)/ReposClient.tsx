@@ -48,7 +48,7 @@ function WelcomeBanner() {
               localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
               setDismissed(true);
             }}
-            className="absolute top-3 right-3 text-neutral-400 hover:text-white z-10 h-8 w-8"
+            className="absolute top-3 right-3 text-primary-foreground/50 hover:text-primary-foreground z-10 h-8 w-8"
           >
             <IconX size={16} />
           </Button>
@@ -108,7 +108,7 @@ export function ReposClient() {
               variant="outline"
               disabled={syncing}
               onClick={handleSync}
-              className="text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
+              className="text-muted-foreground border-border"
             >
               <IconRefresh
                 size={16}
@@ -120,7 +120,7 @@ export function ReposClient() {
           <Button
             size="sm"
             asChild
-            className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium"
+            className="bg-foreground text-background font-medium"
           >
             <a
               href={hasRepos ? configureUrl : connectUrl}
@@ -143,18 +143,18 @@ export function ReposClient() {
         </div>
       ) : repos.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 mb-4">
-            <IconBrandGithub size={24} className="text-neutral-400" />
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-secondary mb-4">
+            <IconBrandGithub size={24} className="text-muted-foreground" />
           </div>
-          <p className="text-base font-medium text-neutral-900 dark:text-white">
+          <p className="text-base font-medium text-foreground">
             No repositories
           </p>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Connect a GitHub repository to get started.
           </p>
           <Button
             asChild
-            className="mt-5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium"
+            className="mt-5 bg-foreground text-background font-medium"
           >
             <a href={connectUrl}>
               <IconBrandGithub size={16} />
@@ -169,17 +169,17 @@ export function ReposClient() {
               key={repo._id}
               href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
             >
-              <Card className="shadow-none cursor-pointer bg-neutral-50 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+              <Card className="shadow-none cursor-pointer bg-secondary hover:bg-accent transition-colors">
                 <CardContent className="p-4 gap-3">
                   <IconBrandGithub
                     size={20}
-                    className="text-neutral-400 dark:text-neutral-500"
+                    className="text-muted-foreground"
                   />
                   <div className="min-w-0">
-                    <p className="text-[15px] font-medium text-neutral-900 dark:text-white truncate">
+                    <p className="text-[15px] font-medium text-foreground truncate">
                       {repo.name}
                     </p>
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {repo.owner}
                     </p>
                   </div>

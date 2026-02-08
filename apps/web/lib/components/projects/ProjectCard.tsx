@@ -18,9 +18,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Button,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -31,10 +28,7 @@ import {
   Textarea,
 } from "@conductor/ui";
 import dayjs from "@/lib/dates";
-import {
-  statusConfig,
-  TASK_STATUSES,
-} from "@/lib/components/tasks/TaskStatusBadge";
+import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -68,9 +62,6 @@ export function ProjectCard({
   const [editDescription, setEditDescription] = useState(description ?? "");
   const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
-  const progress = useQuery(api.projects.getTaskProgress, {
-    projectId: projectId as Id<"projects">,
-  });
   const project = useQuery(api.projects.get, { id: projectId });
   const participantIds = [
     ...new Set(
@@ -88,9 +79,9 @@ export function ProjectCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              size="icon"
+              size="icon-sm"
               variant="ghost"
-              className="size-4 flex shrink-0 text-neutral-400 hover:text-neutral-600"
+              className="flex shrink-0 text-muted-foreground hover:text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />
@@ -106,7 +97,7 @@ export function ProjectCard({
                   )
                 }
               >
-                <IconGitBranch size={16} className="mr-2 h-4 w-4" />
+                <IconGitBranch size={16} />
                 View Branch
               </DropdownMenuItem>
             ) : null}
@@ -118,7 +109,7 @@ export function ProjectCard({
                 setEditOpen(true);
               }}
             >
-              <IconPencil size={16} className="mr-2 h-4 w-4" />
+              <IconPencil size={16} />
               Edit Details
               {!isOwner && (
                 <span className="text-xs text-muted-foreground ml-2">
@@ -131,7 +122,7 @@ export function ProjectCard({
               disabled={!isOwner}
               onClick={onDelete}
             >
-              <IconTrash size={16} className="mr-2 h-4 w-4" />
+              <IconTrash size={16} />
               Delete
               {!isOwner && (
                 <span className="text-xs text-muted-foreground ml-2">
@@ -144,53 +135,20 @@ export function ProjectCard({
       </div>
       <Link href={projectUrl} className="block">
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white group-hover:text-primary transition-colors truncate">
+          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {title}
           </h3>
         </div>
         {description ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2">
             {description}
           </p>
         ) : rawInput ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2">
             {rawInput}
           </p>
         ) : null}
-        {progress && progress.total > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                {TASK_STATUSES.map((status) => {
-                  const count = progress[status];
-                  if (count === 0) return null;
-                  return (
-                    <div
-                      key={status}
-                      className={statusConfig[status].bar}
-                      style={{ width: `${(count / progress.total) * 100}%` }}
-                    />
-                  );
-                })}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="flex flex-col gap-1">
-                {TASK_STATUSES.filter((s) => progress[s] > 0).map((s) => {
-                  const Icon = statusConfig[s].icon;
-                  return (
-                    <span
-                      key={s}
-                      className={`flex items-center gap-1.5 ${statusConfig[s].text}`}
-                    >
-                      <Icon size={12} /> {progress[s]} {statusConfig[s].label}
-                    </span>
-                  );
-                })}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <ProjectProgressBar projectId={projectId} className="mt-2" />
         <div className="mt-4 flex items-center justify-between">
           <div className="flex -space-x-1">
             {participantIds.length > 0 ? (

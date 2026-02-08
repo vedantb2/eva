@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
@@ -27,6 +28,7 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { PlanContextPanel } from "@/lib/components/projects/PlanContextPanel";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -45,7 +47,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   if (project === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -54,7 +56,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     return (
       <PageWrapper>
         <div className="py-12 text-center">
-          <p className="text-neutral-500">Project not found</p>
+          <p className="text-muted-foreground">Project not found</p>
         </div>
       </PageWrapper>
     );
@@ -89,6 +91,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 <span className="text-xs">View PR</span>
               </Link>
             </Button>
+          )}
+          {!isDraftOrFinalized && project.generatedSpec && (
+            <PlanContextPanel
+              generatedSpec={project.generatedSpec}
+              conversationHistory={project.conversationHistory}
+            />
           )}
         </div>
       }
@@ -147,7 +155,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <DialogTitle>Build Project</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               This will allow Eva to autonomously work through all tasks in
               sequence until the project is fully built.
             </p>
@@ -158,10 +166,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setIsBuildModalOpen(false)}
-            >
+            <Button variant="ghost" onClick={() => setIsBuildModalOpen(false)}>
               Cancel
             </Button>
             <Button

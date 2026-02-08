@@ -51,7 +51,7 @@ export function MultipleChoiceQuestion({
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <p className="text-[15px] font-semibold leading-snug text-neutral-800 dark:text-neutral-200">
+      <p className="text-[15px] font-semibold leading-snug text-foreground">
         {question}
       </p>
 
@@ -64,8 +64,8 @@ export function MultipleChoiceQuestion({
               key={`${option.label}-${idx}`}
               className={`cursor-pointer shadow-none transition-all duration-200 ${
                 isSelected
-                  ? "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
-                  : "border-transparent bg-neutral-50 dark:bg-neutral-800/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/70"
+                  ? "border-primary bg-accent ring-1 ring-primary"
+                  : "border-transparent bg-secondary hover:bg-muted"
               } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
               onClick={() => !isLoading && setSelected(option.label)}
             >
@@ -77,7 +77,7 @@ export function MultipleChoiceQuestion({
                     ${
                       isSelected
                         ? "bg-primary text-white shadow-sm"
-                        : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
+                        : "bg-secondary text-muted-foreground"
                     }
                   `}
                 >
@@ -89,11 +89,11 @@ export function MultipleChoiceQuestion({
                 </span>
                 <div className="flex-1 min-w-0">
                   <span
-                    className={`text-sm leading-snug font-medium ${isSelected ? "text-primary" : "text-neutral-700 dark:text-neutral-300"}`}
+                    className={`text-sm leading-snug font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}
                   >
                     {option.label}
                   </span>
-                  <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     {option.description}
                   </p>
                 </div>
@@ -105,8 +105,8 @@ export function MultipleChoiceQuestion({
         <Card
           className={`cursor-pointer shadow-none transition-all duration-200 ${
             isOther
-              ? "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
-              : "border-transparent bg-neutral-50 dark:bg-neutral-800/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/70"
+              ? "border-primary bg-accent ring-1 ring-primary"
+              : "border-transparent bg-secondary hover:bg-muted"
           } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
           onClick={() => !isLoading && setSelected("__other__")}
         >
@@ -118,7 +118,7 @@ export function MultipleChoiceQuestion({
                   ${
                     isOther
                       ? "bg-primary text-white shadow-sm"
-                      : "bg-neutral-200/70 dark:bg-neutral-700/50 text-neutral-500 dark:text-neutral-400"
+                      : "bg-secondary text-muted-foreground"
                   }
                 `}
               >
@@ -129,7 +129,7 @@ export function MultipleChoiceQuestion({
                 )}
               </span>
               <span
-                className={`flex-1 text-sm ${isOther ? "text-primary font-medium" : "text-neutral-500"}`}
+                className={`flex-1 text-sm ${isOther ? "text-primary font-medium" : "text-muted-foreground"}`}
               >
                 Other...
               </span>
@@ -145,7 +145,7 @@ export function MultipleChoiceQuestion({
                   placeholder="Type your answer..."
                   disabled={isLoading}
                   autoFocus
-                  className="h-8 text-sm bg-white dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-700 shadow-none"
+                  className="h-8 text-sm bg-background border-border shadow-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && canSubmit && !isLoading) {
                       handleSubmit();

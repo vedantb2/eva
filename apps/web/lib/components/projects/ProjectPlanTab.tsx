@@ -93,10 +93,7 @@ export function ProjectPlanTab({
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <IconCircleCheck
-              size={20}
-              className="text-emerald-600 dark:text-emerald-400"
-            />
+            <IconCircleCheck size={20} className="text-success" />
             <h2 className="text-xl font-bold">{parsedSpec.title}</h2>
           </div>
           <p className="text-muted-foreground">{parsedSpec.description}</p>
@@ -175,8 +172,8 @@ export function ProjectPlanTab({
           </div>
         )}
         {isLocked && (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+          <div className="p-4 bg-success-bg rounded-lg">
+            <p className="text-sm text-success">
               Development has started on this project. The plan is now locked.
             </p>
           </div>

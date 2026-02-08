@@ -236,7 +236,7 @@ function PinComponent({
 
   return (
     <div
-      className="absolute flex items-center justify-center rounded-full bg-[#975799] text-white font-semibold border-2 border-white cursor-pointer select-none"
+      className="absolute flex items-center justify-center rounded-full bg-[#109182] text-white font-semibold border-2 border-white cursor-pointer select-none"
       style={{
         left: x - 12,
         top: y - 12,
@@ -416,7 +416,7 @@ function InputCard({
           onClick={() => {
             if (text.trim()) onTask(pinId, text.trim());
           }}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#7a3a7c] hover:bg-[#975799] border-none cursor-pointer transition-colors"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#0c786c] hover:bg-[#109182] border-none cursor-pointer transition-colors"
           style={{ borderRadius: 8 }}
         >
           <IconCheckbox size={14} /> Create Task
@@ -433,7 +433,7 @@ function InputCard({
             onClick={() => {
               if (text.trim()) onSave(pinId, text.trim());
             }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#975799] hover:bg-[#a76ba9] border-none cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#109182] hover:bg-[#2db8a4] border-none cursor-pointer transition-colors"
             style={{ borderRadius: 8 }}
           >
             <IconDeviceFloppy size={14} /> Save
@@ -530,7 +530,7 @@ function TextHighlightOverlay({ rects }: { rects: DOMRect[] }) {
       {rects.map((r, i) => (
         <div
           key={i}
-          className="fixed pointer-events-none bg-[#975799]/25 rounded-sm"
+          className="fixed pointer-events-none bg-[#109182]/25 rounded-sm"
           style={{
             zIndex: 2147483647,
             top: r.top,
@@ -1035,7 +1035,7 @@ export function AnnotationOverlay() {
             className="fixed inset-0 pointer-events-none rounded-md"
             style={{
               zIndex: 2147483644,
-              border: "1px solid #975799",
+              border: "1px solid #109182",
               boxSizing: "border-box",
             }}
           />
@@ -1044,7 +1044,7 @@ export function AnnotationOverlay() {
             style={{
               zIndex: 2147483644,
               border: "11px solid",
-              borderImage: "linear-gradient(to right, #7a3a7c, #975799) 1",
+              borderImage: "linear-gradient(to right, #0c786c, #109182) 1",
               boxSizing: "border-box",
               filter: "blur(20px)",
               animation: "conductor-glow 0.8s ease-in-out infinite alternate",

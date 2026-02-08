@@ -11,7 +11,7 @@ export function ThemeToggleClient() {
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-lg bg-white dark:bg-neutral-800"
+        className="p-2 rounded-lg bg-secondary"
         aria-label="Toggle theme"
         disabled
       >
@@ -25,9 +25,9 @@ export function ThemeToggleClient() {
   return (
     <Button variant="ghost" size="icon" onClick={toggleTheme}>
       {isDark ? (
-        <IconSun className="size-5 text-neutral-600 dark:text-neutral-300" />
+        <IconSun className="size-5 text-muted-foreground" />
       ) : (
-        <IconMoon className="size-5 text-neutral-600 dark:text-neutral-300" />
+        <IconMoon className="size-5 text-muted-foreground" />
       )}
     </Button>
   );

@@ -21,6 +21,7 @@ interface ProjectTaskCardProps {
   description?: string;
   status: TaskStatus;
   createdBy?: Id<"users">;
+  isSelected?: boolean;
   onClick?: () => void;
 }
 
@@ -31,6 +32,7 @@ export function ProjectTaskCard({
   description,
   status,
   createdBy,
+  isSelected,
   onClick,
 }: ProjectTaskCardProps) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
@@ -39,7 +41,7 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      className={`w-full shadow shadow-none rounded-sm ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer" : ""}`}
+      className={`w-full shadow-none rounded-sm transition-all ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110" : ""}`}
       onClick={onClick}
     >
       <CardContent className="p-2 gap-2">
@@ -59,7 +61,7 @@ export function ProjectTaskCard({
                 onClick={(e) => e.stopPropagation()}
                 className="flex-shrink-0 p-1 rounded hover:bg-muted transition-colors"
               >
-                <IconGitPullRequest size={14} className="text-emerald-500" />
+                <IconGitPullRequest size={14} className="text-success" />
               </Link>
             )}
             <DependencyBadge isBlocked={isBlocked ?? false} status={status} />

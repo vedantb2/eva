@@ -27,5 +27,6 @@ export * from "./ui/tooltip";
 export * from "./ai-elements/conversation";
 export * from "./ai-elements/message";
 export * from "./ai-elements/prompt-input";
+export * from "./ai-elements/prompt-input-settings";
 export * from "./ai-elements/reasoning";
 export * from "./ai-elements/shimmer";

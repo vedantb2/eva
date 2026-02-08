@@ -221,7 +221,7 @@ export function TaskDetailModal({
                         <h4 className="text-sm font-medium text-foreground mb-2">
                           Description
                         </h4>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {mainDesc}
                         </p>
                         {elementDetails && (
@@ -317,7 +317,7 @@ export function TaskDetailModal({
                                   </Reasoning>
                                 )}
                               {run.resultSummary && (
-                                <p className="text-sm text-foreground/80">
+                                <p className="text-sm text-muted-foreground">
                                   {run.resultSummary}
                                 </p>
                               )}
@@ -349,8 +349,8 @@ export function TaskDetailModal({
                                           log.level === "error"
                                             ? "text-destructive"
                                             : log.level === "warn"
-                                              ? "text-amber-600 dark:text-amber-400"
-                                              : "text-foreground/80"
+                                              ? "text-warning"
+                                              : "text-muted-foreground"
                                         }`}
                                       >
                                         <span className="text-muted-foreground flex-shrink-0">
@@ -594,7 +594,7 @@ export function TaskDetailModal({
                             <IconTrash size={14} />
                           </Button>
                         </div>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {comment.content}
                         </p>
                       </div>
@@ -603,7 +603,7 @@ export function TaskDetailModal({
                   </div>
                   <form
                     onSubmit={handleAddComment}
-                    className="flex gap-2 items-center bg-white dark:bg-neutral-800 rounded-lg"
+                    className="flex gap-2 items-center bg-card rounded-lg"
                   >
                     <Textarea
                       rows={3}
@@ -714,7 +714,7 @@ export function TaskDetailModal({
             <DialogTitle>Delete Task</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to delete{" "}
               <strong>
                 {task?.taskNumber ? `#${task.taskNumber} ` : ""}
@@ -723,12 +723,12 @@ export function TaskDetailModal({
               ?
             </p>
             {dependentTasks && dependentTasks.length > 0 && (
-              <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-2">
+              <div className="mt-3 p-3 bg-warning-bg rounded-lg">
+                <p className="text-sm font-medium text-warning mb-2">
                   The following tasks depend on this task and will also be
                   deleted:
                 </p>
-                <ul className="text-sm text-amber-600 dark:text-amber-400 space-y-1">
+                <ul className="text-sm text-warning space-y-1">
                   {dependentTasks.map((t) => (
                     <li key={t._id}>
                       {t.taskNumber ? `#${t.taskNumber} ` : ""}
@@ -743,10 +743,7 @@ export function TaskDetailModal({
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
             <Button

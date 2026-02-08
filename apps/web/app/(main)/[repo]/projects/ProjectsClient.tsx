@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@conductor/ui";
+import { Skeleton } from "@/lib/components/ui/Skeleton";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
@@ -136,8 +137,18 @@ export function ProjectsClient() {
         }
       >
         {projects === undefined ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="flex items-stretch gap-2 flex-1 min-h-0">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex-1 min-w-0 bg-secondary rounded-md p-2 space-y-2"
+              >
+                <Skeleton className="h-6 w-24" />
+                {[1, 2].map((j) => (
+                  <Skeleton key={j} className="h-24 rounded-md" />
+                ))}
+              </div>
+            ))}
           </div>
         ) : projects.length === 0 ? (
           <EmptyState
@@ -270,7 +281,7 @@ export function ProjectsClient() {
                       />
                     ))}
                     {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                      <p className="text-xs text-neutral-400 text-center py-4">
+                      <p className="text-xs text-muted-foreground text-center py-4">
                         No projects
                       </p>
                     )}
@@ -296,12 +307,12 @@ export function ProjectsClient() {
             <DialogTitle>Delete Project</DialogTitle>
           </DialogHeader>
           <div>
-            <p className="text-foreground/80">
+            <p className="text-muted-foreground">
               Are you sure you want to delete{" "}
               <strong>{projectToDelete?.title}</strong>?
             </p>
-            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-              <p className="text-sm text-amber-600 dark:text-amber-400">
+            <div className="mt-3 p-3 bg-warning-bg rounded-lg">
+              <p className="text-sm text-warning">
                 This will permanently delete the project and all associated
                 tasks, subtasks, agent runs, and dependencies.
               </p>
@@ -311,10 +322,7 @@ export function ProjectsClient() {
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setProjectToDelete(null)}
-            >
+            <Button variant="ghost" onClick={() => setProjectToDelete(null)}>
               Cancel
             </Button>
             <Button

@@ -39,9 +39,7 @@ export function KanbanColumn({
     <Card
       ref={setNodeRef}
       className={`flex-1 min-w-0 h-full transition-colors flex flex-col shadow-none ${
-        isOver
-          ? "bg-neutral-200/70 dark:bg-neutral-700"
-          : "bg-neutral-50 dark:bg-neutral-800/50"
+        isOver ? "bg-muted" : "bg-secondary"
       }`}
     >
       <CardHeader className="flex flex-row justify-between items-center p-2 pb-1 flex-shrink-0 space-y-0">

@@ -29,7 +29,7 @@ export function WebPreviewPanel({
 }: WebPreviewPanelProps) {
   if (!isActive || !sandboxId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
         <IconWorld className="w-12 h-12 opacity-50" />
         <p className="text-sm">
           {!isActive
@@ -43,7 +43,7 @@ export function WebPreviewPanel({
   return (
     <div className="h-full relative overflow-hidden">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
           <Spinner size="lg" />
         </div>
       )}

@@ -253,10 +253,6 @@ function formatStreamEvent(line: string): string | null {
   }
 }
 
-function stripAnsi(str: string): string {
-  return str.replace(/\x1B\[[0-9;?]*[a-zA-Z]/g, "");
-}
-
 export async function runClaudeCLIStreaming(
   sandbox: Sandbox,
   prompt: string,
@@ -274,20 +270,13 @@ export async function runClaudeCLIStreaming(
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
+  const command = `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json`;
+
+  const sessionId = `claude-${Date.now()}`;
+  await sandbox.process.createSession(sessionId);
 
   let rawOutput = "";
   let lastProcessed = 0;
-  const decoder = new TextDecoder();
-
-  const ptyHandle = await sandbox.process.createPty({
-    id: `claude-${Date.now()}`,
-    cwd: workDir,
-    onData: (data: Uint8Array) => {
-      rawOutput += decoder.decode(data, { stream: true });
-    },
-  });
-
-  await ptyHandle.waitForConnection();
 
   const interval = setInterval(async () => {
     if (rawOutput.length <= lastProcessed) return;
@@ -297,7 +286,7 @@ export async function runClaudeCLIStreaming(
     lastProcessed += lastNewline + 1;
     let latestActivity: string | null = null;
     for (const line of pending.slice(0, lastNewline).split("\n")) {
-      const clean = stripAnsi(line).trim();
+      const clean = line.trim();
       if (!clean) continue;
       const formatted = formatStreamEvent(clean);
       if (formatted) latestActivity = formatted;
@@ -306,25 +295,38 @@ export async function runClaudeCLIStreaming(
   }, flushIntervalMs);
 
   try {
-    await ptyHandle.sendInput(
-      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json; exit\n`,
-    );
+    const execResult = await sandbox.process.executeSessionCommand(sessionId, {
+      command,
+      runAsync: true,
+    });
 
-    const timeoutId = setTimeout(() => {
-      ptyHandle.kill().catch(() => {});
-    }, timeout * 1000);
+    if (!execResult.cmdId) throw new Error("No command ID returned");
 
-    await ptyHandle.wait();
-    clearTimeout(timeoutId);
+    await Promise.race([
+      sandbox.process.getSessionCommandLogs(
+        sessionId,
+        execResult.cmdId,
+        (chunk) => {
+          rawOutput += chunk;
+        },
+        () => {},
+      ),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Claude CLI timed out")),
+          timeout * 1000,
+        ),
+      ),
+    ]);
   } finally {
     clearInterval(interval);
-    await ptyHandle.disconnect().catch(() => {});
+    await sandbox.process.deleteSession(sessionId).catch(() => {});
   }
 
   let activityLog = "";
   let resultEvent: { result: string; isError: boolean } | null = null;
   for (const line of rawOutput.split("\n")) {
-    const clean = stripAnsi(line).trim();
+    const clean = line.trim();
     if (!clean) continue;
     const formatted = formatStreamEvent(clean);
     if (formatted) {

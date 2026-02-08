@@ -45,7 +45,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+    <div className="h-full flex flex-col">
       <div className="px-4 py-2 pb-4">
         <div className="relative">
           <IconSearch

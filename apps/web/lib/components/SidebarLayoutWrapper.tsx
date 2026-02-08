@@ -39,7 +39,7 @@ export function SidebarLayoutWrapper({
                 </h1>
                 <div className="flex items-center gap-1">
                   {onAdd && (
-                    <Button size="icon" onClick={onAdd}>
+                    <Button size="icon-sm" onClick={onAdd}>
                       <IconPlus size={16} />
                     </Button>
                   )}

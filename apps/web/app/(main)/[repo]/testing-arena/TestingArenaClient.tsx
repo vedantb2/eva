@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
   Button,
   Input,
@@ -13,12 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@conductor/ui";
-import {
-  IconPlayerPlay,
-  IconFileText,
-  IconSearch,
-  IconX,
-} from "@tabler/icons-react";
+import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -66,7 +61,7 @@ function DocsListPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">
+    <div className="h-full flex flex-col">
       <div className="px-4 py-2 pb-4 relative">
         <IconSearch
           size={14}
@@ -150,28 +145,13 @@ export function TestingArenaClient({
 
   return (
     <>
-      <PageWrapper
+      <SidebarLayoutWrapper
         title="Testing Arena"
-        childPadding={false}
-        fillHeight
-        headerRight={
-          <Button
-            size="sm"
-            onClick={() => setShowTestAllModal(true)}
-            disabled={isTestingAll || !docs || docs.length === 0}
-          >
-            <IconPlayerPlay size={16} />
-            {isTestingAll ? "Testing..." : "Test All Docs"}
-          </Button>
-        }
+        onAdd={() => setShowTestAllModal(true)}
+        sidebar={<DocsListPanel docs={docs} repoSlug={repoSlug} />}
       >
-        <div className="grid grid-cols-4 grid-rows-[1fr] flex-1 min-h-0">
-          <div className="col-span-1 h-full overflow-hidden">
-            <DocsListPanel docs={docs} repoSlug={repoSlug} />
-          </div>
-          <div className="col-span-3 h-full overflow-hidden">{children}</div>
-        </div>
-      </PageWrapper>
+        {children}
+      </SidebarLayoutWrapper>
       <Dialog
         open={showTestAllModal}
         onOpenChange={(v) => {

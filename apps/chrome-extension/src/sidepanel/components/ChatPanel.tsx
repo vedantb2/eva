@@ -15,6 +15,14 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -24,7 +32,6 @@ import {
   MessageResponse,
   Reasoning,
   ReasoningTrigger,
-  ReasoningContent,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -35,6 +42,7 @@ import {
 import {
   IconCheck,
   IconChevronRight,
+  IconDots,
   IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
@@ -55,6 +63,28 @@ type SessionMessage = {
 };
 
 type Mode = "ask" | "flag";
+type ClaudeModel = "opus" | "sonnet" | "haiku";
+type ResponseLength = "concise" | "default" | "detailed";
+
+const MODELS: { key: ClaudeModel; label: string }[] = [
+  { key: "opus", label: "Opus" },
+  { key: "sonnet", label: "Sonnet" },
+  { key: "haiku", label: "Haiku" },
+];
+
+const RESPONSE_LENGTHS: { key: ResponseLength; label: string }[] = [
+  { key: "concise", label: "Concise" },
+  { key: "default", label: "Default" },
+  { key: "detailed", label: "Detailed" },
+];
+
+function isClaudeModel(v: string): v is ClaudeModel {
+  return MODELS.some((m) => m.key === v);
+}
+
+function isResponseLength(v: string): v is ResponseLength {
+  return RESPONSE_LENGTHS.some((o) => o.key === v);
+}
 
 interface ChatPanelProps {
   selectedRepoId: string | null;
@@ -101,6 +131,9 @@ export function ChatPanel({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
+  const [model, setModel] = useState<ClaudeModel>("sonnet");
+  const [responseLength, setResponseLength] =
+    useState<ResponseLength>("default");
   const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(
     null,
   );
@@ -133,6 +166,12 @@ export function ChatPanel({
     api.sessions.get,
     sessionId ? { id: sessionId as Id<"sessions"> } : "skip",
   );
+
+  const streaming = useQuery(
+    api.streaming.get,
+    sessionId ? { entityId: sessionId } : "skip",
+  );
+  const streamingActivity = streaming?.currentActivity;
 
   const isLoadingSession = sessionId !== null && currentSession === undefined;
   const messages =
@@ -258,6 +297,8 @@ Please review all components and files used on this page before implementing the
               sessionId,
               message: fullMessage,
               mode: "ask",
+              model,
+              responseLength,
             },
           }),
         });
@@ -352,7 +393,7 @@ Please review all components and files used on this page before implementing the
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <Conversation className="flex-1">
+      <Conversation key={sessionId} className="flex-1">
         <ConversationContent className="gap-4 p-4">
           {messages.length === 0 ? (
             <ConversationEmptyState
@@ -383,7 +424,13 @@ Please review all components and files used on this page before implementing the
                 message.role === "assistant" && prev?.mode === "flag";
 
               return (
-                <AIMessage key={index} from={message.role}>
+                <AIMessage
+                  key={index}
+                  from={message.role}
+                  className={
+                    message.role === "assistant" ? "max-w-full" : undefined
+                  }
+                >
                   {message.role === "assistant" && (
                     <div className="flex items-center gap-2">
                       <img
@@ -434,9 +481,13 @@ Please review all components and files used on this page before implementing the
                             streaming ? "Working..." : "Processing complete"
                           }
                         />
-                        <ReasoningContent>
-                          {message.activityLog || "Starting..."}
-                        </ReasoningContent>
+                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                          <pre className="whitespace-pre-wrap font-mono text-xs">
+                            {streamingActivity ||
+                              message.activityLog ||
+                              "Starting..."}
+                          </pre>
+                        </CollapsibleContent>
                       </Reasoning>
                     ) : (
                       <>
@@ -455,9 +506,11 @@ Please review all components and files used on this page before implementing the
                               <ReasoningTrigger
                                 getThinkingMessage={() => "View logs"}
                               />
-                              <ReasoningContent>
-                                {message.activityLog}
-                              </ReasoningContent>
+                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                  {message.activityLog}
+                                </pre>
+                              </CollapsibleContent>
                             </Reasoning>
                           )}
                       </>
@@ -488,7 +541,7 @@ Please review all components and files used on this page before implementing the
           {isLoading &&
             messages.length > 0 &&
             messages[messages.length - 1].role !== "assistant" && (
-              <AIMessage from="assistant">
+              <AIMessage from="assistant" className="max-w-full">
                 <div className="flex items-center gap-2">
                   <img
                     src="/icons/icon.png"
@@ -506,7 +559,11 @@ Please review all components and files used on this page before implementing the
                         streaming ? "Working..." : "Processing complete"
                       }
                     />
-                    <ReasoningContent>Starting...</ReasoningContent>
+                    <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                      <pre className="whitespace-pre-wrap font-mono text-xs">
+                        {streamingActivity || "Starting..."}
+                      </pre>
+                    </CollapsibleContent>
                   </Reasoning>
                 </MessageContent>
               </AIMessage>
@@ -524,17 +581,19 @@ Please review all components and files used on this page before implementing the
           />
         ))}
 
-        <div className="flex items-center gap-3">
-          <SelectionTool
-            capturedCount={capturedContexts.length}
-            isActive={activeTool === "select"}
-            onActiveChange={handleSelectionActiveChange}
-          />
-          <AnnotationTool
-            onAnnotationTask={handleAnnotationTask}
-            isActive={activeTool === "annotate"}
-            onActiveChange={handleAnnotationActiveChange}
-          />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <SelectionTool
+              capturedCount={capturedContexts.length}
+              isActive={activeTool === "select"}
+              onActiveChange={handleSelectionActiveChange}
+            />
+            <AnnotationTool
+              onAnnotationTask={handleAnnotationTask}
+              isActive={activeTool === "annotate"}
+              onActiveChange={handleAnnotationActiveChange}
+            />
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -552,22 +611,6 @@ Please review all components and files used on this page before implementing the
               {toolbarVisible ? "Hide toolbar" : "Show toolbar"}
             </TooltipContent>
           </Tooltip>
-          <Tabs
-            value={mode}
-            onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
-            className="flex-1"
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="ask" className="flex-1 gap-1.5">
-                <IconMessageCircle size={16} />
-                Ask
-              </TabsTrigger>
-              <TabsTrigger value="flag" className="flex-1 gap-1.5">
-                <IconFlag size={16} />
-                Flag
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
 
         <PromptInput onSubmit={handlePromptSubmit}>
@@ -576,7 +619,71 @@ Please review all components and files used on this page before implementing the
             disabled={isInputDisabled}
           />
           <PromptInputFooter>
-            <PromptInputTools />
+            <PromptInputTools>
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
+              >
+                <TabsList className="h-8">
+                  <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
+                    <IconMessageCircle size={14} />
+                    Ask
+                  </TabsTrigger>
+                  <TabsTrigger value="flag" className="text-xs px-2 py-1 gap-1">
+                    <IconFlag size={14} />
+                    Flag
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
+                    disabled={isInputDisabled}
+                  >
+                    <IconDots size={16} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Model</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup
+                        value={model}
+                        onValueChange={(v) => {
+                          if (isClaudeModel(v)) setModel(v);
+                        }}
+                      >
+                        {MODELS.map((m) => (
+                          <DropdownMenuRadioItem key={m.key} value={m.key}>
+                            {m.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      Response length
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup
+                        value={responseLength}
+                        onValueChange={(v) => {
+                          if (isResponseLength(v)) setResponseLength(v);
+                        }}
+                      >
+                        {RESPONSE_LENGTHS.map((o) => (
+                          <DropdownMenuRadioItem key={o.key} value={o.key}>
+                            {o.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PromptInputTools>
             <PromptInputSubmit
               status={isLoading ? "submitted" : undefined}
               disabled={isInputDisabled}

@@ -121,7 +121,7 @@ export function RepoHomeClient() {
     <div className="flex items-center justify-center h-full p-8">
       <div className="w-full max-w-2xl space-y-6">
         <div
-          className={`flex items-center gap-1.5 bg-primary/10 rounded-full pr-4 w-max`}
+          className={`flex items-center gap-1.5 bg-accent rounded-full pr-4 w-max`}
         >
           <Image
             src="/icon.png"

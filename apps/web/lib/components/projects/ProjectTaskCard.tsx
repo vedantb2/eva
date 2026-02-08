@@ -41,7 +41,7 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      className={`w-full shadow shadow-none rounded-sm ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer" : ""}`}
+      className={`w-full shadow-none rounded-sm transition-all ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110" : ""}`}
       onClick={onClick}
     >
       <CardContent className="p-2 gap-2">

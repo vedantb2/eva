@@ -35,7 +35,7 @@ export const phaseConfig: Record<
     icon: IconNotes,
   },
   finalized: {
-    bg: "bg-primary/15",
+    bg: "bg-accent",
     cardBg: "bg-card",
     text: "text-primary",
     label: "Finalized",

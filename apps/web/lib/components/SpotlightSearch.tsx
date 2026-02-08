@@ -20,7 +20,7 @@ import {
 } from "@tabler/icons-react";
 
 const itemClass =
-  "flex items-center gap-3 px-4 py-2 text-sm rounded-md mx-2 cursor-pointer text-muted-foreground data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary";
+  "flex items-center gap-3 px-4 py-2 text-sm rounded-md mx-2 cursor-pointer text-muted-foreground data-[selected=true]:bg-accent data-[selected=true]:text-primary";
 
 const headingClass =
   "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";

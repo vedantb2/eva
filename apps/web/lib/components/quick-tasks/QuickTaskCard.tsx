@@ -60,7 +60,7 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow cursor-pointer ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      className={`w-full shadow cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110 transition-all ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
       onClick={isSelecting ? undefined : onClick}
     >
       <CardContent className="p-2 gap-1">

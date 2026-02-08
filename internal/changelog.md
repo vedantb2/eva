@@ -1,5 +1,12 @@
 # Changelog
 
+## Teal theme + fix broken opacity modifiers - 2026-02-08
+
+- Changed theme color from purple to aqua/teal across web app and chrome extension (globals.css, chrome extension index.css, 3 overlay files with hardcoded hex)
+- Lightened dark mode backgrounds (~5 RGB units brighter) after user reported "too dark"
+- Fixed all broken `bg-primary/XX` Tailwind opacity modifiers (invalid CSS because CSS vars contain full `rgb()` values) — replaced with solid `bg-accent` token across 11 files: SpotlightSearch, MultipleChoiceQuestion, GroupTasksModal, ProjectPhaseBadge, PlanContextPanel, RepoHomeClient, ProjectChatTab, QuickTaskCard, ProjectTaskCard, RepoSetupClient
+- Added missing hover states to QuickTaskCard and ProjectTaskCard (`hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110`)
+
 ## ChatGPT-inspired UI modernization - 2026-02-08
 
 - Replaced card-on-card secondary sidebars with clean border separators (SidebarLayoutWrapper) — affects Sessions, Analyse, Admin, Testing Arena, and Docs layouts

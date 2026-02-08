@@ -64,7 +64,7 @@ export function MultipleChoiceQuestion({
               key={`${option.label}-${idx}`}
               className={`cursor-pointer shadow-none transition-all duration-200 ${
                 isSelected
-                  ? "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
+                  ? "border-primary bg-accent ring-1 ring-primary"
                   : "border-transparent bg-secondary hover:bg-muted"
               } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
               onClick={() => !isLoading && setSelected(option.label)}
@@ -105,7 +105,7 @@ export function MultipleChoiceQuestion({
         <Card
           className={`cursor-pointer shadow-none transition-all duration-200 ${
             isOther
-              ? "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
+              ? "border-primary bg-accent ring-1 ring-primary"
               : "border-transparent bg-secondary hover:bg-muted"
           } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
           onClick={() => !isLoading && setSelected("__other__")}

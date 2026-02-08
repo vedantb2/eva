@@ -31,6 +31,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
@@ -47,14 +48,7 @@ import {
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
-import {
-  ModelSelector,
-  type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import {
-  ResponseLengthSelector,
-  type ResponseLength,
-} from "@/lib/components/ui/ResponseLengthSelector";
+import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
 import { useMutation } from "convex/react";
@@ -525,15 +519,12 @@ export function ChatPanel({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <ModelSelector
-                value={model}
-                onChange={setModel}
-                isDisabled={isInputDisabled}
-              />
-              <ResponseLengthSelector
-                value={responseLength}
-                onChange={setResponseLength}
-                isDisabled={isInputDisabled}
+              <PromptInputSettings
+                model={model}
+                onModelChange={setModel}
+                responseLength={responseLength}
+                onResponseLengthChange={setResponseLength}
+                disabled={isInputDisabled}
               />
             </PromptInputTools>
             <PromptInputSubmit

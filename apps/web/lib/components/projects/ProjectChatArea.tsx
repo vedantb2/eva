@@ -2,16 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ModelSelector,
-  type ClaudeModel,
-} from "@/lib/components/ui/ModelSelector";
-import {
   Spinner,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
+  type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
@@ -87,10 +85,10 @@ export function ProjectChatArea({
           />
           <PromptInputFooter>
             <PromptInputTools>
-              <ModelSelector
-                value={model}
-                onChange={setModel}
-                isDisabled={isSending}
+              <PromptInputSettings
+                model={model}
+                onModelChange={setModel}
+                disabled={isSending}
               />
             </PromptInputTools>
             <PromptInputSubmit disabled={isSending} />

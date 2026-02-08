@@ -15,14 +15,6 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -37,12 +29,14 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSettings,
+  type ClaudeModel,
+  type ResponseLength,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
   IconCheck,
   IconChevronRight,
-  IconDots,
   IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
@@ -63,28 +57,6 @@ type SessionMessage = {
 };
 
 type Mode = "ask" | "flag";
-type ClaudeModel = "opus" | "sonnet" | "haiku";
-type ResponseLength = "concise" | "default" | "detailed";
-
-const MODELS: { key: ClaudeModel; label: string }[] = [
-  { key: "opus", label: "Opus" },
-  { key: "sonnet", label: "Sonnet" },
-  { key: "haiku", label: "Haiku" },
-];
-
-const RESPONSE_LENGTHS: { key: ResponseLength; label: string }[] = [
-  { key: "concise", label: "Concise" },
-  { key: "default", label: "Default" },
-  { key: "detailed", label: "Detailed" },
-];
-
-function isClaudeModel(v: string): v is ClaudeModel {
-  return MODELS.some((m) => m.key === v);
-}
-
-function isResponseLength(v: string): v is ResponseLength {
-  return RESPONSE_LENGTHS.some((o) => o.key === v);
-}
 
 interface ChatPanelProps {
   selectedRepoId: string | null;
@@ -635,54 +607,13 @@ Please review all components and files used on this page before implementing the
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
-                    disabled={isInputDisabled}
-                  >
-                    <IconDots size={16} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Model</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuRadioGroup
-                        value={model}
-                        onValueChange={(v) => {
-                          if (isClaudeModel(v)) setModel(v);
-                        }}
-                      >
-                        {MODELS.map((m) => (
-                          <DropdownMenuRadioItem key={m.key} value={m.key}>
-                            {m.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      Response length
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuRadioGroup
-                        value={responseLength}
-                        onValueChange={(v) => {
-                          if (isResponseLength(v)) setResponseLength(v);
-                        }}
-                      >
-                        {RESPONSE_LENGTHS.map((o) => (
-                          <DropdownMenuRadioItem key={o.key} value={o.key}>
-                            {o.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <PromptInputSettings
+                model={model}
+                onModelChange={setModel}
+                responseLength={responseLength}
+                onResponseLengthChange={setResponseLength}
+                disabled={isInputDisabled}
+              />
             </PromptInputTools>
             <PromptInputSubmit
               status={isLoading ? "submitted" : undefined}

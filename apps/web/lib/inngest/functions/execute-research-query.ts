@@ -35,9 +35,69 @@ async function runConvexQuery(queryCode: string): Promise<string> {
   return JSON.stringify(value);
 }
 
-export const executeResearchQuery = inngest.createFunction(
+function buildSystemPrompt(repoId: string): string {
+  const now = new Date();
+  return `You are a data analyst. Generate a single Convex database query to answer the user's question. Do NOT execute queries yourself — just return the query code.
+
+## Current Time
+- UTC: ${now.toISOString()}
+- Timestamp (ms): ${now.getTime()}
+- All database timestamps are in milliseconds since epoch (Unix ms). Use Date.now() in queries for current time. For "today", subtract 24*60*60*1000 from Date.now().
+
+## Database Schema
+- agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
+- agentRuns: _id, taskId, status (queued/running/success/error), logs[], startedAt, finishedAt, prUrl, error
+- sessions: _id, repoId, userId, title, status (active/closed), messages[], branchName, prUrl
+- projects: _id, repoId, userId, title, description, phase (draft/finalized/active/completed), branchName
+- boards: _id, name, ownerId, repoId, createdAt
+- docs: _id, repoId, title, content, createdAt, updatedAt
+- users: _id, clerkId, email, name, createdAt
+
+## Current Repository ID
+repoId: "${repoId}"
+
+## CRITICAL RULES
+- ONLY use indexes listed below. NEVER invent indexes like "by_status" — they do not exist and will cause errors.
+- To filter by a field that has no index, collect all rows first, then use .filter() in JavaScript.
+- Return ONLY the raw query code. No markdown, no explanation, no wrapping in backticks.
+
+## Query Format
+Every query MUST use this exact wrapper:
+import { query } from "convex:/_system/repl/wrappers.js";
+export default query({ handler: async (ctx) => {
+  // your query logic here
+  return result;
+}});
+
+## Available Indexes (ONLY these exist)
+- agentTasks: by_board (boardId), by_project (projectId)
+- agentRuns: by_task (taskId)
+- sessions: by_repo (repoId), by_repo_and_status (repoId, status)
+- projects: by_repo (repoId)
+- boards: by_repo (repoId)
+- docs: by_repo (repoId)
+
+## Query Examples
+- Filter by status (NO index exists — use JS filter):
+  const boards = await ctx.db.query("boards").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect();
+  const boardIds = boards.map(b => b._id);
+  const allTasks = [];
+  for (const bid of boardIds) { allTasks.push(...await ctx.db.query("agentTasks").withIndex("by_board", q => q.eq("boardId", bid)).collect()); }
+  return allTasks.filter(t => t.status === "todo").length;
+
+- With index: await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()
+- Order desc: await ctx.db.query("agentRuns").order("desc").take(20)
+- Get by ID: await ctx.db.get(someId)
+
+## Tips
+- Filter by repoId where applicable
+- For agentTasks: query boards by repoId first, then tasks by boardId
+- For agentRuns: query tasks first, then runs by taskId`;
+}
+
+export const generateResearchQuery = inngest.createFunction(
   {
-    id: "execute-research-query",
+    id: "generate-research-query",
     retries: 1,
     onFailure: async ({ event, error }) => {
       const eventData = event.data as unknown as {
@@ -47,11 +107,11 @@ export const executeResearchQuery = inngest.createFunction(
       const queryId = eventData.event.data.queryId as Id<"researchQueries">;
       await convex.mutation(api.researchQueries.updateLastMessage, {
         id: queryId,
-        content: `Error processing query: ${error.message}`,
+        content: `Error generating query: ${error.message}`,
       });
     },
   },
-  { event: "research/query.execute" },
+  { event: "research/query.generate" },
   async ({ event, step }) => {
     const { clerkToken, queryId, question, repoId } = event.data;
     const convex = createConvex(clerkToken);
@@ -72,71 +132,109 @@ export const executeResearchQuery = inngest.createFunction(
       });
     });
 
-    const answer = await step.run("generate-answer", async () => {
+    const queryCode = await step.run("generate-query", async () => {
       await convex.mutation(api.streaming.set, {
         entityId: queryId,
-        currentActivity: "Analyzing your question...",
+        currentActivity: "Generating query...",
       });
 
       const openrouter = createOpenRouter({
         apiKey: serverEnv.OPENROUTER_API_KEY ?? "",
       });
 
+      const { text } = await generateText({
+        model: openrouter("openai/gpt-4.1-nano"),
+        system: buildSystemPrompt(repoId),
+        prompt: question,
+        stopWhen: stepCountIs(1),
+      });
+
+      return text || "";
+    });
+
+    await step.run("save-pending-query", async () => {
+      await convex.mutation(api.streaming.clear, { entityId: queryId });
+      const rq = await convex.query(api.researchQueries.get, {
+        id: queryId as Id<"researchQueries">,
+      });
+      if (!rq) throw new Error("Query not found");
+      await convex.mutation(api.researchQueries.updateMessageStatus, {
+        id: queryId as Id<"researchQueries">,
+        messageIndex: rq.messages.length - 1,
+        status: "pending",
+        content: queryCode,
+      });
+    });
+
+    return { success: true };
+  },
+);
+
+export const confirmResearchQuery = inngest.createFunction(
+  {
+    id: "confirm-research-query",
+    retries: 1,
+    onFailure: async ({ event, error }) => {
+      const eventData = event.data as unknown as {
+        event: {
+          data: {
+            clerkToken: string;
+            queryId: string;
+            messageIndex: number;
+          };
+        };
+      };
+      const convex = createConvex(eventData.event.data.clerkToken);
+      const queryId = eventData.event.data.queryId as Id<"researchQueries">;
+      await convex.mutation(api.researchQueries.updateMessageStatus, {
+        id: queryId,
+        messageIndex: eventData.event.data.messageIndex,
+        status: "confirmed",
+        content: `Error executing query: ${error.message}`,
+      });
+    },
+  },
+  { event: "research/query.confirm" },
+  async ({ event, step }) => {
+    const { clerkToken, queryId, queryCode, messageIndex, question, repoId } =
+      event.data;
+    const convex = createConvex(clerkToken);
+
+    await step.run("mark-confirmed", async () => {
+      await convex.mutation(api.streaming.set, {
+        entityId: queryId,
+        currentActivity: "Running query...",
+      });
+      await convex.mutation(api.researchQueries.updateMessageStatus, {
+        id: queryId as Id<"researchQueries">,
+        messageIndex,
+        status: "confirmed",
+      });
+    });
+
+    const answer = await step.run("execute-and-analyse", async () => {
+      const openrouter = createOpenRouter({
+        apiKey: serverEnv.OPENROUTER_API_KEY ?? "",
+      });
+
       const now = new Date();
       const { text } = await generateText({
-        model: openrouter("openai/gpt-5-nano"),
-        system: `You are a data analyst. Use the run_query tool to query the Convex database and analyze results. Do NOT suggest manual steps or modifications.
+        model: openrouter("openai/gpt-4.1-nano"),
+        system: `You are a data analyst. You have a Convex database query and the user's original question. Execute the query using the run_query tool, then analyze the results and provide a clear, concise answer.
 
 ## Current Time
 - UTC: ${now.toISOString()}
 - Timestamp (ms): ${now.getTime()}
-- All database timestamps are in milliseconds since epoch (Unix ms). Use Date.now() in queries for current time. For "today", subtract 24*60*60*1000 from Date.now().
-
-## Database Schema
-- agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
-- agentRuns: _id, taskId, status (queued/running/success/error), logs[], startedAt, finishedAt, prUrl, error
-- sessions: _id, repoId, userId, title, status (active/closed), messages[], branchName, prUrl
-- projects: _id, repoId, userId, title, description, phase (draft/finalized/active/completed), branchName
-- boards: _id, name, ownerId, repoId, createdAt
-- docs: _id, repoId, title, content, createdAt, updatedAt
-- users: _id, clerkId, email, name, createdAt
 
 ## Current Repository ID
 repoId: "${repoId}"
 
 ## Instructions
-1. Use run_query to execute read-only Convex queries
-2. Always show the query code you ran in your response so the user can verify
-3. Query format — every query MUST use this exact wrapper:
-\`\`\`js
-import { query } from "convex:/_system/repl/wrappers.js";
-export default query({ handler: async (ctx) => {
-  // your query logic here
-  return result;
-}});
-\`\`\`
-
-## Query Examples
-- Get all rows: \`await ctx.db.query("tableName").collect()\`
-- With index: \`await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()\`
-- Order desc: \`await ctx.db.query("agentRuns").order("desc").take(20)\`
-- Filter after fetch: \`const rows = await ctx.db.query("agentRuns").collect(); return rows.filter(r => r.startedAt >= ${now.getTime()} - 86400000);\`
-- Get by ID: \`await ctx.db.get(someId)\`
-
-## Available Indexes
-- agentTasks: by_board (boardId), by_project (projectId)
-- agentRuns: by_task (taskId)
-- sessions: by_repo (repoId), by_repo_and_status (repoId, status)
-- projects: by_repo (repoId)
-- boards: by_repo (repoId)
-- docs: by_repo (repoId)
-
-## Tips
-- Filter by repoId where applicable
-- For agentTasks: query boards by repoId first, then tasks by boardId
-- For agentRuns: query tasks first, then runs by taskId
-- Analyze the results and provide a concise answer`,
-        prompt: question,
+1. Execute the provided query using the run_query tool
+2. Analyze the results
+3. Provide a clear answer to the user's question
+`,
+        prompt: `User's question: ${question}\n\nQuery to execute:\n${queryCode}`,
         tools: {
           run_query: tool({
             description:
@@ -157,9 +255,11 @@ export default query({ handler: async (ctx) => {
 
     await step.run("save-response", async () => {
       await convex.mutation(api.streaming.clear, { entityId: queryId });
-      await convex.mutation(api.researchQueries.updateLastMessage, {
+      await convex.mutation(api.researchQueries.addMessage, {
         id: queryId as Id<"researchQueries">,
+        role: "assistant",
         content: answer,
+        queryCode,
       });
     });
 

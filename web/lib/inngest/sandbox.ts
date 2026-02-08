@@ -12,17 +12,6 @@ const daytona = new Daytona({ apiKey: serverEnv.DAYTONA_API_KEY });
 const llmJson = new LlmJson({ attemptCorrection: true });
 
 export const WORKSPACE_DIR = "/workspace/repo";
-const SESSION_VOLUME_NAME = "eva-volume";
-const SESSION_VOLUME_MOUNT = "/home/eva/.claude";
-
-type Volume = Awaited<ReturnType<typeof daytona.volume.get>>;
-let cachedVolume: Volume | null = null;
-async function getSessionVolume(): Promise<Volume> {
-  if (!cachedVolume) {
-    cachedVolume = await daytona.volume.get(SESSION_VOLUME_NAME);
-  }
-  return cachedVolume;
-}
 
 export async function createSandbox(
   githubToken: string,
@@ -30,7 +19,6 @@ export async function createSandbox(
   extraEnvVars?: Record<string, string>,
   networkAllowList?: string,
 ): Promise<Sandbox> {
-  const volume = await getSessionVolume();
   const sandbox = await daytona.create(
     {
       snapshot: SNAPSHOT_NAME,
@@ -45,7 +33,6 @@ export async function createSandbox(
         CONVEX_DEPLOYMENT: serverEnv.CONVEX_DEPLOYMENT,
         ...extraEnvVars,
       },
-      volumes: [{ volumeId: volume.id, mountPath: SESSION_VOLUME_MOUNT }],
       autoStopInterval: 15,
       autoDeleteInterval: 30,
       ephemeral: ephemeral ? true : false,
@@ -179,7 +166,6 @@ interface ClaudeCLIResult {
   result: string;
   isError: boolean;
   activityLog: string;
-  claudeSessionId?: string;
 }
 
 interface StreamingClaudeCLIOptions {
@@ -187,7 +173,7 @@ interface StreamingClaudeCLIOptions {
   allowedTools?: ClaudeTool[];
   workDir?: string;
   timeout?: number;
-  resumeSessionId?: string;
+  outputFormat?: "json" | "text";
   onOutput: (displayLog: string) => Promise<void>;
   flushIntervalMs?: number;
 }
@@ -283,13 +269,11 @@ export async function runClaudeCLIStreaming(
     timeout = 300,
     onOutput,
     flushIntervalMs = 500,
-    resumeSessionId,
   } = options;
 
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const resumeArg = resumeSessionId ? `--resume ${resumeSessionId}` : "";
 
   let rawOutput = "";
   let lastProcessed = 0;
@@ -323,10 +307,9 @@ export async function runClaudeCLIStreaming(
 
   try {
     await ptyHandle.sendInput(
-      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} ${resumeArg} --output-format stream-json; exit\n`,
+      `echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json; exit\n`,
     );
 
-    // Kill the PTY if it exceeds the timeout
     const timeoutId = setTimeout(() => {
       ptyHandle.kill().catch(() => {});
     }, timeout * 1000);
@@ -339,11 +322,7 @@ export async function runClaudeCLIStreaming(
   }
 
   let activityLog = "";
-  let resultEvent: {
-    result: string;
-    isError: boolean;
-    claudeSessionId?: string;
-  } | null = null;
+  let resultEvent: { result: string; isError: boolean } | null = null;
   for (const line of rawOutput.split("\n")) {
     const clean = stripAnsi(line).trim();
     if (!clean) continue;
@@ -358,10 +337,6 @@ export async function runClaudeCLIStreaming(
         resultEvent = {
           result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
-          claudeSessionId:
-            typeof parsed.session_id === "string"
-              ? parsed.session_id
-              : undefined,
         };
       }
     } catch {}

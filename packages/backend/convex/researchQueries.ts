@@ -115,6 +115,7 @@ export const updateLastMessage = mutation({
   args: {
     id: v.id("researchQueries"),
     content: v.string(),
+    queryCode: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -126,6 +127,7 @@ export const updateLastMessage = mutation({
     const last = messages[messages.length - 1];
     if (!last) return null;
     last.content = args.content;
+    if (args.queryCode !== undefined) last.queryCode = args.queryCode;
     await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
     return null;
   },
@@ -137,6 +139,7 @@ export const updateMessageStatus = mutation({
     messageIndex: v.number(),
     status: queryConfirmationStatusValidator,
     content: v.optional(v.string()),
+    queryCode: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -149,6 +152,7 @@ export const updateMessageStatus = mutation({
     if (!msg) return null;
     msg.status = args.status;
     if (args.content !== undefined) msg.content = args.content;
+    if (args.queryCode !== undefined) msg.queryCode = args.queryCode;
     await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
     return null;
   },

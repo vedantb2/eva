@@ -154,134 +154,125 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
             {query.messages.length === 0 ? (
               <ConversationEmptyState title="No messages yet. Start the conversation!" />
             ) : (
-              query.messages.map((message, index) => {
-                if (
-                  message.role === "assistant" &&
-                  message.status === "confirmed" &&
-                  !message.queryCode
-                )
-                  return null;
-
-                return (
-                  <AIMessage key={index} from={message.role}>
-                    {message.role === "assistant" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full overflow-hidden">
-                          <Image
-                            src="/icon.png"
-                            alt="Assistant"
-                            width={32}
-                            height={32}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Eva
-                        </span>
+              query.messages.map((message, index) => (
+                <AIMessage key={index} from={message.role}>
+                  {message.role === "assistant" && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden">
+                        <Image
+                          src="/icon.png"
+                          alt="Assistant"
+                          width={32}
+                          height={32}
+                        />
                       </div>
-                    )}
-                    <MessageContent
-                      className={
-                        message.role === "user"
-                          ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
-                      }
-                    >
-                      {message.role === "assistant" && !message.content ? (
-                        <Reasoning isStreaming defaultOpen>
-                          <ReasoningTrigger
-                            getThinkingMessage={(isStreaming) =>
-                              isStreaming ? "Analysing..." : "Analysis complete"
-                            }
-                          />
-                          <ReasoningContent>
-                            {streaming?.currentActivity || "Starting..."}
-                          </ReasoningContent>
-                        </Reasoning>
-                      ) : message.role === "assistant" &&
-                        message.status === "pending" ? (
-                        <div className="space-y-3">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Generated query:
-                          </p>
-                          <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                            <code>{message.content}</code>
-                          </pre>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const userMsg =
-                                  query.messages[index - 1]?.content ?? "";
-                                handleConfirm(index, message.content, userMsg);
-                              }}
-                            >
-                              <IconCheck size={14} />
-                              Run query
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleCancel(index)}
-                            >
-                              <IconX size={14} />
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : message.role === "assistant" &&
-                        message.status === "cancelled" ? (
-                        <p className="text-sm text-muted-foreground italic">
-                          Query cancelled
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Eva
+                      </span>
+                    </div>
+                  )}
+                  <MessageContent
+                    className={
+                      message.role === "user"
+                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                        : "px-1 py-2"
+                    }
+                  >
+                    {message.role === "assistant" && !message.content ? (
+                      <Reasoning isStreaming defaultOpen>
+                        <ReasoningTrigger
+                          getThinkingMessage={(isStreaming) =>
+                            isStreaming ? "Analysing..." : "Analysis complete"
+                          }
+                        />
+                        <ReasoningContent>
+                          {streaming?.currentActivity || "Starting..."}
+                        </ReasoningContent>
+                      </Reasoning>
+                    ) : message.role === "assistant" &&
+                      message.status === "pending" ? (
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Generated query:
                         </p>
-                      ) : message.role === "assistant" ? (
-                        <div className="space-y-3">
-                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                            {message.content}
-                          </MessageResponse>
-                          {message.queryCode && (
-                            <Collapsible>
-                              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                                <IconCode size={14} />
-                                <span>View query</span>
-                                <IconChevronDown
-                                  size={12}
-                                  className="transition-transform group-data-[state=open]:rotate-180"
-                                />
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <pre className="mt-2 rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                                  <code>{message.queryCode}</code>
-                                </pre>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
+                        <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
+                          <code>{message.content}</code>
+                        </pre>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const userMsg =
+                                query.messages[index - 1]?.content ?? "";
+                              handleConfirm(index, message.content, userMsg);
+                            }}
+                          >
+                            <IconCheck size={14} />
+                            Run query
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCancel(index)}
+                          >
+                            <IconX size={14} />
+                            Cancel
+                          </Button>
                         </div>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap break-words">
+                      </div>
+                    ) : message.role === "assistant" &&
+                      message.status === "cancelled" ? (
+                      <p className="text-sm text-muted-foreground italic">
+                        Query cancelled
+                      </p>
+                    ) : message.role === "assistant" ? (
+                      <div className="space-y-3">
+                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                           {message.content}
-                        </p>
-                      )}
-                    </MessageContent>
-                    {message.role === "user" && (
-                      <div className="mt-0.5 ml-auto">
-                        {message.userId ? (
-                          <UserInitials
-                            userId={message.userId}
-                            hideLastSeen
-                            size="md"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                            <span className="text-xs text-muted-foreground">
-                              U
-                            </span>
-                          </div>
+                        </MessageResponse>
+                        {message.queryCode && (
+                          <Collapsible>
+                            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                              <IconCode size={14} />
+                              <span>View query</span>
+                              <IconChevronDown
+                                size={12}
+                                className="transition-transform group-data-[state=open]:rotate-180"
+                              />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <pre className="mt-2 rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
+                                <code>{message.queryCode}</code>
+                              </pre>
+                            </CollapsibleContent>
+                          </Collapsible>
                         )}
                       </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
                     )}
-                  </AIMessage>
-                );
-              })
+                  </MessageContent>
+                  {message.role === "user" && (
+                    <div className="mt-0.5 ml-auto">
+                      {message.userId ? (
+                        <UserInitials
+                          userId={message.userId}
+                          hideLastSeen
+                          size="md"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">
+                            U
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </AIMessage>
+              ))
             )}
           </ConversationContent>
           <ConversationScrollButton />

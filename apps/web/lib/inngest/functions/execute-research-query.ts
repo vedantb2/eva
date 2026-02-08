@@ -143,7 +143,7 @@ export const generateResearchQuery = inngest.createFunction(
       });
 
       const { text } = await generateText({
-        model: openrouter("openai/gpt-4.1-nano"),
+        model: openrouter("openai/gpt-5-nano"),
         system: buildSystemPrompt(repoId),
         prompt: question,
         stopWhen: stepCountIs(1),
@@ -209,6 +209,8 @@ export const confirmResearchQuery = inngest.createFunction(
         id: queryId as Id<"researchQueries">,
         messageIndex,
         status: "confirmed",
+        queryCode,
+        content: "",
       });
     });
 
@@ -219,8 +221,8 @@ export const confirmResearchQuery = inngest.createFunction(
 
       const now = new Date();
       const { text } = await generateText({
-        model: openrouter("openai/gpt-4.1-nano"),
-        system: `You are a data analyst. You have a Convex database query and the user's original question. Execute the query using the run_query tool, then analyze the results and provide a clear, concise answer.
+        model: openrouter("openai/gpt-5-nano"),
+        system: `You are a data analyst assistant. Your audience is data analysts with no access to the codebase — only use information from the query results, never reference code, internal implementation details, or suggest the user look at source files. Execute the query using the run_query tool, then analyze the results and provide a clear, concise answer.
 
 ## Current Time
 - UTC: ${now.toISOString()}
@@ -231,8 +233,16 @@ repoId: "${repoId}"
 
 ## Instructions
 1. Execute the provided query using the run_query tool
-2. Analyze the results
-3. Provide a clear answer to the user's question
+2. Analyze the results thoroughly
+3. Present findings in a structured, analyst-friendly format:
+   - Lead with the key metric or direct answer
+   - **Bold** important numbers, metrics, names, and key takeaways using markdown **bold**
+   - Use tables, lists, or breakdowns where appropriate
+   - Highlight trends, outliers, or notable patterns
+   - Include percentages and comparisons when relevant
+4. NEVER include raw database IDs (like _id, repoId, boardId, userId) unless the user explicitly asks for an export or raw data
+5. Use names, titles, statuses, and human-readable labels
+6. If results are empty, say so clearly and suggest what the user might query instead
 `,
         prompt: `User's question: ${question}\n\nQuery to execute:\n${queryCode}`,
         tools: {
@@ -255,11 +265,11 @@ repoId: "${repoId}"
 
     await step.run("save-response", async () => {
       await convex.mutation(api.streaming.clear, { entityId: queryId });
-      await convex.mutation(api.researchQueries.addMessage, {
+      await convex.mutation(api.researchQueries.updateMessageStatus, {
         id: queryId as Id<"researchQueries">,
-        role: "assistant",
+        messageIndex,
+        status: "confirmed",
         content: answer,
-        queryCode,
       });
     });
 

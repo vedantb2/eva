@@ -6,11 +6,7 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import {
-  SandpackProvider,
-  SandpackPreview,
-  SandpackCodeEditor,
-} from "@codesandbox/sandpack-react";
+import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
 import {
   Button,
   Spinner,
@@ -18,6 +14,11 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -34,9 +35,14 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@conductor/ui";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconCode } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { SANDPACK_INDEX_HTML } from "@/lib/prompts/designPrompts";
+
+interface SandpackConfig {
+  stylesCss: string;
+  tailwindConfig: string;
+  externalResources: string[];
+}
 
 type DesignSession = NonNullable<
   FunctionReturnType<typeof api.designSessions.get>
@@ -46,8 +52,10 @@ type Variation = NonNullable<DesignMessage["variations"]>[number];
 
 export function DesignDetailClient({
   designSessionId,
+  sandpackConfig,
 }: {
   designSessionId: string;
+  sandpackConfig: SandpackConfig;
 }) {
   const typedId = designSessionId as Id<"designSessions">;
   const session = useQuery(api.designSessions.get, { id: typedId });
@@ -282,18 +290,44 @@ export function DesignDetailClient({
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs gap-1"
-                onClick={() => handleSelectVariation(Number(activeTab))}
-                disabled={session.selectedVariationIndex === Number(activeTab)}
-              >
-                <IconCheck size={14} />
-                {session.selectedVariationIndex === Number(activeTab)
-                  ? "Selected"
-                  : "Use this design"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1"
+                    >
+                      <IconCode size={14} />
+                      Code
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl max-h-[80vh]">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {latestVariations[Number(activeTab)]?.label}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <pre className="text-xs font-mono whitespace-pre-wrap bg-secondary rounded-lg p-4 overflow-auto max-h-[60vh]">
+                      {latestVariations[Number(activeTab)]?.code}
+                    </pre>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => handleSelectVariation(Number(activeTab))}
+                  disabled={
+                    session.selectedVariationIndex === Number(activeTab)
+                  }
+                >
+                  <IconCheck size={14} />
+                  {session.selectedVariationIndex === Number(activeTab)
+                    ? "Selected"
+                    : "Use this design"}
+                </Button>
+              </div>
             </div>
             {latestVariations.map((variation, i) => (
               <TabsContent
@@ -301,30 +335,40 @@ export function DesignDetailClient({
                 value={String(i)}
                 className="flex-1 m-0 min-h-0"
               >
-                <SandpackProvider
-                  template="react"
-                  files={{
-                    "/public/index.html": SANDPACK_INDEX_HTML,
-                    "/App.js": variation.code,
-                  }}
-                  options={{ visibleFiles: ["/App.js"] }}
-                >
-                  <div className="flex h-full">
-                    <div className="flex-1 min-w-0">
-                      <SandpackPreview
-                        showOpenInCodeSandbox={false}
-                        showRefreshButton
-                        style={{ height: "100%" }}
-                      />
-                    </div>
-                    <div className="w-[400px] border-l border-border overflow-auto">
-                      <SandpackCodeEditor
-                        showLineNumbers
-                        style={{ height: "100%" }}
-                      />
-                    </div>
-                  </div>
-                </SandpackProvider>
+                <div className="h-full [&>.sp-wrapper]:h-full">
+                  <SandpackProvider
+                    template="react"
+                    files={{
+                      "/App.js": variation.code,
+                      "/styles.css": {
+                        code: sandpackConfig.stylesCss,
+                        hidden: true,
+                      },
+                      "/setupTailwind.js": {
+                        code: sandpackConfig.tailwindConfig,
+                        hidden: true,
+                      },
+                      "/index.js": {
+                        code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root"));\nroot.render(<StrictMode><App /></StrictMode>);`,
+                        hidden: true,
+                      },
+                    }}
+                    options={{
+                      externalResources: sandpackConfig.externalResources,
+                      visibleFiles: ["/App.js"],
+                      initMode: "immediate",
+                    }}
+                    customSetup={{
+                      entry: "/index.js",
+                    }}
+                  >
+                    <SandpackPreview
+                      showOpenInCodeSandbox={false}
+                      showRefreshButton
+                      style={{ height: "100%" }}
+                    />
+                  </SandpackProvider>
+                </div>
               </TabsContent>
             ))}
           </Tabs>

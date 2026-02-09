@@ -15,9 +15,12 @@
 - New `designSessions` Convex table with message variations (`{ label, code }` per design)
 - Convex CRUD functions for design sessions (list, get, create, addMessage, updateLastMessage, selectVariation, updateSandbox, archive)
 - Inngest `design-execute` function: reads codebase in sandbox, generates 3 design variations via Claude CLI
-- Design prompt generates live React components (not static HTML) using `export default function App()` with React.useState, onClick handlers, etc.
-- Custom Sandpack index.html with full design system: Tailwind CDN + custom config mapping CSS variables, Inter font, light/dark mode tokens
-- Frontend: SidebarLayoutWrapper layout with session list, detail page with chat panel + Sandpack preview (live React + inline code editor side by side)
+- Design prompt generates live React components using `import { useState } from 'react'` + `export default function App()`
+- Sandpack preview uses `externalResources` for Tailwind CDN + Google Fonts, with custom `/styles.css` (CSS variables) and `/setupTailwind.js` (theme config)
+- Extracted shared `lib/tailwind-theme.js` — single source of truth for theme extend (colors, borderRadius, fontFamily), imported by both `tailwind.config.js` and the Sandpack config generator
+- CSS variables read from `globals.css` at render time via `fs.readFileSync` in the server component — no hardcoded duplicates
+- Code modal: "Code" button in toolbar opens a Dialog with the component source (replaced side-by-side code editor)
+- Frontend: SidebarLayoutWrapper layout with session list, detail page with chat panel + full-width Sandpack preview
 - Added "Design" link to sidebar BUILD group
 
 ## Replace manual div patterns with UI components - 2026-02-08

@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { IconBug, IconTerminal2 } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 import {
   createContext,
@@ -255,11 +256,19 @@ export const WebPreviewConsole = ({
         className="h-full flex flex-col"
       >
         <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-2 h-9">
-          <TabsTrigger value="console" className="text-xs px-3 rounded-none">
+          <TabsTrigger
+            value="console"
+            className="text-xs px-3 rounded-none gap-1.5"
+          >
+            <IconBug className="w-3.5 h-3.5" />
             Console
           </TabsTrigger>
           {terminal && (
-            <TabsTrigger value="terminal" className="text-xs px-3 rounded-none">
+            <TabsTrigger
+              value="terminal"
+              className="text-xs px-3 rounded-none gap-1.5"
+            >
+              <IconTerminal2 className="w-3.5 h-3.5" />
               Terminal
             </TabsTrigger>
           )}

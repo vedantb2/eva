@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactNode, Ref, RefObject } from "react";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -17,17 +17,22 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 export interface WebPreviewContextValue {
   url: string;
   setUrl: (url: string) => void;
+  iframeRef: RefObject<HTMLIFrameElement | null>;
+  reload: () => void;
+  goBack: () => void;
+  goForward: () => void;
 }
 
 const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
 
-const useWebPreview = () => {
+export const useWebPreview = () => {
   const context = useContext(WebPreviewContext);
   if (!context) {
     throw new Error("WebPreview components must be used within a WebPreview");
@@ -38,6 +43,7 @@ const useWebPreview = () => {
 export type WebPreviewProps = ComponentProps<"div"> & {
   defaultUrl?: string;
   onUrlChange?: (url: string) => void;
+  ref?: Ref<HTMLDivElement>;
 };
 
 export const WebPreview = ({
@@ -45,9 +51,12 @@ export const WebPreview = ({
   children,
   defaultUrl = "",
   onUrlChange,
+  ref,
   ...props
 }: WebPreviewProps) => {
   const [url, setUrl] = useState(defaultUrl);
+  const [reloadKey, setReloadKey] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const handleUrlChange = useCallback(
     (newUrl: string) => {
@@ -57,17 +66,36 @@ export const WebPreview = ({
     [onUrlChange],
   );
 
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  const goBack = useCallback(() => {
+    try {
+      iframeRef.current?.contentWindow?.history.back();
+    } catch {}
+  }, []);
+
+  const goForward = useCallback(() => {
+    try {
+      iframeRef.current?.contentWindow?.history.forward();
+    } catch {}
+  }, []);
+
   const contextValue = useMemo<WebPreviewContextValue>(
     () => ({
       setUrl: handleUrlChange,
       url,
+      iframeRef,
+      reload,
+      goBack,
+      goForward,
     }),
-    [handleUrlChange, url],
+    [handleUrlChange, url, reload, goBack, goForward],
   );
 
   return (
     <WebPreviewContext.Provider value={contextValue}>
       <div
+        ref={ref}
         className={cn(
           "flex size-full flex-col rounded-lg border bg-card",
           className,
@@ -182,11 +210,12 @@ export const WebPreviewBody = ({
   src,
   ...props
 }: WebPreviewBodyProps) => {
-  const { url } = useWebPreview();
+  const { url, iframeRef } = useWebPreview();
 
   return (
     <div className="flex-1 relative overflow-hidden min-h-0">
       <iframe
+        ref={iframeRef}
         className={cn("size-full", className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         src={(src ?? url) || undefined}

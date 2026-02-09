@@ -1,7 +1,16 @@
+Install to the packages/ui
+
 confirmation - analyse
 artifact - analyse
 web preview - sessions
 plan - sessions
+test results - testing arena
+
+not needed for now:
+model selector - sessions
+prompt input - sessions
+jsx preview - interview
+terminal - sessions
 
 honestly, just limit the languages to html, css, javascript, typescript - we don't use any other language
 also, you should probably read

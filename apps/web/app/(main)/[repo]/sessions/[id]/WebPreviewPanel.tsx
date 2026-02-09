@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   Spinner,
   Button,
@@ -10,8 +10,16 @@ import {
   WebPreviewUrl,
   WebPreviewBody,
   WebPreviewConsole,
+  useWebPreview,
 } from "@conductor/ui";
-import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconRefresh,
+  IconWorld,
+  IconExternalLink,
+  IconMaximize,
+} from "@tabler/icons-react";
 
 interface PreviewInfo {
   url: string;
@@ -29,6 +37,63 @@ interface WebPreviewPanelProps {
   terminal?: ReactNode;
 }
 
+function NavigationButtons({
+  previewInfo,
+  isLoading,
+  onRefresh,
+  containerRef,
+}: {
+  previewInfo: PreviewInfo | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { goBack, goForward, reload } = useWebPreview();
+
+  return (
+    <WebPreviewNavigation>
+      <WebPreviewNavigationButton tooltip="Back" onClick={goBack}>
+        <IconArrowLeft className="w-3.5 h-3.5" />
+      </WebPreviewNavigationButton>
+      <WebPreviewNavigationButton tooltip="Forward" onClick={goForward}>
+        <IconArrowRight className="w-3.5 h-3.5" />
+      </WebPreviewNavigationButton>
+      <WebPreviewNavigationButton
+        tooltip="Reload"
+        onClick={isLoading ? onRefresh : reload}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <Spinner size="sm" />
+        ) : (
+          <IconRefresh className="w-3.5 h-3.5" />
+        )}
+      </WebPreviewNavigationButton>
+      <WebPreviewUrl readOnly className="h-8 text-xs" />
+      {previewInfo && (
+        <WebPreviewNavigationButton
+          tooltip="Open in new tab"
+          onClick={() => window.open(previewInfo.url, "_blank")}
+        >
+          <IconExternalLink className="w-3.5 h-3.5" />
+        </WebPreviewNavigationButton>
+      )}
+      <WebPreviewNavigationButton
+        tooltip="Fullscreen"
+        onClick={() => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            containerRef.current?.requestFullscreen();
+          }
+        }}
+      >
+        <IconMaximize className="w-3.5 h-3.5" />
+      </WebPreviewNavigationButton>
+    </WebPreviewNavigation>
+  );
+}
+
 export function WebPreviewPanel({
   isActive,
   sandboxId,
@@ -39,6 +104,8 @@ export function WebPreviewPanel({
   onRefresh,
   terminal,
 }: WebPreviewPanelProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   if (!isActive || !sandboxId) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
@@ -54,31 +121,16 @@ export function WebPreviewPanel({
 
   return (
     <WebPreview
+      ref={containerRef}
       defaultUrl={previewInfo?.url ?? ""}
       className="h-full rounded-none border-0"
     >
-      <WebPreviewNavigation>
-        <WebPreviewNavigationButton
-          tooltip="Refresh"
-          onClick={onRefresh}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Spinner size="sm" />
-          ) : (
-            <IconRefresh className="w-3.5 h-3.5" />
-          )}
-        </WebPreviewNavigationButton>
-        <WebPreviewUrl readOnly className="h-8 text-xs" />
-        {previewInfo && (
-          <WebPreviewNavigationButton
-            tooltip="Open in new tab"
-            onClick={() => window.open(previewInfo.url, "_blank")}
-          >
-            <IconExternalLink className="w-3.5 h-3.5" />
-          </WebPreviewNavigationButton>
-        )}
-      </WebPreviewNavigation>
+      <NavigationButtons
+        previewInfo={previewInfo}
+        isLoading={isLoading}
+        onRefresh={onRefresh}
+        containerRef={containerRef}
+      />
       <WebPreviewBody
         key={iframeKey}
         src={previewInfo?.url}

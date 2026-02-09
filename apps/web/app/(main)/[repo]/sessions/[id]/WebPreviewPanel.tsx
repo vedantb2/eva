@@ -1,7 +1,15 @@
 "use client";
 
-import { Spinner, Button } from "@conductor/ui";
-import { IconRefresh, IconWorld } from "@tabler/icons-react";
+import {
+  Spinner,
+  Button,
+  WebPreview,
+  WebPreviewNavigation,
+  WebPreviewNavigationButton,
+  WebPreviewUrl,
+  WebPreviewBody,
+} from "@conductor/ui";
+import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
 
 interface PreviewInfo {
   url: string;
@@ -15,7 +23,7 @@ interface WebPreviewPanelProps {
   isLoading: boolean;
   error: string | null;
   iframeKey: number;
-  onRetry: () => void;
+  onRefresh: () => void;
 }
 
 export function WebPreviewPanel({
@@ -25,7 +33,7 @@ export function WebPreviewPanel({
   isLoading,
   error,
   iframeKey,
-  onRetry,
+  onRefresh,
 }: WebPreviewPanelProps) {
   if (!isActive || !sandboxId) {
     return (
@@ -41,29 +49,54 @@ export function WebPreviewPanel({
   }
 
   return (
-    <div className="h-full relative overflow-hidden">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-          <Spinner size="lg" />
-        </div>
-      )}
-      {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <p className="text-sm text-red-500">{error}</p>
-          <Button size="sm" variant="secondary" onClick={onRetry}>
-            <IconRefresh className="w-4 h-4" />
-            Retry
-          </Button>
-        </div>
-      )}
-      {previewInfo && !error && (
-        <iframe
-          key={iframeKey}
-          src={previewInfo.url}
-          className="w-full h-full border-0"
-          title="Preview"
-        />
-      )}
-    </div>
+    <WebPreview
+      defaultUrl={previewInfo?.url ?? ""}
+      className="h-full rounded-none border-0"
+    >
+      <WebPreviewNavigation>
+        <WebPreviewNavigationButton
+          tooltip="Refresh"
+          onClick={onRefresh}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconRefresh className="w-3.5 h-3.5" />
+          )}
+        </WebPreviewNavigationButton>
+        <WebPreviewUrl readOnly className="h-8 text-xs" />
+        {previewInfo && (
+          <a
+            href={previewInfo.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground p-1"
+          >
+            <IconExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+      </WebPreviewNavigation>
+      <div className="flex-1 relative overflow-hidden">
+        {isLoading && !previewInfo && (
+          <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+            <Spinner size="lg" />
+          </div>
+        )}
+        {error ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <p className="text-sm text-red-500">{error}</p>
+            <Button size="sm" variant="secondary" onClick={onRefresh}>
+              <IconRefresh className="w-4 h-4" />
+              Retry
+            </Button>
+          </div>
+        ) : (
+          previewInfo && (
+            <WebPreviewBody key={iframeKey} src={previewInfo.url} />
+          )
+        )}
+      </div>
+    </WebPreview>
   );
 }

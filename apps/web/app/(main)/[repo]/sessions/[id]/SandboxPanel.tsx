@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Button, Spinner, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import {
-  IconTerminal2,
-  IconWorld,
-  IconGitBranch,
-  IconRefresh,
-  IconExternalLink,
-} from "@tabler/icons-react";
+import { Button, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { IconTerminal2, IconWorld, IconGitBranch } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
@@ -83,35 +77,6 @@ export function SandboxPanel({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        {activeTab === "preview" && isActive && sandboxId && (
-          <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-border bg-secondary px-2 gap-1.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={fetchPreview}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconRefresh className="w-3.5 h-3.5" />
-              )}
-            </Button>
-            <span className="flex-1 text-xs text-muted-foreground truncate select-all">
-              {previewInfo?.url ?? "Loading..."}
-            </span>
-            {previewInfo && (
-              <a
-                href={previewInfo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <IconExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-        )}
         <Button
           variant={terminalOpen ? "secondary" : "ghost"}
           size="icon"
@@ -133,7 +98,7 @@ export function SandboxPanel({
               isLoading={isLoading}
               error={error}
               iframeKey={iframeKey}
-              onRetry={fetchPreview}
+              onRefresh={fetchPreview}
             />
           </div>
           <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

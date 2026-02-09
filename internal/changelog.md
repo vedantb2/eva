@@ -7,6 +7,15 @@
 - Query execution uses Bash tool inside the sandbox to POST to Convex's `/api/run_test_function` endpoint via a node.js script
 - Removed `ai` SDK, OpenRouter, and Zod dependencies from the research query module
 
+## Install AI Elements WebPreview + Plan components - 2026-02-09
+
+- Added `WebPreview`, `WebPreviewNavigation`, `WebPreviewNavigationButton`, `WebPreviewUrl`, `WebPreviewBody`, `WebPreviewConsole` components to `packages/ui/src/ai-elements/web-preview.tsx` (ported from AI Elements registry)
+- Added `Plan`, `PlanHeader`, `PlanTitle`, `PlanDescription`, `PlanAction`, `PlanContent`, `PlanFooter`, `PlanTrigger` components to `packages/ui/src/ai-elements/plan.tsx` (ported from AI Elements registry)
+- Added `CardAction` to `packages/ui/src/ui/card.tsx` (required by Plan component)
+- Refactored `WebPreviewPanel.tsx` to use AI Elements `WebPreview` component with composable nav bar, URL display, and iframe body
+- Moved address bar from `SandboxPanel.tsx` into `WebPreviewPanel.tsx`, simplifying SandboxPanel
+- Replaced PRD Dialog modal in `ChatPanel.tsx` with inline collapsible `Plan` component above the prompt input (shows plan content with "Approve Plan" button when in PRD mode)
+
 ## Replace manual patterns with UI components (Chrome Extension) - 2026-02-08
 
 - Replaced manual spinner div with `Spinner` component in App.tsx loading state

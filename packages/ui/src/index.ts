@@ -33,3 +33,5 @@ export * from "./ai-elements/prompt-input";
 export * from "./ai-elements/prompt-input-settings";
 export * from "./ai-elements/reasoning";
 export * from "./ai-elements/shimmer";
+export * from "./ai-elements/web-preview";
+export * from "./ai-elements/plan";

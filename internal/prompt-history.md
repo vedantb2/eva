@@ -1,3 +1,8 @@
+confirmation - analyse
+artifact - analyse
+web preview - sessions
+plan - sessions
+
 honestly, just limit the languages to html, css, javascript, typescript - we don't use any other language
 also, you should probably read
 https://streamdown.ai/docs/code-blocks

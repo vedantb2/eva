@@ -27,6 +27,14 @@ add to extension:
 - - add toolbar to chrome extension
 - button to convert all annotations on page into quick tasks
 
+Daytona has network restrictions and has set domains from which it allows access, convex is not included in that domain but I have sent a request to have it added
+https://www.daytona.io/docs/en/network-limits/
+
+add an analyse function to analyse all quick tasks made, all session chat history against a tag (a project) like nh supa and can give a report into where most of the issues were, what eva struggled with the most
+
+- add access to data from clickup, sentry, posthog, sharedrive mcp's
+  can be useful during retrospectives
+
 in docs add 3 sections
 
 - description

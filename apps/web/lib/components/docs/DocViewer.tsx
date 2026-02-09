@@ -7,26 +7,16 @@ import {
   Button,
   Input,
   Textarea,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  Spinner,
 } from "@conductor/ui";
 import {
-  IconTrash,
   IconPlus,
   IconX,
   IconGripVertical,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
@@ -36,8 +26,6 @@ export function DocViewer({ doc }: { doc: Doc }) {
 }
 
 function DocEditor({ doc }: { doc: Doc }) {
-  const router = useRouter();
-  const { repoSlug } = useRepo();
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -54,9 +42,6 @@ function DocEditor({ doc }: { doc: Doc }) {
       }
     },
   );
-  const removeDoc = useMutation(api.docs.remove);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const addRequirement = () => {
     updateDoc({ id: doc._id, requirements: [...(doc.requirements ?? []), ""] });
@@ -119,240 +104,173 @@ function DocEditor({ doc }: { doc: Doc }) {
     updateDoc({ id: doc._id, userFlows: next });
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await removeDoc({ id: doc._id });
-      setShowDeleteModal(false);
-      router.push(`/${repoSlug}/docs`);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
-    <>
-      <div className="h-full flex flex-col bg-background overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Input
-              value={doc.title}
-              onChange={(e) =>
-                updateDoc({ id: doc._id, title: e.target.value })
-              }
-              className="max-w-xs h-8 text-sm"
-              placeholder="Document title"
-            />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {dayjs(doc.updatedAt).fromNow()}
-            </span>
-          </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            <IconTrash size={16} />
-            Delete
-          </Button>
-        </div>
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Input
+          value={doc.title}
+          onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+          className="max-w-xs h-8 text-sm"
+          placeholder="Document title"
+        />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {dayjs(doc.updatedAt).fromNow()}
+        </span>
+      </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
-          <section>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Description
+      <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
+        <section>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Description
+          </label>
+          <Textarea
+            value={doc.description ?? ""}
+            onChange={(e) =>
+              updateDoc({ id: doc._id, description: e.target.value })
+            }
+            placeholder="What does this page or feature do?"
+            rows={2}
+            className="bg-card"
+          />
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              Requirements
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <IconInfoCircle size={14} className="text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Used for code-level testing and evaluation
+                </TooltipContent>
+              </Tooltip>
             </label>
-            <Textarea
-              value={doc.description ?? ""}
-              onChange={(e) =>
-                updateDoc({ id: doc._id, description: e.target.value })
-              }
-              placeholder="What does this page or feature do?"
-              rows={2}
-              className="bg-card"
-            />
-          </section>
-
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                Requirements
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={14}
-                      className="text-muted-foreground"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Used for code-level testing and evaluation
-                  </TooltipContent>
-                </Tooltip>
-              </label>
-              <Button size="sm" variant="secondary" onClick={addRequirement}>
-                <IconPlus size={14} />
-                Add
-              </Button>
+            <Button size="sm" variant="secondary" onClick={addRequirement}>
+              <IconPlus size={14} />
+              Add
+            </Button>
+          </div>
+          {(doc.requirements ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No requirements yet. Add items that should be verified during
+              testing.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {(doc.requirements ?? []).map((req, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <IconGripVertical
+                    size={14}
+                    className="text-muted-foreground flex-shrink-0"
+                  />
+                  <Input
+                    value={req}
+                    onChange={(e) => updateRequirement(idx, e.target.value)}
+                    placeholder="e.g. Users can log in with email"
+                    className="h-8 text-sm bg-card"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => removeRequirement(idx)}
+                    className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                  >
+                    <IconX size={14} />
+                  </Button>
+                </div>
+              ))}
             </div>
-            {(doc.requirements ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No requirements yet. Add items that should be verified during
-                testing.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {(doc.requirements ?? []).map((req, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <IconGripVertical
-                      size={14}
-                      className="text-muted-foreground flex-shrink-0"
-                    />
+          )}
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              User Flows
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <IconInfoCircle size={14} className="text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Used for UI testing in the testing arena
+                </TooltipContent>
+              </Tooltip>
+            </label>
+            <Button size="sm" variant="secondary" onClick={addFlow}>
+              <IconPlus size={14} />
+              Add Flow
+            </Button>
+          </div>
+          {(doc.userFlows ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No user flows yet. Add step-by-step flows to test in the UI
+              testing tab.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {(doc.userFlows ?? []).map((flow, flowIdx) => (
+                <div
+                  key={flowIdx}
+                  className="border border-border rounded-lg p-4 bg-card"
+                >
+                  <div className="flex items-center gap-2 mb-3">
                     <Input
-                      value={req}
-                      onChange={(e) => updateRequirement(idx, e.target.value)}
-                      placeholder="e.g. Users can log in with email"
-                      className="h-8 text-sm bg-card"
+                      value={flow.name}
+                      onChange={(e) => updateFlowName(flowIdx, e.target.value)}
+                      placeholder={`Flow ${flowIdx + 1}`}
+                      className="h-8 text-sm bg-background"
                     />
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => removeRequirement(idx)}
+                      onClick={() => removeFlow(flowIdx)}
                       className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
                     >
                       <IconX size={14} />
                     </Button>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                User Flows
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={14}
-                      className="text-muted-foreground"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Used for UI testing in the testing arena
-                  </TooltipContent>
-                </Tooltip>
-              </label>
-              <Button size="sm" variant="secondary" onClick={addFlow}>
-                <IconPlus size={14} />
-                Add Flow
-              </Button>
-            </div>
-            {(doc.userFlows ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No user flows yet. Add step-by-step flows to test in the UI
-                testing tab.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {(doc.userFlows ?? []).map((flow, flowIdx) => (
-                  <div
-                    key={flowIdx}
-                    className="border border-border rounded-lg p-4 bg-card"
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <Input
-                        value={flow.name}
-                        onChange={(e) =>
-                          updateFlowName(flowIdx, e.target.value)
-                        }
-                        placeholder={`Flow ${flowIdx + 1}`}
-                        className="h-8 text-sm bg-background"
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeFlow(flowIdx)}
-                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
-                      >
-                        <IconX size={14} />
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {flow.steps.map((step, stepIdx) => (
-                        <div key={stepIdx} className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0 tabular-nums">
-                            {stepIdx + 1}.
-                          </span>
-                          <Input
-                            value={step}
-                            onChange={(e) =>
-                              updateStep(flowIdx, stepIdx, e.target.value)
-                            }
-                            placeholder="Describe this step"
-                            className="h-8 text-sm bg-background"
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => removeStep(flowIdx, stepIdx)}
-                            className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
-                          >
-                            <IconX size={14} />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => addStep(flowIdx)}
-                      className="mt-2 text-muted-foreground"
-                    >
-                      <IconPlus size={14} />
-                      Add Step
-                    </Button>
+                  <div className="space-y-2">
+                    {flow.steps.map((step, stepIdx) => (
+                      <div key={stepIdx} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0 tabular-nums">
+                          {stepIdx + 1}.
+                        </span>
+                        <Input
+                          value={step}
+                          onChange={(e) =>
+                            updateStep(flowIdx, stepIdx, e.target.value)
+                          }
+                          placeholder="Describe this step"
+                          className="h-8 text-sm bg-background"
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeStep(flowIdx, stepIdx)}
+                          className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                        >
+                          <IconX size={14} />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => addStep(flowIdx)}
+                    className="mt-2 text-muted-foreground"
+                  >
+                    <IconPlus size={14} />
+                    Add Step
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
-
-      <Dialog
-        open={showDeleteModal}
-        onOpenChange={(v) => {
-          if (!v) setShowDeleteModal(false);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Document</DialogTitle>
-          </DialogHeader>
-          <div>
-            <p className="text-muted-foreground">
-              Are you sure you want to delete <strong>{doc.title}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting && <Spinner size="sm" />}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   );
 }

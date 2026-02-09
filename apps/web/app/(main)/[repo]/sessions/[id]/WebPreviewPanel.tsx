@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Spinner,
   Button,
@@ -8,6 +9,7 @@ import {
   WebPreviewNavigationButton,
   WebPreviewUrl,
   WebPreviewBody,
+  WebPreviewConsole,
 } from "@conductor/ui";
 import { IconRefresh, IconWorld, IconExternalLink } from "@tabler/icons-react";
 
@@ -24,6 +26,7 @@ interface WebPreviewPanelProps {
   error: string | null;
   iframeKey: number;
   onRefresh: () => void;
+  terminal?: ReactNode;
 }
 
 export function WebPreviewPanel({
@@ -34,6 +37,7 @@ export function WebPreviewPanel({
   error,
   iframeKey,
   onRefresh,
+  terminal,
 }: WebPreviewPanelProps) {
   if (!isActive || !sandboxId) {
     return (
@@ -97,6 +101,7 @@ export function WebPreviewPanel({
           )
         )}
       </div>
+      <WebPreviewConsole terminal={terminal} />
     </WebPreview>
   );
 }

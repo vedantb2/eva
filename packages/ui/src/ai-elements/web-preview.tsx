@@ -3,12 +3,8 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import { Button } from "../ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../ui/collapsible";
 import { Input } from "../ui/input";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -16,7 +12,6 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { cn } from "../utils/cn";
-import { ChevronDownIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -28,8 +23,6 @@ import {
 export interface WebPreviewContextValue {
   url: string;
   setUrl: (url: string) => void;
-  consoleOpen: boolean;
-  setConsoleOpen: (open: boolean) => void;
 }
 
 const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
@@ -55,7 +48,6 @@ export const WebPreview = ({
   ...props
 }: WebPreviewProps) => {
   const [url, setUrl] = useState(defaultUrl);
-  const [consoleOpen, setConsoleOpen] = useState(false);
 
   const handleUrlChange = useCallback(
     (newUrl: string) => {
@@ -67,12 +59,10 @@ export const WebPreview = ({
 
   const contextValue = useMemo<WebPreviewContextValue>(
     () => ({
-      consoleOpen,
-      setConsoleOpen,
       setUrl: handleUrlChange,
       url,
     }),
-    [consoleOpen, handleUrlChange, url],
+    [handleUrlChange, url],
   );
 
   return (
@@ -214,67 +204,69 @@ export type WebPreviewConsoleProps = ComponentProps<"div"> & {
     message: string;
     timestamp: Date;
   }[];
+  terminal?: ReactNode;
 };
 
 export const WebPreviewConsole = ({
   className,
   logs = [],
+  terminal,
   children,
   ...props
 }: WebPreviewConsoleProps) => {
-  const { consoleOpen, setConsoleOpen } = useWebPreview();
+  const [activeTab, setActiveTab] = useState<"console" | "terminal">(
+    terminal ? "terminal" : "console",
+  );
 
   return (
-    <Collapsible
-      className={cn("border-t bg-muted/50 font-mono text-sm", className)}
-      onOpenChange={setConsoleOpen}
-      open={consoleOpen}
-      {...props}
-    >
-      <CollapsibleTrigger asChild>
-        <Button
-          className="flex w-full items-center justify-between p-4 text-left font-medium hover:bg-muted/50"
-          variant="ghost"
-        >
-          Console
-          <ChevronDownIcon
-            className={cn(
-              "h-4 w-4 transition-transform duration-200",
-              consoleOpen && "rotate-180",
-            )}
-          />
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent
-        className={cn(
-          "px-4 pb-4",
-          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-        )}
+    <div className={cn("border-t bg-muted/50 text-sm", className)} {...props}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "console" | "terminal")}
+        className="h-full flex flex-col"
       >
-        <div className="max-h-48 space-y-1 overflow-y-auto">
-          {logs.length === 0 ? (
-            <p className="text-muted-foreground">No console output</p>
-          ) : (
-            logs.map((log, index) => (
-              <div
-                className={cn(
-                  "text-xs",
-                  log.level === "error" && "text-destructive",
-                  log.level === "warn" && "text-yellow-600",
-                  log.level === "log" && "text-foreground",
-                )}
-                key={`${log.timestamp.getTime()}-${index}`}
-              >
-                <span className="text-muted-foreground">
-                  {log.timestamp.toLocaleTimeString()}
-                </span>{" "}
-                {log.message}
-              </div>
-            ))
+        <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-2 h-9">
+          <TabsTrigger value="console" className="text-xs px-3 rounded-none">
+            Console
+          </TabsTrigger>
+          {terminal && (
+            <TabsTrigger value="terminal" className="text-xs px-3 rounded-none">
+              Terminal
+            </TabsTrigger>
           )}
-          {children}
+        </TabsList>
+        <div className="flex-1 min-h-0">
+          {activeTab === "console" ? (
+            <div className="min-h-32 max-h-48 space-y-1 overflow-y-auto px-4 py-3 font-mono">
+              {logs.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No console output
+                </p>
+              ) : (
+                logs.map((log, index) => (
+                  <div
+                    className={cn(
+                      "text-xs",
+                      log.level === "error" && "text-destructive",
+                      log.level === "warn" && "text-yellow-600",
+                      log.level === "log" && "text-foreground",
+                    )}
+                    key={`${log.timestamp.getTime()}-${index}`}
+                  >
+                    <span className="text-muted-foreground">
+                      {log.timestamp.toLocaleTimeString()}
+                    </span>{" "}
+                    {log.message}
+                  </div>
+                ))
+              )}
+              {children}
+            </div>
+          ) : (
+            <div className="min-h-32 h-64">{terminal}</div>
+          )}
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      </Tabs>
+    </div>
   );
 };

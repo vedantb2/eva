@@ -182,7 +182,7 @@ export const WebPreviewUrl = ({
   );
 };
 
-export type WebPreviewBodyProps = ComponentProps<"iframe"> & {
+export type WebPreviewBodyProps = Omit<ComponentProps<"iframe">, "loading"> & {
   loading?: ReactNode;
 };
 

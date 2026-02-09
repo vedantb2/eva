@@ -24,7 +24,14 @@ import {
   TestError,
   TestErrorMessage,
 } from "@conductor/ui";
-import { IconPlayerPlay, IconWorld, IconCode } from "@tabler/icons-react";
+import {
+  IconPlayerPlay,
+  IconWorld,
+  IconCode,
+  IconCheck,
+  IconX,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 import { UITestingPanel } from "../UITestingPanel";
 
@@ -138,6 +145,72 @@ function ReportCard({
   );
 }
 
+function RunListItem({
+  report,
+  isActive,
+  onClick,
+}: {
+  report: EvaluationReport;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const passed = report.results.filter((r) => r.passed).length;
+  const failed = report.results.filter((r) => !r.passed).length;
+  const total = report.results.length;
+  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left ${
+        isActive
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
+          : "border-transparent hover:bg-muted/50"
+      }`}
+    >
+      {report.status === "completed" && (
+        <>
+          {failed === 0 ? (
+            <IconCheck size={14} className="text-green-500 shrink-0" />
+          ) : (
+            <IconX size={14} className="text-red-500 shrink-0" />
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm tabular-nums">
+              {passed}/{total} passed
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {passRate}% &middot; {dayjs(report.createdAt).fromNow()}
+            </span>
+          </div>
+        </>
+      )}
+      {report.status === "error" && (
+        <>
+          <IconAlertTriangle size={14} className="text-red-500 shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm text-red-500">Error</span>
+            <span className="text-xs text-muted-foreground">
+              {dayjs(report.createdAt).fromNow()}
+            </span>
+          </div>
+        </>
+      )}
+      {report.status === "running" && (
+        <>
+          <Spinner size="sm" />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm text-muted-foreground">Running...</span>
+            <span className="text-xs text-muted-foreground">
+              {dayjs(report.createdAt).fromNow()}
+            </span>
+          </div>
+        </>
+      )}
+    </button>
+  );
+}
+
 function CodeTestingContent({
   reports,
   streamingActivity,
@@ -145,32 +218,58 @@ function CodeTestingContent({
   reports: EvaluationReport[] | undefined;
   streamingActivity?: string;
 }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const activeId =
+    selectedId ??
+    reports?.find((r) => r.status === "running")?._id ??
+    reports?.[0]?._id ??
+    null;
+  const activeReport = reports?.find((r) => r._id === activeId);
+
+  if (reports === undefined) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+        <p className="text-sm">No test runs yet</p>
+        <p className="text-xs mt-1">
+          Click &quot;Run Test&quot; to evaluate this doc
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex overflow-hidden">
+      <div className="w-56 shrink-0 border-r overflow-y-auto scrollbar p-2 space-y-1">
+        <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+          Test runs ({reports.length})
+        </p>
+        {reports.map((report) => (
+          <RunListItem
+            key={report._id}
+            report={report}
+            isActive={report._id === activeId}
+            onClick={() => setSelectedId(report._id)}
+          />
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto scrollbar p-4">
-        {reports === undefined ? (
-          <div className="flex items-center justify-center h-32">
-            <Spinner />
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-            <p className="text-sm">No test runs yet</p>
-            <p className="text-xs mt-1">
-              Click &quot;Run Test&quot; to evaluate this doc
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <ReportCard
-                key={report._id}
-                report={report}
-                streamingActivity={
-                  report.status === "running" ? streamingActivity : undefined
-                }
-              />
-            ))}
-          </div>
+        {activeReport && (
+          <ReportCard
+            report={activeReport}
+            streamingActivity={
+              activeReport.status === "running" ? streamingActivity : undefined
+            }
+          />
         )}
       </div>
     </div>

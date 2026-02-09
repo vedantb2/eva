@@ -26,9 +26,11 @@ export * from "./ui/textarea";
 export * from "./ui/tooltip";
 
 export * from "./ai-elements/artifact";
+export * from "./ai-elements/attachments";
 export * from "./ai-elements/confirmation";
 export * from "./ai-elements/conversation";
 export * from "./ai-elements/message";
+export * from "./ai-elements/model-selector";
 export * from "./ai-elements/prompt-input";
 export * from "./ai-elements/prompt-input-settings";
 export * from "./ai-elements/reasoning";

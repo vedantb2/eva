@@ -237,7 +237,7 @@ export const WebPreviewConsole = ({
         </TabsList>
         <div className="flex-1 min-h-0">
           {activeTab === "console" ? (
-            <div className="min-h-32 max-h-48 space-y-1 overflow-y-auto px-4 py-3 font-mono">
+            <div className="h-64 space-y-1 overflow-y-auto scrollbar px-4 py-3 font-mono">
               {logs.length === 0 ? (
                 <p className="text-muted-foreground text-xs">
                   No console output
@@ -263,7 +263,7 @@ export const WebPreviewConsole = ({
               {children}
             </div>
           ) : (
-            <div className="min-h-32 h-64">{terminal}</div>
+            <div className="h-64 overflow-y-auto scrollbar">{terminal}</div>
           )}
         </div>
       </Tabs>

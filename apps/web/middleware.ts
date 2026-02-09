@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
 
-const isPublicRoute = createRouteMatcher(["/api(.*)", "/sandbox-auth"]);
+const isPublicRoute = createRouteMatcher(["/api(.*)"]);
 
 const allowedOrigins = [
   "http://localhost:3000",

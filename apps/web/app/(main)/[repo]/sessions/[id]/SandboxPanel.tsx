@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import { IconWorld, IconGitBranch } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
@@ -63,12 +63,15 @@ export function SandboxPanel({
     }
   }, [isActive, sandboxId, fetchPreview]);
 
-  const terminal = (
-    <TerminalPanel
-      sessionId={sessionId}
-      sandboxId={sandboxId}
-      isActive={isActive}
-    />
+  const terminal = useMemo(
+    () => (
+      <TerminalPanel
+        sessionId={sessionId}
+        sandboxId={sandboxId}
+        isActive={isActive}
+      />
+    ),
+    [sessionId, sandboxId, isActive],
   );
 
   return (

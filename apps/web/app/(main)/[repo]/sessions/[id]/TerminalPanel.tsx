@@ -228,7 +228,15 @@ export function TerminalPanel({
   }, [isActive, sandboxId, sessionId, retryCount]);
 
   useEffect(() => {
-    const handleResize = () => {
+    if (!terminalRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (
+        !entry ||
+        entry.contentRect.width === 0 ||
+        entry.contentRect.height === 0
+      )
+        return;
       if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
@@ -238,10 +246,9 @@ export function TerminalPanel({
           body: JSON.stringify({ sessionId, action: "resize", cols, rows }),
         }).catch(() => {});
       }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    });
+    observer.observe(terminalRef.current);
+    return () => observer.disconnect();
   }, [sessionId]);
 
   if (!isActive || !sandboxId) {

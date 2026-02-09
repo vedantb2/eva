@@ -265,34 +265,43 @@ export const WebPreviewConsole = ({
           )}
         </TabsList>
         <div className="flex-1 min-h-0">
-          {activeTab === "console" ? (
-            <div className="h-64 space-y-1 overflow-y-auto scrollbar px-4 py-3 font-mono">
-              {logs.length === 0 ? (
-                <p className="text-muted-foreground text-xs">
-                  No console output
-                </p>
-              ) : (
-                logs.map((log, index) => (
-                  <div
-                    className={cn(
-                      "text-xs",
-                      log.level === "error" && "text-destructive",
-                      log.level === "warn" && "text-yellow-600",
-                      log.level === "log" && "text-foreground",
-                    )}
-                    key={`${log.timestamp.getTime()}-${index}`}
-                  >
-                    <span className="text-muted-foreground">
-                      {log.timestamp.toLocaleTimeString()}
-                    </span>{" "}
-                    {log.message}
-                  </div>
-                ))
+          <div
+            className={cn(
+              "h-64 space-y-1 overflow-y-auto scrollbar px-4 py-3 font-mono",
+              activeTab !== "console" && "hidden",
+            )}
+          >
+            {logs.length === 0 ? (
+              <p className="text-muted-foreground text-xs">No console output</p>
+            ) : (
+              logs.map((log, index) => (
+                <div
+                  className={cn(
+                    "text-xs",
+                    log.level === "error" && "text-destructive",
+                    log.level === "warn" && "text-yellow-600",
+                    log.level === "log" && "text-foreground",
+                  )}
+                  key={`${log.timestamp.getTime()}-${index}`}
+                >
+                  <span className="text-muted-foreground">
+                    {log.timestamp.toLocaleTimeString()}
+                  </span>{" "}
+                  {log.message}
+                </div>
+              ))
+            )}
+            {children}
+          </div>
+          {terminal && (
+            <div
+              className={cn(
+                "h-64 overflow-y-auto scrollbar",
+                activeTab !== "terminal" && "hidden",
               )}
-              {children}
+            >
+              {terminal}
             </div>
-          ) : (
-            <div className="h-64 overflow-y-auto scrollbar">{terminal}</div>
           )}
         </div>
       </Tabs>

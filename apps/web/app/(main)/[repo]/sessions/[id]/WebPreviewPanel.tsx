@@ -71,36 +71,33 @@ export function WebPreviewPanel({
         </WebPreviewNavigationButton>
         <WebPreviewUrl readOnly className="h-8 text-xs" />
         {previewInfo && (
-          <a
-            href={previewInfo.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground p-1"
+          <WebPreviewNavigationButton
+            tooltip="Open in new tab"
+            onClick={() => window.open(previewInfo.url, "_blank")}
           >
             <IconExternalLink className="w-3.5 h-3.5" />
-          </a>
+          </WebPreviewNavigationButton>
         )}
       </WebPreviewNavigation>
-      <div className="flex-1 relative overflow-hidden">
-        {isLoading && !previewInfo && (
-          <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-            <Spinner size="lg" />
-          </div>
-        )}
-        {error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <p className="text-sm text-red-500">{error}</p>
-            <Button size="sm" variant="secondary" onClick={onRefresh}>
-              <IconRefresh className="w-4 h-4" />
-              Retry
-            </Button>
-          </div>
-        ) : (
-          previewInfo && (
-            <WebPreviewBody key={iframeKey} src={previewInfo.url} />
-          )
-        )}
-      </div>
+      <WebPreviewBody
+        key={iframeKey}
+        src={previewInfo?.url}
+        loading={
+          isLoading && !previewInfo ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+              <Spinner size="lg" />
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <p className="text-sm text-red-500">{error}</p>
+              <Button size="sm" variant="secondary" onClick={onRefresh}>
+                <IconRefresh className="w-4 h-4" />
+                Retry
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
       <WebPreviewConsole terminal={terminal} />
     </WebPreview>
   );

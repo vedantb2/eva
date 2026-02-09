@@ -45,6 +45,18 @@ import {
   CollapsibleContent,
   Avatar,
   AvatarFallback,
+  Confirmation,
+  ConfirmationTitle,
+  ConfirmationRequest,
+  ConfirmationRejected,
+  ConfirmationActions,
+  ConfirmationAction,
+  Artifact,
+  ArtifactHeader,
+  ArtifactTitle,
+  ArtifactActions,
+  ArtifactAction,
+  ArtifactContent,
 } from "@conductor/ui";
 
 interface QueryDetailClientProps {
@@ -209,16 +221,26 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                       </Reasoning>
                     ) : message.role === "assistant" &&
                       message.status === "pending" ? (
-                      <div className="space-y-3">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Generated query:
-                        </p>
-                        <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                          <code>{message.content}</code>
-                        </pre>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
+                      <Confirmation state="pending">
+                        <ConfirmationTitle>
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Generated query:
+                          </p>
+                        </ConfirmationTitle>
+                        <ConfirmationRequest>
+                          <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
+                            <code>{message.content}</code>
+                          </pre>
+                        </ConfirmationRequest>
+                        <ConfirmationActions>
+                          <ConfirmationAction
+                            variant="outline"
+                            onClick={() => handleCancel(index)}
+                          >
+                            <IconX size={14} />
+                            Cancel
+                          </ConfirmationAction>
+                          <ConfirmationAction
                             onClick={() => {
                               const userMsg =
                                 query.messages[index - 1]?.content ?? "";
@@ -227,22 +249,18 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                           >
                             <IconCheck size={14} />
                             Run query
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleCancel(index)}
-                          >
-                            <IconX size={14} />
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
+                          </ConfirmationAction>
+                        </ConfirmationActions>
+                      </Confirmation>
                     ) : message.role === "assistant" &&
                       message.status === "cancelled" ? (
-                      <p className="text-sm text-muted-foreground italic">
-                        Query cancelled
-                      </p>
+                      <Confirmation state="rejected">
+                        <ConfirmationRejected>
+                          <p className="text-sm text-muted-foreground italic">
+                            Query cancelled
+                          </p>
+                        </ConfirmationRejected>
+                      </Confirmation>
                     ) : message.role === "assistant" ? (
                       <div className="space-y-3">
                         <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -377,27 +395,27 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               </div>
             ) : (
               savedQueries.map((sq) => (
-                <div
-                  key={sq._id}
-                  className="rounded-lg bg-secondary p-3 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-medium text-foreground line-clamp-2">
+                <Artifact key={sq._id}>
+                  <ArtifactHeader className="px-3 py-2">
+                    <ArtifactTitle className="line-clamp-2 text-xs">
                       {sq.title}
-                    </p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="shrink-0 h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveSavedQuery(sq._id)}
-                    >
-                      <IconTrash size={12} />
-                    </Button>
-                  </div>
-                  <pre className="rounded bg-background p-2 text-xs overflow-x-auto max-h-20">
-                    <code>{sq.query}</code>
-                  </pre>
-                </div>
+                    </ArtifactTitle>
+                    <ArtifactActions>
+                      <ArtifactAction
+                        tooltip="Delete"
+                        className="size-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemoveSavedQuery(sq._id)}
+                      >
+                        <IconTrash size={12} />
+                      </ArtifactAction>
+                    </ArtifactActions>
+                  </ArtifactHeader>
+                  <ArtifactContent className="p-2">
+                    <pre className="text-xs overflow-x-auto max-h-20">
+                      <code>{sq.query}</code>
+                    </pre>
+                  </ArtifactContent>
+                </Artifact>
               ))
             )}
           </div>

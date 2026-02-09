@@ -1,6 +1,7 @@
 export { cn } from "./utils/cn";
 
 export * from "./ui/accordion";
+export * from "./ui/alert";
 export * from "./ui/avatar";
 export * from "./ui/badge";
 export * from "./ui/button";
@@ -24,6 +25,8 @@ export * from "./ui/tabs";
 export * from "./ui/textarea";
 export * from "./ui/tooltip";
 
+export * from "./ai-elements/artifact";
+export * from "./ai-elements/confirmation";
 export * from "./ai-elements/conversation";
 export * from "./ai-elements/message";
 export * from "./ai-elements/prompt-input";

@@ -196,7 +196,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-background transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
+        className={`fixed top-0 left-0 z-50 h-full bg-background/5 transform transition-all duration-200 ease-in-out lg:translate-x-0 py-1 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-16" : "w-64"}`}
       >

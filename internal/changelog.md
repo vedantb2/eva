@@ -1,5 +1,12 @@
 # Changelog
 
+## Replace OpenRouter with Claude Code CLI + Daytona for research queries - 2026-02-09
+
+- Replaced paid OpenRouter GPT-5-nano API calls with Claude Code CLI running inside ephemeral Daytona sandboxes, using the free Claude Max subscription (`CLAUDE_CODE_OAUTH_TOKEN`)
+- Both Inngest functions (`generateResearchQuery` and `confirmResearchQuery`) now spin up sandboxes instead of calling OpenRouter
+- Query execution uses Bash tool inside the sandbox to POST to Convex's `/api/run_test_function` endpoint via a node.js script
+- Removed `ai` SDK, OpenRouter, and Zod dependencies from the research query module
+
 ## Replace manual patterns with UI components (Chrome Extension) - 2026-02-08
 
 - Replaced manual spinner div with `Spinner` component in App.tsx loading state

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useQueryState } from "nuqs";
+import { sandboxTabParser } from "@/lib/search-params";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
 import {
   IconWorld,
@@ -34,7 +36,7 @@ export function SandboxPanel({
   isActive,
   fileDiffs,
 }: SandboxPanelProps) {
-  const [activeTab, setActiveTab] = useState<string>("preview");
+  const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,12 @@ export function SandboxPanel({
 
   const tabSwitcher = (
     <div className="flex items-center gap-1">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          setActiveTab(v as "preview" | "diffs");
+        }}
+      >
         <TabsList className="gap-1">
           <TabsTrigger value="preview">
             <IconWorld className="w-4 h-4" />

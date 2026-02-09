@@ -1,6 +1,8 @@
 "use client";
 
 import { use, useState } from "react";
+import { useQueryState } from "nuqs";
+import { testingTabParser } from "@/lib/search-params";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -294,7 +296,7 @@ export default function TestingArenaDocPage({
     runningReport ? { entityId: runningReport._id } : "skip",
   );
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("code");
+  const [activeTab, setActiveTab] = useQueryState("tab", testingTabParser);
 
   const handleRunTest = async () => {
     if (!doc) return;
@@ -333,7 +335,12 @@ export default function TestingArenaDocPage({
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v as "code" | "ui");
+            }}
+          >
             <TabsList className="h-8">
               <TabsTrigger value="code" className="text-xs">
                 <IconCode size={14} />

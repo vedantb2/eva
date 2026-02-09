@@ -5,6 +5,8 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryStates } from "nuqs";
+import { designTabParser, viewModeParser } from "@/lib/search-params";
 import Image from "next/image";
 import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
 import {
@@ -89,8 +91,12 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
 
   const [isSending, setIsSending] = useState(false);
-  const [activeTab, setActiveTab] = useState("0");
-  const [viewMode, setViewMode] = useState("desktop");
+  const [{ tab, view }, setDesignParams] = useQueryStates({
+    tab: designTabParser,
+    view: viewModeParser,
+  });
+  const activeTab = tab;
+  const viewMode = view;
 
   const lastMessage = session?.messages[session.messages.length - 1];
   const lastAssistantHasNoContent =
@@ -279,11 +285,16 @@ export function DesignDetailClient({
         {latestVariations.length > 0 ? (
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(v) => setDesignParams({ tab: v })}
             className="flex flex-col h-full"
           >
             <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
-              <Tabs value={viewMode} onValueChange={setViewMode}>
+              <Tabs
+                value={viewMode}
+                onValueChange={(v) =>
+                  setDesignParams({ view: v as "desktop" | "mobile" })
+                }
+              >
                 <TabsList className="h-8">
                   <TabsTrigger value="desktop" className="text-xs px-2">
                     <IconDeviceDesktop size={14} />

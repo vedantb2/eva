@@ -22,6 +22,8 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 import { useState, useMemo } from "react";
+import { useQueryState } from "nuqs";
+import { searchParser } from "@/lib/search-params";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import Link from "next/link";
@@ -37,7 +39,7 @@ interface DocsListProps {
 }
 
 export function DocsList({ docs, repoSlug }: DocsListProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const pathname = usePathname();
   const router = useRouter();
   const removeDoc = useMutation(api.docs.remove);
@@ -102,7 +104,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
               placeholder="Search docs..."
               className="h-8 text-sm pl-8"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value || null)}
             />
           </div>
         </div>

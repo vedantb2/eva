@@ -11,6 +11,8 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
+import { useQueryStates } from "nuqs";
+import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,
@@ -96,9 +98,14 @@ export function KanbanBoard<T extends BaseTask>({
   columnExtra,
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<TaskStatus>>(
-    new Set(KANBAN_STATUSES),
+  const [{ q, statuses }, setParams] = useQueryStates({
+    q: searchParser,
+    statuses: statusesParser,
+  });
+  const searchQuery = q;
+  const visibleStatuses = useMemo(
+    () => new Set(statuses as TaskStatus[]),
+    [statuses],
   );
 
   const sensors = useSensors(
@@ -130,16 +137,14 @@ export function KanbanBoard<T extends BaseTask>({
   }, [filteredItems]);
 
   const handleStatusToggle = (status: TaskStatus) => {
-    setVisibleStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) {
-        if (next.size === 1) return prev;
-        next.delete(status);
-      } else {
-        next.add(status);
-      }
-      return next;
-    });
+    const next = new Set(visibleStatuses);
+    if (next.has(status)) {
+      if (next.size === 1) return;
+      next.delete(status);
+    } else {
+      next.add(status);
+    }
+    setParams({ statuses: [...next] });
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -223,12 +228,12 @@ export function KanbanBoard<T extends BaseTask>({
             placeholder="Search tasks..."
             className="pl-9 pr-8 h-8 text-sm"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setParams({ q: e.target.value || null })}
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
+              onClick={() => setParams({ q: null })}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <IconX size={14} />

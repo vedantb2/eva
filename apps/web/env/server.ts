@@ -12,7 +12,6 @@ export const serverEnv = createEnv({
     CLAUDE_CODE_OAUTH_TOKEN: z.string().min(1),
     DAYTONA_API_KEY: z.string().min(1),
     CONVEX_DEPLOYMENT: z.string().min(1),
-    OPENROUTER_API_KEY: z.string().min(1),
     CONVEX_DEPLOY_KEY: z.string().min(1),
     SANDBOX_CLERK_USER_ID: z.string().min(1),
   },

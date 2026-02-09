@@ -1,5 +1,44 @@
 # Changelog
 
+## Replace OpenRouter with Claude Code CLI + Daytona for research queries - 2026-02-09
+
+- Replaced paid OpenRouter GPT-5-nano API calls with Claude Code CLI running inside ephemeral Daytona sandboxes, using the free Claude Max subscription (`CLAUDE_CODE_OAUTH_TOKEN`)
+- Both Inngest functions (`generateResearchQuery` and `confirmResearchQuery`) now spin up sandboxes instead of calling OpenRouter
+- Query execution uses Bash tool inside the sandbox to POST to Convex's `/api/run_test_function` endpoint via a node.js script
+- Removed `ai` SDK, OpenRouter, and Zod dependencies from the research query module
+
+## Install AI Elements WebPreview + Plan components - 2026-02-09
+
+- Added `WebPreview`, `WebPreviewNavigation`, `WebPreviewNavigationButton`, `WebPreviewUrl`, `WebPreviewBody`, `WebPreviewConsole` components to `packages/ui/src/ai-elements/web-preview.tsx` (ported from AI Elements registry)
+- Added `Plan`, `PlanHeader`, `PlanTitle`, `PlanDescription`, `PlanAction`, `PlanContent`, `PlanFooter`, `PlanTrigger` components to `packages/ui/src/ai-elements/plan.tsx` (ported from AI Elements registry)
+- Added `CardAction` to `packages/ui/src/ui/card.tsx` (required by Plan component)
+- Refactored `WebPreviewPanel.tsx` to use AI Elements `WebPreview` component with composable nav bar, URL display, and iframe body
+- Moved address bar from `SandboxPanel.tsx` into `WebPreviewPanel.tsx`, simplifying SandboxPanel
+- Replaced PRD Dialog modal in `ChatPanel.tsx` with inline collapsible `Plan` component above the prompt input (shows plan content with "Approve Plan" button when in PRD mode)
+
+## Replace manual patterns with UI components (Chrome Extension) - 2026-02-08
+
+- Replaced manual spinner div with `Spinner` component in App.tsx loading state
+- Replaced raw `<input>` with `Input` component for project title field in App.tsx
+- Replaced raw `<button>` project selector items with `Button` component in App.tsx
+- Replaced 2 manual avatar divs with `Avatar`/`AvatarFallback` in ChatPanel UserAvatar component
+- Replaced raw close `<button>` + inline SVG with `Button` + `IconX` in ContextPreview
+- Replaced raw `<button>` session list items with `Button` component in SessionSidebar
+
+## Design Page with Sandpack Live React Previews - 2026-02-08
+
+- Added `/design` page for AI-powered UI design generation
+- New `designSessions` Convex table with message variations (`{ label, code }` per design)
+- Convex CRUD functions for design sessions (list, get, create, addMessage, updateLastMessage, selectVariation, updateSandbox, archive)
+- Inngest `design-execute` function: reads codebase in sandbox, generates 3 design variations via Claude CLI
+- Design prompt generates live React components using `import { useState } from 'react'` + `export default function App()`
+- Sandpack preview uses `externalResources` for Tailwind CDN + Google Fonts, with custom `/styles.css` (CSS variables) and `/setupTailwind.js` (theme config)
+- Extracted shared `lib/tailwind-theme.js` — single source of truth for theme extend (colors, borderRadius, fontFamily), imported by both `tailwind.config.js` and the Sandpack config generator
+- CSS variables read from `globals.css` at render time via `fs.readFileSync` in the server component — no hardcoded duplicates
+- Code modal: "Code" button in toolbar opens a Dialog with the component source (replaced side-by-side code editor)
+- Frontend: SidebarLayoutWrapper layout with session list, detail page with chat panel + full-width Sandpack preview
+- Added "Design" link to sidebar BUILD group
+
 ## Replace manual div patterns with UI components - 2026-02-08
 
 - Replaced manual spinner div with `Spinner` component in testing-arena report card

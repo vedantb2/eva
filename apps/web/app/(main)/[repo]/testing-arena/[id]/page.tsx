@@ -10,19 +10,27 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  Card,
-  CardContent,
   Spinner,
-  Progress,
+  TestResults,
+  TestResultsHeader,
+  TestResultsSummary,
+  TestResultsProgress,
+  TestResultsContent,
+  TestSuite,
+  TestSuiteName,
+  TestSuiteContent,
+  TestSuiteStats,
+  Test,
+  TestError,
+  TestErrorMessage,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
-  IconCheck,
-  IconX,
-  IconChevronDown,
-  IconChevronRight,
   IconWorld,
   IconCode,
+  IconCheck,
+  IconX,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import dayjs from "@/lib/dates";
 import { UITestingPanel } from "../UITestingPanel";
@@ -49,58 +57,45 @@ function ReportCard({
   report: EvaluationReport;
   streamingActivity?: string;
 }) {
-  const [showPassed, setShowPassed] = useState(false);
-
   const passed = report.results.filter((r) => r.passed);
   const failed = report.results.filter((r) => !r.passed);
   const total = report.results.length;
-  const passRate = total > 0 ? Math.round((passed.length / total) * 100) : 0;
+
+  const summary =
+    total > 0
+      ? { passed: passed.length, failed: failed.length, skipped: 0, total }
+      : undefined;
 
   return (
-    <Card className="shadow-none bg-secondary">
-      <CardContent className="flex flex-col gap-4 p-4">
-        {report.status === "running" && (
-          <div className="flex items-center gap-3">
-            <Spinner size="sm" />
-            <span className="text-sm text-muted-foreground truncate">
-              {streamingActivity || "Evaluating codebase..."}
+    <TestResults summary={summary}>
+      {report.status === "running" && (
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Spinner size="sm" />
+          <span className="text-sm text-muted-foreground truncate">
+            {streamingActivity || "Evaluating codebase..."}
+          </span>
+        </div>
+      )}
+
+      {report.status === "error" && report.error && (
+        <div className="p-4">
+          <TestError>
+            <TestErrorMessage>{report.error}</TestErrorMessage>
+          </TestError>
+        </div>
+      )}
+
+      {report.status === "completed" && (
+        <>
+          <TestResultsHeader>
+            <TestResultsSummary />
+            <span className="text-sm text-muted-foreground">
+              {dayjs(report.createdAt).fromNow()}
             </span>
-          </div>
-        )}
+          </TestResultsHeader>
 
-        {report.status === "error" && report.error && (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {report.error}
-          </p>
-        )}
-
-        {report.status === "completed" && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-3xl font-semibold text-foreground tabular-nums">
-                  {passed.length}/{total}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {passRate}% passed
-                </p>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <IconCheck size={14} className="text-primary" />
-                  {passed.length}
-                </span>
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <IconX size={14} className="text-red-500" />
-                  {failed.length}
-                </span>
-              </div>
-              <span className="text-sm text-muted-foreground tabular-nums ml-auto">
-                {dayjs(report.createdAt).fromNow()}
-              </span>
-            </div>
-
-            <Progress value={passRate} className="h-1 bg-secondary" />
+          <TestResultsContent>
+            <TestResultsProgress />
 
             {report.summary && (
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -109,67 +104,110 @@ function ReportCard({
             )}
 
             {failed.length > 0 && (
-              <div className="space-y-1.5">
-                {failed.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <IconX
-                      size={14}
-                      className="mt-0.5 text-red-500 flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm text-foreground">
-                        {item.requirement}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+              <TestSuite name="Failed" status="failed" defaultOpen>
+                <TestSuiteName>
+                  <TestSuiteStats failed={failed.length} />
+                </TestSuiteName>
+                <TestSuiteContent>
+                  {failed.map((item, idx) => (
+                    <div key={idx}>
+                      <Test name={item.requirement} status="failed" />
+                      <p className="px-10 pb-2 text-xs text-muted-foreground">
                         {item.detail}
                       </p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </TestSuiteContent>
+              </TestSuite>
             )}
 
             {passed.length > 0 && (
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPassed(!showPassed)}
-                  className="px-0 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassed ? (
-                    <IconChevronDown size={14} />
-                  ) : (
-                    <IconChevronRight size={14} />
-                  )}
-                  {passed.length} passed
-                </Button>
-                {showPassed && (
-                  <div className="mt-2 space-y-1.5 pl-5">
-                    {passed.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <IconCheck
-                          size={14}
-                          className="mt-0.5 text-primary flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm text-foreground">
-                            {item.requirement}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {item.detail}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <TestSuite name="Passed" status="passed">
+                <TestSuiteName>
+                  <TestSuiteStats passed={passed.length} />
+                </TestSuiteName>
+                <TestSuiteContent>
+                  {passed.map((item, idx) => (
+                    <div key={idx}>
+                      <Test name={item.requirement} status="passed" />
+                      <p className="px-10 pb-2 text-xs text-muted-foreground">
+                        {item.detail}
+                      </p>
+                    </div>
+                  ))}
+                </TestSuiteContent>
+              </TestSuite>
             )}
+          </TestResultsContent>
+        </>
+      )}
+    </TestResults>
+  );
+}
+
+function RunListItem({
+  report,
+  isActive,
+  onClick,
+}: {
+  report: EvaluationReport;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const passed = report.results.filter((r) => r.passed).length;
+  const failed = report.results.filter((r) => !r.passed).length;
+  const total = report.results.length;
+  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left ${
+        isActive
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
+          : "border-transparent hover:bg-muted/50"
+      }`}
+    >
+      {report.status === "completed" && (
+        <>
+          {failed === 0 ? (
+            <IconCheck size={14} className="text-green-500 shrink-0" />
+          ) : (
+            <IconX size={14} className="text-red-500 shrink-0" />
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm tabular-nums">
+              {passed}/{total} passed
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {passRate}% &middot; {dayjs(report.createdAt).fromNow()}
+            </span>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </>
+      )}
+      {report.status === "error" && (
+        <>
+          <IconAlertTriangle size={14} className="text-red-500 shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm text-red-500">Error</span>
+            <span className="text-xs text-muted-foreground">
+              {dayjs(report.createdAt).fromNow()}
+            </span>
+          </div>
+        </>
+      )}
+      {report.status === "running" && (
+        <>
+          <Spinner size="sm" />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm text-muted-foreground">Running...</span>
+            <span className="text-xs text-muted-foreground">
+              {dayjs(report.createdAt).fromNow()}
+            </span>
+          </div>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -180,32 +218,58 @@ function CodeTestingContent({
   reports: EvaluationReport[] | undefined;
   streamingActivity?: string;
 }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const activeId =
+    selectedId ??
+    reports?.find((r) => r.status === "running")?._id ??
+    reports?.[0]?._id ??
+    null;
+  const activeReport = reports?.find((r) => r._id === activeId);
+
+  if (reports === undefined) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+        <p className="text-sm">No test runs yet</p>
+        <p className="text-xs mt-1">
+          Click &quot;Run Test&quot; to evaluate this doc
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex overflow-hidden">
+      <div className="w-56 shrink-0 border-r overflow-y-auto scrollbar p-2 space-y-1">
+        <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+          Test runs ({reports.length})
+        </p>
+        {reports.map((report) => (
+          <RunListItem
+            key={report._id}
+            report={report}
+            isActive={report._id === activeId}
+            onClick={() => setSelectedId(report._id)}
+          />
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto scrollbar p-4">
-        {reports === undefined ? (
-          <div className="flex items-center justify-center h-32">
-            <Spinner />
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-            <p className="text-sm">No test runs yet</p>
-            <p className="text-xs mt-1">
-              Click &quot;Run Test&quot; to evaluate this doc
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <ReportCard
-                key={report._id}
-                report={report}
-                streamingActivity={
-                  report.status === "running" ? streamingActivity : undefined
-                }
-              />
-            ))}
-          </div>
+        {activeReport && (
+          <ReportCard
+            report={activeReport}
+            streamingActivity={
+              activeReport.status === "running" ? streamingActivity : undefined
+            }
+          />
         )}
       </div>
     </div>

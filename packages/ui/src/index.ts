@@ -1,6 +1,7 @@
 export { cn } from "./utils/cn";
 
 export * from "./ui/accordion";
+export * from "./ui/alert";
 export * from "./ui/avatar";
 export * from "./ui/badge";
 export * from "./ui/button";
@@ -24,9 +25,16 @@ export * from "./ui/tabs";
 export * from "./ui/textarea";
 export * from "./ui/tooltip";
 
+export * from "./ai-elements/artifact";
+export * from "./ai-elements/attachments";
+export * from "./ai-elements/confirmation";
 export * from "./ai-elements/conversation";
 export * from "./ai-elements/message";
+export * from "./ai-elements/model-selector";
 export * from "./ai-elements/prompt-input";
 export * from "./ai-elements/prompt-input-settings";
 export * from "./ai-elements/reasoning";
 export * from "./ai-elements/shimmer";
+export * from "./ai-elements/web-preview";
+export * from "./ai-elements/plan";
+export * from "./ai-elements/test-results";

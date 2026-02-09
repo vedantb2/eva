@@ -18,7 +18,7 @@ Now that we know `/api/run_test_function` exists, we don't need the Convex MCP s
 
 1. Inngest function triggers (`research/query.execute` event)
 2. Create ephemeral Daytona sandbox (or reuse project sandbox if available)
-3. Run Claude Code CLI in sandbox with `allowedTools: ["Bash"]`
+3. Run Claude Code CLI in sandbox
 4. System prompt tells Claude to use curl to query `/api/run_test_function`
 5. Claude writes Convex queries, executes via curl, analyzes results
 6. Return result, save to Convex
@@ -86,4 +86,3 @@ const result = await runClaudeCLI(sandbox, prompt, {
 
 - **Reuse project sandbox**: If the repo already has a running sandbox (from sessions/tasks), reuse it instead of creating a new one
 - **Snapshot with Claude Code pre-installed**: The `eva-snapshot` already has npm/npx, so `npx @anthropic-ai/claude-code` works without download delay
-- **Network allow-list**: Restrict sandbox network to only Convex URL + Anthropic API for extra security

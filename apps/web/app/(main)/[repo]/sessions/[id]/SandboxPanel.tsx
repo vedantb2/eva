@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Button, Spinner, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import {
-  IconTerminal2,
-  IconWorld,
-  IconGitBranch,
-  IconRefresh,
-  IconExternalLink,
-} from "@tabler/icons-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { IconWorld, IconGitBranch } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
@@ -36,7 +30,6 @@ export function SandboxPanel({
   fileDiffs,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("preview");
-  const [terminalOpen, setTerminalOpen] = useState(false);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +63,20 @@ export function SandboxPanel({
     }
   }, [isActive, sandboxId, fetchPreview]);
 
+  const terminal = useMemo(
+    () => (
+      <TerminalPanel
+        sessionId={sessionId}
+        sandboxId={sandboxId}
+        isActive={isActive}
+      />
+    ),
+    [sessionId, sandboxId, isActive],
+  );
+
   return (
     <div className="h-full flex flex-col bg-card">
-      <div className="flex items-center justify-between gap-2 p-3">
+      <div className="flex items-center gap-2 p-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="gap-1">
             <TabsTrigger value="preview">
@@ -83,72 +87,23 @@ export function SandboxPanel({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        {activeTab === "preview" && isActive && sandboxId && (
-          <div className="flex-1 max-w-md flex items-center h-8 rounded-lg border border-border bg-secondary px-2 gap-1.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={fetchPreview}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconRefresh className="w-3.5 h-3.5" />
-              )}
-            </Button>
-            <span className="flex-1 text-xs text-muted-foreground truncate select-all">
-              {previewInfo?.url ?? "Loading..."}
-            </span>
-            {previewInfo && (
-              <a
-                href={previewInfo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <IconExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-        )}
-        <Button
-          variant={terminalOpen ? "secondary" : "ghost"}
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setTerminalOpen(!terminalOpen)}
-        >
-          <IconTerminal2 className="w-4 h-4" />
-        </Button>
       </div>
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div
-          className={`overflow-hidden min-h-0 ${terminalOpen ? "h-1/2" : "flex-1"}`}
-        >
-          <div className={activeTab === "preview" ? "h-full" : "hidden"}>
-            <WebPreviewPanel
-              isActive={isActive}
-              sandboxId={sandboxId}
-              previewInfo={previewInfo}
-              isLoading={isLoading}
-              error={error}
-              iframeKey={iframeKey}
-              onRetry={fetchPreview}
-            />
-          </div>
-          <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-            <DiffPanel fileDiffs={fileDiffs} />
-          </div>
+      <div className="flex-1 overflow-hidden">
+        <div className={activeTab === "preview" ? "h-full" : "hidden"}>
+          <WebPreviewPanel
+            isActive={isActive}
+            sandboxId={sandboxId}
+            previewInfo={previewInfo}
+            isLoading={isLoading}
+            error={error}
+            iframeKey={iframeKey}
+            onRefresh={fetchPreview}
+            terminal={terminal}
+          />
         </div>
-        {terminalOpen && (
-          <div className="h-1/2 min-h-0 overflow-hidden">
-            <TerminalPanel
-              sessionId={sessionId}
-              sandboxId={sandboxId}
-              isActive={isActive}
-            />
-          </div>
-        )}
+        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
+          <DiffPanel fileDiffs={fileDiffs} />
+        </div>
       </div>
     </div>
   );

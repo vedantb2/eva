@@ -262,7 +262,7 @@ export async function runClaudeCLIStreaming(
     model = "sonnet",
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = WORKSPACE_DIR,
-    timeout = 300,
+    timeout = 900,
     onOutput,
     flushIntervalMs = 500,
   } = options;

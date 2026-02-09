@@ -35,6 +35,12 @@ import {
   type PromptInputMessage,
   Avatar,
   AvatarFallback,
+  Plan,
+  PlanHeader,
+  PlanTitle,
+  PlanContent,
+  PlanFooter,
+  PlanTrigger,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -42,7 +48,6 @@ import {
   IconCode,
   IconMessageCircle2,
   IconClipboardList,
-  IconFileText,
   IconGitPullRequest,
   IconWorld,
   IconSparkles,
@@ -97,7 +102,6 @@ export function ChatPanel({
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showPlanModal, setShowPlanModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useState<SessionMode>("execute");
   const [model, setModel] = useState<ClaudeModel>("sonnet");
@@ -474,18 +478,30 @@ export function ChatPanel({
               View Preview
             </Badge>
           </Link>
-          {mode === "plan" && planContent && (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="text-success h-6"
-              onClick={() => setShowPlanModal(true)}
-            >
-              <IconFileText className="w-3 h-3" />
-              View PRD
-            </Button>
-          )}
         </div>
+        {mode === "plan" && planContent && (
+          <Plan defaultOpen className="mb-2">
+            <PlanHeader className="p-4">
+              <PlanTitle>Product Requirements</PlanTitle>
+              <PlanTrigger />
+            </PlanHeader>
+            <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
+              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                {planContent}
+              </MessageResponse>
+            </PlanContent>
+            <PlanFooter className="px-4 pb-4 pt-0 gap-2">
+              <Button
+                size="sm"
+                className="bg-success text-success-foreground hover:bg-success/90"
+                onClick={() => setMode("execute")}
+              >
+                <IconCode className="w-3.5 h-3.5" />
+                Approve Plan
+              </Button>
+            </PlanFooter>
+          </Plan>
+        )}
         <PromptInput onSubmit={handlePromptSubmit}>
           <PromptInputTextarea
             placeholder={
@@ -566,38 +582,6 @@ export function ChatPanel({
               disabled={isCreatingPr}
             >
               {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={showPlanModal}
-        onOpenChange={(v) => {
-          if (!v) setShowPlanModal(false);
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Product Plan</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto min-h-0">
-            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-              {planContent ?? ""}
-            </MessageResponse>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowPlanModal(false)}>
-              Close
-            </Button>
-            <Button
-              className="bg-success text-success-foreground hover:bg-success/90"
-              onClick={() => {
-                setShowPlanModal(false);
-                setMode("execute");
-              }}
-            >
-              <IconCode className="w-3.5 h-3.5" />
-              Approve Plan
             </Button>
           </DialogFooter>
         </DialogContent>

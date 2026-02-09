@@ -2,42 +2,23 @@ import { inngest } from "../client";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { createConvex } from "@/lib/convex-auth";
-import { generateText, tool, stepCountIs } from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { z } from "zod";
-import { clientEnv } from "@/env/client";
 import { serverEnv } from "@/env/server";
+import {
+  createSandbox,
+  runClaudeCLIStreaming,
+  getGitHubToken,
+} from "../sandbox";
 
-const queryResultSchema = z.object({
-  status: z.string(),
-  value: z.unknown(),
-  logLines: z.array(z.string()).optional(),
-});
+type SandboxModel = "opus" | "sonnet" | "haiku";
 
-async function runConvexQuery(queryCode: string): Promise<string> {
-  const res = await fetch(
-    `${clientEnv.NEXT_PUBLIC_CONVEX_URL}/api/run_test_function`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        adminKey: serverEnv.CONVEX_DEPLOY_KEY,
-        args: {},
-        bundle: { path: "testQuery.js", source: queryCode },
-        format: "convex_encoded_json",
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`Convex query failed: ${res.status}`);
-  const { status, value } = queryResultSchema.parse(await res.json());
-  if (status !== "success")
-    throw new Error(`Query error: ${JSON.stringify(value)}`);
-  return JSON.stringify(value);
+function stripCodeFences(text: string): string {
+  const match = text.match(/```(?:\w+)?\n([\s\S]+?)```/);
+  return (match ? match[1] : text).trim();
 }
 
-function buildSystemPrompt(repoId: string): string {
+function buildGeneratePrompt(repoId: string): string {
   const now = new Date();
-  return `You are a data analyst. Generate a single Convex database query to answer the user's question. Do NOT execute queries yourself — just return the query code.
+  return `You are a data analyst. Generate a single Convex database query to answer the user's question. Do NOT execute anything — output ONLY the raw query code with no markdown, no explanation, no backticks.
 
 ## Current Time
 - UTC: ${now.toISOString()}
@@ -95,6 +76,54 @@ export default query({ handler: async (ctx) => {
 - For agentRuns: query tasks first, then runs by taskId`;
 }
 
+function buildAnalysePrompt(repoId: string): string {
+  const now = new Date();
+  return `You are a data analyst. Execute the provided Convex database query and analyze the results.
+
+## How to Execute
+Write the query code to /tmp/query.js, then run it using this pattern:
+
+cat > /tmp/query.js << 'QUERYEOF'
+<paste the query code here>
+QUERYEOF
+
+cat > /tmp/run.mjs << 'RUNEOF'
+import { readFileSync } from "fs";
+const code = readFileSync("/tmp/query.js", "utf8");
+const res = await fetch(process.env.NEXT_PUBLIC_CONVEX_URL + "/api/run_test_function", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ adminKey: process.env.CONVEX_DEPLOY_KEY, args: {}, bundle: { path: "testQuery.js", source: code }, format: "convex_encoded_json" }),
+});
+const data = await res.json();
+console.log(JSON.stringify(data, null, 2));
+RUNEOF
+
+node /tmp/run.mjs
+
+If the query fails, you may fix the query code and retry once.
+
+## Current Time
+- UTC: ${now.toISOString()}
+- Timestamp (ms): ${now.getTime()}
+
+## Current Repository ID
+repoId: "${repoId}"
+
+## Analysis Guidelines
+1. Execute the provided query
+2. Analyze the results thoroughly
+3. Present findings in a structured, analyst-friendly format:
+   - Lead with the key metric or direct answer
+   - **Bold** important numbers, metrics, names, and key takeaways
+   - Use tables, lists, or breakdowns where appropriate
+   - Highlight trends, outliers, or notable patterns
+   - Include percentages and comparisons when relevant
+4. NEVER include raw database IDs (like _id, repoId, boardId, userId) unless the user explicitly asks for raw data
+5. Use names, titles, statuses, and human-readable labels
+6. If results are empty, say so clearly and suggest what the user might query instead`;
+}
+
 export const generateResearchQuery = inngest.createFunction(
   {
     id: "generate-research-query",
@@ -113,7 +142,7 @@ export const generateResearchQuery = inngest.createFunction(
   },
   { event: "research/query.generate" },
   async ({ event, step }) => {
-    const { clerkToken, queryId, question, repoId } = event.data;
+    const { clerkToken, queryId, question, repoId, model } = event.data;
     const convex = createConvex(clerkToken);
 
     await step.run("add-user-message", async () => {
@@ -138,18 +167,31 @@ export const generateResearchQuery = inngest.createFunction(
         currentActivity: "Generating query...",
       });
 
-      const openrouter = createOpenRouter({
-        apiKey: serverEnv.OPENROUTER_API_KEY ?? "",
+      const repo = await convex.query(api.githubRepos.get, {
+        id: repoId as Id<"githubRepos">,
       });
+      if (!repo) throw new Error("Repository not found");
+      const githubToken = await getGitHubToken(repo.installationId);
+      const sandbox = await createSandbox(githubToken, true);
 
-      const { text } = await generateText({
-        model: openrouter("openai/gpt-5-nano"),
-        system: buildSystemPrompt(repoId),
-        prompt: question,
-        stopWhen: stepCountIs(1),
-      });
+      const result = await runClaudeCLIStreaming(
+        sandbox,
+        `${buildGeneratePrompt(repoId)}\n\nQuestion: ${question}`,
+        {
+          model: (model as SandboxModel) || "sonnet",
+          allowedTools: ["Bash"],
+          timeout: 120,
+          onOutput: async (activity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: queryId,
+              currentActivity: activity,
+            });
+          },
+        },
+      );
 
-      return text || "";
+      if (result.isError) throw new Error(result.result);
+      return stripCodeFences(result.result);
     });
 
     await step.run("save-pending-query", async () => {
@@ -215,52 +257,31 @@ export const confirmResearchQuery = inngest.createFunction(
     });
 
     const answer = await step.run("execute-and-analyse", async () => {
-      const openrouter = createOpenRouter({
-        apiKey: serverEnv.OPENROUTER_API_KEY ?? "",
+      const repo = await convex.query(api.githubRepos.get, {
+        id: repoId as Id<"githubRepos">,
+      });
+      if (!repo) throw new Error("Repository not found");
+      const githubToken = await getGitHubToken(repo.installationId);
+      const sandbox = await createSandbox(githubToken, true, {
+        CONVEX_DEPLOY_KEY: serverEnv.CONVEX_DEPLOY_KEY,
       });
 
-      const now = new Date();
-      const { text } = await generateText({
-        model: openrouter("openai/gpt-5-nano"),
-        system: `You are a data analyst assistant. Your audience is data analysts with no access to the codebase — only use information from the query results, never reference code, internal implementation details, or suggest the user look at source files. Execute the query using the run_query tool, then analyze the results and provide a clear, concise answer.
+      const prompt = `${buildAnalysePrompt(repoId)}\n\nUser's question: ${question}\n\nQuery to execute:\n${queryCode}`;
 
-## Current Time
-- UTC: ${now.toISOString()}
-- Timestamp (ms): ${now.getTime()}
-
-## Current Repository ID
-repoId: "${repoId}"
-
-## Instructions
-1. Execute the provided query using the run_query tool
-2. Analyze the results thoroughly
-3. Present findings in a structured, analyst-friendly format:
-   - Lead with the key metric or direct answer
-   - **Bold** important numbers, metrics, names, and key takeaways using markdown **bold**
-   - Use tables, lists, or breakdowns where appropriate
-   - Highlight trends, outliers, or notable patterns
-   - Include percentages and comparisons when relevant
-4. NEVER include raw database IDs (like _id, repoId, boardId, userId) unless the user explicitly asks for an export or raw data
-5. Use names, titles, statuses, and human-readable labels
-6. If results are empty, say so clearly and suggest what the user might query instead
-`,
-        prompt: `User's question: ${question}\n\nQuery to execute:\n${queryCode}`,
-        tools: {
-          run_query: tool({
-            description:
-              "Execute a read-only Convex database query. Write JavaScript using the Convex query format with ctx.db.query().",
-            inputSchema: z.object({
-              code: z
-                .string()
-                .describe("JavaScript query code using Convex query format"),
-            }),
-            execute: async ({ code }) => runConvexQuery(code),
-          }),
+      const result = await runClaudeCLIStreaming(sandbox, prompt, {
+        model: "sonnet",
+        allowedTools: ["Bash"],
+        timeout: 120,
+        onOutput: async (activity) => {
+          await convex.mutation(api.streaming.set, {
+            entityId: queryId,
+            currentActivity: activity,
+          });
         },
-        stopWhen: stepCountIs(5),
       });
 
-      return text || "I couldn't generate a response.";
+      if (result.isError) throw new Error(result.result);
+      return result.result || "I couldn't generate a response.";
     });
 
     await step.run("save-response", async () => {

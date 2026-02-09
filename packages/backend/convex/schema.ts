@@ -271,6 +271,34 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  designSessions: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    title: v.string(),
+    status: sessionStatusValidator,
+    sandboxId: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
+    selectedVariationIndex: v.optional(v.number()),
+    messages: v.array(
+      v.object({
+        role: roleValidator,
+        content: v.string(),
+        timestamp: v.number(),
+        activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+        variations: v.optional(
+          v.array(
+            v.object({
+              label: v.string(),
+              code: v.string(),
+            }),
+          ),
+        ),
+      }),
+    ),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_user", ["userId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

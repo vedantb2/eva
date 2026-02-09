@@ -17,6 +17,7 @@ import {
   IconFileText,
   IconShield,
   IconFlask,
+  IconPalette,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
 } from "@tabler/icons-react";
@@ -74,6 +75,11 @@ export function Sidebar() {
               name: "Projects",
               href: `/${repoSlug}/projects`,
               icon: IconLayoutKanban,
+            },
+            {
+              name: "Design",
+              href: `/${repoSlug}/design`,
+              icon: IconPalette,
             },
           ],
         },

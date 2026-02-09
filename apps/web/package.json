@@ -11,14 +11,15 @@
     "inngest": "npx inngest-cli dev"
   },
   "dependencies": {
-    "@conductor/ui": "workspace:*",
-    "@conductor/backend": "workspace:*",
     "@ai-sdk/mcp": "^0.0.13",
     "@ai-sdk/react": "^3.0.72",
     "@anthropic-ai/claude-code": "^2.1.6",
     "@anthropic-ai/sdk": "^0.71.2",
     "@clerk/backend": "^2.29.5",
     "@clerk/nextjs": "^6.24.0",
+    "@codesandbox/sandpack-react": "^2.20.0",
+    "@conductor/backend": "workspace:*",
+    "@conductor/ui": "workspace:*",
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",
     "@daytonaio/sdk": "^0.134.0",

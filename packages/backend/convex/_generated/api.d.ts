@@ -16,6 +16,7 @@ import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
 import type * as columns from "../columns.js";
+import type * as designSessions from "../designSessions.js";
 import type * as docs from "../docs.js";
 import type * as evaluationReports from "../evaluationReports.js";
 import type * as githubRepos from "../githubRepos.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   boards: typeof boards;
   columns: typeof columns;
+  designSessions: typeof designSessions;
   docs: typeof docs;
   evaluationReports: typeof evaluationReports;
   githubRepos: typeof githubRepos;

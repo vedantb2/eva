@@ -1,5 +1,25 @@
 # Changelog
 
+## Replace manual patterns with UI components (Chrome Extension) - 2026-02-08
+
+- Replaced manual spinner div with `Spinner` component in App.tsx loading state
+- Replaced raw `<input>` with `Input` component for project title field in App.tsx
+- Replaced raw `<button>` project selector items with `Button` component in App.tsx
+- Replaced 2 manual avatar divs with `Avatar`/`AvatarFallback` in ChatPanel UserAvatar component
+- Replaced raw close `<button>` + inline SVG with `Button` + `IconX` in ContextPreview
+- Replaced raw `<button>` session list items with `Button` component in SessionSidebar
+
+## Design Page with Sandpack Live React Previews - 2026-02-08
+
+- Added `/design` page for AI-powered UI design generation
+- New `designSessions` Convex table with message variations (`{ label, code }` per design)
+- Convex CRUD functions for design sessions (list, get, create, addMessage, updateLastMessage, selectVariation, updateSandbox, archive)
+- Inngest `design-execute` function: reads codebase in sandbox, generates 3 design variations via Claude CLI
+- Design prompt generates live React components (not static HTML) using `export default function App()` with React.useState, onClick handlers, etc.
+- Custom Sandpack index.html with full design system: Tailwind CDN + custom config mapping CSS variables, Inter font, light/dark mode tokens
+- Frontend: SidebarLayoutWrapper layout with session list, detail page with chat panel + Sandpack preview (live React + inline code editor side by side)
+- Added "Design" link to sidebar BUILD group
+
 ## Replace manual div patterns with UI components - 2026-02-08
 
 - Replaced manual spinner div with `Spinner` component in testing-arena report card

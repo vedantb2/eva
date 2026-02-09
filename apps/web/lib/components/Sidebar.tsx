@@ -16,12 +16,17 @@ import {
   IconTerminal2,
   IconFileText,
   IconShield,
+  IconChevronDown,
   IconFlask,
   IconPalette,
+  IconHammer,
+  IconTool,
+  IconTestPipe,
+  IconChartBar,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
 } from "@tabler/icons-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
@@ -46,6 +51,18 @@ export function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
   const repos = useQuery(api.githubRepos.list);
   const { user } = useUser();
+  const [expandedGroups, setExpandedGroups] = useState(
+    new Set(["BUILD", "FIX", "TEST", "DATA"]),
+  );
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(/^\/([^/]+)/);
@@ -70,6 +87,7 @@ export function Sidebar() {
     ? [
         {
           label: "BUILD",
+          groupIcon: IconHammer,
           items: [
             {
               name: "Projects",
@@ -85,6 +103,7 @@ export function Sidebar() {
         },
         {
           label: "FIX",
+          groupIcon: IconTool,
           items: [
             {
               name: "Quick Tasks",
@@ -100,6 +119,7 @@ export function Sidebar() {
         },
         {
           label: "TEST",
+          groupIcon: IconTestPipe,
           items: [
             {
               name: "Documents",
@@ -115,12 +135,22 @@ export function Sidebar() {
         },
         {
           label: "DATA",
+          groupIcon: IconChartBar,
           items: [
             { name: "Analyse", href: `/${repoSlug}/analyse`, icon: IconBrain },
           ],
         },
       ]
     : [];
+
+  useEffect(() => {
+    const activeGroup = repoNavigation.find((g) =>
+      g.items.some((item) => pathname.startsWith(item.href)),
+    );
+    if (activeGroup && !expandedGroups.has(activeGroup.label)) {
+      setExpandedGroups((prev) => new Set(prev).add(activeGroup.label));
+    }
+  }, [pathname]);
 
   const bottomNavigation = [
     ...(repoSlug
@@ -274,35 +304,46 @@ export function Sidebar() {
                       )}
                     </div>
                   )}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {repoNavigation.map((group) => (
                       <div key={group.label}>
                         {!collapsed && (
-                          <span className="flex items-center gap-1.5 py-0.5 mb-1 px-3 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                          <button
+                            onClick={() => toggleGroup(group.label)}
+                            className="flex items-center gap-1.5 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase hover:text-muted-foreground transition-colors"
+                          >
+                            <group.groupIcon className="w-3 h-3" />
                             {group.label}
-                          </span>
+                            <IconChevronDown
+                              className={`w-3 h-3 transition-transform ${expandedGroups.has(group.label) ? "" : "-rotate-90"}`}
+                            />
+                          </button>
                         )}
-                        <div className="space-y-0.5">
-                          {group.items.map((item) => {
-                            const isActive = pathname.startsWith(item.href);
-                            return (
-                              <Link
-                                key={item.name}
-                                href={item.href}
-                                onClick={() => setMobileOpen(false)}
-                                title={collapsed ? item.name : undefined}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
-                                  isActive
-                                    ? "bg-accent text-primary font-medium"
-                                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                                }`}
-                              >
-                                <item.icon className="size-4 flex-shrink-0" />
-                                {!collapsed && item.name}
-                              </Link>
-                            );
-                          })}
-                        </div>
+                        {(collapsed || expandedGroups.has(group.label)) && (
+                          <div
+                            className={`space-y-0.5 ${collapsed ? "" : "pl-2"}`}
+                          >
+                            {group.items.map((item) => {
+                              const isActive = pathname.startsWith(item.href);
+                              return (
+                                <Link
+                                  key={item.name}
+                                  href={item.href}
+                                  onClick={() => setMobileOpen(false)}
+                                  title={collapsed ? item.name : undefined}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                                    isActive
+                                      ? "bg-accent text-primary font-medium"
+                                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                                  }`}
+                                >
+                                  <item.icon className="size-4 flex-shrink-0" />
+                                  {!collapsed && item.name}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

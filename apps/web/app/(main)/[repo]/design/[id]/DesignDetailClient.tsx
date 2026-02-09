@@ -35,7 +35,12 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@conductor/ui";
-import { IconCheck, IconCode } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCode,
+  IconDeviceDesktop,
+  IconDeviceMobile,
+} from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface SandpackConfig {
@@ -85,6 +90,7 @@ export function DesignDetailClient({
 
   const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState("0");
+  const [viewMode, setViewMode] = useState("desktop");
 
   const lastMessage = session?.messages[session.messages.length - 1];
   const lastAssistantHasNoContent =
@@ -276,70 +282,64 @@ export function DesignDetailClient({
             onValueChange={setActiveTab}
             className="flex flex-col h-full"
           >
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+            <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
+              <Tabs value={viewMode} onValueChange={setViewMode}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="desktop" className="text-xs px-2">
+                    <IconDeviceDesktop size={14} />
+                  </TabsTrigger>
+                  <TabsTrigger value="mobile" className="text-xs px-2">
+                    <IconDeviceMobile size={14} />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
               <TabsList className="h-8">
-                {latestVariations.map((v, i) => (
+                {latestVariations.map((_, i) => (
                   <TabsTrigger
                     key={i}
                     value={String(i)}
                     className="text-xs px-3"
                   >
-                    {v.label.length > 30
-                      ? v.label.slice(0, 30) + "..."
-                      : v.label}
+                    Design {String.fromCharCode(65 + i)}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <div className="flex items-center gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs gap-1"
-                    >
-                      <IconCode size={14} />
-                      Code
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl max-h-[80vh]">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {latestVariations[Number(activeTab)]?.label}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <pre className="text-xs font-mono whitespace-pre-wrap bg-secondary rounded-lg p-4 overflow-auto max-h-[60vh]">
-                      {latestVariations[Number(activeTab)]?.code}
-                    </pre>
-                  </DialogContent>
-                </Dialog>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => handleSelectVariation(Number(activeTab))}
-                  disabled={
-                    session.selectedVariationIndex === Number(activeTab)
-                  }
-                >
-                  <IconCheck size={14} />
-                  {session.selectedVariationIndex === Number(activeTab)
-                    ? "Selected"
-                    : "Use this design"}
-                </Button>
-              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs gap-1"
+                  >
+                    <IconCode size={14} />
+                    Code
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh]">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {latestVariations[Number(activeTab)]?.label}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <pre className="text-xs font-mono whitespace-pre-wrap bg-secondary rounded-lg p-4 overflow-auto max-h-[60vh]">
+                    {latestVariations[Number(activeTab)]?.code}
+                  </pre>
+                </DialogContent>
+              </Dialog>
             </div>
             {latestVariations.map((variation, i) => (
               <TabsContent
                 key={i}
                 value={String(i)}
-                className="flex-1 m-0 min-h-0"
+                className="flex-1 m-0 min-h-0 relative bg-muted/30"
               >
-                <div className="h-full [&>.sp-wrapper]:h-full">
+                <div
+                  className={`[&>.sp-wrapper]:h-full transition-all duration-200 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+                >
                   <SandpackProvider
-                    template="react"
+                    template="react-ts"
                     files={{
-                      "/App.js": variation.code,
+                      "/App.tsx": variation.code,
                       "/styles.css": {
                         code: sandpackConfig.stylesCss,
                         hidden: true,
@@ -348,21 +348,25 @@ export function DesignDetailClient({
                         code: sandpackConfig.tailwindConfig,
                         hidden: true,
                       },
-                      "/index.js": {
-                        code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root"));\nroot.render(<StrictMode><App /></StrictMode>);`,
+                      "/index.tsx": {
+                        code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root")!);\nroot.render(<StrictMode><App /></StrictMode>);`,
                         hidden: true,
                       },
                     }}
                     options={{
                       externalResources: sandpackConfig.externalResources,
-                      visibleFiles: ["/App.js"],
+                      visibleFiles: ["/App.tsx"],
                       initMode: "immediate",
                     }}
                     customSetup={{
-                      entry: "/index.js",
+                      entry: "/index.tsx",
                     }}
                   >
                     <SandpackPreview
+                      suppressHydrationWarning
+                      showNavigator
+                      showOpenNewtab
+                      showRestartButton
                       showOpenInCodeSandbox={false}
                       showRefreshButton
                       style={{ height: "100%" }}
@@ -371,6 +375,23 @@ export function DesignDetailClient({
                 </div>
               </TabsContent>
             ))}
+            <div className="flex items-center justify-between gap-3 px-4 py-2 border-t border-border">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 text-xs gap-1 shrink-0"
+                onClick={() => handleSelectVariation(Number(activeTab))}
+                disabled={session.selectedVariationIndex === Number(activeTab)}
+              >
+                <IconCheck size={14} />
+                {session.selectedVariationIndex === Number(activeTab)
+                  ? "Selected"
+                  : "Use this design"}
+              </Button>
+              <p className="text-xs text-muted-foreground truncate">
+                {latestVariations[Number(activeTab)]?.label}
+              </p>
+            </div>
           </Tabs>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">

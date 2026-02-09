@@ -66,6 +66,7 @@
     "convex-helpers": "^0.1.88",
     "convex-timeline": "^0.1.2",
     "dayjs": "^1.11.13",
+    "facehash": "^0.0.7",
     "framer-motion": "^12.12.1",
     "inngest": "^3.49.1",
     "jspdf": "^3.0.0",

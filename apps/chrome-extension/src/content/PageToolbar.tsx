@@ -60,7 +60,10 @@ function getPageUrl(): string {
 }
 
 function sendPins(
-  type: "TOOLBAR_ADD_QUICK_TASKS" | "TOOLBAR_ADD_TO_PROJECT",
+  type:
+    | "TOOLBAR_ADD_QUICK_TASKS"
+    | "TOOLBAR_ADD_TO_PROJECT"
+    | "RUN_ALL_ANNOTATIONS",
   pins: Record<string, StoredPin>,
 ) {
   _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };
@@ -74,7 +77,7 @@ function sendPins(
 function dividerStyle(dark: boolean): React.CSSProperties {
   return {
     width: 1,
-    height: 20,
+    height: 24,
     background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)",
   };
 }
@@ -165,8 +168,8 @@ export function PageToolbar() {
     zIndex: 2147483645,
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    padding: "6px 12px",
+    gap: 10,
+    padding: "8px 16px",
     borderRadius: 9999,
     background: dark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)",
     backdropFilter: "blur(12px)",
@@ -176,7 +179,7 @@ export function PageToolbar() {
     border: dark
       ? "1px solid rgba(255,255,255,0.1)"
       : "1px solid rgba(0,0,0,0.08)",
-    fontSize: 13,
+    fontSize: 14,
     color: dark ? "#e4e4e7" : "#27272a",
     whiteSpace: "nowrap",
     cursor: dragging.current ? "grabbing" : "grab",
@@ -195,23 +198,23 @@ export function PageToolbar() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <span style={{ fontWeight: 600, color: "#109182", fontSize: 13 }}>
+      <span style={{ fontWeight: 600, color: "#109182", fontSize: 14 }}>
         Eva
       </span>
       <div style={dividerStyle(dark)} />
-      <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 12 }}>
+      <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 13 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
       </span>
       <Button
         variant="ghost"
         size="icon"
-        className={`w-7 h-7 ${ext.pinsHidden ? "text-neutral-400" : "text-[#109182]"}`}
+        className={`w-8 h-8 ${ext.pinsHidden ? "text-neutral-400" : "text-[#109182]"}`}
         style={{ borderRadius: 9999 }}
         title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => togglePinsHidden()}
       >
-        {ext.pinsHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+        {ext.pinsHidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
       </Button>
       <div style={dividerStyle(dark)} />
       {toolbar.feedback ? (
@@ -222,18 +225,18 @@ export function PageToolbar() {
         <>
           <Button
             size="sm"
-            className="bg-[#109182] hover:bg-[#2db8a4] text-white text-xs"
+            className="bg-[#109182] hover:bg-[#2db8a4] text-white text-sm"
             style={{ borderRadius: 9999 }}
             disabled={disabled}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => hasPins && sendPins("TOOLBAR_ADD_QUICK_TASKS", pins)}
+            onClick={() => hasPins && sendPins("RUN_ALL_ANNOTATIONS", pins)}
           >
-            Add all to Quick Tasks
+            Run All
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-xs"
+            className="text-sm"
             style={{ borderRadius: 9999 }}
             disabled={disabled}
             onPointerDown={(e) => e.stopPropagation()}

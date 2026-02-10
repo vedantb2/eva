@@ -3,6 +3,7 @@ import { IconMapPin } from "@tabler/icons-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
 
@@ -26,6 +27,7 @@ export function AnnotationTool({
   onActiveChange,
 }: AnnotationToolProps) {
   const [tabUrl, setTabUrl] = useState<string | null>(null);
+  const [trackedTaskIds, setTrackedTaskIds] = useState<Id<"agentTasks">[]>([]);
   const lastPushedRef = useRef<string | null>(null);
   const prevActiveRef = useRef(isActive);
 
@@ -39,6 +41,38 @@ export function AnnotationTool({
   );
   const saveAnnotations = useMutation(api.annotations.save);
   const removeAnnotations = useMutation(api.annotations.remove);
+
+  const taskStatuses = useQuery(
+    api.agentTasks.getStatusesByIds,
+    trackedTaskIds.length > 0 ? { ids: trackedTaskIds } : "skip",
+  );
+
+  useEffect(() => {
+    if (!taskStatuses || taskStatuses.length === 0) return;
+    const updates: Record<string, { status: string }> = {};
+    for (const { id, status } of taskStatuses) {
+      updates[id] = { status };
+    }
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "ANNOTATION_STATUS_SYNC",
+          payload: { updates },
+        });
+      }
+    });
+  }, [taskStatuses]);
+
+  useEffect(() => {
+    if (savedPins === undefined) return;
+    const pins: Record<string, StoredPin> = savedPins
+      ? JSON.parse(savedPins)
+      : {};
+    const ids = Object.values(pins)
+      .filter((p) => p.taskId)
+      .map((p) => p.taskId as Id<"agentTasks">);
+    setTrackedTaskIds(ids);
+  }, [savedPins]);
 
   useEffect(() => {
     const update = () => {

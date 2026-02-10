@@ -109,7 +109,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "TOOLBAR_RESULT") {
+  if (message.type === "TOOLBAR_RESULT" || message.type === "RUN_ALL_RESULT") {
     setToolbarFeedback(
       message.payload.message,
       message.payload.success ? "success" : "error",

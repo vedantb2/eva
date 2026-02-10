@@ -330,10 +330,18 @@ Please review all components and files used on this page before implementing the
           }
         }
 
-        await createQuickTask({
+        const taskId = await createQuickTask({
           repoId: selectedRepoId as Id<"githubRepos">,
           title: payload.title.slice(0, 100),
           description,
+        });
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) {
+            chrome.tabs.sendMessage(tab.id, {
+              type: "ANNOTATION_TASK_CREATED",
+              payload: { pinId: payload.pinId, taskId: taskId as string },
+            });
+          }
         });
       } catch (error) {
         console.error("Failed to create annotation task:", error);

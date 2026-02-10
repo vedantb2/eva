@@ -1,5 +1,19 @@
 # Changelog
 
+## Chrome Extension UI Improvements — Annotation pins, toolbar, and status sync - 2026-02-10
+
+- Changed annotation cursor from purple to teal theme color (`#109182`)
+- Scaled annotation pins 1.25x (24px → 30px) with proportional font/offset/shadow adjustments
+- Added status-colored pins: grey (todo), yellow (in_progress), orange (business_review), purple (code_review), grey at 40% opacity (done)
+- Pins now persist after "Create Task" instead of being deleted — marked as `todo` with grey color
+- Added `taskId` and `status` fields to `StoredPin` for tracking linked tasks
+- Added `getStatusesByIds` Convex query for batch task status lookups
+- Added real-time status sync: `AnnotationTool` subscribes to task statuses via Convex and pushes updates to content script pins
+- Done pins fade to 40% opacity then auto-hide after 5 seconds (remain in storage)
+- Replaced "Add all to Quick Tasks" toolbar button with "Run All" — creates tasks AND triggers execution via Inngest
+- Increased toolbar size (padding, gaps, fonts, dividers, eye button) for Vercel-inspired look
+- Added 5 new message types: `ANNOTATION_TASK_CREATED`, `ANNOTATION_STATUS_SYNC`, `RUN_ALL_ANNOTATIONS`, `RUN_ALL_RESULT`, `TaskStatus` type
+
 ## Fix session editor tab + audit cleanup - 2026-02-10
 
 **Problem:** The editor tab in sessions showed nothing — code-server was being downloaded fresh (~100MB+) via `npx -y code-server@latest` every sandbox start, which exceeded the 30s exec timeout and silently failed as a backgrounded process.

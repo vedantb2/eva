@@ -20,7 +20,7 @@ import {
   detectReactVersion,
 } from "./react-extractor";
 import type { ExtractedContext } from "@/shared/types";
-import type { StoredPin } from "@/shared/messaging";
+import type { StoredPin, TaskStatus } from "@/shared/messaging";
 import { subscribeDark, getDark } from "./theme";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
@@ -155,9 +155,28 @@ function captureContext(element: HTMLElement): ExtractedContext {
   };
 }
 
+function pinStatusColor(status: TaskStatus | undefined): {
+  bg: string;
+  opacity: number;
+} {
+  switch (status) {
+    case "in_progress":
+      return { bg: "#facc15", opacity: 1 };
+    case "business_review":
+      return { bg: "#fb923c", opacity: 1 };
+    case "code_review":
+      return { bg: "#c084fc", opacity: 1 };
+    case "done":
+      return { bg: "#a1a1aa", opacity: 0.4 };
+    default:
+      return { bg: "#a1a1aa", opacity: 1 };
+  }
+}
+
 interface PinComponentProps {
   id: string;
   data: PinData;
+  status?: TaskStatus;
   onDragEnd: (id: string, x: number, y: number) => void;
   onClick: (id: string) => void;
   onHover: (id: string) => void;
@@ -167,6 +186,7 @@ interface PinComponentProps {
 function PinComponent({
   id,
   data,
+  status,
   onDragEnd,
   onClick,
   onHover,
@@ -209,8 +229,8 @@ function PinComponent({
         }
         if (d.dragging) {
           setDragPos({
-            x: ev.pageX - d.offsetX + 12,
-            y: ev.pageY - d.offsetY + 12,
+            x: ev.pageX - d.offsetX + 15,
+            y: ev.pageY - d.offsetY + 15,
           });
         }
       };
@@ -222,7 +242,7 @@ function PinComponent({
         dragRef.current = null;
         setDragPos(null);
         if (d?.dragging) {
-          onDragEnd(id, ev.pageX - d.offsetX + 12, ev.pageY - d.offsetY + 12);
+          onDragEnd(id, ev.pageX - d.offsetX + 15, ev.pageY - d.offsetY + 15);
         } else if (data.saved) {
           onClick(id);
         }
@@ -234,19 +254,26 @@ function PinComponent({
     [id, data.saved, onDragEnd, onClick],
   );
 
+  const { bg, opacity: statusOpacity } = data.saved
+    ? pinStatusColor(status)
+    : { bg: "#109182", opacity: 1 };
+
   return (
     <div
-      className="absolute flex items-center justify-center rounded-full bg-[#109182] text-white font-semibold border-2 border-white cursor-pointer select-none"
+      className="absolute flex items-center justify-center rounded-full text-white font-semibold border-2 border-white cursor-pointer select-none"
       style={{
-        left: x - 12,
-        top: y - 12,
-        width: 24,
-        height: 24,
-        fontSize: 11,
+        left: x - 15,
+        top: y - 15,
+        width: 30,
+        height: 30,
+        fontSize: 14,
         zIndex: 2147483645,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-        transition: dragPos ? "none" : "transform 0.15s, box-shadow 0.15s",
-        opacity: dragPos ? 0.8 : 1,
+        background: bg,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+        transition: dragPos
+          ? "none"
+          : "transform 0.15s, box-shadow 0.15s, opacity 0.3s",
+        opacity: dragPos ? 0.8 : statusOpacity,
         pointerEvents: "auto",
       }}
       onMouseDown={handleMouseDown}
@@ -312,8 +339,8 @@ function InputCard({
     <div
       className={`absolute rounded-xl border ${dark ? "bg-white border-neutral-200" : "bg-neutral-800 border-neutral-700"}`}
       style={{
-        left: position.x - 12,
-        top: position.y + 18,
+        left: position.x - 15,
+        top: position.y + 22,
         width: 340,
         zIndex: 2147483645,
         boxShadow: dark
@@ -567,12 +594,18 @@ export function AnnotationOverlay() {
   } | null>(null);
   const [textHighlightRects, setTextHighlightRects] = useState<DOMRect[]>([]);
 
+  const [pinStatuses, setPinStatuses] = useState<
+    Record<string, TaskStatus | undefined>
+  >({});
+  const [hiddenDonePins, setHiddenDonePins] = useState<Set<string>>(new Set());
+
   const hoveredRef = useRef<HTMLElement | null>(null);
   const pinCounterRef = useRef(0);
   const pinContextsRef = useRef(new Map<string, ExtractedContext>());
   const pinElementsRef = useRef(new Map<string, HTMLElement>());
   const pinSelectorsRef = useRef(new Map<string, string>());
   const pinTextRef = useRef(new Map<string, string>());
+  const pinTaskIdsRef = useRef(new Map<string, string>());
   const pinsRef = useRef(pins);
   const activeInputIdRef = useRef(activeInputId);
 
@@ -591,6 +624,8 @@ export function AnnotationOverlay() {
     pinElementsRef.current.clear();
     pinSelectorsRef.current.clear();
     pinTextRef.current.clear();
+    pinTaskIdsRef.current.clear();
+    const restoredStatuses: Record<string, TaskStatus | undefined> = {};
     let maxNum = 0;
     for (const [id, data] of Object.entries(ext.remotePins)) {
       newPins.set(id, {
@@ -603,6 +638,10 @@ export function AnnotationOverlay() {
         selectedText: data.selectedText,
       });
       if (data.number > maxNum) maxNum = data.number;
+      if (data.taskId) {
+        pinTaskIdsRef.current.set(id, data.taskId);
+        restoredStatuses[id] = data.status;
+      }
       if (data.selectedText) {
         pinTextRef.current.set(id, data.selectedText);
       }
@@ -621,6 +660,8 @@ export function AnnotationOverlay() {
     }
     pinCounterRef.current = maxNum;
     setPins(newPins);
+    setPinStatuses(restoredStatuses);
+    setHiddenDonePins(new Set());
     setActiveInputId(null);
     setTooltipId(null);
     setHighlight(null);
@@ -643,6 +684,8 @@ export function AnnotationOverlay() {
             pin.type === "text" ? pinTextRef.current.get(id) : undefined,
           ancestorSelector:
             pin.type === "text" ? pinSelectorsRef.current.get(id) : undefined,
+          taskId: pinTaskIdsRef.current.get(id),
+          status: _ext.currentPins[id]?.status,
         };
       }
       updateCurrentPins(stored);
@@ -763,14 +806,17 @@ export function AnnotationOverlay() {
       });
       setPins((prev) => {
         const next = new Map(prev);
-        next.delete(pinId);
+        const pin = next.get(pinId);
+        if (!pin) return prev;
+        const updated = { ...pin, text, saved: true };
+        if (!pin.saved) {
+          pinCounterRef.current++;
+          updated.number = pinCounterRef.current;
+        }
+        next.set(pinId, updated);
         persistAnnotations(next);
         return next;
       });
-      pinContextsRef.current.delete(pinId);
-      pinElementsRef.current.delete(pinId);
-      pinSelectorsRef.current.delete(pinId);
-      pinTextRef.current.delete(pinId);
       setActiveInputId(null);
       setHighlight(null);
       setTextHighlightRects([]);
@@ -835,7 +881,7 @@ export function AnnotationOverlay() {
       return;
     }
 
-    document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z' fill='%23975799' stroke='white' stroke-width='1.5'/><path d='M16 10v8M12 14h8' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>") 16 16, crosshair`;
+    document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z' fill='%23109182' stroke='white' stroke-width='1.5'/><path d='M16 10v8M12 14h8' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>") 16 16, crosshair`;
     let mouseDownPos: { x: number; y: number } | null = null;
 
     function handleMouseDown(e: MouseEvent) {
@@ -1023,6 +1069,58 @@ export function AnnotationOverlay() {
     };
   }, [pins.size > 0 || ext.active]);
 
+  useEffect(() => {
+    const handler = (message: {
+      type: string;
+      payload?: Record<string, unknown>;
+    }) => {
+      if (message.type === "ANNOTATION_TASK_CREATED" && message.payload) {
+        const { pinId, taskId } = message.payload as {
+          pinId: string;
+          taskId: string;
+        };
+        pinTaskIdsRef.current.set(pinId, taskId);
+        setPinStatuses((prev) => ({ ...prev, [pinId]: "todo" as const }));
+      }
+      if (message.type === "ANNOTATION_STATUS_SYNC" && message.payload) {
+        const { updates } = message.payload as {
+          updates: Record<string, { status: TaskStatus }>;
+        };
+        const taskIdToPinId = new Map<string, string>();
+        for (const [pinId, taskId] of pinTaskIdsRef.current) {
+          taskIdToPinId.set(taskId, pinId);
+        }
+        setPinStatuses((prev) => {
+          const next = { ...prev };
+          for (const [taskId, { status }] of Object.entries(updates)) {
+            const pinId = taskIdToPinId.get(taskId);
+            if (pinId) next[pinId] = status;
+          }
+          return next;
+        });
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
+  }, []);
+
+  useEffect(() => {
+    const donePins = Object.entries(pinStatuses)
+      .filter(([, s]) => s === "done")
+      .map(([id]) => id);
+    if (donePins.length === 0) return;
+    const newToHide = donePins.filter((id) => !hiddenDonePins.has(id));
+    if (newToHide.length === 0) return;
+    const timer = setTimeout(() => {
+      setHiddenDonePins((prev) => {
+        const next = new Set(prev);
+        for (const id of newToHide) next.add(id);
+        return next;
+      });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [pinStatuses, hiddenDonePins]);
+
   const tooltipPin = tooltipId ? pins.get(tooltipId) : undefined;
   const activePin = activeInputId ? pins.get(activeInputId) : undefined;
   const dark = useSyncExternalStore(subscribeDark, getDark);
@@ -1060,24 +1158,27 @@ export function AnnotationOverlay() {
             <TextHighlightOverlay rects={textHighlightRects} />
           )}
 
-          {Array.from(pins.entries()).map(([id, pin]) => (
-            <PinComponent
-              key={id}
-              id={id}
-              data={pin}
-              onDragEnd={handlePinDragEnd}
-              onClick={handlePinClick}
-              onHover={handlePinHover}
-              onLeave={handlePinLeave}
-            />
-          ))}
+          {Array.from(pins.entries())
+            .filter(([id]) => !hiddenDonePins.has(id))
+            .map(([id, pin]) => (
+              <PinComponent
+                key={id}
+                id={id}
+                data={pin}
+                status={pinStatuses[id]}
+                onDragEnd={handlePinDragEnd}
+                onClick={handlePinClick}
+                onHover={handlePinHover}
+                onLeave={handlePinLeave}
+              />
+            ))}
 
           {tooltipPin && tooltipId && !activeInputId && (
             <div
               className={`absolute pointer-events-none rounded-md border ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
               style={{
-                left: tooltipPin.x - 12,
-                top: tooltipPin.y + 18,
+                left: tooltipPin.x - 15,
+                top: tooltipPin.y + 22,
                 zIndex: 2147483645,
                 maxWidth: 240,
                 padding: "6px 8px",

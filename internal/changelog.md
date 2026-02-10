@@ -2,10 +2,31 @@
 
 ## Fix session editor tab + audit cleanup - 2026-02-10
 
-- Pre-installed code-server in the Dockerfile so it's baked into the snapshot instead of downloading ~100MB+ via npx at runtime (which silently failed due to timeout)
-- Updated sandbox startup command to use the pre-installed `code-server` binary directly
-- Fixed broken JSX in EditorPanel where "Starting editor..." text and "Retry" button rendered unconditionally instead of inside their loading/error conditional blocks
-- Fixed sandbox reconnect path to restart code-server and dev server (previously only checked liveness without restarting services killed by auto-stop)
+**Problem:** The editor tab in sessions showed nothing — code-server was being downloaded fresh (~100MB+) via `npx -y code-server@latest` every sandbox start, which exceeded the 30s exec timeout and silently failed as a backgrounded process.
+
+**Solution — pre-install code-server in the snapshot image:**
+
+- Added `curl -fsSL https://code-server.dev/install.sh | sh` to the Dockerfile (as root, before `USER eva`) to bake code-server into the `eva-snapshot`
+- Used the official install script instead of `npm install -g` because code-server has native deps that need build tools not in the base image — the script downloads pre-built binaries
+- Updated `session-sandbox.ts` startup command from `npx -y code-server@latest` to just `code-server` (pre-installed binary), reduced timeout from 30s to 10s
+
+**Architecture decision — why code-server:**
+
+- VS Code is a desktop Electron app, can't run in a browser directly — all browser solutions are HTTP servers serving the VS Code web UI in an iframe
+- Evaluated code-server (Coder), OpenVSCode Server (Gitpod), and `code serve-web` (official Microsoft) — all work identically (HTTP server on a port → iframe)
+- Chose code-server: most popular, well-documented, no commercial license restrictions
+
+**How the editor tab works end-to-end:**
+
+- Sandbox starts → `code-server --port 8080 --auth none --bind-addr 0.0.0.0 /workspace/repo` runs in background
+- `EditorPanel.tsx` polls `GET /api/sessions/preview?port=8080&check=1` every 3s (up to 20 attempts)
+- Preview route gets a signed Daytona proxy URL (`sandbox.getSignedPreviewUrl(8080, 3600)`) and runs `curl localhost:8080` inside the sandbox to verify readiness
+- Once ready, the signed URL loads in a full-screen iframe with clipboard permissions
+
+**Audit fixes:**
+
+- Fixed broken JSX in EditorPanel where "Starting editor..." text and "Retry" button rendered unconditionally (were outside their `{isLoading && ...}` and `{error && ...}` blocks)
+- Fixed sandbox reconnect path to restart both code-server and dev server (previously only checked sandbox liveness without restarting services killed by Daytona auto-stop)
 - Fixed stale iframe URL not being cleared when editor re-polls after retry or sandbox reconnect
 
 ## Add Editor tab (code-server) to session sandbox panel - 2026-02-10

@@ -1,5 +1,13 @@
 # Changelog
 
+## Fix session editor tab + audit cleanup - 2026-02-10
+
+- Pre-installed code-server in the Dockerfile so it's baked into the snapshot instead of downloading ~100MB+ via npx at runtime (which silently failed due to timeout)
+- Updated sandbox startup command to use the pre-installed `code-server` binary directly
+- Fixed broken JSX in EditorPanel where "Starting editor..." text and "Retry" button rendered unconditionally instead of inside their loading/error conditional blocks
+- Fixed sandbox reconnect path to restart code-server and dev server (previously only checked liveness without restarting services killed by auto-stop)
+- Fixed stale iframe URL not being cleared when editor re-polls after retry or sandbox reconnect
+
 ## Add Editor tab (code-server) to session sandbox panel - 2026-02-10
 
 - Added "editor" tab to the SandboxPanel alongside existing Preview and Diffs tabs

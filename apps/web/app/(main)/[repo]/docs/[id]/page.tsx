@@ -17,7 +17,7 @@ export default function DocPage({
 
   if (doc === undefined) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
+      <div className="h-full flex items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
@@ -25,7 +25,7 @@ export default function DocPage({
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
         <p>Document not found</p>
       </div>
     );

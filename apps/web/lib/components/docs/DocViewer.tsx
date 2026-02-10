@@ -10,6 +10,10 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@conductor/ui";
 import {
   IconPlus,
@@ -105,12 +109,12 @@ function DocEditor({ doc }: { doc: Doc }) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
         <Input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-          className="max-w-xs h-8 text-sm"
+          className="max-w-md h-10 text-lg font-semibold"
           placeholder="Document title"
         />
         <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -118,159 +122,187 @@ function DocEditor({ doc }: { doc: Doc }) {
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
-        <section>
-          <label className="text-sm font-medium text-muted-foreground mb-2 block">
-            Description
-          </label>
-          <Textarea
-            value={doc.description ?? ""}
-            onChange={(e) =>
-              updateDoc({ id: doc._id, description: e.target.value })
-            }
-            placeholder="What does this page or feature do?"
-            rows={2}
-            className="bg-card"
-          />
-        </section>
+      <Tabs
+        defaultValue="requirements"
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        <div className="px-4">
+          <TabsList>
+            <TabsTrigger value="requirements">Requirements</TabsTrigger>
+            <TabsTrigger value="user-flows">User Flows</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-              Requirements
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <IconInfoCircle size={14} className="text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Used for code-level testing and evaluation
-                </TooltipContent>
-              </Tooltip>
+        <TabsContent
+          value="requirements"
+          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+        >
+          <section>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Description
             </label>
-            <Button size="sm" variant="secondary" onClick={addRequirement}>
-              <IconPlus size={14} />
-              Add
-            </Button>
-          </div>
-          {(doc.requirements ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No requirements yet. Add items that should be verified during
-              testing.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {(doc.requirements ?? []).map((req, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <IconGripVertical
-                    size={14}
-                    className="text-muted-foreground flex-shrink-0"
-                  />
-                  <Input
-                    value={req}
-                    onChange={(e) => updateRequirement(idx, e.target.value)}
-                    placeholder="e.g. Users can log in with email"
-                    className="h-8 text-sm bg-card"
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeRequirement(idx)}
-                    className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
-                  >
-                    <IconX size={14} />
-                  </Button>
-                </div>
-              ))}
+            <Textarea
+              value={doc.description ?? ""}
+              onChange={(e) =>
+                updateDoc({ id: doc._id, description: e.target.value })
+              }
+              placeholder="What does this page or feature do?"
+              rows={2}
+              className="bg-card"
+            />
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                Requirements
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <IconInfoCircle
+                      size={14}
+                      className="text-muted-foreground"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Used for code-level testing and evaluation
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <Button size="sm" variant="secondary" onClick={addRequirement}>
+                <IconPlus size={14} />
+                Add
+              </Button>
             </div>
-          )}
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-              User Flows
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <IconInfoCircle size={14} className="text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Used for UI testing in the testing arena
-                </TooltipContent>
-              </Tooltip>
-            </label>
-            <Button size="sm" variant="secondary" onClick={addFlow}>
-              <IconPlus size={14} />
-              Add Flow
-            </Button>
-          </div>
-          {(doc.userFlows ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No user flows yet. Add step-by-step flows to test in the UI
-              testing tab.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {(doc.userFlows ?? []).map((flow, flowIdx) => (
-                <div
-                  key={flowIdx}
-                  className="border border-border rounded-lg p-4 bg-card"
-                >
-                  <div className="flex items-center gap-2 mb-3">
+            {(doc.requirements ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No requirements yet. Add items that should be verified during
+                testing.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(doc.requirements ?? []).map((req, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <IconGripVertical
+                      size={14}
+                      className="text-muted-foreground flex-shrink-0"
+                    />
                     <Input
-                      value={flow.name}
-                      onChange={(e) => updateFlowName(flowIdx, e.target.value)}
-                      placeholder={`Flow ${flowIdx + 1}`}
-                      className="h-8 text-sm bg-background"
+                      value={req}
+                      onChange={(e) => updateRequirement(idx, e.target.value)}
+                      placeholder="e.g. Users can log in with email"
+                      className="h-8 text-sm bg-card"
                     />
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => removeFlow(flowIdx)}
+                      onClick={() => removeRequirement(idx)}
                       className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
                     >
                       <IconX size={14} />
                     </Button>
                   </div>
-                  <div className="space-y-2">
-                    {flow.steps.map((step, stepIdx) => (
-                      <div key={stepIdx} className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0 tabular-nums">
-                          {stepIdx + 1}.
-                        </span>
-                        <Input
-                          value={step}
-                          onChange={(e) =>
-                            updateStep(flowIdx, stepIdx, e.target.value)
-                          }
-                          placeholder="Describe this step"
-                          className="h-8 text-sm bg-background"
-                        />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeStep(flowIdx, stepIdx)}
-                          className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
-                        >
-                          <IconX size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => addStep(flowIdx)}
-                    className="mt-2 text-muted-foreground"
-                  >
-                    <IconPlus size={14} />
-                    Add Step
-                  </Button>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent
+          value="user-flows"
+          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+        >
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                User Flows
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <IconInfoCircle
+                      size={14}
+                      className="text-muted-foreground"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Used for UI testing in the testing arena
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <Button size="sm" variant="secondary" onClick={addFlow}>
+                <IconPlus size={14} />
+                Add Flow
+              </Button>
             </div>
-          )}
-        </section>
-      </div>
+            {(doc.userFlows ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No user flows yet. Add step-by-step flows to test in the UI
+                testing tab.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {(doc.userFlows ?? []).map((flow, flowIdx) => (
+                  <div
+                    key={flowIdx}
+                    className="border border-border rounded-lg p-4 bg-card"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Input
+                        value={flow.name}
+                        onChange={(e) =>
+                          updateFlowName(flowIdx, e.target.value)
+                        }
+                        placeholder={`Flow ${flowIdx + 1}`}
+                        className="h-8 text-sm bg-background"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeFlow(flowIdx)}
+                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                      >
+                        <IconX size={14} />
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {flow.steps.map((step, stepIdx) => (
+                        <div key={stepIdx} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0 tabular-nums">
+                            {stepIdx + 1}.
+                          </span>
+                          <Input
+                            value={step}
+                            onChange={(e) =>
+                              updateStep(flowIdx, stepIdx, e.target.value)
+                            }
+                            placeholder="Describe this step"
+                            className="h-8 text-sm bg-background"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeStep(flowIdx, stepIdx)}
+                            className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                          >
+                            <IconX size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => addStep(flowIdx)}
+                      className="mt-2 text-muted-foreground"
+                    >
+                      <IconPlus size={14} />
+                      Add Step
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

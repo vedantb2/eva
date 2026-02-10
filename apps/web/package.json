@@ -17,6 +17,7 @@
     "@clerk/nextjs": "^6.24.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@conductor/backend": "workspace:*",
+    "@conductor/shared": "workspace:*",
     "@conductor/ui": "workspace:*",
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",

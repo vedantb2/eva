@@ -14,7 +14,7 @@ export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   activityLog?: string;
-  userId?: string;
+  userId?: Id<"users">;
 }
 
 interface ProjectChatTabProps {

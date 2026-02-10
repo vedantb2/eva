@@ -30,7 +30,7 @@ import {
   IconPlayerPlay,
   IconBellOff,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { BadgeProps } from "@conductor/ui";

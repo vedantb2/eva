@@ -11,6 +11,7 @@
   "dependencies": {
     "@conductor/ui": "workspace:*",
     "@conductor/backend": "workspace:*",
+    "@conductor/shared": "workspace:*",
     "@clerk/chrome-extension": "^2.8.20",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",

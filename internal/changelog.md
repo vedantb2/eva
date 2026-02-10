@@ -1,5 +1,37 @@
 # Changelog
 
+## Create `@conductor/shared` Package — 2026-02-10
+
+- Created `packages/shared/` workspace package (`@conductor/shared`) for smart components and utilities shared between web and chrome-extension
+- Moved `UserInitials` component from `apps/web/lib/components/ui/` to `packages/shared/src/components/`
+- Moved `dates.ts` (dayjs with relativeTime) from `apps/web/lib/` to `packages/shared/src/utils/`
+- Changed `UserInitials` `userId` prop from `string` to `Id<"users">` (removed internal `as` cast)
+- Removed dead `avatar` variable and commented-out block from `UserInitials`
+- Updated 22 import statements across `apps/web` to use `@conductor/shared` and `@conductor/shared/dates`
+- Added `@conductor/shared` dependency to both `apps/web` and `apps/chrome-extension`
+
+## Design Page Improvements — Prompt quality, iteration flow, UX - 2026-02-10
+
+- Rewrote design prompt with explicit variation strategies (clean/conventional, creative/bold, compact/efficient) and design quality guidelines (realistic content, consistent spacing, visual hierarchy)
+- Fixed codebase-reading instruction to clarify output runs in isolation — recreate style patterns, no project imports
+- Stronger iteration prompt: preserves core layout/colors from selected base, only changes what user requests
+- Added `selectedCode` and `selectedLabel` fields to `designSessions` schema — stores selected variation directly instead of fragile reverse-search through message history
+- Reset `selectedVariationIndex`/`selectedCode`/`selectedLabel` when new variations arrive (fixes stale selection across batches)
+- Auto-select current tab when user sends follow-up without clicking "Use this design"
+- Added "Using as base" indicator below chat when a variation is selected
+- Added hint text when variations exist but none selected
+- Added check icon on selected variation tab
+- Better loading state in preview panel: Spinner + streaming activity text instead of plain "Generating designs..."
+- Added suggestion chips after first generation ("Make it more minimal", "Add more whitespace", "Make the colors bolder")
+- Simplified Inngest `design-execute.ts` selectedBase lookup to use stored `selectedCode`/`selectedLabel`
+
+## Annotation UX Flow Refinements - 2026-02-10
+
+- Simplified InputCard to single primary action: "Create Task" (new) or "Edit Task" (existing) — removed standalone "Save" button
+- Locked editing for in-progress/business_review/code_review pins: textarea becomes read-only, footer hidden, delete hidden
+- Annotations now immediately delete when task status becomes "done" (task record persists in web app)
+- Removed `handleInputSave`, `hiddenDonePins` state, and 5-second auto-hide logic
+
 ## Chrome Extension UI Improvements — Annotation pins, toolbar, and status sync - 2026-02-10
 
 - Changed annotation cursor from purple to teal theme color (`#109182`)

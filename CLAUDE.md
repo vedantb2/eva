@@ -38,13 +38,14 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo (pnpm workspaces) with four apps and two shared packages:
+This is a monorepo (pnpm workspaces) with four apps and three shared packages:
 
 - **apps/web/** - Next.js 15 frontend (App Router, Turbopack)
 - **apps/chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
 - **apps/mobile/** - Expo/React Native app (NativeWind for styling)
 - **apps/teams-bot/** - Microsoft Teams bot
 - **packages/backend/** - Convex serverless backend + shared package (`@conductor/backend`) exporting types (`Id`, `Doc`, `api`, `internal`)
+- **packages/shared/** - Smart shared components and utilities (`@conductor/shared`) that depend on Convex/backend — used by web and chrome-extension
 - **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
 
 ### Tech Stack

@@ -17,11 +17,11 @@ import {
   IconGitPullRequest,
   IconDotsVertical,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
 import {
   statusConfig,
   type TaskStatus,

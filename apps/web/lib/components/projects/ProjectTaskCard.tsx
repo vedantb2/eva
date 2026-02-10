@@ -12,7 +12,7 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
 
 interface ProjectTaskCardProps {
   id: Id<"agentTasks">;

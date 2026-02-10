@@ -34,7 +34,7 @@ import {
   IconX,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "../UITestingPanel";
 
 interface EvalResult {

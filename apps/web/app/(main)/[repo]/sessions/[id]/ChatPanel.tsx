@@ -64,7 +64,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;

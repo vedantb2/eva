@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 type TimeRange = "7d" | "30d" | "90d" | "all";
 

@@ -10,6 +10,7 @@ import {
 } from "chart.js";
 import { Card, CardContent } from "@conductor/ui";
 import dayjs from "@/lib/dates";
+import { cssColor } from "@/lib/utils/cssColor";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -25,8 +26,8 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
       {
         label: "PRs Shipped",
         data: timeline.map((e) => e.prsShipped),
-        backgroundColor: "rgba(20, 184, 166, 0.8)",
-        borderColor: "rgb(20, 184, 166)",
+        backgroundColor: cssColor("chart-1", 0.8),
+        borderColor: cssColor("chart-1"),
         borderWidth: 1,
         borderRadius: 4,
       },

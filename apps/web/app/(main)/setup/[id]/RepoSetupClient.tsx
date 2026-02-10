@@ -97,7 +97,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
     return (
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-destructive mb-4">{error}</p>
           <Button variant="secondary" onClick={() => router.push("/")}>
             Back to Repositories
           </Button>

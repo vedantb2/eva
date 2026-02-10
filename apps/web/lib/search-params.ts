@@ -38,7 +38,7 @@ export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
 
-const sandboxTabs = ["preview", "diffs"] as const;
+const sandboxTabs = ["preview", "diffs", "editor"] as const;
 export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);

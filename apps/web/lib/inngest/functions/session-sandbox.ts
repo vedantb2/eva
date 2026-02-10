@@ -69,6 +69,13 @@ export const startSandbox = inngest.createFunction(
         10,
       );
 
+      await sandbox.process.executeCommand(
+        `curl -fsSL https://code-server.dev/install.sh | sh && code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /dev/null 2>&1 &`,
+        "/",
+        undefined,
+        120,
+      );
+
       await convex.mutation(api.sessions.updateStatus, {
         id: sessionId as Id<"sessions">,
         status: "active",

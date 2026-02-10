@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
 import {
   IconWorld,
   IconGitBranch,
+  IconCode,
   IconLayoutBottombar,
   IconLayoutBottombarCollapse,
 } from "@tabler/icons-react";
@@ -15,6 +16,7 @@ import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { DiffPanel } from "./DiffPanel";
+import { EditorPanel } from "./EditorPanel";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 
@@ -87,7 +89,7 @@ export function SandboxPanel({
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          setActiveTab(v as "preview" | "diffs");
+          setActiveTab(v as "preview" | "diffs" | "editor");
         }}
       >
         <TabsList className="gap-1">
@@ -96,6 +98,9 @@ export function SandboxPanel({
           </TabsTrigger>
           <TabsTrigger value="diffs">
             <IconGitBranch className="w-4 h-4" />
+          </TabsTrigger>
+          <TabsTrigger value="editor">
+            <IconCode className="w-4 h-4" />
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -133,6 +138,14 @@ export function SandboxPanel({
         </div>
         <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
           <DiffPanel fileDiffs={fileDiffs} tabSwitcher={tabSwitcher} />
+        </div>
+        <div className={activeTab === "editor" ? "h-full" : "hidden"}>
+          <EditorPanel
+            sessionId={sessionId}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            tabSwitcher={tabSwitcher}
+          />
         </div>
       </div>
     </div>

@@ -20,27 +20,26 @@ function buildGeneratePrompt(repoId: string): string {
   const now = new Date();
   return `You are a data analyst. Generate a single Convex database query to answer the user's question. Do NOT execute anything — output ONLY the raw query code with no markdown, no explanation, no backticks.
 
+## Step 1: Read the Schema
+Before generating any query, read the database schema and validators to understand all tables, fields, and indexes:
+- cat packages/backend/convex/schema.ts
+- cat packages/backend/convex/validators.ts
+
+Use ONLY the indexes defined in schema.ts. NEVER invent indexes — they will cause errors. To filter by a field without an index, collect all rows first, then use .filter() in JavaScript.
+
 ## Current Time
 - UTC: ${now.toISOString()}
 - Timestamp (ms): ${now.getTime()}
 - All database timestamps are in milliseconds since epoch (Unix ms). Use Date.now() in queries for current time. For "today", subtract 24*60*60*1000 from Date.now().
 
-## Database Schema
-- agentTasks: _id, boardId, columnId, title, description, repoId, projectId, status (todo/in_progress/code_review/done), createdAt, updatedAt
-- agentRuns: _id, taskId, status (queued/running/success/error), logs[], startedAt, finishedAt, prUrl, error
-- sessions: _id, repoId, userId, title, status (active/closed), messages[], branchName, prUrl
-- projects: _id, repoId, userId, title, description, phase (draft/finalized/active/completed), branchName
-- boards: _id, name, ownerId, repoId, createdAt
-- docs: _id, repoId, title, content, createdAt, updatedAt
-- users: _id, clerkId, email, name, createdAt
-
 ## Current Repository ID
 repoId: "${repoId}"
 
 ## CRITICAL RULES
-- ONLY use indexes listed below. NEVER invent indexes like "by_status" — they do not exist and will cause errors.
-- To filter by a field that has no index, collect all rows first, then use .filter() in JavaScript.
 - Return ONLY the raw query code. No markdown, no explanation, no wrapping in backticks.
+- Filter by repoId where applicable.
+- For agentTasks: query boards by repoId first, then tasks by boardId.
+- For agentRuns: query tasks first, then runs by taskId.
 
 ## Query Format
 Every query MUST use this exact wrapper:
@@ -50,30 +49,10 @@ export default query({ handler: async (ctx) => {
   return result;
 }});
 
-## Available Indexes (ONLY these exist)
-- agentTasks: by_board (boardId), by_project (projectId)
-- agentRuns: by_task (taskId)
-- sessions: by_repo (repoId), by_repo_and_status (repoId, status)
-- projects: by_repo (repoId)
-- boards: by_repo (repoId)
-- docs: by_repo (repoId)
-
 ## Query Examples
-- Filter by status (NO index exists — use JS filter):
-  const boards = await ctx.db.query("boards").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect();
-  const boardIds = boards.map(b => b._id);
-  const allTasks = [];
-  for (const bid of boardIds) { allTasks.push(...await ctx.db.query("agentTasks").withIndex("by_board", q => q.eq("boardId", bid)).collect()); }
-  return allTasks.filter(t => t.status === "todo").length;
-
 - With index: await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()
 - Order desc: await ctx.db.query("agentRuns").order("desc").take(20)
-- Get by ID: await ctx.db.get(someId)
-
-## Tips
-- Filter by repoId where applicable
-- For agentTasks: query boards by repoId first, then tasks by boardId
-- For agentRuns: query tasks first, then runs by taskId`;
+- Get by ID: await ctx.db.get(someId)`;
 }
 
 function buildAnalysePrompt(repoId: string): string {

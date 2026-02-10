@@ -1,3 +1,5 @@
+- add design to ext sidebar to view designs (drag and drop into figma)
+
 Install to the packages/ui
 
 confirmation - analyse

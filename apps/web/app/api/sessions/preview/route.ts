@@ -40,7 +40,23 @@ export async function GET(request: NextRequest) {
     const sandbox = await daytona.get(session.sandboxId);
     const signedPreview = await sandbox.getSignedPreviewUrl(port, 3600);
 
-    return NextResponse.json({ url: signedPreview.url, port });
+    let ready = true;
+    if (searchParams.get("check") === "1") {
+      try {
+        const check = await sandbox.process.executeCommand(
+          `curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}`,
+          "/",
+          undefined,
+          3,
+        );
+        const code = parseInt(check.result?.trim() || "0", 10);
+        ready = code >= 200 && code < 500;
+      } catch {
+        ready = false;
+      }
+    }
+
+    return NextResponse.json({ url: signedPreview.url, port, ready });
   } catch (error) {
     console.error("Failed to get preview link:", error);
     return NextResponse.json(

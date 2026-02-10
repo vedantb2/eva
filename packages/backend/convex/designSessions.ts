@@ -27,6 +27,7 @@ const designSessionValidator = v.object({
   sandboxId: v.optional(v.string()),
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
   messages: v.array(messageValidator),
 });
 
@@ -40,7 +41,12 @@ export const list = query({
       .query("designSessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return sessions.filter((s) => !s.archived);
+    return sessions
+      .filter((s) => !s.archived)
+      .sort(
+        (a, b) =>
+          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+      );
   },
 });
 
@@ -69,6 +75,7 @@ export const create = mutation({
       title: args.title,
       status: "active",
       messages: [],
+      updatedAt: Date.now(),
     });
   },
 });
@@ -99,6 +106,7 @@ export const addMessage = mutation({
           variations: args.variations,
         },
       ],
+      updatedAt: Date.now(),
     });
     return null;
   },
@@ -122,7 +130,7 @@ export const updateLastMessage = mutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     if (args.variations !== undefined) last.variations = args.variations;
-    await ctx.db.patch(args.id, { messages });
+    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
     return null;
   },
 });
@@ -140,6 +148,7 @@ export const selectVariation = mutation({
     if (!session) throw new Error("Design session not found");
     await ctx.db.patch(args.id, {
       selectedVariationIndex: args.variationIndex,
+      updatedAt: Date.now(),
     });
     return null;
   },
@@ -155,7 +164,9 @@ export const updateSandbox = mutation({
     await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    const updates: { sandboxId?: string } = {};
+    const updates: { sandboxId?: string; updatedAt: number } = {
+      updatedAt: Date.now(),
+    };
     if (args.sandboxId !== undefined) updates.sandboxId = args.sandboxId;
     await ctx.db.patch(args.id, updates);
     return null;

@@ -14,9 +14,9 @@ interface LeaderboardProps {
 }
 
 const rankColors = [
-  "text-yellow-500",
+  "text-warning",
   "text-muted-foreground",
-  "text-amber-600",
+  "text-warning/70",
   "text-muted-foreground",
   "text-muted-foreground",
 ];

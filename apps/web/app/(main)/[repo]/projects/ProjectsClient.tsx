@@ -40,6 +40,13 @@ import {
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { useQueryStates } from "nuqs";
+import {
+  searchParser,
+  phasesParser,
+  sortFieldParser,
+  sortDirParser,
+} from "@/lib/search-params";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
 const SORT_FIELDS = [
@@ -54,17 +61,24 @@ export function ProjectsClient() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [visiblePhases, setVisiblePhases] = useState<Set<ProjectPhase>>(
-    new Set(PROJECT_PHASES),
+  const [{ q, phases, sort, dir }, setParams] = useQueryStates({
+    q: searchParser,
+    phases: phasesParser,
+    sort: sortFieldParser,
+    dir: sortDirParser,
+  });
+  const searchQuery = q;
+  const visiblePhases = useMemo(
+    () => new Set(phases as ProjectPhase[]),
+    [phases],
   );
-  const [sortField, setSortField] = useState<SortField>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const sortField = sort;
+  const sortDirection = dir;
   const [projectToDelete, setProjectToDelete] = useState<{
     id: Id<"projects">;
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const projectsByPhase = useMemo(() => {
     if (!projects) return {} as Record<ProjectPhase, typeof projects>;
@@ -112,16 +126,14 @@ export function ProjectsClient() {
   };
 
   const handlePhaseToggle = (phase: ProjectPhase) => {
-    setVisiblePhases((prev) => {
-      const next = new Set(prev);
-      if (next.has(phase)) {
-        if (next.size === 1) return prev;
-        next.delete(phase);
-      } else {
-        next.add(phase);
-      }
-      return next;
-    });
+    const next = new Set(visiblePhases);
+    if (next.has(phase)) {
+      if (next.size === 1) return;
+      next.delete(phase);
+    } else {
+      next.add(phase);
+    }
+    setParams({ phases: [...next] });
   };
 
   return (
@@ -204,7 +216,7 @@ export function ProjectsClient() {
                   <DropdownMenuContent>
                     <DropdownMenuRadioGroup
                       value={sortField}
-                      onValueChange={(v) => setSortField(v as SortField)}
+                      onValueChange={(v) => setParams({ sort: v as SortField })}
                     >
                       {SORT_FIELDS.map((item) => (
                         <DropdownMenuRadioItem key={item.key} value={item.key}>
@@ -219,7 +231,7 @@ export function ProjectsClient() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() =>
-                    setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+                    setParams({ dir: dir === "asc" ? "desc" : "asc" })
                   }
                 >
                   {sortDirection === "asc" ? (
@@ -238,12 +250,12 @@ export function ProjectsClient() {
                   placeholder="Search projects..."
                   className="pl-9 pr-8 h-8 text-sm"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setParams({ q: e.target.value || null })}
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => setParams({ q: null })}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     <IconX size={14} />

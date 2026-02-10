@@ -35,6 +35,8 @@ interface WebPreviewPanelProps {
   iframeKey: number;
   onRefresh: () => void;
   terminal?: ReactNode;
+  tabSwitcher?: ReactNode;
+  showConsole?: boolean;
 }
 
 function NavigationButtons({
@@ -42,16 +44,20 @@ function NavigationButtons({
   isLoading,
   onRefresh,
   containerRef,
+  tabSwitcher,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
   onRefresh: () => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  tabSwitcher?: ReactNode;
 }) {
   const { goBack, goForward, reload } = useWebPreview();
 
   return (
     <WebPreviewNavigation>
+      {tabSwitcher}
+      <div className="ml-auto" />
       <WebPreviewNavigationButton tooltip="Back" onClick={goBack}>
         <IconArrowLeft className="w-3.5 h-3.5" />
       </WebPreviewNavigationButton>
@@ -69,7 +75,7 @@ function NavigationButtons({
           <IconRefresh className="w-3.5 h-3.5" />
         )}
       </WebPreviewNavigationButton>
-      <WebPreviewUrl readOnly className="h-8 text-xs" />
+      <WebPreviewUrl readOnly className="h-8 text-xs max-w-64" />
       {previewInfo && (
         <WebPreviewNavigationButton
           tooltip="Open in new tab"
@@ -103,18 +109,25 @@ export function WebPreviewPanel({
   iframeKey,
   onRefresh,
   terminal,
+  tabSwitcher,
+  showConsole,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-        <IconWorld className="w-12 h-12 opacity-50" />
-        <p className="text-sm">
-          {!isActive
-            ? "Start the sandbox to preview your app"
-            : "Waiting for sandbox..."}
-        </p>
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-1 border-b p-2">
+          {tabSwitcher}
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
+          <IconWorld className="w-12 h-12 opacity-50" />
+          <p className="text-sm">
+            {!isActive
+              ? "Start the sandbox to preview your app"
+              : "Waiting for sandbox..."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -130,6 +143,7 @@ export function WebPreviewPanel({
         isLoading={isLoading}
         onRefresh={onRefresh}
         containerRef={containerRef}
+        tabSwitcher={tabSwitcher}
       />
       <WebPreviewBody
         key={iframeKey}
@@ -150,7 +164,10 @@ export function WebPreviewPanel({
           ) : undefined
         }
       />
-      <WebPreviewConsole terminal={terminal} />
+      <WebPreviewConsole
+        terminal={terminal}
+        className={showConsole ? undefined : "hidden"}
+      />
     </WebPreview>
   );
 }

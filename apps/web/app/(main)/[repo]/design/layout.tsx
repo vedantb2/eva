@@ -188,7 +188,9 @@ export default function DesignLayout({
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {dayjs(session._creationTime).fromNow()}
+                      {dayjs(
+                        session.updatedAt ?? session._creationTime,
+                      ).fromNow()}
                     </span>
                   </Link>
                 </div>

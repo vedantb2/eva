@@ -222,7 +222,7 @@ export default function ResearchLayout({
                               ))}
                             </div>
                             <span className="text-xs text-muted-foreground ml-auto">
-                              {dayjs(query._creationTime).fromNow()}
+                              {dayjs(query.updatedAt).fromNow()}
                             </span>
                           </div>
                         </Link>

@@ -1,6 +1,8 @@
 "use client";
 
 import { use, useState } from "react";
+import { useQueryState } from "nuqs";
+import { testingTabParser } from "@/lib/search-params";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -294,7 +296,7 @@ export default function TestingArenaDocPage({
     runningReport ? { entityId: runningReport._id } : "skip",
   );
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("code");
+  const [activeTab, setActiveTab] = useQueryState("tab", testingTabParser);
 
   const handleRunTest = async () => {
     if (!doc) return;
@@ -315,7 +317,7 @@ export default function TestingArenaDocPage({
 
   if (doc === undefined) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
+      <div className="h-full flex items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
@@ -323,23 +325,28 @@ export default function TestingArenaDocPage({
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
         <p>Document not found</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="px-4 py-2 flex flex-col gap-1">
         <div className="flex items-center justify-between ">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v as "code" | "ui");
+            }}
+          >
             <TabsList className="h-8">
-              <TabsTrigger value="code" className="text-xs">
+              <TabsTrigger value="code" className="text-xs space-x-2">
                 <IconCode size={14} />
                 <span>Code Testing</span>
               </TabsTrigger>
-              <TabsTrigger value="ui" className="text-xs">
+              <TabsTrigger value="ui" className="text-xs space-x-2">
                 <IconWorld size={14} />
                 <span>UI Testing</span>
               </TabsTrigger>

@@ -218,7 +218,9 @@ export default function SessionsLayout({
                         ))}
                       </div>
                       <span className="text-xs text-muted-foreground ml-auto">
-                        {dayjs(session._creationTime).fromNow()}
+                        {dayjs(
+                          session.updatedAt ?? session._creationTime,
+                        ).fromNow()}
                       </span>
                     </div>
                   </Link>

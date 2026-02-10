@@ -1,5 +1,23 @@
 # Changelog
 
+## Add Editor tab (code-server) to session sandbox panel - 2026-02-10
+
+- Added "editor" tab to the SandboxPanel alongside existing Preview and Diffs tabs
+- code-server is installed and started on port 8080 during new sandbox creation (runs alongside `pnpm dev`)
+- Created `EditorPanel.tsx` — fetches signed URL from existing preview API with `port=8080` and renders code-server in an iframe
+- No new API routes needed — reuses existing `/api/sessions/preview` route which already accepts a `port` parameter
+
+## Migrate local state to nuqs URL state management - 2026-02-09
+
+- Installed nuqs and added NuqsAdapter to the client provider tree
+- Created centralized `lib/search-params.ts` with typed parsers for all URL params (search, filters, sort, tabs, modes)
+- Migrated search bars from useState to useQueryState in KanbanBoard, ProjectsClient, DocsList, TestingArenaClient
+- Migrated Set-based column/phase filters from useState to useQueryStates with array parsers in KanbanBoard and ProjectsClient
+- Migrated sort field + direction from useState to useQueryStates in ProjectsClient
+- Migrated time range filter from useState to useQueryState in AnalyticsClient
+- Migrated tab switching from useState to useQueryState in SandboxPanel (preview/diffs), ChatPanel (execute/ask/plan), DesignDetailClient (variation + device), and testing-arena doc page (code/ui)
+- All search/filter state now persists in the URL, enabling shareable links, page refresh persistence, and browser back/forward navigation
+
 ## Replace OpenRouter with Claude Code CLI + Daytona for research queries - 2026-02-09
 
 - Replaced paid OpenRouter GPT-5-nano API calls with Claude Code CLI running inside ephemeral Daytona sandboxes, using the free Claude Max subscription (`CLAUDE_CODE_OAUTH_TOKEN`)

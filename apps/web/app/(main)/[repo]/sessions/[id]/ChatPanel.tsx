@@ -55,6 +55,8 @@ import {
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryState } from "nuqs";
+import { sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
@@ -103,7 +105,7 @@ export function ChatPanel({
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
-  const [mode, setMode] = useState<SessionMode>("execute");
+  const [mode, setMode] = useQueryState("mode", sessionModeParser);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
@@ -519,7 +521,9 @@ export function ChatPanel({
             <PromptInputTools>
               <Tabs
                 value={mode}
-                onValueChange={(v) => setMode(v as SessionMode)}
+                onValueChange={(v) => {
+                  setMode(v as "execute" | "ask" | "plan");
+                }}
               >
                 <TabsList className="h-8">
                   <TabsTrigger

@@ -9,6 +9,7 @@ import {
 } from "@conductor/ui";
 import { useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
+import { Facehash } from "facehash";
 
 export function UserInitials({
   userId,
@@ -33,6 +34,7 @@ export function UserInitials({
       : name;
   const iconSize =
     size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
+  const iconSizePx = size === "md" ? 32 : size === "lg" ? 40 : 20;
 
   const avatar = (
     <Avatar className={iconSize}>
@@ -42,22 +44,11 @@ export function UserInitials({
     </Avatar>
   );
 
-  if (hideLastSeen) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span>{avatar}</span>
-        </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
-      </Tooltip>
-    );
-  }
-
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
+      <TooltipTrigger>
         <div className="relative">
-          {avatar}
+          <Facehash size={iconSizePx} name={initials} enableBlink interactive />
           {!hideLastSeen && user.lastSeenAt && (
             <span
               className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
@@ -70,4 +61,22 @@ export function UserInitials({
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
   );
+
+  // return (
+  //   <Tooltip>
+  //     <TooltipTrigger asChild>
+  //       <div className="relative">
+  //         {avatar}
+  //         {!hideLastSeen && user.lastSeenAt && (
+  //           <span
+  //             className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
+  //               online ? "bg-success" : "bg-warning"
+  //             }`}
+  //           />
+  //         )}
+  //       </div>
+  //     </TooltipTrigger>
+  //     <TooltipContent>{tooltip}</TooltipContent>
+  //   </Tooltip>
+  // );
 }

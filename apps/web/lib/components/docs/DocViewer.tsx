@@ -7,26 +7,20 @@ import {
   Button,
   Input,
   Textarea,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@conductor/ui";
 import {
-  IconTrash,
   IconPlus,
   IconX,
   IconGripVertical,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import dayjs from "@/lib/dates";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
@@ -36,8 +30,6 @@ export function DocViewer({ doc }: { doc: Doc }) {
 }
 
 function DocEditor({ doc }: { doc: Doc }) {
-  const router = useRouter();
-  const { repoSlug } = useRepo();
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -54,9 +46,6 @@ function DocEditor({ doc }: { doc: Doc }) {
       }
     },
   );
-  const removeDoc = useMutation(api.docs.remove);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const addRequirement = () => {
     updateDoc({ id: doc._id, requirements: [...(doc.requirements ?? []), ""] });
@@ -119,45 +108,35 @@ function DocEditor({ doc }: { doc: Doc }) {
     updateDoc({ id: doc._id, userFlows: next });
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await removeDoc({ id: doc._id });
-      setShowDeleteModal(false);
-      router.push(`/${repoSlug}/docs`);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
-    <>
-      <div className="h-full flex flex-col bg-background overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Input
-              value={doc.title}
-              onChange={(e) =>
-                updateDoc({ id: doc._id, title: e.target.value })
-              }
-              className="max-w-xs h-8 text-sm"
-              placeholder="Document title"
-            />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {dayjs(doc.updatedAt).fromNow()}
-            </span>
-          </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            <IconTrash size={16} />
-            Delete
-          </Button>
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Input
+          value={doc.title}
+          onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+          className="max-w-md h-10 text-lg font-semibold"
+          placeholder="Document title"
+        />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {dayjs(doc.updatedAt).fromNow()}
+        </span>
+      </div>
+
+      <Tabs
+        defaultValue="requirements"
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        <div className="px-4">
+          <TabsList>
+            <TabsTrigger value="requirements">Requirements</TabsTrigger>
+            <TabsTrigger value="user-flows">User Flows</TabsTrigger>
+          </TabsList>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
+        <TabsContent
+          value="requirements"
+          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+        >
           <section>
             <label className="text-sm font-medium text-muted-foreground mb-2 block">
               Description
@@ -226,7 +205,12 @@ function DocEditor({ doc }: { doc: Doc }) {
               </div>
             )}
           </section>
+        </TabsContent>
 
+        <TabsContent
+          value="user-flows"
+          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+        >
           <section>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
@@ -317,42 +301,8 @@ function DocEditor({ doc }: { doc: Doc }) {
               </div>
             )}
           </section>
-        </div>
-      </div>
-
-      <Dialog
-        open={showDeleteModal}
-        onOpenChange={(v) => {
-          if (!v) setShowDeleteModal(false);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Document</DialogTitle>
-          </DialogHeader>
-          <div>
-            <p className="text-muted-foreground">
-              Are you sure you want to delete <strong>{doc.title}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting && <Spinner size="sm" />}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

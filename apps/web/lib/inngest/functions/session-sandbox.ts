@@ -36,6 +36,18 @@ export const startSandbox = inngest.createFunction(
         try {
           const existing = await getSandbox(session.sandboxId);
           await existing.process.executeCommand("echo 1", "/", undefined, 5);
+          await existing.process.executeCommand(
+            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+            "/",
+            undefined,
+            10,
+          );
+          await existing.process.executeCommand(
+            `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+            "/",
+            undefined,
+            10,
+          );
           return {
             sandboxId: session.sandboxId,
             branchName: session.branchName || `session/${sessionId}`,
@@ -64,6 +76,13 @@ export const startSandbox = inngest.createFunction(
 
       await sandbox.process.executeCommand(
         `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        "/",
+        undefined,
+        10,
+      );
+
+      await sandbox.process.executeCommand(
+        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
         "/",
         undefined,
         10,

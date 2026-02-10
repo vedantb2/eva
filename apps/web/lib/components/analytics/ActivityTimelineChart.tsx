@@ -13,6 +13,7 @@ import {
 } from "chart.js";
 import { Card, CardContent } from "@conductor/ui";
 import dayjs from "@/lib/dates";
+import { cssColor } from "@/lib/utils/cssColor";
 
 ChartJS.register(
   CategoryScale,
@@ -43,16 +44,16 @@ export function ActivityTimelineChart({
       {
         label: "Sessions",
         data: timeline.map((e) => e.sessions),
-        borderColor: "rgb(59, 130, 246)",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        borderColor: cssColor("chart-2"),
+        backgroundColor: cssColor("chart-2", 0.1),
         fill: true,
         tension: 0.4,
       },
       {
         label: "Runs",
         data: timeline.map((e) => e.runs),
-        borderColor: "rgb(168, 85, 247)",
-        backgroundColor: "rgba(168, 85, 247, 0.1)",
+        borderColor: cssColor("chart-4"),
+        backgroundColor: cssColor("chart-4", 0.1),
         fill: true,
         tension: 0.4,
       },

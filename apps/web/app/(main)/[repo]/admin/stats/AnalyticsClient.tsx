@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useQueryState } from "nuqs";
+import { timeRangeParser } from "@/lib/search-params";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -27,7 +29,7 @@ import dayjs from "@/lib/dates";
 
 export function AnalyticsClient() {
   const { repo } = useRepo();
-  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
   const { startTime, bucketSize, timelineStart } = useMemo(() => {
     const start = getStartTime(timeRange);

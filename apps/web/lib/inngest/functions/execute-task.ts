@@ -148,7 +148,7 @@ ${subtasksList}
 - GITHUB_TOKEN is already set for git push`;
 
       const result = await runClaudeCLIStreaming(sandbox, prompt, {
-        model: "opus",
+        model: "sonnet",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 600,

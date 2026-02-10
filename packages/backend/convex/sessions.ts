@@ -32,7 +32,7 @@ const sessionValidator = v.object({
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
-  lastActivityAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
   status: sessionStatusValidator,
   archived: v.optional(v.boolean()),
   summary: v.optional(v.array(v.string())),
@@ -54,8 +54,12 @@ export const list = query({
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    // Filter out archived sessions
-    return sessions.filter((session) => !session.archived);
+    return sessions
+      .filter((session) => !session.archived)
+      .sort(
+        (a, b) =>
+          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+      );
   },
 });
 
@@ -89,6 +93,7 @@ export const create = mutation({
       status: "active",
       messages: [],
       createdBy: userId,
+      updatedAt: Date.now(),
     });
   },
 });
@@ -123,6 +128,7 @@ export const addMessage = mutation({
           userId,
         },
       ],
+      updatedAt: Date.now(),
     });
     return null;
   },
@@ -225,8 +231,8 @@ export const updateSandbox = mutation({
       sandboxId?: string;
       branchName?: string;
       prUrl?: string;
-      lastActivityAt: number;
-    } = { lastActivityAt: Date.now() };
+      updatedAt: number;
+    } = { updatedAt: Date.now() };
     if (args.sandboxId !== undefined) updates.sandboxId = args.sandboxId;
     if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.prUrl !== undefined) updates.prUrl = args.prUrl;
@@ -263,7 +269,7 @@ export const updatePtySession = mutation({
     }
     await ctx.db.patch(args.id, {
       ptySessionId: args.ptySessionId,
-      lastActivityAt: Date.now(),
+      updatedAt: Date.now(),
     });
     return null;
   },
@@ -340,6 +346,7 @@ export const getOrCreateExtensionSession = mutation({
       title: "Extension Session",
       status: "active",
       messages: [],
+      updatedAt: Date.now(),
     });
 
     return {
@@ -381,7 +388,7 @@ export const updateLastMessage = mutation({
     if (!last) return null;
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
-    await ctx.db.patch(args.id, { messages });
+    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
     return null;
   },
 });

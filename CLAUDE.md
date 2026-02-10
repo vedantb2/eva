@@ -61,7 +61,7 @@ This is a monorepo (pnpm workspaces) with four apps and two shared packages:
 apps/web/
 ├── app/              # Next.js App Router pages
 │   ├── (main)/       # Protected routes requiring auth
-│   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analyse, admin, docs, quick-tasks, testing-arena)
+│   │   ├── [repo]/   # Repo-scoped pages (projects, sessions, analyse, design, admin, docs, quick-tasks, testing-arena)
 │   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
 │   └── api/          # Route handlers
@@ -139,6 +139,8 @@ Located in `apps/web/lib/inngest/functions/`:
 - **execute-research-query** - Runs analytics queries with AI
 - **interview-question** / **interview-spec** / **interview-chat** - Project interview workflow
 - **evaluate-doc** - Evaluates documentation against requirements
+- **build-project** - Autonomous project build workflow
+- **design-execute** - Design session execution
 
 ### Sandbox Execution
 
@@ -169,6 +171,39 @@ import {
 
 Web-only components (accordion, avatar, badge, card, checkbox, label, popover, progress) remain in `apps/web/lib/components/ui/`.
 
+### Convex Extensions
+
+The backend uses three Convex component extensions (configured in `packages/backend/convex/convex.config.ts`):
+
+- `@convex-dev/presence` - Real-time presence tracking (heartbeat in main layout)
+- `@convex-dev/prosemirror-sync` - Collaborative editing with Tiptap
+- `convex-timeline` - Timeline/history tracking
+
+### Middleware & Auth
+
+`apps/web/middleware.ts` uses Clerk middleware with:
+
+- `DISABLE_AUTH=true` env var bypasses auth (for dev/testing)
+- CORS headers for `chrome-extension://` origins
+- Extension-specific routes: `/api/extension/*`
+- `auth.protect()` on all non-public routes
+
+### Key Validators
+
+Defined in `packages/backend/convex/validators.ts` — use these when writing Convex mutations/queries:
+
+- **taskStatus**: `todo | in_progress | business_review | code_review | done`
+- **runStatus**: `queued | running | success | error`
+- **sessionMode**: `execute | ask | plan | flag`
+- **sessionStatus**: `active | closed`
+- **phase** (projects): `draft | finalized | active | completed`
+- **notificationType**: `routine_complete | export_ready | task_complete | task_assigned | comment_added | run_completed | system`
+- **roleUser**: `business | dev`
+
+## Git Hooks
+
+Pre-commit runs `lint-staged` via Husky, which formats staged `*.{ts,tsx,js,jsx,json,css,md}` files with Prettier.
+
 ## Conventions
 
 - Use `@/*` import alias (maps to web root)
@@ -179,3 +214,7 @@ Web-only components (accordion, avatar, badge, card, checkbox, label, popover, p
 - Dark mode via next-themes with RGB CSS variables (space-separated channels: `--primary: 16 145 130;`) — supports Tailwind opacity modifiers (`bg-primary/10`)
 - Environment variables validated with @t3-oss/env-nextjs and Zod (import from `@/env/server` or `@/env/client`)
 - Default to Server Components; only use Client Components (`*Client.tsx`) for interactive elements requiring hooks, events, or browser APIs
+- Icons: `@tabler/icons-react` (primary), `lucide-react` (secondary)
+- URL state management with `nuqs` for search/filter/sort params
+- Inngest event naming: `{domain}/{action}.{status}` (e.g., `task/execute.requested`, `session/execute`)
+- Daytona sandboxes: snapshot-based (`eva-snapshot`), auto-stop 15min, auto-delete 30min, non-root user `eva`

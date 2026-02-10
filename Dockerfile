@@ -9,6 +9,9 @@ RUN corepack enable
 # Claude Code CLI for AI agent execution
 RUN npm install -g @anthropic-ai/claude-code
 
+# VS Code web editor for session sandbox
+RUN npm install -g code-server
+
 # Non-root user (required: Claude Code blocks --dangerously-skip-permissions as root)
 RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
 

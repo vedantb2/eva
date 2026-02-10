@@ -16,6 +16,8 @@ import {
 } from "@conductor/ui";
 import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
+import { useQueryState } from "nuqs";
+import { searchParser } from "@/lib/search-params";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { Id } from "@conductor/backend";
@@ -32,7 +34,7 @@ function DocsListPanel({
   docs: Doc[] | undefined;
   repoSlug: string;
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const pathname = usePathname();
 
   const filteredDocs = useMemo(() => {
@@ -72,12 +74,12 @@ function DocsListPanel({
           placeholder="Search docs..."
           className="pl-8 pr-8 h-8 text-sm"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => setSearchQuery(e.target.value || null)}
         />
         {searchQuery && (
           <button
             type="button"
-            onClick={() => setSearchQuery("")}
+            onClick={() => setSearchQuery(null)}
             className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <IconX size={14} />

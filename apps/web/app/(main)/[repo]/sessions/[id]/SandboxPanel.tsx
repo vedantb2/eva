@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import { IconWorld, IconGitBranch } from "@tabler/icons-react";
+import { useQueryState } from "nuqs";
+import { sandboxTabParser } from "@/lib/search-params";
+import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
+import {
+  IconWorld,
+  IconGitBranch,
+  IconCode,
+  IconLayoutBottombar,
+  IconLayoutBottombarCollapse,
+} from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { DiffPanel } from "./DiffPanel";
+import { EditorPanel } from "./EditorPanel";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 
@@ -29,11 +38,12 @@ export function SandboxPanel({
   isActive,
   fileDiffs,
 }: SandboxPanelProps) {
-  const [activeTab, setActiveTab] = useState<string>("preview");
+  const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const [showConsole, setShowConsole] = useState(true);
 
   const fetchPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
@@ -74,20 +84,43 @@ export function SandboxPanel({
     [sessionId, sandboxId, isActive],
   );
 
+  const tabSwitcher = (
+    <div className="flex items-center gap-1">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          setActiveTab(v as "preview" | "diffs" | "editor");
+        }}
+      >
+        <TabsList className="gap-1">
+          <TabsTrigger value="preview">
+            <IconWorld className="w-4 h-4" />
+          </TabsTrigger>
+          <TabsTrigger value="diffs">
+            <IconGitBranch className="w-4 h-4" />
+          </TabsTrigger>
+          <TabsTrigger value="editor">
+            <IconCode className="w-4 h-4" />
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <Button
+        size="icon"
+        variant={showConsole ? "secondary" : "ghost"}
+        className="h-7 w-7"
+        onClick={() => setShowConsole((v) => !v)}
+      >
+        {showConsole ? (
+          <IconLayoutBottombar className="w-4 h-4" />
+        ) : (
+          <IconLayoutBottombarCollapse className="w-4 h-4" />
+        )}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col bg-card">
-      <div className="flex items-center gap-2 p-3">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="gap-1">
-            <TabsTrigger value="preview">
-              <IconWorld className="w-4 h-4" />
-            </TabsTrigger>
-            <TabsTrigger value="diffs">
-              <IconGitBranch className="w-4 h-4" />
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
       <div className="flex-1 overflow-hidden">
         <div className={activeTab === "preview" ? "h-full" : "hidden"}>
           <WebPreviewPanel
@@ -99,10 +132,20 @@ export function SandboxPanel({
             iframeKey={iframeKey}
             onRefresh={fetchPreview}
             terminal={terminal}
+            tabSwitcher={tabSwitcher}
+            showConsole={showConsole}
           />
         </div>
         <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-          <DiffPanel fileDiffs={fileDiffs} />
+          <DiffPanel fileDiffs={fileDiffs} tabSwitcher={tabSwitcher} />
+        </div>
+        <div className={activeTab === "editor" ? "h-full" : "hidden"}>
+          <EditorPanel
+            sessionId={sessionId}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            tabSwitcher={tabSwitcher}
+          />
         </div>
       </div>
     </div>

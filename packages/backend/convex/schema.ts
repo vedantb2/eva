@@ -164,7 +164,7 @@ const schema = defineSchema({
     prUrl: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     ptySessionId: v.optional(v.string()),
-    lastActivityAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     status: sessionStatusValidator,
     archived: v.optional(v.boolean()),
     summary: v.optional(v.array(v.string())),
@@ -279,6 +279,7 @@ const schema = defineSchema({
     sandboxId: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     messages: v.array(
       v.object({
         role: roleValidator,

@@ -21,7 +21,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@conductor/ui";
-import { IconSun, IconMoon, IconBolt, IconMenu2 } from "@tabler/icons-react";
+import { IconBolt, IconMenu2, IconPlus } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { StoredPin } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
@@ -41,21 +41,6 @@ function useTheme() {
   };
 
   return { theme, toggleTheme };
-}
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {theme === "dark" ? <IconSun size={20} /> : <IconMoon size={20} />}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Toggle theme</TooltipContent>
-    </Tooltip>
-  );
 }
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -85,6 +70,7 @@ const isAllowedUrl = (url: string) => {
 
 function AuthenticatedApp() {
   const { user } = useUser();
+  const { theme, toggleTheme } = useTheme();
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
@@ -408,7 +394,14 @@ function AuthenticatedApp() {
           onRepoChange={handleRepoChange}
         />
         <div className="ml-auto">
-          <ThemeToggle />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleNewSession}>
+                <IconPlus size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>New session</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
@@ -499,8 +492,9 @@ function AuthenticatedApp() {
           repoId={selectedRepoId}
           currentSessionId={currentSessionId}
           onSessionSelect={setCurrentSessionId}
-          onNewSession={handleNewSession}
           afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
     </div>

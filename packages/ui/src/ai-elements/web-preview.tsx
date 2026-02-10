@@ -255,7 +255,7 @@ export const WebPreviewConsole = ({
         onValueChange={(v) => setActiveTab(v as "console" | "terminal")}
         className="h-full flex flex-col"
       >
-        <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-2 h-9">
+        <TabsList className="w-full justify-start rounded-none bg-transparent px-2 h-9">
           <TabsTrigger
             value="console"
             className="text-xs px-3 rounded-none gap-1.5"

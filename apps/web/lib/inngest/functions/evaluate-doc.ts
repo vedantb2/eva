@@ -105,7 +105,7 @@ Be thorough — check routes, components, API handlers, database schemas, and bu
 Do NOT output JSON. Reason through each requirement and gather facts.`;
 
       await runClaudeCLIStreaming(sandbox, explorationPrompt, {
-        model: "opus",
+        model: "sonnet",
         allowedTools: ["Read", "Glob", "Grep"],
         onOutput: async (currentActivity) => {
           await convex.mutation(api.streaming.set, {
@@ -135,7 +135,7 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
 {"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}`;
 
       const claudeResult = await runClaudeCLIStreaming(sandbox, jsonPrompt, {
-        model: "opus",
+        model: "sonnet",
         allowedTools: [],
         onOutput: async (currentActivity) => {
           await convex.mutation(api.streaming.set, {

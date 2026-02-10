@@ -61,7 +61,7 @@
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
-    --radius: 1rem;
+    --radius: 0.8rem;
     --shadow-x: 0px;
     --shadow-y: 4px;
     --shadow-blur: 15px;
@@ -144,7 +144,7 @@
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
-    --radius: 1rem;
+    --radius: 0.8rem;
     --shadow-x: 0px;
     --shadow-y: 8px;
     --shadow-blur: 25px;

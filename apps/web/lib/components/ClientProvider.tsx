@@ -28,7 +28,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
             disableTransitionOnChange
           >
             <ThemeProvider>
-              <TooltipProvider>{children}</TooltipProvider>
+              <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
             </ThemeProvider>
           </NextThemesProvider>
         </ConvexQueryCacheProvider>

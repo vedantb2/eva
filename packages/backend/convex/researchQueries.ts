@@ -32,10 +32,11 @@ export const list = query({
     if (!userId) {
       return [];
     }
-    return await ctx.db
+    const queries = await ctx.db
       .query("researchQueries")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+    return queries.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
 

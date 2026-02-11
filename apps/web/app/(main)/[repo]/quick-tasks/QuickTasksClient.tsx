@@ -6,8 +6,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button } from "@conductor/ui";
-import { Skeleton } from "@/lib/components/ui/Skeleton";
+import { Button, Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -93,18 +92,8 @@ export function QuickTasksClient() {
         }
       >
         {tasks === undefined ? (
-          <div className="flex items-stretch gap-2 flex-1 min-h-0">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="flex-1 min-w-0 bg-secondary rounded-md p-2 space-y-2"
-              >
-                <Skeleton className="h-6 w-24" />
-                {[1, 2, 3].map((j) => (
-                  <Skeleton key={j} className="h-20 rounded-md" />
-                ))}
-              </div>
-            ))}
+          <div className="flex items-center justify-center flex-1">
+            <Spinner />
           </div>
         ) : !hasQuickTasks ? (
           <EmptyState

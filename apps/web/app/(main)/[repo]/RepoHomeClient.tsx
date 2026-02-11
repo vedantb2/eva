@@ -3,8 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { Card, CardContent } from "@conductor/ui";
-import { Skeleton } from "@/lib/components/ui/Skeleton";
+import { Card, CardContent, Spinner } from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconPercentage,
@@ -51,16 +50,8 @@ export function RepoHomeClient() {
 
   if (impactStats === undefined || activeUsers === undefined) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="w-full max-w-2xl space-y-6">
-          <Skeleton className="h-10 w-40 rounded-full" />
-          <Skeleton className="h-5 w-48" />
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-md" />
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center justify-center flex-1">
+        <Spinner />
       </div>
     );
   }

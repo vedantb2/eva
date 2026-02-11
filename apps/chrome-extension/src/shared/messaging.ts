@@ -1,5 +1,12 @@
 import type { ExtractedContext, RepoInfo, SessionInfo } from "./types";
 
+export type TaskStatus =
+  | "todo"
+  | "in_progress"
+  | "business_review"
+  | "code_review"
+  | "done";
+
 export type MessageType =
   | "START_SELECTION"
   | "STOP_SELECTION"
@@ -14,6 +21,8 @@ export type MessageType =
   | "START_ANNOTATION"
   | "STOP_ANNOTATION"
   | "SAVE_ANNOTATION_TASK"
+  | "ANNOTATION_TASK_CREATED"
+  | "ANNOTATION_STATUS_SYNC"
   | "ANNOTATIONS_LOADED"
   | "ANNOTATIONS_CHANGED"
   | "SHOW_TOOLBAR"
@@ -21,6 +30,9 @@ export type MessageType =
   | "TOOLBAR_ADD_QUICK_TASKS"
   | "TOOLBAR_ADD_TO_PROJECT"
   | "TOOLBAR_RESULT"
+  | "RUN_ALL_ANNOTATIONS"
+  | "RUN_ALL_RESULT"
+  | "RUN_ANNOTATION_TASK"
   | "PANEL_CLOSED";
 
 export interface StartSelectionMessage {
@@ -139,6 +151,34 @@ export interface StoredPin {
   type?: "element" | "text";
   selectedText?: string;
   ancestorSelector?: string;
+  taskId?: string;
+  status?: TaskStatus;
+  userId?: string;
+  creatorInitials?: string;
+}
+
+export interface AnnotationTaskCreatedMessage {
+  type: "ANNOTATION_TASK_CREATED";
+  payload: {
+    pinId: string;
+    taskId: string;
+    userId?: string;
+    creatorInitials?: string;
+  };
+}
+
+export interface RunAnnotationTaskMessage {
+  type: "RUN_ANNOTATION_TASK";
+  payload: {
+    taskId: string;
+  };
+}
+
+export interface AnnotationStatusSyncMessage {
+  type: "ANNOTATION_STATUS_SYNC";
+  payload: {
+    updates: Record<string, { status: TaskStatus }>;
+  };
 }
 
 export interface AnnotationsLoadedMessage {
@@ -188,6 +228,22 @@ export interface ToolbarResultMessage {
   };
 }
 
+export interface RunAllAnnotationsMessage {
+  type: "RUN_ALL_ANNOTATIONS";
+  payload: {
+    pageUrl: string;
+    pins: Record<string, StoredPin>;
+  };
+}
+
+export interface RunAllResultMessage {
+  type: "RUN_ALL_RESULT";
+  payload: {
+    success: boolean;
+    message: string;
+  };
+}
+
 export type ExtensionMessage =
   | StartSelectionMessage
   | StopSelectionMessage
@@ -202,13 +258,18 @@ export type ExtensionMessage =
   | StartAnnotationMessage
   | StopAnnotationMessage
   | SaveAnnotationTaskMessage
+  | AnnotationTaskCreatedMessage
+  | AnnotationStatusSyncMessage
   | AnnotationsLoadedMessage
   | AnnotationsChangedMessage
   | ShowToolbarMessage
   | HideToolbarMessage
   | ToolbarAddQuickTasksMessage
   | ToolbarAddToProjectMessage
-  | ToolbarResultMessage;
+  | ToolbarResultMessage
+  | RunAllAnnotationsMessage
+  | RunAllResultMessage
+  | RunAnnotationTaskMessage;
 
 export const CONDUCTOR_URL =
   typeof chrome !== "undefined" &&

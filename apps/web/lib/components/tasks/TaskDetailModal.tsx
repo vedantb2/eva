@@ -49,7 +49,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 interface TaskDetailModalProps {
   isOpen: boolean;

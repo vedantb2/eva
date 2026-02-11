@@ -737,6 +737,34 @@ export const assignToProject = mutation({
   },
 });
 
+export const getStatusesByIds = query({
+  args: { ids: v.array(v.id("agentTasks")) },
+  returns: v.array(
+    v.object({
+      id: v.id("agentTasks"),
+      status: taskStatusValidator,
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const results: {
+      id: Id<"agentTasks">;
+      status:
+        | "todo"
+        | "in_progress"
+        | "business_review"
+        | "code_review"
+        | "done";
+    }[] = [];
+    for (const id of args.ids) {
+      const task = await ctx.db.get(id);
+      if (task) results.push({ id: task._id, status: task.status });
+    }
+    return results;
+  },
+});
+
 export const deleteCascade = mutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

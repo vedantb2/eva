@@ -30,7 +30,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 export default function DesignLayout({
   children,

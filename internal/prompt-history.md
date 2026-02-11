@@ -1,4 +1,8 @@
-- add design to ext sidebar to view designs (drag and drop into figma)
+- increase size of annotations on screen by 1.25x
+- replace all purple usages with our theme colour instead
+- colour of annotation reflects the task status grey for todo, yellow in progress, business business review, purple code review
+-
+- - add design to ext sidebar to view designs (drag and drop into figma)
 
 Install to the packages/ui
 

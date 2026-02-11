@@ -23,7 +23,7 @@ import {
 } from "@conductor/ui";
 import { IconBolt, IconMenu2, IconPlus } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import type { StoredPin } from "@/shared/messaging";
+import { CONDUCTOR_URL, type StoredPin } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 
 function useTheme() {
@@ -93,11 +93,17 @@ function AuthenticatedApp() {
   );
   const [isCreatingTasks, setIsCreatingTasks] = useState(false);
 
+  const convexUserId = useQuery(api.auth.me);
+  const creatorInitials =
+    `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() ||
+    "?";
+
   const createSession = useMutation(api.sessions.create);
   const getOrCreateExtensionSession = useMutation(
     api.sessions.getOrCreateExtensionSession,
   );
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const startExecution = useMutation(api.agentTasks.startExecution);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
   const createFromTasks = useMutation(api.projects.createFromTasks);
 
@@ -160,6 +166,80 @@ function AuthenticatedApp() {
       );
     },
     [selectedRepoId, createQuickTask, buildDescription, sendToolbarResult],
+  );
+
+  const sendRunAllResult = useCallback((success: boolean, message: string) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "RUN_ALL_RESULT",
+          payload: { success, message },
+        });
+      }
+    });
+  }, []);
+
+  const handleRunAll = useCallback(
+    async (pageUrl: string, pins: Record<string, StoredPin>) => {
+      if (!selectedRepoId) return;
+      const entries = Object.entries(pins);
+      let created = 0;
+      for (const [pinId, pin] of entries) {
+        try {
+          const taskId = await createQuickTask({
+            repoId: selectedRepoId as Id<"githubRepos">,
+            title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
+            description: buildDescription(pin, pageUrl),
+          });
+          chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+            if (tab?.id) {
+              chrome.tabs.sendMessage(tab.id, {
+                type: "ANNOTATION_TASK_CREATED",
+                payload: {
+                  pinId,
+                  taskId: taskId as string,
+                  userId: convexUserId ?? undefined,
+                  creatorInitials,
+                },
+              });
+            }
+          });
+          const result = await startExecution({
+            id: taskId,
+          });
+          await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: "task/execute.requested",
+              data: {
+                runId: result.runId,
+                taskId: result.taskId,
+                repoId: result.repoId,
+                installationId: result.installationId,
+                projectId: result.projectId,
+                branchName: result.branchName,
+                isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+              },
+            }),
+          });
+          created++;
+        } catch (e) {
+          console.error("Failed to run task:", e);
+        }
+      }
+      sendRunAllResult(
+        created > 0,
+        `Created & running ${created} task${created !== 1 ? "s" : ""}`,
+      );
+    },
+    [
+      selectedRepoId,
+      createQuickTask,
+      startExecution,
+      buildDescription,
+      sendRunAllResult,
+    ],
   );
 
   const handleConfirmProject = useCallback(async () => {
@@ -310,11 +390,51 @@ function AuthenticatedApp() {
           },
         );
       }
+      if (message.type === "RUN_ALL_ANNOTATIONS" && message.payload) {
+        const { pageUrl, pins } = message.payload as unknown as {
+          pageUrl: string;
+          pins: Record<string, StoredPin>;
+        };
+        handleRunAll(pageUrl, pins);
+      }
+      if (message.type === "RUN_ANNOTATION_TASK" && message.payload) {
+        const { taskId } = message.payload as { taskId: string };
+        (async () => {
+          try {
+            const result = await startExecution({
+              id: taskId as Id<"agentTasks">,
+            });
+            await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: "task/execute.requested",
+                data: {
+                  runId: result.runId,
+                  taskId: result.taskId,
+                  repoId: result.repoId,
+                  installationId: result.installationId,
+                  projectId: result.projectId,
+                  branchName: result.branchName,
+                  isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+                },
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to run annotation task:", e);
+          }
+        })();
+      }
     };
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, [handleAddAllQuickTasks, syncedToolbarVisible]);
+  }, [
+    handleAddAllQuickTasks,
+    handleRunAll,
+    startExecution,
+    syncedToolbarVisible,
+  ]);
 
   useEffect(() => {
     if (selectedRepoId && user?.id) {
@@ -483,6 +603,8 @@ function AuthenticatedApp() {
         onClearContext={handleClearContext}
         toolbarVisible={toolbarVisible}
         onToggleToolbar={toggleToolbar}
+        convexUserId={convexUserId ?? undefined}
+        creatorInitials={creatorInitials}
       />
 
       {selectedRepoId && (

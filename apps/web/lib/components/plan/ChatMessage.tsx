@@ -15,14 +15,15 @@ import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
+import type { Id } from "@conductor/backend";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
   logs?: string;
   isStreaming?: boolean;
-  userId?: string;
+  userId?: Id<"users">;
 }
 
 export function ChatMessage({

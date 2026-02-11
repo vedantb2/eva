@@ -19,7 +19,7 @@ import {
 import { useMutation } from "convex/react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
 import {
   Button,
   Spinner,

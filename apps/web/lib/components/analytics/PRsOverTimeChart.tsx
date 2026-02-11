@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { Card, CardContent } from "@conductor/ui";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

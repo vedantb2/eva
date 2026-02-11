@@ -28,7 +28,7 @@ import {
   IconExternalLink,
   IconMessageCircle,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 interface ProjectTaskDetailPanelProps {
   taskId: Id<"agentTasks">;

@@ -30,8 +30,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
-import dayjs from "@/lib/dates";
+import { UserInitials } from "@conductor/shared";
+import dayjs from "@conductor/shared/dates";
 
 export default function SessionsLayout({
   children,

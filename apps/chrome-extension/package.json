@@ -11,6 +11,7 @@
   "dependencies": {
     "@conductor/ui": "workspace:*",
     "@conductor/backend": "workspace:*",
+    "@conductor/shared": "workspace:*",
     "@clerk/chrome-extension": "^2.8.20",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -29,6 +30,7 @@
     "@streamdown/mermaid": "^1.0.1",
     "@tabler/icons-react": "^3.36.1",
     "class-variance-authority": "^0.7.1",
+    "facehash": "^0.0.7",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "convex": "^1.31.6",

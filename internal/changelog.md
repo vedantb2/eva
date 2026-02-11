@@ -1,11 +1,90 @@
 # Changelog
 
+## Annotation Card UX Improvements — 2026-02-11
+
+- Added "Run Eva" button to existing annotation cards — triggers task execution from the annotation overlay without opening the sidepanel
+- Regrouped footer buttons: new annotations show Cancel + Create Task; existing annotations show Run Eva (left) + Cancel + Edit Task (right)
+- Fixed inverted dark/light color scheme in InputCard — dark mode now uses dark backgrounds, light mode uses light backgrounds
+- Added creator avatar (Facehash) to annotation card header next to "Annotation #N"
+- Content script stores `userId` and `creatorInitials` per pin, persisted across page reloads
+- Sidepanel sends user data (Convex userId + initials from Clerk) with `ANNOTATION_TASK_CREATED` messages
+- Replaced local `UserAvatar` component in ChatPanel with `UserInitials` from `@conductor/shared` (Facehash-based)
+- Added `RUN_ANNOTATION_TASK` message type for single-task execution from content script
+- Added `facehash` and `dayjs` dependencies to chrome extension (peer deps of `@conductor/shared`)
+
+## Create `@conductor/shared` Package — 2026-02-10
+
+- Created `packages/shared/` workspace package (`@conductor/shared`) for smart components and utilities shared between web and chrome-extension
+- Moved `UserInitials` component from `apps/web/lib/components/ui/` to `packages/shared/src/components/`
+- Moved `dates.ts` (dayjs with relativeTime) from `apps/web/lib/` to `packages/shared/src/utils/`
+- Changed `UserInitials` `userId` prop from `string` to `Id<"users">` (removed internal `as` cast)
+- Removed dead `avatar` variable and commented-out block from `UserInitials`
+- Updated 22 import statements across `apps/web` to use `@conductor/shared` and `@conductor/shared/dates`
+- Added `@conductor/shared` dependency to both `apps/web` and `apps/chrome-extension`
+
+## Design Page Improvements — Prompt quality, iteration flow, UX - 2026-02-10
+
+- Rewrote design prompt with explicit variation strategies (clean/conventional, creative/bold, compact/efficient) and design quality guidelines (realistic content, consistent spacing, visual hierarchy)
+- Fixed codebase-reading instruction to clarify output runs in isolation — recreate style patterns, no project imports
+- Stronger iteration prompt: preserves core layout/colors from selected base, only changes what user requests
+- Added `selectedCode` and `selectedLabel` fields to `designSessions` schema — stores selected variation directly instead of fragile reverse-search through message history
+- Reset `selectedVariationIndex`/`selectedCode`/`selectedLabel` when new variations arrive (fixes stale selection across batches)
+- Auto-select current tab when user sends follow-up without clicking "Use this design"
+- Added "Using as base" indicator below chat when a variation is selected
+- Added hint text when variations exist but none selected
+- Added check icon on selected variation tab
+- Better loading state in preview panel: Spinner + streaming activity text instead of plain "Generating designs..."
+- Added suggestion chips after first generation ("Make it more minimal", "Add more whitespace", "Make the colors bolder")
+- Simplified Inngest `design-execute.ts` selectedBase lookup to use stored `selectedCode`/`selectedLabel`
+
+## Annotation UX Flow Refinements - 2026-02-10
+
+- Simplified InputCard to single primary action: "Create Task" (new) or "Edit Task" (existing) — removed standalone "Save" button
+- Locked editing for in-progress/business_review/code_review pins: textarea becomes read-only, footer hidden, delete hidden
+- Annotations now immediately delete when task status becomes "done" (task record persists in web app)
+- Removed `handleInputSave`, `hiddenDonePins` state, and 5-second auto-hide logic
+
+## Chrome Extension UI Improvements — Annotation pins, toolbar, and status sync - 2026-02-10
+
+- Changed annotation cursor from purple to teal theme color (`#109182`)
+- Scaled annotation pins 1.25x (24px → 30px) with proportional font/offset/shadow adjustments
+- Added status-colored pins: grey (todo), yellow (in_progress), orange (business_review), purple (code_review), grey at 40% opacity (done)
+- Pins now persist after "Create Task" instead of being deleted — marked as `todo` with grey color
+- Added `taskId` and `status` fields to `StoredPin` for tracking linked tasks
+- Added `getStatusesByIds` Convex query for batch task status lookups
+- Added real-time status sync: `AnnotationTool` subscribes to task statuses via Convex and pushes updates to content script pins
+- Done pins fade to 40% opacity then auto-hide after 5 seconds (remain in storage)
+- Replaced "Add all to Quick Tasks" toolbar button with "Run All" — creates tasks AND triggers execution via Inngest
+- Increased toolbar size (padding, gaps, fonts, dividers, eye button) for Vercel-inspired look
+- Added 5 new message types: `ANNOTATION_TASK_CREATED`, `ANNOTATION_STATUS_SYNC`, `RUN_ALL_ANNOTATIONS`, `RUN_ALL_RESULT`, `TaskStatus` type
+
 ## Fix session editor tab + audit cleanup - 2026-02-10
 
-- Pre-installed code-server in the Dockerfile so it's baked into the snapshot instead of downloading ~100MB+ via npx at runtime (which silently failed due to timeout)
-- Updated sandbox startup command to use the pre-installed `code-server` binary directly
-- Fixed broken JSX in EditorPanel where "Starting editor..." text and "Retry" button rendered unconditionally instead of inside their loading/error conditional blocks
-- Fixed sandbox reconnect path to restart code-server and dev server (previously only checked liveness without restarting services killed by auto-stop)
+**Problem:** The editor tab in sessions showed nothing — code-server was being downloaded fresh (~100MB+) via `npx -y code-server@latest` every sandbox start, which exceeded the 30s exec timeout and silently failed as a backgrounded process.
+
+**Solution — pre-install code-server in the snapshot image:**
+
+- Added `curl -fsSL https://code-server.dev/install.sh | sh` to the Dockerfile (as root, before `USER eva`) to bake code-server into the `eva-snapshot`
+- Used the official install script instead of `npm install -g` because code-server has native deps that need build tools not in the base image — the script downloads pre-built binaries
+- Updated `session-sandbox.ts` startup command from `npx -y code-server@latest` to just `code-server` (pre-installed binary), reduced timeout from 30s to 10s
+
+**Architecture decision — why code-server:**
+
+- VS Code is a desktop Electron app, can't run in a browser directly — all browser solutions are HTTP servers serving the VS Code web UI in an iframe
+- Evaluated code-server (Coder), OpenVSCode Server (Gitpod), and `code serve-web` (official Microsoft) — all work identically (HTTP server on a port → iframe)
+- Chose code-server: most popular, well-documented, no commercial license restrictions
+
+**How the editor tab works end-to-end:**
+
+- Sandbox starts → `code-server --port 8080 --auth none --bind-addr 0.0.0.0 /workspace/repo` runs in background
+- `EditorPanel.tsx` polls `GET /api/sessions/preview?port=8080&check=1` every 3s (up to 20 attempts)
+- Preview route gets a signed Daytona proxy URL (`sandbox.getSignedPreviewUrl(8080, 3600)`) and runs `curl localhost:8080` inside the sandbox to verify readiness
+- Once ready, the signed URL loads in a full-screen iframe with clipboard permissions
+
+**Audit fixes:**
+
+- Fixed broken JSX in EditorPanel where "Starting editor..." text and "Retry" button rendered unconditionally (were outside their `{isLoading && ...}` and `{error && ...}` blocks)
+- Fixed sandbox reconnect path to restart both code-server and dev server (previously only checked sandbox liveness without restarting services killed by Daytona auto-stop)
 - Fixed stale iframe URL not being cleared when editor re-polls after retry or sandbox reconnect
 
 ## Add Editor tab (code-server) to session sandbox panel - 2026-02-10

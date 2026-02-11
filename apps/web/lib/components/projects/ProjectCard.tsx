@@ -4,7 +4,7 @@ import type { Id } from "@conductor/backend";
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { UserInitials } from "@/lib/components/ui/UserInitials";
+import { UserInitials } from "@conductor/shared";
 import Link from "next/link";
 import {
   IconGitBranch,
@@ -27,7 +27,7 @@ import {
   Label,
   Textarea,
 } from "@conductor/ui";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {

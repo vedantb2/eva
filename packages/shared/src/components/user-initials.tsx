@@ -1,26 +1,26 @@
 import { api } from "@conductor/backend";
-import dayjs from "@/lib/dates";
+import type { Id } from "@conductor/backend";
 import {
-  Avatar,
-  AvatarFallback,
+  // Avatar,
+  // AvatarFallback,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@conductor/ui";
 import { useQuery } from "convex/react";
-import type { Id } from "@conductor/backend";
 import { Facehash } from "facehash";
+import dayjs from "../utils/dates";
 
 export function UserInitials({
   userId,
   hideLastSeen,
   size,
 }: {
-  userId: string;
+  userId: Id<"users">;
   hideLastSeen?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
-  const user = useQuery(api.users.get, { id: userId as Id<"users"> });
+  const user = useQuery(api.users.get, { id: userId });
   if (!user) return null;
   const initials =
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
@@ -36,13 +36,13 @@ export function UserInitials({
     size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
   const iconSizePx = size === "md" ? 32 : size === "lg" ? 40 : 20;
 
-  const avatar = (
-    <Avatar className={iconSize}>
-      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-        {initials}
-      </AvatarFallback>
-    </Avatar>
-  );
+  // const avatar = (
+  //   <Avatar className={iconSize}>
+  //     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+  //       {initials}
+  //     </AvatarFallback>
+  //   </Avatar>
+  // );
 
   return (
     <Tooltip>

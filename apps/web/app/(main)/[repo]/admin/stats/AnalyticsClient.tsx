@@ -25,7 +25,7 @@ import {
   IconUsers,
   IconChecklist,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 export function AnalyticsClient() {
   const { repo } = useRepo();

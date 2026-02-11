@@ -21,7 +21,7 @@ import {
   IconGripVertical,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import dayjs from "@/lib/dates";
+import dayjs from "@conductor/shared/dates";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

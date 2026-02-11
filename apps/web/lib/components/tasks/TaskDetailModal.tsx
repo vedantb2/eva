@@ -102,7 +102,7 @@ export function TaskDetailModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [showChangesPanel, setShowChangesPanel] = useState(false);
+  const [requestChangesPanel, setRequestChangesPanel] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -196,7 +196,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`${audit ? (showChangesPanel ? "max-w-7xl" : "max-w-5xl") : showChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
+          className={`${audit ? (requestChangesPanel ? "max-w-7xl" : "max-w-5xl") : requestChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
         >
           <DialogHeader>
             <DialogTitle>
@@ -212,7 +212,7 @@ export function TaskDetailModal({
           </DialogHeader>
           <div className="pb-6">
             <div
-              className={`grid gap-6 min-h-[400px] ${audit ? (showChangesPanel ? "grid-cols-[1fr_1fr_200px_1fr]" : "grid-cols-[1fr_1fr_200px]") : showChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
+              className={`grid gap-6 min-h-[400px] ${audit ? (requestChangesPanel ? "grid-cols-[1fr_1fr_200px_1fr]" : "grid-cols-[1fr_1fr_200px]") : requestChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
             >
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
                 {task?.description &&
@@ -701,7 +701,7 @@ export function TaskDetailModal({
                 )}
               </div>
 
-              {showChangesPanel && (
+              {requestChangesPanel && (
                 <div className="flex flex-col border-l border-border pl-6">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-foreground">
@@ -714,7 +714,7 @@ export function TaskDetailModal({
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
-                      onClick={() => setShowChangesPanel(false)}
+                      onClick={() => setRequestChangesPanel(false)}
                     >
                       <IconX size={16} />
                     </Button>
@@ -799,12 +799,12 @@ export function TaskDetailModal({
               )}
             </Tooltip>
             <div className="flex items-center gap-2">
-              {!showChangesPanel &&
+              {!requestChangesPanel &&
                 status !== "todo" &&
                 status !== "in_progress" && (
                   <Button
                     variant="secondary"
-                    onClick={() => setShowChangesPanel(true)}
+                    onClick={() => setRequestChangesPanel(true)}
                   >
                     <IconMessagePlus size={18} />
                     Request Changes

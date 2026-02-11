@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -20,8 +21,12 @@ import {
   IconX,
   IconGripVertical,
   IconInfoCircle,
+  IconMessageChatbot,
+  IconHistory,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { DocInterviewDialog } from "./DocInterviewDialog";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -30,6 +35,9 @@ export function DocViewer({ doc }: { doc: Doc }) {
 }
 
 function DocEditor({ doc }: { doc: Doc }) {
+  const { installationId } = useRepo();
+  const [interviewOpen, setInterviewOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -117,10 +125,41 @@ function DocEditor({ doc }: { doc: Doc }) {
           className="max-w-md h-10 text-lg font-semibold"
           placeholder="Document title"
         />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setInterviewOpen(true)}
+        >
+          <IconMessageChatbot size={16} />
+          Interview Me
+        </Button>
+        {(doc.interviewHistory ?? []).length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <IconHistory size={16} />
+            View History
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
           {dayjs(doc.updatedAt).fromNow()}
         </span>
       </div>
+      <DocInterviewDialog
+        doc={doc}
+        open={interviewOpen}
+        onOpenChange={setInterviewOpen}
+        installationId={installationId}
+      />
+      <DocInterviewDialog
+        doc={doc}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        installationId={installationId}
+        readOnly
+      />
 
       <Tabs
         defaultValue="requirements"

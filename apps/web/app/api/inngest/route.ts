@@ -13,6 +13,7 @@ import {
   stopSandbox,
   buildProject,
   designExecute,
+  docInterview,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -30,5 +31,6 @@ export const { GET, POST, PUT } = serve({
     stopSandbox,
     buildProject,
     designExecute,
+    docInterview,
   ],
 });

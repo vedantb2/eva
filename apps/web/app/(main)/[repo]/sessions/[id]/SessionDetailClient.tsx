@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
+import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Button, Spinner } from "@conductor/ui";
@@ -18,6 +19,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
+  const chatPanelRef = usePanelRef();
   const [chatCollapsed, setChatCollapsed] = useState(false);
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
@@ -61,31 +63,39 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const isSandboxActive = session.status === "active";
 
   return (
-    <div className="flex h-full">
-      <div className="flex-1 min-w-0 overflow-hidden">
+    <Group orientation="horizontal" className="h-full">
+      <Panel defaultSize={60} minSize={400}>
         <SandboxPanel
           sessionId={sessionId}
           sandboxId={session.sandboxId}
           isActive={isSandboxActive}
           fileDiffs={session.fileDiffs}
         />
-      </div>
-      <div
-        className={`${chatCollapsed ? "w-12" : "w-2/5"} flex flex-col transition-all duration-200`}
+      </Panel>
+      <Separator className="w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors" />
+      <Panel
+        collapsible
+        collapsedSize={3}
+        defaultSize={40}
+        minSize={300}
+        panelRef={chatPanelRef}
+        onResize={() => {
+          setChatCollapsed(chatPanelRef.current?.isCollapsed() ?? false);
+        }}
       >
         {chatCollapsed ? (
-          <div className="flex items-center justify-center p-1">
+          <div className="flex items-center justify-center p-1 h-full">
             <Button
               size="icon"
               variant="ghost"
               className="flex-shrink-0"
-              onClick={() => setChatCollapsed(false)}
+              onClick={() => chatPanelRef.current?.expand()}
             >
               <IconLayoutSidebarRightExpand size={16} />
             </Button>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-hidden">
             <ChatPanel
               sessionId={sessionId}
               title={session.title}
@@ -98,11 +108,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxToggling}
               onSandboxToggle={handleSandboxToggle}
-              onCollapse={() => setChatCollapsed(true)}
+              onCollapse={() => chatPanelRef.current?.collapse()}
             />
           </div>
         )}
-      </div>
-    </div>
+      </Panel>
+    </Group>
   );
 }

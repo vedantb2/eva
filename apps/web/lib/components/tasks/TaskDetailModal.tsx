@@ -28,6 +28,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { CLAUDE_MODELS } from "@conductor/backend";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -45,6 +46,9 @@ import {
   IconUpload,
   IconPhoto,
   IconLoader2,
+  IconShieldCheck,
+  IconCheck,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -74,6 +78,11 @@ export function TaskDetailModal({
     api.streaming.get,
     hasActiveRun ? { entityId: taskId } : "skip",
   );
+  const audit = useQuery(api.taskAudits.getByTask, { taskId });
+  const auditStreaming = useQuery(
+    api.streaming.get,
+    audit?.status === "running" ? { entityId: `audit-${taskId}` } : "skip",
+  );
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
   const startExecution = useMutation(api.agentTasks.startExecution);
@@ -93,7 +102,7 @@ export function TaskDetailModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [showChangesPanel, setShowChangesPanel] = useState(false);
+  const [requestChangesPanel, setRequestChangesPanel] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,6 +163,7 @@ export function TaskDetailModal({
             projectId: result.projectId,
             branchName: result.branchName,
             isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+            model: result.model,
           },
         }),
       });
@@ -186,7 +196,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`${showChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
+          className={`${audit ? (requestChangesPanel ? "max-w-7xl" : "max-w-5xl") : requestChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
         >
           <DialogHeader>
             <DialogTitle>
@@ -202,7 +212,7 @@ export function TaskDetailModal({
           </DialogHeader>
           <div className="pb-6">
             <div
-              className={`grid gap-6 min-h-[400px] ${showChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
+              className={`grid gap-6 min-h-[400px] ${audit ? (requestChangesPanel ? "grid-cols-[1fr_1fr_200px_1fr]" : "grid-cols-[1fr_1fr_200px]") : requestChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
             >
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
                 {task?.description &&
@@ -450,6 +460,124 @@ export function TaskDetailModal({
                 )}
               </div>
 
+              {audit && (
+                <div className="pl-4 space-y-4 overflow-y-auto scrollbar">
+                  <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <IconShieldCheck size={16} />
+                    Post-Execution Audit
+                    <Badge
+                      variant={
+                        audit.status === "completed"
+                          ? "success"
+                          : audit.status === "error"
+                            ? "destructive"
+                            : "warning"
+                      }
+                    >
+                      {audit.status}
+                    </Badge>
+                  </h4>
+                  {audit.status === "running" &&
+                    auditStreaming?.currentActivity && (
+                      <Reasoning isStreaming defaultOpen>
+                        <ReasoningTrigger
+                          getThinkingMessage={(s) =>
+                            s ? "Auditing..." : "Audit complete"
+                          }
+                        />
+                        <ReasoningContent>
+                          {auditStreaming.currentActivity}
+                        </ReasoningContent>
+                      </Reasoning>
+                    )}
+                  {audit.status === "error" && audit.error && (
+                    <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+                      {audit.error}
+                    </div>
+                  )}
+                  {audit.status === "completed" && (
+                    <>
+                      {audit.summary && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {audit.summary}
+                        </p>
+                      )}
+                      <Accordion type="multiple" className="space-y-2">
+                        {[
+                          {
+                            key: "accessibility",
+                            label: "Accessibility",
+                            items: audit.accessibility,
+                          },
+                          {
+                            key: "testing",
+                            label: "Code Testing",
+                            items: audit.testing,
+                          },
+                          {
+                            key: "codeReview",
+                            label: "Code Review",
+                            items: audit.codeReview,
+                          },
+                        ].map((section) => (
+                          <AccordionItem
+                            key={section.key}
+                            value={section.key}
+                            className="border rounded-lg px-3"
+                          >
+                            <AccordionTrigger>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{section.label}</span>
+                                <Badge
+                                  variant={
+                                    section.items.every((i) => i.passed)
+                                      ? "success"
+                                      : "destructive"
+                                  }
+                                >
+                                  {section.items.filter((i) => i.passed).length}
+                                  /{section.items.length}
+                                </Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="space-y-2">
+                                {section.items.map((item, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-start gap-2 text-sm"
+                                  >
+                                    {item.passed ? (
+                                      <IconCheck
+                                        size={16}
+                                        className="text-emerald-500 mt-0.5 flex-shrink-0"
+                                      />
+                                    ) : (
+                                      <IconAlertTriangle
+                                        size={16}
+                                        className="text-destructive mt-0.5 flex-shrink-0"
+                                      />
+                                    )}
+                                    <div>
+                                      <span className="font-medium">
+                                        {item.requirement}
+                                      </span>
+                                      <p className="text-muted-foreground">
+                                        {item.detail}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="pl-4 space-y-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5">Status</p>
@@ -534,6 +662,27 @@ export function TaskDetailModal({
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Model</p>
+                  <Select
+                    value={task?.model ?? "sonnet"}
+                    onValueChange={(val) => {
+                      const model = CLAUDE_MODELS.find((m) => m === val);
+                      if (model) updateTask({ id: taskId, model });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLAUDE_MODELS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m.charAt(0).toUpperCase() + m.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {latestPrUrl && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1.5">
@@ -552,7 +701,7 @@ export function TaskDetailModal({
                 )}
               </div>
 
-              {showChangesPanel && (
+              {requestChangesPanel && (
                 <div className="flex flex-col border-l border-border pl-6">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-foreground">
@@ -565,7 +714,7 @@ export function TaskDetailModal({
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
-                      onClick={() => setShowChangesPanel(false)}
+                      onClick={() => setRequestChangesPanel(false)}
                     >
                       <IconX size={16} />
                     </Button>
@@ -650,12 +799,12 @@ export function TaskDetailModal({
               )}
             </Tooltip>
             <div className="flex items-center gap-2">
-              {!showChangesPanel &&
+              {!requestChangesPanel &&
                 status !== "todo" &&
                 status !== "in_progress" && (
                   <Button
                     variant="secondary"
-                    onClick={() => setShowChangesPanel(true)}
+                    onClick={() => setRequestChangesPanel(true)}
                   >
                     <IconMessagePlus size={18} />
                     Request Changes

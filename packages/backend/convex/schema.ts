@@ -15,6 +15,7 @@ import {
   notificationTypeValidator,
   roleUserValidator,
   queryConfirmationStatusValidator,
+  claudeModelValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -99,6 +100,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
+    model: v.optional(claudeModelValidator),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
@@ -204,6 +206,17 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     userFlows: v.optional(v.array(userFlowValidator)),
     requirements: v.optional(v.array(v.string())),
+    interviewHistory: v.optional(
+      v.array(
+        v.object({
+          role: roleValidator,
+          content: v.string(),
+          activityLog: v.optional(v.string()),
+          userId: v.optional(v.id("users")),
+        }),
+      ),
+    ),
+    sandboxId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -271,6 +284,12 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  designPersonas: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    name: v.string(),
+    prompt: v.string(),
+  }).index("by_repo", ["repoId"]),
   designSessions: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
@@ -287,6 +306,7 @@ const schema = defineSchema({
         timestamp: v.number(),
         activityLog: v.optional(v.string()),
         userId: v.optional(v.id("users")),
+        personaId: v.optional(v.id("designPersonas")),
         variations: v.optional(
           v.array(
             v.object({
@@ -300,6 +320,19 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  taskAudits: defineTable({
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+    status: evaluationStatusValidator,
+    accessibility: v.array(evalResultValidator),
+    testing: v.array(evalResultValidator),
+    codeReview: v.array(evalResultValidator),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_run", ["runId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

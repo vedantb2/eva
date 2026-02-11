@@ -35,6 +35,7 @@ import {
   PromptInputTextarea,
   PromptInputFooter,
   PromptInputSubmit,
+  PromptInputSpeech,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
@@ -44,6 +45,7 @@ import {
   IconDeviceMobile,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 
 interface SandpackConfig {
   stylesCss: string;
@@ -69,6 +71,10 @@ export function DesignDetailClient({
   const streaming = useQuery(api.streaming.get, {
     entityId: designSessionId,
   });
+  const personas = useQuery(
+    api.designPersonas.list,
+    session ? { repoId: session.repoId } : "skip",
+  );
   const { repo } = useRepo();
   const addMessage = useMutation(
     api.designSessions.addMessage,
@@ -82,7 +88,12 @@ export function DesignDetailClient({
         ...s,
         messages: [
           ...s.messages,
-          { role: args.role, content: args.content, timestamp: Date.now() },
+          {
+            role: args.role,
+            content: args.content,
+            timestamp: Date.now(),
+            personaId: args.personaId,
+          },
         ],
       },
     );
@@ -91,6 +102,8 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
 
   const [isSending, setIsSending] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] =
+    useState<Id<"designPersonas">>();
   const [{ tab, view }, setDesignParams] = useQueryStates({
     tab: designTabParser,
     view: viewModeParser,
@@ -130,7 +143,12 @@ export function DesignDetailClient({
     if (!text.trim()) return;
     setIsSending(true);
     try {
-      await addMessage({ id: typedId, role: "user", content: text.trim() });
+      await addMessage({
+        id: typedId,
+        role: "user",
+        content: text.trim(),
+        personaId: selectedPersonaId,
+      });
       await sendToApi(text.trim());
     } catch {
       setIsSending(false);
@@ -185,8 +203,13 @@ export function DesignDetailClient({
   return (
     <div className="flex h-full">
       <div className="flex flex-col w-2/5 min-w-[320px] border-r border-border">
-        <div className="px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-sm font-medium truncate">{session.title}</h2>
+          <ManagePersonasModal
+            repoId={session.repoId}
+            selectedPersonaId={selectedPersonaId}
+            onClearPersona={() => setSelectedPersonaId(undefined)}
+          />
         </div>
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-4">
@@ -237,9 +260,18 @@ export function DesignDetailClient({
                             {message.content}
                           </MessageResponse>
                         ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
-                          </p>
+                          <>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              {message.content}
+                            </p>
+                            {message.personaId && (
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                {personas?.find(
+                                  (p) => p._id === message.personaId,
+                                )?.name ?? "Persona"}
+                              </p>
+                            )}
+                          </>
                         )}
                         {message.role === "assistant" &&
                           message.activityLog && (
@@ -270,12 +302,19 @@ export function DesignDetailClient({
               disabled={isExecuting}
             />
             <PromptInputFooter>
-              <div />
-              <PromptInputSubmit
-                status={submitStatus}
-                onStop={handleCancel}
-                disabled={isExecuting}
+              <PersonaDropdown
+                repoId={session.repoId}
+                value={selectedPersonaId}
+                onChange={setSelectedPersonaId}
               />
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isExecuting} />
+                <PromptInputSubmit
+                  status={submitStatus}
+                  onStop={handleCancel}
+                  disabled={isExecuting}
+                />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </div>
@@ -371,6 +410,13 @@ export function DesignDetailClient({
                     }}
                     customSetup={{
                       entry: "/index.tsx",
+                      dependencies: {
+                        "lucide-react": "latest",
+                        recharts: "latest",
+                        "framer-motion": "latest",
+                        "date-fns": "latest",
+                        clsx: "latest",
+                      },
                     }}
                   >
                     <SandpackPreview
@@ -378,7 +424,7 @@ export function DesignDetailClient({
                       showNavigator
                       showOpenNewtab
                       showRestartButton
-                      showOpenInCodeSandbox={false}
+                      showOpenInCodeSandbox={true}
                       showRefreshButton
                       style={{ height: "100%" }}
                     />

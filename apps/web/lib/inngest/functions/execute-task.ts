@@ -10,6 +10,7 @@ import {
   setupBranch,
   getOrCreateSandbox,
   runClaudeCLIStreaming,
+  extractJsonFromText,
 } from "../sandbox";
 
 export const executeTask = inngest.createFunction(
@@ -55,6 +56,7 @@ export const executeTask = inngest.createFunction(
       projectId,
       branchName,
       isFirstTaskOnBranch,
+      model,
     } = event.data;
     const convex = createConvex(clerkToken);
 
@@ -120,8 +122,16 @@ export const executeTask = inngest.createFunction(
       return { sandboxId: sandbox.id, branchName: taskBranchName };
     });
 
-    await step.run("run-agent", async () => {
+    const beforeHead = await step.run("run-agent", async () => {
       const sandbox = await getSandbox(sandboxData.sandboxId);
+
+      const headResult = await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && git rev-parse HEAD`,
+        "/",
+        undefined,
+        10,
+      );
+      const head = (headResult.result || "").trim();
 
       const subtasksList =
         subtasks.length > 0
@@ -148,7 +158,7 @@ ${subtasksList}
 - GITHUB_TOKEN is already set for git push`;
 
       const result = await runClaudeCLIStreaming(sandbox, prompt, {
-        model: "sonnet",
+        model: model ?? "sonnet",
         allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
         workDir: WORKSPACE_DIR,
         timeout: 600,
@@ -164,6 +174,8 @@ ${subtasksList}
 
       if (result.isError)
         throw new Error(`Agent failed: ${result.result.slice(0, 500)}`);
+
+      return head;
     });
 
     const prUrl = isFirstTaskOnBranch
@@ -222,6 +234,96 @@ ${subtasksList}
           ? "Created project PR"
           : "Pushed commit to project branch",
       });
+    });
+
+    await step.run("run-audit", async () => {
+      try {
+        const sandbox = await getSandbox(sandboxData.sandboxId);
+        const diffResult = await sandbox.process.executeCommand(
+          `cd ${WORKSPACE_DIR} && git diff ${beforeHead}..HEAD`,
+          "/",
+          undefined,
+          30,
+        );
+        const diff = (diffResult.result || "").trim();
+        if (!diff) return;
+
+        const auditId = await convex.mutation(api.taskAudits.create, {
+          taskId: taskId as Id<"agentTasks">,
+          runId: runId as Id<"agentRuns">,
+        });
+
+        const auditPrompt = `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+
+For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
+
+## Sections:
+1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
+2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
+3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+
+Return ONLY valid JSON in this exact format:
+{
+  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "summary": "1-2 sentence overall assessment"
+}
+
+## Git Diff:
+${diff.slice(0, 30000)}`;
+
+        const auditResult = await runClaudeCLIStreaming(sandbox, auditPrompt, {
+          model: "haiku",
+          allowedTools: [],
+          workDir: WORKSPACE_DIR,
+          timeout: 120,
+          onOutput: async (currentActivity) => {
+            await convex.mutation(api.streaming.set, {
+              entityId: `audit-${taskId}`,
+              currentActivity,
+            });
+          },
+        });
+
+        await convex.mutation(api.streaming.clear, {
+          entityId: `audit-${taskId}`,
+        });
+
+        const jsonStr = extractJsonFromText(auditResult.result);
+        if (!jsonStr) {
+          await convex.mutation(api.taskAudits.fail, {
+            id: auditId,
+            error: "Failed to parse audit response",
+          });
+          return;
+        }
+
+        const parsed: {
+          accessibility: {
+            requirement: string;
+            passed: boolean;
+            detail: string;
+          }[];
+          testing: { requirement: string; passed: boolean; detail: string }[];
+          codeReview: {
+            requirement: string;
+            passed: boolean;
+            detail: string;
+          }[];
+          summary: string;
+        } = JSON.parse(jsonStr);
+
+        await convex.mutation(api.taskAudits.complete, {
+          id: auditId,
+          accessibility: parsed.accessibility || [],
+          testing: parsed.testing || [],
+          codeReview: parsed.codeReview || [],
+          summary: parsed.summary || "Audit completed",
+        });
+      } catch (err) {
+        console.error("Audit step failed (non-fatal):", err);
+      }
     });
 
     await step.sendEvent("notify-completion", {

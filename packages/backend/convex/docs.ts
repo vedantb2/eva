@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
 import { Timeline } from "convex-timeline";
 import { components } from "./_generated/api";
+import { roleValidator } from "./validators";
 
 const docTimeline = new Timeline(components.timeline, { maxNodesPerScope: 50 });
 
@@ -18,6 +19,13 @@ function parseSnapshot(
   return { title: data.title, content: data.content };
 }
 
+const interviewMessageValidator = v.object({
+  role: roleValidator,
+  content: v.string(),
+  activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
+});
+
 const docValidator = v.object({
   _id: v.id("docs"),
   _creationTime: v.number(),
@@ -29,6 +37,8 @@ const docValidator = v.object({
     v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
   ),
   requirements: v.optional(v.array(v.string())),
+  interviewHistory: v.optional(v.array(interviewMessageValidator)),
+  sandboxId: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -230,5 +240,77 @@ export const timelineHistory = query({
       const snapshot = parseSnapshot(node.document);
       return { position: node.position, title: snapshot?.title ?? "Untitled" };
     });
+  },
+});
+
+export const addInterviewMessage = mutation({
+  args: {
+    id: v.id("docs"),
+    role: roleValidator,
+    content: v.string(),
+    activityLog: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Doc not found");
+    const history = doc.interviewHistory ?? [];
+    history.push({
+      role: args.role,
+      content: args.content,
+      activityLog: args.activityLog,
+      userId: userId ?? undefined,
+    });
+    await ctx.db.patch(args.id, { interviewHistory: history });
+    return null;
+  },
+});
+
+export const updateLastInterviewMessage = mutation({
+  args: {
+    id: v.id("docs"),
+    content: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Doc not found");
+    const history = [...(doc.interviewHistory ?? [])];
+    const last = history[history.length - 1];
+    if (!last) return null;
+    if (args.content !== undefined) last.content = args.content;
+    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
+    await ctx.db.patch(args.id, { interviewHistory: history });
+    return null;
+  },
+});
+
+export const clearInterview = mutation({
+  args: { id: v.id("docs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Doc not found");
+    await ctx.db.patch(args.id, {
+      interviewHistory: undefined,
+      sandboxId: undefined,
+    });
+    return null;
+  },
+});
+
+export const updateDocSandbox = mutation({
+  args: { id: v.id("docs"), sandboxId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getCurrentUserId(ctx);
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Doc not found");
+    await ctx.db.patch(args.id, { sandboxId: args.sandboxId });
+    return null;
   },
 });

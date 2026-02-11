@@ -12,3 +12,4 @@ export { sessionExecute } from "./functions/session-execute";
 export { startSandbox, stopSandbox } from "./functions/session-sandbox";
 export { buildProject } from "./functions/build-project";
 export { designExecute } from "./functions/design-execute";
+export { docInterview } from "./functions/doc-interview";

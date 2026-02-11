@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
-import { taskStatusValidator } from "./validators";
+import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
 
 const agentTaskValidator = v.object({
@@ -22,6 +22,7 @@ const agentTaskValidator = v.object({
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
+  model: v.optional(claudeModelValidator),
 });
 
 export const listByBoard = query({
@@ -159,6 +160,7 @@ export const update = mutation({
     projectId: v.optional(v.id("projects")),
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.id("users")),
+    model: v.optional(claudeModelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -181,6 +183,7 @@ export const update = mutation({
     if (args.projectId !== undefined) updates.projectId = args.projectId;
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
+    if (args.model !== undefined) updates.model = args.model;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       const currentUserId = await getCurrentUserId(ctx);
@@ -586,6 +589,7 @@ export const startExecution = mutation({
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
+    model: v.optional(claudeModelValidator),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -672,6 +676,7 @@ export const startExecution = mutation({
       projectId: task.projectId,
       branchName: project?.branchName,
       isFirstTaskOnBranch,
+      model: task.model,
     };
   },
 });

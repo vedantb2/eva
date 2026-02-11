@@ -1,3 +1,14 @@
+adding accordion on quick task modal for 3 audits
+
+- accessibility audit - checks whether it meets accessibility guidelines
+- code test audit - checks whether tests have been implemented correct (if they are needed)
+- code review audit - checks whether the code implemented is correct
+-
+- add dictation(voice ) to all input areas
+  add interview to docuements that generates the requriements and user flows
+
+adding a user persona to design sessions
+
 - increase size of annotations on screen by 1.25x
 - replace all purple usages with our theme colour instead
 - colour of annotation reflects the task status grey for todo, yellow in progress, business business review, purple code review

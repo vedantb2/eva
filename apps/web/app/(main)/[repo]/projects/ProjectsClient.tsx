@@ -19,8 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Spinner,
 } from "@conductor/ui";
-import { Skeleton } from "@/lib/components/ui/Skeleton";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
@@ -149,18 +149,8 @@ export function ProjectsClient() {
         }
       >
         {projects === undefined ? (
-          <div className="flex items-stretch gap-2 flex-1 min-h-0">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="flex-1 min-w-0 bg-secondary rounded-md p-2 space-y-2"
-              >
-                <Skeleton className="h-6 w-24" />
-                {[1, 2].map((j) => (
-                  <Skeleton key={j} className="h-24 rounded-md" />
-                ))}
-              </div>
-            ))}
+          <div className="flex items-center justify-center flex-1">
+            <Spinner />
           </div>
         ) : projects.length === 0 ? (
           <EmptyState

@@ -10,8 +10,6 @@ import {
   IconLayoutSidebarRightExpand,
   IconCheck,
   IconX,
-  IconCode,
-  IconChevronDown,
   IconBookmark,
   IconBookmarkFilled,
   IconTrash,
@@ -38,11 +36,9 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSpeech,
   PromptInputSettings,
   type PromptInputMessage,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
   Avatar,
   AvatarFallback,
   Confirmation,
@@ -57,6 +53,14 @@ import {
   ArtifactActions,
   ArtifactAction,
   ArtifactContent,
+  CodeBlock,
+  CodeBlockCopyButton,
+  Sandbox,
+  SandboxContent,
+  SandboxTabs,
+  SandboxTabsList,
+  SandboxTabsTrigger,
+  SandboxTabContent,
 } from "@conductor/ui";
 
 interface QueryDetailClientProps {
@@ -228,9 +232,15 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                           </p>
                         </ConfirmationTitle>
                         <ConfirmationRequest>
-                          <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                            <code>{message.content}</code>
-                          </pre>
+                          <CodeBlock
+                            code={message.content}
+                            language="typescript"
+                          >
+                            <CodeBlockCopyButton />
+                            <pre className="overflow-x-auto p-3 text-xs">
+                              <code>{message.content}</code>
+                            </pre>
+                          </CodeBlock>
                         </ConfirmationRequest>
                         <ConfirmationActions>
                           <ConfirmationAction
@@ -262,53 +272,67 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                         </ConfirmationRejected>
                       </Confirmation>
                     ) : message.role === "assistant" ? (
-                      <div className="space-y-3">
+                      message.queryCode ? (
+                        <Sandbox state="completed">
+                          <SandboxContent>
+                            <SandboxTabs defaultValue="output">
+                              <SandboxTabsList>
+                                <SandboxTabsTrigger value="output">
+                                  Output
+                                </SandboxTabsTrigger>
+                                <SandboxTabsTrigger value="code">
+                                  Code
+                                </SandboxTabsTrigger>
+                              </SandboxTabsList>
+                              <SandboxTabContent value="output">
+                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                  {message.content}
+                                </MessageResponse>
+                              </SandboxTabContent>
+                              <SandboxTabContent value="code">
+                                <CodeBlock
+                                  code={message.queryCode}
+                                  language="typescript"
+                                >
+                                  <CodeBlockCopyButton />
+                                  <pre className="overflow-x-auto p-3 text-xs">
+                                    <code>{message.queryCode}</code>
+                                  </pre>
+                                </CodeBlock>
+                                <div className="mt-2">
+                                  {isQuerySaved(message.queryCode) ? (
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <IconBookmarkFilled size={14} />
+                                      <span>Saved</span>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const userMsg =
+                                          query.messages[index - 1]?.content ??
+                                          query.title;
+                                        handleSaveQuery(
+                                          message.queryCode ?? "",
+                                          userMsg,
+                                        );
+                                      }}
+                                    >
+                                      <IconBookmark size={14} />
+                                      Save query
+                                    </Button>
+                                  )}
+                                </div>
+                              </SandboxTabContent>
+                            </SandboxTabs>
+                          </SandboxContent>
+                        </Sandbox>
+                      ) : (
                         <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                           {message.content}
                         </MessageResponse>
-                        {message.queryCode && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                              <IconCode size={14} />
-                              <span>View query</span>
-                              <IconChevronDown
-                                size={12}
-                                className="transition-transform group-data-[state=open]:rotate-180"
-                              />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="mt-2 space-y-2">
-                                <pre className="rounded-lg bg-secondary p-3 text-xs overflow-x-auto">
-                                  <code>{message.queryCode}</code>
-                                </pre>
-                                {isQuerySaved(message.queryCode) ? (
-                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                    <IconBookmarkFilled size={14} />
-                                    <span>Saved</span>
-                                  </div>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const userMsg =
-                                        query.messages[index - 1]?.content ??
-                                        query.title;
-                                      handleSaveQuery(
-                                        message.queryCode ?? "",
-                                        userMsg,
-                                      );
-                                    }}
-                                  >
-                                    <IconBookmark size={14} />
-                                    Save query
-                                  </Button>
-                                )}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                      </div>
+                      )
                     ) : (
                       <p className="text-sm whitespace-pre-wrap break-words">
                         {message.content}
@@ -354,10 +378,13 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   disabled={isSending}
                 />
               </PromptInputTools>
-              <PromptInputSubmit
-                status={isSending ? "submitted" : undefined}
-                disabled={isSending}
-              />
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isSending} />
+                <PromptInputSubmit
+                  status={isSending ? "submitted" : undefined}
+                  disabled={isSending}
+                />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </div>
@@ -411,9 +438,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     </ArtifactActions>
                   </ArtifactHeader>
                   <ArtifactContent className="p-2">
-                    <pre className="text-xs overflow-x-auto max-h-20">
-                      <code>{sq.query}</code>
-                    </pre>
+                    <CodeBlock
+                      code={sq.query}
+                      language="typescript"
+                      className="max-h-20 overflow-hidden"
+                    />
                   </ArtifactContent>
                 </Artifact>
               ))

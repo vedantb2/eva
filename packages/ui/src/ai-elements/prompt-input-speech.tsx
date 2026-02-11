@@ -47,11 +47,13 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
-function useSpeechRecognition(onResult: (transcript: string) => void) {
+function useSpeechRecognition(onUpdate: (fullText: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+  const prefixRef = useRef("");
+  const finalsRef = useRef("");
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
@@ -59,46 +61,61 @@ function useSpeechRecognition(onResult: (transcript: string) => void) {
     setIsListening(false);
   }, []);
 
-  const start = useCallback(() => {
-    const SR = getSpeechRecognition();
-    if (!SR) return;
+  const start = useCallback(
+    (prefix: string) => {
+      const SR = getSpeechRecognition();
+      if (!SR) return;
 
-    const recognition = new SR();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
+      const separator = prefix && !prefix.endsWith(" ") ? " " : "";
+      prefixRef.current = prefix + separator;
+      finalsRef.current = "";
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          transcript += event.results[i][0].transcript;
+      const recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let finals = "";
+        let interim = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finals += text;
+          } else {
+            interim += text;
+          }
         }
+        finalsRef.current = finals;
+        onUpdateRef.current(prefixRef.current + finals + interim);
+      };
+
+      recognition.onerror = () => {
+        stop();
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsListening(true);
+    },
+    [stop],
+  );
+
+  const toggle = useCallback(
+    (prefix: string) => {
+      if (isListening) {
+        stop();
+      } else {
+        start(prefix);
       }
-      if (transcript) onResultRef.current(transcript);
-    };
-
-    recognition.onerror = () => {
-      stop();
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [stop]);
-
-  const toggle = useCallback(() => {
-    if (isListening) {
-      stop();
-    } else {
-      start();
-    }
-  }, [isListening, start, stop]);
+    },
+    [isListening, start, stop],
+  );
 
   useEffect(() => stop, [stop]);
 
@@ -115,32 +132,39 @@ export function PromptInputSpeech({ disabled }: PromptInputSpeechProps) {
   return <SpeechButton disabled={disabled} />;
 }
 
+function setTextareaValue(textarea: HTMLTextAreaElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    "value",
+  )?.set;
+  if (!setter) return;
+  setter.call(textarea, value);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function SpeechButton({ disabled }: PromptInputSpeechProps) {
-  const appendText = useCallback((transcript: string) => {
+  const updateText = useCallback((fullText: string) => {
     const textarea = document.querySelector<HTMLTextAreaElement>(
       'textarea[name="message"]',
     );
     if (!textarea) return;
-
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-      HTMLTextAreaElement.prototype,
-      "value",
-    )?.set;
-    if (!nativeInputValueSetter) return;
-
-    const current = textarea.value;
-    const separator = current && !current.endsWith(" ") ? " " : "";
-    nativeInputValueSetter.call(textarea, current + separator + transcript);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    setTextareaValue(textarea, fullText);
     textarea.focus();
   }, []);
 
-  const { isListening, toggle } = useSpeechRecognition(appendText);
+  const { isListening, toggle } = useSpeechRecognition(updateText);
+
+  const handleToggle = useCallback(() => {
+    const textarea = document.querySelector<HTMLTextAreaElement>(
+      'textarea[name="message"]',
+    );
+    toggle(textarea?.value ?? "");
+  }, [toggle]);
 
   return (
     <PromptInputButton
       tooltip={isListening ? "Stop recording" : "Voice input"}
-      onClick={toggle}
+      onClick={handleToggle}
       disabled={disabled}
       className={isListening ? "text-destructive" : ""}
     >

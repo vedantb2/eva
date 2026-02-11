@@ -42,12 +42,12 @@ declare global {
   }
 }
 
-function getSpeechRecognition(): SpeechRecognitionConstructor | null {
+export function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
-function useSpeechRecognition(onUpdate: (fullText: string) => void) {
+export function useSpeechRecognition(onUpdate: (fullText: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const onUpdateRef = useRef(onUpdate);

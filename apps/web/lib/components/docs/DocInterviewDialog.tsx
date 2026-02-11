@@ -14,8 +14,16 @@ import {
   DialogDescription,
   DialogFooter,
   Spinner,
+  Textarea,
+  getSpeechRecognition,
+  useSpeechRecognition,
 } from "@conductor/ui";
-import { IconTrash } from "@tabler/icons-react";
+import {
+  IconTrash,
+  IconMicrophone,
+  IconPlayerStop,
+  IconArrowRight,
+} from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 
@@ -56,7 +64,11 @@ export function DocInterviewDialog({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [dictation, setDictation] = useState("");
   const hasTriggeredRef = useRef(false);
+  const hasSpeech = !!getSpeechRecognition();
+  const { isListening, toggle: toggleSpeech } =
+    useSpeechRecognition(setDictation);
 
   const streaming = useQuery(
     api.streaming.get,
@@ -146,9 +158,15 @@ export function DocInterviewDialog({
       }
     }
 
+    setDictation("");
+    if (isListening) toggleSpeech("");
     const updatedAnswers = [...answers, { question: currentQuestion, answer }];
     await addMessage({ id: doc._id, role: "user", content: answer });
     askQuestion(updatedAnswers);
+  };
+
+  const handleDictationSubmit = () => {
+    if (dictation.trim()) handleAnswer(dictation.trim());
   };
 
   const handleClear = async () => {
@@ -193,7 +211,7 @@ export function DocInterviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-5xl w-full max-h-[95vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {readOnly ? "Interview History" : "Interview"}: {doc.title}
@@ -285,13 +303,64 @@ export function DocInterviewDialog({
           {!readOnly && (
             <div className="space-y-3 pt-2 border-t border-border">
               {showQuestion && (
-                <MultipleChoiceQuestion
-                  question={currentQuestion.question}
-                  options={currentQuestion.options}
-                  onAnswer={handleAnswer}
-                  isLoading={isLoading}
-                  questionNumber={questionCount}
-                />
+                <>
+                  <MultipleChoiceQuestion
+                    question={currentQuestion.question}
+                    options={currentQuestion.options}
+                    onAnswer={handleAnswer}
+                    isLoading={isLoading}
+                    questionNumber={questionCount}
+                  />
+                  {hasSpeech && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-xs text-muted-foreground">
+                          or describe in your own words
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Textarea
+                          value={dictation}
+                          onChange={(e) => setDictation(e.target.value)}
+                          placeholder={
+                            isListening
+                              ? "Listening..."
+                              : "Click the mic or type here..."
+                          }
+                          rows={2}
+                          className="text-sm bg-card flex-1"
+                          disabled={isLoading}
+                        />
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            size="icon"
+                            variant={isListening ? "destructive" : "secondary"}
+                            onClick={() => toggleSpeech(dictation)}
+                            disabled={isLoading}
+                            className="h-8 w-8"
+                          >
+                            {isListening ? (
+                              <IconPlayerStop size={14} />
+                            ) : (
+                              <IconMicrophone size={14} />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="default"
+                            onClick={handleDictationSubmit}
+                            disabled={isLoading || !dictation.trim()}
+                            className="h-8 w-8"
+                          >
+                            <IconArrowRight size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">

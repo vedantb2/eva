@@ -381,7 +381,7 @@ export function DesignDetailClient({
                       showNavigator
                       showOpenNewtab
                       showRestartButton
-                      showOpenInCodeSandbox={false}
+                      showOpenInCodeSandbox={true}
                       showRefreshButton
                       style={{ height: "100%" }}
                     />

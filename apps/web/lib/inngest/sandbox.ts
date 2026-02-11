@@ -181,6 +181,7 @@ interface StreamingClaudeCLIOptions {
   workDir?: string;
   timeout?: number;
   outputFormat?: "json" | "text";
+  appendSystemPrompt?: string;
   onOutput: (displayLog: string) => Promise<void>;
   flushIntervalMs?: number;
 }
@@ -270,6 +271,7 @@ export async function runClaudeCLIStreaming(
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = WORKSPACE_DIR,
     timeout = 900,
+    appendSystemPrompt,
     onOutput,
     flushIntervalMs = 500,
   } = options;
@@ -277,7 +279,10 @@ export async function runClaudeCLIStreaming(
   const escapedPrompt = quote([prompt]);
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
-  const command = `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format stream-json`;
+  const systemPromptArg = appendSystemPrompt
+    ? `--append-system-prompt ${quote([appendSystemPrompt])}`
+    : "";
+  const command = `cd ${workDir} && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model ${model} ${toolsArg} ${systemPromptArg} --output-format stream-json`;
 
   const sessionId = `claude-${Date.now()}`;
   await sandbox.process.createSession(sessionId);

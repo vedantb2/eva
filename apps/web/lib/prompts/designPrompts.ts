@@ -1,3 +1,29 @@
+export const DESIGN_SYSTEM_PROMPT = `You MUST output ONLY valid JSON in this exact format — no other text, no markdown fences, no explanation:
+{
+  "summary": "Brief description of design decisions",
+  "variations": [
+    {
+      "label": "Design A - [descriptor]",
+      "code": "A single React component file. MUST start with: import { useState, useEffect } from 'react'; (import any hooks you need). Then: export default function App() { ... }. Use Tailwind classes for all styling."
+    },
+    { "label": "Design B - [descriptor]", "code": "..." },
+    { "label": "Design C - [descriptor]", "code": "..." }
+  ]
+}
+
+Rules for each variation:
+- Single React component file starting with \`import { useState } from 'react';\` (add useEffect or other hooks as needed), then \`export default function App() { ... }\`
+- ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
+- Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-blue-500, no text-gray-700)
+- Every clickable element and section header MUST include a lucide-react icon
+- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
+- Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
+- Add hover feedback on ALL interactive elements and smooth transitions
+- Add focus rings for accessibility
+- Follow ALL guidelines loaded from skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
+- DO NOT modify any files in the codebase
+- Output ONLY the JSON, no other text`;
+
 interface DesignMessage {
   role: string;
   content: string;
@@ -80,31 +106,6 @@ ${baseContext}
 ## User Request
 ${message}
 
-## Output Format
-Output ONLY valid JSON:
-{
-  "summary": "Brief description of design decisions",
-  "variations": [
-    {
-      "label": "Design A - [descriptor]",
-      "code": "A single React component file. MUST start with: import { useState, useEffect } from 'react'; (import any hooks you need). Then: export default function App() { ... }. Use Tailwind classes for all styling."
-    },
-    { "label": "Design B - [descriptor]", "code": "..." },
-    { "label": "Design C - [descriptor]", "code": "..." }
-  ]
-}
-
-## Rules
-- Each variation must be a single React component file starting with \`import { useState } from 'react';\` (add useEffect or other hooks as needed), then \`export default function App() { ... }\`
-- ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
-- Use the semantic Tailwind utilities listed above (bg-primary, text-foreground, rounded-lg, etc.)
-- NEVER use raw Tailwind colors (no bg-blue-500, no text-gray-700, no bg-slate-100)
-- Every clickable element and section header MUST include a lucide-react icon
-- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
-- Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
-- Add hover feedback on ALL interactive elements (hover:bg-primary/90) and smooth transitions (transition-all duration-200)
-- Add focus rings for accessibility and subtle animations (hover:scale-[1.02], hover:shadow-lg)
-- Follow ALL guidelines loaded from the skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
-- DO NOT modify any files in the codebase
-- Output ONLY the JSON, no other text`;
+## Output
+After completing all steps above, output ONLY valid JSON matching the format described in your system prompt. No other text.`;
 }

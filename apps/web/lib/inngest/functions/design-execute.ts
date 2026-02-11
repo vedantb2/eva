@@ -9,7 +9,10 @@ import {
   runClaudeCLIStreaming,
   extractJsonFromText,
 } from "../sandbox";
-import { buildDesignPrompt } from "@/lib/prompts/designPrompts";
+import {
+  buildDesignPrompt,
+  DESIGN_SYSTEM_PROMPT,
+} from "@/lib/prompts/designPrompts";
 
 export const designExecute = inngest.createFunction(
   {
@@ -103,6 +106,7 @@ export const designExecute = inngest.createFunction(
       const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "opus",
         allowedTools: ["Read", "Glob", "Grep", "Skill"],
+        appendSystemPrompt: DESIGN_SYSTEM_PROMPT,
         onOutput: async (currentActivity) => {
           await convex.mutation(api.streaming.set, {
             entityId: designSessionId,

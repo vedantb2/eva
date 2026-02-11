@@ -83,6 +83,7 @@
     "react-chartjs-2": "^5.3.0",
     "react-dom": "19.2.1",
     "react-hook-form": "^7.54.2",
+    "react-resizable-panels": "^4.6.2",
     "react-syntax-highlighter": "^16.1.0",
     "resend": "^4.5.1",
     "shell-quote": "^1.8.3",

@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y git curl
 # Use Node's built-in corepack for pnpm (matches packageManager version in package.json)
 RUN corepack enable
 
-# Claude Code CLI for AI agent execution
-RUN npm install -g @anthropic-ai/claude-code
+# Claude Code CLI and browser agent for AI execution
+RUN npm install -g @anthropic-ai/claude-code agent-browser
+
+# Playwright system dependencies (Chromium libs)
+RUN npx playwright install-deps chromium
 
 # VS Code web editor for session sandbox (pre-built binary, no compilation needed)
 RUN curl -fsSL https://code-server.dev/install.sh | sh
@@ -16,6 +19,9 @@ RUN curl -fsSL https://code-server.dev/install.sh | sh
 RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
 
 USER eva
+
+# Install Playwright Chromium browser binary as non-root user
+RUN npx playwright install chromium
 WORKDIR /workspace
 
 # pnpm global bin directory for non-root user

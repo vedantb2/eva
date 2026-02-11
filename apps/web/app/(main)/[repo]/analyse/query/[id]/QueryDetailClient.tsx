@@ -36,6 +36,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSpeech,
   PromptInputSettings,
   type PromptInputMessage,
   Avatar,
@@ -377,10 +378,13 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   disabled={isSending}
                 />
               </PromptInputTools>
-              <PromptInputSubmit
-                status={isSending ? "submitted" : undefined}
-                disabled={isSending}
-              />
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isSending} />
+                <PromptInputSubmit
+                  status={isSending ? "submitted" : undefined}
+                  disabled={isSending}
+                />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </div>

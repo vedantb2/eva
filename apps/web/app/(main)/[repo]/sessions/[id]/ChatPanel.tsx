@@ -31,6 +31,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSpeech,
   PromptInputSettings,
   type PromptInputMessage,
   Avatar,
@@ -551,11 +552,14 @@ export function ChatPanel({
                 disabled={isInputDisabled}
               />
             </PromptInputTools>
-            <PromptInputSubmit
-              status={submitStatus}
-              onStop={handleCancel}
-              disabled={isInputDisabled}
-            />
+            <div className="flex items-center gap-1">
+              <PromptInputSpeech disabled={isInputDisabled} />
+              <PromptInputSubmit
+                status={submitStatus}
+                onStop={handleCancel}
+                disabled={isInputDisabled}
+              />
+            </div>
           </PromptInputFooter>
         </PromptInput>
       </div>

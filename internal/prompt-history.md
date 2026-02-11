@@ -1,3 +1,6 @@
+add dictation(voice ) to all input areas
+add interview to docuements that generates the requriements and user flows
+
 adding a user persona to design sessions
 
 - increase size of annotations on screen by 1.25x

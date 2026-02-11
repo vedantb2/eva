@@ -1,5 +1,13 @@
 # Changelog
 
+## Speech-to-Text Input for PromptInput — 2026-02-11
+
+- Created `PromptInputSpeech` component in `packages/ui/src/ai-elements/prompt-input-speech.tsx` using native Web Speech API
+- Renders a mic button that toggles speech recognition; returns `null` on unsupported browsers (Firefox/Safari)
+- Appends final transcription results to the textarea via native value setter + input event dispatch
+- Added speech button to sessions (`ChatPanel.tsx`), design (`DesignDetailClient.tsx`), and analyse (`QueryDetailClient.tsx`)
+- Exported from `@conductor/ui`
+
 ## Persona Selector for Design Sessions — 2026-02-11
 
 - Added `designPersonas` table to Convex schema with `name`, `prompt`, `repoId`, `userId` fields

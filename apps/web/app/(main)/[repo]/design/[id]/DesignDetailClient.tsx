@@ -35,6 +35,7 @@ import {
   PromptInputTextarea,
   PromptInputFooter,
   PromptInputSubmit,
+  PromptInputSpeech,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
@@ -306,11 +307,14 @@ export function DesignDetailClient({
                 value={selectedPersonaId}
                 onChange={setSelectedPersonaId}
               />
-              <PromptInputSubmit
-                status={submitStatus}
-                onStop={handleCancel}
-                disabled={isExecuting}
-              />
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isExecuting} />
+                <PromptInputSubmit
+                  status={submitStatus}
+                  onStop={handleCancel}
+                  disabled={isExecuting}
+                />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </div>

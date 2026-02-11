@@ -1,5 +1,14 @@
 # Changelog
 
+## Sandbox + CodeBlock AI Elements for Research Queries — 2026-02-11
+
+- Created `CodeBlock` and `CodeBlockCopyButton` components in `packages/ui/src/ai-elements/code-block.tsx` — reusable code display with clipboard copy
+- Created `Sandbox`, `SandboxHeader`, `SandboxContent`, `SandboxTabs`, `SandboxTabsList`, `SandboxTabsTrigger`, `SandboxTabContent` components in `packages/ui/src/ai-elements/sandbox.tsx` — collapsible container with status badges and tabbed content
+- Updated `QueryDetailClient` pending state to use `CodeBlock` with copy button instead of plain `<pre><code>`
+- Updated `QueryDetailClient` completed state to use `Sandbox` with Output/Code tabs instead of inline Collapsible "View query"
+- Updated saved queries panel to use `CodeBlock` for consistent code display
+- Exported all new components from `@conductor/ui`
+
 ## Model Selector for Task Execution — 2026-02-11
 
 - Added `claudeModelValidator` (opus/sonnet/haiku) to Convex validators and optional `model` field to `agentTasks` schema

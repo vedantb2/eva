@@ -38,3 +38,5 @@ export * from "./ai-elements/shimmer";
 export * from "./ai-elements/web-preview";
 export * from "./ai-elements/plan";
 export * from "./ai-elements/test-results";
+export * from "./ai-elements/code-block";
+export * from "./ai-elements/sandbox";

@@ -2,13 +2,8 @@
 
 import type { ComponentProps, HTMLAttributes } from "react";
 import { createContext, useContext } from "react";
-import { ChevronRightIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../ui/collapsible";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { cn } from "../utils/cn";
 
@@ -34,7 +29,7 @@ const stateBadgeConfig: Record<
   error: { label: "Error", variant: "destructive" },
 };
 
-export type SandboxProps = ComponentProps<typeof Collapsible> & {
+export type SandboxProps = HTMLAttributes<HTMLDivElement> & {
   state: SandboxState;
 };
 
@@ -45,64 +40,19 @@ export const Sandbox = ({
   ...props
 }: SandboxProps) => (
   <SandboxContext.Provider value={{ state }}>
-    <Collapsible
+    <div
       className={cn("rounded-lg border bg-background", className)}
       {...props}
     >
       {children}
-    </Collapsible>
+    </div>
   </SandboxContext.Provider>
 );
 
-export type SandboxHeaderProps = ComponentProps<typeof CollapsibleTrigger> & {
-  title?: string;
-};
-
-export const SandboxHeader = ({
-  title,
-  className,
-  children,
-  ...props
-}: SandboxHeaderProps) => {
-  const context = useContext(SandboxContext);
-  if (!context) {
-    throw new Error("SandboxHeader must be used within Sandbox");
-  }
-  const { label, variant, pulse } = stateBadgeConfig[context.state];
-
-  return (
-    <CollapsibleTrigger
-      className={cn(
-        "group flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
-        className,
-      )}
-      {...props}
-    >
-      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-      {children ?? (
-        <>
-          <span className="font-medium">{title ?? "Code"}</span>
-          <Badge
-            className={cn("ml-auto", pulse && "animate-pulse")}
-            variant={variant}
-          >
-            {label}
-          </Badge>
-        </>
-      )}
-    </CollapsibleTrigger>
-  );
-};
-
 export type SandboxContentProps = HTMLAttributes<HTMLDivElement>;
 
-export const SandboxContent = ({
-  className,
-  ...props
-}: SandboxContentProps) => (
-  <CollapsibleContent>
-    <div className={cn("border-t", className)} {...props} />
-  </CollapsibleContent>
+export const SandboxContent = (props: SandboxContentProps) => (
+  <div {...props} />
 );
 
 export type SandboxTabsProps = ComponentProps<typeof Tabs>;
@@ -112,17 +62,35 @@ export const SandboxTabs = (props: SandboxTabsProps) => <Tabs {...props} />;
 export type SandboxTabsListProps = ComponentProps<typeof TabsList>;
 
 export const SandboxTabsList = ({
+  children,
   className,
   ...props
-}: SandboxTabsListProps) => (
-  <TabsList
-    className={cn(
-      "h-auto w-full justify-start rounded-none border-b bg-transparent p-0",
-      className,
-    )}
-    {...props}
-  />
-);
+}: SandboxTabsListProps) => {
+  const context = useContext(SandboxContext);
+  const badge = context ? stateBadgeConfig[context.state] : null;
+
+  return (
+    <div className="flex items-center border-b">
+      <TabsList
+        className={cn(
+          "h-auto flex-1 justify-start rounded-none bg-transparent p-0",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </TabsList>
+      {badge && (
+        <Badge
+          className={cn("mr-3", badge.pulse && "animate-pulse")}
+          variant={badge.variant}
+        >
+          {badge.label}
+        </Badge>
+      )}
+    </div>
+  );
+};
 
 export type SandboxTabsTriggerProps = ComponentProps<typeof TabsTrigger>;
 

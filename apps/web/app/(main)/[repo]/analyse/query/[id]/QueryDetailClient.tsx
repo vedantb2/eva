@@ -55,7 +55,6 @@ import {
   CodeBlock,
   CodeBlockCopyButton,
   Sandbox,
-  SandboxHeader,
   SandboxContent,
   SandboxTabs,
   SandboxTabsList,
@@ -274,7 +273,6 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     ) : message.role === "assistant" ? (
                       message.queryCode ? (
                         <Sandbox state="completed">
-                          <SandboxHeader title="query.ts" />
                           <SandboxContent>
                             <SandboxTabs defaultValue="output">
                               <SandboxTabsList>

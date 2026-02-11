@@ -1,5 +1,13 @@
 # Changelog
 
+## Post-Execution Audits for Quick Tasks — 2026-02-11
+
+- Added `taskAudits` Convex table with status, accessibility/testing/codeReview arrays, and indexes by task and run
+- Created `taskAudits.ts` with `getByTask` query, `create`/`complete`/`fail` mutations
+- Added `run-audit` step to `execute-task.ts` — captures git diff before/after, runs Claude Haiku audit (read-only, no tools), parses structured JSON results
+- Audit is best-effort: wrapped in try/catch so failures don't block task completion
+- Added audit UI to `TaskDetailModal` — shows streaming progress while running, 3 accordion sections (Accessibility, Code Testing, Code Review) with pass/fail badges when complete
+
 ## Doc Interview Feature — 2026-02-11
 
 - Added `interviewHistory` and `sandboxId` fields to `docs` table schema

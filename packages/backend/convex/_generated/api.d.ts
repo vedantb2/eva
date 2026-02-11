@@ -32,6 +32,7 @@ import type * as sessions from "../sessions.js";
 import type * as specs from "../specs.js";
 import type * as streaming from "../streaming.js";
 import type * as subtasks from "../subtasks.js";
+import type * as taskAudits from "../taskAudits.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   specs: typeof specs;
   streaming: typeof streaming;
   subtasks: typeof subtasks;
+  taskAudits: typeof taskAudits;
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
   taskProof: typeof taskProof;

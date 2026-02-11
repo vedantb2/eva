@@ -320,6 +320,19 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  taskAudits: defineTable({
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+    status: evaluationStatusValidator,
+    accessibility: v.array(evalResultValidator),
+    testing: v.array(evalResultValidator),
+    codeReview: v.array(evalResultValidator),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_run", ["runId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

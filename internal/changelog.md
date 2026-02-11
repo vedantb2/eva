@@ -1,5 +1,17 @@
 # Changelog
 
+## Annotation Card UX Improvements — 2026-02-11
+
+- Added "Run Eva" button to existing annotation cards — triggers task execution from the annotation overlay without opening the sidepanel
+- Regrouped footer buttons: new annotations show Cancel + Create Task; existing annotations show Run Eva (left) + Cancel + Edit Task (right)
+- Fixed inverted dark/light color scheme in InputCard — dark mode now uses dark backgrounds, light mode uses light backgrounds
+- Added creator avatar (Facehash) to annotation card header next to "Annotation #N"
+- Content script stores `userId` and `creatorInitials` per pin, persisted across page reloads
+- Sidepanel sends user data (Convex userId + initials from Clerk) with `ANNOTATION_TASK_CREATED` messages
+- Replaced local `UserAvatar` component in ChatPanel with `UserInitials` from `@conductor/shared` (Facehash-based)
+- Added `RUN_ANNOTATION_TASK` message type for single-task execution from content script
+- Added `facehash` and `dayjs` dependencies to chrome extension (peer deps of `@conductor/shared`)
+
 ## Create `@conductor/shared` Package — 2026-02-10
 
 - Created `packages/shared/` workspace package (`@conductor/shared`) for smart components and utilities shared between web and chrome-extension

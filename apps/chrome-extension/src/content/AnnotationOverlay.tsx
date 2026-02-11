@@ -8,10 +8,11 @@ import {
 import {
   IconTrash,
   IconX,
-  IconDeviceFloppy,
   IconCheckbox,
   IconChevronRight,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
+import { Facehash } from "facehash";
 import {
   extractReactTree,
   isReactAvailable,
@@ -166,8 +167,6 @@ function pinStatusColor(status: TaskStatus | undefined): {
       return { bg: "#fb923c", opacity: 1 };
     case "code_review":
       return { bg: "#c084fc", opacity: 1 };
-    case "done":
-      return { bg: "#a1a1aa", opacity: 0.4 };
     default:
       return { bg: "#a1a1aa", opacity: 1 };
   }
@@ -295,10 +294,12 @@ interface InputCardProps {
   elementHtml: string;
   selectedText?: string;
   isEdit: boolean;
-  onSave: (pinId: string, text: string) => void;
+  status?: TaskStatus;
+  creatorInitials?: string;
   onTask: (pinId: string, text: string) => void;
   onCancel: (pinId: string) => void;
   onDelete: (pinId: string) => void;
+  onRunEva: (pinId: string) => void;
 }
 
 function InputCard({
@@ -309,54 +310,70 @@ function InputCard({
   elementHtml,
   selectedText,
   isEdit,
-  onSave,
+  status,
+  creatorInitials,
   onTask,
   onCancel,
   onDelete,
+  onRunEva,
 }: InputCardProps) {
   const [text, setText] = useState(initialText);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dark = useSyncExternalStore(subscribeDark, getDark);
+  const locked =
+    status === "in_progress" ||
+    status === "business_review" ||
+    status === "code_review";
 
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+    if (!locked) textareaRef.current?.focus();
+  }, [locked]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       e.stopPropagation();
       if (e.key === "Enter" && !e.shiftKey && text.trim()) {
         e.preventDefault();
-        onSave(pinId, text.trim());
+        onTask(pinId, text.trim());
       }
       if (e.key === "Escape") onCancel(pinId);
     },
-    [text, pinId, onSave, onCancel],
+    [text, pinId, onTask, onCancel],
   );
 
   return (
     <div
-      className={`absolute rounded-xl border ${dark ? "bg-white border-neutral-200" : "bg-neutral-800 border-neutral-700"}`}
+      className={`absolute rounded-xl border ${dark ? "bg-neutral-800 border-neutral-700" : "bg-white border-neutral-200"}`}
       style={{
         left: position.x - 15,
         top: position.y + 22,
         width: 340,
         zIndex: 2147483645,
         boxShadow: dark
-          ? "0 8px 32px rgba(0,0,0,0.12)"
-          : "0 8px 32px rgba(0,0,0,0.4)",
+          ? "0 8px 32px rgba(0,0,0,0.4)"
+          : "0 8px 32px rgba(0,0,0,0.12)",
         pointerEvents: "auto",
       }}
     >
       <div
-        className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-500" : "text-neutral-400"}`}
+        className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-400" : "text-neutral-500"}`}
       >
-        <span>{isEdit ? `Annotation #${pinNumber}` : "New annotation"}</span>
-        {isEdit && (
+        <span className="flex items-center gap-1.5">
+          {isEdit && creatorInitials && (
+            <Facehash
+              size={20}
+              name={creatorInitials}
+              enableBlink
+              interactive
+            />
+          )}
+          {isEdit ? `Annotation #${pinNumber}` : "New annotation"}
+        </span>
+        {isEdit && !locked && (
           <button
             onClick={() => onDelete(pinId)}
-            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-500 hover:text-red-600" : "text-red-400 hover:text-red-300"}`}
+            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-600"}`}
             style={{ fontSize: 11 }}
           >
             <IconTrash size={12} /> Delete
@@ -366,13 +383,13 @@ function InputCard({
       {selectedText ? (
         <div className="px-3 pb-1">
           <p
-            className={`text-xs ${dark ? "text-neutral-500" : "text-neutral-400"}`}
+            className={`text-xs ${dark ? "text-neutral-400" : "text-neutral-500"}`}
             style={{ margin: 0 }}
           >
             Selected Text
           </p>
           <p
-            className={`text-sm mt-1 italic ${dark ? "text-neutral-700" : "text-neutral-200"}`}
+            className={`text-sm mt-1 italic ${dark ? "text-neutral-200" : "text-neutral-700"}`}
             style={{ margin: "4px 0 0" }}
           >
             &ldquo;
@@ -386,7 +403,7 @@ function InputCard({
         <div className="px-3 pb-1">
           <button
             onClick={() => setDetailsOpen((v) => !v)}
-            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-500 hover:text-neutral-600" : "text-neutral-400 hover:text-neutral-300"}`}
+            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-400 hover:text-neutral-300" : "text-neutral-500 hover:text-neutral-600"}`}
             style={{ padding: 0 }}
           >
             <IconChevronRight
@@ -429,44 +446,71 @@ function InputCard({
           rows={3}
           placeholder="Describe the issue..."
           value={text}
+          readOnly={locked}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400" : "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500"}`}
+          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500" : "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400"}`}
           style={{ boxSizing: "border-box", display: "block" }}
         />
       </div>
-      <div
-        className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-100" : "border-neutral-700"}`}
-        style={{ paddingTop: 10 }}
-      >
-        <button
-          onClick={() => {
-            if (text.trim()) onTask(pinId, text.trim());
-          }}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#0c786c] hover:bg-[#109182] border-none cursor-pointer transition-colors"
-          style={{ borderRadius: 8 }}
+      {!locked && (
+        <div
+          className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-700" : "border-neutral-100"}`}
+          style={{ paddingTop: 10 }}
         >
-          <IconCheckbox size={14} /> Create Task
-        </button>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onCancel(pinId)}
-            className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
-            style={{ borderRadius: 8 }}
-          >
-            <IconX size={14} /> Cancel
-          </button>
-          <button
-            onClick={() => {
-              if (text.trim()) onSave(pinId, text.trim());
-            }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#109182] hover:bg-[#2db8a4] border-none cursor-pointer transition-colors"
-            style={{ borderRadius: 8 }}
-          >
-            <IconDeviceFloppy size={14} /> Save
-          </button>
+          {isEdit ? (
+            <>
+              <button
+                onClick={() => onRunEva(pinId)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#109182] hover:bg-[#2db8a4] border-none cursor-pointer transition-colors"
+                style={{ borderRadius: 8 }}
+              >
+                <IconPlayerPlay size={14} /> Run Eva
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onCancel(pinId)}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                  style={{ borderRadius: 8 }}
+                >
+                  <IconX size={14} /> Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (text.trim()) onTask(pinId, text.trim());
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"}`}
+                  style={{ borderRadius: 8 }}
+                >
+                  <IconCheckbox size={14} /> Edit Task
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div /> {/* spacer */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onCancel(pinId)}
+                  className={`flex ml-auto items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                  style={{ borderRadius: 8 }}
+                >
+                  <IconX size={14} /> Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (text.trim()) onTask(pinId, text.trim());
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-[#109182] hover:bg-[#2db8a4] border-none cursor-pointer transition-colors"
+                  style={{ borderRadius: 8 }}
+                >
+                  <IconCheckbox size={14} /> Create Task
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -597,8 +641,6 @@ export function AnnotationOverlay() {
   const [pinStatuses, setPinStatuses] = useState<
     Record<string, TaskStatus | undefined>
   >({});
-  const [hiddenDonePins, setHiddenDonePins] = useState<Set<string>>(new Set());
-
   const hoveredRef = useRef<HTMLElement | null>(null);
   const pinCounterRef = useRef(0);
   const pinContextsRef = useRef(new Map<string, ExtractedContext>());
@@ -606,6 +648,8 @@ export function AnnotationOverlay() {
   const pinSelectorsRef = useRef(new Map<string, string>());
   const pinTextRef = useRef(new Map<string, string>());
   const pinTaskIdsRef = useRef(new Map<string, string>());
+  const pinUserIdRef = useRef(new Map<string, string>());
+  const pinInitialsRef = useRef(new Map<string, string>());
   const pinsRef = useRef(pins);
   const activeInputIdRef = useRef(activeInputId);
 
@@ -625,6 +669,8 @@ export function AnnotationOverlay() {
     pinSelectorsRef.current.clear();
     pinTextRef.current.clear();
     pinTaskIdsRef.current.clear();
+    pinUserIdRef.current.clear();
+    pinInitialsRef.current.clear();
     const restoredStatuses: Record<string, TaskStatus | undefined> = {};
     let maxNum = 0;
     for (const [id, data] of Object.entries(ext.remotePins)) {
@@ -642,6 +688,9 @@ export function AnnotationOverlay() {
         pinTaskIdsRef.current.set(id, data.taskId);
         restoredStatuses[id] = data.status;
       }
+      if (data.userId) pinUserIdRef.current.set(id, data.userId);
+      if (data.creatorInitials)
+        pinInitialsRef.current.set(id, data.creatorInitials);
       if (data.selectedText) {
         pinTextRef.current.set(id, data.selectedText);
       }
@@ -661,7 +710,6 @@ export function AnnotationOverlay() {
     pinCounterRef.current = maxNum;
     setPins(newPins);
     setPinStatuses(restoredStatuses);
-    setHiddenDonePins(new Set());
     setActiveInputId(null);
     setTooltipId(null);
     setHighlight(null);
@@ -686,6 +734,8 @@ export function AnnotationOverlay() {
             pin.type === "text" ? pinSelectorsRef.current.get(id) : undefined,
           taskId: pinTaskIdsRef.current.get(id),
           status: _ext.currentPins[id]?.status,
+          userId: pinUserIdRef.current.get(id),
+          creatorInitials: pinInitialsRef.current.get(id),
         };
       }
       updateCurrentPins(stored);
@@ -769,28 +819,6 @@ export function AnnotationOverlay() {
     setTextHighlightRects([]);
   }, []);
 
-  const handleInputSave = useCallback(
-    (pinId: string, text: string) => {
-      setPins((prev) => {
-        const next = new Map(prev);
-        const pin = next.get(pinId);
-        if (!pin) return prev;
-        const updated = { ...pin, text, saved: true };
-        if (!pin.saved) {
-          pinCounterRef.current++;
-          updated.number = pinCounterRef.current;
-        }
-        next.set(pinId, updated);
-        persistAnnotations(next);
-        return next;
-      });
-      setActiveInputId(null);
-      setHighlight(null);
-      setTextHighlightRects([]);
-    },
-    [persistAnnotations],
-  );
-
   const handleInputTask = useCallback(
     (pinId: string, text: string) => {
       const pinData = pinsRef.current.get(pinId);
@@ -842,6 +870,18 @@ export function AnnotationOverlay() {
     setTextHighlightRects([]);
   }, []);
 
+  const handleRunEva = useCallback((pinId: string) => {
+    const taskId = pinTaskIdsRef.current.get(pinId);
+    if (!taskId) return;
+    chrome.runtime.sendMessage({
+      type: "RUN_ANNOTATION_TASK",
+      payload: { taskId },
+    });
+    setActiveInputId(null);
+    setHighlight(null);
+    setTextHighlightRects([]);
+  }, []);
+
   const handleInputDelete = useCallback(
     (pinId: string) => {
       setPins((prev) => {
@@ -854,6 +894,8 @@ export function AnnotationOverlay() {
       pinElementsRef.current.delete(pinId);
       pinSelectorsRef.current.delete(pinId);
       pinTextRef.current.delete(pinId);
+      pinUserIdRef.current.delete(pinId);
+      pinInitialsRef.current.delete(pinId);
       setActiveInputId(null);
       setHighlight(null);
       setTextHighlightRects([]);
@@ -1075,11 +1117,15 @@ export function AnnotationOverlay() {
       payload?: Record<string, unknown>;
     }) => {
       if (message.type === "ANNOTATION_TASK_CREATED" && message.payload) {
-        const { pinId, taskId } = message.payload as {
+        const { pinId, taskId, userId, creatorInitials } = message.payload as {
           pinId: string;
           taskId: string;
+          userId?: string;
+          creatorInitials?: string;
         };
         pinTaskIdsRef.current.set(pinId, taskId);
+        if (userId) pinUserIdRef.current.set(pinId, userId);
+        if (creatorInitials) pinInitialsRef.current.set(pinId, creatorInitials);
         setPinStatuses((prev) => ({ ...prev, [pinId]: "todo" as const }));
       }
       if (message.type === "ANNOTATION_STATUS_SYNC" && message.payload) {
@@ -1090,36 +1136,43 @@ export function AnnotationOverlay() {
         for (const [pinId, taskId] of pinTaskIdsRef.current) {
           taskIdToPinId.set(taskId, pinId);
         }
+        const doneIds: string[] = [];
         setPinStatuses((prev) => {
           const next = { ...prev };
           for (const [taskId, { status }] of Object.entries(updates)) {
             const pinId = taskIdToPinId.get(taskId);
-            if (pinId) next[pinId] = status;
+            if (!pinId) continue;
+            if (status === "done") {
+              doneIds.push(pinId);
+              delete next[pinId];
+            } else {
+              next[pinId] = status;
+            }
           }
           return next;
         });
+        if (doneIds.length > 0) {
+          setPins((prev) => {
+            const next = new Map(prev);
+            for (const pinId of doneIds) {
+              next.delete(pinId);
+              pinContextsRef.current.delete(pinId);
+              pinElementsRef.current.delete(pinId);
+              pinSelectorsRef.current.delete(pinId);
+              pinTextRef.current.delete(pinId);
+              pinTaskIdsRef.current.delete(pinId);
+              pinUserIdRef.current.delete(pinId);
+              pinInitialsRef.current.delete(pinId);
+            }
+            persistAnnotations(next);
+            return next;
+          });
+        }
       }
     };
     chrome.runtime.onMessage.addListener(handler);
     return () => chrome.runtime.onMessage.removeListener(handler);
-  }, []);
-
-  useEffect(() => {
-    const donePins = Object.entries(pinStatuses)
-      .filter(([, s]) => s === "done")
-      .map(([id]) => id);
-    if (donePins.length === 0) return;
-    const newToHide = donePins.filter((id) => !hiddenDonePins.has(id));
-    if (newToHide.length === 0) return;
-    const timer = setTimeout(() => {
-      setHiddenDonePins((prev) => {
-        const next = new Set(prev);
-        for (const id of newToHide) next.add(id);
-        return next;
-      });
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [pinStatuses, hiddenDonePins]);
+  }, [persistAnnotations]);
 
   const tooltipPin = tooltipId ? pins.get(tooltipId) : undefined;
   const activePin = activeInputId ? pins.get(activeInputId) : undefined;
@@ -1158,24 +1211,22 @@ export function AnnotationOverlay() {
             <TextHighlightOverlay rects={textHighlightRects} />
           )}
 
-          {Array.from(pins.entries())
-            .filter(([id]) => !hiddenDonePins.has(id))
-            .map(([id, pin]) => (
-              <PinComponent
-                key={id}
-                id={id}
-                data={pin}
-                status={pinStatuses[id]}
-                onDragEnd={handlePinDragEnd}
-                onClick={handlePinClick}
-                onHover={handlePinHover}
-                onLeave={handlePinLeave}
-              />
-            ))}
+          {Array.from(pins.entries()).map(([id, pin]) => (
+            <PinComponent
+              key={id}
+              id={id}
+              data={pin}
+              status={pinStatuses[id]}
+              onDragEnd={handlePinDragEnd}
+              onClick={handlePinClick}
+              onHover={handlePinHover}
+              onLeave={handlePinLeave}
+            />
+          ))}
 
           {tooltipPin && tooltipId && !activeInputId && (
             <div
-              className={`absolute pointer-events-none rounded-md border ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
+              className={`absolute pointer-events-none rounded-md border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
               style={{
                 left: tooltipPin.x - 15,
                 top: tooltipPin.y + 22,
@@ -1203,10 +1254,12 @@ export function AnnotationOverlay() {
               }
               selectedText={pinTextRef.current.get(activeInputId)}
               isEdit={activeInputIsEdit}
-              onSave={handleInputSave}
+              status={activeInputId ? pinStatuses[activeInputId] : undefined}
+              creatorInitials={pinInitialsRef.current.get(activeInputId)}
               onTask={handleInputTask}
               onCancel={handleInputCancel}
               onDelete={handleInputDelete}
+              onRunEva={handleRunEva}
             />
           )}
         </>

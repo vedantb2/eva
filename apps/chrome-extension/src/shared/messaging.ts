@@ -32,6 +32,7 @@ export type MessageType =
   | "TOOLBAR_RESULT"
   | "RUN_ALL_ANNOTATIONS"
   | "RUN_ALL_RESULT"
+  | "RUN_ANNOTATION_TASK"
   | "PANEL_CLOSED";
 
 export interface StartSelectionMessage {
@@ -152,12 +153,23 @@ export interface StoredPin {
   ancestorSelector?: string;
   taskId?: string;
   status?: TaskStatus;
+  userId?: string;
+  creatorInitials?: string;
 }
 
 export interface AnnotationTaskCreatedMessage {
   type: "ANNOTATION_TASK_CREATED";
   payload: {
     pinId: string;
+    taskId: string;
+    userId?: string;
+    creatorInitials?: string;
+  };
+}
+
+export interface RunAnnotationTaskMessage {
+  type: "RUN_ANNOTATION_TASK";
+  payload: {
     taskId: string;
   };
 }
@@ -256,7 +268,8 @@ export type ExtensionMessage =
   | ToolbarAddToProjectMessage
   | ToolbarResultMessage
   | RunAllAnnotationsMessage
-  | RunAllResultMessage;
+  | RunAllResultMessage
+  | RunAnnotationTaskMessage;
 
 export const CONDUCTOR_URL =
   typeof chrome !== "undefined" &&

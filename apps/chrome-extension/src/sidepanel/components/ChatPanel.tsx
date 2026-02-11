@@ -33,16 +33,14 @@ import {
   type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
-  Avatar,
-  AvatarFallback,
 } from "@conductor/ui";
+import { UserInitials } from "@conductor/shared";
 import {
   IconCheck,
   IconChevronRight,
   IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
-  IconUser,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
@@ -67,32 +65,8 @@ interface ChatPanelProps {
   onClearContext: (index?: number) => void;
   toolbarVisible: boolean;
   onToggleToolbar: () => void;
-}
-
-function UserAvatar({ userId }: { userId?: string }) {
-  const user = useQuery(
-    api.users.get,
-    userId ? { id: userId as Id<"users"> } : "skip",
-  );
-  if (!user) {
-    return (
-      <Avatar className="h-7 w-7 flex-shrink-0">
-        <AvatarFallback className="bg-neutral-200 dark:bg-neutral-700">
-          <IconUser size={14} className="text-neutral-500" />
-        </AvatarFallback>
-      </Avatar>
-    );
-  }
-  const initials =
-    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
-    "?";
-  return (
-    <Avatar className="h-7 w-7 flex-shrink-0">
-      <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-        {initials}
-      </AvatarFallback>
-    </Avatar>
-  );
+  convexUserId?: string;
+  creatorInitials?: string;
 }
 
 export function ChatPanel({
@@ -102,6 +76,8 @@ export function ChatPanel({
   onClearContext,
   toolbarVisible,
   onToggleToolbar,
+  convexUserId,
+  creatorInitials,
 }: ChatPanelProps) {
   const { getToken } = useAuth();
   const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>(
@@ -339,7 +315,12 @@ Please review all components and files used on this page before implementing the
           if (tab?.id) {
             chrome.tabs.sendMessage(tab.id, {
               type: "ANNOTATION_TASK_CREATED",
-              payload: { pinId: payload.pinId, taskId: taskId as string },
+              payload: {
+                pinId: payload.pinId,
+                taskId: taskId as string,
+                userId: convexUserId,
+                creatorInitials,
+              },
             });
           }
         });
@@ -347,7 +328,7 @@ Please review all components and files used on this page before implementing the
         console.error("Failed to create annotation task:", error);
       }
     },
-    [selectedRepoId, createQuickTask],
+    [selectedRepoId, createQuickTask, convexUserId, creatorInitials],
   );
 
   const handleSelectionActiveChange = useCallback((active: boolean) => {
@@ -514,9 +495,13 @@ Please review all components and files used on this page before implementing the
                         {message.mode === "ask" ? "Ask" : "Flag"}
                       </span>
                     )}
-                  {message.role === "user" && (
+                  {message.role === "user" && message.userId && (
                     <div className="mt-0.5 ml-auto">
-                      <UserAvatar userId={message.userId} />
+                      <UserInitials
+                        userId={message.userId as Id<"users">}
+                        hideLastSeen
+                        size="md"
+                      />
                     </div>
                   )}
                 </AIMessage>

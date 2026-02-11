@@ -206,6 +206,17 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     userFlows: v.optional(v.array(userFlowValidator)),
     requirements: v.optional(v.array(v.string())),
+    interviewHistory: v.optional(
+      v.array(
+        v.object({
+          role: roleValidator,
+          content: v.string(),
+          activityLog: v.optional(v.string()),
+          userId: v.optional(v.id("users")),
+        }),
+      ),
+    ),
+    sandboxId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),

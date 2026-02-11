@@ -1,5 +1,14 @@
 # Changelog
 
+## Doc Interview Feature — 2026-02-11
+
+- Added `interviewHistory` and `sandboxId` fields to `docs` table schema
+- Added `addInterviewMessage`, `updateLastInterviewMessage`, `clearInterview`, `updateDocSandbox` mutations to `docs.ts`
+- Created `doc-interview.ts` Inngest function mirroring project interview pattern (sandbox + Claude CLI streaming)
+- Created `DocInterviewDialog` component with chat UI reusing `MultipleChoiceQuestion` and `ChatMessage`
+- Added "Interview Me" button to `DocViewer` header that opens the interview dialog
+- AI asks codebase-grounded questions then auto-generates description, requirements, and user flows
+
 ## Speech-to-Text Input for PromptInput — 2026-02-11
 
 - Created `PromptInputSpeech` component in `packages/ui/src/ai-elements/prompt-input-speech.tsx` using native Web Speech API

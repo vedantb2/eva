@@ -21,7 +21,14 @@ export function buildDesignPrompt(
     .join("\n\n");
 
   const baseContext = selectedBase
-    ? `\n\n## Selected Base Design\nThe user selected "${selectedBase.label}" as the base. Here is its code:\n\`\`\`jsx\n${selectedBase.code}\n\`\`\`\nIterate on this design based on the user's new request.`
+    ? `\n\n## Selected Base Design
+  The user selected "${selectedBase.label}" as the base. Here is its code:
+  \`\`\`jsx
+  ${selectedBase.code}
+  \`\`\`
+  IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
+  Only change what the user explicitly requests. Generate 3 variations that are refinements of THIS
+  design, not completely new approaches.`
     : "";
 
   return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
@@ -35,8 +42,13 @@ Read the codebase to understand the existing design system, then generate 3 Reac
 3. Invoke the /web-design-guidelines skill to load accessibility guidelines
 4. Read CLAUDE.md to understand the project
 5. Read the Tailwind config and globals.css to understand the design tokens
-6. Read existing components to see how they're structured and styled
+6. Read existing components to understand STYLE PATTERNS (spacing, layout, visual language) — your output runs in isolation, so recreate patterns using plain JSX + Tailwind, no project imports
 7. Generate 3 distinct, interactive React component variations following the loaded guidelines
+
+## Variation Strategies
+- Design A: Clean/conventional — prioritize clarity, familiar patterns, and straightforward navigation
+- Design B: Creative/bold — unconventional layout, striking visual hierarchy, or unique interaction patterns
+- Design C: Compact/efficient — high information density, minimal chrome, space-efficient UI
 
 ## Design System
 The project uses a custom Tailwind config with CSS variables. Your components will be rendered in an environment that already provides these — just use the utility classes:
@@ -47,6 +59,19 @@ The project uses a custom Tailwind config with CSS variables. Your components wi
 **Font:** font-sans (Inter is loaded automatically)
 
 CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-blue-500, text-gray-700, bg-teal-600. Always use bg-primary, text-muted-foreground, etc.
+
+## Available Libraries
+The preview environment has these pre-installed — use them:
+- \`lucide-react\` — import icons: \`import { Search, Settings, Bell, ChevronDown, Plus, X, Check, ArrowRight, User, Mail, MoreHorizontal, Filter, Calendar, Star, Heart, Trash2, Edit, Eye, Download, Upload, Copy, ExternalLink } from "lucide-react"\`. Use icons generously for buttons, navigation, section headers, and list items.
+- Only font available: Inter (\`font-sans\`). Use weight variation (font-medium, font-semibold, font-bold) and size contrast for typographic hierarchy.
+
+## Design Quality Guidelines
+- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
+- Clear visual hierarchy: one primary action per view, secondary actions de-emphasized
+- Consistent spacing using multiples of 4px via Tailwind: p-2, p-4, p-6, p-8
+- Group related elements with cards (bg-card rounded-lg border border-border) or bordered sections
+- Use whitespace generously — don't crowd elements together
+- Responsive-first: use max-w-* containers, flex/grid layouts
 
 ## Previous Conversation
 ${history || "None"}
@@ -74,10 +99,11 @@ Output ONLY valid JSON:
 - ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
 - Use the semantic Tailwind utilities listed above (bg-primary, text-foreground, rounded-lg, etc.)
 - NEVER use raw Tailwind colors (no bg-blue-500, no text-gray-700, no bg-slate-100)
+- Every clickable element and section header MUST include a lucide-react icon
+- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
 - Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
-- Add hover states (hover:bg-primary/90), transitions (transition-all duration-200), focus rings
-- Add subtle animations where appropriate (hover:scale-[1.02], hover:shadow-lg)
-- Each variation should be meaningfully different in layout or interaction patterns
+- Add hover feedback on ALL interactive elements (hover:bg-primary/90) and smooth transitions (transition-all duration-200)
+- Add focus rings for accessibility and subtle animations (hover:scale-[1.02], hover:shadow-lg)
 - Follow ALL guidelines loaded from the skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
 - DO NOT modify any files in the codebase
 - Output ONLY the JSON, no other text`;

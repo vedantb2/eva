@@ -1,5 +1,29 @@
 # Changelog
 
+## Design Page — Skills, Icons, and Prompt Quality Improvements — 2026-02-11
+
+- Pre-installed Claude Code plugins in Daytona sandbox Dockerfile: `anthropics/claude-plugins-official` (for `/frontend-design` skill) and `Dammyjay93/interface-design` (for `/interface-design` craft-focused design skill)
+- Added `Skill` to allowed tools in `design-execute.ts` so Claude can invoke design skills before generating variations
+- Updated design prompt to invoke 3 skills before generating: `/frontend-design` (production-grade aesthetics), `/interface-design` (craft + domain exploration), `/web-design-guidelines` (accessibility/WCAG)
+- Added `lucide-react` as a Sandpack dependency — generated components can now use icons, which is the single biggest visual quality improvement
+- Added "Available Libraries" section to prompt telling Claude what's available in the preview environment (lucide-react icon examples, Inter font weight/size guidance)
+- Strengthened prompt rules: icons required on all clickable elements/headers, realistic content enforced, hover feedback on all interactive elements
+- Added `"Skill"` to the `ClaudeTool` type union in `sandbox.ts`
+
+### Learnings & Notes
+
+**Plugin system structure**: Plugins live at `~/.claude/plugins/marketplaces/<name>/`, enabled via `~/.claude/settings.json` `enabledPlugins` field (format: `plugin-name@marketplace-name`). Marketplace repos have `.claude-plugin/marketplace.json`, standalone plugin repos have `.claude-plugin/plugin.json`.
+
+**Dockerfile plugin pre-install**: Clone repos into `~/.claude/plugins/marketplaces/` and write a `settings.json` with `enabledPlugins`. Built-in skills (like `web-design-guidelines`) don't need installation.
+
+**Test prompts for design page quality**:
+
+1. "Design a project analytics dashboard with key metrics at the top (tasks completed, active contributors, sprint velocity, bugs filed), a line chart placeholder area, and a real-time activity feed showing recent commits, PR merges, and deployments with timestamps and user avatars"
+2. "Create a settings page with a sidebar navigation (Profile, Notifications, Integrations, Billing, Security) and a main content area. Show the Notifications section with toggle switches for email digests, Slack alerts, and in-app notifications, each with a description and icon"
+3. "Build a user management table with columns for name, email, role, status, and last active date. Include a search bar, role filter dropdown, bulk selection checkboxes, and a toolbar that appears when rows are selected with actions like Export, Deactivate, and Send Invite"
+4. "Design a team inbox view. Include a toggle to switch between an empty state (no messages yet — show an illustration-like icon composition and a CTA to invite teammates) and a populated state with a message list, preview pane, and quick-reply input"
+5. "Create a 3-step onboarding wizard for connecting a GitHub repository. Step 1: select organization and repo from a searchable list. Step 2: configure branch protection and review settings with checkboxes. Step 3: confirmation summary with an animated success state. Include a progress bar and back/next navigation"
+
 ## Annotation Card UX Improvements — 2026-02-11
 
 - Added "Run Eva" button to existing annotation cards — triggers task execution from the annotation overlay without opening the sidepanel

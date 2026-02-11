@@ -371,6 +371,9 @@ export function DesignDetailClient({
                     }}
                     customSetup={{
                       entry: "/index.tsx",
+                      dependencies: {
+                        "lucide-react": "latest",
+                      },
                     }}
                   >
                     <SandpackPreview

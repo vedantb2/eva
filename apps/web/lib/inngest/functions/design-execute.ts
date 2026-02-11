@@ -102,7 +102,7 @@ export const designExecute = inngest.createFunction(
 
       const claudeResult = await runClaudeCLIStreaming(sandbox, prompt, {
         model: "sonnet",
-        allowedTools: ["Read", "Glob", "Grep"],
+        allowedTools: ["Read", "Glob", "Grep", "Skill"],
         onOutput: async (currentActivity) => {
           await convex.mutation(api.streaming.set, {
             entityId: designSessionId,

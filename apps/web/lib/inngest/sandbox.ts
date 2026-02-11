@@ -160,7 +160,14 @@ export async function updateRemoteUrl(
 }
 
 type ClaudeModel = "opus" | "sonnet" | "haiku";
-type ClaudeTool = "Read" | "Write" | "Edit" | "Bash" | "Glob" | "Grep";
+type ClaudeTool =
+  | "Read"
+  | "Write"
+  | "Edit"
+  | "Bash"
+  | "Glob"
+  | "Grep"
+  | "Skill";
 
 interface ClaudeCLIResult {
   result: string;

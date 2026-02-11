@@ -30,10 +30,13 @@ export function buildDesignPrompt(
 Read the codebase to understand the existing design system, then generate 3 React component variations based on the user's request.
 
 ## Steps
-1. Read CLAUDE.md to understand the project
-2. Read the Tailwind config and globals.css to understand the design tokens
-3. Read existing components to see how they're structured and styled
-4. Generate 3 distinct, interactive React component variations
+1. Invoke the /frontend-design skill to load design quality guidelines
+2. Invoke the /interface-design skill to load craft-focused design principles
+3. Invoke the /web-design-guidelines skill to load accessibility guidelines
+4. Read CLAUDE.md to understand the project
+5. Read the Tailwind config and globals.css to understand the design tokens
+6. Read existing components to see how they're structured and styled
+7. Generate 3 distinct, interactive React component variations following the loaded guidelines
 
 ## Design System
 The project uses a custom Tailwind config with CSS variables. Your components will be rendered in an environment that already provides these — just use the utility classes:
@@ -75,6 +78,7 @@ Output ONLY valid JSON:
 - Add hover states (hover:bg-primary/90), transitions (transition-all duration-200), focus rings
 - Add subtle animations where appropriate (hover:scale-[1.02], hover:shadow-lg)
 - Each variation should be meaningfully different in layout or interaction patterns
+- Follow ALL guidelines loaded from the skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
 - DO NOT modify any files in the codebase
 - Output ONLY the JSON, no other text`;
 }

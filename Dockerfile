@@ -24,6 +24,15 @@ USER eva
 RUN npx playwright install chromium
 WORKDIR /workspace
 
+# Pre-install Claude Code plugins for design skills
+RUN mkdir -p /home/eva/.claude/plugins/marketplaces
+RUN git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git \
+    /home/eva/.claude/plugins/marketplaces/claude-plugins-official
+RUN git clone --depth 1 https://github.com/Dammyjay93/interface-design.git \
+    /home/eva/.claude/plugins/marketplaces/Dammyjay93
+RUN echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"interface-design@Dammyjay93":true}}' \
+    > /home/eva/.claude/settings.json
+
 # pnpm global bin directory for non-root user
 ENV PNPM_HOME=/home/eva/.pnpm
 ENV PATH=$PNPM_HOME:$PATH

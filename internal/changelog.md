@@ -1,5 +1,13 @@
 # Changelog
 
+## Model Selector for Task Execution — 2026-02-11
+
+- Added `claudeModelValidator` (opus/sonnet/haiku) to Convex validators and optional `model` field to `agentTasks` schema
+- Extended `agentTasks.update` mutation and `agentTaskValidator` to support `model` field
+- Added `model` to `startExecution` return type so it flows to the Inngest event
+- Added Model dropdown in TaskDetailModal sidebar (between Assign and Pull Request), defaulting to Sonnet
+- Updated `execute-task.ts` to use `model` from event data instead of hardcoded `"sonnet"`
+
 ## Design Page — Skills, Icons, and Prompt Quality Improvements — 2026-02-11
 
 - Pre-installed Claude Code plugins in Daytona sandbox Dockerfile: `anthropics/claude-plugins-official` (for `/frontend-design` skill) and `Dammyjay93/interface-design` (for `/interface-design` craft-focused design skill)

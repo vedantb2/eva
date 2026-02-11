@@ -28,6 +28,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { CLAUDE_MODELS } from "@conductor/backend";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -154,6 +155,7 @@ export function TaskDetailModal({
             projectId: result.projectId,
             branchName: result.branchName,
             isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+            model: result.model,
           },
         }),
       });
@@ -529,6 +531,27 @@ export function TaskDetailModal({
                               .filter(Boolean)
                               .join(" ") ||
                             "Unnamed User"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Model</p>
+                  <Select
+                    value={task?.model ?? "sonnet"}
+                    onValueChange={(val) => {
+                      const model = CLAUDE_MODELS.find((m) => m === val);
+                      if (model) updateTask({ id: taskId, model });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLAUDE_MODELS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m.charAt(0).toUpperCase() + m.slice(1)}
                         </SelectItem>
                       ))}
                     </SelectContent>

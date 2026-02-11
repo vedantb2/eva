@@ -15,6 +15,7 @@ import {
   notificationTypeValidator,
   roleUserValidator,
   queryConfirmationStatusValidator,
+  claudeModelValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -99,6 +100,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
+    model: v.optional(claudeModelValidator),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])

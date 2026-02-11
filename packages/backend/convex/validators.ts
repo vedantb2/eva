@@ -84,6 +84,15 @@ export const roleUserValidator = v.union(
   v.literal("dev"),
 );
 
+export const claudeModelValidator = v.union(
+  v.literal("opus"),
+  v.literal("sonnet"),
+  v.literal("haiku"),
+);
+
+export const CLAUDE_MODELS = ["opus", "sonnet", "haiku"] as const;
+export type ClaudeModel = (typeof CLAUDE_MODELS)[number];
+
 export const queryConfirmationStatusValidator = v.union(
   v.literal("pending"),
   v.literal("confirmed"),

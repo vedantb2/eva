@@ -225,7 +225,7 @@ export function KanbanBoard<T extends BaseTask>({
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            placeholder="Search tasks..."
+            placeholder="Search quick tasks..."
             className="pl-9 pr-8 h-8 text-sm"
             value={searchQuery}
             onChange={(e) => setParams({ q: e.target.value || null })}

@@ -1,5 +1,15 @@
 # Changelog
 
+## Persona Selector for Design Sessions — 2026-02-11
+
+- Added `designPersonas` table to Convex schema with `name`, `prompt`, `repoId`, `userId` fields
+- Added `selectedPersonaId` field to `designSessions` table
+- Created `designPersonas.ts` with CRUD operations (list, get, create, update, remove)
+- Added `selectPersona` mutation to `designSessions.ts`
+- Created `PersonaSelector` component with popover dropdown and manage modal
+- Updated `buildDesignPrompt` to inject persona context into AI prompt
+- Updated `design-execute` Inngest function to fetch persona and pass to prompt builder
+
 ## Sandbox + CodeBlock AI Elements for Research Queries — 2026-02-11
 
 - Created `CodeBlock` and `CodeBlockCopyButton` components in `packages/ui/src/ai-elements/code-block.tsx` — reusable code display with clipboard copy

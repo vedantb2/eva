@@ -1,3 +1,5 @@
+adding a user persona to design sessions
+
 - increase size of annotations on screen by 1.25x
 - replace all purple usages with our theme colour instead
 - colour of annotation reflects the task status grey for todo, yellow in progress, business business review, purple code review

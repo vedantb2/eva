@@ -14,6 +14,7 @@ const messageValidator = v.object({
   timestamp: v.number(),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
+  personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
 });
 
@@ -86,6 +87,7 @@ export const addMessage = mutation({
     role: roleValidator,
     content: v.string(),
     activityLog: v.optional(v.string()),
+    personaId: v.optional(v.id("designPersonas")),
     variations: v.optional(v.array(variationValidator)),
   },
   returns: v.null(),
@@ -103,6 +105,7 @@ export const addMessage = mutation({
           timestamp: Date.now(),
           activityLog: args.activityLog,
           userId,
+          personaId: args.personaId,
           variations: args.variations,
         },
       ],

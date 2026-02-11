@@ -273,6 +273,12 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  designPersonas: defineTable({
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    name: v.string(),
+    prompt: v.string(),
+  }).index("by_repo", ["repoId"]),
   designSessions: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
@@ -289,6 +295,7 @@ const schema = defineSchema({
         timestamp: v.number(),
         activityLog: v.optional(v.string()),
         userId: v.optional(v.id("users")),
+        personaId: v.optional(v.id("designPersonas")),
         variations: v.optional(
           v.array(
             v.object({

@@ -39,6 +39,7 @@ export function buildDesignPrompt(
   message: string,
   conversationHistory: DesignMessage[],
   selectedBase: SelectedVariation | null,
+  persona: { name: string; prompt: string } | null,
 ): string {
   const history = conversationHistory
     .filter((m) => m.content)
@@ -55,6 +56,14 @@ export function buildDesignPrompt(
   IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
   Only change what the user explicitly requests. Generate 3 variations that are refinements of THIS
   design, not completely new approaches.`
+    : "";
+
+  const personaContext = persona
+    ? `\n\n## Target Persona
+Name: ${persona.name}
+${persona.prompt}
+
+Design with this persona in mind — consider their goals, context, and preferences.`
     : "";
 
   return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
@@ -102,6 +111,7 @@ The preview environment has these pre-installed — use them:
 ## Previous Conversation
 ${history || "None"}
 ${baseContext}
+${personaContext}
 
 ## User Request
 ${message}

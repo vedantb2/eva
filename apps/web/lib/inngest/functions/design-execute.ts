@@ -39,7 +39,7 @@ export const designExecute = inngest.createFunction(
     const { clerkToken, designSessionId, message } = event.data;
     const convex = createConvex(clerkToken);
 
-    const { session, repo, installationId } = await step.run(
+    const { session, repo, installationId, persona } = await step.run(
       "fetch-session-data",
       async () => {
         const sessionData = await convex.query(api.designSessions.get, {
@@ -50,10 +50,21 @@ export const designExecute = inngest.createFunction(
           id: sessionData.repoId,
         });
         if (!repoData) throw new Error("Repository not found");
+        const lastUserMsg = [...sessionData.messages]
+          .reverse()
+          .find((m) => m.role === "user");
+        const personaData = lastUserMsg?.personaId
+          ? await convex.query(api.designPersonas.get, {
+              id: lastUserMsg.personaId,
+            })
+          : null;
         return {
           session: sessionData,
           repo: repoData,
           installationId: repoData.installationId,
+          persona: personaData
+            ? { name: personaData.name, prompt: personaData.prompt }
+            : null,
         };
       },
     );
@@ -94,6 +105,7 @@ export const designExecute = inngest.createFunction(
         message,
         session.messages,
         selectedBase,
+        persona,
       );
 
       await convex.mutation(api.designSessions.addMessage, {

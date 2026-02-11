@@ -57,6 +57,12 @@ type DesignSession = NonNullable<
 type DesignMessage = DesignSession["messages"][number];
 type Variation = NonNullable<DesignMessage["variations"]>[number];
 
+const SUGGESTION_CHIPS = [
+  "Make it more minimal",
+  "Add more whitespace",
+  "Make the colors bolder",
+];
+
 export function DesignDetailClient({
   designSessionId,
   sandpackConfig,
@@ -110,6 +116,12 @@ export function DesignDetailClient({
   }, [isSending, lastMessage]);
 
   const latestVariations = getLatestVariations(session?.messages ?? []);
+  const hasSelection =
+    session?.selectedCode !== undefined && session?.selectedLabel !== undefined;
+  const showSuggestionChips =
+    !isExecuting &&
+    latestVariations.length > 0 &&
+    (session?.messages.filter((m) => m.role === "user").length ?? 0) <= 1;
 
   const sendToApi = useCallback(
     async (message: string) => {
@@ -128,6 +140,18 @@ export function DesignDetailClient({
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
+    // Auto-select current tab if variations exist but none selected
+    if (latestVariations.length > 0 && !hasSelection) {
+      const currentVariation = latestVariations[Number(activeTab)];
+      if (currentVariation) {
+        await selectVariation({
+          id: typedId,
+          variationIndex: Number(activeTab),
+          code: currentVariation.code,
+          label: currentVariation.label,
+        });
+      }
+    }
     setIsSending(true);
     try {
       await addMessage({ id: typedId, role: "user", content: text.trim() });
@@ -153,7 +177,14 @@ export function DesignDetailClient({
   };
 
   const handleSelectVariation = async (index: number) => {
-    await selectVariation({ id: typedId, variationIndex: index });
+    const variation = latestVariations[index];
+    if (!variation) return;
+    await selectVariation({
+      id: typedId,
+      variationIndex: index,
+      code: variation.code,
+      label: variation.label,
+    });
   };
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
@@ -263,6 +294,35 @@ export function DesignDetailClient({
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
+        {hasSelection && (
+          <div className="px-4 py-2 text-xs text-muted-foreground flex items-center gap-1.5 border-t border-border">
+            <IconCheck size={12} className="text-primary shrink-0" />
+            Using &ldquo;{session.selectedLabel}&rdquo; as base for next
+            iteration
+          </div>
+        )}
+        {!hasSelection && latestVariations.length > 0 && !isExecuting && (
+          <div className="px-4 py-2 text-xs text-muted-foreground border-t border-border">
+            Tip: Click &ldquo;Use this design&rdquo; to lock a base, or just
+            send a follow-up to iterate on the current tab
+          </div>
+        )}
+        {showSuggestionChips && (
+          <div className="flex gap-2 px-4 pb-2 flex-wrap">
+            {SUGGESTION_CHIPS.map((chip) => (
+              <Button
+                key={chip}
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => handleSend(chip)}
+                disabled={isExecuting}
+              >
+                {chip}
+              </Button>
+            ))}
+          </div>
+        )}
         <div className="px-3 pb-4 pt-3">
           <PromptInput onSubmit={handlePromptSubmit}>
             <PromptInputTextarea
@@ -309,8 +369,11 @@ export function DesignDetailClient({
                   <TabsTrigger
                     key={i}
                     value={String(i)}
-                    className="text-xs px-3"
+                    className="text-xs px-3 gap-1"
                   >
+                    {session.selectedVariationIndex === i && (
+                      <IconCheck size={12} />
+                    )}
                     Design {String.fromCharCode(65 + i)}
                   </TabsTrigger>
                 ))}
@@ -406,11 +469,16 @@ export function DesignDetailClient({
           </Tabs>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p className="text-sm">
-              {isExecuting
-                ? "Generating designs..."
-                : "Send a prompt to generate designs"}
-            </p>
+            {isExecuting ? (
+              <div className="flex flex-col items-center gap-3">
+                <Spinner size="md" />
+                <p className="text-sm">
+                  {streaming?.currentActivity || "Generating designs..."}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm">Send a prompt to generate designs</p>
+            )}
           </div>
         )}
       </div>

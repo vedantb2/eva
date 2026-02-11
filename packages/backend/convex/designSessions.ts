@@ -27,6 +27,8 @@ const designSessionValidator = v.object({
   sandboxId: v.optional(v.string()),
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
+  selectedCode: v.optional(v.string()),
+  selectedLabel: v.optional(v.string()),
   updatedAt: v.optional(v.number()),
   messages: v.array(messageValidator),
 });
@@ -130,7 +132,13 @@ export const updateLastMessage = mutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     if (args.variations !== undefined) last.variations = args.variations;
-    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    const patch: Record<string, unknown> = { messages, updatedAt: Date.now() };
+    if (args.variations !== undefined) {
+      patch.selectedVariationIndex = undefined;
+      patch.selectedCode = undefined;
+      patch.selectedLabel = undefined;
+    }
+    await ctx.db.patch(args.id, patch);
     return null;
   },
 });
@@ -139,6 +147,8 @@ export const selectVariation = mutation({
   args: {
     id: v.id("designSessions"),
     variationIndex: v.number(),
+    code: v.string(),
+    label: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -148,6 +158,8 @@ export const selectVariation = mutation({
     if (!session) throw new Error("Design session not found");
     await ctx.db.patch(args.id, {
       selectedVariationIndex: args.variationIndex,
+      selectedCode: args.code,
+      selectedLabel: args.label,
       updatedAt: Date.now(),
     });
     return null;

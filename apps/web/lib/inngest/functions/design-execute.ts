@@ -76,14 +76,11 @@ export const designExecute = inngest.createFunction(
       const sandbox = await getSandbox(sandboxData.sandboxId);
 
       let selectedBase = null;
-      if (session.selectedVariationIndex !== undefined) {
-        const lastAssistant = [...session.messages]
-          .reverse()
-          .find((m) => m.role === "assistant" && m.variations?.length);
-        if (lastAssistant?.variations) {
-          selectedBase =
-            lastAssistant.variations[session.selectedVariationIndex] ?? null;
-        }
+      if (session.selectedCode && session.selectedLabel) {
+        selectedBase = {
+          label: session.selectedLabel,
+          code: session.selectedCode,
+        };
       }
 
       const prompt = buildDesignPrompt(

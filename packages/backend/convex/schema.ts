@@ -279,6 +279,8 @@ const schema = defineSchema({
     sandboxId: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
+    selectedCode: v.optional(v.string()),
+    selectedLabel: v.optional(v.string()),
     updatedAt: v.optional(v.number()),
     messages: v.array(
       v.object({

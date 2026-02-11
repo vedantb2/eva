@@ -412,6 +412,10 @@ export function DesignDetailClient({
                       entry: "/index.tsx",
                       dependencies: {
                         "lucide-react": "latest",
+                        recharts: "latest",
+                        "framer-motion": "latest",
+                        "date-fns": "latest",
+                        clsx: "latest",
                       },
                     }}
                   >

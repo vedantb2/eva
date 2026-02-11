@@ -96,9 +96,13 @@ The project uses a custom Tailwind config with CSS variables. Your components wi
 CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-blue-500, text-gray-700, bg-teal-600. Always use bg-primary, text-muted-foreground, etc.
 
 ## Available Libraries
-The preview environment has these pre-installed — use them:
-- \`lucide-react\` — import icons: \`import { Search, Settings, Bell, ChevronDown, Plus, X, Check, ArrowRight, User, Mail, MoreHorizontal, Filter, Calendar, Star, Heart, Trash2, Edit, Eye, Download, Upload, Copy, ExternalLink } from "lucide-react"\`. Use icons generously for buttons, navigation, section headers, and list items.
-- Only font available: Inter (\`font-sans\`). Use weight variation (font-medium, font-semibold, font-bold) and size contrast for typographic hierarchy.
+The preview environment has these pre-installed — use them freely:
+- \`lucide-react\` — icons: \`import { Search, Settings, Bell, ChevronDown, Plus, X, Check, ArrowRight, User, Mail, MoreHorizontal, Filter, Calendar, Star, Trash2, Edit, Eye, Download, Upload, Copy, ExternalLink, TrendingUp, TrendingDown, BarChart3, Activity, Clock, AlertCircle, Info, ChevronRight, Layers, Zap } from "lucide-react"\`. Use icons on every button, nav item, section header, and list item.
+- \`recharts\` — data visualization: \`import { LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"\`. Use for any metrics, analytics, or data display. Generate realistic data arrays.
+- \`framer-motion\` — animations: \`import { motion, AnimatePresence } from "framer-motion"\`. Use \`<motion.div>\` for page transitions, staggered list reveals, hover scale effects, and layout animations. Makes everything feel polished.
+- \`date-fns\` — date formatting: \`import { format, formatDistanceToNow, subDays, subHours } from "date-fns"\`. Use for realistic timestamps like "2 hours ago" or "Jan 15, 2026".
+- \`clsx\` — conditional classes: \`import clsx from "clsx"\`. Use for toggling classes based on state.
+- Only font: Inter (\`font-sans\`). Use weight variation (font-medium, font-semibold, font-bold) and size contrast for hierarchy.
 
 ## Design Quality Guidelines
 - Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"

@@ -6,6 +6,7 @@ export * from "./ui/avatar";
 export * from "./ui/badge";
 export * from "./ui/button";
 export * from "./ui/button-group";
+export * from "./ui/calendar";
 export * from "./ui/card";
 export * from "./ui/checkbox";
 export * from "./ui/collapsible";

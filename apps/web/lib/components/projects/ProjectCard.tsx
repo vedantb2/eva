@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import Link from "next/link";
 import {
   IconGitBranch,
   IconDots,
@@ -29,6 +28,7 @@ import {
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 import { ProjectProgressBar } from "./ProjectProgressBar";
+import { ProjectCardModal } from "./ProjectCardModal";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -57,6 +57,7 @@ export function ProjectCard({
   cardBg,
   onDelete,
 }: ProjectCardProps) {
+  const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description ?? "");
@@ -133,7 +134,7 @@ export function ProjectCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <Link href={projectUrl} className="block">
+      <div className="block cursor-pointer" onClick={() => setModalOpen(true)}>
         <div className="flex items-center gap-2 mb-1 pr-8">
           <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {title}
@@ -163,7 +164,7 @@ export function ProjectCard({
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
-      </Link>
+      </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
@@ -213,6 +214,12 @@ export function ProjectCard({
           </form>
         </DialogContent>
       </Dialog>
+      <ProjectCardModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        projectId={projectId}
+        projectUrl={projectUrl}
+      />
     </div>
   );
 }

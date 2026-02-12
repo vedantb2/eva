@@ -26,6 +26,10 @@ const projectValidator = v.object({
   rawInput: v.string(),
   generatedSpec: v.optional(v.string()),
   conversationHistory: v.array(conversationMessageValidator),
+  projectLead: v.optional(v.id("users")),
+  members: v.optional(v.array(v.id("users"))),
+  projectStartDate: v.optional(v.number()),
+  projectEndDate: v.optional(v.number()),
 });
 
 export const list = query({
@@ -126,6 +130,7 @@ export const create = mutation({
       title: args.title,
       rawInput: args.rawInput,
       phase: "draft",
+      projectStartDate: Date.now(),
       conversationHistory: [
         {
           role: "user",
@@ -145,6 +150,10 @@ export const update = mutation({
     branchName: v.optional(v.string()),
     generatedSpec: v.optional(v.string()),
     phase: v.optional(phaseValidator),
+    projectLead: v.optional(v.id("users")),
+    members: v.optional(v.array(v.id("users"))),
+    projectStartDate: v.optional(v.number()),
+    projectEndDate: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -156,19 +165,11 @@ export const update = mutation({
     if (!project) {
       throw new Error("Project not found");
     }
-    const updates: {
-      title?: string;
-      description?: string;
-      branchName?: string;
-      generatedSpec?: string;
-      phase?: "draft" | "finalized" | "active" | "completed";
-    } = {};
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.branchName !== undefined) updates.branchName = args.branchName;
-    if (args.generatedSpec !== undefined)
-      updates.generatedSpec = args.generatedSpec;
-    if (args.phase !== undefined) updates.phase = args.phase;
+    const { id, ...fields } = args;
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) updates[key] = value;
+    }
     await ctx.db.patch(args.id, updates);
     return null;
   },
@@ -586,6 +587,7 @@ export const createFromTasks = mutation({
       rawInput: args.title,
       phase: "active",
       branchName,
+      projectStartDate: Date.now(),
       conversationHistory: [],
     });
     for (const taskId of args.taskIds) {

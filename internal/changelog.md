@@ -1,5 +1,13 @@
 # Changelog
 
+## Project Card Modal — 2026-02-12
+
+- Added `projectLead`, `members`, `startDate`, `endDate` optional fields to the `projects` schema
+- Extended `projects.update` mutation to accept the new fields
+- Created `ProjectCardModal` component with two-column layout: left shows description + progress bar, right sidebar has phase badge, project lead selector, members multi-select, and start/end date inputs
+- Modified `ProjectCard` to open the modal on click instead of navigating directly (replaced `<Link>` with clickable `<div>`)
+- "View Project" button in modal footer navigates to the full project page
+
 ## Post-Execution Audits for Quick Tasks — 2026-02-11
 
 - Added `taskAudits` Convex table with status, accessibility/testing/codeReview arrays, and indexes by task and run

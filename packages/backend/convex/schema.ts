@@ -65,6 +65,10 @@ const schema = defineSchema({
         userId: v.optional(v.id("users")),
       }),
     ),
+    projectLead: v.optional(v.id("users")),
+    members: v.optional(v.array(v.id("users"))),
+    projectStartDate: v.optional(v.number()),
+    projectEndDate: v.optional(v.number()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

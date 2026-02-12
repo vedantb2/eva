@@ -7,7 +7,11 @@
 - Refactored `NotificationsPopoverClient` to import from shared config and added "View all" link to `/inbox`
 - Inbox page: All/Unread filter (nuqs), notification list with type icons, click-to-navigate + mark-as-read, "Mark all read" button
 - Added Inbox nav item with unread count badge to sidebar bottom navigation
-- Created `ProjectsTimeline` component: date-range bars positioned with % left/width, day/week column labels, today marker, phase-colored bars, click opens ProjectCardModal
+- Created `ProjectsTimeline` component: interactive drag-to-pan, Ctrl+scroll to zoom, pixel-based coordinate system with padded date range for exploring past/future
+- Today marker (primary vertical line), phase-colored bars, click opens ProjectCardModal
+- Added `deadline` field to projects schema, projectValidator, and update mutation
+- Deadline date picker in ProjectCardModal sidebar (red-styled label)
+- Deadlines render as red diamond markers with vertical line on the timeline, with tooltip showing date
 - Added Kanban/Timeline view toggle to Projects page toolbar (nuqs-controlled `view` param)
 - Both views share the same search, phase filter, and sort controls
 - Added `inboxFilterParser` and `projectViewParser` to `search-params.ts`

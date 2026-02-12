@@ -31,6 +31,7 @@ import {
   IconSortDescending,
   IconSearch,
   IconX,
+  IconTimeline,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
@@ -38,6 +39,7 @@ import {
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
 import { useQueryStates } from "nuqs";
@@ -46,6 +48,7 @@ import {
   phasesParser,
   sortFieldParser,
   sortDirParser,
+  projectViewParser,
 } from "@/lib/search-params";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
@@ -54,18 +57,18 @@ const SORT_FIELDS = [
   { key: "title" as const, label: "Title" },
 ];
 type SortField = (typeof SORT_FIELDS)[number]["key"];
-type SortDirection = "asc" | "desc";
 
 export function ProjectsClient() {
   const { repo, fullName } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, phases, sort, dir }, setParams] = useQueryStates({
+  const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
     q: searchParser,
     phases: phasesParser,
     sort: sortFieldParser,
     dir: sortDirParser,
+    view: projectViewParser,
   });
   const searchQuery = q;
   const visiblePhases = useMemo(
@@ -80,39 +83,42 @@ export function ProjectsClient() {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const projectsByPhase = useMemo(() => {
-    if (!projects) return {} as Record<ProjectPhase, typeof projects>;
+  const filteredSorted = useMemo(() => {
+    if (!projects) return [];
     const query = searchQuery.toLowerCase().trim();
-    const grouped = PROJECT_PHASES.reduce(
+    return projects
+      .filter((p) => visiblePhases.has(p.phase as ProjectPhase))
+      .filter((p) => {
+        if (!query) return true;
+        return (
+          p.title.toLowerCase().includes(query) ||
+          p.rawInput?.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case "created":
+            comparison = a._creationTime - b._creationTime;
+            break;
+          case "title":
+            comparison = a.title.localeCompare(b.title);
+            break;
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+  }, [projects, sortField, sortDirection, searchQuery, visiblePhases]);
+
+  const projectsByPhase = useMemo(() => {
+    return PROJECT_PHASES.reduce(
       (acc, phase) => {
-        acc[phase] = projects
-          .filter((p) => p.phase === phase)
-          .filter((p) => {
-            if (!query) return true;
-            return (
-              p.title.toLowerCase().includes(query) ||
-              p.rawInput?.toLowerCase().includes(query) ||
-              p.description?.toLowerCase().includes(query)
-            );
-          })
-          .sort((a, b) => {
-            let comparison = 0;
-            switch (sortField) {
-              case "created":
-                comparison = a._creationTime - b._creationTime;
-                break;
-              case "title":
-                comparison = a.title.localeCompare(b.title);
-                break;
-            }
-            return sortDirection === "asc" ? comparison : -comparison;
-          });
+        acc[phase] = filteredSorted.filter((p) => p.phase === phase);
         return acc;
       },
-      {} as Record<ProjectPhase, typeof projects>,
+      {} as Record<ProjectPhase, typeof filteredSorted>,
     );
-    return grouped;
-  }, [projects, sortField, sortDirection, searchQuery]);
+  }, [filteredSorted]);
 
   const handleDelete = async () => {
     if (!projectToDelete) return;
@@ -166,13 +172,31 @@ export function ProjectsClient() {
           <div className="flex flex-col flex-1 min-h-0 gap-4">
             <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                  <Button
+                    variant={view === "kanban" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8 rounded-none"
+                    onClick={() => setParams({ view: "kanban" })}
+                  >
+                    <IconLayoutKanban size={16} />
+                  </Button>
+                  <Button
+                    variant={view === "timeline" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8 rounded-none"
+                    onClick={() => setParams({ view: "timeline" })}
+                  >
+                    <IconTimeline size={16} />
+                  </Button>
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="secondary" size="sm">
                       <IconFilter size={16} />
                       {visiblePhases.size === PROJECT_PHASES.length
-                        ? "All Columns"
-                        : `${visiblePhases.size} Columns`}
+                        ? "All Phases"
+                        : `${visiblePhases.size} Phases`}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -253,46 +277,53 @@ export function ProjectsClient() {
                 )}
               </div>
             </div>
-            <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
-              {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
-                (phase) => (
-                  <KanbanColumn
-                    key={phase}
-                    id={phase}
-                    config={phaseConfig[phase]}
-                    count={projectsByPhase[phase]?.length ?? 0}
-                    droppable={false}
-                  >
-                    {projectsByPhase[phase]?.map((project) => (
-                      <ProjectCard
-                        key={project._id}
-                        projectId={project._id}
-                        userId={project.userId}
-                        title={project.title}
-                        description={project.description}
-                        rawInput={project.rawInput}
-                        branchName={project.branchName}
-                        repoFullName={fullName}
-                        createdAt={project._creationTime}
-                        projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
-                        cardBg={phaseConfig[phase].cardBg}
-                        onDelete={() =>
-                          setProjectToDelete({
-                            id: project._id,
-                            title: project.title,
-                          })
-                        }
-                      />
-                    ))}
-                    {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-4">
-                        No projects
-                      </p>
-                    )}
-                  </KanbanColumn>
-                ),
-              )}
-            </div>
+            {view === "kanban" ? (
+              <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
+                {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
+                  (phase) => (
+                    <KanbanColumn
+                      key={phase}
+                      id={phase}
+                      config={phaseConfig[phase]}
+                      count={projectsByPhase[phase]?.length ?? 0}
+                      droppable={false}
+                    >
+                      {projectsByPhase[phase]?.map((project) => (
+                        <ProjectCard
+                          key={project._id}
+                          projectId={project._id}
+                          userId={project.userId}
+                          title={project.title}
+                          description={project.description}
+                          rawInput={project.rawInput}
+                          branchName={project.branchName}
+                          repoFullName={fullName}
+                          createdAt={project._creationTime}
+                          projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
+                          cardBg={phaseConfig[phase].cardBg}
+                          onDelete={() =>
+                            setProjectToDelete({
+                              id: project._id,
+                              title: project.title,
+                            })
+                          }
+                        />
+                      ))}
+                      {(projectsByPhase[phase]?.length ?? 0) === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          No projects
+                        </p>
+                      )}
+                    </KanbanColumn>
+                  ),
+                )}
+              </div>
+            ) : (
+              <ProjectsTimeline
+                projects={filteredSorted}
+                repoFullName={fullName}
+              />
+            )}
           </div>
         )}
       </PageWrapper>

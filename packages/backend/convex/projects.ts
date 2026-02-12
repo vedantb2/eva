@@ -30,6 +30,7 @@ const projectValidator = v.object({
   members: v.optional(v.array(v.id("users"))),
   projectStartDate: v.optional(v.number()),
   projectEndDate: v.optional(v.number()),
+  deadline: v.optional(v.number()),
 });
 
 export const list = query({
@@ -154,6 +155,7 @@ export const update = mutation({
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
     projectEndDate: v.optional(v.number()),
+    deadline: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

@@ -176,6 +176,18 @@ export function ProjectCardModal({
                 })
               }
             />
+
+            <DatePickerField
+              label="Deadline"
+              value={project.deadline}
+              className="text-destructive"
+              onChange={(date) =>
+                updateProject({
+                  id: projectId,
+                  deadline: date ?? undefined,
+                })
+              }
+            />
           </div>
         </div>
         <DialogFooter>
@@ -197,17 +209,21 @@ export function ProjectCardModal({
 function DatePickerField({
   label,
   value,
+  className,
   onChange,
 }: {
   label: string;
   value: number | undefined;
+  className?: string;
   onChange: (epoch: number | null) => void;
 }) {
   const selected = value ? new Date(value) : undefined;
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
+      <p className={`text-xs mb-1.5 ${className ?? "text-muted-foreground"}`}>
+        {label}
+      </p>
       <Popover>
         <PopoverTrigger asChild>
           <Button

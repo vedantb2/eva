@@ -11,7 +11,7 @@ import {
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import { Tooltip, TooltipTrigger, TooltipContent, Button } from "@conductor/ui";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -62,7 +62,7 @@ export function ProjectsTimeline({
     });
     const min = Math.min(...allDates);
     const max = Math.max(...allDates);
-    const padding = Math.max(Math.ceil((max - min) / DAY_MS) * 0.2, 7);
+    const padding = Math.max(Math.ceil((max - min) / DAY_MS) * 0.5, 180);
     const origin = min - padding * DAY_MS;
     const span = Math.ceil((max - origin) / DAY_MS) + padding;
 
@@ -76,22 +76,47 @@ export function ProjectsTimeline({
 
   const totalWidth = totalSpanDays * pxPerDay;
 
-  useEffect(() => {
-    if (!containerRef.current || totalSpanDays === 0) return;
-    const now = Date.now();
-    const todayOffset = ((now - originDate) / DAY_MS) * pxPerDay;
+  const scrollToToday = useCallback(() => {
+    if (!containerRef.current) return;
+    const todayOffset = ((Date.now() - originDate) / DAY_MS) * pxPerDay;
     const viewWidth = containerRef.current.clientWidth - LABEL_WIDTH;
     setScrollLeft(Math.max(0, todayOffset - viewWidth / 2));
+  }, [originDate, pxPerDay]);
+
+  useEffect(() => {
+    if (!containerRef.current || totalSpanDays === 0) return;
+    scrollToToday();
   }, [totalSpanDays, originDate]);
 
-  const columnLabels = useMemo(() => {
+  const monthLabels = useMemo(() => {
     if (totalSpanDays === 0) return [];
-    const step = pxPerDay >= 40 ? 1 : pxPerDay >= 20 ? 7 : 14;
+    const labels: { label: string; x: number; width: number }[] = [];
+    let cursor = dayjs(originDate).startOf("month");
+    const endDate = dayjs(originDate).add(totalSpanDays, "day");
+    while (cursor.isBefore(endDate)) {
+      const nextMonth = cursor.add(1, "month");
+      const startDay = Math.max(0, cursor.diff(dayjs(originDate), "day"));
+      const endDay = Math.min(
+        totalSpanDays,
+        nextMonth.diff(dayjs(originDate), "day"),
+      );
+      labels.push({
+        label: cursor.format("MMM YYYY"),
+        x: startDay * pxPerDay,
+        width: (endDay - startDay) * pxPerDay,
+      });
+      cursor = nextMonth;
+    }
+    return labels;
+  }, [originDate, totalSpanDays, pxPerDay]);
+
+  const dayLabels = useMemo(() => {
+    if (totalSpanDays === 0) return [];
+    const step = 1;
     const labels: { label: string; x: number }[] = [];
     for (let d = 0; d <= totalSpanDays; d += step) {
-      const date = dayjs(originDate).add(d, "day");
       labels.push({
-        label: step === 1 ? date.format("D") : date.format("MMM D"),
+        label: dayjs(originDate).add(d, "day").format("D"),
         x: d * pxPerDay,
       });
     }
@@ -158,7 +183,7 @@ export function ProjectsTimeline({
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="flex-1 min-h-0 overflow-hidden select-none"
+            className="flex-1 min-h-0 overflow-hidden select-none relative"
             style={{ cursor: dragRef.current ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
@@ -166,32 +191,67 @@ export function ProjectsTimeline({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <div className="flex items-end border-b border-border pb-1 mb-1">
-              <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }} />
-              <div className="flex-1 overflow-hidden relative h-6">
+            {todayX !== null && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-primary/30 z-20 pointer-events-none"
+                style={{ left: todayX - scrollLeft + LABEL_WIDTH }}
+              >
+                <div className="absolute -top-1 -left-[11px] text-[9px] text-primary/50 rounded px-1">
+                  Today
+                </div>
+              </div>
+            )}
+            <div className="flex border-b border-border">
+              <div
+                className="flex-shrink-0 flex items-end pb-1"
+                style={{ width: LABEL_WIDTH }}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-muted-foreground"
+                  onClick={scrollToToday}
+                >
+                  Today
+                </Button>
+              </div>
+              <div className="flex-1 overflow-hidden">
                 <div
-                  className="relative h-full"
+                  className="relative"
                   style={{
                     width: totalWidth,
                     transform: `translateX(-${scrollLeft}px)`,
                   }}
                 >
-                  {columnLabels.map((col, i) => (
-                    <span
-                      key={i}
-                      className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
-                      style={{ left: col.x }}
-                    >
-                      {col.label}
-                    </span>
-                  ))}
+                  <div className="relative h-5">
+                    {monthLabels.map((m, i) => (
+                      <div
+                        key={i}
+                        className="absolute text-[10px] font-medium text-foreground/70 border-l border-border/50 pl-1.5 truncate flex items-center"
+                        style={{ left: m.x, width: m.width, height: 20 }}
+                      >
+                        {m.label}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="relative h-5">
+                    {dayLabels.map((d, i) => (
+                      <span
+                        key={i}
+                        className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
+                        style={{ left: d.x }}
+                      >
+                        {d.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             <div
               className="overflow-y-auto scrollbar"
-              style={{ maxHeight: "calc(100% - 28px)" }}
+              style={{ maxHeight: "calc(100% - 40px)" }}
             >
               {withDates.map((project) => {
                 const start = project.projectStartDate!;
@@ -231,12 +291,6 @@ export function ProjectsTimeline({
                           transform: `translateX(-${scrollLeft}px)`,
                         }}
                       >
-                        {todayX !== null && (
-                          <div
-                            className="absolute top-0 bottom-0 w-px bg-primary/40 z-10"
-                            style={{ left: todayX }}
-                          />
-                        )}
                         <button
                           className={`absolute top-1.5 rounded-md ${config.bg} hover:brightness-95 transition-all cursor-pointer flex items-center px-2`}
                           style={{

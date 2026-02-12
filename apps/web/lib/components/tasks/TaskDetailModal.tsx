@@ -49,6 +49,9 @@ import {
   IconShieldCheck,
   IconCheck,
   IconAlertTriangle,
+  IconCircleDot,
+  IconUserPlus,
+  IconBrain,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -580,7 +583,10 @@ export function TaskDetailModal({
 
               <div className="pl-4 space-y-4">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Status</p>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconCircleDot size={12} />
+                    Status
+                  </p>
                   <Select
                     value={status ?? ""}
                     onValueChange={(val) => {
@@ -636,7 +642,8 @@ export function TaskDetailModal({
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconUserPlus size={12} />
                     Assign to ___ for Code Review
                   </p>
                   <Select
@@ -663,7 +670,10 @@ export function TaskDetailModal({
                   </Select>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Model</p>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconBrain size={12} />
+                    Model
+                  </p>
                   <Select
                     value={task?.model ?? "sonnet"}
                     onValueChange={(val) => {
@@ -685,7 +695,8 @@ export function TaskDetailModal({
                 </div>
                 {latestPrUrl && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconGitPullRequest size={12} />
                       Pull Request
                     </p>
                     <a

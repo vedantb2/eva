@@ -25,7 +25,16 @@ import {
   PopoverContent,
   Calendar,
 } from "@conductor/ui";
-import { IconExternalLink, IconUsers, IconCalendar } from "@tabler/icons-react";
+import {
+  IconExternalLink,
+  IconUsers,
+  IconCalendar,
+  IconFlag,
+  IconUser,
+  IconCalendarEvent,
+  IconCalendarDue,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
@@ -83,12 +92,16 @@ export function ProjectCardModal({
 
           <div className="pl-4 space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Phase</p>
+              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <IconFlag size={12} />
+                Phase
+              </p>
               <ProjectPhaseBadge phase={project.phase} />
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">
+              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <IconUser size={12} />
                 Project Lead
               </p>
               <Select
@@ -116,7 +129,10 @@ export function ProjectCardModal({
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Members</p>
+              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <IconUsers size={12} />
+                Members
+              </p>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -157,6 +173,7 @@ export function ProjectCardModal({
 
             <DatePickerField
               label="Start Date"
+              icon={IconCalendarEvent}
               value={project.projectStartDate}
               onChange={(date) =>
                 updateProject({
@@ -168,6 +185,7 @@ export function ProjectCardModal({
 
             <DatePickerField
               label="End Date"
+              icon={IconCalendarDue}
               value={project.projectEndDate}
               onChange={(date) =>
                 updateProject({
@@ -179,6 +197,7 @@ export function ProjectCardModal({
 
             <DatePickerField
               label="Deadline"
+              icon={IconAlertTriangle}
               value={project.deadline}
               className="text-destructive"
               onChange={(date) =>
@@ -210,18 +229,23 @@ function DatePickerField({
   label,
   value,
   className,
+  icon: Icon,
   onChange,
 }: {
   label: string;
   value: number | undefined;
   className?: string;
+  icon?: typeof IconCalendar;
   onChange: (epoch: number | null) => void;
 }) {
   const selected = value ? new Date(value) : undefined;
 
   return (
     <div>
-      <p className={`text-xs mb-1.5 ${className ?? "text-muted-foreground"}`}>
+      <p
+        className={`text-xs mb-1.5 flex items-center gap-1.5 ${className ?? "text-muted-foreground"}`}
+      >
+        {Icon && <Icon size={12} />}
         {label}
       </p>
       <Popover>

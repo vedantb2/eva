@@ -25,6 +25,7 @@ import {
   IconChartBar,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
+  IconInbox,
 } from "@tabler/icons-react";
 import { useState, useMemo, useEffect } from "react";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -41,6 +42,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   Button,
+  Badge,
 } from "@conductor/ui";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 
@@ -152,10 +154,13 @@ export function Sidebar() {
     }
   }, [pathname]);
 
+  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
+
   const bottomNavigation = [
     ...(repoSlug
       ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
       : []),
+    { name: "Inbox", href: "/inbox", icon: IconInbox },
     { name: "Settings", href: "/settings", icon: IconSettings },
   ];
 
@@ -363,6 +368,7 @@ export function Sidebar() {
             <div className="space-y-0.5">
               {bottomNavigation.map((item) => {
                 const isActive = pathname.startsWith(item.href);
+                const showBadge = item.name === "Inbox" && unreadCount > 0;
                 return (
                   <Link
                     key={item.name}
@@ -377,6 +383,11 @@ export function Sidebar() {
                   >
                     <item.icon className="size-4 flex-shrink-0" />
                     {!collapsed && item.name}
+                    {!collapsed && showBadge && (
+                      <Badge className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
                   </Link>
                 );
               })}

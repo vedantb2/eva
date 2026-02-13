@@ -144,7 +144,7 @@ export function AnalyseSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar">
+      <div className="flex-1">
         {queries === undefined ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />

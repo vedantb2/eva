@@ -90,6 +90,7 @@
     "shell-quote": "^1.8.3",
     "shiki": "^3.22.0",
     "streamdown": "^2.1.0",
+    "swr": "^2.3.4",
     "tailwind-merge": "^2.6.0",
     "use-stick-to-bottom": "^1.1.2",
     "zod": "^4.1.5"

@@ -457,9 +457,9 @@ export function Sidebar() {
                         </div>
                       )
                     ) : (
-                      <>
+                      <div className="space-y-4">
                         {!collapsed && (
-                          <div className="space-y-2 p-2">
+                          <div className="space-y-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -513,7 +513,7 @@ export function Sidebar() {
                           </div>
                         )}
 
-                        <div className="space-y-2 pt-2">
+                        <div className="space-y-2">
                           {repoNavigation.map((group) => (
                             <div key={group.label}>
                               {!collapsed && (
@@ -626,7 +626,7 @@ export function Sidebar() {
                             repoSlug={repoSlug}
                           />
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}

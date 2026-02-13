@@ -186,6 +186,117 @@ interface StreamingClaudeCLIOptions {
   flushIntervalMs?: number;
 }
 
+interface ActivityStep {
+  type:
+    | "read"
+    | "edit"
+    | "write"
+    | "bash"
+    | "search_files"
+    | "search_code"
+    | "web_fetch"
+    | "web_search"
+    | "subtask"
+    | "notebook"
+    | "tool";
+  label: string;
+  detail?: string;
+  status: "complete" | "active";
+}
+
+function toolCallToStep(
+  name: string,
+  input: Record<string, unknown>,
+): ActivityStep {
+  const path = input.file_path ? shortenPath(String(input.file_path)) : "";
+  switch (name) {
+    case "Read":
+      return {
+        type: "read",
+        label: "Read file",
+        detail: path || undefined,
+        status: "active",
+      };
+    case "Glob":
+      return {
+        type: "search_files",
+        label: "Searched files",
+        detail: input.pattern ? String(input.pattern) : undefined,
+        status: "active",
+      };
+    case "Grep":
+      return {
+        type: "search_code",
+        label: "Searched code",
+        detail: input.pattern ? String(input.pattern) : undefined,
+        status: "active",
+      };
+    case "Write":
+      return {
+        type: "write",
+        label: "Created file",
+        detail: path || undefined,
+        status: "active",
+      };
+    case "Edit":
+      return {
+        type: "edit",
+        label: "Edited file",
+        detail: path || undefined,
+        status: "active",
+      };
+    case "Bash":
+      return {
+        type: "bash",
+        label: "Ran command",
+        detail: input.command ? String(input.command).slice(0, 80) : undefined,
+        status: "active",
+      };
+    case "WebFetch":
+      return {
+        type: "web_fetch",
+        label: "Fetched URL",
+        detail: input.url ? String(input.url) : undefined,
+        status: "active",
+      };
+    case "WebSearch":
+      return {
+        type: "web_search",
+        label: "Web search",
+        detail: input.query ? String(input.query) : undefined,
+        status: "active",
+      };
+    case "Task":
+      return {
+        type: "subtask",
+        label: "Ran agent",
+        detail: input.description
+          ? String(input.description).slice(0, 80)
+          : input.prompt
+            ? String(input.prompt).slice(0, 80)
+            : undefined,
+        status: "active",
+      };
+    case "NotebookEdit":
+      return {
+        type: "notebook",
+        label: "Edited notebook",
+        detail: input.notebook_path
+          ? shortenPath(String(input.notebook_path))
+          : undefined,
+        status: "active",
+      };
+    default:
+      return { type: "tool", label: `Used ${name}`, status: "active" };
+  }
+}
+
+function shortenPath(filePath: string): string {
+  const parts = filePath.replace(/\\/g, "/").split("/");
+  if (parts.length <= 3) return parts.join("/");
+  return `.../${parts.slice(-2).join("/")}`;
+}
+
 function formatToolCall(name: string, input: Record<string, unknown>): string {
   switch (name) {
     case "Read":
@@ -261,6 +372,22 @@ function formatStreamEvent(line: string): string | null {
   }
 }
 
+function formatStreamEventToSteps(line: string): ActivityStep[] {
+  try {
+    const event = JSON.parse(line);
+    if (event.type !== "assistant") return [];
+    const steps: ActivityStep[] = [];
+    for (const block of event.message?.content ?? []) {
+      if (block.type === "tool_use") {
+        steps.push(toolCallToStep(block.name, block.input ?? {}));
+      }
+    }
+    return steps;
+  } catch {
+    return [];
+  }
+}
+
 export async function runClaudeCLIStreaming(
   sandbox: Sandbox,
   prompt: string,
@@ -289,6 +416,7 @@ export async function runClaudeCLIStreaming(
 
   let rawOutput = "";
   let lastProcessed = 0;
+  const accumulatedSteps: ActivityStep[] = [];
 
   const interval = setInterval(async () => {
     if (rawOutput.length <= lastProcessed) return;
@@ -296,14 +424,23 @@ export async function runClaudeCLIStreaming(
     const lastNewline = pending.lastIndexOf("\n");
     if (lastNewline === -1) return;
     lastProcessed += lastNewline + 1;
-    let latestActivity: string | null = null;
+    let hasNewSteps = false;
     for (const line of pending.slice(0, lastNewline).split("\n")) {
       const clean = line.trim();
       if (!clean) continue;
-      const formatted = formatStreamEvent(clean);
-      if (formatted) latestActivity = formatted;
+      const newSteps = formatStreamEventToSteps(clean);
+      for (const step of newSteps) {
+        if (accumulatedSteps.length > 0) {
+          accumulatedSteps[accumulatedSteps.length - 1].status = "complete";
+        }
+        accumulatedSteps.push(step);
+        hasNewSteps = true;
+      }
     }
-    if (latestActivity) await onOutput(latestActivity).catch(() => {});
+    if (hasNewSteps) {
+      const stepsToSend = accumulatedSteps.slice(-30);
+      await onOutput(JSON.stringify(stepsToSend)).catch(() => {});
+    }
   }, flushIntervalMs);
 
   try {
@@ -335,15 +472,14 @@ export async function runClaudeCLIStreaming(
     await sandbox.process.deleteSession(sessionId).catch(() => {});
   }
 
-  let activityLog = "";
+  for (const step of accumulatedSteps) {
+    step.status = "complete";
+  }
+  const activityLog = JSON.stringify(accumulatedSteps);
   let resultEvent: { result: string; isError: boolean } | null = null;
   for (const line of rawOutput.split("\n")) {
     const clean = line.trim();
     if (!clean) continue;
-    const formatted = formatStreamEvent(clean);
-    if (formatted) {
-      activityLog += (activityLog ? "\n" : "") + formatted;
-    }
     try {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {

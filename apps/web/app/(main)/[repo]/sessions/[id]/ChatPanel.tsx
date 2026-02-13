@@ -42,6 +42,7 @@ import {
   PlanContent,
   PlanFooter,
   PlanTrigger,
+  ActivitySteps,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -67,6 +68,7 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];
@@ -380,18 +382,25 @@ export function ChatPanel({
                   }
                 >
                   {message.role === "assistant" && !message.content ? (
-                    <Reasoning isStreaming defaultOpen>
-                      <ReasoningTrigger
-                        getThinkingMessage={(streaming) =>
-                          streaming ? "Working..." : "Processing complete"
-                        }
-                      />
-                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                        <pre className="whitespace-pre-wrap font-mono text-xs">
-                          {streamingActivity || "Starting..."}
-                        </pre>
-                      </CollapsibleContent>
-                    </Reasoning>
+                    (() => {
+                      const steps = parseActivitySteps(streamingActivity);
+                      return steps ? (
+                        <ActivitySteps steps={steps} isStreaming />
+                      ) : (
+                        <Reasoning isStreaming defaultOpen>
+                          <ReasoningTrigger
+                            getThinkingMessage={(streaming) =>
+                              streaming ? "Working..." : "Processing complete"
+                            }
+                          />
+                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                            <pre className="whitespace-pre-wrap font-mono text-xs">
+                              {streamingActivity || "Starting..."}
+                            </pre>
+                          </CollapsibleContent>
+                        </Reasoning>
+                      );
+                    })()
                   ) : (
                     <>
                       {message.role === "assistant" ? (
@@ -403,18 +412,25 @@ export function ChatPanel({
                           {message.content}
                         </p>
                       )}
-                      {message.role === "assistant" && message.activityLog && (
-                        <Reasoning defaultOpen={false}>
-                          <ReasoningTrigger
-                            getThinkingMessage={() => "View logs"}
-                          />
-                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                              {message.activityLog}
-                            </pre>
-                          </CollapsibleContent>
-                        </Reasoning>
-                      )}
+                      {message.role === "assistant" &&
+                        message.activityLog &&
+                        (() => {
+                          const steps = parseActivitySteps(message.activityLog);
+                          return steps ? (
+                            <ActivitySteps steps={steps} />
+                          ) : (
+                            <Reasoning defaultOpen={false}>
+                              <ReasoningTrigger
+                                getThinkingMessage={() => "View logs"}
+                              />
+                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                  {message.activityLog}
+                                </pre>
+                              </CollapsibleContent>
+                            </Reasoning>
+                          );
+                        })()}
                     </>
                   )}
                 </MessageContent>

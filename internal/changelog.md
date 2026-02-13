@@ -1,5 +1,18 @@
 # Changelog
 
+## Activity Steps — Chain of Thought UI for Streaming Logs — 2026-02-13
+
+- Installed Chain of Thought component from AI Elements SDK into `packages/ui/src/ai-elements/chain-of-thought.tsx`
+- Created `ActivitySteps` wrapper component with custom step types (read, edit, write, bash, search_files, search_code, web_fetch, web_search, subtask, notebook, tool) and icon mapping
+- Modified `runClaudeCLIStreaming` in sandbox.ts to accumulate structured `ActivityStep[]` objects instead of flat text, storing JSON in `currentActivity` and `activityLog`
+- Created `parseActivitySteps` utility for backward-compatible parsing (JSON or legacy plain text)
+- Updated `ChatPanel.tsx` (sessions) to render steps via `<ActivitySteps>` for both real-time streaming and historical activity logs
+- Updated `ProjectTaskDetailPanel.tsx` (project tasks) to render steps via `<ActivitySteps>` for real-time streaming display
+- Replaced raw text activity logs with a step-by-step Chain of Thought UI showing each tool call (read, edit, write, bash, search, etc.) as a distinct step with icons and status indicators
+- Backend now accumulates structured steps during Claude CLI execution instead of flat text strings
+- Sessions chat panel and project task detail panel both display the new step-by-step UI for real-time streaming and historical logs
+- Old session data with plain-text logs continues to render correctly via automatic fallback
+
 ## Inbox Page + Projects Timeline View — 2026-02-12
 
 - Created full-page `/inbox` route with its own layout (Sidebar + MainContent, no RepoProvider)

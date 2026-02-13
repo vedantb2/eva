@@ -42,3 +42,5 @@ export * from "./ai-elements/plan";
 export * from "./ai-elements/test-results";
 export * from "./ai-elements/code-block";
 export * from "./ai-elements/sandbox";
+export * from "./ai-elements/chain-of-thought";
+export * from "./ai-elements/activity-steps";

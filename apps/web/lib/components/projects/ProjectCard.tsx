@@ -134,7 +134,11 @@ export function ProjectCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="block cursor-pointer" onClick={() => setModalOpen(true)}>
+      <button
+        type="button"
+        className="block w-full cursor-pointer rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        onClick={() => setModalOpen(true)}
+      >
         <div className="flex items-center gap-2 mb-1 pr-8">
           <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {title}
@@ -164,7 +168,7 @@ export function ProjectCard({
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
-      </div>
+      </button>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>

@@ -72,7 +72,7 @@ export function DiffPanel({
               <button
                 key={d.file}
                 onClick={() => setSelectedFile(d.file)}
-                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-muted ${
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
                   active === d.file ? "bg-muted" : ""
                 }`}
               >

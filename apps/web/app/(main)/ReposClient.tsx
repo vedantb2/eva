@@ -38,9 +38,10 @@ function WelcomeBanner() {
   ];
 
   return (
-    <Card className="mb-6 overflow-hidden shadow-none bg-gradient-to-br from-primary/80 to-primary/90">
+    <Card className="mb-6 overflow-hidden border border-border/70 bg-card shadow-none">
       <CardContent className="p-0">
         <div className="relative p-4 sm:p-5">
+          <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
           <Button
             size="icon"
             variant="ghost"
@@ -48,15 +49,15 @@ function WelcomeBanner() {
               localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
               setDismissed(true);
             }}
-            className="absolute top-3 right-3 text-primary-foreground/50 hover:text-primary-foreground z-10 h-8 w-8"
+            className="absolute top-3 right-3 z-10 h-8 w-8 text-muted-foreground hover:text-foreground"
           >
             <IconX size={16} />
           </Button>
           <div className="flex items-center gap-2 mb-3">
-            <IconSparkles size={20} className="text-white/80" />
-            <p className="text-base font-semibold text-white">Meet Eva</p>
+            <IconSparkles size={20} className="text-primary" />
+            <p className="text-base font-semibold text-foreground">Meet Eva</p>
           </div>
-          <p className="text-sm text-primary-foreground/80 max-w-md">
+          <p className="text-sm text-muted-foreground max-w-md">
             Your AI-powered coworker that helps you ship faster. Select a
             repository below to get started.
           </p>
@@ -64,9 +65,9 @@ function WelcomeBanner() {
             {features.map((f) => (
               <div
                 key={f.label}
-                className="flex items-center gap-1.5 text-xs text-primary-foreground/70"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
               >
-                <f.icon size={14} className="text-white/80" />
+                <f.icon size={14} className="text-primary" />
                 {f.label}
               </div>
             ))}
@@ -166,6 +167,7 @@ export function ReposClient() {
             <Link
               key={repo._id}
               href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
+              className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
             >
               <Card className="shadow-none cursor-pointer bg-secondary hover:bg-accent transition-colors duration-150">
                 <CardContent className="p-3 gap-3">

@@ -5,18 +5,18 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 244 247 252;
-    --foreground: 15 23 42;
+    --background: 247 247 245;
+    --foreground: 24 28 31;
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
+    --card-foreground: 24 28 31;
     --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
+    --popover-foreground: 24 28 31;
     --primary: 16 145 130;
     --primary-foreground: 255 255 255;
-    --secondary: 226 235 233;
-    --secondary-foreground: 35 60 55;
-    --muted: 239 244 250;
-    --muted-foreground: 100 116 139;
+    --secondary: 238 240 240;
+    --secondary-foreground: 44 53 56;
+    --muted: 241 243 243;
+    --muted-foreground: 102 112 118;
     --accent: 224 240 236;
     --accent-foreground: 12 105 95;
     --destructive: 220 38 38;
@@ -25,14 +25,14 @@
     --success-foreground: 255 255 255;
     --warning: 217 119 6;
     --warning-foreground: 255 255 255;
-    --border: 212 223 236;
-    --input: 212 223 236;
+    --border: 213 218 221;
+    --input: 213 218 221;
     --ring: 16 145 130;
     --chart-1: 16 145 130;
-    --chart-2: 59 130 146;
+    --chart-2: 20 184 166;
     --chart-3: 217 119 6;
     --chart-4: 225 29 72;
-    --chart-5: 16 185 129;
+    --chart-5: 5 150 105;
     --warning-bg: 255 247 237;
     --success-bg: 240 253 244;
     --status-progress: 161 98 7;
@@ -51,13 +51,13 @@
     --status-done-bg: 187 247 208;
     --status-done-subtle: 240 253 244;
     --status-done-bar: 74 222 128;
-    --sidebar: 247 252 250;
-    --sidebar-foreground: 15 23 42;
-    --sidebar-primary: 12 120 108;
+    --sidebar: 246 246 244;
+    --sidebar-foreground: 24 28 31;
+    --sidebar-primary: 13 132 122;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 236 245 243;
-    --sidebar-accent-foreground: 12 120 108;
-    --sidebar-border: 212 228 224;
+    --sidebar-accent: 237 241 240;
+    --sidebar-accent-foreground: 13 112 101;
+    --sidebar-border: 215 221 219;
     --sidebar-ring: 16 145 130;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: "Fraunces", Georgia, serif;
@@ -69,42 +69,42 @@
     --shadow-spread: 0px;
     --shadow-opacity: 0.14;
     --shadow-color: #000000;
-    --shadow-2xs: 0px 1px 2px 0px hsl(220 45% 11% / 0.05);
-    --shadow-xs: 0px 2px 6px -2px hsl(220 45% 11% / 0.08);
+    --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 8% / 0.05);
+    --shadow-xs: 0px 2px 6px -2px hsl(0 0% 8% / 0.08);
     --shadow-sm:
-      0px 4px 14px -6px hsl(220 45% 11% / 0.18),
-      0px 2px 4px -2px hsl(220 45% 11% / 0.08);
+      0px 4px 14px -6px hsl(0 0% 8% / 0.18),
+      0px 2px 4px -2px hsl(0 0% 8% / 0.08);
     --shadow:
-      0px 8px 24px -14px hsl(220 45% 11% / 0.24),
-      0px 4px 8px -4px hsl(220 45% 11% / 0.12);
+      0px 8px 24px -14px hsl(0 0% 8% / 0.24),
+      0px 4px 8px -4px hsl(0 0% 8% / 0.12);
     --shadow-md:
-      0px 14px 30px -16px hsl(220 45% 11% / 0.3),
-      0px 6px 14px -8px hsl(220 45% 11% / 0.15);
+      0px 14px 30px -16px hsl(0 0% 8% / 0.3),
+      0px 6px 14px -8px hsl(0 0% 8% / 0.15);
     --shadow-lg:
-      0px 20px 40px -20px hsl(220 45% 11% / 0.38),
-      0px 10px 20px -12px hsl(220 45% 11% / 0.18);
+      0px 20px 40px -20px hsl(0 0% 8% / 0.38),
+      0px 10px 20px -12px hsl(0 0% 8% / 0.18);
     --shadow-xl:
-      0px 26px 52px -24px hsl(220 45% 11% / 0.42),
-      0px 14px 28px -18px hsl(220 45% 11% / 0.2);
-    --shadow-2xl: 0px 36px 64px -30px hsl(220 45% 11% / 0.48);
+      0px 26px 52px -24px hsl(0 0% 8% / 0.42),
+      0px 14px 28px -18px hsl(0 0% 8% / 0.2);
+    --shadow-2xl: 0px 36px 64px -30px hsl(0 0% 8% / 0.48);
     --tracking-normal: -0.012em;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 8 16 15;
-    --foreground: 224 236 233;
-    --card: 12 23 22;
-    --card-foreground: 224 236 233;
-    --popover: 10 21 20;
-    --popover-foreground: 224 236 233;
+    --background: 17 19 20;
+    --foreground: 227 232 231;
+    --card: 24 27 28;
+    --card-foreground: 227 232 231;
+    --popover: 22 25 26;
+    --popover-foreground: 227 232 231;
     --primary: 52 199 181;
-    --primary-foreground: 7 20 18;
-    --secondary: 24 42 39;
-    --secondary-foreground: 212 230 225;
-    --muted: 20 34 32;
-    --muted-foreground: 136 166 159;
-    --accent: 29 51 47;
+    --primary-foreground: 8 23 20;
+    --secondary: 34 38 39;
+    --secondary-foreground: 214 222 220;
+    --muted: 30 34 35;
+    --muted-foreground: 148 162 160;
+    --accent: 34 47 44;
     --accent-foreground: 214 233 228;
     --destructive: 248 113 113;
     --destructive-foreground: 255 255 255;
@@ -112,16 +112,16 @@
     --success-foreground: 8 20 13;
     --warning: 251 191 36;
     --warning-foreground: 26 19 4;
-    --border: 40 63 59;
-    --input: 40 63 59;
+    --border: 57 64 66;
+    --input: 57 64 66;
     --ring: 52 199 181;
     --chart-1: 52 199 181;
-    --chart-2: 45 176 160;
+    --chart-2: 20 184 166;
     --chart-3: 251 191 36;
     --chart-4: 251 113 133;
-    --chart-5: 52 211 153;
-    --warning-bg: 43 30 15;
-    --success-bg: 16 43 28;
+    --chart-5: 45 212 191;
+    --warning-bg: 47 35 20;
+    --success-bg: 18 44 30;
     --status-progress: 250 204 21;
     --status-progress-bg: 71 50 12;
     --status-progress-subtle: 44 35 17;
@@ -138,13 +138,13 @@
     --status-done-bg: 23 58 36;
     --status-done-subtle: 16 43 28;
     --status-done-bar: 34 197 94;
-    --sidebar: 12 24 23;
-    --sidebar-foreground: 197 219 213;
+    --sidebar: 22 24 25;
+    --sidebar-foreground: 207 216 214;
     --sidebar-primary: 52 199 181;
-    --sidebar-primary-foreground: 7 20 18;
-    --sidebar-accent: 24 41 38;
+    --sidebar-primary-foreground: 8 23 20;
+    --sidebar-accent: 33 37 38;
     --sidebar-accent-foreground: 228 242 238;
-    --sidebar-border: 39 61 57;
+    --sidebar-border: 56 63 65;
     --sidebar-ring: 52 199 181;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: "Fraunces", Georgia, serif;
@@ -156,24 +156,24 @@
     --shadow-spread: 0px;
     --shadow-opacity: 0.45;
     --shadow-color: #000000;
-    --shadow-2xs: 0px 2px 6px -2px hsl(171 55% 2% / 0.24);
-    --shadow-xs: 0px 4px 10px -4px hsl(171 55% 2% / 0.28);
+    --shadow-2xs: 0px 2px 6px -2px hsl(0 0% 0% / 0.24);
+    --shadow-xs: 0px 4px 10px -4px hsl(0 0% 0% / 0.28);
     --shadow-sm:
-      0px 10px 24px -14px hsl(171 55% 2% / 0.55),
-      0px 5px 10px -8px hsl(171 55% 2% / 0.35);
+      0px 10px 24px -14px hsl(0 0% 0% / 0.55),
+      0px 5px 10px -8px hsl(0 0% 0% / 0.35);
     --shadow:
-      0px 18px 34px -20px hsl(171 55% 2% / 0.65),
-      0px 8px 14px -10px hsl(171 55% 2% / 0.4);
+      0px 18px 34px -20px hsl(0 0% 0% / 0.65),
+      0px 8px 14px -10px hsl(0 0% 0% / 0.4);
     --shadow-md:
-      0px 24px 42px -24px hsl(171 55% 2% / 0.7),
-      0px 12px 20px -14px hsl(171 55% 2% / 0.48);
+      0px 24px 42px -24px hsl(0 0% 0% / 0.7),
+      0px 12px 20px -14px hsl(0 0% 0% / 0.48);
     --shadow-lg:
-      0px 30px 54px -26px hsl(171 55% 2% / 0.75),
-      0px 16px 26px -16px hsl(171 55% 2% / 0.55);
+      0px 30px 54px -26px hsl(0 0% 0% / 0.75),
+      0px 16px 26px -16px hsl(0 0% 0% / 0.55);
     --shadow-xl:
-      0px 38px 64px -28px hsl(171 55% 2% / 0.82),
-      0px 20px 32px -18px hsl(171 55% 2% / 0.6);
-    --shadow-2xl: 0px 48px 80px -32px hsl(171 55% 2% / 0.92);
+      0px 38px 64px -28px hsl(0 0% 0% / 0.82),
+      0px 20px 32px -18px hsl(0 0% 0% / 0.6);
+    --shadow-2xl: 0px 48px 80px -32px hsl(0 0% 0% / 0.92);
   }
   * {
     @apply border-border;
@@ -185,18 +185,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     letter-spacing: var(--tracking-normal);
-    background-image:
-      radial-gradient(
-        circle at 8% -8%,
-        rgb(var(--primary) / 0.18),
-        transparent 34%
-      ),
-      radial-gradient(
-        circle at 92% 0%,
-        rgb(var(--chart-2) / 0.16),
-        transparent 38%
-      ),
-      linear-gradient(180deg, rgb(var(--background)), rgb(var(--background)));
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--background)),
+      rgb(var(--muted) / 0.38)
+    );
     background-attachment: fixed;
   }
   ::selection {

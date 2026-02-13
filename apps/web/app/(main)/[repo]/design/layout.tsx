@@ -97,7 +97,7 @@ export default function DesignLayout({
 
   const sidebar = (
     <>
-      <div className="p-2">
+      <div className="p-4">
         <div className="relative">
           <IconSearch
             size={16}
@@ -129,17 +129,20 @@ export default function DesignLayout({
             </p>
           </div>
         ) : (
-          <div className="py-1.5">
+          <div>
             {filteredSessions.map((session) => {
               const isSelected = currentSessionId === session._id;
               return (
                 <div
                   key={session._id}
-                  className={`px-2 py-1.5 mx-1 rounded-md cursor-pointer transition-colors duration-150 group ${
+                  className={`px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >
-                  <Link href={baseUrl + "/" + session._id} className="block">
+                  <Link
+                    href={baseUrl + "/" + session._id}
+                    className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                  >
                     <div className="flex items-center justify-between">
                       <h3
                         className={`text-sm font-medium truncate flex-1 ${

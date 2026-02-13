@@ -65,7 +65,7 @@ function DocsListPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-2 pb-4 relative">
+      <div className="p-4 relative">
         <IconSearch
           size={14}
           className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -80,7 +80,7 @@ function DocsListPanel({
           <button
             type="button"
             onClick={() => setSearchQuery(null)}
-            className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-7 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           >
             <IconX size={14} />
           </button>
@@ -99,7 +99,7 @@ function DocsListPanel({
               <Link
                 key={doc._id}
                 href={href}
-                className={`text-left px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 flex items-center gap-3 ${
+                className={`text-left p-3 mx-1.5 rounded-md transition-colors duration-150 flex items-center gap-3 ${
                   isSelected
                     ? "bg-accent text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"

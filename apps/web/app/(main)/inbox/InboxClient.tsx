@@ -97,7 +97,7 @@ export function InboxClient() {
               <button
                 key={n._id}
                 onClick={() => handleClick(n)}
-                className={`flex items-start gap-4 w-full px-2.5 py-2 text-left hover:bg-muted/50 transition-colors duration-150 rounded-md ${n.read ? "opacity-50" : ""}`}
+                className={`flex w-full items-start gap-4 rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
               >
                 <NotificationIcon type={n.type} size="md" />
                 <div className="flex-1 min-w-0 mt-0.5">

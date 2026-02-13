@@ -155,7 +155,7 @@ export function ProjectsClient() {
           </Button>
         }
       >
-        <div className="flex flex-1 min-h-0 flex-col px-2 pb-2 pt-2">
+        <div className="flex flex-1 min-h-0 flex-col p-4">
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />
@@ -171,7 +171,7 @@ export function ProjectsClient() {
               onAction={() => setIsCreating(true)}
             />
           ) : (
-            <div className="flex flex-col flex-1 min-h-0 gap-2">
+            <div className="flex flex-col flex-1 min-h-0 gap-4">
               <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center rounded-lg border border-border overflow-hidden">
@@ -280,7 +280,7 @@ export function ProjectsClient() {
                     <button
                       type="button"
                       onClick={() => setParams({ q: null })}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     >
                       <IconX size={14} />
                     </button>

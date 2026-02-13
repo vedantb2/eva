@@ -274,7 +274,7 @@ export function ProjectsTimeline({
                     style={{ height: ROW_HEIGHT }}
                   >
                     <button
-                      className="flex-shrink-0 text-sm font-medium text-foreground truncate text-left pr-3 hover:text-primary transition-colors"
+                      className="flex-shrink-0 truncate pr-3 text-left text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 rounded-sm"
                       style={{ width: LABEL_WIDTH }}
                       onClick={() => setSelectedProjectId(project._id)}
                     >
@@ -292,7 +292,7 @@ export function ProjectsTimeline({
                         }}
                       >
                         <button
-                          className={`absolute top-1.5 rounded-md ${config.bg} hover:brightness-95 transition-all cursor-pointer flex items-center px-2`}
+                          className={`absolute top-1.5 flex cursor-pointer items-center rounded-md px-2 transition-all hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${config.bg}`}
                           style={{
                             left: barLeft,
                             width: barWidth,
@@ -345,7 +345,7 @@ export function ProjectsTimeline({
                 return (
                   <button
                     key={project._id}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     onClick={() => setSelectedProjectId(project._id)}
                   >
                     <span

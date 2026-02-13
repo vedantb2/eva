@@ -164,7 +164,7 @@ function RunListItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left ${
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
         isActive
           ? "border-primary bg-primary/5 ring-1 ring-primary"
           : "border-transparent hover:bg-muted/50"
@@ -173,9 +173,9 @@ function RunListItem({
       {report.status === "completed" && (
         <>
           {failed === 0 ? (
-            <IconCheck size={14} className="text-green-500 shrink-0" />
+            <IconCheck size={14} className="text-success shrink-0" />
           ) : (
-            <IconX size={14} className="text-red-500 shrink-0" />
+            <IconX size={14} className="text-destructive shrink-0" />
           )}
           <div className="flex flex-col min-w-0">
             <span className="text-sm tabular-nums">
@@ -189,9 +189,9 @@ function RunListItem({
       )}
       {report.status === "error" && (
         <>
-          <IconAlertTriangle size={14} className="text-red-500 shrink-0" />
+          <IconAlertTriangle size={14} className="text-destructive shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="text-sm text-red-500">Error</span>
+            <span className="text-sm text-destructive">Error</span>
             <span className="text-xs text-muted-foreground">
               {dayjs(report.createdAt).fromNow()}
             </span>

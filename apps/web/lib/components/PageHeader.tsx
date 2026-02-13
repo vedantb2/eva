@@ -27,7 +27,7 @@ export function PageHeader({
       {showBack && (
         <button
           onClick={onBack ?? (() => router.back())}
-          className="flex-shrink-0 rounded-lg border border-border/70 bg-background/80 p-1.5 transition-colors hover:bg-accent"
+          className="flex-shrink-0 rounded-lg border border-border/70 bg-background/80 p-1.5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
         </button>

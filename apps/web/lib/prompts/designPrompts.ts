@@ -14,7 +14,7 @@ export const DESIGN_SYSTEM_PROMPT = `You MUST output ONLY valid JSON in this exa
 Rules for each variation:
 - Single React component file starting with \`import { useState } from 'react';\` (add useEffect or other hooks as needed), then \`export default function App() { ... }\`
 - ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
-- Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-blue-500, no text-gray-700)
+- Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-slate-500, no text-gray-700)
 - Every clickable element and section header MUST include a @tabler/icons-react icon
 - Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
 - Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
@@ -93,7 +93,7 @@ The project uses a custom Tailwind config with CSS variables. Your components wi
 **Radius:** rounded-sm (6px), rounded-md (8px), rounded-lg (10px)
 **Font:** font-sans (Inter is loaded automatically)
 
-CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-blue-500, text-gray-700, bg-teal-600. Always use bg-primary, text-muted-foreground, etc.
+CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-slate-500, text-gray-700, bg-zinc-600. Always use bg-primary, text-muted-foreground, etc.
 
 ## Available Libraries
 The preview environment has these pre-installed — use them freely:

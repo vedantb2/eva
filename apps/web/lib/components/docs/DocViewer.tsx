@@ -302,7 +302,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                       size="icon"
                       variant="ghost"
                       onClick={() => removeRequirement(idx)}
-                      className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                      className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                     >
                       <IconX size={14} />
                     </Button>
@@ -363,7 +363,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                         size="icon"
                         variant="ghost"
                         onClick={() => removeFlow(flowIdx)}
-                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                        className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                       >
                         <IconX size={14} />
                       </Button>
@@ -386,7 +386,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                             size="icon"
                             variant="ghost"
                             onClick={() => removeStep(flowIdx, stepIdx)}
-                            className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                            className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                           >
                             <IconX size={14} />
                           </Button>

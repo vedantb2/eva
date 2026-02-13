@@ -134,10 +134,10 @@ export function GroupTasksModal({
                     key={project._id}
                     type="button"
                     onClick={() => setSelectedProjectId(project._id)}
-                    className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
+                    className={`w-full rounded-lg border-2 p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
                       selectedProjectId === project._id
                         ? "border-primary bg-accent"
-                        : "border-transparent bg-muted hover:bg-muted"
+                        : "border-transparent bg-muted hover:bg-accent/70"
                     }`}
                   >
                     <div className="flex items-center justify-between">

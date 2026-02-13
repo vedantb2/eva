@@ -21,7 +21,7 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="ui-surface-strong flex flex-col items-center justify-center py-14 text-center">
+    <div className="flex flex-col items-center justify-center py-14 text-center">
       <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary shadow-xs">
         {icon}
       </div>

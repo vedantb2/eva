@@ -553,7 +553,7 @@ export function TaskDetailModal({
                                     {item.passed ? (
                                       <IconCheck
                                         size={16}
-                                        className="text-emerald-500 mt-0.5 flex-shrink-0"
+                                        className="text-success mt-0.5 flex-shrink-0"
                                       />
                                     ) : (
                                       <IconAlertTriangle

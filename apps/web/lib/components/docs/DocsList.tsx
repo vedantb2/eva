@@ -94,7 +94,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
   return (
     <>
       <div className="h-full flex flex-col">
-        <div className="px-4 py-2 pb-4">
+        <div className="p-4">
           <div className="relative">
             <IconSearch
               size={14}

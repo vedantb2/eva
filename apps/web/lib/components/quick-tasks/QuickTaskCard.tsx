@@ -61,8 +61,17 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow-none cursor-pointer transition-colors border ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      className={`w-full shadow-none transition-colors border ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary" : ""} ${!isSelecting && onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35" : ""}`}
       onClick={isSelecting ? undefined : onClick}
+      role={!isSelecting && onClick ? "button" : undefined}
+      tabIndex={!isSelecting && onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (isSelecting || !onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       <CardContent className="p-2 md:p-2 gap-1">
         <div className="flex items-center justify-between gap-2">

@@ -107,7 +107,7 @@ export function NotificationsPopoverClient() {
                       setSelectedId(n._id);
                       popover.onClose();
                     }}
-                    className={`flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${n.read ? "opacity-50" : ""}`}
+                    className={`flex items-start gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
                   >
                     <NotificationIcon type={n.type} />
                     <div className="flex-1 min-w-0 mt-0.5">

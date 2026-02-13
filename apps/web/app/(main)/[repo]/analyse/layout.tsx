@@ -104,22 +104,22 @@ export default function ResearchLayout({
 
   const sidebar = (
     <>
-      <div className="p-2 relative">
+      <div className="p-4 relative">
         <IconSearch
-          size={16}
-          className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          size={14}
+          className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
         <Input
           placeholder="Search queries..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 pr-8"
+          className="pl-8 pr-8 h-8 text-sm"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={() => setSearchQuery("")}
-            className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-5 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           >
             <IconX size={14} />
           </button>
@@ -131,9 +131,9 @@ export default function ResearchLayout({
             <Spinner size="sm" />
           </div>
         ) : (
-          <div className="py-1.5 space-y-6">
+          <div className="space-y-6">
             <div>
-              <p className="px-4 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <p className="px-4 my-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Queries
               </p>
               {filteredQueries.length === 0 ? (
@@ -155,13 +155,13 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`px-2 py-1.5 mx-1 rounded-md cursor-pointer transition-colors duration-150 group ${
+                        className={`p-3 mx-1 rounded-md transition-colors duration-150 group ${
                           isSelected ? "bg-accent" : "hover:bg-muted"
                         }`}
                       >
                         <Link
                           href={baseUrl + "/query/" + query._id}
-                          className="block"
+                          className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <h3
@@ -234,7 +234,7 @@ export default function ResearchLayout({
               <div>
                 <Link
                   href={baseUrl + "/saved-queries"}
-                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
                     isSavedQueriesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -245,7 +245,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
-                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
                     isRoutinesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -256,7 +256,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/files"}
-                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
                     isFilesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"

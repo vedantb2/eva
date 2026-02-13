@@ -232,7 +232,7 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-72 lg:w-16" : "w-72",
+          collapsed ? "w-72 lg:w-20" : "w-72",
         )}
       >
         <div className="h-full p-2 lg:p-3">
@@ -246,7 +246,7 @@ export function Sidebar() {
               {!collapsed && (
                 <Link
                   href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-                  className="inline-flex items-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/80 px-2.5 py-1.5 text-sidebar-foreground shadow-xs"
+                  className="inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sidebar-foreground"
                 >
                   <Image
                     src="/icon.png"
@@ -259,16 +259,6 @@ export function Sidebar() {
                     Eva
                   </span>
                 </Link>
-              )}
-
-              {collapsed && (
-                <Image
-                  src="/icon.png"
-                  alt="Eva"
-                  width={32}
-                  height={32}
-                  className="rounded-lg border border-sidebar-border/70"
-                />
               )}
 
               <div className="flex items-center gap-1">
@@ -312,7 +302,7 @@ export function Sidebar() {
                 {isRepoRoute && repoSlug && repoFullName && (
                   <>
                     {!collapsed && (
-                      <div className="space-y-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 p-2">
+                      <div className="space-y-2 p-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -372,7 +362,7 @@ export function Sidebar() {
                           {!collapsed && (
                             <button
                               onClick={() => toggleGroup(group.label)}
-                              className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                              className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40 rounded-md"
                             >
                               <group.groupIcon size={12} />
                               <span>{group.label}</span>
@@ -425,12 +415,10 @@ export function Sidebar() {
                     </div>
 
                     {!collapsed && repo && (
-                      <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 p-1.5">
-                        <ActiveTasksAccordion
-                          repoId={repo._id}
-                          repoSlug={repoSlug}
-                        />
-                      </div>
+                      <ActiveTasksAccordion
+                        repoId={repo._id}
+                        repoSlug={repoSlug}
+                      />
                     )}
                   </>
                 )}

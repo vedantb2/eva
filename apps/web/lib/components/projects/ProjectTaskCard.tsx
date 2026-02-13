@@ -41,8 +41,17 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      className={`w-full shadow-none rounded-sm transition-all ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110" : ""}`}
+      className={`w-full rounded-sm shadow-none transition-all ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 dark:hover:brightness-110" : ""}`}
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (!onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       <CardContent className="p-2 gap-2">
         <div className="flex items-center justify-between gap-2">

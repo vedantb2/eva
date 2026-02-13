@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
@@ -59,6 +59,7 @@ export function SessionsSidebar({
     title: string;
   } | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
   const baseUrl = `/${repoSlug}/sessions`;
   const currentSessionId = pathname.startsWith(`${baseUrl}/`)
@@ -76,9 +77,10 @@ export function SessionsSidebar({
   }, [sessions, searchQuery]);
 
   useEffect(() => {
-    if (createRequestId && createRequestId > 0) {
-      setIsCreateModalOpen(true);
-    }
+    if (createRequestId === undefined) return;
+    if (createRequestId <= lastCreateRequestIdRef.current) return;
+    lastCreateRequestIdRef.current = createRequestId;
+    setIsCreateModalOpen(true);
   }, [createRequestId]);
 
   const handleArchive = async () => {

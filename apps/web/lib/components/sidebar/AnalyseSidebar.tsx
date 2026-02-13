@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
@@ -63,6 +63,7 @@ export function AnalyseSidebar({
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
   const baseUrl = `/${repoSlug}/analyse`;
   const currentQueryId = pathname.includes("/query/")
@@ -81,9 +82,10 @@ export function AnalyseSidebar({
   }, [queries, searchQuery]);
 
   useEffect(() => {
-    if (createRequestId && createRequestId > 0) {
-      setIsCreateModalOpen(true);
-    }
+    if (createRequestId === undefined) return;
+    if (createRequestId <= lastCreateRequestIdRef.current) return;
+    lastCreateRequestIdRef.current = createRequestId;
+    setIsCreateModalOpen(true);
   }, [createRequestId]);
 
   const handleDelete = async () => {

@@ -58,7 +58,7 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
-import { sessionModeParser } from "@/lib/search-params";
+import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
@@ -109,6 +109,7 @@ export function ChatPanel({
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useQueryState("mode", sessionModeParser);
+  const [, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
@@ -267,6 +268,15 @@ export function ChatPanel({
           <IconLayoutSidebarRightCollapse size={16} />
         </Button>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="text-primary"
+            onClick={() => setActiveTab("preview")}
+          >
+            <IconWorld size={14} />
+            View Preview
+          </Button>
           {branchName && !prUrl && (
             <Button
               size="sm"
@@ -477,27 +487,16 @@ export function ChatPanel({
         <ConversationScrollButton />
       </Conversation>
       <div className="px-3 pb-4 pt-3">
-        <div className="flex items-center gap-1 mb-2">
-          {prUrl && (
+        {prUrl && (
+          <div className="mb-2 flex items-center gap-1">
             <Link href={prUrl} target="_blank">
               <Badge variant="outline" className="gap-1 cursor-pointer">
                 <IconGitPullRequest size={12} />
                 View PR
               </Badge>
             </Link>
-          )}
-          <Link
-            href={
-              prUrl ??
-              `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
-            }
-          >
-            <Badge variant="outline" className="gap-1 cursor-pointer">
-              <IconWorld size={12} />
-              View Preview
-            </Badge>
-          </Link>
-        </div>
+          </div>
+        )}
         {mode === "plan" && planContent && (
           <Plan defaultOpen className="mb-2">
             <PlanHeader className="p-4">

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
+  ActivitySteps,
   Button,
   Input,
+  Spinner,
   Textarea,
   Tooltip,
   TooltipTrigger,
@@ -27,6 +29,7 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { DocInterviewDialog } from "./DocInterviewDialog";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -36,6 +39,8 @@ export function DocViewer({ doc }: { doc: Doc }) {
 
 function DocEditor({ doc }: { doc: Doc }) {
   const { installationId } = useRepo();
+  const streaming = useQuery(api.streaming.get, { entityId: doc._id });
+  const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
@@ -160,6 +165,23 @@ function DocEditor({ doc }: { doc: Doc }) {
         installationId={installationId}
         readOnly
       />
+      {streaming && (
+        <div className="px-4 pb-3">
+          <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Spinner size="sm" />
+              <span>Processing PRD...</span>
+            </div>
+            {streamingSteps ? (
+              <ActivitySteps steps={streamingSteps} isStreaming />
+            ) : (
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                {streaming.currentActivity}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <Tabs
         defaultValue="requirements"

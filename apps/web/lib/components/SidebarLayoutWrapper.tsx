@@ -12,6 +12,7 @@ import {
 interface SidebarLayoutWrapperProps {
   title: string;
   onAdd?: () => void;
+  headerActions?: React.ReactNode;
   sidebar: React.ReactNode;
   children: React.ReactNode;
 }
@@ -19,11 +20,22 @@ interface SidebarLayoutWrapperProps {
 export function SidebarLayoutWrapper({
   title,
   onAdd,
+  headerActions,
   sidebar,
   children,
 }: SidebarLayoutWrapperProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const renderHeaderActions = () => {
+    if (headerActions) return headerActions;
+    if (!onAdd) return null;
+    return (
+      <Button size="icon-sm" onClick={onAdd}>
+        <IconPlus size={16} />
+      </Button>
+    );
+  };
 
   return (
     <div className="flex-1 overflow-hidden bg-background">
@@ -38,11 +50,7 @@ export function SidebarLayoutWrapper({
         <h1 className="text-lg font-semibold text-foreground flex-1">
           {title}
         </h1>
-        {onAdd && (
-          <Button size="icon-sm" onClick={onAdd}>
-            <IconPlus size={16} />
-          </Button>
-        )}
+        {renderHeaderActions()}
       </div>
 
       {mobileOpen && (
@@ -58,11 +66,7 @@ export function SidebarLayoutWrapper({
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           <div className="flex items-center gap-1.5">
-            {onAdd && (
-              <Button size="icon-sm" onClick={onAdd}>
-                <IconPlus size={16} />
-              </Button>
-            )}
+            {renderHeaderActions()}
             <Button
               size="icon-sm"
               variant="ghost"
@@ -88,11 +92,7 @@ export function SidebarLayoutWrapper({
                   {title}
                 </h1>
                 <div className="flex items-center gap-1.5">
-                  {onAdd && (
-                    <Button size="icon-sm" onClick={onAdd}>
-                      <IconPlus size={16} />
-                    </Button>
-                  )}
+                  {renderHeaderActions()}
                 </div>
               </>
             )}

@@ -411,7 +411,7 @@ export function DesignDetailClient({
                     customSetup={{
                       entry: "/index.tsx",
                       dependencies: {
-                        "lucide-react": "latest",
+                        "@tabler/icons-react": "latest",
                         recharts: "latest",
                         "framer-motion": "latest",
                         "date-fns": "latest",

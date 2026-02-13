@@ -212,7 +212,7 @@ Pre-commit runs `lint-staged` via Husky, which formats staged `*.{ts,tsx,js,jsx,
 - Import `api`, `Id`, `Doc` from `@conductor/backend` (NOT from `convex/values` or a local api.ts)
 - Use `FunctionReturnType` from Convex to derive types instead of manually defining interfaces
 - Forms use React Hook Form + Zod validation
-- Dark mode via next-themes with RGB CSS variables (space-separated channels: `--primary: 16 145 130;`) — supports Tailwind opacity modifiers (`bg-primary/10`)
+- Dark mode via next-themes with OKLCH CSS variables (space-separated channels: `--primary: 0.591 0.107 178.242;`) — supports Tailwind opacity modifiers (`bg-primary/10`)
 - Environment variables validated with @t3-oss/env-nextjs and Zod (import from `@/env/server` or `@/env/client`)
 - Default to Server Components; only use Client Components (`*Client.tsx`) for interactive elements requiring hooks, events, or browser APIs
 - Icons: `@tabler/icons-react` (primary), `lucide-react` (secondary)

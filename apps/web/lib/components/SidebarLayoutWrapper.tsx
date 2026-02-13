@@ -31,7 +31,7 @@ export function SidebarLayoutWrapper({
     if (headerActions) return headerActions;
     if (!onAdd) return null;
     return (
-      <Button size="icon-sm" onClick={onAdd}>
+      <Button size="icon-xs" onClick={onAdd}>
         <IconPlus size={16} />
       </Button>
     );
@@ -97,30 +97,35 @@ export function SidebarLayoutWrapper({
           <div className="h-full">
             <div className="flex h-full flex-col overflow-hidden border-r border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
               <div
-                className={`border-b border-border/70 px-4 py-3 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}
+                className={`border-b border-border/70 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >
-                {!collapsed && (
-                  <>
+                {collapsed ? (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="flex-shrink-0"
+                    onClick={() => setCollapsed(!collapsed)}
+                  >
+                    <IconLayoutSidebarLeftExpand size={16} />
+                  </Button>
+                ) : (
+                  <div className="flex w-full items-center justify-between">
                     <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
                       {title}
                     </h1>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-3">
                       {renderHeaderActions()}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="flex-shrink-0"
+                        onClick={() => setCollapsed(!collapsed)}
+                      >
+                        <IconLayoutSidebarLeftCollapse size={16} />
+                      </Button>
                     </div>
-                  </>
+                  </div>
                 )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="flex-shrink-0"
-                  onClick={() => setCollapsed(!collapsed)}
-                >
-                  {collapsed ? (
-                    <IconLayoutSidebarLeftExpand size={16} />
-                  ) : (
-                    <IconLayoutSidebarLeftCollapse size={16} />
-                  )}
-                </Button>
               </div>
               {!collapsed && (
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar">

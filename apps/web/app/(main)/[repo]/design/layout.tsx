@@ -135,7 +135,7 @@ export default function DesignLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 group ${
+                  className={`px-4 py-1.5 mx-1 rounded-md transition-colors duration-150 group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >

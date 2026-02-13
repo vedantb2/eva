@@ -120,15 +120,14 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
               return (
                 <div
                   key={doc._id}
-                  className={`mx-1.5 px-2.5 py-1.5 rounded-md transition-colors duration-150 group ${
-                    isSelected ? "bg-accent" : "hover:bg-muted"
+                  className={`mx-1 px-4 py-1.5 rounded-md transition-colors duration-150 group ${
+                    isSelected
+                      ? "bg-accent text-primary font-medium"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <Link href={href} className="flex items-center gap-3">
-                    <IconFileText
-                      size={16}
-                      className="flex-shrink-0 text-muted-foreground"
-                    />
+                    <IconFileText size={16} className="flex-shrink-0" />
                     <span
                       className={`truncate text-sm flex-1 ${
                         isSelected

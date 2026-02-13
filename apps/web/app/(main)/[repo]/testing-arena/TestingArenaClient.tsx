@@ -99,7 +99,7 @@ function DocsListPanel({
               <Link
                 key={doc._id}
                 href={href}
-                className={`text-left p-3 mx-1.5 rounded-md transition-colors duration-150 flex items-center gap-3 ${
+                className={`text-left px-4 py-3 mx-1 rounded-md transition-colors duration-150 flex items-center gap-3 ${
                   isSelected
                     ? "bg-accent text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"

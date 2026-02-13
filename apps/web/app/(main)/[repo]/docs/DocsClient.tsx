@@ -109,7 +109,7 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="icon-sm" disabled={isCreating || isUploading}>
+          <Button size="icon-xs" disabled={isCreating || isUploading}>
             {isCreating || isUploading ? (
               <Spinner size="sm" />
             ) : (

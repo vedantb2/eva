@@ -133,7 +133,7 @@ export default function ResearchLayout({
         ) : (
           <div className="space-y-6">
             <div>
-              <p className="px-4 my-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <p className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Queries
               </p>
               {filteredQueries.length === 0 ? (
@@ -155,7 +155,7 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`p-3 mx-1 rounded-md transition-colors duration-150 group ${
+                        className={`px-4 py-1.5 mx-1 rounded-md transition-colors duration-150 group ${
                           isSelected ? "bg-accent" : "hover:bg-muted"
                         }`}
                       >
@@ -228,13 +228,13 @@ export default function ResearchLayout({
               )}
             </div>
             <div>
-              <p className="px-4 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <p className="p-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Resources
               </p>
               <div>
                 <Link
                   href={baseUrl + "/saved-queries"}
-                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-4 py-3 mx-1 rounded-md transition-colors duration-150 ${
                     isSavedQueriesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -245,7 +245,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
-                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-4 py-3 mx-1 rounded-md transition-colors duration-150 ${
                     isRoutinesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -256,7 +256,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/files"}
-                  className={`flex items-center gap-2.5 p-3 mx-1 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-4 py-3 mx-1 rounded-md transition-colors duration-150 ${
                     isFilesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"

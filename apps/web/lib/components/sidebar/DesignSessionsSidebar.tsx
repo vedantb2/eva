@@ -1,0 +1,302 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import type { Id } from "@conductor/backend";
+import { api } from "@conductor/backend";
+import dayjs from "@conductor/shared/dates";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Spinner,
+  cn,
+} from "@conductor/ui";
+import {
+  IconArchive,
+  IconDotsVertical,
+  IconPalette,
+  IconSearch,
+} from "@tabler/icons-react";
+
+interface DesignSessionsSidebarProps {
+  repoId: Id<"githubRepos">;
+  repoSlug: string;
+  pathname: string;
+  onNavigate?: () => void;
+  createRequestId?: number;
+}
+
+export function DesignSessionsSidebar({
+  repoId,
+  repoSlug,
+  pathname,
+  onNavigate,
+  createRequestId,
+}: DesignSessionsSidebarProps) {
+  const router = useRouter();
+  const sessions = useQuery(api.designSessions.list, { repoId });
+  const createSession = useMutation(api.designSessions.create);
+  const archiveSession = useMutation(api.designSessions.archive);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newSessionTitle, setNewSessionTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [sessionToArchive, setSessionToArchive] = useState<{
+    id: Id<"designSessions">;
+    title: string;
+  } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  const baseUrl = `/${repoSlug}/design`;
+  const currentSessionId = pathname.startsWith(`${baseUrl}/`)
+    ? pathname.slice(baseUrl.length + 1).split("/")[0]
+    : null;
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    const query = searchQuery.toLowerCase().trim();
+    return query
+      ? sessions.filter((session) =>
+          session.title.toLowerCase().includes(query),
+        )
+      : sessions;
+  }, [sessions, searchQuery]);
+
+  useEffect(() => {
+    if (createRequestId && createRequestId > 0) {
+      setIsCreateModalOpen(true);
+    }
+  }, [createRequestId]);
+
+  const handleArchive = async () => {
+    if (!sessionToArchive) return;
+    setIsArchiving(true);
+    try {
+      await archiveSession({ id: sessionToArchive.id });
+      setSessionToArchive(null);
+      if (currentSessionId === sessionToArchive.id) {
+        router.push(baseUrl);
+        onNavigate?.();
+      }
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newSessionTitle.trim()) return;
+    setIsCreating(true);
+    try {
+      const id = await createSession({
+        repoId,
+        title: newSessionTitle.trim(),
+      });
+      setNewSessionTitle("");
+      setIsCreateModalOpen(false);
+      router.push(`${baseUrl}/${id}`);
+      onNavigate?.();
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="p-2">
+        <div className="relative">
+          <IconSearch
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Search design sessions..."
+            className="h-8 border-sidebar-border/80 bg-sidebar/70 pl-8 text-sm text-sidebar-foreground placeholder:text-muted-foreground"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto scrollbar">
+        {sessions === undefined ? (
+          <div className="flex items-center justify-center py-8">
+            <Spinner size="sm" />
+          </div>
+        ) : filteredSessions.length === 0 ? (
+          <div className="p-4 text-center">
+            <IconPalette
+              size={28}
+              className="mx-auto mb-2 text-muted-foreground"
+            />
+            <p className="text-sm text-muted-foreground">
+              {sessions.length === 0
+                ? "No design sessions yet"
+                : "No matches found"}
+            </p>
+          </div>
+        ) : (
+          <div>
+            {filteredSessions.map((session) => {
+              const isSelected = currentSessionId === session._id;
+              return (
+                <div
+                  key={session._id}
+                  className={cn(
+                    "group mx-1 rounded-md px-3 py-2 transition-colors",
+                    isSelected
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/70",
+                  )}
+                >
+                  <Link
+                    href={`${baseUrl}/${session._id}`}
+                    onClick={onNavigate}
+                    className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3
+                        className={cn(
+                          "truncate text-sm font-medium",
+                          isSelected
+                            ? "text-sidebar-primary"
+                            : "text-sidebar-foreground",
+                        )}
+                      >
+                        {session.title}
+                      </h3>
+                      <div
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                            >
+                              <IconDotsVertical size={13} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              className="text-warning"
+                              onClick={() =>
+                                setSessionToArchive({
+                                  id: session._id,
+                                  title: session.title,
+                                })
+                              }
+                            >
+                              <IconArchive size={16} />
+                              Archive
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {dayjs(
+                        session.updatedAt ?? session._creationTime,
+                      ).fromNow()}
+                    </span>
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Dialog
+        open={!!sessionToArchive}
+        onOpenChange={(open) => {
+          if (!open) setSessionToArchive(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Design Session</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to archive{" "}
+            <strong>{sessionToArchive?.title}</strong>?
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSessionToArchive(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-warning text-warning-foreground"
+              onClick={handleArchive}
+              disabled={isArchiving}
+            >
+              {isArchiving ? <Spinner size="sm" /> : "Archive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isCreateModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsCreateModalOpen(false);
+            setNewSessionTitle("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Design Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Session Title</label>
+            <Input
+              placeholder="e.g., Dashboard user management page"
+              value={newSessionTitle}
+              onChange={(event) => setNewSessionTitle(event.target.value)}
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && newSessionTitle.trim()) {
+                  void handleCreate();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setNewSessionTitle("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={isCreating || !newSessionTitle.trim()}
+            >
+              {isCreating ? <Spinner size="sm" /> : "Create Session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

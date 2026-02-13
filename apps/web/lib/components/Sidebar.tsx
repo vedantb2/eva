@@ -4,14 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import {
   IconBrain,
   IconBrandGithub,
   IconChartBar,
   IconChecklist,
-  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
   IconFileText,
   IconFlask,
   IconHammer,
@@ -21,6 +22,7 @@ import {
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconPalette,
+  IconPlus,
   IconSelector,
   IconSettings,
   IconShield,
@@ -38,16 +40,34 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
+  Spinner,
   cn,
 } from "@conductor/ui";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
+import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
+import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 
-const DEFAULT_EXPANDED_GROUPS = new Set(["BUILD", "FIX", "TEST", "DATA"]);
+const CONTEXT_SIDEBAR_BY_NAV_NAME = {
+  Design: "design",
+  Sessions: "sessions",
+  Analyse: "analyse",
+} as const;
+
+type ContextSidebarMode = "main" | "design" | "sessions" | "analyse";
+
+function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
+  const segment = pathname.split("/")[2];
+  if (segment === "design" || segment === "sessions" || segment === "analyse") {
+    return segment;
+  }
+  return "main";
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -55,9 +75,11 @@ export function Sidebar() {
   const { user } = useUser();
   const { collapsed, setCollapsed } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState(
-    () => new Set(DEFAULT_EXPANDED_GROUPS),
-  );
+  const [contextSidebarMode, setContextSidebarMode] =
+    useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
+  const [designCreateRequestId, setDesignCreateRequestId] = useState(0);
+  const [sessionsCreateRequestId, setSessionsCreateRequestId] = useState(0);
+  const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
 
   const repos = useQuery(api.githubRepos.list);
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
@@ -69,6 +91,7 @@ export function Sidebar() {
 
   const repoFullName = repoSlug ? decodeRepoSlug(repoSlug) : null;
   const isRepoRoute = Boolean(repoSlug && repoFullName?.includes("/"));
+  const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
   const [owner, name] = repoFullName ? repoFullName.split("/") : [null, null];
 
   const repo = useQuery(
@@ -144,17 +167,6 @@ export function Sidebar() {
     [repoSlug, isRepoRoute],
   );
 
-  useEffect(() => {
-    const activeGroup = repoNavigation.find((group) =>
-      group.items.some((item) => pathname.startsWith(item.href)),
-    );
-    if (!activeGroup) return;
-    setExpandedGroups((prev) => {
-      if (prev.has(activeGroup.label)) return prev;
-      return new Set(prev).add(activeGroup.label);
-    });
-  }, [pathname, repoNavigation]);
-
   const bottomNavigation = useMemo(
     () => [
       ...(isRepoRoute && repoSlug
@@ -172,15 +184,6 @@ export function Sidebar() {
     }
   };
 
-  const toggleGroup = (label: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
-  };
-
   const navItemClass = (isActive: boolean) =>
     cn(
       "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all",
@@ -189,6 +192,37 @@ export function Sidebar() {
         ? "border-sidebar-primary/20 bg-sidebar-accent text-sidebar-primary shadow-xs"
         : "border-transparent text-sidebar-foreground/80 hover:border-sidebar-border/70 hover:bg-sidebar-accent/75 hover:text-sidebar-foreground",
     );
+
+  const contextSidebarTitle =
+    contextSidebarMode === "design"
+      ? "Designs"
+      : contextSidebarMode === "sessions"
+        ? "Sessions"
+        : contextSidebarMode === "analyse"
+          ? "Analyse"
+          : "";
+  const contextCreateButtonTitle =
+    contextSidebarMode === "design"
+      ? "New design session"
+      : contextSidebarMode === "sessions"
+        ? "New session"
+        : contextSidebarMode === "analyse"
+          ? "New query"
+          : "New item";
+
+  const handleContextCreate = () => {
+    if (contextSidebarMode === "design") {
+      setDesignCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "sessions") {
+      setSessionsCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "analyse") {
+      setAnalyseCreateRequestId((current) => current + 1);
+    }
+  };
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
@@ -240,55 +274,137 @@ export function Sidebar() {
             <div
               className={cn(
                 "flex h-16 items-center border-b border-sidebar-border/60",
-                collapsed ? "justify-center px-2" : "justify-between px-3",
+                collapsed ? "px-2" : "px-3",
               )}
             >
-              {!collapsed && (
-                <Link
-                  href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-                  className="inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sidebar-foreground"
-                >
-                  <Image
-                    src="/icon.png"
-                    alt="Eva"
-                    width={30}
-                    height={30}
-                    className="rounded-lg"
-                  />
-                  <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
-                    Eva
-                  </span>
-                </Link>
-              )}
+              <div
+                key={
+                  showContextSidebar
+                    ? `${contextSidebarMode}-header`
+                    : "main-header"
+                }
+                className={cn(
+                  "animate-in fade-in slide-in-from-left-2 duration-200 flex w-full items-center",
+                  collapsed ? "justify-center" : "justify-between",
+                )}
+              >
+                {showContextSidebar ? (
+                  <>
+                    {!collapsed && (
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => setContextSidebarMode("main")}
+                          className="h-8 w-8"
+                          title="Back to main sidebar"
+                        >
+                          <IconChevronLeft size={16} />
+                        </Button>
+                        <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          {contextSidebarTitle}
+                        </span>
+                      </div>
+                    )}
 
-              <div className="flex items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={closeMobileSidebar}
-                  className="lg:hidden"
-                >
-                  <IconX size={18} className="text-muted-foreground" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setCollapsed(!collapsed)}
-                  className="hidden lg:inline-flex"
-                  title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                  {collapsed ? (
-                    <IconLayoutSidebarLeftCollapseFilled
-                      size={18}
-                      className="text-sidebar-primary"
-                    />
-                  ) : (
-                    <IconLayoutSidebarLeftCollapse
-                      size={18}
-                      className="text-sidebar-primary"
-                    />
-                  )}
-                </Button>
+                    <div className="flex items-center gap-1">
+                      {!collapsed && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleContextCreate}
+                          title={contextCreateButtonTitle}
+                        >
+                          <IconPlus
+                            size={18}
+                            className="text-sidebar-primary"
+                          />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={closeMobileSidebar}
+                        className="lg:hidden"
+                      >
+                        <IconX size={18} className="text-muted-foreground" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="hidden lg:inline-flex"
+                        title={
+                          collapsed ? "Expand sidebar" : "Collapse sidebar"
+                        }
+                      >
+                        {collapsed ? (
+                          <IconLayoutSidebarLeftCollapseFilled
+                            size={18}
+                            className="text-sidebar-primary"
+                          />
+                        ) : (
+                          <IconLayoutSidebarLeftCollapse
+                            size={18}
+                            className="text-sidebar-primary"
+                          />
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {!collapsed && (
+                      <Link
+                        href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
+                        className="inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sidebar-foreground"
+                      >
+                        <Image
+                          src="/icon.png"
+                          alt="Eva"
+                          width={30}
+                          height={30}
+                          className="rounded-lg"
+                        />
+                        <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          Eva
+                        </span>
+                      </Link>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={closeMobileSidebar}
+                        className="lg:hidden"
+                      >
+                        <IconX size={18} className="text-muted-foreground" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="hidden lg:inline-flex"
+                        title={
+                          collapsed ? "Expand sidebar" : "Collapse sidebar"
+                        }
+                      >
+                        {collapsed ? (
+                          <IconLayoutSidebarLeftCollapseFilled
+                            size={18}
+                            className="text-sidebar-primary"
+                          />
+                        ) : (
+                          <IconLayoutSidebarLeftCollapse
+                            size={18}
+                            className="text-sidebar-primary"
+                          />
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -300,164 +416,258 @@ export function Sidebar() {
             >
               <div className="space-y-4">
                 {isRepoRoute && repoSlug && repoFullName && (
-                  <>
-                    {!collapsed && (
-                      <div className="space-y-2 p-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                            >
-                              <IconBrandGithub
-                                size={16}
-                                className="text-muted-foreground"
+                  <div
+                    key={
+                      showContextSidebar
+                        ? `${contextSidebarMode}-nav`
+                        : "main-nav"
+                    }
+                    className="animate-in fade-in slide-in-from-left-2 duration-200"
+                  >
+                    {showContextSidebar ? (
+                      collapsed ? null : repo ? (
+                        contextSidebarMode === "design" ? (
+                          <DesignSessionsSidebar
+                            repoId={repo._id}
+                            repoSlug={repoSlug}
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                            createRequestId={designCreateRequestId}
+                          />
+                        ) : contextSidebarMode === "sessions" ? (
+                          <SessionsSidebar
+                            repoId={repo._id}
+                            repoSlug={repoSlug}
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                            createRequestId={sessionsCreateRequestId}
+                          />
+                        ) : (
+                          <AnalyseSidebar
+                            repoId={repo._id}
+                            repoSlug={repoSlug}
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                            createRequestId={analyseCreateRequestId}
+                          />
+                        )
+                      ) : (
+                        <div className="flex items-center justify-center py-8">
+                          <Spinner size="sm" />
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        {!collapsed && (
+                          <div className="space-y-2 p-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                                >
+                                  <IconBrandGithub
+                                    size={16}
+                                    className="text-muted-foreground"
+                                  />
+                                  <span className="flex-1 truncate text-left text-sm font-medium">
+                                    {repoFullName}
+                                  </span>
+                                  <IconSelector
+                                    size={16}
+                                    className="text-muted-foreground"
+                                  />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
+                                <DropdownMenuRadioGroup
+                                  value={repoFullName}
+                                  onValueChange={handleRepoSelect}
+                                >
+                                  {(repos ?? []).map((repoItem) => {
+                                    const fullName = `${repoItem.owner}/${repoItem.name}`;
+                                    return (
+                                      <DropdownMenuRadioItem
+                                        key={fullName}
+                                        value={fullName}
+                                      >
+                                        <IconBrandGithub
+                                          size={16}
+                                          className="text-muted-foreground"
+                                        />
+                                        {fullName}
+                                      </DropdownMenuRadioItem>
+                                    );
+                                  })}
+                                </DropdownMenuRadioGroup>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            {repo && (
+                              <BranchSelector
+                                owner={repo.owner}
+                                repoName={repo.name}
+                                installationId={repo.installationId}
                               />
-                              <span className="flex-1 truncate text-left text-sm font-medium">
-                                {repoFullName}
-                              </span>
-                              <IconSelector
-                                size={16}
-                                className="text-muted-foreground"
-                              />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
-                            <DropdownMenuRadioGroup
-                              value={repoFullName}
-                              onValueChange={handleRepoSelect}
-                            >
-                              {(repos ?? []).map((repoItem) => {
-                                const fullName = `${repoItem.owner}/${repoItem.name}`;
-                                return (
-                                  <DropdownMenuRadioItem
-                                    key={fullName}
-                                    value={fullName}
-                                  >
-                                    <IconBrandGithub
-                                      size={16}
-                                      className="text-muted-foreground"
-                                    />
-                                    {fullName}
-                                  </DropdownMenuRadioItem>
-                                );
-                              })}
-                            </DropdownMenuRadioGroup>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        {repo && (
-                          <BranchSelector
-                            owner={repo.owner}
-                            repoName={repo.name}
-                            installationId={repo.installationId}
+                            )}
+                          </div>
+                        )}
+
+                        <div className="space-y-2 pt-2">
+                          {repoNavigation.map((group) => (
+                            <div key={group.label}>
+                              {!collapsed && (
+                                <div className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                  <group.groupIcon size={12} />
+                                  <span>{group.label}</span>
+                                  <span
+                                    aria-hidden
+                                    className="ml-1 h-px flex-1 bg-sidebar-border/60"
+                                  />
+                                </div>
+                              )}
+                              <div
+                                className={cn(
+                                  "space-y-1",
+                                  !collapsed && "pl-2",
+                                )}
+                              >
+                                {group.items.map((item) => {
+                                  const isActive = pathname.startsWith(
+                                    item.href,
+                                  );
+                                  const contextMode =
+                                    CONTEXT_SIDEBAR_BY_NAV_NAME[
+                                      item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
+                                    ];
+
+                                  if (contextMode && !collapsed) {
+                                    return (
+                                      <div key={item.name} className="relative">
+                                        <Link
+                                          href={item.href}
+                                          onClick={() => {
+                                            setContextSidebarMode(contextMode);
+                                            closeMobileSidebar();
+                                          }}
+                                          className={cn(
+                                            navItemClass(isActive),
+                                            "pr-9",
+                                          )}
+                                        >
+                                          <item.icon
+                                            size={16}
+                                            className={cn(
+                                              "shrink-0",
+                                              isActive
+                                                ? "text-sidebar-primary"
+                                                : "text-muted-foreground",
+                                            )}
+                                          />
+                                          <span className="truncate">
+                                            {item.name}
+                                          </span>
+                                        </Link>
+                                        <Button
+                                          size="icon-sm"
+                                          variant="ghost"
+                                          className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground"
+                                          onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            setContextSidebarMode(contextMode);
+                                          }}
+                                          title={`Open ${item.name.toLowerCase()} sidebar`}
+                                        >
+                                          <IconChevronRight size={14} />
+                                        </Button>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <Link
+                                      key={item.name}
+                                      href={item.href}
+                                      onClick={() => {
+                                        if (contextMode) {
+                                          setContextSidebarMode(contextMode);
+                                        }
+                                        closeMobileSidebar();
+                                      }}
+                                      title={collapsed ? item.name : undefined}
+                                      className={navItemClass(isActive)}
+                                    >
+                                      <item.icon
+                                        size={16}
+                                        className={cn(
+                                          "shrink-0",
+                                          isActive
+                                            ? "text-sidebar-primary"
+                                            : "text-muted-foreground",
+                                        )}
+                                      />
+                                      {!collapsed && (
+                                        <span className="truncate">
+                                          {item.name}
+                                        </span>
+                                      )}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {!collapsed && repo && (
+                          <ActiveTasksAccordion
+                            repoId={repo._id}
+                            repoSlug={repoSlug}
                           />
                         )}
-                      </div>
+                      </>
                     )}
-
-                    <div className="space-y-2">
-                      {repoNavigation.map((group) => (
-                        <div key={group.label}>
-                          {!collapsed && (
-                            <button
-                              onClick={() => toggleGroup(group.label)}
-                              className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40 rounded-md"
-                            >
-                              <group.groupIcon size={12} />
-                              <span>{group.label}</span>
-                              <IconChevronDown
-                                size={12}
-                                className={cn(
-                                  "ml-auto transition-transform",
-                                  expandedGroups.has(group.label)
-                                    ? "rotate-0"
-                                    : "-rotate-90",
-                                )}
-                              />
-                            </button>
-                          )}
-                          {(collapsed || expandedGroups.has(group.label)) && (
-                            <div
-                              className={cn("space-y-1", !collapsed && "pl-2")}
-                            >
-                              {group.items.map((item) => {
-                                const isActive = pathname.startsWith(item.href);
-                                return (
-                                  <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    onClick={closeMobileSidebar}
-                                    title={collapsed ? item.name : undefined}
-                                    className={navItemClass(isActive)}
-                                  >
-                                    <item.icon
-                                      size={16}
-                                      className={cn(
-                                        "shrink-0",
-                                        isActive
-                                          ? "text-sidebar-primary"
-                                          : "text-muted-foreground",
-                                      )}
-                                    />
-                                    {!collapsed && (
-                                      <span className="truncate">
-                                        {item.name}
-                                      </span>
-                                    )}
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {!collapsed && repo && (
-                      <ActiveTasksAccordion
-                        repoId={repo._id}
-                        repoSlug={repoSlug}
-                      />
-                    )}
-                  </>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                {bottomNavigation.map((item) => {
-                  const isActive = pathname.startsWith(item.href);
-                  const showBadge = item.name === "Inbox" && unreadCount > 0;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={closeMobileSidebar}
-                      title={collapsed ? item.name : undefined}
-                      className={navItemClass(isActive)}
-                    >
-                      <span className="relative">
-                        <item.icon
-                          size={16}
-                          className="shrink-0 text-muted-foreground"
-                        />
-                        {collapsed && showBadge && (
-                          <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary" />
+              {!showContextSidebar && (
+                <div className="space-y-1.5">
+                  {bottomNavigation.map((item) => {
+                    const isActive = pathname.startsWith(item.href);
+                    const showBadge = item.name === "Inbox" && unreadCount > 0;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={closeMobileSidebar}
+                        title={collapsed ? item.name : undefined}
+                        className={navItemClass(isActive)}
+                      >
+                        <span className="relative">
+                          <item.icon
+                            size={16}
+                            className="shrink-0 text-muted-foreground"
+                          />
+                          {collapsed && showBadge && (
+                            <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        {!collapsed && item.name}
+                        {!collapsed && showBadge && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]"
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </Badge>
                         )}
-                      </span>
-                      {!collapsed && item.name}
-                      {!collapsed && showBadge && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]"
-                        >
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </nav>
 
             <div

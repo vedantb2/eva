@@ -54,6 +54,7 @@ export function QuickTasksClient() {
       <PageWrapper
         title="Quick Tasks"
         fillHeight
+        childPadding={false}
         headerRight={
           <div className="flex items-center gap-2">
             {hasQuickTasks &&
@@ -91,26 +92,30 @@ export function QuickTasksClient() {
           </div>
         }
       >
-        {tasks === undefined ? (
-          <div className="flex items-center justify-center flex-1">
-            <Spinner />
-          </div>
-        ) : !hasQuickTasks ? (
-          <EmptyState
-            icon={<IconChecklist size={24} className="text-muted-foreground" />}
-            title="No quick tasks"
-            description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-            actionLabel="Create Quick Task"
-            onAction={() => setIsCreating(true)}
-          />
-        ) : (
-          <QuickTasksKanbanBoard
-            repoId={repo._id}
-            isSelecting={isSelecting}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-          />
-        )}
+        <div className="flex flex-1 min-h-0 flex-col px-2 pb-2 pt-2">
+          {tasks === undefined ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Spinner />
+            </div>
+          ) : !hasQuickTasks ? (
+            <EmptyState
+              icon={
+                <IconChecklist size={24} className="text-muted-foreground" />
+              }
+              title="No quick tasks"
+              description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+              actionLabel="Create Quick Task"
+              onAction={() => setIsCreating(true)}
+            />
+          ) : (
+            <QuickTasksKanbanBoard
+              repoId={repo._id}
+              isSelecting={isSelecting}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+            />
+          )}
+        </div>
       </PageWrapper>
       <QuickTaskModal
         isOpen={isCreating}

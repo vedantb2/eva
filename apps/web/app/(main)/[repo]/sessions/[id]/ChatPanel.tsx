@@ -256,7 +256,7 @@ export function ChatPanel({
   const filteredMessages = messages.filter((m) => m.mode !== "flag");
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between p-3">
         <Button
           size="icon"
@@ -346,8 +346,8 @@ export function ChatPanel({
           </AccordionItem>
         </Accordion>
       )}
-      <Conversation className="flex-1">
-        <ConversationContent className="gap-4 p-4">
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="gap-3 p-3">
           {filteredMessages.length === 0 ? (
             <ConversationEmptyState
               title={

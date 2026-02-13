@@ -147,6 +147,7 @@ export function ProjectsClient() {
       <PageWrapper
         title="Projects"
         fillHeight
+        childPadding={false}
         headerRight={
           <Button size="sm" onClick={() => setIsCreating(true)}>
             <IconPlus size={16} />
@@ -154,133 +155,143 @@ export function ProjectsClient() {
           </Button>
         }
       >
-        {projects === undefined ? (
-          <div className="flex items-center justify-center flex-1">
-            <Spinner />
-          </div>
-        ) : projects.length === 0 ? (
-          <EmptyState
-            icon={
-              <IconLayoutKanban size={24} className="text-muted-foreground" />
-            }
-            title="No projects yet"
-            description="Create a project to describe a feature and let AI help you break it down into tasks"
-            actionLabel="Create Project"
-            onAction={() => setIsCreating(true)}
-          />
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0 gap-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center rounded-lg border border-border overflow-hidden">
+        <div className="flex flex-1 min-h-0 flex-col px-2 pb-2 pt-2">
+          {projects === undefined ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Spinner />
+            </div>
+          ) : projects.length === 0 ? (
+            <EmptyState
+              icon={
+                <IconLayoutKanban size={24} className="text-muted-foreground" />
+              }
+              title="No projects yet"
+              description="Create a project to describe a feature and let AI help you break it down into tasks"
+              actionLabel="Create Project"
+              onAction={() => setIsCreating(true)}
+            />
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0 gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                    <Button
+                      variant={view === "kanban" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-8 w-8 rounded-none"
+                      onClick={() => setParams({ view: "kanban" })}
+                    >
+                      <IconLayoutKanban size={16} />
+                    </Button>
+                    <Button
+                      variant={view === "timeline" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-8 w-8 rounded-none"
+                      onClick={() => setParams({ view: "timeline" })}
+                    >
+                      <IconTimeline size={16} />
+                    </Button>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" size="sm">
+                        <IconFilter size={16} />
+                        {visiblePhases.size === PROJECT_PHASES.length
+                          ? "All Phases"
+                          : `${visiblePhases.size} Phases`}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {PROJECT_PHASES.map((p) => {
+                        const cfg = phaseConfig[p];
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={p}
+                            checked={visiblePhases.has(p)}
+                            onCheckedChange={() => handlePhaseToggle(p)}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <cfg.icon
+                              size={16}
+                              className={cfg.text + " mr-2"}
+                            />
+                            <span className={cfg.text}>{cfg.label}</span>
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" size="sm">
+                        {sortDirection === "asc" ? (
+                          <IconSortAscending size={16} />
+                        ) : (
+                          <IconSortDescending size={16} />
+                        )}
+                        {sortField === "created" ? "Date" : "Title"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuRadioGroup
+                        value={sortField}
+                        onValueChange={(v) =>
+                          setParams({ sort: v as SortField })
+                        }
+                      >
+                        {SORT_FIELDS.map((item) => (
+                          <DropdownMenuRadioItem
+                            key={item.key}
+                            value={item.key}
+                          >
+                            {item.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
-                    variant={view === "kanban" ? "secondary" : "ghost"}
+                    variant="secondary"
                     size="icon"
-                    className="h-8 w-8 rounded-none"
-                    onClick={() => setParams({ view: "kanban" })}
+                    className="h-8 w-8"
+                    onClick={() =>
+                      setParams({ dir: dir === "asc" ? "desc" : "asc" })
+                    }
                   >
-                    <IconLayoutKanban size={16} />
-                  </Button>
-                  <Button
-                    variant={view === "timeline" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-8 w-8 rounded-none"
-                    onClick={() => setParams({ view: "timeline" })}
-                  >
-                    <IconTimeline size={16} />
+                    {sortDirection === "asc" ? (
+                      <IconSortAscending size={16} />
+                    ) : (
+                      <IconSortDescending size={16} />
+                    )}
                   </Button>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      <IconFilter size={16} />
-                      {visiblePhases.size === PROJECT_PHASES.length
-                        ? "All Phases"
-                        : `${visiblePhases.size} Phases`}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {PROJECT_PHASES.map((p) => {
-                      const cfg = phaseConfig[p];
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={p}
-                          checked={visiblePhases.has(p)}
-                          onCheckedChange={() => handlePhaseToggle(p)}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                          <span className={cfg.text}>{cfg.label}</span>
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      {sortDirection === "asc" ? (
-                        <IconSortAscending size={16} />
-                      ) : (
-                        <IconSortDescending size={16} />
-                      )}
-                      {sortField === "created" ? "Date" : "Title"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuRadioGroup
-                      value={sortField}
-                      onValueChange={(v) => setParams({ sort: v as SortField })}
+                <div className="relative w-1/2 mx-auto">
+                  <IconSearch
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    placeholder="Search projects..."
+                    className="pl-9 pr-8 h-8 text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setParams({ q: e.target.value || null })}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setParams({ q: null })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      {SORT_FIELDS.map((item) => (
-                        <DropdownMenuRadioItem key={item.key} value={item.key}>
-                          {item.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                  }
-                >
-                  {sortDirection === "asc" ? (
-                    <IconSortAscending size={16} />
-                  ) : (
-                    <IconSortDescending size={16} />
+                      <IconX size={14} />
+                    </button>
                   )}
-                </Button>
+                </div>
               </div>
-              <div className="relative w-1/2 mx-auto">
-                <IconSearch
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  placeholder="Search projects..."
-                  className="pl-9 pr-8 h-8 text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setParams({ q: e.target.value || null })}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setParams({ q: null })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <IconX size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-            {view === "kanban" ? (
-              <div className="flex items-stretch gap-3 overflow-x-auto scrollbar flex-1 min-h-0">
-                {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
-                  (phase) => (
+              {view === "kanban" ? (
+                <div className="flex flex-1 min-h-0 items-stretch gap-1.5 overflow-x-auto overflow-y-hidden scrollbar">
+                  {PROJECT_PHASES.filter((phase) =>
+                    visiblePhases.has(phase),
+                  ).map((phase) => (
                     <KanbanColumn
                       key={phase}
                       id={phase}
@@ -310,22 +321,22 @@ export function ProjectsClient() {
                         />
                       ))}
                       {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-4">
+                        <div className="flex flex-1 min-h-full items-center justify-center py-4 text-xs text-muted-foreground">
                           No projects
-                        </p>
+                        </div>
                       )}
                     </KanbanColumn>
-                  ),
-                )}
-              </div>
-            ) : (
-              <ProjectsTimeline
-                projects={filteredSorted}
-                repoFullName={fullName}
-              />
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              ) : (
+                <ProjectsTimeline
+                  projects={filteredSorted}
+                  repoFullName={fullName}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </PageWrapper>
       <NewProjectModal
         isOpen={isCreating}

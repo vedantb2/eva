@@ -30,19 +30,19 @@ export function PageWrapper({
   return (
     <div className="flex-1 overflow-hidden bg-background">
       <div className="h-full flex flex-col overflow-hidden">
-        <div className="px-4 py-2.5 flex items-center gap-3">
+        <div className="flex items-center gap-3 border-b border-border/70 bg-card/60 px-4 py-3 backdrop-blur-sm">
           {showBack && (
             <Button
               size="icon"
-              variant="secondary"
+              variant="outline"
               onClick={onBack ?? (() => router.back())}
-              className="flex-shrink-0 rounded-md"
+              className="flex-shrink-0 rounded-full"
             >
               <IconArrowLeft size={16} className="text-muted-foreground" />
             </Button>
           )}
           {title && (
-            <h1 className="text-lg font-semibold text-foreground truncate">
+            <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-foreground">
               {title}
             </h1>
           )}
@@ -61,7 +61,7 @@ export function PageWrapper({
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 ${childPadding ? "px-4 py-2.5" : ""}  ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 ${childPadding ? "px-4 py-4" : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {children}
           </div>

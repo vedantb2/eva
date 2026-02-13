@@ -134,7 +134,7 @@ export function BranchSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-lg bg-muted/40">
+      <div className="flex w-full items-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar/60 p-2">
         <IconLoader2 size={16} className="text-muted-foreground animate-spin" />
         <span className="text-sm text-muted-foreground">
           Loading branches...
@@ -153,11 +153,11 @@ export function BranchSelector({
         <DropdownMenuTrigger asChild>
           <Button
             size="sm"
-            variant="secondary"
-            className="flex items-center gap-2 flex-1 px-2 py-2 transition-colors"
+            variant="outline"
+            className="flex flex-1 items-center gap-2 border-sidebar-border/70 bg-sidebar/70 px-2 py-2 text-sidebar-foreground hover:bg-sidebar-accent"
           >
             <IconGitBranch size={16} className="text-muted-foreground" />
-            <span className="flex-1 text-left text-sm text-muted-foreground truncate">
+            <span className="flex-1 truncate text-left text-sm text-sidebar-foreground">
               {selectedBranch}
             </span>
             <IconSelector size={16} className="text-muted-foreground" />
@@ -172,12 +172,9 @@ export function BranchSelector({
               <DropdownMenuRadioItem
                 key={branch.name}
                 value={branch.name}
-                className="px-3 py-2 text-sm"
+                className="text-sm"
               >
-                <IconGitBranch
-                  size={16}
-                  className="mr-2 text-muted-foreground"
-                />
+                <IconGitBranch size={16} className="text-muted-foreground" />
                 {branch.name}
               </DropdownMenuRadioItem>
             ))}

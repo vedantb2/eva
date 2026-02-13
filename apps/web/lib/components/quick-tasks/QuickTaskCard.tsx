@@ -64,7 +64,7 @@ export function QuickTaskCard({
       className={`w-full shadow-none cursor-pointer transition-colors border ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary" : ""}`}
       onClick={isSelecting ? undefined : onClick}
     >
-      <CardContent className="p-2.5 gap-1.5">
+      <CardContent className="p-2 md:p-2 gap-1">
         <div className="flex items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox
@@ -115,7 +115,7 @@ export function QuickTaskCard({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between mt-1">
+        <div className="mt-0.5 flex items-center justify-between">
           {createdBy && <UserInitials userId={createdBy} />}
           <span className="text-xs text-muted-foreground ml-auto">
             {dayjs(createdAt).fromNow()}

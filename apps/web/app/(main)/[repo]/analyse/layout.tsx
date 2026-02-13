@@ -104,10 +104,10 @@ export default function ResearchLayout({
 
   const sidebar = (
     <>
-      <div className="p-3 relative">
+      <div className="p-2 relative">
         <IconSearch
           size={16}
-          className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground"
+          className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
         <Input
           placeholder="Search queries..."
@@ -119,7 +119,7 @@ export default function ResearchLayout({
           <button
             type="button"
             onClick={() => setSearchQuery("")}
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <IconX size={14} />
           </button>
@@ -131,7 +131,7 @@ export default function ResearchLayout({
             <Spinner size="sm" />
           </div>
         ) : (
-          <div className="py-2 space-y-8">
+          <div className="py-1.5 space-y-6">
             <div>
               <p className="px-4 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Queries
@@ -155,7 +155,7 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`px-2.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors duration-150 group ${
+                        className={`px-2 py-1.5 mx-1 rounded-md cursor-pointer transition-colors duration-150 group ${
                           isSelected ? "bg-accent" : "hover:bg-muted"
                         }`}
                       >
@@ -234,7 +234,7 @@ export default function ResearchLayout({
               <div>
                 <Link
                   href={baseUrl + "/saved-queries"}
-                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
                     isSavedQueriesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -245,7 +245,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
-                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
                     isRoutinesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -256,7 +256,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/files"}
-                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
+                  className={`flex items-center gap-2.5 px-2 py-1.5 mx-1 rounded-md transition-colors duration-150 ${
                     isFilesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"

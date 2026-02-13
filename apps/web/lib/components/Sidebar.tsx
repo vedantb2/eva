@@ -1,61 +1,176 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import {
   IconBrain,
   IconBrandGithub,
-  IconLayoutKanban,
-  IconSettings,
-  IconMenu2,
-  IconX,
-  IconChecklist,
-  IconSelector,
-  IconTerminal2,
-  IconFileText,
-  IconShield,
-  IconChevronDown,
-  IconFlask,
-  IconPalette,
-  IconHammer,
-  IconTool,
-  IconTestPipe,
   IconChartBar,
+  IconChecklist,
+  IconChevronDown,
+  IconFileText,
+  IconFlask,
+  IconHammer,
+  IconInbox,
+  IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
-  IconInbox,
+  IconMenu2,
+  IconPalette,
+  IconSelector,
+  IconSettings,
+  IconShield,
+  IconTerminal2,
+  IconTestPipe,
+  IconTool,
+  IconX,
 } from "@tabler/icons-react";
-import { useState, useMemo, useEffect } from "react";
-import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
-import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
-import { useSidebar } from "@/lib/contexts/SidebarContext";
-import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
-import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
+  Badge,
+  Button,
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  Button,
-  Badge,
+  DropdownMenuTrigger,
+  cn,
 } from "@conductor/ui";
+import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
+import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
+
+const DEFAULT_EXPANDED_GROUPS = new Set(["BUILD", "FIX", "TEST", "DATA"]);
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const { collapsed, setCollapsed } = useSidebar();
-  const repos = useQuery(api.githubRepos.list);
   const { user } = useUser();
+  const { collapsed, setCollapsed } = useSidebar();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(
-    new Set(["BUILD", "FIX", "TEST", "DATA"]),
+    () => new Set(DEFAULT_EXPANDED_GROUPS),
   );
+
+  const repos = useQuery(api.githubRepos.list);
+  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
+
+  const repoSlug = useMemo(() => {
+    const match = pathname.match(/^\/([^/]+)/);
+    return match ? match[1] : null;
+  }, [pathname]);
+
+  const repoFullName = repoSlug ? decodeRepoSlug(repoSlug) : null;
+  const isRepoRoute = Boolean(repoSlug && repoFullName?.includes("/"));
+  const [owner, name] = repoFullName ? repoFullName.split("/") : [null, null];
+
+  const repo = useQuery(
+    api.githubRepos.getByOwnerAndName,
+    owner && name ? { owner, name } : "skip",
+  );
+
+  const repoNavigation = useMemo(
+    () =>
+      isRepoRoute && repoSlug
+        ? [
+            {
+              label: "BUILD",
+              groupIcon: IconHammer,
+              items: [
+                {
+                  name: "Projects",
+                  href: `/${repoSlug}/projects`,
+                  icon: IconLayoutKanban,
+                },
+                {
+                  name: "Design",
+                  href: `/${repoSlug}/design`,
+                  icon: IconPalette,
+                },
+              ],
+            },
+            {
+              label: "FIX",
+              groupIcon: IconTool,
+              items: [
+                {
+                  name: "Quick Tasks",
+                  href: `/${repoSlug}/quick-tasks`,
+                  icon: IconChecklist,
+                },
+                {
+                  name: "Sessions",
+                  href: `/${repoSlug}/sessions`,
+                  icon: IconTerminal2,
+                },
+              ],
+            },
+            {
+              label: "TEST",
+              groupIcon: IconTestPipe,
+              items: [
+                {
+                  name: "Documents",
+                  href: `/${repoSlug}/docs`,
+                  icon: IconFileText,
+                },
+                {
+                  name: "Testing Arena",
+                  href: `/${repoSlug}/testing-arena`,
+                  icon: IconFlask,
+                },
+              ],
+            },
+            {
+              label: "DATA",
+              groupIcon: IconChartBar,
+              items: [
+                {
+                  name: "Analyse",
+                  href: `/${repoSlug}/analyse`,
+                  icon: IconBrain,
+                },
+              ],
+            },
+          ]
+        : [],
+    [repoSlug, isRepoRoute],
+  );
+
+  useEffect(() => {
+    const activeGroup = repoNavigation.find((group) =>
+      group.items.some((item) => pathname.startsWith(item.href)),
+    );
+    if (!activeGroup) return;
+    setExpandedGroups((prev) => {
+      if (prev.has(activeGroup.label)) return prev;
+      return new Set(prev).add(activeGroup.label);
+    });
+  }, [pathname, repoNavigation]);
+
+  const bottomNavigation = useMemo(
+    () => [
+      ...(isRepoRoute && repoSlug
+        ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
+        : []),
+      { name: "Inbox", href: "/inbox", icon: IconInbox },
+      { name: "Settings", href: "/settings", icon: IconSettings },
+    ],
+    [repoSlug, isRepoRoute],
+  );
+
+  const handleRepoSelect = (selectedFullName: string) => {
+    if (selectedFullName !== repoFullName) {
+      router.push(`/${encodeRepoSlug(selectedFullName)}/projects`);
+    }
+  };
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) => {
@@ -66,118 +181,31 @@ export function Sidebar() {
     });
   };
 
-  const repoSlug = useMemo(() => {
-    const match = pathname.match(/^\/([^/]+)/);
-    return match ? match[1] : null;
-  }, [pathname]);
-
-  const repoFullName = repoSlug ? decodeRepoSlug(repoSlug) : null;
-  const [owner, name] = repoFullName ? repoFullName.split("/") : [null, null];
-
-  const handleRepoSelect = (selectedFullName: string) => {
-    if (selectedFullName !== repoFullName) {
-      router.push(`/${encodeRepoSlug(selectedFullName)}/projects`);
-    }
-  };
-
-  const repo = useQuery(
-    api.githubRepos.getByOwnerAndName,
-    owner && name ? { owner, name } : "skip",
-  );
-
-  const repoNavigation = repoSlug
-    ? [
-        {
-          label: "BUILD",
-          groupIcon: IconHammer,
-          items: [
-            {
-              name: "Projects",
-              href: `/${repoSlug}/projects`,
-              icon: IconLayoutKanban,
-            },
-            {
-              name: "Design",
-              href: `/${repoSlug}/design`,
-              icon: IconPalette,
-            },
-          ],
-        },
-        {
-          label: "FIX",
-          groupIcon: IconTool,
-          items: [
-            {
-              name: "Quick Tasks",
-              href: `/${repoSlug}/quick-tasks`,
-              icon: IconChecklist,
-            },
-            {
-              name: "Sessions",
-              href: `/${repoSlug}/sessions`,
-              icon: IconTerminal2,
-            },
-          ],
-        },
-        {
-          label: "TEST",
-          groupIcon: IconTestPipe,
-          items: [
-            {
-              name: "Documents",
-              href: `/${repoSlug}/docs`,
-              icon: IconFileText,
-            },
-            {
-              name: "Testing Arena",
-              href: `/${repoSlug}/testing-arena`,
-              icon: IconFlask,
-            },
-          ],
-        },
-        {
-          label: "DATA",
-          groupIcon: IconChartBar,
-          items: [
-            { name: "Analyse", href: `/${repoSlug}/analyse`, icon: IconBrain },
-          ],
-        },
-      ]
-    : [];
-
-  useEffect(() => {
-    const activeGroup = repoNavigation.find((g) =>
-      g.items.some((item) => pathname.startsWith(item.href)),
+  const navItemClass = (isActive: boolean) =>
+    cn(
+      "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all",
+      collapsed && "lg:justify-center lg:px-0",
+      isActive
+        ? "border-sidebar-primary/20 bg-sidebar-accent text-sidebar-primary shadow-xs"
+        : "border-transparent text-sidebar-foreground/80 hover:border-sidebar-border/70 hover:bg-sidebar-accent/75 hover:text-sidebar-foreground",
     );
-    if (activeGroup && !expandedGroups.has(activeGroup.label)) {
-      setExpandedGroups((prev) => new Set(prev).add(activeGroup.label));
-    }
-  }, [pathname]);
 
-  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
-
-  const bottomNavigation = [
-    ...(repoSlug
-      ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
-      : []),
-    { name: "Inbox", href: "/inbox", icon: IconInbox },
-    { name: "Settings", href: "/settings", icon: IconSettings },
-  ];
+  const closeMobileSidebar = () => setMobileOpen(false);
 
   return (
     <>
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 bg-background/80 backdrop-blur-lg">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl lg:hidden">
         <Button
           size="icon"
           variant="ghost"
           onClick={() => setMobileOpen(true)}
-          className="-ml-2"
+          className="-ml-1"
         >
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         <Link
-          href={repoSlug ? `/${repoSlug}` : "/"}
-          className={`flex items-center gap-1.5 mx-auto `}
+          href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
+          className="mx-auto flex items-center gap-2 rounded-xl border border-border/60 bg-card/80 px-2.5 py-1.5 shadow-xs backdrop-blur-sm"
         >
           <Image
             src="/icon.png"
@@ -186,7 +214,7 @@ export function Sidebar() {
             height={22}
             className="rounded-full"
           />
-          <span className="text-md tracking-tight font-semibold text-primary">
+          <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
             Eva
           </span>
         </Link>
@@ -195,227 +223,290 @@ export function Sidebar() {
 
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-background/55 backdrop-blur-sm lg:hidden"
+          onClick={closeMobileSidebar}
         />
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-sidebar lg:glass lg:border-r-0 border-r border-sidebar-border transform transition-all duration-150 ease-in-out lg:translate-x-0 py-1 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-16" : "w-64"}`}
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          collapsed ? "w-72 lg:w-16" : "w-72",
+        )}
       >
-        <div className="flex flex-col h-full">
-          <div
-            className={`flex items-center h-14 ${collapsed ? "lg:justify-center lg:px-0 px-4" : "justify-between px-4"}`}
-          >
-            {!collapsed && (
-              <Link
-                href={repoSlug ? `/${repoSlug}` : "/"}
-                className="flex items-center gap-1.5"
-              >
+        <div className="h-full p-2 lg:p-3">
+          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border/70 bg-sidebar/90 shadow-lg backdrop-blur-xl">
+            <div
+              className={cn(
+                "flex h-16 items-center border-b border-sidebar-border/60",
+                collapsed ? "justify-center px-2" : "justify-between px-3",
+              )}
+            >
+              {!collapsed && (
+                <Link
+                  href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
+                  className="inline-flex items-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/80 px-2.5 py-1.5 text-sidebar-foreground shadow-xs"
+                >
+                  <Image
+                    src="/icon.png"
+                    alt="Eva"
+                    width={30}
+                    height={30}
+                    className="rounded-lg"
+                  />
+                  <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                    Eva
+                  </span>
+                </Link>
+              )}
+
+              {collapsed && (
                 <Image
                   src="/icon.png"
                   alt="Eva"
-                  width={26}
-                  height={26}
-                  className="rounded-full"
+                  width={32}
+                  height={32}
+                  className="rounded-lg border border-sidebar-border/70"
                 />
-                <span className="text-base tracking-tight font-semibold text-sidebar-foreground">
-                  Eva
-                </span>
-              </Link>
-            )}
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={() => setMobileOpen(false)}
-              className="lg:hidden"
-            >
-              <IconX size={20} className="text-muted-foreground" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setCollapsed(!collapsed)}
-              className={`hidden lg:flex ${collapsed ? "absolute" : ""}`}
-            >
-              {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled className="size-5 text-primary" />
-              ) : (
-                <IconLayoutSidebarLeftCollapse className="size-5 text-primary" />
               )}
-            </Button>
-          </div>
 
-          <nav
-            className={`flex-1 pt-2 pb-4 overflow-y-auto scrollbar flex flex-col justify-between ${collapsed ? "lg:px-2 px-3" : "px-3"}`}
-          >
-            <div>
-              {repoSlug && repoFullName && (
-                <>
-                  {!collapsed && (
-                    <div className="mb-4 space-y-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="flex items-center gap-2 w-full"
-                          >
-                            <IconBrandGithub
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                            <span className="flex-1 text-left text-sm font-medium text-foreground truncate">
-                              {repoFullName}
-                            </span>
-                            <IconSelector
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuRadioGroup
-                            value={repoFullName}
-                            onValueChange={handleRepoSelect}
-                          >
-                            {(repos ?? []).map((r) => {
-                              const rFullName = `${r.owner}/${r.name}`;
-                              return (
-                                <DropdownMenuRadioItem
-                                  key={rFullName}
-                                  value={rFullName}
-                                  className="px-3 py-2 text-sm"
-                                >
-                                  <IconBrandGithub
-                                    size={16}
-                                    className="mr-2 text-muted-foreground"
-                                  />
-                                  {rFullName}
-                                </DropdownMenuRadioItem>
-                              );
-                            })}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      {repo && (
-                        <BranchSelector
-                          owner={repo.owner}
-                          repoName={repo.name}
-                          installationId={repo.installationId}
-                        />
-                      )}
-                    </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={closeMobileSidebar}
+                  className="lg:hidden"
+                >
+                  <IconX size={18} className="text-muted-foreground" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setCollapsed(!collapsed)}
+                  className="hidden lg:inline-flex"
+                  title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  {collapsed ? (
+                    <IconLayoutSidebarLeftCollapseFilled
+                      size={18}
+                      className="text-sidebar-primary"
+                    />
+                  ) : (
+                    <IconLayoutSidebarLeftCollapse
+                      size={18}
+                      className="text-sidebar-primary"
+                    />
                   )}
-                  <div className="space-y-1.5">
-                    {repoNavigation.map((group) => (
-                      <div key={group.label}>
-                        {!collapsed && (
-                          <button
-                            onClick={() => toggleGroup(group.label)}
-                            className="flex items-center gap-1.5 py-1 mb-1.5 w-full text-[11px] font-medium tracking-widest text-muted-foreground/70 uppercase hover:text-muted-foreground transition-colors"
-                          >
-                            <group.groupIcon className="w-3 h-3" />
-                            {group.label}
-                            <IconChevronDown
-                              className={`w-3 h-3 transition-transform ${expandedGroups.has(group.label) ? "" : "-rotate-90"}`}
-                            />
-                          </button>
-                        )}
-                        {(collapsed || expandedGroups.has(group.label)) && (
-                          <div
-                            className={`space-y-px ${collapsed ? "" : "pl-2"}`}
-                          >
-                            {group.items.map((item) => {
-                              const isActive = pathname.startsWith(item.href);
-                              return (
-                                <Link
-                                  key={item.name}
-                                  href={item.href}
-                                  onClick={() => setMobileOpen(false)}
-                                  title={collapsed ? item.name : undefined}
-                                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
-                                    isActive
-                                      ? "bg-primary/10 text-primary font-medium"
-                                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                  }`}
-                                >
-                                  <item.icon className="size-4 flex-shrink-0" />
-                                  {!collapsed && item.name}
-                                </Link>
-                              );
-                            })}
-                          </div>
+                </Button>
+              </div>
+            </div>
+
+            <nav
+              className={cn(
+                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto pb-4 pt-3",
+                collapsed ? "lg:px-2 px-3" : "px-3",
+              )}
+            >
+              <div className="space-y-4">
+                {isRepoRoute && repoSlug && repoFullName && (
+                  <>
+                    {!collapsed && (
+                      <div className="space-y-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 p-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                            >
+                              <IconBrandGithub
+                                size={16}
+                                className="text-muted-foreground"
+                              />
+                              <span className="flex-1 truncate text-left text-sm font-medium">
+                                {repoFullName}
+                              </span>
+                              <IconSelector
+                                size={16}
+                                className="text-muted-foreground"
+                              />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
+                            <DropdownMenuRadioGroup
+                              value={repoFullName}
+                              onValueChange={handleRepoSelect}
+                            >
+                              {(repos ?? []).map((repoItem) => {
+                                const fullName = `${repoItem.owner}/${repoItem.name}`;
+                                return (
+                                  <DropdownMenuRadioItem
+                                    key={fullName}
+                                    value={fullName}
+                                  >
+                                    <IconBrandGithub
+                                      size={16}
+                                      className="text-muted-foreground"
+                                    />
+                                    {fullName}
+                                  </DropdownMenuRadioItem>
+                                );
+                              })}
+                            </DropdownMenuRadioGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {repo && (
+                          <BranchSelector
+                            owner={repo.owner}
+                            repoName={repo.name}
+                            installationId={repo.installationId}
+                          />
                         )}
                       </div>
-                    ))}
-                  </div>
-
-                  {!collapsed && repo && repoSlug && (
-                    <div className="mt-6">
-                      <ActiveTasksAccordion
-                        repoId={repo._id}
-                        repoSlug={repoSlug}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="space-y-px">
-              {bottomNavigation.map((item) => {
-                const isActive = pathname.startsWith(item.href);
-                const showBadge = item.name === "Inbox" && unreadCount > 0;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    title={collapsed ? item.name : undefined}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
-                      isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <item.icon className="size-4 flex-shrink-0" />
-                    {!collapsed && item.name}
-                    {!collapsed && showBadge && (
-                      <Badge className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]">
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </Badge>
                     )}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
 
-          <div
-            className={`pt-4 border-t border-sidebar-border ${collapsed ? "lg:p-2 p-4" : "px-3 py-3"}`}
-          >
+                    <div className="space-y-2">
+                      {repoNavigation.map((group) => (
+                        <div key={group.label}>
+                          {!collapsed && (
+                            <button
+                              onClick={() => toggleGroup(group.label)}
+                              className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                            >
+                              <group.groupIcon size={12} />
+                              <span>{group.label}</span>
+                              <IconChevronDown
+                                size={12}
+                                className={cn(
+                                  "ml-auto transition-transform",
+                                  expandedGroups.has(group.label)
+                                    ? "rotate-0"
+                                    : "-rotate-90",
+                                )}
+                              />
+                            </button>
+                          )}
+                          {(collapsed || expandedGroups.has(group.label)) && (
+                            <div
+                              className={cn("space-y-1", !collapsed && "pl-2")}
+                            >
+                              {group.items.map((item) => {
+                                const isActive = pathname.startsWith(item.href);
+                                return (
+                                  <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={closeMobileSidebar}
+                                    title={collapsed ? item.name : undefined}
+                                    className={navItemClass(isActive)}
+                                  >
+                                    <item.icon
+                                      size={16}
+                                      className={cn(
+                                        "shrink-0",
+                                        isActive
+                                          ? "text-sidebar-primary"
+                                          : "text-muted-foreground",
+                                      )}
+                                    />
+                                    {!collapsed && (
+                                      <span className="truncate">
+                                        {item.name}
+                                      </span>
+                                    )}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {!collapsed && repo && (
+                      <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 p-1.5">
+                        <ActiveTasksAccordion
+                          repoId={repo._id}
+                          repoSlug={repoSlug}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                {bottomNavigation.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  const showBadge = item.name === "Inbox" && unreadCount > 0;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={closeMobileSidebar}
+                      title={collapsed ? item.name : undefined}
+                      className={navItemClass(isActive)}
+                    >
+                      <span className="relative">
+                        <item.icon
+                          size={16}
+                          className="shrink-0 text-muted-foreground"
+                        />
+                        {collapsed && showBadge && (
+                          <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary" />
+                        )}
+                      </span>
+                      {!collapsed && item.name}
+                      {!collapsed && showBadge && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+
             <div
-              className={`flex items-center ${collapsed ? "lg:justify-center lg:flex-col lg:gap-2" : "gap-3"}`}
-            >
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8",
-                  },
-                }}
-              />
-              {!collapsed && (
-                <>
-                  <p className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
-                    {user?.fullName || user?.firstName || "User"}
-                  </p>
-                  <ThemeToggleClient />
-                  <NotificationsPopoverClient />
-                </>
+              className={cn(
+                "border-t border-sidebar-border/60 bg-sidebar-accent/25",
+                collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
+            >
+              <div
+                className={cn(
+                  "flex items-center",
+                  collapsed ? "flex-col gap-2" : "gap-3",
+                )}
+              >
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8",
+                    },
+                  }}
+                />
+
+                {collapsed ? (
+                  <>
+                    <ThemeToggleClient />
+                    <NotificationsPopoverClient />
+                  </>
+                ) : (
+                  <>
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
+                      {user?.fullName || user?.firstName || "User"}
+                    </p>
+                    <ThemeToggleClient />
+                    <NotificationsPopoverClient />
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

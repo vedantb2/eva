@@ -146,7 +146,7 @@ export function QuickTasksKanbanBoard({
         )}
         renderOverlay={(task) => (
           <Card className="w-[240px] sm:w-[280px] shadow-none">
-            <CardContent className="p-3">
+            <CardContent className="p-2 md:p-2">
               <span className="font-medium text-sm">{task.title}</span>
             </CardContent>
           </Card>

@@ -189,7 +189,7 @@ export function KanbanBoard<T extends BaseTask>({
   return (
     <div
       className={
-        fillHeight ? "flex flex-col flex-1 min-h-0 gap-2" : "space-y-4"
+        fillHeight ? "flex flex-col flex-1 min-h-0 gap-1.5" : "space-y-2.5"
       }
     >
       <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
@@ -219,14 +219,14 @@ export function KanbanBoard<T extends BaseTask>({
             })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="relative w-1/2 mx-auto">
+        <div className="relative mx-auto w-1/2">
           <IconSearch
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             placeholder="Search tasks..."
-            className="pl-9 pr-8 h-8 text-sm"
+            className="h-8 pl-9 pr-8 text-sm"
             value={searchQuery}
             onChange={(e) => setParams({ q: e.target.value || null })}
           />
@@ -248,7 +248,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex items-stretch gap-2.5 w-full ${fillHeight ? "flex-1 min-h-0" : ""}`}
+          className={`flex w-full items-stretch gap-1.5 ${fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""}`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (

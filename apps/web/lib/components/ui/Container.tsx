@@ -4,8 +4,8 @@ interface ContainerProps {
 
 export function Container({ children }: ContainerProps) {
   return (
-    <div className="flex-1 bg-muted/40 overflow-auto scrollbar">
-      <div className="flex flex-col gap-3 md:gap-5 px-3 md:px-4 pt-3 md:pt-4 pb-5 md:pb-6 min-h-full">
+    <div className="flex-1 overflow-auto bg-background scrollbar">
+      <div className="mx-auto flex min-h-full max-w-[1280px] flex-col gap-4 px-3 pb-8 pt-4 md:gap-6 md:px-5 md:pt-5">
         {children}
       </div>
     </div>

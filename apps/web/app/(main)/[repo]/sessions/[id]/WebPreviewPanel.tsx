@@ -155,7 +155,7 @@ export function WebPreviewPanel({
             </div>
           ) : error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-red-500">{error}</p>
+              <p className="text-sm text-destructive">{error}</p>
               <Button size="sm" variant="secondary" onClick={onRefresh}>
                 <IconRefresh className="w-4 h-4" />
                 Retry

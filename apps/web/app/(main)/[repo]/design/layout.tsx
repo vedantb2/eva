@@ -97,7 +97,7 @@ export default function DesignLayout({
 
   const sidebar = (
     <>
-      <div className="p-3">
+      <div className="p-2">
         <div className="relative">
           <IconSearch
             size={16}
@@ -129,13 +129,13 @@ export default function DesignLayout({
             </p>
           </div>
         ) : (
-          <div className="py-2">
+          <div className="py-1.5">
             {filteredSessions.map((session) => {
               const isSelected = currentSessionId === session._id;
               return (
                 <div
                   key={session._id}
-                  className={`px-2.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors duration-150 group ${
+                  className={`px-2 py-1.5 mx-1 rounded-md cursor-pointer transition-colors duration-150 group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >

@@ -9,9 +9,9 @@ type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type FileDiff = NonNullable<Session["fileDiffs"]>[number];
 
 const statusConfig = {
-  added: { icon: IconFilePlus, color: "text-green-500", label: "A" },
-  modified: { icon: IconFileCode, color: "text-yellow-500", label: "M" },
-  deleted: { icon: IconFileX, color: "text-red-500", label: "D" },
+  added: { icon: IconFilePlus, color: "text-success", label: "A" },
+  modified: { icon: IconFileCode, color: "text-warning", label: "M" },
+  deleted: { icon: IconFileX, color: "text-destructive", label: "D" },
 };
 
 function getConfig(status: string) {
@@ -22,17 +22,17 @@ function getConfig(status: string) {
 
 function DiffLine({ line }: { line: string }) {
   if (line.startsWith("+") && !line.startsWith("+++")) {
-    return (
-      <div className="bg-green-500/10 text-green-400 px-3 py-0">{line}</div>
-    );
+    return <div className="bg-success/10 px-3 py-0 text-success">{line}</div>;
   }
   if (line.startsWith("-") && !line.startsWith("---")) {
-    return <div className="bg-red-500/10 text-red-400 px-3 py-0">{line}</div>;
+    return (
+      <div className="bg-destructive/10 px-3 py-0 text-destructive">{line}</div>
+    );
   }
   if (line.startsWith("@@")) {
-    return <div className="text-blue-400 px-3 py-0">{line}</div>;
+    return <div className="px-3 py-0 text-primary">{line}</div>;
   }
-  return <div className="text-muted-foreground px-3 py-0">{line}</div>;
+  return <div className="px-3 py-0 text-muted-foreground">{line}</div>;
 }
 
 export function DiffPanel({

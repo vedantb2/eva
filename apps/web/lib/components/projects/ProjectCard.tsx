@@ -74,9 +74,9 @@ export function ProjectCard({
   const isOwner = currentUserId === userId;
   return (
     <div
-      className={`p-3 border border-border rounded-xl transition-colors duration-200 group relative ${cardBg}`}
+      className={`p-2 border border-border rounded-xl transition-colors duration-200 group relative ${cardBg}`}
     >
-      <div className="absolute top-2 right-2">
+      <div className="absolute top-1.5 right-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -150,7 +150,7 @@ export function ProjectCard({
           </p>
         ) : null}
         <ProjectProgressBar projectId={projectId} className="mt-2" />
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-2.5 flex items-center justify-between">
           <div className="flex -space-x-1">
             {participantIds.length > 0 ? (
               participantIds.map((id) => (

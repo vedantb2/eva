@@ -21,7 +21,10 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("bg-background rounded-md p-3", className)}
+      className={cn(
+        "rounded-xl border border-border/70 bg-card/90 p-3 shadow-sm backdrop-blur-sm",
+        className,
+      )}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn(
@@ -35,12 +38,12 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-8 w-8 p-0 aria-disabled:opacity-50 select-none",
+          "size-8 p-0 text-muted-foreground aria-disabled:opacity-50 select-none",
           defaultClassNames.button_previous,
         ),
         button_next: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-8 w-8 p-0 aria-disabled:opacity-50 select-none",
+          "size-8 p-0 text-muted-foreground aria-disabled:opacity-50 select-none",
           defaultClassNames.button_next,
         ),
         month_caption: cn(
@@ -54,7 +57,7 @@ function Calendar({
         table: "w-full border-collapse",
         weekdays: cn("flex", defaultClassNames.weekdays),
         weekday: cn(
-          "text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none",
+          "text-muted-foreground rounded-md flex-1 font-medium text-[0.76rem] uppercase tracking-[0.08em] select-none",
           defaultClassNames.weekday,
         ),
         week: cn("flex w-full mt-2", defaultClassNames.week),
@@ -63,7 +66,7 @@ function Calendar({
           defaultClassNames.day,
         ),
         today: cn(
-          "bg-accent text-accent-foreground rounded-md",
+          "rounded-md border border-primary/25 bg-primary/10 text-primary",
           defaultClassNames.today,
         ),
         outside: cn(
@@ -87,7 +90,7 @@ function Calendar({
             orientation === "left" ? ChevronLeftIcon : ChevronRightIcon;
           return (
             <Icon
-              className={cn("h-4 w-4", chevronClassName)}
+              className={cn("size-4", chevronClassName)}
               {...chevronProps}
             />
           );
@@ -101,7 +104,6 @@ function Calendar({
 
 function CalendarDayButton({
   className,
-  day,
   modifiers,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
@@ -119,7 +121,7 @@ function CalendarDayButton({
       className={cn(
         buttonVariants({ variant: "ghost" }),
         "h-8 w-8 p-0 font-normal",
-        "data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:hover:bg-primary data-[selected=true]:hover:text-primary-foreground",
+        "data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:shadow-sm data-[selected=true]:hover:bg-primary data-[selected=true]:hover:text-primary-foreground",
         defaultClassNames.day,
         className,
       )}

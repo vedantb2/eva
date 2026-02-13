@@ -39,22 +39,22 @@ export function ActiveTasksAccordion({
   return (
     <Accordion type="multiple" defaultValue={["active-tasks"]} className="px-0">
       <AccordionItem value="active-tasks" className="border-b-0 px-0">
-        <AccordionTrigger className="px-2.5 py-1.5 hover:bg-muted/50 rounded-md hover:no-underline">
+        <AccordionTrigger className="rounded-xl px-3 py-2 hover:bg-sidebar-accent/70 hover:no-underline">
           <div className="flex items-center gap-2">
             <IconListCheck size={16} className="text-primary" />
             <span className="text-sm font-medium text-foreground">
               Active Tasks
             </span>
-            <span className="ml-auto text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+            <span className="ml-auto rounded-full border border-sidebar-border/70 bg-sidebar/70 px-1.5 py-0.5 text-xs text-muted-foreground">
               {tasks.length}
             </span>
           </div>
         </AccordionTrigger>
         <AccordionContent className="px-0 pb-0">
-          <div className="space-y-0.5 px-3">
+          <div className="space-y-1 px-3">
             {tasks.map((task) => (
               <Link key={task._id} href={getTaskLink(task)}>
-                <div className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors duration-150 cursor-pointer">
+                <div className="flex cursor-pointer items-center justify-between rounded-xl border border-transparent p-2.5 transition-colors hover:border-sidebar-border/70 hover:bg-sidebar-accent/60">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground truncate">
                       {task.title}

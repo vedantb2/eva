@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
 import { Timeline } from "convex-timeline";
 import { components } from "./_generated/api";
-import { roleValidator } from "./validators";
+import { evaluationStatusValidator, roleValidator } from "./validators";
 
 const docTimeline = new Timeline(components.timeline, { maxNodesPerScope: 50 });
 
@@ -39,6 +39,8 @@ const docValidator = v.object({
   requirements: v.optional(v.array(v.string())),
   interviewHistory: v.optional(v.array(interviewMessageValidator)),
   sandboxId: v.optional(v.string()),
+  testGenStatus: v.optional(evaluationStatusValidator),
+  testPrUrl: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -157,6 +159,65 @@ export const remove = mutation({
     }
     await docTimeline.deleteScope(ctx, `doc:${args.id}`);
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const startTestGen = mutation({
+  args: { id: v.id("docs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const doc = await ctx.db.get(args.id);
+    if (!doc) {
+      throw new Error("Doc not found");
+    }
+    await ctx.db.patch(args.id, {
+      testGenStatus: "running",
+      testPrUrl: undefined,
+    });
+    return null;
+  },
+});
+
+export const completeTestGen = mutation({
+  args: { id: v.id("docs"), prUrl: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const doc = await ctx.db.get(args.id);
+    if (!doc) {
+      throw new Error("Doc not found");
+    }
+    await ctx.db.patch(args.id, {
+      testGenStatus: "completed",
+      testPrUrl: args.prUrl,
+    });
+    return null;
+  },
+});
+
+export const failTestGen = mutation({
+  args: { id: v.id("docs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+    const doc = await ctx.db.get(args.id);
+    if (!doc) {
+      throw new Error("Doc not found");
+    }
+    await ctx.db.patch(args.id, {
+      testGenStatus: "error",
+    });
     return null;
   },
 });

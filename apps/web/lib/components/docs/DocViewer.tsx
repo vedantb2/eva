@@ -25,6 +25,8 @@ import {
   IconInfoCircle,
   IconMessageChatbot,
   IconHistory,
+  IconTestPipe,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -43,6 +45,7 @@ function DocEditor({ doc }: { doc: Doc }) {
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -121,6 +124,26 @@ function DocEditor({ doc }: { doc: Doc }) {
     updateDoc({ id: doc._id, userFlows: next });
   };
 
+  const handleGenerateTests = async () => {
+    if (isTriggeringTestGen || doc.testGenStatus === "running") return;
+    setIsTriggeringTestGen(true);
+    try {
+      await fetch("/api/inngest/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "docs/generate-tests.requested",
+          data: { docId: doc._id, repoId: doc.repoId },
+        }),
+      });
+    } finally {
+      setIsTriggeringTestGen(false);
+    }
+  };
+
+  const isGeneratingTests =
+    doc.testGenStatus === "running" || isTriggeringTestGen;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
@@ -138,6 +161,24 @@ function DocEditor({ doc }: { doc: Doc }) {
           <IconMessageChatbot size={16} />
           Interview Me
         </Button>
+        {doc.testGenStatus === "completed" && doc.testPrUrl ? (
+          <Button size="sm" variant="secondary" asChild>
+            <a href={doc.testPrUrl} target="_blank" rel="noopener noreferrer">
+              <IconExternalLink size={16} />
+              View Tests PR
+            </a>
+          </Button>
+        ) : isGeneratingTests ? (
+          <Button size="sm" variant="secondary" disabled>
+            <Spinner size="sm" />
+            Generating...
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={handleGenerateTests}>
+            <IconTestPipe size={16} />
+            Generate Tests
+          </Button>
+        )}
         {(doc.interviewHistory ?? []).length > 0 && (
           <Button
             size="sm"
@@ -170,7 +211,11 @@ function DocEditor({ doc }: { doc: Doc }) {
           <div className="rounded-lg border border-border bg-card p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
-              <span>Processing PRD...</span>
+              <span>
+                {isGeneratingTests
+                  ? "Generating tests..."
+                  : "Processing PRD..."}
+              </span>
             </div>
             {streamingSteps ? (
               <ActivitySteps steps={streamingSteps} isStreaming />

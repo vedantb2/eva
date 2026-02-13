@@ -222,6 +222,8 @@ const schema = defineSchema({
       ),
     ),
     sandboxId: v.optional(v.string()),
+    testGenStatus: v.optional(evaluationStatusValidator),
+    testPrUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),

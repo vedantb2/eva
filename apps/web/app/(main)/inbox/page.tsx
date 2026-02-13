@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { InboxClient } from "./InboxClient";
 
 export default function InboxPage() {
-  return <InboxClient />;
+  return (
+    <Suspense fallback={null}>
+      <InboxClient />
+    </Suspense>
+  );
 }

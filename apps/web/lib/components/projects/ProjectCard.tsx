@@ -74,7 +74,7 @@ export function ProjectCard({
   const isOwner = currentUserId === userId;
   return (
     <div
-      className={`p-3 rounded-md shadow transition-all group relative ${cardBg}`}
+      className={`p-3 border border-border rounded-xl transition-colors duration-200 group relative ${cardBg}`}
     >
       <div className="absolute top-2 right-2">
         <DropdownMenu>

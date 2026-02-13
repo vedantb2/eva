@@ -61,10 +61,10 @@ export function SidebarLayoutWrapper({
       )}
 
       <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-card transform transition-transform duration-200 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border transform transition-transform duration-150 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           <div className="flex items-center gap-1.5">
             {renderHeaderActions()}
             <Button
@@ -81,14 +81,23 @@ export function SidebarLayoutWrapper({
 
       <div className="h-full flex flex-row overflow-hidden">
         <div
-          className={`hidden lg:flex ${collapsed ? "w-12" : "w-72"} flex-col transition-all duration-200 bg-card`}
+          className={`hidden lg:flex ${collapsed ? "w-12" : "w-80"} flex-col transition-all duration-150 bg-card border-r border-border`}
         >
           <div
-            className={`px-4 py-3 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}
+            className={` py-2.5 flex items-center ${collapsed ? "px-2" : "px-3 justify-between"}`}
           >
-            {!collapsed && (
+            {collapsed ? (
+              <Button
+                size="icon-xs"
+                variant="secondary"
+                className="flex-shrink-0"
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                <IconLayoutSidebarLeftExpand size={14} />
+              </Button>
+            ) : (
               <>
-                <h1 className="text-xl font-semibold text-foreground">
+                <h1 className="text-lg font-semibold text-foreground">
                   {title}
                 </h1>
                 <div className="flex items-center gap-1.5">
@@ -96,19 +105,8 @@ export function SidebarLayoutWrapper({
                 </div>
               </>
             )}
-            <Button
-              size="icon"
-              variant="ghost"
-              className="flex-shrink-0"
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              {collapsed ? (
-                <IconLayoutSidebarLeftExpand size={16} />
-              ) : (
-                <IconLayoutSidebarLeftCollapse size={16} />
-              )}
-            </Button>
           </div>
+
           {!collapsed && sidebar}
         </div>
         <div className="flex-1 overflow-hidden flex flex-col bg-background">

@@ -248,7 +248,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex items-stretch gap-2 w-full ${fillHeight ? "flex-1 min-h-0" : ""}`}
+          className={`flex items-stretch gap-2.5 w-full ${fillHeight ? "flex-1 min-h-0" : ""}`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (

@@ -208,7 +208,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   <MessageContent
                     className={
                       message.role === "user"
-                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                        ? "rounded-xl bg-secondary text-foreground px-4 py-3"
                         : "px-1 py-2"
                     }
                   >
@@ -390,7 +390,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         </div>
       </div>
       <div
-        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-12" : "w-[33%]"}`}
+        className={`flex flex-col h-full transition-all duration-150 ${panelCollapsed ? "w-12" : "w-[33%]"}`}
       >
         <div
           className={`flex items-center p-2 ${panelCollapsed ? "justify-center" : ""}`}

@@ -120,7 +120,7 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
               return (
                 <div
                   key={doc._id}
-                  className={`mx-2 px-3 py-1 rounded-xl transition-colors group ${
+                  className={`mx-1.5 px-2.5 py-1.5 rounded-md transition-colors duration-150 group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >

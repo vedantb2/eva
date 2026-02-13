@@ -134,7 +134,7 @@ export function BranchSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-xl bg-muted/40">
+      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-lg bg-muted/40">
         <IconLoader2 size={16} className="text-muted-foreground animate-spin" />
         <span className="text-sm text-muted-foreground">
           Loading branches...

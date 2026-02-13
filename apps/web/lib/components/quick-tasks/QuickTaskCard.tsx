@@ -61,10 +61,10 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110 transition-all ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      className={`w-full shadow-none cursor-pointer transition-colors border ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary" : ""}`}
       onClick={isSelecting ? undefined : onClick}
     >
-      <CardContent className="p-2 gap-1">
+      <CardContent className="p-2.5 gap-1.5">
         <div className="flex items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox

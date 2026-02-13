@@ -278,7 +278,7 @@ export function ProjectsClient() {
               </div>
             </div>
             {view === "kanban" ? (
-              <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
+              <div className="flex items-stretch gap-3 overflow-x-auto scrollbar flex-1 min-h-0">
                 {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
                   (phase) => (
                     <KanbanColumn

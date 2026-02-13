@@ -38,13 +38,13 @@ export default function AdminLayout({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-colors duration-150 ${
                   isActive
                     ? "bg-accent text-primary"
                     : "text-muted-foreground hover:bg-muted/50"
                 }`}
               >
-                <item.icon size={20} />
+                <item.icon size={16} />
                 {item.name}
               </Link>
             );

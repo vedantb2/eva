@@ -40,7 +40,7 @@ function WelcomeBanner() {
   return (
     <Card className="mb-6 overflow-hidden shadow-none bg-gradient-to-br from-primary/80 to-primary/90">
       <CardContent className="p-0">
-        <div className="relative p-5 sm:p-6">
+        <div className="relative p-4 sm:p-5">
           <Button
             size="icon"
             variant="ghost"
@@ -54,13 +54,13 @@ function WelcomeBanner() {
           </Button>
           <div className="flex items-center gap-2 mb-3">
             <IconSparkles size={20} className="text-white/80" />
-            <p className="text-lg font-semibold text-white">Meet Eva</p>
+            <p className="text-base font-semibold text-white">Meet Eva</p>
           </div>
           <p className="text-sm text-primary-foreground/80 max-w-md">
             Your AI-powered coworker that helps you ship faster. Select a
             repository below to get started.
           </p>
-          <div className="flex items-center gap-4 mt-4">
+          <div className="flex items-center gap-3 mt-3">
             {features.map((f) => (
               <div
                 key={f.label}
@@ -143,18 +143,16 @@ export function ReposClient() {
         </div>
       ) : repos.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-secondary mb-4">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary mb-3">
             <IconBrandGithub size={24} className="text-muted-foreground" />
           </div>
-          <p className="text-base font-medium text-foreground">
-            No repositories
-          </p>
+          <p className="text-sm font-medium text-foreground">No repositories</p>
           <p className="text-sm text-muted-foreground mt-1">
             Connect a GitHub repository to get started.
           </p>
           <Button
             asChild
-            className="mt-5 bg-foreground text-background font-medium"
+            className="mt-4 bg-foreground text-background font-medium"
           >
             <a href={connectUrl}>
               <IconBrandGithub size={16} />
@@ -163,20 +161,20 @@ export function ReposClient() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {repos.map((repo) => (
             <Link
               key={repo._id}
               href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
             >
-              <Card className="shadow-none cursor-pointer bg-secondary hover:bg-accent transition-colors">
-                <CardContent className="p-4 gap-3">
+              <Card className="shadow-none cursor-pointer bg-secondary hover:bg-accent transition-colors duration-150">
+                <CardContent className="p-3 gap-3">
                   <IconBrandGithub
                     size={20}
                     className="text-muted-foreground"
                   />
                   <div className="min-w-0">
-                    <p className="text-[15px] font-medium text-foreground truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {repo.name}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">

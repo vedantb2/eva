@@ -135,7 +135,7 @@ export default function DesignLayout({
               return (
                 <div
                   key={session._id}
-                  className={`px-3 pt-1 pb-2 mx-2 rounded-xl cursor-pointer transition-all group ${
+                  className={`px-2.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors duration-150 group ${
                     isSelected ? "bg-accent" : "hover:bg-muted"
                   }`}
                 >

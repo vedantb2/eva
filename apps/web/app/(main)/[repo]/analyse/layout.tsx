@@ -155,7 +155,7 @@ export default function ResearchLayout({
                     return (
                       <div
                         key={query._id}
-                        className={`px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all group ${
+                        className={`px-2.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors duration-150 group ${
                           isSelected ? "bg-accent" : "hover:bg-muted"
                         }`}
                       >
@@ -234,7 +234,7 @@ export default function ResearchLayout({
               <div>
                 <Link
                   href={baseUrl + "/saved-queries"}
-                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
                     isSavedQueriesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -245,7 +245,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/routines"}
-                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
                     isRoutinesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -256,7 +256,7 @@ export default function ResearchLayout({
                 </Link>
                 <Link
                   href={baseUrl + "/files"}
-                  className={`flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-3 px-2.5 py-1.5 mx-1.5 rounded-md transition-colors duration-150 ${
                     isFilesPage
                       ? "bg-accent text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"

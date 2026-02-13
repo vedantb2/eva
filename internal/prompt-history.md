@@ -1,3 +1,9 @@
+Add tags to the taskdetailmodal.tsx, to quick tasks so we can group tasks, create a Linear style inbox, with projects timeline view for projects, make projects start and end date editable in a modal when editing the project etc.
+
+For projectcard instead of making them clickable and going directly to the projects link, I want it to open a modal called ProjectCardModal.tsx, it should be a similar to the TaskDetailModal.tsx in the structure, but in the right column we need new fields like "Project Lead" "Project Members", "Start Date" "End Date"
+
+Create plan to use https://elements.ai-sdk.dev/components/sandbox Sandbox component for the research queries.
+
 adding accordion on quick task modal for 3 audits
 
 - accessibility audit - checks whether it meets accessibility guidelines

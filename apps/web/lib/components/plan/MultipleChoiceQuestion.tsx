@@ -50,30 +50,30 @@ export function MultipleChoiceQuestion({
   const optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
       <p className="text-[15px] font-semibold leading-snug text-foreground">
         {question}
       </p>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-1">
         {options.map((option, idx) => {
           const isSelected = selected === option.label;
           const letter = optionLetters[idx] ?? String(idx + 1);
           return (
             <Card
               key={`${option.label}-${idx}`}
-              className={`cursor-pointer shadow-none transition-all duration-200 ${
+              className={`cursor-pointer shadow-none transition-all duration-150 ${
                 isSelected
                   ? "border-primary bg-accent ring-1 ring-primary"
                   : "border-transparent bg-secondary hover:bg-muted"
               } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
               onClick={() => !isLoading && setSelected(option.label)}
             >
-              <CardContent className="flex flex-row items-start gap-3 py-2.5 px-3">
+              <CardContent className="flex flex-row items-start gap-3 py-2 px-2.5">
                 <span
                   className={`
                     w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5
-                    text-[11px] font-bold tracking-wide transition-all duration-200
+                    text-[11px] font-bold tracking-wide transition-all duration-150
                     ${
                       isSelected
                         ? "bg-primary text-white shadow-sm"
@@ -103,18 +103,18 @@ export function MultipleChoiceQuestion({
         })}
 
         <Card
-          className={`cursor-pointer shadow-none transition-all duration-200 ${
+          className={`cursor-pointer shadow-none transition-all duration-150 ${
             isOther
               ? "border-primary bg-accent ring-1 ring-primary"
               : "border-transparent bg-secondary hover:bg-muted"
           } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
           onClick={() => !isLoading && setSelected("__other__")}
         >
-          <CardContent className="py-2.5 px-3">
+          <CardContent className="py-2 px-2.5">
             <div className="flex items-center gap-3">
               <span
                 className={`
-                  w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200
+                  w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150
                   ${
                     isOther
                       ? "bg-primary text-white shadow-sm"
@@ -136,7 +136,7 @@ export function MultipleChoiceQuestion({
             </div>
             {isOther && (
               <div
-                className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-200"
+                className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-150"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Input

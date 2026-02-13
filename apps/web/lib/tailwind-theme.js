@@ -1,5 +1,5 @@
 function c(name) {
-  return `rgb(var(--${name}) / <alpha-value>)`;
+  return `oklch(var(--${name}) / <alpha-value>)`;
 }
 
 export const themeExtend = {

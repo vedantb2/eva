@@ -377,7 +377,7 @@ export function ChatPanel({
                 <MessageContent
                   className={
                     message.role === "user"
-                      ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                      ? "rounded-xl bg-secondary text-foreground px-4 py-3"
                       : "px-1 py-2"
                   }
                 >

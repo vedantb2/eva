@@ -1,9 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { ClientProvider } from "../lib/components/ClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0d9488",
+};
 
 export const metadata: Metadata = {
   title: "Eva - Your New Coworker",
@@ -15,13 +23,6 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: "/icon-192x192.png",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: "#0d9488",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

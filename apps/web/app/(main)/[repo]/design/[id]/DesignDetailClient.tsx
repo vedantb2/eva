@@ -203,7 +203,7 @@ export function DesignDetailClient({
   return (
     <div className="flex h-full">
       <div className="flex flex-col w-2/5 min-w-[320px] border-r border-border">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <h2 className="text-sm font-medium truncate">{session.title}</h2>
           <ManagePersonasModal
             repoId={session.repoId}
@@ -236,7 +236,7 @@ export function DesignDetailClient({
                   <MessageContent
                     className={
                       message.role === "user"
-                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                        ? "rounded-xl bg-secondary text-foreground px-4 py-3"
                         : "px-1 py-2"
                     }
                   >
@@ -384,7 +384,7 @@ export function DesignDetailClient({
                 className="flex-1 m-0 min-h-0 relative bg-muted/30"
               >
                 <div
-                  className={`[&>.sp-wrapper]:h-full transition-all duration-200 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+                  className={`[&>.sp-wrapper]:h-full transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
                 >
                   <SandpackProvider
                     template="react-ts"

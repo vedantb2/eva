@@ -4,169 +4,158 @@
 
 @layer base {
   :root {
-    --background: 245 249 248;
-    --foreground: 15 23 21;
-    --card: 252 252 252;
-    --card-foreground: 15 23 21;
-    --popover: 255 255 255;
-    --popover-foreground: 15 23 21;
-    --primary: 16 145 130;
-    --primary-foreground: 255 255 255;
-    --secondary: 226 235 233;
-    --secondary-foreground: 35 60 55;
-    --muted: 240 244 243;
-    --muted-foreground: 100 120 115;
-    --accent: 224 240 236;
-    --accent-foreground: 12 105 95;
-    --destructive: 220 38 38;
-    --destructive-foreground: 255 255 255;
-    --success: 22 163 74;
-    --success-foreground: 255 255 255;
-    --warning: 217 119 6;
-    --warning-foreground: 255 255 255;
-    --border: 212 228 224;
-    --input: 212 228 224;
-    --ring: 16 145 130;
-    --chart-1: 16 145 130;
-    --chart-2: 59 130 146;
-    --chart-3: 217 159 60;
-    --chart-4: 192 75 95;
-    --chart-5: 90 130 80;
-    --warning-bg: 255 251 235;
-    --success-bg: 240 253 244;
-    --status-progress: 161 98 7;
-    --status-progress-bg: 254 240 138;
-    --status-progress-subtle: 254 252 232;
-    --status-progress-bar: 250 204 21;
-    --status-business-review: 194 65 12;
-    --status-business-review-bg: 254 215 170;
-    --status-business-review-subtle: 255 247 237;
-    --status-business-review-bar: 251 146 60;
-    --status-code-review: 126 34 206;
-    --status-code-review-bg: 233 213 255;
-    --status-code-review-subtle: 243 232 255;
-    --status-code-review-bar: 192 132 252;
-    --status-done: 21 128 61;
-    --status-done-bg: 187 247 208;
-    --status-done-subtle: 240 253 244;
-    --status-done-bar: 74 222 128;
-    --sidebar: 247 252 250;
-    --sidebar-foreground: 15 23 21;
-    --sidebar-primary: 12 120 108;
-    --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 236 245 243;
-    --sidebar-accent-foreground: 12 120 108;
-    --sidebar-border: 212 228 224;
-    --sidebar-ring: 16 145 130;
+    --background: 1 0 0;
+    --foreground: 0.145 0 0;
+    --card: 1 0 0;
+    --card-foreground: 0.145 0 0;
+    --popover: 1 0 0;
+    --popover-foreground: 0.145 0 0;
+    --primary: 0.546 0.107 183.788;
+    --primary-foreground: 0.985 0 0;
+    --secondary: 0.964 0 0;
+    --secondary-foreground: 0.205 0 0;
+    --muted: 0.97 0 0;
+    --muted-foreground: 0.556 0 0;
+    --accent: 0.964 0 0;
+    --accent-foreground: 0.205 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --success: 0.627 0.196 144.899;
+    --success-foreground: 0.985 0 0;
+    --warning: 0.666 0.168 64.247;
+    --warning-foreground: 0.985 0 0;
+    --border: 0.922 0 0;
+    --input: 0.922 0 0;
+    --ring: 0.546 0.107 183.788;
+    --chart-1: 0.546 0.107 183.788;
+    --chart-2: 0.568 0.075 214.288;
+    --chart-3: 0.741 0.151 83.388;
+    --chart-4: 0.574 0.151 12.324;
+    --chart-5: 0.564 0.103 136.22;
+    --warning-bg: 0.987 0.03 102.401;
+    --success-bg: 0.982 0.025 144.814;
+    --status-progress: 0.554 0.133 72.888;
+    --status-progress-bg: 0.945 0.151 104.723;
+    --status-progress-subtle: 0.987 0.036 106.875;
+    --status-progress-bar: 0.861 0.208 96.78;
+    --status-business-review: 0.553 0.175 40.905;
+    --status-business-review-bg: 0.902 0.083 78.133;
+    --status-business-review-subtle: 0.98 0.022 88.554;
+    --status-business-review-bar: 0.758 0.169 61.756;
+    --status-code-review: 0.495 0.256 301.715;
+    --status-code-review-bg: 0.902 0.063 306.441;
+    --status-code-review-subtle: 0.946 0.031 307.564;
+    --status-code-review-bar: 0.722 0.191 305.011;
+    --status-done: 0.527 0.157 145.729;
+    --status-done-bg: 0.925 0.093 150.623;
+    --status-done-subtle: 0.982 0.025 144.814;
+    --status-done-bar: 0.8 0.207 147.325;
+    --sidebar: 0.985 0 0;
+    --sidebar-foreground: 0.205 0 0;
+    --sidebar-primary: 0.546 0.107 183.788;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.955 0 0;
+    --sidebar-accent-foreground: 0.205 0 0;
+    --sidebar-border: 0.922 0 0;
+    --sidebar-ring: 0.546 0.107 183.788;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.8rem;
-    --shadow-x: 0px;
-    --shadow-y: 4px;
-    --shadow-blur: 15px;
-    --shadow-spread: 0px;
-    --shadow-opacity: 0.05;
-    --shadow-color: #000000;
-    --shadow-2xs: 0px 4px 15px 0px hsl(0 0% 0% / 0.03);
-    --shadow-xs: 0px 4px 15px 0px hsl(0 0% 0% / 0.03);
+    --radius: 0.625rem;
+    --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.02);
+    --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.03);
     --shadow-sm:
-      0px 4px 15px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+      0px 1px 4px 0px hsl(0 0% 0% / 0.04), 0px 0px 1px 0px hsl(0 0% 0% / 0.04);
     --shadow:
-      0px 4px 15px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+      0px 2px 8px 0px hsl(0 0% 0% / 0.04), 0px 0px 1px 0px hsl(0 0% 0% / 0.04);
     --shadow-md:
-      0px 4px 15px 0px hsl(0 0% 0% / 0.05), 0px 2px 4px -1px hsl(0 0% 0% / 0.05);
+      0px 4px 12px 0px hsl(0 0% 0% / 0.05), 0px 0px 1px 0px hsl(0 0% 0% / 0.03);
     --shadow-lg:
-      0px 4px 15px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
+      0px 8px 24px 0px hsl(0 0% 0% / 0.06), 0px 0px 1px 0px hsl(0 0% 0% / 0.03);
     --shadow-xl:
-      0px 4px 15px 0px hsl(0 0% 0% / 0.05),
-      0px 8px 10px -1px hsl(0 0% 0% / 0.05);
-    --shadow-2xl: 0px 4px 15px 0px hsl(0 0% 0% / 0.13);
-    --tracking-normal: -0.015em;
+      0px 12px 32px 0px hsl(0 0% 0% / 0.08), 0px 0px 1px 0px hsl(0 0% 0% / 0.03);
+    --shadow-2xl: 0px 16px 48px 0px hsl(0 0% 0% / 0.12);
+    --tracking-normal: -0.02em;
   }
 
   .dark {
-    --background: 15 23 21;
-    --foreground: 235 245 242;
-    --card: 21 31 28;
-    --card-foreground: 235 245 242;
-    --popover: 18 28 25;
-    --popover-foreground: 235 245 242;
-    --primary: 72 202 186;
-    --primary-foreground: 15 23 21;
-    --secondary: 28 42 38;
-    --secondary-foreground: 215 230 226;
-    --muted: 26 40 36;
-    --muted-foreground: 140 168 162;
-    --accent: 32 50 45;
-    --accent-foreground: 215 230 226;
-    --destructive: 239 68 68;
-    --destructive-foreground: 255 255 255;
-    --success: 74 222 128;
-    --success-foreground: 10 18 16;
-    --warning: 251 191 36;
-    --warning-foreground: 10 18 16;
-    --border: 42 60 55;
-    --input: 42 60 55;
-    --ring: 72 202 186;
-    --chart-1: 72 202 186;
-    --chart-2: 85 170 185;
-    --chart-3: 230 180 80;
-    --chart-4: 210 100 120;
-    --chart-5: 120 170 110;
-    --warning-bg: 40 33 22;
-    --success-bg: 16 35 26;
-    --status-progress: 250 204 21;
-    --status-progress-bg: 74 47 19;
-    --status-progress-subtle: 35 31 22;
-    --status-progress-bar: 234 179 8;
-    --status-business-review: 251 146 60;
-    --status-business-review-bg: 80 36 19;
-    --status-business-review-subtle: 37 27 21;
-    --status-business-review-bar: 249 115 22;
-    --status-code-review: 192 132 252;
-    --status-code-review-bg: 59 26 89;
-    --status-code-review-subtle: 30 24 44;
-    --status-code-review-bar: 168 85 247;
-    --status-done: 74 222 128;
-    --status-done-bg: 18 59 35;
-    --status-done-subtle: 16 35 26;
-    --status-done-bar: 34 197 94;
-    --sidebar: 15 23 21;
-    --sidebar-foreground: 195 215 210;
-    --sidebar-primary: 72 202 186;
-    --sidebar-primary-foreground: 15 23 21;
-    --sidebar-accent: 26 40 36;
-    --sidebar-accent-foreground: 235 245 242;
-    --sidebar-border: 42 60 55;
-    --sidebar-ring: 72 202 186;
+    --background: 0.145 0 0;
+    --foreground: 0.985 0 0;
+    --card: 0.205 0 0;
+    --card-foreground: 0.985 0 0;
+    --popover: 0.205 0 0;
+    --popover-foreground: 0.985 0 0;
+    --primary: 0.704 0.119 183.788;
+    --primary-foreground: 0.145 0 0;
+    --secondary: 0.269 0 0;
+    --secondary-foreground: 0.985 0 0;
+    --muted: 0.269 0 0;
+    --muted-foreground: 0.708 0 0;
+    --accent: 0.269 0 0;
+    --accent-foreground: 0.985 0 0;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.985 0 0;
+    --success: 0.8 0.207 147.325;
+    --success-foreground: 0.145 0 0;
+    --warning: 0.837 0.193 90.151;
+    --warning-foreground: 0.145 0 0;
+    --border: 0.309 0 0;
+    --input: 0.309 0 0;
+    --ring: 0.704 0.119 183.788;
+    --chart-1: 0.704 0.119 183.788;
+    --chart-2: 0.691 0.085 209.339;
+    --chart-3: 0.797 0.151 88.018;
+    --chart-4: 0.641 0.14 10.135;
+    --chart-5: 0.687 0.119 136.971;
+    --warning-bg: 0.252 0.026 85.347;
+    --success-bg: 0.237 0.034 157.206;
+    --status-progress: 0.861 0.208 96.78;
+    --status-progress-bg: 0.332 0.063 70.915;
+    --status-progress-subtle: 0.241 0.021 92.752;
+    --status-progress-bar: 0.795 0.191 91.633;
+    --status-business-review: 0.758 0.169 61.756;
+    --status-business-review-bg: 0.318 0.073 44.92;
+    --status-business-review-subtle: 0.232 0.021 59.985;
+    --status-business-review-bar: 0.705 0.192 52.058;
+    --status-code-review: 0.722 0.191 305.011;
+    --status-code-review-bg: 0.301 0.118 304.264;
+    --status-code-review-subtle: 0.226 0.042 297.164;
+    --status-code-review-bar: 0.627 0.252 303.535;
+    --status-done: 0.8 0.207 147.325;
+    --status-done-bg: 0.316 0.071 150.056;
+    --status-done-subtle: 0.237 0.034 157.206;
+    --status-done-bar: 0.723 0.221 145.255;
+    --sidebar: 0.145 0 0;
+    --sidebar-foreground: 0.817 0 0;
+    --sidebar-primary: 0.704 0.119 183.788;
+    --sidebar-primary-foreground: 0.145 0 0;
+    --sidebar-accent: 0.235 0 0;
+    --sidebar-accent-foreground: 0.925 0 0;
+    --sidebar-border: 0.309 0 0;
+    --sidebar-ring: 0.704 0.119 183.788;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Georgia, serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.8rem;
-    --shadow-x: 0px;
-    --shadow-y: 8px;
-    --shadow-blur: 25px;
-    --shadow-spread: 0px;
-    --shadow-opacity: 0.3;
-    --shadow-color: #000000;
-    --shadow-2xs: 0px 8px 25px 0px hsl(0 0% 0% / 0.15);
-    --shadow-xs: 0px 8px 25px 0px hsl(0 0% 0% / 0.15);
+    --radius: 0.625rem;
+    --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.15);
+    --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.2);
     --shadow-sm:
-      0px 8px 25px 0px hsl(0 0% 0% / 0.3), 0px 1px 2px -1px hsl(0 0% 0% / 0.3);
+      0px 1px 4px 0px hsl(0 0% 0% / 0.25), 0px 0px 1px 0px hsl(0 0% 0% / 0.2);
     --shadow:
-      0px 8px 25px 0px hsl(0 0% 0% / 0.3), 0px 1px 2px -1px hsl(0 0% 0% / 0.3);
+      0px 2px 8px 0px hsl(0 0% 0% / 0.25), 0px 0px 1px 0px hsl(0 0% 0% / 0.2);
     --shadow-md:
-      0px 8px 25px 0px hsl(0 0% 0% / 0.3), 0px 2px 4px -1px hsl(0 0% 0% / 0.3);
+      0px 4px 12px 0px hsl(0 0% 0% / 0.3), 0px 0px 1px 0px hsl(0 0% 0% / 0.2);
     --shadow-lg:
-      0px 8px 25px 0px hsl(0 0% 0% / 0.3), 0px 4px 6px -1px hsl(0 0% 0% / 0.3);
+      0px 8px 24px 0px hsl(0 0% 0% / 0.35), 0px 0px 1px 0px hsl(0 0% 0% / 0.2);
     --shadow-xl:
-      0px 8px 25px 0px hsl(0 0% 0% / 0.3), 0px 8px 10px -1px hsl(0 0% 0% / 0.3);
-    --shadow-2xl: 0px 8px 25px 0px hsl(0 0% 0% / 0.75);
+      0px 12px 32px 0px hsl(0 0% 0% / 0.4), 0px 0px 1px 0px hsl(0 0% 0% / 0.2);
+    --shadow-2xl: 0px 16px 48px 0px hsl(0 0% 0% / 0.6);
   }
 
   body {
     letter-spacing: var(--tracking-normal);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -177,15 +166,28 @@
   body {
     @apply bg-background text-foreground;
   }
+  ::selection {
+    background: oklch(var(--primary) / 0.15);
+  }
 }
 
 @layer utilities {
+  .glass {
+    background: oklch(1 0 0 / 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid oklch(1 0 0 / 0.2);
+  }
+  .dark .glass {
+    background: oklch(0.205 0 0 / 0.7);
+    border-color: oklch(1 0 0 / 0.08);
+  }
   .scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgb(var(--muted-foreground) / 0.3) transparent;
+    scrollbar-color: oklch(var(--muted-foreground) / 0.3) transparent;
   }
   .scrollbar:hover {
-    scrollbar-color: rgb(var(--muted-foreground) / 0.5) transparent;
+    scrollbar-color: oklch(var(--muted-foreground) / 0.5) transparent;
   }
   .scrollbar::-webkit-scrollbar {
     width: 6px;
@@ -195,10 +197,10 @@
     background: transparent;
   }
   .scrollbar::-webkit-scrollbar-thumb {
-    background: rgb(var(--muted-foreground) / 0.3);
+    background: oklch(var(--muted-foreground) / 0.3);
     border-radius: 3px;
   }
   .scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--muted-foreground) / 0.5);
+    background: oklch(var(--muted-foreground) / 0.5);
   }
 }

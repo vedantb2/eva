@@ -13,6 +13,64 @@
 - Sessions chat panel and project task detail panel both display the new step-by-step UI for real-time streaming and historical logs
 - Old session data with plain-text logs continues to render correctly via automatic fallback
 
+## Restyle to shadcn Nova + Neutral + Teal — 2026-02-12
+
+- **CSS Variables**: Neutralized all teal-tinted grays (foreground, card-foreground, popover-foreground, sidebar colors) to pure neutral (0 chroma) in both light and dark mode. Updated primary hue from 178° to 183.788° to match shadcn teal preset. Reduced `--radius` from 0.75rem to 0.625rem. Darkened dark mode background from 0.182 to 0.145, bumped muted-foreground to 0.708 for better contrast.
+- **UI Primitives (packages/ui)**: Applied Nova compact sizing — buttons (h-10→h-9, h-9→h-8, h-11→h-10), inputs (h-10→h-9), tabs (h-9→h-8), card padding (p-6→p-5), dialog (gap-5 p-7 rounded-2xl → gap-4 p-6 rounded-xl), badge (rounded-full→rounded-md), dropdown items (rounded-lg→rounded-sm, py-2→py-1.5), popover (rounded-xl→rounded-lg, p-4→p-3). Removed glass effects from dropdowns/popovers (no more backdrop-blur-xl/bg-popover/90).
+- **App Components**: Compacted PageWrapper (px-5→px-4, py-3→py-2.5, title text-xl→text-lg), Container gaps/padding reduced by 1 step, EmptyState (py-20→py-16, icon w-14→w-12), SidebarLayoutWrapper headers reduced, Sidebar nav items (py-2.5→py-2), kanban column/board gaps, project cards (p-4→p-3), quick task cards (p-3→p-2.5), docs list items, active tasks accordion trigger.
+- **Page Layouts**: Repo layout rounded-l-2xl→rounded-l-xl, sidebar item padding reduced across sessions/design/analyse/admin layouts, inbox item padding reduced, repos grid gap reduced.
+- **Chrome Extension**: Synced all CSS variables to match web app — neutralized grays, updated primary hue, reduced radius from 1rem to 0.625rem.
+
+## Apple Design System Overhaul — Neutral Palette, Glass Effects, Pill Shapes — 2026-02-12
+
+- **Phase 1 — Design Foundations**: Shifted all teal-tinted grays to pure neutral grays (light + dark mode), softer diffused shadows (Apple-style barely-there depth), bumped `--radius` to 14px, tighter letter spacing (-0.02em), added `.glass` utility for frosted glass surfaces
+- **Phase 2 — Layout & Navigation**: Sidebar gets frosted glass effect on desktop, nav items use explicit teal for active state (`bg-primary/10 text-primary`), taller nav items (40px), rounder pill shape (`rounded-lg`), stronger hover feedback, more breathing room in group headers, footer divider, page titles bumped to `text-xl`, increased padding throughout PageWrapper and Container, sidebar layout width to 320px, content area rounded to `rounded-l-2xl`
+- **Phase 3 — Components**: Cards `rounded-xl`, buttons `rounded-lg` with taller sizes (h-10 default), badges pill-shaped (`rounded-full`), inputs taller with `rounded-lg`, dialogs `rounded-2xl` with lighter overlay + stronger blur, popovers/dropdowns get glass effect (`backdrop-blur-xl bg-popover/90`), dropdown items `rounded-lg` with more padding, tabs get active shadow lift, empty state larger icon container + title, kanban columns more padding + gap, quick task cards subtler shadow, project cards rounder with hover shadow
+
+## Apple Design Philosophy Pass — Border Reduction, Frosted Glass, Selection Styling — 2026-02-12
+
+- Removed `border-b border-border` from PageWrapper header — sections now separated by whitespace and typography hierarchy
+- Removed `border-b border-border` from both SidebarLayoutWrapper headers (mobile + desktop) — same Apple-style space separation
+- Removed `border-t border-sidebar-border` from Sidebar bottom user section — reduces visual noise
+- Added `backdrop-blur-sm` to Dialog overlay for Apple's frosted glass effect, lightened overlay from `bg-black/50` to `bg-black/40`
+- Bumped Dialog content from `rounded-md` to `rounded-lg` for Apple's generous modal corner radius
+- Added `::selection { background: rgb(var(--primary) / 0.15) }` for tinted text selection highlighting
+
+## Apple/Linear Design Polish — Rounder Corners, Better Spacing, Font Smoothing — 2026-02-12
+
+- Bumped global `--radius` from `0.5rem` to `0.625rem` (both light and dark themes) — cascades through all UI primitives: `rounded-md` is now 8px (was 6px), `rounded-lg` is 10px (was 8px)
+- Added `-webkit-font-smoothing: antialiased` and `-moz-osx-font-smoothing: grayscale` to body for Apple-style text rendering
+- Increased PageWrapper header/content padding from `px-4 py-2.5`/`px-4 py-2` to `px-5 py-3` for more breathing room
+- Increased SidebarLayoutWrapper header padding (`py-2.5` → `py-3`) and mobile top bar (`py-2` → `py-2.5`)
+- Increased main sidebar nav item padding (`py-1.5` → `py-2`) and bottom section separation (`pt-3` → `pt-4`)
+- Matched inner sidebar items to new nav density (`py-1.5` → `py-2`) across sessions, analyse, admin, design, docs, testing-arena, and active tasks accordion
+- Increased card spacing: QuickTaskCard (`p-2` → `p-3`), ProjectCard (`p-3` → `p-4`), KanbanColumn header/content (`p-2` → `p-3`), RepoHome stat cards (`p-4` → `p-5`)
+- Removed redundant `rounded-md` from KanbanColumn and ProjectCard (Card primitive now handles it at 8px)
+- Increased kanban column gaps from `gap-2` to `gap-3` in both KanbanBoard and ProjectsClient
+- Increased Container padding (`px-2 md:px-4 pt-2 md:pt-4` → `px-3 md:px-5 pt-3 md:pt-5`)
+- Increased EmptyState generosity: `py-16` → `py-20`, icon `w-12 h-12` → `w-14 h-14`, spacing adjustments
+
+## UI Consistency Pass — Inner Sidebars, Chat Bubbles, Page Density — 2026-02-12
+
+- Standardized all inner sidebar list items (sessions, analyse, design, docs, testing-arena, admin) to match main sidebar: `rounded-md`, `py-1.5`, `duration-150`
+- Tightened chat message bubbles from `rounded-2xl` to `rounded-xl` across sessions, analyse, design, and plan context panel
+- Compacted repo home stats (smaller padding, text sizes, removed logo pill background)
+- Tightened repo listing cards (`p-3`, `text-sm`, `duration-150`)
+- Tightened inbox notification items (`py-2.5`, `rounded-md`, `duration-150`)
+- Standardized all animation durations to 150ms (from mixed 200ms/300ms) across MultipleChoiceQuestion, QueryDetailClient, DesignDetailClient
+- Reduced admin sidebar icon size from 20px to 16px to match rest of sidebar
+
+## Linear/Notion-style UI Polish — 2026-02-12
+
+- Tightened global `--radius` from `0.8rem` to `0.5rem` (both light and dark) — cascades through all buttons, cards, inputs, dialogs
+- Neutralized border colors (`--border`, `--input`, `--sidebar-border`) from teal-tinted to neutral gray in both themes
+- Sidebar: added `bg-sidebar` background + `border-r border-sidebar-border` separator, removed logo pill shape, compacted nav items (`rounded-md`, `py-1.5`, `text-[13px]`), added `border-t` on user section
+- Sidebar active/hover states now use sidebar-specific tokens (`bg-sidebar-accent`, `text-sidebar-primary`)
+- Group labels: `text-[11px] font-medium`, tighter spacing (`space-y-1` between groups, `space-y-px` between items)
+- PageWrapper: added `border-b border-border` header separator, `text-base` title, `rounded-md` back button
+- SidebarLayoutWrapper: added `border-r border-border` and `border-b border-border` to inner sidebar/headers, `text-base` titles
+- Main content panels: `lg:rounded-l-xl` (tighter corner), `duration-150` transitions throughout
+
 ## Inbox Page + Projects Timeline View — 2026-02-12
 
 - Created full-page `/inbox` route with its own layout (Sidebar + MainContent, no RepoProvider)

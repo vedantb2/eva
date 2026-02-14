@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Input,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -52,11 +53,15 @@ import {
   IconCircleDot,
   IconUserPlus,
   IconBrain,
+  IconFolder,
+  IconTags,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@conductor/shared/dates";
+
+const NO_PROJECT_VALUE = "__none__";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -88,6 +93,10 @@ export function TaskDetailModal({
   );
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
+  const projects = useQuery(
+    api.projects.list,
+    task?.repoId ? { repoId: task.repoId } : "skip",
+  );
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -106,11 +115,16 @@ export function TaskDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [requestChangesPanel, setRequestChangesPanel] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [comments?.length]);
+
+  useEffect(() => {
+    setTagsInput((task?.tags ?? []).join(", "));
+  }, [task?.tags]);
 
   const handleAddComment = async (e: FormEvent) => {
     e.preventDefault();
@@ -148,6 +162,11 @@ export function TaskDetailModal({
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const status = task?.status;
   const showProofSection = status !== "todo" && status !== "in_progress";
+  const projectOptions = projects ?? [];
+  const hasSelectedProject =
+    task?.projectId !== undefined &&
+    projectOptions.some((project) => project._id === task.projectId);
+  const selectedProjectValue = task?.projectId ?? NO_PROJECT_VALUE;
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -188,6 +207,26 @@ export function TaskDetailModal({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleSaveTags = async () => {
+    if (!task) return;
+    const nextTags = Array.from(
+      new Set(
+        tagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      ),
+    );
+    const currentTags = task.tags ?? [];
+    if (
+      nextTags.length === currentTags.length &&
+      nextTags.every((tag, i) => tag === currentTags[i])
+    ) {
+      return;
+    }
+    await updateTask({ id: taskId, tags: nextTags });
   };
 
   const hasAudit = Boolean(audit);
@@ -658,6 +697,43 @@ export function TaskDetailModal({
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconFolder size={12} />
+                    Add to Project
+                  </p>
+                  <Select
+                    value={selectedProjectValue}
+                    onValueChange={(val) => {
+                      updateTask({
+                        id: taskId,
+                        projectId:
+                          val === NO_PROJECT_VALUE
+                            ? null
+                            : (val as Id<"projects">),
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="No project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROJECT_VALUE}>
+                        No project
+                      </SelectItem>
+                      {task?.projectId && !hasSelectedProject && (
+                        <SelectItem value={task.projectId}>
+                          Current project
+                        </SelectItem>
+                      )}
+                      {projectOptions.map((project) => (
+                        <SelectItem key={project._id} value={project._id}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                     <IconUserPlus size={12} />
                     Assign to ___ for Code Review
                   </p>
@@ -683,6 +759,36 @@ export function TaskDetailModal({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconTags size={12} />
+                    Tags
+                  </p>
+                  <Input
+                    value={tagsInput}
+                    placeholder="bug, ui, backend"
+                    className="h-8 text-sm"
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    onBlur={() => {
+                      void handleSaveTags();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleSaveTags();
+                      }
+                    }}
+                  />
+                  {(task?.tags?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {task?.tags?.map((tag) => (
+                        <Badge key={tag} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">

@@ -98,6 +98,7 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
+    tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     status: taskStatusValidator,
     order: v.number(),

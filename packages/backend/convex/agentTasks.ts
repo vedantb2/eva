@@ -6,6 +6,23 @@ import { getCurrentUserId } from "./auth";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
 
+function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
+  if (tags === undefined) {
+    return undefined;
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const rawTag of tags) {
+    const tag = rawTag.trim();
+    if (!tag || seen.has(tag)) {
+      continue;
+    }
+    seen.add(tag);
+    normalized.push(tag);
+  }
+  return normalized;
+}
+
 const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),
   _creationTime: v.number(),
@@ -15,6 +32,7 @@ const agentTaskValidator = v.object({
   description: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   projectId: v.optional(v.id("projects")),
+  tags: v.optional(v.array(v.string())),
   taskNumber: v.optional(v.number()),
   status: taskStatusValidator,
   order: v.number(),
@@ -110,6 +128,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
+    tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     status: v.optional(taskStatusValidator),
   },
@@ -141,6 +160,7 @@ export const create = mutation({
       description: args.description,
       repoId: args.repoId,
       projectId: args.projectId,
+      tags: normalizeTaskTags(args.tags),
       taskNumber: args.taskNumber,
       status: args.status ?? "todo",
       order: maxOrder + 1,
@@ -157,7 +177,8 @@ export const update = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
-    projectId: v.optional(v.id("projects")),
+    projectId: v.optional(v.union(v.id("projects"), v.null())),
+    tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
@@ -180,7 +201,9 @@ export const update = mutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
     if (args.repoId !== undefined) updates.repoId = args.repoId;
-    if (args.projectId !== undefined) updates.projectId = args.projectId;
+    if (args.projectId !== undefined)
+      updates.projectId = args.projectId ?? undefined;
+    if (args.tags !== undefined) updates.tags = normalizeTaskTags(args.tags);
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
     if (args.model !== undefined) updates.model = args.model;

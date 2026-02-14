@@ -26,13 +26,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Button,
-  Input,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
-import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
+import { IconFilter } from "@tabler/icons-react";
 
 interface BaseTask {
   _id: string;
@@ -189,10 +188,10 @@ export function KanbanBoard<T extends BaseTask>({
   return (
     <div
       className={
-        fillHeight ? "flex flex-col flex-1 min-h-0 gap-1.5" : "space-y-2.5"
+        fillHeight ? "flex flex-1 min-h-0 flex-col gap-1.5" : "space-y-2.5"
       }
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
+      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="sm">
@@ -219,27 +218,6 @@ export function KanbanBoard<T extends BaseTask>({
             })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="relative mx-auto w-1/2">
-          <IconSearch
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search tasks..."
-            className="h-8 pl-9 pr-8 text-sm"
-            value={searchQuery}
-            onChange={(e) => setParams({ q: e.target.value || null })}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setParams({ q: null })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 rounded-sm"
-            >
-              <IconX size={14} />
-            </button>
-          )}
-        </div>
       </div>
       <DndContext
         sensors={sensors}
@@ -248,7 +226,9 @@ export function KanbanBoard<T extends BaseTask>({
         onDragEnd={handleDragEnd}
       >
         <div
-          className={`flex w-full items-stretch gap-1.5 ${fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""}`}
+          className={`flex w-full items-stretch gap-1.5 ${
+            fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""
+          }`}
         >
           {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => (

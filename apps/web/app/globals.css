@@ -6,6 +6,7 @@
   :root {
     color-scheme: light;
     --background: 247 247 245;
+    --app-shell: 245 247 247;
     --foreground: 24 28 31;
     --card: 255 255 255;
     --card-foreground: 24 28 31;
@@ -51,7 +52,7 @@
     --status-done-bg: 187 247 208;
     --status-done-subtle: 240 253 244;
     --status-done-bar: 74 222 128;
-    --sidebar: 246 246 244;
+    --sidebar: 247 249 249;
     --sidebar-foreground: 24 28 31;
     --sidebar-primary: 13 132 122;
     --sidebar-primary-foreground: 255 255 255;
@@ -88,11 +89,17 @@
       0px 14px 28px -18px hsl(0 0% 8% / 0.2);
     --shadow-2xl: 0px 36px 64px -30px hsl(0 0% 8% / 0.48);
     --tracking-normal: -0.012em;
+    --motion-fast: 150ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .dark {
     color-scheme: dark;
     --background: 17 19 20;
+    --app-shell: 17 19 20;
     --foreground: 227 232 231;
     --card: 24 27 28;
     --card-foreground: 227 232 231;
@@ -211,6 +218,29 @@
 }
 
 @layer utilities {
+  .bg-app-shell {
+    background-color: rgb(var(--app-shell));
+  }
+
+  .motion-base {
+    transition-property:
+      color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease-out);
+  }
+
+  .motion-emphasized {
+    transition-property: transform, opacity, box-shadow;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease-emphasized);
+  }
+
+  .motion-press {
+    transition-property: transform;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease-out);
+  }
+
   .scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
@@ -237,6 +267,7 @@
   }
 }
 
+/* Temporarily disabled to allow full animations during development.
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
@@ -245,3 +276,4 @@
     scroll-behavior: auto !important;
   }
 }
+*/

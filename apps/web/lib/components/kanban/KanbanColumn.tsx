@@ -38,7 +38,7 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
-      className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-colors ${
+      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-hidden transition-colors ${
         isOver ? "bg-muted dark:bg-accent" : "bg-card"
       }`}
     >
@@ -58,8 +58,8 @@ export function KanbanColumn({
         </Badge>
         {headerExtra}
       </CardHeader>
-      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-1 pt-0 scrollbar md:p-1 md:pt-0">
-        <div className="flex min-h-full flex-col gap-1">{children}</div>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain p-1 pt-0 scrollbar md:p-1 md:pt-0">
+        {children}
       </CardContent>
     </Card>
   );

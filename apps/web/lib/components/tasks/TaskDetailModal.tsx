@@ -190,6 +190,23 @@ export function TaskDetailModal({
     }
   };
 
+  const hasAudit = Boolean(audit);
+  const modalWidthClass = hasAudit
+    ? requestChangesPanel
+      ? "w-[min(96vw,96rem)]"
+      : "w-[min(95vw,84rem)]"
+    : requestChangesPanel
+      ? "w-[min(95vw,72rem)]"
+      : "w-[min(95vw,64rem)]";
+
+  const layoutGridClass = hasAudit
+    ? requestChangesPanel
+      ? "grid-cols-[1fr_1fr_200px_1fr]"
+      : "grid-cols-[1fr_1fr_200px]"
+    : requestChangesPanel
+      ? "grid-cols-[1fr_200px_1fr]"
+      : "grid-cols-[1fr_200px]";
+
   return (
     <>
       <Dialog
@@ -199,7 +216,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`${audit ? (requestChangesPanel ? "max-w-7xl" : "max-w-5xl") : requestChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
+          className={`${modalWidthClass} max-h-[85vh] overflow-y-auto`}
         >
           <DialogHeader>
             <DialogTitle>
@@ -214,9 +231,7 @@ export function TaskDetailModal({
             </DialogTitle>
           </DialogHeader>
           <div className="pb-6">
-            <div
-              className={`grid gap-6 min-h-[400px] ${audit ? (requestChangesPanel ? "grid-cols-[1fr_1fr_200px_1fr]" : "grid-cols-[1fr_1fr_200px]") : requestChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
-            >
+            <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
                 {task?.description &&
                   (() => {

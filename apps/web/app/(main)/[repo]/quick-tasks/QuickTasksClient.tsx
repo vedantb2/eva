@@ -4,17 +4,20 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { useQueryState } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Input, Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
+import { searchParser } from "@/lib/search-params";
 import {
   IconChecklist,
   IconPlus,
   IconCheckbox,
+  IconSearch,
   IconX,
   IconFolders,
 } from "@tabler/icons-react";
@@ -28,6 +31,7 @@ export function QuickTasksClient() {
     new Set(),
   );
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
@@ -55,6 +59,31 @@ export function QuickTasksClient() {
         title="Quick Tasks"
         fillHeight
         childPadding={false}
+        headerCenter={
+          hasQuickTasks ? (
+            <div className="relative w-full max-w-lg">
+              <IconSearch
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                placeholder="Search tasks..."
+                className="h-8 pl-9 pr-8 text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value || null)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery(null)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                >
+                  <IconX size={14} />
+                </button>
+              )}
+            </div>
+          ) : null
+        }
         headerRight={
           <div className="flex items-center gap-2">
             {hasQuickTasks &&
@@ -92,7 +121,7 @@ export function QuickTasksClient() {
           </div>
         }
       >
-        <div className="flex flex-1 min-h-0 flex-col px-2 pb-2 pt-2">
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
           {tasks === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />

@@ -520,63 +520,73 @@ export function ChatPanel({
             </PlanFooter>
           </Plan>
         )}
-        <PromptInput onSubmit={handlePromptSubmit}>
-          <PromptInputTextarea
-            placeholder={
-              !isSandboxActive
-                ? "Start the sandbox to begin chatting..."
-                : mode === "execute"
-                  ? "Describe the changes to make to Eva..."
-                  : mode === "ask"
-                    ? "Ask Eva a question about the codebase..."
-                    : "Describe the feature or product requirements to Eva..."
-            }
-            disabled={isInputDisabled}
-          />
-          <PromptInputFooter>
-            <PromptInputTools>
-              <Tabs
-                value={mode}
-                onValueChange={(v) => {
-                  setMode(v as "execute" | "ask" | "plan");
-                }}
+        <div className="relative pt-4">
+          <Tabs
+            value={mode}
+            onValueChange={(v) => {
+              setMode(v as "execute" | "ask" | "plan");
+            }}
+            className="absolute left-3 top-4 z-20 -translate-y-1/2"
+          >
+            <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+              <TabsTrigger
+                value="execute"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 data-[state=active]:text-primary"
               >
-                <TabsList className="h-8">
-                  <TabsTrigger
-                    value="execute"
-                    className="text-xs px-2 py-1 gap-1"
-                  >
-                    <IconCode className="w-3 h-3" />
-                    Execute
-                  </TabsTrigger>
-                  <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
-                    <IconMessageCircle2 className="w-3 h-3" />
-                    Ask
-                  </TabsTrigger>
-                  <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
-                    <IconClipboardList className="w-3 h-3" />
-                    PRD
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <PromptInputSettings
-                model={model}
-                onModelChange={setModel}
-                responseLength={responseLength}
-                onResponseLengthChange={setResponseLength}
-                disabled={isInputDisabled}
-              />
-            </PromptInputTools>
-            <div className="flex items-center gap-1">
-              <PromptInputSpeech disabled={isInputDisabled} />
-              <PromptInputSubmit
-                status={submitStatus}
-                onStop={handleCancel}
-                disabled={isInputDisabled}
-              />
-            </div>
-          </PromptInputFooter>
-        </PromptInput>
+                <IconCode className="w-3 h-3" />
+                Execute
+              </TabsTrigger>
+              <TabsTrigger
+                value="ask"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 data-[state=active]:text-primary"
+              >
+                <IconMessageCircle2 className="w-3 h-3" />
+                Ask
+              </TabsTrigger>
+              <TabsTrigger
+                value="plan"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 data-[state=active]:text-primary"
+              >
+                <IconClipboardList className="w-3 h-3" />
+                PRD
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <PromptInput onSubmit={handlePromptSubmit}>
+            <PromptInputTextarea
+              className="pt-8"
+              placeholder={
+                !isSandboxActive
+                  ? "Start the sandbox to begin chatting..."
+                  : mode === "execute"
+                    ? "Describe the changes to make to Eva..."
+                    : mode === "ask"
+                      ? "Ask Eva a question about the codebase..."
+                      : "Describe the feature or product requirements to Eva..."
+              }
+              disabled={isInputDisabled}
+            />
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputSettings
+                  model={model}
+                  onModelChange={setModel}
+                  responseLength={responseLength}
+                  onResponseLengthChange={setResponseLength}
+                  disabled={isInputDisabled}
+                />
+              </PromptInputTools>
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isInputDisabled} />
+                <PromptInputSubmit
+                  status={submitStatus}
+                  onStop={handleCancel}
+                  disabled={isInputDisabled}
+                />
+              </div>
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
       <Dialog
         open={showReviewModal}
@@ -588,13 +598,24 @@ export function ChatPanel({
           <DialogHeader>
             <DialogTitle>Send for Code Review</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            By clicking this you confirm that all your changes have been tested
-            in your session, you are happy with those changes, have generated a
-            summary and agree with the changes. A developer will then review the
-            code changes Eva has made and get in contact to confirm if they are
-            happy before merging into staging/production.
-          </p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              By clicking this you confirm that all your changes have been
+              tested in your session, you are happy with those changes, have
+              generated a summary, and agree with the changes. Your session will
+              become uneditable while a developer reviews the code changes
+              before merging into staging/production.
+            </p>
+            <p>
+              The following audits will also run automatically in the
+              background:
+            </p>
+            <ul className="ml-5 list-disc space-y-1">
+              <li>Accessibility audit</li>
+              <li>Code testing audit</li>
+              <li>Code review audit</li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowReviewModal(false)}>
               Cancel

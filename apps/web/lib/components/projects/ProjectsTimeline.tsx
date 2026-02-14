@@ -179,7 +179,7 @@ export function ProjectsTimeline({
 
   return (
     <>
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 animate-in fade-in duration-300">
         {withDates.length > 0 && (
           <div
             ref={containerRef}
@@ -193,7 +193,7 @@ export function ProjectsTimeline({
           >
             {todayX !== null && (
               <div
-                className="absolute top-0 bottom-0 w-px bg-primary/30 z-20 pointer-events-none"
+                className="absolute top-0 bottom-0 z-20 w-px bg-primary/30 pointer-events-none transition-[left] duration-200 ease-out"
                 style={{ left: todayX - scrollLeft + LABEL_WIDTH }}
               >
                 <div className="absolute -top-1 -left-[11px] text-[9px] text-primary/50 rounded px-1">
@@ -209,7 +209,7 @@ export function ProjectsTimeline({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-xs text-muted-foreground"
+                  className="motion-press h-6 text-xs text-muted-foreground hover:scale-[1.02] active:scale-[0.98]"
                   onClick={scrollToToday}
                 >
                   Today
@@ -217,7 +217,7 @@ export function ProjectsTimeline({
               </div>
               <div className="flex-1 overflow-hidden">
                 <div
-                  className="relative"
+                  className="relative transition-transform duration-200 ease-out"
                   style={{
                     width: totalWidth,
                     transform: `translateX(-${scrollLeft}px)`,
@@ -227,7 +227,7 @@ export function ProjectsTimeline({
                     {monthLabels.map((m, i) => (
                       <div
                         key={i}
-                        className="absolute text-[10px] font-medium text-foreground/70 border-l border-border/50 pl-1.5 truncate flex items-center"
+                        className="absolute flex items-center truncate border-l border-border/50 pl-1.5 text-[10px] font-medium text-foreground/70 transition-[left,width] duration-200 ease-out"
                         style={{ left: m.x, width: m.width, height: 20 }}
                       >
                         {m.label}
@@ -238,7 +238,7 @@ export function ProjectsTimeline({
                     {dayLabels.map((d, i) => (
                       <span
                         key={i}
-                        className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
+                        className="absolute whitespace-nowrap text-[10px] text-muted-foreground transition-[left] duration-200 ease-out"
                         style={{ left: d.x }}
                       >
                         {d.label}
@@ -270,11 +270,11 @@ export function ProjectsTimeline({
                 return (
                   <div
                     key={project._id}
-                    className="flex items-center"
+                    className="flex items-center animate-in fade-in duration-300"
                     style={{ height: ROW_HEIGHT }}
                   >
                     <button
-                      className="flex-shrink-0 truncate pr-3 text-left text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 rounded-sm"
+                      className="motion-base flex-shrink-0 truncate rounded-sm pr-3 text-left text-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                       style={{ width: LABEL_WIDTH }}
                       onClick={() => setSelectedProjectId(project._id)}
                     >
@@ -285,14 +285,14 @@ export function ProjectsTimeline({
                       style={{ height: ROW_HEIGHT }}
                     >
                       <div
-                        className="relative h-full"
+                        className="relative h-full transition-transform duration-200 ease-out"
                         style={{
                           width: totalWidth,
                           transform: `translateX(-${scrollLeft}px)`,
                         }}
                       >
                         <button
-                          className={`absolute top-1.5 flex cursor-pointer items-center rounded-md px-2 transition-all hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${config.bg}`}
+                          className={`absolute top-1.5 flex cursor-pointer items-center rounded-md px-2 transition-[left,width,filter,transform] duration-200 ease-out hover:scale-[1.01] hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${config.bg}`}
                           style={{
                             left: barLeft,
                             width: barWidth,
@@ -311,7 +311,7 @@ export function ProjectsTimeline({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div
-                                className="absolute z-20 flex flex-col items-center"
+                                className="absolute z-20 flex flex-col items-center transition-[left] duration-200 ease-out"
                                 style={{ left: deadlineX, top: 0, bottom: 0 }}
                               >
                                 <div className="w-px h-full bg-destructive/60" />
@@ -345,7 +345,7 @@ export function ProjectsTimeline({
                 return (
                   <button
                     key={project._id}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                    className="motion-base flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all hover:translate-x-0.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     onClick={() => setSelectedProjectId(project._id)}
                   >
                     <span

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -61,7 +62,7 @@ export function QuickTasksClient() {
         childPadding={false}
         headerCenter={
           hasQuickTasks ? (
-            <div className="relative w-full max-w-lg">
+            <div className="relative w-full max-w-lg animate-in fade-in duration-300">
               <IconSearch
                 size={16}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -76,7 +77,7 @@ export function QuickTasksClient() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery(null)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                  className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                 >
                   <IconX size={14} />
                 </button>
@@ -86,35 +87,72 @@ export function QuickTasksClient() {
         }
         headerRight={
           <div className="flex items-center gap-2">
-            {hasQuickTasks &&
-              (isSelecting ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={exitSelectMode}
+            <AnimatePresence initial={false} mode="popLayout">
+              {hasQuickTasks &&
+                (isSelecting ? (
+                  <motion.div
+                    key="quick-task-selecting-actions"
+                    className="flex items-center gap-2"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
                   >
-                    <IconX size={16} />
-                    Cancel
-                  </Button>
-                  {selectedIds.size > 0 && (
-                    <Button size="sm" onClick={() => setIsGroupModalOpen(true)}>
-                      <IconFolders size={16} />
-                      Group {selectedIds.size} into Project
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={exitSelectMode}
+                    >
+                      <IconX size={16} />
+                      Cancel
                     </Button>
-                  )}
-                </>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setIsSelecting(true)}
-                >
-                  <IconCheckbox size={16} />
-                  Select
-                </Button>
-              ))}
-            <Button size="sm" onClick={() => setIsCreating(true)}>
+                    <AnimatePresence initial={false}>
+                      {selectedIds.size > 0 && (
+                        <motion.div
+                          key="quick-task-group-action"
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.18 }}
+                        >
+                          <Button
+                            size="sm"
+                            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                            onClick={() => setIsGroupModalOpen(true)}
+                          >
+                            <IconFolders size={16} />
+                            Group {selectedIds.size} into Project
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="quick-task-select-action"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={() => setIsSelecting(true)}
+                    >
+                      <IconCheckbox size={16} />
+                      Select
+                    </Button>
+                  </motion.div>
+                ))}
+            </AnimatePresence>
+            <Button
+              size="sm"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => setIsCreating(true)}
+            >
               <IconPlus size={16} />
               New Task
             </Button>
@@ -122,28 +160,57 @@ export function QuickTasksClient() {
         }
       >
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
-          {tasks === undefined ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Spinner />
-            </div>
-          ) : !hasQuickTasks ? (
-            <EmptyState
-              icon={
-                <IconChecklist size={24} className="text-muted-foreground" />
-              }
-              title="No quick tasks"
-              description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-              actionLabel="Create Quick Task"
-              onAction={() => setIsCreating(true)}
-            />
-          ) : (
-            <QuickTasksKanbanBoard
-              repoId={repo._id}
-              isSelecting={isSelecting}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            {tasks === undefined ? (
+              <motion.div
+                key="quick-tasks-loading"
+                className="flex flex-1 items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Spinner />
+              </motion.div>
+            ) : !hasQuickTasks ? (
+              <motion.div
+                key="quick-tasks-empty"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <EmptyState
+                  icon={
+                    <IconChecklist
+                      size={24}
+                      className="text-muted-foreground"
+                    />
+                  }
+                  title="No quick tasks"
+                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+                  actionLabel="Create Quick Task"
+                  onAction={() => setIsCreating(true)}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="quick-tasks-board"
+                className="flex flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <QuickTasksKanbanBoard
+                  repoId={repo._id}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </PageWrapper>
       <QuickTaskModal

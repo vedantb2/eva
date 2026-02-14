@@ -6,7 +6,7 @@ import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { IconSubtask, IconGitPullRequest } from "@tabler/icons-react";
+import { IconGitPullRequest } from "@tabler/icons-react";
 import Link from "next/link";
 import {
   statusConfig,
@@ -41,7 +41,7 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      className={`w-full rounded-sm shadow-none transition-all ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 dark:hover:brightness-110" : ""}`}
+      className={`w-full rounded-sm shadow-none transition-all duration-200 ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${statusConfig[status].cardBg} ${onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 dark:hover:brightness-110" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -68,7 +68,7 @@ export function ProjectTaskCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="flex-shrink-0 p-1 rounded hover:bg-muted transition-colors"
+                className="motion-press flex-shrink-0 rounded p-1 transition-colors hover:scale-105 hover:bg-muted active:scale-95"
               >
                 <IconGitPullRequest size={14} className="text-success" />
               </Link>

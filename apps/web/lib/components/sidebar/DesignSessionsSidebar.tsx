@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
@@ -116,7 +117,7 @@ export function DesignSessionsSidebar({
 
   return (
     <>
-      <div className="p-2">
+      <div className="p-2 animate-in fade-in duration-300">
         <div className="relative">
           <IconSearch
             size={14}
@@ -150,76 +151,82 @@ export function DesignSessionsSidebar({
           </div>
         ) : (
           <div>
-            {filteredSessions.map((session) => {
-              const isSelected = currentSessionId === session._id;
-              return (
-                <div
-                  key={session._id}
-                  className={cn(
-                    "group mx-1 rounded-md px-3 py-2 transition-colors",
-                    isSelected
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                  )}
-                >
-                  <Link
-                    href={`${baseUrl}/${session._id}`}
-                    onClick={onNavigate}
-                    className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+            <AnimatePresence initial={false}>
+              {filteredSessions.map((session) => {
+                const isSelected = currentSessionId === session._id;
+                return (
+                  <motion.div
+                    key={session._id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                    className={cn(
+                      "group mx-1 rounded-md px-3 py-2 transition-all duration-200",
+                      isSelected
+                        ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/70",
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <h3
-                        className={cn(
-                          "truncate text-sm font-medium",
-                          isSelected
-                            ? "text-sidebar-primary"
-                            : "text-sidebar-foreground",
-                        )}
-                      >
-                        {session.title}
-                      </h3>
-                      <div
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                            >
-                              <IconDotsVertical size={13} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              className="text-warning"
-                              onClick={() =>
-                                setSessionToArchive({
-                                  id: session._id,
-                                  title: session.title,
-                                })
-                              }
-                            >
-                              <IconArchive size={16} />
-                              Archive
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    <Link
+                      href={`${baseUrl}/${session._id}`}
+                      onClick={onNavigate}
+                      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <h3
+                          className={cn(
+                            "truncate text-sm font-medium transition-colors duration-200",
+                            isSelected
+                              ? "text-sidebar-primary"
+                              : "text-sidebar-foreground",
+                          )}
+                        >
+                          {session.title}
+                        </h3>
+                        <div
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                className="motion-press h-6 w-6 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:scale-105 active:scale-95"
+                              >
+                                <IconDotsVertical size={13} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                className="text-warning"
+                                onClick={() =>
+                                  setSessionToArchive({
+                                    id: session._id,
+                                    title: session.title,
+                                  })
+                                }
+                              >
+                                <IconArchive size={16} />
+                                Archive
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {dayjs(
-                        session.updatedAt ?? session._creationTime,
-                      ).fromNow()}
-                    </span>
-                  </Link>
-                </div>
-              );
-            })}
+                      <span className="text-xs text-muted-foreground">
+                        {dayjs(
+                          session.updatedAt ?? session._creationTime,
+                        ).fromNow()}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
       </div>

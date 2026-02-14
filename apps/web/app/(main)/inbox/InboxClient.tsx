@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
+import { AnimatePresence, motion } from "framer-motion";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";
@@ -57,6 +58,7 @@ export function InboxClient() {
         <Button
           size="sm"
           variant={filter === "all" ? "secondary" : "ghost"}
+          className="motion-press hover:scale-[1.01] active:scale-[0.99]"
           onClick={() => setFilter("all")}
         >
           All
@@ -64,6 +66,7 @@ export function InboxClient() {
         <Button
           size="sm"
           variant={filter === "unread" ? "secondary" : "ghost"}
+          className="motion-press hover:scale-[1.01] active:scale-[0.99]"
           onClick={() => setFilter("unread")}
         >
           Unread
@@ -91,40 +94,52 @@ export function InboxClient() {
         />
       ) : (
         <div className="divide-y divide-border">
-          {filtered.map((n) => {
-            const config = typeConfig[n.type];
-            return (
-              <button
-                key={n._id}
-                onClick={() => handleClick(n)}
-                className={`flex w-full items-start gap-4 rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
-              >
-                <NotificationIcon type={n.type} size="md" />
-                <div className="flex-1 min-w-0 mt-0.5">
-                  <p className="text-sm font-medium truncate">{n.title}</p>
-                  {n.message && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {n.message}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge
-                      variant={config.badgeVariant}
-                      className="text-[10px] px-1.5 py-0 h-4"
-                    >
-                      {config.label}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {dayjs(n.createdAt).fromNow()}
-                    </span>
-                  </div>
-                </div>
-                {!n.read && (
-                  <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-3" />
-                )}
-              </button>
-            );
-          })}
+          <AnimatePresence initial={false}>
+            {filtered.map((n, index) => {
+              const config = typeConfig[n.type];
+              return (
+                <motion.div
+                  key={n._id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{
+                    duration: 0.18,
+                    delay: Math.min(index * 0.02, 0.14),
+                  }}
+                >
+                  <button
+                    onClick={() => handleClick(n)}
+                    className={`flex w-full items-start gap-4 rounded-md px-2.5 py-2 text-left transition-all duration-200 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
+                  >
+                    <NotificationIcon type={n.type} size="md" />
+                    <div className="flex-1 min-w-0 mt-0.5">
+                      <p className="text-sm font-medium truncate">{n.title}</p>
+                      {n.message && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {n.message}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          variant={config.badgeVariant}
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
+                          {config.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {dayjs(n.createdAt).fromNow()}
+                        </span>
+                      </div>
+                    </div>
+                    {!n.read && (
+                      <span className="mt-3 h-2 w-2 flex-shrink-0 rounded-full bg-primary animate-in zoom-in-50 duration-200" />
+                    )}
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </PageWrapper>

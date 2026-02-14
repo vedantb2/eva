@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "framer-motion";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { useQuery } from "convex/react";
@@ -76,7 +77,12 @@ export function AnalyticsClient() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <motion.div
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
             <StatCard
               icon={IconGitPullRequest}
               label="PRs Shipped"
@@ -99,9 +105,14 @@ export function AnalyticsClient() {
               label="Tasks Completed"
               value={impactStats.tasksCompleted}
             />
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <motion.div
+            className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.05 }}
+          >
             <PRsOverTimeChart timeline={timeline} />
             <SessionFunnel
               totalSessions={impactStats.totalSessions}
@@ -110,7 +121,7 @@ export function AnalyticsClient() {
             />
             <ActivityTimelineChart timeline={timeline} />
             <Leaderboard entries={leaderboard} />
-          </div>
+          </motion.div>
         </div>
       )}
     </PageWrapper>

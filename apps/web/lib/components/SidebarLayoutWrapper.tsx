@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, cn } from "@conductor/ui";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   IconPlus,
   IconLayoutSidebarLeftCollapse,
@@ -39,10 +40,11 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <div className="lg:hidden flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-2.5 backdrop-blur-sm">
+      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-2.5 backdrop-blur-sm">
         <Button
           size="icon-sm"
           variant="ghost"
+          className="motion-press hover:scale-[1.03] active:scale-[0.97]"
           onClick={() => setMobileOpen(true)}
         >
           <IconLayoutSidebarLeftExpand size={16} />
@@ -53,44 +55,59 @@ export function SidebarLayoutWrapper({
         {renderHeaderActions()}
       </div>
 
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-40 bg-background/55 backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-0 z-40 bg-background/55 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+        )}
+      </AnimatePresence>
 
-      <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden border-r border-border/70 bg-card/90 shadow-lg backdrop-blur-xl">
-            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-              <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
-                {title}
-              </h1>
-              <div className="flex items-center gap-1.5">
-                {renderHeaderActions()}
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <IconX size={16} />
-                </Button>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-72"
+            initial={{ x: -24, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -24, opacity: 0 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="h-full">
+              <div className="flex h-full flex-col overflow-hidden border-r border-border/70 bg-card/90 shadow-lg backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                  <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
+                    {title}
+                  </h1>
+                  <div className="flex items-center gap-1.5">
+                    {renderHeaderActions()}
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="motion-press hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <IconX size={16} />
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
+                  {sidebar}
+                </div>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
-              {sidebar}
-            </div>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="h-full min-h-0 flex flex-row overflow-hidden">
         <div
           className={cn(
-            "hidden lg:block transition-all duration-300",
+            "hidden lg:block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
             collapsed ? "w-16" : "w-72",
           )}
         >
@@ -99,43 +116,69 @@ export function SidebarLayoutWrapper({
               <div
                 className={`border-b border-border/70 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >
-                {collapsed ? (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="flex-shrink-0"
-                    onClick={() => setCollapsed(!collapsed)}
-                  >
-                    <IconLayoutSidebarLeftExpand size={16} />
-                  </Button>
-                ) : (
-                  <div className="flex w-full items-center justify-between">
-                    <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
-                      {title}
-                    </h1>
-                    <div className="flex items-center gap-3">
-                      {renderHeaderActions()}
+                <AnimatePresence initial={false} mode="wait">
+                  {collapsed ? (
+                    <motion.div
+                      key="collapsed-header"
+                      initial={{ opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.92 }}
+                      transition={{ duration: 0.18 }}
+                    >
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="flex-shrink-0"
+                        className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.97]"
                         onClick={() => setCollapsed(!collapsed)}
                       >
-                        <IconLayoutSidebarLeftCollapse size={16} />
+                        <IconLayoutSidebarLeftExpand size={16} />
                       </Button>
-                    </div>
-                  </div>
-                )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="expanded-header"
+                      className="flex w-full items-center justify-between"
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
+                        {title}
+                      </h1>
+                      <div className="flex items-center gap-3">
+                        {renderHeaderActions()}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          onClick={() => setCollapsed(!collapsed)}
+                        >
+                          <IconLayoutSidebarLeftCollapse size={16} />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              {!collapsed && (
-                <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
-                  {sidebar}
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {!collapsed && (
+                  <motion.div
+                    key="desktop-sidebar-content"
+                    className="min-h-0 flex-1 overflow-y-auto scrollbar"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {sidebar}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background animate-in fade-in duration-300">
           {children}
         </div>
       </div>

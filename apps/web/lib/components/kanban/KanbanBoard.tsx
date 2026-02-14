@@ -11,6 +11,7 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
@@ -74,16 +75,17 @@ function SortableItem<T extends BaseTask>({
   };
 
   return (
-    <div
+    <motion.div
+      layout
       ref={setNodeRef}
       style={style}
-      className={`cursor-grab ${isDragging ? "opacity-50" : ""}`}
+      className={`motion-emphasized cursor-grab rounded-lg ${isDragging ? "opacity-50" : ""}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}
     >
       {renderCard(item)}
-    </div>
+    </motion.div>
   );
 }
 
@@ -188,13 +190,19 @@ export function KanbanBoard<T extends BaseTask>({
   return (
     <div
       className={
-        fillHeight ? "flex flex-1 min-h-0 flex-col gap-1.5" : "space-y-2.5"
+        fillHeight
+          ? "flex flex-1 min-h-0 flex-col gap-1.5 animate-in fade-in duration-300"
+          : "space-y-2.5 animate-in fade-in duration-300"
       }
     >
       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            >
               <IconFilter size={16} />
               {visibleStatuses.size === KANBAN_STATUSES.length
                 ? "All Columns"
@@ -230,31 +238,44 @@ export function KanbanBoard<T extends BaseTask>({
             fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""
           }`}
         >
-          {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
-            (status) => (
-              <KanbanColumn
+          <AnimatePresence initial={false}>
+            {KANBAN_STATUSES.filter((status) =>
+              visibleStatuses.has(status),
+            ).map((status) => (
+              <motion.div
                 key={status}
-                id={status}
-                config={statusConfig[status]}
-                count={itemsByStatus[status]?.length ?? 0}
-                headerExtra={columnExtra?.(status)}
+                layout
+                className="flex min-h-0 min-w-0 flex-1 self-stretch"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
               >
-                <SortableContext
-                  items={itemsByStatus[status]?.map((i) => i._id) ?? []}
-                  strategy={verticalListSortingStrategy}
+                <KanbanColumn
+                  id={status}
+                  config={statusConfig[status]}
+                  count={itemsByStatus[status]?.length ?? 0}
+                  headerExtra={columnExtra?.(status)}
                 >
-                  {itemsByStatus[status]?.map((item) => (
-                    <SortableItem
-                      key={item._id}
-                      item={item}
-                      renderCard={renderCard}
-                      onItemClick={onItemClick}
-                    />
-                  ))}
-                </SortableContext>
-              </KanbanColumn>
-            ),
-          )}
+                  <SortableContext
+                    items={itemsByStatus[status]?.map((i) => i._id) ?? []}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <AnimatePresence initial={false}>
+                      {itemsByStatus[status]?.map((item) => (
+                        <SortableItem
+                          key={item._id}
+                          item={item}
+                          renderCard={renderCard}
+                          onItemClick={onItemClick}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </SortableContext>
+                </KanbanColumn>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
         <DragOverlay>
           {activeItem ? renderOverlay(activeItem) : null}

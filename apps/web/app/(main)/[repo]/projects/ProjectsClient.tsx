@@ -42,6 +42,7 @@ import {
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryStates } from "nuqs";
 import {
   searchParser,
@@ -149,7 +150,11 @@ export function ProjectsClient() {
         fillHeight
         childPadding={false}
         headerRight={
-          <Button size="sm" onClick={() => setIsCreating(true)}>
+          <Button
+            size="sm"
+            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            onClick={() => setIsCreating(true)}
+          >
             <IconPlus size={16} />
             New Project
           </Button>
@@ -178,7 +183,7 @@ export function ProjectsClient() {
                     <Button
                       variant={view === "kanban" ? "secondary" : "ghost"}
                       size="icon"
-                      className="h-8 w-8 rounded-none"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
                       onClick={() => setParams({ view: "kanban" })}
                     >
                       <IconLayoutKanban size={16} />
@@ -186,7 +191,7 @@ export function ProjectsClient() {
                     <Button
                       variant={view === "timeline" ? "secondary" : "ghost"}
                       size="icon"
-                      className="h-8 w-8 rounded-none"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
                       onClick={() => setParams({ view: "timeline" })}
                     >
                       <IconTimeline size={16} />
@@ -280,60 +285,78 @@ export function ProjectsClient() {
                     <button
                       type="button"
                       onClick={() => setParams({ q: null })}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                      className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     >
                       <IconX size={14} />
                     </button>
                   )}
                 </div>
               </div>
-              {view === "kanban" ? (
-                <div className="flex flex-1 min-h-0 items-stretch gap-1.5 overflow-x-auto overflow-y-hidden scrollbar">
-                  {PROJECT_PHASES.filter((phase) =>
-                    visiblePhases.has(phase),
-                  ).map((phase) => (
-                    <KanbanColumn
-                      key={phase}
-                      id={phase}
-                      config={phaseConfig[phase]}
-                      count={projectsByPhase[phase]?.length ?? 0}
-                      droppable={false}
-                    >
-                      {projectsByPhase[phase]?.map((project) => (
-                        <ProjectCard
-                          key={project._id}
-                          projectId={project._id}
-                          userId={project.userId}
-                          title={project.title}
-                          description={project.description}
-                          rawInput={project.rawInput}
-                          branchName={project.branchName}
-                          repoFullName={fullName}
-                          createdAt={project._creationTime}
-                          projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
-                          cardBg={phaseConfig[phase].cardBg}
-                          onDelete={() =>
-                            setProjectToDelete({
-                              id: project._id,
-                              title: project.title,
-                            })
-                          }
-                        />
-                      ))}
-                      {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                        <div className="flex flex-1 min-h-full items-center justify-center py-4 text-xs text-muted-foreground">
-                          No projects
-                        </div>
-                      )}
-                    </KanbanColumn>
-                  ))}
-                </div>
-              ) : (
-                <ProjectsTimeline
-                  projects={filteredSorted}
-                  repoFullName={fullName}
-                />
-              )}
+              <AnimatePresence initial={false} mode="wait">
+                {view === "kanban" ? (
+                  <motion.div
+                    key="projects-kanban-view"
+                    className="flex flex-1 min-h-0 items-stretch gap-1.5 overflow-x-auto overflow-y-hidden scrollbar"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {PROJECT_PHASES.filter((phase) =>
+                      visiblePhases.has(phase),
+                    ).map((phase) => (
+                      <KanbanColumn
+                        key={phase}
+                        id={phase}
+                        config={phaseConfig[phase]}
+                        count={projectsByPhase[phase]?.length ?? 0}
+                        droppable={false}
+                      >
+                        {projectsByPhase[phase]?.map((project) => (
+                          <ProjectCard
+                            key={project._id}
+                            projectId={project._id}
+                            userId={project.userId}
+                            title={project.title}
+                            description={project.description}
+                            rawInput={project.rawInput}
+                            branchName={project.branchName}
+                            repoFullName={fullName}
+                            createdAt={project._creationTime}
+                            projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
+                            cardBg={phaseConfig[phase].cardBg}
+                            onDelete={() =>
+                              setProjectToDelete({
+                                id: project._id,
+                                title: project.title,
+                              })
+                            }
+                          />
+                        ))}
+                        {(projectsByPhase[phase]?.length ?? 0) === 0 && (
+                          <div className="flex flex-1 min-h-full items-center justify-center py-4 text-xs text-muted-foreground">
+                            No projects
+                          </div>
+                        )}
+                      </KanbanColumn>
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="projects-timeline-view"
+                    className="flex flex-1 min-h-0"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProjectsTimeline
+                      projects={filteredSorted}
+                      repoFullName={fullName}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>

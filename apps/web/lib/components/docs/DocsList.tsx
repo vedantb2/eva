@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 import { useState, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 import { usePathname, useRouter } from "next/navigation";
@@ -114,65 +115,71 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
               No matches found
             </div>
           ) : (
-            filteredDocs.map((doc) => {
-              const href = `/${repoSlug}/docs/${doc._id}`;
-              const isSelected = pathname.startsWith(href);
-              return (
-                <div
-                  key={doc._id}
-                  className={`mx-1 px-4 py-1.5 rounded-md transition-colors duration-150 group ${
-                    isSelected
-                      ? "bg-accent text-primary font-medium"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <Link href={href} className="flex items-center gap-3">
-                    <IconFileText size={16} className="flex-shrink-0" />
-                    <span
-                      className={`truncate text-sm flex-1 ${
-                        isSelected
-                          ? "text-primary font-medium"
-                          : "text-muted-foreground group-hover:text-foreground"
-                      }`}
-                    >
-                      {doc.title}
-                    </span>
-                    <div
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="opacity-0 group-hover:opacity-100"
-                          >
-                            <IconDotsVertical size={14} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() =>
-                              setDocToDelete({
-                                id: doc._id,
-                                title: doc.title,
-                              })
-                            }
-                          >
-                            <IconTrash size={16} />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </Link>
-                </div>
-              );
-            })
+            <AnimatePresence initial={false}>
+              {filteredDocs.map((doc) => {
+                const href = `/${repoSlug}/docs/${doc._id}`;
+                const isSelected = pathname.startsWith(href);
+                return (
+                  <motion.div
+                    key={doc._id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                    className={`mx-1 rounded-md px-4 py-1.5 transition-all duration-200 group ${
+                      isSelected
+                        ? "bg-accent text-primary font-medium shadow-xs"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Link href={href} className="flex items-center gap-3">
+                      <IconFileText size={16} className="flex-shrink-0" />
+                      <span
+                        className={`flex-1 truncate text-sm ${
+                          isSelected
+                            ? "text-primary font-medium"
+                            : "text-muted-foreground group-hover:text-foreground"
+                        }`}
+                      >
+                        {doc.title}
+                      </span>
+                      <div
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="motion-press opacity-0 transition-all duration-150 group-hover:opacity-100 hover:scale-105 active:scale-95"
+                            >
+                              <IconDotsVertical size={14} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() =>
+                                setDocToDelete({
+                                  id: doc._id,
+                                  title: doc.title,
+                                })
+                              }
+                            >
+                              <IconTrash size={16} />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           )}
         </div>
       </div>

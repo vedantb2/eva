@@ -4,18 +4,23 @@ import { useRef, type ReactNode } from "react";
 import {
   Spinner,
   Button,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   WebPreview,
   WebPreviewNavigation,
   WebPreviewNavigationButton,
   WebPreviewUrl,
   WebPreviewBody,
-  WebPreviewConsole,
   useWebPreview,
 } from "@conductor/ui";
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconBug,
   IconRefresh,
+  IconTerminal2,
   IconWorld,
   IconExternalLink,
   IconMaximize,
@@ -36,7 +41,9 @@ interface WebPreviewPanelProps {
   onRefresh: () => void;
   terminal?: ReactNode;
   tabSwitcher?: ReactNode;
-  showConsole?: boolean;
+  showConsole: boolean;
+  consoleTab: "console" | "terminal";
+  onConsoleTabChange: (value: "console" | "terminal") => void;
 }
 
 function NavigationButtons({
@@ -111,6 +118,8 @@ export function WebPreviewPanel({
   terminal,
   tabSwitcher,
   showConsole,
+  consoleTab,
+  onConsoleTabChange,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -164,10 +173,50 @@ export function WebPreviewPanel({
           ) : undefined
         }
       />
-      <WebPreviewConsole
-        terminal={terminal}
-        className={showConsole ? undefined : "hidden"}
-      />
+      <Tabs
+        value={consoleTab}
+        onValueChange={(value) => {
+          if (value === "console" || value === "terminal") {
+            onConsoleTabChange(value);
+          }
+        }}
+        className={showConsole ? "border-t bg-muted/50 text-sm" : "hidden"}
+      >
+        <TabsList className="h-9 w-full justify-start rounded-none border-b border-border/70 bg-transparent px-2">
+          <TabsTrigger
+            value="console"
+            className="gap-1.5 rounded-none px-3 text-xs"
+          >
+            <IconBug className="h-3.5 w-3.5" />
+            Console
+          </TabsTrigger>
+          {terminal ? (
+            <TabsTrigger
+              value="terminal"
+              className="gap-1.5 rounded-none px-3 text-xs"
+            >
+              <IconTerminal2 className="h-3.5 w-3.5" />
+              Terminal
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+        <TabsContent
+          forceMount
+          value="console"
+          className="mt-0 h-64 space-y-1 overflow-y-auto scrollbar px-4 py-3 font-mono"
+        >
+          <p className="text-xs text-muted-foreground">No console output</p>
+        </TabsContent>
+        {terminal ? (
+          <TabsContent
+            forceMount
+            value="terminal"
+            className="mt-0 h-64 overflow-y-auto scrollbar"
+          >
+            {terminal}
+          </TabsContent>
+        ) : null}
+      </Tabs>
     </WebPreview>
   );
 }

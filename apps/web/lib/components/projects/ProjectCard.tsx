@@ -74,7 +74,7 @@ export function ProjectCard({
   const isOwner = currentUserId === userId;
   return (
     <div
-      className={`p-2 border border-border rounded-xl transition-colors duration-200 group relative ${cardBg}`}
+      className={`group relative rounded-xl border border-border p-2 transition-all duration-200 ${cardBg} hover:-translate-y-0.5 hover:shadow-sm`}
     >
       <div className="absolute top-1.5 right-1.5">
         <DropdownMenu>
@@ -82,7 +82,7 @@ export function ProjectCard({
             <Button
               size="icon-sm"
               variant="ghost"
-              className="flex shrink-0 text-muted-foreground hover:text-foreground"
+              className="motion-press flex shrink-0 text-muted-foreground hover:scale-105 hover:text-foreground active:scale-95"
               onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />
@@ -136,11 +136,11 @@ export function ProjectCard({
       </div>
       <button
         type="button"
-        className="block w-full cursor-pointer rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        className="block w-full cursor-pointer rounded-lg text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={() => setModalOpen(true)}
       >
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+          <h3 className="truncate text-sm font-semibold text-foreground transition-all duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>

@@ -17,9 +17,9 @@ export function StatCard({
   subtitle,
 }: StatCardProps) {
   return (
-    <Card className="shadow-none border border-border">
+    <Card className="motion-emphasized border border-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
       <CardContent className="flex flex-row items-center gap-3 p-4">
-        <div className="p-2 rounded-lg bg-secondary text-muted-foreground">
+        <div className="motion-base rounded-lg bg-secondary p-2 text-muted-foreground">
           <Icon size={20} />
         </div>
         <div>

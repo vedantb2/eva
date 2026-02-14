@@ -61,7 +61,7 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow-none transition-colors border ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary" : ""} ${!isSelecting && onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35" : ""}`}
+      className={`w-full border shadow-none transition-all duration-200 ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${!isSelecting && onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:brightness-[0.99] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35" : ""}`}
       onClick={isSelecting ? undefined : onClick}
       role={!isSelecting && onClick ? "button" : undefined}
       tabIndex={!isSelecting && onClick ? 0 : undefined}
@@ -89,7 +89,11 @@ export function QuickTaskCard({
               <div onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="icon-sm" variant="ghost">
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="motion-press hover:scale-105 active:scale-95"
+                    >
                       <IconDotsVertical
                         size={14}
                         className="text-muted-foreground"

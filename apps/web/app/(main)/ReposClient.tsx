@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -109,7 +110,7 @@ export function ReposClient() {
               variant="outline"
               disabled={syncing}
               onClick={handleSync}
-              className="text-muted-foreground border-border"
+              className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
             >
               <IconRefresh
                 size={16}
@@ -121,7 +122,7 @@ export function ReposClient() {
           <Button
             size="sm"
             asChild
-            className="bg-foreground text-background font-medium"
+            className="motion-press bg-foreground text-background font-medium hover:scale-[1.01] active:scale-[0.99]"
           >
             <a
               href={hasRepos ? configureUrl : connectUrl}
@@ -163,30 +164,42 @@ export function ReposClient() {
         </div>
       ) : (
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {repos.map((repo) => (
-            <Link
-              key={repo._id}
-              href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
-              className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-            >
-              <Card className="shadow-none cursor-pointer bg-secondary hover:bg-accent transition-colors duration-150">
-                <CardContent className="p-3 gap-3">
-                  <IconBrandGithub
-                    size={20}
-                    className="text-muted-foreground"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {repo.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {repo.owner}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          <AnimatePresence initial={false}>
+            {repos.map((repo, index) => (
+              <motion.div
+                key={repo._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{
+                  duration: 0.2,
+                  delay: Math.min(index * 0.03, 0.2),
+                }}
+              >
+                <Link
+                  href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                >
+                  <Card className="motion-emphasized cursor-pointer bg-secondary shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:shadow-sm">
+                    <CardContent className="gap-3 p-3">
+                      <IconBrandGithub
+                        size={20}
+                        className="text-muted-foreground"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {repo.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {repo.owner}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </PageWrapper>

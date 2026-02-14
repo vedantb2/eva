@@ -5,6 +5,7 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragCancelEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -99,6 +100,9 @@ export function KanbanBoard<T extends BaseTask>({
   columnExtra,
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
+  const [activeOverlayWidth, setActiveOverlayWidth] = useState<number | null>(
+    null,
+  );
   const [{ q, statuses }, setParams] = useQueryStates({
     q: searchParser,
     statuses: statusesParser,
@@ -112,7 +116,7 @@ export function KanbanBoard<T extends BaseTask>({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
   );
@@ -150,11 +154,18 @@ export function KanbanBoard<T extends BaseTask>({
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = items.find((i) => i._id === event.active.id);
-    if (item) setActiveItem(item);
+    if (item) {
+      setActiveItem(item);
+      const width =
+        event.active.rect.current.initial?.width ??
+        event.active.rect.current.translated?.width;
+      setActiveOverlayWidth(width ? Math.round(width) : null);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveItem(null);
+    setActiveOverlayWidth(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -185,6 +196,11 @@ export function KanbanBoard<T extends BaseTask>({
         console.error("Failed to update status:", err);
       }
     }
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveItem(null);
+    setActiveOverlayWidth(null);
   };
 
   return (
@@ -232,6 +248,7 @@ export function KanbanBoard<T extends BaseTask>({
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <div
           className={`flex w-full items-stretch gap-1.5 ${
@@ -278,7 +295,18 @@ export function KanbanBoard<T extends BaseTask>({
           </AnimatePresence>
         </div>
         <DragOverlay>
-          {activeItem ? renderOverlay(activeItem) : null}
+          {activeItem ? (
+            <div
+              className="pointer-events-none"
+              style={
+                activeOverlayWidth
+                  ? { width: `${activeOverlayWidth}px` }
+                  : undefined
+              }
+            >
+              {renderOverlay(activeItem)}
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
     </div>

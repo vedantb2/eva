@@ -74,7 +74,7 @@ export function QuickTaskCard({
       }}
     >
       <CardContent className="p-2 md:p-2 gap-1">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox
               checked={isSelected}
@@ -82,11 +82,16 @@ export function QuickTaskCard({
               className="flex-shrink-0"
             />
           )}
-          <h4 className="font-medium text-sm line-clamp-1 flex-1">{title}</h4>
+          <h4 className="min-w-0 flex-1 truncate font-medium text-sm">
+            {title}
+          </h4>
           <div className="flex items-center gap-2 flex-shrink-0">
             <SubtaskProgress taskId={id} />
             {(branchName || latestPrUrl) && (
-              <div onClick={(e) => e.stopPropagation()}>
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

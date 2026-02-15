@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y git curl
 RUN corepack enable
 
 # Claude Code CLI and browser agent for AI execution
-RUN npm install -g @anthropic-ai/claude-code agent-browser
+RUN npm install -g @anthropic-ai/claude-code agent-browser convex
 
 # Playwright system dependencies (Chromium libs)
 RUN npx playwright install-deps chromium
@@ -35,6 +35,7 @@ RUN echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"int
 
 # pnpm global bin directory for non-root user
 ENV PNPM_HOME=/home/eva/.pnpm
+ENV NODE_PATH=/usr/lib/node_modules
 ENV PATH=$PNPM_HOME:$PATH
 RUN mkdir -p $PNPM_HOME
 

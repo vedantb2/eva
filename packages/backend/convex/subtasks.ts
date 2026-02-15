@@ -1,4 +1,9 @@
-import { mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { v } from "convex/values";
 
 const subtaskValidator = v.object({
@@ -45,6 +50,39 @@ export const markCompleted = mutation({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    const subtasks = await ctx.db
+      .query("subtasks")
+      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
+      .collect();
+    const sorted = subtasks.sort((a, b) => a.order - b.order);
+    for (const index of args.completedIndices) {
+      if (index >= 0 && index < sorted.length) {
+        await ctx.db.patch(sorted[index]._id, { completed: true });
+      }
+    }
+    return null;
+  },
+});
+
+export const listByTaskInternal = internalQuery({
+  args: { parentTaskId: v.id("agentTasks") },
+  returns: v.array(subtaskValidator),
+  handler: async (ctx, args) => {
+    const subtasks = await ctx.db
+      .query("subtasks")
+      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
+      .collect();
+    return subtasks.sort((a, b) => a.order - b.order);
+  },
+});
+
+export const markCompletedInternal = internalMutation({
+  args: {
+    parentTaskId: v.id("agentTasks"),
+    completedIndices: v.array(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))

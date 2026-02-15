@@ -171,24 +171,7 @@ export function TaskDetailModal({
   const handleStartExecution = async () => {
     setIsStarting(true);
     try {
-      const result = await startExecution({ id: taskId });
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "task/execute.requested",
-          data: {
-            runId: result.runId,
-            taskId: result.taskId,
-            repoId: result.repoId,
-            installationId: result.installationId,
-            projectId: result.projectId,
-            branchName: result.branchName,
-            isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-            model: result.model,
-          },
-        }),
-      });
+      await startExecution({ id: taskId });
     } catch (err) {
       console.error("Failed to start execution:", err);
     } finally {

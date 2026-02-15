@@ -98,3 +98,11 @@ export const queryConfirmationStatusValidator = v.union(
   v.literal("confirmed"),
   v.literal("cancelled"),
 );
+
+export const workflowCommandStateValidator = v.union(
+  v.literal("running"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("timed_out"),
+  v.literal("cancelled"),
+);

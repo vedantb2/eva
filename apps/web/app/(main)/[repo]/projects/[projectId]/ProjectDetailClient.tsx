@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   Tooltip,
@@ -38,6 +38,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { fullName, repo } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+  const startBuildWorkflow = useMutation(api.projects.startBuildWorkflow);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
@@ -171,14 +172,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </Button>
             <Button
               onClick={async () => {
-                await fetch("/api/inngest/send", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name: "project/build.requested",
-                    data: { projectId: typedProjectId },
-                  }),
-                });
+                await startBuildWorkflow({ projectId: typedProjectId });
                 setIsBuildModalOpen(false);
               }}
             >

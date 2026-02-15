@@ -1,8 +1,15 @@
-import { mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
 import { roleValidator, phaseValidator } from "./validators";
+import { internal } from "./_generated/api";
+import { workflow } from "./workflowManagers";
 
 const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -110,6 +117,14 @@ export const get = query({
       }
     }
     return project;
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { id: v.id("projects") },
+  returns: v.union(projectValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });
 
@@ -297,6 +312,36 @@ export const clearMessages = mutation({
       conversationHistory: [],
     });
     return null;
+  },
+});
+
+export const startBuildWorkflow = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    if (project.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.taskWorkflows.buildProjectWorkflow,
+      {
+        projectId: args.projectId,
+      },
+    );
+    return String(workflowId);
   },
 });
 
@@ -619,6 +664,22 @@ export const updatePrUrl = mutation({
   },
 });
 
+export const updatePrUrlInternal = internalMutation({
+  args: {
+    id: v.id("projects"),
+    prUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, { prUrl: args.prUrl });
+    return null;
+  },
+});
+
 export const updateProjectSandbox = mutation({
   args: {
     id: v.id("projects"),
@@ -627,6 +688,25 @@ export const updateProjectSandbox = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getCurrentUserId(ctx);
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      sandboxId: args.sandboxId,
+      lastSandboxActivity: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const updateProjectSandboxInternal = internalMutation({
+  args: {
+    id: v.id("projects"),
+    sandboxId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -656,11 +736,40 @@ export const clearProjectSandbox = mutation({
   },
 });
 
+export const clearProjectSandboxInternal = internalMutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, {
+      sandboxId: undefined,
+      lastSandboxActivity: undefined,
+    });
+    return null;
+  },
+});
+
 export const updateLastSandboxActivity = mutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
     await getCurrentUserId(ctx);
+    const project = await ctx.db.get(args.id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    await ctx.db.patch(args.id, { lastSandboxActivity: Date.now() });
+    return null;
+  },
+});
+
+export const updateLastSandboxActivityInternal = internalMutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");

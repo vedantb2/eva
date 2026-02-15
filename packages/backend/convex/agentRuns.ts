@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
@@ -284,6 +284,86 @@ export const complete = mutation({
         projectId: task.projectId,
       });
     }
+    return null;
+  },
+});
+
+export const setStatusInternal = internalMutation({
+  args: {
+    id: v.id("agentRuns"),
+    status: runStatusValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.id);
+    if (!run) throw new Error("Run not found");
+    const task = await ctx.db.get(run.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (run.status === "success" || run.status === "error") {
+      return null;
+    }
+
+    await ctx.db.patch(args.id, { status: args.status });
+    if (args.status === "running") {
+      await ctx.db.patch(task._id, {
+        status: "in_progress",
+        updatedAt: Date.now(),
+      });
+    }
+    return null;
+  },
+});
+
+export const completeInternal = internalMutation({
+  args: {
+    id: v.id("agentRuns"),
+    success: v.boolean(),
+    resultSummary: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.id);
+    if (!run) throw new Error("Run not found");
+    const task = await ctx.db.get(run.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (run.status === "success" || run.status === "error") {
+      return null;
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: args.success ? "success" : "error",
+      finishedAt: now,
+      resultSummary: args.resultSummary,
+      prUrl: args.prUrl,
+      error: args.error,
+    });
+    await ctx.db.patch(task._id, {
+      status: args.success ? "business_review" : "todo",
+      updatedAt: now,
+    });
+
+    const statusText = args.success ? "succeeded" : "failed";
+    const notifyUsers = new Set(
+      [task.createdBy, task.assignedTo].filter(
+        (id): id is Id<"users"> => id !== undefined,
+      ),
+    );
+
+    for (const userId of notifyUsers) {
+      await createNotification(ctx, {
+        userId,
+        type: "run_completed",
+        title: `Run ${statusText} for "${task.title}"`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+      });
+    }
+
     return null;
   },
 });

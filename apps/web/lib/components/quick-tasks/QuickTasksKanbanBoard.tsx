@@ -74,23 +74,7 @@ export function QuickTasksKanbanBoard({
     setIsFixingAll(true);
     try {
       for (const task of ownedTodoTasks) {
-        const result = await startExecution({ id: task._id });
-        await fetch("/api/inngest/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "task/execute.requested",
-            data: {
-              runId: result.runId,
-              taskId: result.taskId,
-              repoId: result.repoId,
-              installationId: result.installationId,
-              projectId: result.projectId,
-              branchName: result.branchName,
-              isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-            },
-          }),
-        });
+        await startExecution({ id: task._id });
       }
     } catch (err) {
       console.error("Failed to fix all:", err);

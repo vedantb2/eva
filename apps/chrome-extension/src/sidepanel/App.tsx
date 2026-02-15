@@ -23,7 +23,7 @@ import {
 } from "@conductor/ui";
 import { IconBolt, IconMenu2, IconPlus } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { CONDUCTOR_URL, type StoredPin } from "@/shared/messaging";
+import { type StoredPin } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 
 function useTheme() {
@@ -204,24 +204,8 @@ function AuthenticatedApp() {
               });
             }
           });
-          const result = await startExecution({
+          await startExecution({
             id: taskId,
-          });
-          await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: "task/execute.requested",
-              data: {
-                runId: result.runId,
-                taskId: result.taskId,
-                repoId: result.repoId,
-                installationId: result.installationId,
-                projectId: result.projectId,
-                branchName: result.branchName,
-                isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-              },
-            }),
           });
           created++;
         } catch (e) {
@@ -401,24 +385,8 @@ function AuthenticatedApp() {
         const { taskId } = message.payload as { taskId: string };
         (async () => {
           try {
-            const result = await startExecution({
+            await startExecution({
               id: taskId as Id<"agentTasks">,
-            });
-            await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: "task/execute.requested",
-                data: {
-                  runId: result.runId,
-                  taskId: result.taskId,
-                  repoId: result.repoId,
-                  installationId: result.installationId,
-                  projectId: result.projectId,
-                  branchName: result.branchName,
-                  isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-                },
-              }),
             });
           } catch (e) {
             console.error("Failed to run annotation task:", e);

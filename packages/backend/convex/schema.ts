@@ -16,6 +16,7 @@ import {
   roleUserValidator,
   queryConfirmationStatusValidator,
   claudeModelValidator,
+  workflowCommandStateValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -353,6 +354,37 @@ const schema = defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"]),
+
+  workflowCommands: defineTable({
+    runId: v.id("agentRuns"),
+    taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
+    repoId: v.id("githubRepos"),
+    workflowId: v.string(),
+    workflowEventKey: v.string(),
+    sandboxId: v.string(),
+    sessionId: v.string(),
+    commandId: v.optional(v.string()),
+    state: workflowCommandStateValidator,
+    lastOutputLength: v.number(),
+    activityLog: v.string(),
+    resultText: v.optional(v.string()),
+    isError: v.optional(v.boolean()),
+    exitCode: v.optional(v.number()),
+    error: v.optional(v.string()),
+    callbackTokenId: v.string(),
+    callbackExpiresAt: v.number(),
+    completionSource: v.optional(
+      v.union(v.literal("callback"), v.literal("poll")),
+    ),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  })
+    .index("by_run", ["runId"])
+    .index("by_command", ["sandboxId", "sessionId", "commandId"])
+    .index("by_state", ["state"])
+    .index("by_callback_token_id", ["callbackTokenId"]),
 });
 
 export default schema;

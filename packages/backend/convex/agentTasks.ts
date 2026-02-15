@@ -1,4 +1,10 @@
-import { mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -101,6 +107,31 @@ export const listByProject = query({
   },
 });
 
+export const listByProjectInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+  },
+});
+
+export const listTodoByProjectInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    return tasks
+      .filter((t) => t.status === "todo")
+      .sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0));
+  },
+});
+
 export const get = query({
   args: { id: v.id("agentTasks") },
   returns: v.union(agentTaskValidator, v.null()),
@@ -118,6 +149,14 @@ export const get = query({
       return null;
     }
     return task;
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { id: v.id("agentTasks") },
+  returns: v.union(agentTaskValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });
 
@@ -602,18 +641,114 @@ export const createQuickTask = mutation({
   },
 });
 
+const startExecutionResultValidator = v.object({
+  runId: v.id("agentRuns"),
+  taskId: v.id("agentTasks"),
+  repoId: v.id("githubRepos"),
+  installationId: v.number(),
+  projectId: v.optional(v.id("projects")),
+  branchName: v.optional(v.string()),
+  isFirstTaskOnBranch: v.boolean(),
+  model: v.optional(claudeModelValidator),
+});
+
+async function startExecutionImpl(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+  notifyWorkflowId?: string,
+) {
+  const task = await ctx.db.get(taskId);
+  if (!task) {
+    throw new Error("Task not found");
+  }
+  if (!task.repoId) {
+    throw new Error("Task has no associated repository");
+  }
+
+  const repo = await ctx.db.get(task.repoId);
+  if (!repo) {
+    throw new Error("Repository not found");
+  }
+
+  const existingRuns = await ctx.db
+    .query("agentRuns")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  const activeRun = existingRuns.find(
+    (r) => r.status === "queued" || r.status === "running",
+  );
+  if (activeRun) {
+    throw new Error("Task already has an active execution");
+  }
+
+  let project = null;
+  let isFirstTaskOnBranch = true;
+
+  if (task.projectId) {
+    project = await ctx.db.get(task.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const projectTasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
+      .collect();
+
+    for (const projectTask of projectTasks) {
+      if (projectTask._id === taskId) continue;
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", projectTask._id))
+        .collect();
+      if (runs.some((r) => r.status === "queued" || r.status === "running")) {
+        throw new Error("Another task in this project is already running");
+      }
+    }
+
+    const allRuns: { status: string }[] = [];
+    for (const projectTask of projectTasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", projectTask._id))
+        .collect();
+      allRuns.push(...runs);
+    }
+    isFirstTaskOnBranch = !allRuns.some((run) => run.status === "success");
+  }
+
+  const runId = await ctx.db.insert("agentRuns", {
+    taskId,
+    status: "queued",
+    logs: [],
+    startedAt: Date.now(),
+  });
+
+  await ctx.db.patch(taskId, {
+    status: "in_progress",
+    updatedAt: Date.now(),
+  });
+
+  await ctx.scheduler.runAfter(0, internal.agentExecution.trigger, {
+    runId,
+    notifyWorkflowId,
+  });
+
+  return {
+    runId,
+    taskId,
+    repoId: task.repoId,
+    installationId: repo.installationId,
+    projectId: task.projectId,
+    branchName: project?.branchName,
+    isFirstTaskOnBranch,
+    model: task.model,
+  };
+}
+
 export const startExecution = mutation({
   args: { id: v.id("agentTasks") },
-  returns: v.object({
-    runId: v.id("agentRuns"),
-    taskId: v.id("agentTasks"),
-    repoId: v.id("githubRepos"),
-    installationId: v.number(),
-    projectId: v.optional(v.id("projects")),
-    branchName: v.optional(v.string()),
-    isFirstTaskOnBranch: v.boolean(),
-    model: v.optional(claudeModelValidator),
-  }),
+  returns: startExecutionResultValidator,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -627,80 +762,18 @@ export const startExecution = mutation({
     if (!board || board.ownerId !== identity.subject) {
       throw new Error("Task not found");
     }
-    if (!task.repoId) {
-      throw new Error("Task has no associated repository");
-    }
-    const repo = await ctx.db.get(task.repoId);
-    if (!repo) {
-      throw new Error("Repository not found");
-    }
-    const existingRuns = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    const activeRun = existingRuns.find(
-      (r) => r.status === "queued" || r.status === "running",
-    );
-    if (activeRun) {
-      throw new Error("Task already has an active execution");
-    }
+    return await startExecutionImpl(ctx, args.id);
+  },
+});
 
-    let project = null;
-    let isFirstTaskOnBranch = true;
-
-    if (task.projectId) {
-      project = await ctx.db.get(task.projectId);
-      if (!project) {
-        throw new Error("Project not found");
-      }
-
-      const projectTasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
-        .collect();
-
-      for (const pt of projectTasks) {
-        if (pt._id === args.id) continue;
-        const runs = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
-          .collect();
-        if (runs.some((r) => r.status === "queued" || r.status === "running")) {
-          throw new Error("Another task in this project is already running");
-        }
-      }
-
-      const allRuns: { status: string }[] = [];
-      for (const pt of projectTasks) {
-        const runs = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
-          .collect();
-        allRuns.push(...runs);
-      }
-      isFirstTaskOnBranch = !allRuns.some((r) => r.status === "success");
-    }
-
-    const runId = await ctx.db.insert("agentRuns", {
-      taskId: args.id,
-      status: "queued",
-      logs: [],
-      startedAt: Date.now(),
-    });
-    await ctx.db.patch(args.id, {
-      status: "in_progress",
-      updatedAt: Date.now(),
-    });
-    return {
-      runId,
-      taskId: args.id,
-      repoId: task.repoId,
-      installationId: repo.installationId,
-      projectId: task.projectId,
-      branchName: project?.branchName,
-      isFirstTaskOnBranch,
-      model: task.model,
-    };
+export const startExecutionInternal = internalMutation({
+  args: {
+    id: v.id("agentTasks"),
+    notifyWorkflowId: v.optional(v.string()),
+  },
+  returns: startExecutionResultValidator,
+  handler: async (ctx, args) => {
+    return await startExecutionImpl(ctx, args.id, args.notifyWorkflowId);
   },
 });
 

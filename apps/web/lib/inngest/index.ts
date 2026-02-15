@@ -13,3 +13,5 @@ export { startSandbox, stopSandbox } from "./functions/session-sandbox";
 export { buildProject } from "./functions/build-project";
 export { designExecute } from "./functions/design-execute";
 export { docInterview } from "./functions/doc-interview";
+export { docPrdUpload } from "./functions/doc-prd-upload";
+export { generateTests } from "./functions/generate-tests";

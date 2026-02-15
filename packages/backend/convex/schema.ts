@@ -65,6 +65,11 @@ const schema = defineSchema({
         userId: v.optional(v.id("users")),
       }),
     ),
+    projectLead: v.optional(v.id("users")),
+    members: v.optional(v.array(v.id("users"))),
+    projectStartDate: v.optional(v.number()),
+    projectEndDate: v.optional(v.number()),
+    deadline: v.optional(v.number()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -93,6 +98,7 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     projectId: v.optional(v.id("projects")),
+    tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     status: taskStatusValidator,
     order: v.number(),
@@ -217,6 +223,8 @@ const schema = defineSchema({
       ),
     ),
     sandboxId: v.optional(v.string()),
+    testGenStatus: v.optional(evaluationStatusValidator),
+    testPrUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),

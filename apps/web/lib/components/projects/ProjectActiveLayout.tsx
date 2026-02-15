@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -76,7 +77,7 @@ export function ProjectActiveLayout({
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
       <div
-        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full flex flex-col transition-all`}
+        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full flex flex-col overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
       >
         <div
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
@@ -90,7 +91,7 @@ export function ProjectActiveLayout({
           <Button
             size="icon"
             variant="ghost"
-            className="rounded-none text-primary"
+            className="motion-press rounded-none text-primary hover:scale-[1.03] active:scale-[0.97]"
             onClick={() => setTasksCollapsed(!tasksCollapsed)}
           >
             {tasksCollapsed ? (
@@ -100,18 +101,27 @@ export function ProjectActiveLayout({
             )}
           </Button>
         </div>
-        {!tasksCollapsed && (
-          <>
-            <ProjectProgressBar projectId={projectId} className="mx-3 mb-2" />
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ProjectTaskListPanel
-                tasks={tasks ?? []}
-                selectedTaskId={selectedTaskId}
-                onSelectTask={setSelectedTaskId}
-              />
-            </div>
-          </>
-        )}
+        <AnimatePresence initial={false}>
+          {!tasksCollapsed && (
+            <motion.div
+              key="project-tasks-panel-content"
+              className="flex min-h-0 flex-1 flex-col"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ProjectProgressBar projectId={projectId} className="mx-3 mb-2" />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ProjectTaskListPanel
+                  tasks={tasks ?? []}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={setSelectedTaskId}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {selectedTask ? (
@@ -128,30 +138,45 @@ export function ProjectActiveLayout({
           </div>
         )}
       </div>
-      {chatOpen && (
-        <div className="w-1/4 h-full flex flex-col">
-          <div className="flex items-center justify-between px-2 py-1">
-            <div className="flex flex-row gap-1 items-center text-primary">
-              <IconMessageCircle size={14} />
-              <p className="text-sm font-semibold">Chat</p>
+      <AnimatePresence initial={false}>
+        {chatOpen && (
+          <motion.div
+            key="project-chat-side-panel"
+            className="w-1/4 h-full flex flex-col overflow-hidden border-l border-border/60"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="flex items-center justify-between px-2 py-1">
+              <div className="flex flex-row gap-1 items-center text-primary">
+                <IconMessageCircle size={14} />
+                <p className="text-sm font-semibold">Chat</p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="motion-press h-7 w-7 text-muted-foreground hover:scale-[1.03] active:scale-[0.97]"
+                onClick={() => setChatOpen(false)}
+              >
+                <IconX size={14} />
+              </Button>
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-muted-foreground"
-              onClick={() => setChatOpen(false)}
-            >
-              <IconX size={14} />
-            </Button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ProjectChatArea
-              projectId={projectId}
-              conversationHistory={project.conversationHistory}
-              selectedTaskTitle={selectedTask?.title}
-            />
-          </div>
-        </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ProjectChatArea
+                projectId={projectId}
+                conversationHistory={project.conversationHistory}
+                selectedTaskTitle={selectedTask?.title}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {!chatOpen && (
+        <div
+          className="w-0 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          aria-hidden
+        />
       )}
     </div>
   );

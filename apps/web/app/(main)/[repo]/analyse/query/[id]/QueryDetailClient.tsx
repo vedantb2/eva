@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import {
   IconLayoutSidebarRightCollapse,
@@ -189,174 +190,181 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               <ConversationEmptyState title="No messages yet. Start the conversation!" />
             ) : (
               query.messages.map((message, index) => (
-                <AIMessage key={index} from={message.role}>
-                  {message.role === "assistant" && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full overflow-hidden">
-                        <Image
-                          src="/icon.png"
-                          alt="Assistant"
-                          width={32}
-                          height={32}
-                        />
+                <motion.div
+                  key={`${index}-${message.role}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <AIMessage from={message.role}>
+                    {message.role === "assistant" && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                          <Image
+                            src="/icon.png"
+                            alt="Assistant"
+                            width={32}
+                            height={32}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Eva
+                        </span>
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Eva
-                      </span>
-                    </div>
-                  )}
-                  <MessageContent
-                    className={
-                      message.role === "user"
-                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
-                        : "px-1 py-2"
-                    }
-                  >
-                    {message.role === "assistant" && !message.content ? (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(isStreaming) =>
-                            isStreaming ? "Analysing..." : "Analysis complete"
-                          }
-                        />
-                        <ReasoningContent>
-                          {streaming?.currentActivity || "Starting..."}
-                        </ReasoningContent>
-                      </Reasoning>
-                    ) : message.role === "assistant" &&
-                      message.status === "pending" ? (
-                      <Confirmation state="pending">
-                        <ConfirmationTitle>
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Generated query:
-                          </p>
-                        </ConfirmationTitle>
-                        <ConfirmationRequest>
-                          <CodeBlock
-                            code={message.content}
-                            language="typescript"
-                          >
-                            <CodeBlockCopyButton />
-                            <pre className="overflow-x-auto p-3 text-xs">
-                              <code>{message.content}</code>
-                            </pre>
-                          </CodeBlock>
-                        </ConfirmationRequest>
-                        <ConfirmationActions>
-                          <ConfirmationAction
-                            variant="outline"
-                            onClick={() => handleCancel(index)}
-                          >
-                            <IconX size={14} />
-                            Cancel
-                          </ConfirmationAction>
-                          <ConfirmationAction
-                            onClick={() => {
-                              const userMsg =
-                                query.messages[index - 1]?.content ?? "";
-                              handleConfirm(index, message.content, userMsg);
-                            }}
-                          >
-                            <IconCheck size={14} />
-                            Run query
-                          </ConfirmationAction>
-                        </ConfirmationActions>
-                      </Confirmation>
-                    ) : message.role === "assistant" &&
-                      message.status === "cancelled" ? (
-                      <Confirmation state="rejected">
-                        <ConfirmationRejected>
-                          <p className="text-sm text-muted-foreground italic">
-                            Query cancelled
-                          </p>
-                        </ConfirmationRejected>
-                      </Confirmation>
-                    ) : message.role === "assistant" ? (
-                      message.queryCode ? (
-                        <Sandbox state="completed">
-                          <SandboxContent>
-                            <SandboxTabs defaultValue="output">
-                              <SandboxTabsList>
-                                <SandboxTabsTrigger value="output">
-                                  Output
-                                </SandboxTabsTrigger>
-                                <SandboxTabsTrigger value="code">
-                                  Code
-                                </SandboxTabsTrigger>
-                              </SandboxTabsList>
-                              <SandboxTabContent value="output">
-                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                  {message.content}
-                                </MessageResponse>
-                              </SandboxTabContent>
-                              <SandboxTabContent value="code">
-                                <CodeBlock
-                                  code={message.queryCode}
-                                  language="typescript"
-                                >
-                                  <CodeBlockCopyButton />
-                                  <pre className="overflow-x-auto p-3 text-xs">
-                                    <code>{message.queryCode}</code>
-                                  </pre>
-                                </CodeBlock>
-                                <div className="mt-2">
-                                  {isQuerySaved(message.queryCode) ? (
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                      <IconBookmarkFilled size={14} />
-                                      <span>Saved</span>
-                                    </div>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const userMsg =
-                                          query.messages[index - 1]?.content ??
-                                          query.title;
-                                        handleSaveQuery(
-                                          message.queryCode ?? "",
-                                          userMsg,
-                                        );
-                                      }}
-                                    >
-                                      <IconBookmark size={14} />
-                                      Save query
-                                    </Button>
-                                  )}
-                                </div>
-                              </SandboxTabContent>
-                            </SandboxTabs>
-                          </SandboxContent>
-                        </Sandbox>
-                      ) : (
-                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                          {message.content}
-                        </MessageResponse>
-                      )
-                    ) : (
-                      <p className="text-sm whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
                     )}
-                  </MessageContent>
-                  {message.role === "user" && (
-                    <div className="mt-0.5 ml-auto">
-                      {message.userId ? (
-                        <UserInitials
-                          userId={message.userId}
-                          hideLastSeen
-                          size="md"
-                        />
+                    <MessageContent
+                      className={
+                        message.role === "user"
+                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                          : "px-1 py-2"
+                      }
+                    >
+                      {message.role === "assistant" && !message.content ? (
+                        <Reasoning isStreaming defaultOpen>
+                          <ReasoningTrigger
+                            getThinkingMessage={(isStreaming) =>
+                              isStreaming ? "Analysing..." : "Analysis complete"
+                            }
+                          />
+                          <ReasoningContent>
+                            {streaming?.currentActivity || "Starting..."}
+                          </ReasoningContent>
+                        </Reasoning>
+                      ) : message.role === "assistant" &&
+                        message.status === "pending" ? (
+                        <Confirmation state="pending">
+                          <ConfirmationTitle>
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Generated query:
+                            </p>
+                          </ConfirmationTitle>
+                          <ConfirmationRequest>
+                            <CodeBlock
+                              code={message.content}
+                              language="typescript"
+                            >
+                              <CodeBlockCopyButton />
+                              <pre className="overflow-x-auto p-3 text-xs">
+                                <code>{message.content}</code>
+                              </pre>
+                            </CodeBlock>
+                          </ConfirmationRequest>
+                          <ConfirmationActions>
+                            <ConfirmationAction
+                              variant="outline"
+                              onClick={() => handleCancel(index)}
+                            >
+                              <IconX size={14} />
+                              Cancel
+                            </ConfirmationAction>
+                            <ConfirmationAction
+                              onClick={() => {
+                                const userMsg =
+                                  query.messages[index - 1]?.content ?? "";
+                                handleConfirm(index, message.content, userMsg);
+                              }}
+                            >
+                              <IconCheck size={14} />
+                              Run query
+                            </ConfirmationAction>
+                          </ConfirmationActions>
+                        </Confirmation>
+                      ) : message.role === "assistant" &&
+                        message.status === "cancelled" ? (
+                        <Confirmation state="rejected">
+                          <ConfirmationRejected>
+                            <p className="text-sm text-muted-foreground italic">
+                              Query cancelled
+                            </p>
+                          </ConfirmationRejected>
+                        </Confirmation>
+                      ) : message.role === "assistant" ? (
+                        message.queryCode ? (
+                          <Sandbox state="completed">
+                            <SandboxContent>
+                              <SandboxTabs defaultValue="output">
+                                <SandboxTabsList>
+                                  <SandboxTabsTrigger value="output">
+                                    Output
+                                  </SandboxTabsTrigger>
+                                  <SandboxTabsTrigger value="code">
+                                    Code
+                                  </SandboxTabsTrigger>
+                                </SandboxTabsList>
+                                <SandboxTabContent value="output">
+                                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                    {message.content}
+                                  </MessageResponse>
+                                </SandboxTabContent>
+                                <SandboxTabContent value="code">
+                                  <CodeBlock
+                                    code={message.queryCode}
+                                    language="typescript"
+                                  >
+                                    <CodeBlockCopyButton />
+                                    <pre className="overflow-x-auto p-3 text-xs">
+                                      <code>{message.queryCode}</code>
+                                    </pre>
+                                  </CodeBlock>
+                                  <div className="mt-2">
+                                    {isQuerySaved(message.queryCode) ? (
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <IconBookmarkFilled size={14} />
+                                        <span>Saved</span>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const userMsg =
+                                            query.messages[index - 1]
+                                              ?.content ?? query.title;
+                                          handleSaveQuery(
+                                            message.queryCode ?? "",
+                                            userMsg,
+                                          );
+                                        }}
+                                      >
+                                        <IconBookmark size={14} />
+                                        Save query
+                                      </Button>
+                                    )}
+                                  </div>
+                                </SandboxTabContent>
+                              </SandboxTabs>
+                            </SandboxContent>
+                          </Sandbox>
+                        ) : (
+                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                            {message.content}
+                          </MessageResponse>
+                        )
                       ) : (
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                            U
-                          </AvatarFallback>
-                        </Avatar>
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
                       )}
-                    </div>
-                  )}
-                </AIMessage>
+                    </MessageContent>
+                    {message.role === "user" && (
+                      <div className="mt-0.5 ml-auto">
+                        {message.userId ? (
+                          <UserInitials
+                            userId={message.userId}
+                            hideLastSeen
+                            size="md"
+                          />
+                        ) : (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                              U
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    )}
+                  </AIMessage>
+                </motion.div>
               ))
             )}
           </ConversationContent>
@@ -390,7 +398,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         </div>
       </div>
       <div
-        className={`flex flex-col h-full transition-all duration-200 ${panelCollapsed ? "w-12" : "w-[33%]"}`}
+        className={`flex h-full flex-col overflow-hidden border-l border-border/60 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${panelCollapsed ? "w-12" : "w-[33%]"}`}
       >
         <div
           className={`flex items-center p-2 ${panelCollapsed ? "justify-center" : ""}`}
@@ -398,7 +406,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
           <Button
             size="icon"
             variant="ghost"
-            className="text-primary"
+            className="motion-press text-primary hover:scale-[1.03] active:scale-[0.97]"
             onClick={() => setPanelCollapsed(!panelCollapsed)}
           >
             {panelCollapsed ? (
@@ -407,48 +415,77 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
               <IconLayoutSidebarRightCollapse size={16} />
             )}
           </Button>
-          {!panelCollapsed && (
-            <p className="text-sm font-semibold text-primary">Saved Queries</p>
-          )}
-        </div>
-        {!panelCollapsed && (
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {!savedQueries || savedQueries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-2">
-                <IconBookmark size={20} className="text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  No saved queries yet
-                </p>
-              </div>
-            ) : (
-              savedQueries.map((sq) => (
-                <Artifact key={sq._id}>
-                  <ArtifactHeader className="px-3 py-2">
-                    <ArtifactTitle className="line-clamp-2 text-xs">
-                      {sq.title}
-                    </ArtifactTitle>
-                    <ArtifactActions>
-                      <ArtifactAction
-                        tooltip="Delete"
-                        className="size-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleRemoveSavedQuery(sq._id)}
-                      >
-                        <IconTrash size={12} />
-                      </ArtifactAction>
-                    </ArtifactActions>
-                  </ArtifactHeader>
-                  <ArtifactContent className="p-2">
-                    <CodeBlock
-                      code={sq.query}
-                      language="typescript"
-                      className="max-h-20 overflow-hidden"
-                    />
-                  </ArtifactContent>
-                </Artifact>
-              ))
+          <AnimatePresence initial={false}>
+            {!panelCollapsed && (
+              <motion.p
+                className="text-sm font-semibold text-primary"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.18 }}
+              >
+                Saved Queries
+              </motion.p>
             )}
-          </div>
-        )}
+          </AnimatePresence>
+        </div>
+        <AnimatePresence initial={false}>
+          {!panelCollapsed && (
+            <motion.div
+              key="saved-queries-panel-content"
+              className="flex-1 overflow-y-auto p-3 space-y-2"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {!savedQueries || savedQueries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <IconBookmark size={20} className="text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    No saved queries yet
+                  </p>
+                </div>
+              ) : (
+                <AnimatePresence initial={false}>
+                  {savedQueries.map((sq) => (
+                    <motion.div
+                      key={sq._id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      <Artifact>
+                        <ArtifactHeader className="px-3 py-2">
+                          <ArtifactTitle className="line-clamp-2 text-xs">
+                            {sq.title}
+                          </ArtifactTitle>
+                          <ArtifactActions>
+                            <ArtifactAction
+                              tooltip="Delete"
+                              className="size-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleRemoveSavedQuery(sq._id)}
+                            >
+                              <IconTrash size={12} />
+                            </ArtifactAction>
+                          </ArtifactActions>
+                        </ArtifactHeader>
+                        <ArtifactContent className="p-2">
+                          <CodeBlock
+                            code={sq.query}
+                            language="typescript"
+                            className="max-h-20 overflow-hidden"
+                          />
+                        </ArtifactContent>
+                      </Artifact>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

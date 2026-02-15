@@ -9,8 +9,6 @@ import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import {
-  Card,
-  CardContent,
   Button,
   Dialog,
   DialogContent,
@@ -145,11 +143,16 @@ export function QuickTasksKanbanBoard({
           />
         )}
         renderOverlay={(task) => (
-          <Card className="w-[240px] sm:w-[280px] shadow-none">
-            <CardContent className="p-3">
-              <span className="font-medium text-sm">{task.title}</span>
-            </CardContent>
-          </Card>
+          <QuickTaskCard
+            id={task._id}
+            title={task.title}
+            description={task.description}
+            status={task.status}
+            createdAt={task.createdAt}
+            createdBy={task.createdBy}
+            isSelecting={isSelecting}
+            isSelected={selectedIds.has(task._id)}
+          />
         )}
       />
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>

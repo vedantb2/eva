@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
+  ActivitySteps,
   Button,
   Input,
+  Spinner,
   Textarea,
   Tooltip,
   TooltipTrigger,
@@ -23,10 +25,13 @@ import {
   IconInfoCircle,
   IconMessageChatbot,
   IconHistory,
+  IconTestPipe,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { DocInterviewDialog } from "./DocInterviewDialog";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -36,8 +41,11 @@ export function DocViewer({ doc }: { doc: Doc }) {
 
 function DocEditor({ doc }: { doc: Doc }) {
   const { installationId } = useRepo();
+  const streaming = useQuery(api.streaming.get, { entityId: doc._id });
+  const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -116,6 +124,26 @@ function DocEditor({ doc }: { doc: Doc }) {
     updateDoc({ id: doc._id, userFlows: next });
   };
 
+  const handleGenerateTests = async () => {
+    if (isTriggeringTestGen || doc.testGenStatus === "running") return;
+    setIsTriggeringTestGen(true);
+    try {
+      await fetch("/api/inngest/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "docs/generate-tests.requested",
+          data: { docId: doc._id, repoId: doc.repoId },
+        }),
+      });
+    } finally {
+      setIsTriggeringTestGen(false);
+    }
+  };
+
+  const isGeneratingTests =
+    doc.testGenStatus === "running" || isTriggeringTestGen;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
@@ -133,6 +161,24 @@ function DocEditor({ doc }: { doc: Doc }) {
           <IconMessageChatbot size={16} />
           Interview Me
         </Button>
+        {doc.testGenStatus === "completed" && doc.testPrUrl ? (
+          <Button size="sm" variant="secondary" asChild>
+            <a href={doc.testPrUrl} target="_blank" rel="noopener noreferrer">
+              <IconExternalLink size={16} />
+              View Tests PR
+            </a>
+          </Button>
+        ) : isGeneratingTests ? (
+          <Button size="sm" variant="secondary" disabled>
+            <Spinner size="sm" />
+            Generating...
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={handleGenerateTests}>
+            <IconTestPipe size={16} />
+            Generate Tests
+          </Button>
+        )}
         {(doc.interviewHistory ?? []).length > 0 && (
           <Button
             size="sm"
@@ -160,6 +206,27 @@ function DocEditor({ doc }: { doc: Doc }) {
         installationId={installationId}
         readOnly
       />
+      {streaming && (
+        <div className="px-4 pb-3">
+          <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Spinner size="sm" />
+              <span>
+                {isGeneratingTests
+                  ? "Generating tests..."
+                  : "Processing PRD..."}
+              </span>
+            </div>
+            {streamingSteps ? (
+              <ActivitySteps steps={streamingSteps} isStreaming />
+            ) : (
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                {streaming.currentActivity}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <Tabs
         defaultValue="requirements"
@@ -235,7 +302,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                       size="icon"
                       variant="ghost"
                       onClick={() => removeRequirement(idx)}
-                      className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                      className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                     >
                       <IconX size={14} />
                     </Button>
@@ -296,7 +363,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                         size="icon"
                         variant="ghost"
                         onClick={() => removeFlow(flowIdx)}
-                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                        className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                       >
                         <IconX size={14} />
                       </Button>
@@ -319,7 +386,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                             size="icon"
                             variant="ghost"
                             onClick={() => removeStep(flowIdx, stepIdx)}
-                            className="text-muted-foreground hover:text-red-500 flex-shrink-0 h-8 w-8"
+                            className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
                           >
                             <IconX size={14} />
                           </Button>

@@ -18,106 +18,15 @@ import {
   Avatar,
   AvatarFallback,
 } from "@conductor/ui";
-import {
-  IconBell,
-  IconChecks,
-  IconRepeat,
-  IconFileExport,
-  IconCheck,
-  IconInfoCircle,
-  IconUserPlus,
-  IconMessage,
-  IconPlayerPlay,
-  IconBellOff,
-} from "@tabler/icons-react";
+import { IconBell, IconChecks, IconBellOff } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import type { Id } from "@conductor/backend";
-import type { FunctionReturnType } from "convex/server";
-import type { BadgeProps } from "@conductor/ui";
-
-type Notification = FunctionReturnType<typeof api.notifications.list>[number];
-
-const typeConfig: Record<
-  Notification["type"],
-  {
-    icon: typeof IconBell;
-    label: string;
-    badgeVariant: BadgeProps["variant"];
-    iconBg: string;
-    iconColor: string;
-  }
-> = {
-  routine_complete: {
-    icon: IconRepeat,
-    label: "Routine",
-    badgeVariant: "secondary",
-    iconBg: "bg-secondary",
-    iconColor: "text-secondary-foreground",
-  },
-  export_ready: {
-    icon: IconFileExport,
-    label: "Export",
-    badgeVariant: "default",
-    iconBg: "bg-primary/10",
-    iconColor: "text-primary",
-  },
-  task_complete: {
-    icon: IconCheck,
-    label: "Task Done",
-    badgeVariant: "success",
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-  },
-  task_assigned: {
-    icon: IconUserPlus,
-    label: "Assigned",
-    badgeVariant: "warning",
-    iconBg: "bg-warning/10",
-    iconColor: "text-warning",
-  },
-  comment_added: {
-    icon: IconMessage,
-    label: "Comment",
-    badgeVariant: "default",
-    iconBg: "bg-primary/10",
-    iconColor: "text-primary",
-  },
-  run_completed: {
-    icon: IconPlayerPlay,
-    label: "Run Done",
-    badgeVariant: "success",
-    iconBg: "bg-success/10",
-    iconColor: "text-success",
-  },
-  system: {
-    icon: IconInfoCircle,
-    label: "System",
-    badgeVariant: "outline",
-    iconBg: "bg-muted",
-    iconColor: "text-muted-foreground",
-  },
-};
-
-function NotificationIcon({
-  type,
-  size = "sm",
-}: {
-  type: Notification["type"];
-  size?: "sm" | "md";
-}) {
-  const config = typeConfig[type];
-  const Icon = config.icon;
-  const dim = size === "sm" ? "h-8 w-8" : "h-10 w-10";
-  const iconSize = size === "sm" ? 16 : 20;
-
-  return (
-    <Avatar className={`${dim} rounded-lg flex-shrink-0`}>
-      <AvatarFallback className={`rounded-lg ${config.iconBg}`}>
-        <Icon size={iconSize} className={config.iconColor} />
-      </AvatarFallback>
-    </Avatar>
-  );
-}
+import Link from "next/link";
+import {
+  typeConfig,
+  NotificationIcon,
+  type Notification,
+} from "@/lib/components/notifications/notification-config";
 
 export function NotificationsPopoverClient() {
   const popover = useDisclosure();
@@ -198,7 +107,7 @@ export function NotificationsPopoverClient() {
                       setSelectedId(n._id);
                       popover.onClose();
                     }}
-                    className={`flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${n.read ? "opacity-50" : ""}`}
+                    className={`flex items-start gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
                   >
                     <NotificationIcon type={n.type} />
                     <div className="flex-1 min-w-0 mt-0.5">
@@ -222,6 +131,15 @@ export function NotificationsPopoverClient() {
                 ))}
               </div>
             )}
+          </div>
+          <div className="border-t px-4 py-2">
+            <Link
+              href="/inbox"
+              onClick={() => popover.onClose()}
+              className="text-sm text-primary hover:underline"
+            >
+              View all
+            </Link>
           </div>
         </PopoverContent>
       </Popover>

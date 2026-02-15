@@ -23,17 +23,17 @@ export function PageHeader({
     return null;
 
   return (
-    <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
+    <div className="flex items-center gap-2 border-b border-border/70 bg-card/60 px-3 py-2.5 backdrop-blur-sm sm:gap-3 sm:px-4 sm:py-3">
       {showBack && (
         <button
           onClick={onBack ?? (() => router.back())}
-          className="p-1.5 rounded-lg hover:bg-muted flex-shrink-0"
+          className="flex-shrink-0 rounded-lg border border-border/70 bg-background/80 p-1.5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
         </button>
       )}
       {title && (
-        <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">
+        <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg">
           {title}
         </h1>
       )}

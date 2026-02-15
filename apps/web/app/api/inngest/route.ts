@@ -14,6 +14,8 @@ import {
   buildProject,
   designExecute,
   docInterview,
+  docPrdUpload,
+  generateTests,
 } from "@/lib/inngest";
 
 export const { GET, POST, PUT } = serve({
@@ -32,5 +34,7 @@ export const { GET, POST, PUT } = serve({
     buildProject,
     designExecute,
     docInterview,
+    docPrdUpload,
+    generateTests,
   ],
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import useSWR from "swr";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -31,6 +32,15 @@ function getStorageKey(owner: string, repoName: string) {
   return `conductor:baseBranch:${owner}/${repoName}`;
 }
 
+async function fetchBranches(url: string): Promise<Branch[]> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error("Failed to fetch branches");
+  }
+  const data = (await res.json()) as { branches?: Branch[] };
+  return data.branches ?? [];
+}
+
 export function useBaseBranch(owner: string, repoName: string): string {
   const storageKey = getStorageKey(owner, repoName);
 
@@ -59,67 +69,74 @@ export function BranchSelector({
   repoName,
   installationId,
 }: BranchSelectorProps) {
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
 
   const storageKey = getStorageKey(owner, repoName);
+  const params = new URLSearchParams({
+    owner,
+    repo: repoName,
+    installationId: String(installationId),
+  });
+  const branchesUrl = `/api/github/branches?${params}`;
+  const {
+    data: branches = [],
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSWR<Branch[]>(branchesUrl, fetchBranches, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      setSelectedBranch(stored);
-    }
+    setSelectedBranch(stored);
   }, [storageKey]);
 
-  const fetchBranches = useCallback(
-    async (isSync = false) => {
-      if (isSync) {
-        setSyncing(true);
-      } else {
-        setLoading(true);
-      }
-      try {
-        const params = new URLSearchParams({
-          owner,
-          repo: repoName,
-          installationId: String(installationId),
-        });
-        const res = await fetch(`/api/github/branches?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setBranches(data.branches);
-          const stored = localStorage.getItem(storageKey);
-          if (!stored && data.branches.length > 0) {
-            const defaultBranch =
-              data.branches.find((b: Branch) => b.name === "main") ||
-              data.branches.find((b: Branch) => b.name === "master") ||
-              data.branches[0];
-            setSelectedBranch(defaultBranch.name);
-            localStorage.setItem(storageKey, defaultBranch.name);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch branches:", error);
-      } finally {
-        if (isSync) {
-          setSyncing(false);
-        } else {
-          setLoading(false);
-        }
-      }
-    },
-    [owner, repoName, installationId, storageKey],
-  );
-
   useEffect(() => {
-    fetchBranches(false);
-  }, [fetchBranches]);
+    if (branches.length === 0) {
+      return;
+    }
+    const stored = localStorage.getItem(storageKey);
+    if (stored && branches.some((branch) => branch.name === stored)) {
+      if (selectedBranch !== stored) {
+        setSelectedBranch(stored);
+      }
+      return;
+    }
 
-  const handleSync = useCallback(() => {
-    fetchBranches(true);
-  }, [fetchBranches]);
+    const defaultBranch =
+      branches.find((branch) => branch.name === "main") ||
+      branches.find((branch) => branch.name === "master") ||
+      branches[0];
+
+    if (!defaultBranch) {
+      return;
+    }
+
+    if (selectedBranch !== defaultBranch.name) {
+      setSelectedBranch(defaultBranch.name);
+    }
+    localStorage.setItem(storageKey, defaultBranch.name);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: storageKey,
+        newValue: defaultBranch.name,
+      }),
+    );
+  }, [branches, selectedBranch, storageKey]);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await mutate();
+    } catch (error) {
+      console.error("Failed to sync branches:", error);
+    } finally {
+      setSyncing(false);
+    }
+  }, [mutate]);
 
   const handleBranchChange = useCallback(
     (branch: string) => {
@@ -132,13 +149,21 @@ export function BranchSelector({
     [storageKey],
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center gap-2 w-full p-2 py-1.5 rounded-xl bg-muted/40">
-        <IconLoader2 size={16} className="text-muted-foreground animate-spin" />
-        <span className="text-sm text-muted-foreground">
-          Loading branches...
-        </span>
+      <div className="flex items-center gap-1.5">
+        <div className="flex h-8 flex-1 items-center gap-2 rounded-md border border-sidebar-border/70 bg-sidebar/70 px-2">
+          <IconLoader2
+            size={16}
+            className="animate-spin text-muted-foreground"
+          />
+          <span className="text-sm text-muted-foreground">
+            Loading branches
+          </span>
+        </div>
+        <Button size="icon" variant="ghost" disabled className="h-8 w-8">
+          <IconRefresh size={16} className="text-muted-foreground/60" />
+        </Button>
       </div>
     );
   }
@@ -153,12 +178,12 @@ export function BranchSelector({
         <DropdownMenuTrigger asChild>
           <Button
             size="sm"
-            variant="secondary"
-            className="flex items-center gap-2 flex-1 px-2 py-2 transition-colors"
+            variant="outline"
+            className="flex flex-1 items-center gap-2 border-sidebar-border/70 bg-sidebar/70 px-2 py-2 text-sidebar-foreground hover:bg-sidebar-accent"
           >
             <IconGitBranch size={16} className="text-muted-foreground" />
-            <span className="flex-1 text-left text-sm text-muted-foreground truncate">
-              {selectedBranch}
+            <span className="flex-1 truncate text-left text-sm text-sidebar-foreground">
+              {selectedBranch ?? branches[0]?.name}
             </span>
             <IconSelector size={16} className="text-muted-foreground" />
           </Button>
@@ -172,12 +197,9 @@ export function BranchSelector({
               <DropdownMenuRadioItem
                 key={branch.name}
                 value={branch.name}
-                className="px-3 py-2 text-sm"
+                className="text-sm"
               >
-                <IconGitBranch
-                  size={16}
-                  className="mr-2 text-muted-foreground"
-                />
+                <IconGitBranch size={16} className="text-muted-foreground" />
                 {branch.name}
               </DropdownMenuRadioItem>
             ))}
@@ -188,7 +210,7 @@ export function BranchSelector({
         size="icon"
         variant="ghost"
         onClick={handleSync}
-        disabled={syncing}
+        disabled={syncing || isValidating}
         title="Sync branches from GitHub"
         className="h-8 w-8"
       >

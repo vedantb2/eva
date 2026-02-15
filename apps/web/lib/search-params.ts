@@ -61,3 +61,13 @@ const testingTabs = ["code", "ui"] as const;
 export const testingTabParser = parseAsStringLiteral(testingTabs)
   .withDefault("code")
   .withOptions(tabOptions);
+
+const inboxFilters = ["all", "unread"] as const;
+export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+const projectViews = ["kanban", "timeline"] as const;
+export const projectViewParser = parseAsStringLiteral(projectViews)
+  .withDefault("kanban")
+  .withOptions(tabOptions);

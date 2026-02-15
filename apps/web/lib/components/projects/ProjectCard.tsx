@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import Link from "next/link";
 import {
   IconGitBranch,
   IconDots,
@@ -29,6 +28,7 @@ import {
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 import { ProjectProgressBar } from "./ProjectProgressBar";
+import { ProjectCardModal } from "./ProjectCardModal";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -57,6 +57,7 @@ export function ProjectCard({
   cardBg,
   onDelete,
 }: ProjectCardProps) {
+  const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description ?? "");
@@ -73,15 +74,15 @@ export function ProjectCard({
   const isOwner = currentUserId === userId;
   return (
     <div
-      className={`p-3 rounded-md shadow transition-all group relative ${cardBg}`}
+      className={`group relative rounded-xl border border-border p-2 transition-all duration-200 ${cardBg} hover:-translate-y-0.5 hover:shadow-sm`}
     >
-      <div className="absolute top-2 right-2">
+      <div className="absolute top-1.5 right-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon-sm"
               variant="ghost"
-              className="flex shrink-0 text-muted-foreground hover:text-foreground"
+              className="motion-press flex shrink-0 text-muted-foreground hover:scale-105 hover:text-foreground active:scale-95"
               onClick={(e) => e.stopPropagation()}
             >
               <IconDots size={14} />
@@ -133,9 +134,13 @@ export function ProjectCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <Link href={projectUrl} className="block">
+      <button
+        type="button"
+        className="block w-full cursor-pointer rounded-lg text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        onClick={() => setModalOpen(true)}
+      >
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+          <h3 className="truncate text-sm font-semibold text-foreground transition-all duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>
@@ -149,7 +154,7 @@ export function ProjectCard({
           </p>
         ) : null}
         <ProjectProgressBar projectId={projectId} className="mt-2" />
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-2.5 flex items-center justify-between">
           <div className="flex -space-x-1">
             {participantIds.length > 0 ? (
               participantIds.map((id) => (
@@ -163,7 +168,7 @@ export function ProjectCard({
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
-      </Link>
+      </button>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
@@ -213,6 +218,12 @@ export function ProjectCard({
           </form>
         </DialogContent>
       </Dialog>
+      <ProjectCardModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        projectId={projectId}
+        projectUrl={projectUrl}
+      />
     </div>
   );
 }

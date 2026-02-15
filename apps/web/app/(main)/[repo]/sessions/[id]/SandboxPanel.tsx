@@ -39,11 +39,14 @@ export function SandboxPanel({
   fileDiffs,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
+  const [showConsole, setShowConsole] = useState(true);
+  const [consoleTab, setConsoleTab] = useState<"console" | "terminal">(
+    "terminal",
+  );
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
-  const [showConsole, setShowConsole] = useState(true);
 
   const fetchPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
@@ -108,7 +111,7 @@ export function SandboxPanel({
         size="icon"
         variant={showConsole ? "secondary" : "ghost"}
         className="h-7 w-7"
-        onClick={() => setShowConsole((v) => !v)}
+        onClick={() => setShowConsole((current) => !current)}
       >
         {showConsole ? (
           <IconLayoutBottombar className="w-4 h-4" />
@@ -134,6 +137,8 @@ export function SandboxPanel({
             terminal={terminal}
             tabSwitcher={tabSwitcher}
             showConsole={showConsole}
+            consoleTab={consoleTab}
+            onConsoleTabChange={setConsoleTab}
           />
         </div>
         <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

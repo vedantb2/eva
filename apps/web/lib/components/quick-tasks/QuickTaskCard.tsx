@@ -61,11 +61,20 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full shadow cursor-pointer hover:shadow-md hover:brightness-[0.97] dark:hover:brightness-110 transition-all ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : ""} ${isSelected ? "ring-2 ring-primary" : ""}`}
+      className={`w-full border shadow-none transition-all duration-200 ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${!isSelecting && onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:brightness-[0.99] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35" : ""}`}
       onClick={isSelecting ? undefined : onClick}
+      role={!isSelecting && onClick ? "button" : undefined}
+      tabIndex={!isSelecting && onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (isSelecting || !onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
-      <CardContent className="p-2 gap-1">
-        <div className="flex items-center justify-between gap-2">
+      <CardContent className="p-2 md:p-2 gap-1">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox
               checked={isSelected}
@@ -73,14 +82,23 @@ export function QuickTaskCard({
               className="flex-shrink-0"
             />
           )}
-          <h4 className="font-medium text-sm line-clamp-1 flex-1">{title}</h4>
+          <h4 className="min-w-0 flex-1 truncate font-medium text-sm">
+            {title}
+          </h4>
           <div className="flex items-center gap-2 flex-shrink-0">
             <SubtaskProgress taskId={id} />
             {(branchName || latestPrUrl) && (
-              <div onClick={(e) => e.stopPropagation()}>
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="icon-sm" variant="ghost">
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="motion-press hover:scale-105 active:scale-95"
+                    >
                       <IconDotsVertical
                         size={14}
                         className="text-muted-foreground"
@@ -115,7 +133,7 @@ export function QuickTaskCard({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between mt-1">
+        <div className="mt-0.5 flex items-center justify-between">
           {createdBy && <UserInitials userId={createdBy} />}
           <span className="text-xs text-muted-foreground ml-auto">
             {dayjs(createdAt).fromNow()}

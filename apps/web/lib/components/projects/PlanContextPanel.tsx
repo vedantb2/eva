@@ -71,12 +71,12 @@ export function PlanContextPanel({
           <DialogHeader>
             <DialogTitle>Plan</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <h3 className="font-semibold text-lg">{parsedSpec.title}</h3>
               <p className="text-muted-foreground">{parsedSpec.description}</p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <h4 className="font-medium">Tasks ({parsedSpec.tasks.length})</h4>
               {parsedSpec.tasks.map((task, i) => (
                 <div
@@ -107,7 +107,7 @@ export function PlanContextPanel({
               </div>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2">
             {conversationHistory.map((msg, i) => {
               let displayContent = msg.content;
               try {
@@ -142,7 +142,7 @@ export function PlanContextPanel({
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                    className={`max-w-[80%] px-4 py-3 rounded-xl ${
                       isUser
                         ? "bg-primary text-primary-foreground rounded-br-none"
                         : "bg-muted rounded-tl-none"

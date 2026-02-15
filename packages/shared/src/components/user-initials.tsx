@@ -47,7 +47,7 @@ export function UserInitials({
   return (
     <Tooltip>
       <TooltipTrigger>
-        <div className="relative">
+        <div className="relative bg-accent rounded-full">
           <Facehash size={iconSizePx} name={initials} enableBlink interactive />
           {!hideLastSeen && user.lastSeenAt && (
             <span

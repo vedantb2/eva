@@ -24,7 +24,7 @@ const rankColors = [
 export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
-      <Card className="shadow-none border border-border">
+      <Card className="border border-border shadow-none animate-in fade-in duration-300">
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-foreground mb-4">
             Top Contributors
@@ -38,7 +38,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
   }
 
   return (
-    <Card className="shadow-none border border-border">
+    <Card className="border border-border shadow-none animate-in fade-in duration-300">
       <CardContent className="p-4">
         <h3 className="text-sm font-semibold text-foreground mb-4">
           Top Contributors
@@ -47,7 +47,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
           {entries.map((entry, index) => (
             <div
               key={entry.clerkId}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
+              className="motion-base flex items-center gap-3 rounded-lg p-2 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
                 {index === 0 ? (

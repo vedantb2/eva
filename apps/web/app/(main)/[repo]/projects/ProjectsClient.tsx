@@ -31,6 +31,7 @@ import {
   IconSortDescending,
   IconSearch,
   IconX,
+  IconTimeline,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
@@ -38,14 +39,17 @@ import {
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryStates } from "nuqs";
 import {
   searchParser,
   phasesParser,
   sortFieldParser,
   sortDirParser,
+  projectViewParser,
 } from "@/lib/search-params";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 
@@ -54,18 +58,18 @@ const SORT_FIELDS = [
   { key: "title" as const, label: "Title" },
 ];
 type SortField = (typeof SORT_FIELDS)[number]["key"];
-type SortDirection = "asc" | "desc";
 
 export function ProjectsClient() {
   const { repo, fullName } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, phases, sort, dir }, setParams] = useQueryStates({
+  const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
     q: searchParser,
     phases: phasesParser,
     sort: sortFieldParser,
     dir: sortDirParser,
+    view: projectViewParser,
   });
   const searchQuery = q;
   const visiblePhases = useMemo(
@@ -80,39 +84,42 @@ export function ProjectsClient() {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const projectsByPhase = useMemo(() => {
-    if (!projects) return {} as Record<ProjectPhase, typeof projects>;
+  const filteredSorted = useMemo(() => {
+    if (!projects) return [];
     const query = searchQuery.toLowerCase().trim();
-    const grouped = PROJECT_PHASES.reduce(
+    return projects
+      .filter((p) => visiblePhases.has(p.phase as ProjectPhase))
+      .filter((p) => {
+        if (!query) return true;
+        return (
+          p.title.toLowerCase().includes(query) ||
+          p.rawInput?.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case "created":
+            comparison = a._creationTime - b._creationTime;
+            break;
+          case "title":
+            comparison = a.title.localeCompare(b.title);
+            break;
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+  }, [projects, sortField, sortDirection, searchQuery, visiblePhases]);
+
+  const projectsByPhase = useMemo(() => {
+    return PROJECT_PHASES.reduce(
       (acc, phase) => {
-        acc[phase] = projects
-          .filter((p) => p.phase === phase)
-          .filter((p) => {
-            if (!query) return true;
-            return (
-              p.title.toLowerCase().includes(query) ||
-              p.rawInput?.toLowerCase().includes(query) ||
-              p.description?.toLowerCase().includes(query)
-            );
-          })
-          .sort((a, b) => {
-            let comparison = 0;
-            switch (sortField) {
-              case "created":
-                comparison = a._creationTime - b._creationTime;
-                break;
-              case "title":
-                comparison = a.title.localeCompare(b.title);
-                break;
-            }
-            return sortDirection === "asc" ? comparison : -comparison;
-          });
+        acc[phase] = filteredSorted.filter((p) => p.phase === phase);
         return acc;
       },
-      {} as Record<ProjectPhase, typeof projects>,
+      {} as Record<ProjectPhase, typeof filteredSorted>,
     );
-    return grouped;
-  }, [projects, sortField, sortDirection, searchQuery]);
+  }, [filteredSorted]);
 
   const handleDelete = async () => {
     if (!projectToDelete) return;
@@ -141,160 +148,218 @@ export function ProjectsClient() {
       <PageWrapper
         title="Projects"
         fillHeight
+        childPadding={false}
         headerRight={
-          <Button size="sm" onClick={() => setIsCreating(true)}>
+          <Button
+            size="sm"
+            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            onClick={() => setIsCreating(true)}
+          >
             <IconPlus size={16} />
             New Project
           </Button>
         }
       >
-        {projects === undefined ? (
-          <div className="flex items-center justify-center flex-1">
-            <Spinner />
-          </div>
-        ) : projects.length === 0 ? (
-          <EmptyState
-            icon={
-              <IconLayoutKanban size={24} className="text-muted-foreground" />
-            }
-            title="No projects yet"
-            description="Create a project to describe a feature and let AI help you break it down into tasks"
-            actionLabel="Create Project"
-            onAction={() => setIsCreating(true)}
-          />
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0 gap-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      <IconFilter size={16} />
-                      {visiblePhases.size === PROJECT_PHASES.length
-                        ? "All Columns"
-                        : `${visiblePhases.size} Columns`}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {PROJECT_PHASES.map((p) => {
-                      const cfg = phaseConfig[p];
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={p}
-                          checked={visiblePhases.has(p)}
-                          onCheckedChange={() => handlePhaseToggle(p)}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                          <span className={cfg.text}>{cfg.label}</span>
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      {sortDirection === "asc" ? (
-                        <IconSortAscending size={16} />
-                      ) : (
-                        <IconSortDescending size={16} />
-                      )}
-                      {sortField === "created" ? "Date" : "Title"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuRadioGroup
-                      value={sortField}
-                      onValueChange={(v) => setParams({ sort: v as SortField })}
+        <div className="flex flex-1 min-h-0 flex-col p-4">
+          {projects === undefined ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Spinner />
+            </div>
+          ) : projects.length === 0 ? (
+            <EmptyState
+              icon={
+                <IconLayoutKanban size={24} className="text-muted-foreground" />
+              }
+              title="No projects yet"
+              description="Create a project to describe a feature and let AI help you break it down into tasks"
+              actionLabel="Create Project"
+              onAction={() => setIsCreating(true)}
+            />
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0 gap-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                    <Button
+                      variant={view === "kanban" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "kanban" })}
                     >
-                      {SORT_FIELDS.map((item) => (
-                        <DropdownMenuRadioItem key={item.key} value={item.key}>
-                          {item.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                  }
-                >
-                  {sortDirection === "asc" ? (
-                    <IconSortAscending size={16} />
-                  ) : (
-                    <IconSortDescending size={16} />
-                  )}
-                </Button>
-              </div>
-              <div className="relative w-1/2 mx-auto">
-                <IconSearch
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  placeholder="Search projects..."
-                  className="pl-9 pr-8 h-8 text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setParams({ q: e.target.value || null })}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setParams({ q: null })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <IconX size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="flex items-stretch gap-2 overflow-x-auto scrollbar flex-1 min-h-0">
-              {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
-                (phase) => (
-                  <KanbanColumn
-                    key={phase}
-                    id={phase}
-                    config={phaseConfig[phase]}
-                    count={projectsByPhase[phase]?.length ?? 0}
-                    droppable={false}
-                  >
-                    {projectsByPhase[phase]?.map((project) => (
-                      <ProjectCard
-                        key={project._id}
-                        projectId={project._id}
-                        userId={project.userId}
-                        title={project.title}
-                        description={project.description}
-                        rawInput={project.rawInput}
-                        branchName={project.branchName}
-                        repoFullName={fullName}
-                        createdAt={project._creationTime}
-                        projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
-                        cardBg={phaseConfig[phase].cardBg}
-                        onDelete={() =>
-                          setProjectToDelete({
-                            id: project._id,
-                            title: project.title,
-                          })
+                      <IconLayoutKanban size={16} />
+                    </Button>
+                    <Button
+                      variant={view === "timeline" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "timeline" })}
+                    >
+                      <IconTimeline size={16} />
+                    </Button>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" size="sm">
+                        <IconFilter size={16} />
+                        {visiblePhases.size === PROJECT_PHASES.length
+                          ? "All Phases"
+                          : `${visiblePhases.size} Phases`}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {PROJECT_PHASES.map((p) => {
+                        const cfg = phaseConfig[p];
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={p}
+                            checked={visiblePhases.has(p)}
+                            onCheckedChange={() => handlePhaseToggle(p)}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <cfg.icon
+                              size={16}
+                              className={cfg.text + " mr-2"}
+                            />
+                            <span className={cfg.text}>{cfg.label}</span>
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" size="sm">
+                        {sortDirection === "asc" ? (
+                          <IconSortAscending size={16} />
+                        ) : (
+                          <IconSortDescending size={16} />
+                        )}
+                        {sortField === "created" ? "Date" : "Title"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuRadioGroup
+                        value={sortField}
+                        onValueChange={(v) =>
+                          setParams({ sort: v as SortField })
                         }
-                      />
-                    ))}
-                    {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-4">
-                        No projects
-                      </p>
+                      >
+                        {SORT_FIELDS.map((item) => (
+                          <DropdownMenuRadioItem
+                            key={item.key}
+                            value={item.key}
+                          >
+                            {item.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() =>
+                      setParams({ dir: dir === "asc" ? "desc" : "asc" })
+                    }
+                  >
+                    {sortDirection === "asc" ? (
+                      <IconSortAscending size={16} />
+                    ) : (
+                      <IconSortDescending size={16} />
                     )}
-                  </KanbanColumn>
-                ),
-              )}
+                  </Button>
+                </div>
+                <div className="relative w-1/2 mx-auto">
+                  <IconSearch
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    placeholder="Search projects..."
+                    className="pl-9 pr-8 h-8 text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setParams({ q: e.target.value || null })}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setParams({ q: null })}
+                      className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                    >
+                      <IconX size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <AnimatePresence initial={false} mode="wait">
+                {view === "kanban" ? (
+                  <motion.div
+                    key="projects-kanban-view"
+                    className="flex flex-1 min-h-0 items-stretch gap-1.5 overflow-x-auto overflow-y-hidden scrollbar"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {PROJECT_PHASES.filter((phase) =>
+                      visiblePhases.has(phase),
+                    ).map((phase) => (
+                      <KanbanColumn
+                        key={phase}
+                        id={phase}
+                        config={phaseConfig[phase]}
+                        count={projectsByPhase[phase]?.length ?? 0}
+                        droppable={false}
+                      >
+                        {projectsByPhase[phase]?.map((project) => (
+                          <ProjectCard
+                            key={project._id}
+                            projectId={project._id}
+                            userId={project.userId}
+                            title={project.title}
+                            description={project.description}
+                            rawInput={project.rawInput}
+                            branchName={project.branchName}
+                            repoFullName={fullName}
+                            createdAt={project._creationTime}
+                            projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
+                            cardBg={phaseConfig[phase].cardBg}
+                            onDelete={() =>
+                              setProjectToDelete({
+                                id: project._id,
+                                title: project.title,
+                              })
+                            }
+                          />
+                        ))}
+                        {(projectsByPhase[phase]?.length ?? 0) === 0 && (
+                          <div className="flex flex-1 min-h-full items-center justify-center py-4 text-xs text-muted-foreground">
+                            No projects
+                          </div>
+                        )}
+                      </KanbanColumn>
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="projects-timeline-view"
+                    className="flex flex-1 min-h-0"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProjectsTimeline
+                      projects={filteredSorted}
+                      repoFullName={fullName}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </PageWrapper>
       <NewProjectModal
         isOpen={isCreating}

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Input,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -49,11 +50,18 @@ import {
   IconShieldCheck,
   IconCheck,
   IconAlertTriangle,
+  IconCircleDot,
+  IconUserPlus,
+  IconBrain,
+  IconFolder,
+  IconTags,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@conductor/shared/dates";
+
+const NO_PROJECT_VALUE = "__none__";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -85,6 +93,10 @@ export function TaskDetailModal({
   );
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
+  const projects = useQuery(
+    api.projects.list,
+    task?.repoId ? { repoId: task.repoId } : "skip",
+  );
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -103,11 +115,16 @@ export function TaskDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [requestChangesPanel, setRequestChangesPanel] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [comments?.length]);
+
+  useEffect(() => {
+    setTagsInput((task?.tags ?? []).join(", "));
+  }, [task?.tags]);
 
   const handleAddComment = async (e: FormEvent) => {
     e.preventDefault();
@@ -145,6 +162,11 @@ export function TaskDetailModal({
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const status = task?.status;
   const showProofSection = status !== "todo" && status !== "in_progress";
+  const projectOptions = projects ?? [];
+  const hasSelectedProject =
+    task?.projectId !== undefined &&
+    projectOptions.some((project) => project._id === task.projectId);
+  const selectedProjectValue = task?.projectId ?? NO_PROJECT_VALUE;
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -187,6 +209,43 @@ export function TaskDetailModal({
     }
   };
 
+  const handleSaveTags = async () => {
+    if (!task) return;
+    const nextTags = Array.from(
+      new Set(
+        tagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      ),
+    );
+    const currentTags = task.tags ?? [];
+    if (
+      nextTags.length === currentTags.length &&
+      nextTags.every((tag, i) => tag === currentTags[i])
+    ) {
+      return;
+    }
+    await updateTask({ id: taskId, tags: nextTags });
+  };
+
+  const hasAudit = Boolean(audit);
+  const modalWidthClass = hasAudit
+    ? requestChangesPanel
+      ? "w-[min(96vw,96rem)]"
+      : "w-[min(95vw,84rem)]"
+    : requestChangesPanel
+      ? "w-[min(95vw,72rem)]"
+      : "w-[min(95vw,64rem)]";
+
+  const layoutGridClass = hasAudit
+    ? requestChangesPanel
+      ? "grid-cols-[1fr_1fr_200px_1fr]"
+      : "grid-cols-[1fr_1fr_200px]"
+    : requestChangesPanel
+      ? "grid-cols-[1fr_200px_1fr]"
+      : "grid-cols-[1fr_200px]";
+
   return (
     <>
       <Dialog
@@ -196,7 +255,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`${audit ? (requestChangesPanel ? "max-w-7xl" : "max-w-5xl") : requestChangesPanel ? "max-w-5xl" : "max-w-3xl"} max-h-[85vh] overflow-y-auto`}
+          className={`${modalWidthClass} max-h-[85vh] overflow-y-auto`}
         >
           <DialogHeader>
             <DialogTitle>
@@ -211,9 +270,7 @@ export function TaskDetailModal({
             </DialogTitle>
           </DialogHeader>
           <div className="pb-6">
-            <div
-              className={`grid gap-6 min-h-[400px] ${audit ? (requestChangesPanel ? "grid-cols-[1fr_1fr_200px_1fr]" : "grid-cols-[1fr_1fr_200px]") : requestChangesPanel ? "grid-cols-[1fr_200px_1fr]" : "grid-cols-[1fr_200px]"}`}
-            >
+            <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
                 {task?.description &&
                   (() => {
@@ -550,7 +607,7 @@ export function TaskDetailModal({
                                     {item.passed ? (
                                       <IconCheck
                                         size={16}
-                                        className="text-emerald-500 mt-0.5 flex-shrink-0"
+                                        className="text-success mt-0.5 flex-shrink-0"
                                       />
                                     ) : (
                                       <IconAlertTriangle
@@ -580,7 +637,10 @@ export function TaskDetailModal({
 
               <div className="pl-4 space-y-4">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Status</p>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconCircleDot size={12} />
+                    Status
+                  </p>
                   <Select
                     value={status ?? ""}
                     onValueChange={(val) => {
@@ -636,7 +696,45 @@ export function TaskDetailModal({
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconFolder size={12} />
+                    Add to Project
+                  </p>
+                  <Select
+                    value={selectedProjectValue}
+                    onValueChange={(val) => {
+                      updateTask({
+                        id: taskId,
+                        projectId:
+                          val === NO_PROJECT_VALUE
+                            ? null
+                            : (val as Id<"projects">),
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="No project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROJECT_VALUE}>
+                        No project
+                      </SelectItem>
+                      {task?.projectId && !hasSelectedProject && (
+                        <SelectItem value={task.projectId}>
+                          Current project
+                        </SelectItem>
+                      )}
+                      {projectOptions.map((project) => (
+                        <SelectItem key={project._id} value={project._id}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconUserPlus size={12} />
                     Assign to ___ for Code Review
                   </p>
                   <Select
@@ -663,7 +761,40 @@ export function TaskDetailModal({
                   </Select>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Model</p>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconTags size={12} />
+                    Tags
+                  </p>
+                  <Input
+                    value={tagsInput}
+                    placeholder="bug, ui, backend"
+                    className="h-8 text-sm"
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    onBlur={() => {
+                      void handleSaveTags();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleSaveTags();
+                      }
+                    }}
+                  />
+                  {(task?.tags?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {task?.tags?.map((tag) => (
+                        <Badge key={tag} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconBrain size={12} />
+                    Model
+                  </p>
                   <Select
                     value={task?.model ?? "sonnet"}
                     onValueChange={(val) => {
@@ -685,7 +816,8 @@ export function TaskDetailModal({
                 </div>
                 {latestPrUrl && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconGitPullRequest size={12} />
                       Pull Request
                     </p>
                     <a

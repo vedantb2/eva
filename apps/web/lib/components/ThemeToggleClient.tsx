@@ -7,16 +7,11 @@ import { Button } from "@conductor/ui";
 export function ThemeToggleClient() {
   const { theme, toggleTheme, mounted } = useThemeContext();
 
-  // Prevent rendering until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
-      <button
-        className="p-2 rounded-lg bg-secondary"
-        aria-label="Toggle theme"
-        disabled
-      >
+      <Button variant="ghost" size="icon" aria-label="Toggle theme" disabled>
         <div className="size-5" />
-      </button>
+      </Button>
     );
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Spinner, Button } from "@conductor/ui";
+import { Button, Spinner } from "@conductor/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -17,11 +17,33 @@ interface TerminalPanelProps {
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 1000;
 
+function getCssRgb(
+  styles: CSSStyleDeclaration,
+  variableName: string,
+  fallback: string,
+) {
+  const raw = styles.getPropertyValue(variableName).trim();
+  const value = raw.length > 0 ? raw : fallback;
+  return `rgb(${value.split(/\s+/).join(", ")})`;
+}
+
+function getCssRgba(
+  styles: CSSStyleDeclaration,
+  variableName: string,
+  alpha: number,
+  fallback: string,
+) {
+  const raw = styles.getPropertyValue(variableName).trim();
+  const value = raw.length > 0 ? raw : fallback;
+  return `rgba(${value.split(/\s+/).join(", ")}, ${alpha})`;
+}
+
 function isControlMessage(
   data: unknown,
 ): data is { type: string; status: string; error?: string } {
-  if (typeof data !== "object" || data === null || !("type" in data))
+  if (typeof data !== "object" || data === null || !("type" in data)) {
     return false;
+  }
   const obj: Record<string, unknown> = Object.assign({}, data);
   return obj.type === "control";
 }
@@ -74,7 +96,9 @@ export function TerminalPanel({
         terminal.rows,
       );
 
-      if (!isMounted) return;
+      if (!isMounted) {
+        return;
+      }
 
       const ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
@@ -85,7 +109,9 @@ export function TerminalPanel({
       };
 
       ws.onmessage = (event) => {
-        if (!terminalInstanceRef.current) return;
+        if (!terminalInstanceRef.current) {
+          return;
+        }
 
         if (typeof event.data === "string") {
           try {
@@ -93,20 +119,20 @@ export function TerminalPanel({
             if (isControlMessage(parsed)) {
               if (parsed.status === "connected") {
                 terminalInstanceRef.current.writeln(
-                  "\x1b[32m● Connected to sandbox\x1b[0m\r\n",
+                  "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
                 );
                 return;
               }
               if (parsed.status === "error") {
                 terminalInstanceRef.current.writeln(
-                  `\x1b[31m● Error: ${parsed.error ?? "unknown"}\x1b[0m`,
+                  `\x1b[31m* Error: ${parsed.error ?? "unknown"}\x1b[0m`,
                 );
                 return;
               }
               return;
             }
           } catch {
-            // Not JSON — treat as terminal output
+            // Not JSON - treat as terminal output
           }
           terminalInstanceRef.current.write(event.data);
         } else {
@@ -128,7 +154,7 @@ export function TerminalPanel({
         reconnectAttemptsRef.current++;
         if (terminalInstanceRef.current) {
           terminalInstanceRef.current.writeln(
-            `\r\n\x1b[33m● Reconnecting (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`,
+            `\r\n\x1b[33m* Reconnecting (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`,
           );
         }
 
@@ -162,16 +188,22 @@ export function TerminalPanel({
           terminalInstanceRef.current.dispose();
         }
 
+        const rootStyles = getComputedStyle(document.documentElement);
         const terminal = new Terminal({
           cursorBlink: true,
           fontSize: 13,
           fontFamily: "Menlo, Monaco, 'Courier New', monospace",
           theme: {
-            background: "#1a1a1a",
-            foreground: "#f0f0f0",
-            cursor: "#f0f0f0",
-            cursorAccent: "#1a1a1a",
-            selectionBackground: "#3a3a3a",
+            background: getCssRgb(rootStyles, "--card", "17 24 39"),
+            foreground: getCssRgb(rootStyles, "--foreground", "226 232 240"),
+            cursor: getCssRgb(rootStyles, "--primary", "16 145 130"),
+            cursorAccent: getCssRgb(rootStyles, "--card", "17 24 39"),
+            selectionBackground: getCssRgba(
+              rootStyles,
+              "--primary",
+              0.26,
+              "16 145 130",
+            ),
           },
           allowProposedApi: true,
         });
@@ -188,7 +220,7 @@ export function TerminalPanel({
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
 
-        terminal.writeln("\x1b[33m● Connecting to sandbox...\x1b[0m");
+        terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
         await connectWebSocket(terminal);
       } catch (err) {
@@ -228,15 +260,18 @@ export function TerminalPanel({
   }, [isActive, sandboxId, sessionId, retryCount]);
 
   useEffect(() => {
-    if (!terminalRef.current) return;
+    if (!terminalRef.current) {
+      return;
+    }
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (
         !entry ||
         entry.contentRect.width === 0 ||
         entry.contentRect.height === 0
-      )
+      ) {
         return;
+      }
       if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
@@ -253,8 +288,8 @@ export function TerminalPanel({
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-        <IconTerminal2 className="w-12 h-12 opacity-50" />
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+        <IconTerminal2 className="h-12 w-12 opacity-50" />
         <p className="text-sm">
           {!isActive
             ? "Start the sandbox to use the terminal"
@@ -266,14 +301,14 @@ export function TerminalPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <p className="text-sm text-destructive">{error}</p>
         <Button
           size="sm"
           variant="secondary"
           onClick={() => setRetryCount((c) => c + 1)}
         >
-          <IconRefresh className="w-4 h-4" />
+          <IconRefresh className="h-4 w-4" />
           Retry
         </Button>
       </div>
@@ -281,13 +316,13 @@ export function TerminalPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#1a1a1a] relative">
+    <div className="relative flex h-full flex-col bg-card">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a] z-10">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-card">
           <Spinner size="lg" />
         </div>
       )}
-      <div ref={terminalRef} className="flex-1 min-h-0" />
+      <div ref={terminalRef} className="min-h-0 flex-1" />
     </div>
   );
 }

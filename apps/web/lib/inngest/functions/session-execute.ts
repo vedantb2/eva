@@ -48,7 +48,7 @@ export const sessionExecute = inngest.createFunction(
       sessionId,
       message,
       mode = "execute",
-      model = "sonnet",
+      model = "opus",
       responseLength = "default",
     } = event.data;
     const convex = createConvex(clerkToken);

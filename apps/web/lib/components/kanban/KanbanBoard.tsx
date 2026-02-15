@@ -5,12 +5,14 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragCancelEvent,
   PointerSensor,
   useSensor,
   useSensors,
   pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
@@ -26,13 +28,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Button,
-  Input,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
-import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
+import { IconFilter } from "@tabler/icons-react";
 
 interface BaseTask {
   _id: string;
@@ -75,16 +76,17 @@ function SortableItem<T extends BaseTask>({
   };
 
   return (
-    <div
+    <motion.div
+      layout
       ref={setNodeRef}
       style={style}
-      className={`cursor-grab ${isDragging ? "opacity-50" : ""}`}
+      className={`motion-emphasized cursor-grab rounded-lg ${isDragging ? "opacity-50" : ""}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}
     >
       {renderCard(item)}
-    </div>
+    </motion.div>
   );
 }
 
@@ -98,6 +100,9 @@ export function KanbanBoard<T extends BaseTask>({
   columnExtra,
 }: KanbanBoardProps<T>) {
   const [activeItem, setActiveItem] = useState<T | null>(null);
+  const [activeOverlayWidth, setActiveOverlayWidth] = useState<number | null>(
+    null,
+  );
   const [{ q, statuses }, setParams] = useQueryStates({
     q: searchParser,
     statuses: statusesParser,
@@ -111,7 +116,7 @@ export function KanbanBoard<T extends BaseTask>({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
   );
@@ -149,11 +154,18 @@ export function KanbanBoard<T extends BaseTask>({
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = items.find((i) => i._id === event.active.id);
-    if (item) setActiveItem(item);
+    if (item) {
+      setActiveItem(item);
+      const width =
+        event.active.rect.current.initial?.width ??
+        event.active.rect.current.translated?.width;
+      setActiveOverlayWidth(width ? Math.round(width) : null);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveItem(null);
+    setActiveOverlayWidth(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -186,16 +198,27 @@ export function KanbanBoard<T extends BaseTask>({
     }
   };
 
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveItem(null);
+    setActiveOverlayWidth(null);
+  };
+
   return (
     <div
       className={
-        fillHeight ? "flex flex-col flex-1 min-h-0 gap-2" : "space-y-4"
+        fillHeight
+          ? "flex flex-1 min-h-0 flex-col gap-1.5 animate-in fade-in duration-300"
+          : "space-y-2.5 animate-in fade-in duration-300"
       }
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
+      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            >
               <IconFilter size={16} />
               {visibleStatuses.size === KANBAN_STATUSES.length
                 ? "All Columns"
@@ -219,65 +242,71 @@ export function KanbanBoard<T extends BaseTask>({
             })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="relative w-1/2 mx-auto">
-          <IconSearch
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search tasks..."
-            className="pl-9 pr-8 h-8 text-sm"
-            value={searchQuery}
-            onChange={(e) => setParams({ q: e.target.value || null })}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setParams({ q: null })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <IconX size={14} />
-            </button>
-          )}
-        </div>
       </div>
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <div
-          className={`flex items-stretch gap-2 w-full ${fillHeight ? "flex-1 min-h-0" : ""}`}
+          className={`flex w-full items-stretch gap-1.5 ${
+            fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""
+          }`}
         >
-          {KANBAN_STATUSES.filter((status) => visibleStatuses.has(status)).map(
-            (status) => (
-              <KanbanColumn
+          <AnimatePresence initial={false}>
+            {KANBAN_STATUSES.filter((status) =>
+              visibleStatuses.has(status),
+            ).map((status) => (
+              <motion.div
                 key={status}
-                id={status}
-                config={statusConfig[status]}
-                count={itemsByStatus[status]?.length ?? 0}
-                headerExtra={columnExtra?.(status)}
+                layout
+                className="flex min-h-0 min-w-0 flex-1 self-stretch"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
               >
-                <SortableContext
-                  items={itemsByStatus[status]?.map((i) => i._id) ?? []}
-                  strategy={verticalListSortingStrategy}
+                <KanbanColumn
+                  id={status}
+                  config={statusConfig[status]}
+                  count={itemsByStatus[status]?.length ?? 0}
+                  headerExtra={columnExtra?.(status)}
                 >
-                  {itemsByStatus[status]?.map((item) => (
-                    <SortableItem
-                      key={item._id}
-                      item={item}
-                      renderCard={renderCard}
-                      onItemClick={onItemClick}
-                    />
-                  ))}
-                </SortableContext>
-              </KanbanColumn>
-            ),
-          )}
+                  <SortableContext
+                    items={itemsByStatus[status]?.map((i) => i._id) ?? []}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <AnimatePresence initial={false}>
+                      {itemsByStatus[status]?.map((item) => (
+                        <SortableItem
+                          key={item._id}
+                          item={item}
+                          renderCard={renderCard}
+                          onItemClick={onItemClick}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </SortableContext>
+                </KanbanColumn>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
         <DragOverlay>
-          {activeItem ? renderOverlay(activeItem) : null}
+          {activeItem ? (
+            <div
+              className="pointer-events-none"
+              style={
+                activeOverlayWidth
+                  ? { width: `${activeOverlayWidth}px` }
+                  : undefined
+              }
+            >
+              {renderOverlay(activeItem)}
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
     </div>

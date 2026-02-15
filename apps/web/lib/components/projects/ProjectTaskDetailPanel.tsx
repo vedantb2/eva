@@ -15,6 +15,7 @@ import {
   Reasoning,
   ReasoningTrigger,
   ReasoningContent,
+  ActivitySteps,
 } from "@conductor/ui";
 import {
   statusConfig,
@@ -29,6 +30,7 @@ import {
   IconMessageCircle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 interface ProjectTaskDetailPanelProps {
   taskId: Id<"agentTasks">;
@@ -166,18 +168,26 @@ export function ProjectTaskDetailPanel({
                     <AccordionContent>
                       <div className="space-y-2">
                         {run.status === "running" &&
-                          streaming?.currentActivity && (
-                            <Reasoning isStreaming defaultOpen>
-                              <ReasoningTrigger
-                                getThinkingMessage={(s) =>
-                                  s ? "Working..." : "Processing complete"
-                                }
-                              />
-                              <ReasoningContent>
-                                {streaming.currentActivity}
-                              </ReasoningContent>
-                            </Reasoning>
-                          )}
+                          streaming?.currentActivity &&
+                          (() => {
+                            const steps = parseActivitySteps(
+                              streaming.currentActivity,
+                            );
+                            return steps ? (
+                              <ActivitySteps steps={steps} isStreaming />
+                            ) : (
+                              <Reasoning isStreaming defaultOpen>
+                                <ReasoningTrigger
+                                  getThinkingMessage={(s) =>
+                                    s ? "Working..." : "Processing complete"
+                                  }
+                                />
+                                <ReasoningContent>
+                                  {streaming.currentActivity}
+                                </ReasoningContent>
+                              </Reasoning>
+                            );
+                          })()}
                         {run.resultSummary && (
                           <p className="text-sm text-muted-foreground">
                             {run.resultSummary}

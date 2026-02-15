@@ -52,7 +52,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <body suppressHydrationWarning className="font-inter">
+      <body suppressHydrationWarning className="font-sans text-foreground">
         <ClerkProvider>
           <ClientProvider>{children}</ClientProvider>
         </ClerkProvider>

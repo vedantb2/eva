@@ -25,10 +25,10 @@ function StatCard({
 }) {
   return (
     <Card className="bg-secondary">
-      <CardContent className="p-6 flex flex-col gap-3">
+      <CardContent className="p-5 flex flex-col gap-2.5">
         <Icon size={24} className="text-muted-foreground" />
         <div>
-          <p className="text-3xl font-semibold text-foreground tabular-nums">
+          <p className="text-2xl font-semibold text-foreground tabular-nums">
             {value}
           </p>
           <p className="text-sm text-muted-foreground mt-1">{label}</p>
@@ -57,23 +57,21 @@ export function RepoHomeClient() {
   }
 
   return (
-    <div className="flex items-center justify-center h-full p-8">
-      <div className="w-full max-w-2xl space-y-6">
-        <div
-          className={`flex items-center gap-1.5 bg-accent rounded-full pr-4 w-max`}
-        >
+    <div className="flex items-center justify-center h-full p-6">
+      <div className="w-full max-w-2xl space-y-4">
+        <div className="flex items-center gap-1.5 w-max">
           <Image
             src="/icon.png"
             alt="Eva"
-            width={40}
-            height={40}
+            width={30}
+            height={30}
             className="rounded-full"
           />
-          <span className="text-2xl tracking-tight font-semibold text-primary">
+          <span className="text-xl tracking-tight font-semibold text-primary">
             Eva's Stats
           </span>
         </div>
-        <p className="text-base font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground">
           {repo.owner}/{repo.name}
         </p>
         <div className="grid grid-cols-2 gap-4">

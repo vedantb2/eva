@@ -16,6 +16,7 @@ import {
 } from "@conductor/ui";
 import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 import { usePathname } from "next/navigation";
@@ -65,7 +66,7 @@ function DocsListPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-2 pb-4 relative">
+      <div className="p-4 relative">
         <IconSearch
           size={14}
           className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -80,7 +81,7 @@ function DocsListPanel({
           <button
             type="button"
             onClick={() => setSearchQuery(null)}
-            className="absolute right-7 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-7 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           >
             <IconX size={14} />
           </button>
@@ -92,24 +93,33 @@ function DocsListPanel({
             No matches found
           </div>
         ) : (
-          filteredDocs.map((doc) => {
-            const href = `/${repoSlug}/testing-arena/${doc._id}`;
-            const isSelected = pathname.startsWith(href);
-            return (
-              <Link
-                key={doc._id}
-                href={href}
-                className={`text-left px-4 py-2.5 mx-2 rounded-xl transition-colors flex items-center gap-3 ${
-                  isSelected
-                    ? "bg-accent text-primary font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <IconFileText size={16} className="flex-shrink-0" />
-                <span className="truncate text-sm">{doc.title}</span>
-              </Link>
-            );
-          })
+          <AnimatePresence initial={false}>
+            {filteredDocs.map((doc) => {
+              const href = `/${repoSlug}/testing-arena/${doc._id}`;
+              const isSelected = pathname.startsWith(href);
+              return (
+                <motion.div
+                  key={doc._id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <Link
+                    href={href}
+                    className={`mx-1 flex items-center gap-3 rounded-md px-4 py-3 text-left transition-all duration-200 ${
+                      isSelected
+                        ? "bg-accent text-primary font-medium shadow-xs"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <IconFileText size={16} className="flex-shrink-0" />
+                    <span className="truncate text-sm">{doc.title}</span>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
     </div>

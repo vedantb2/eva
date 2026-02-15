@@ -42,6 +42,7 @@ import {
   PlanContent,
   PlanFooter,
   PlanTrigger,
+  ActivitySteps,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -56,8 +57,9 @@ import {
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQueryState } from "nuqs";
-import { sessionModeParser } from "@/lib/search-params";
+import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
@@ -67,6 +69,7 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];
@@ -104,9 +107,11 @@ export function ChatPanel({
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [mode, setMode] = useQueryState("mode", sessionModeParser);
+  const [, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
@@ -252,24 +257,34 @@ export function ChatPanel({
   };
 
   const filteredMessages = messages.filter((m) => m.mode !== "flag");
+  const hasSummary = Boolean(summary && summary.length > 0);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center justify-between p-3 animate-in fade-in duration-300">
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8"
+          className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
           onClick={onCollapse}
         >
           <IconLayoutSidebarRightCollapse size={16} />
         </Button>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
+            onClick={() => setActiveTab("preview")}
+          >
+            <IconWorld size={14} />
+            View Preview
+          </Button>
           {branchName && !prUrl && (
             <Button
               size="sm"
               variant="secondary"
-              className="text-success"
+              className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
               onClick={() => setShowReviewModal(true)}
             >
               <IconSend size={12} />
@@ -279,16 +294,12 @@ export function ChatPanel({
           <Button
             size="icon"
             variant="secondary"
-            onClick={handleGenerateSummary}
+            onClick={() => setShowSummaryModal(true)}
             disabled={
               isSummarizing || !isSandboxActive || messages.length === 0
             }
-            className="h-8 w-8 text-primary"
-            title={
-              summary && summary.length > 0
-                ? "Regenerate summary"
-                : "Generate summary"
-            }
+            className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
+            title={hasSummary ? "Regenerate summary" : "Generate summary"}
           >
             {isSummarizing ? (
               <Spinner size="sm" />
@@ -301,7 +312,7 @@ export function ChatPanel({
             variant={isSandboxActive ? "destructive" : "secondary"}
             onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
             disabled={isSandboxToggling}
-            className={`h-8 w-8 ${!isSandboxActive ? "text-success" : ""}`}
+            className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
           >
             {isSandboxToggling ? (
               <Spinner size="sm" />
@@ -313,39 +324,48 @@ export function ChatPanel({
           </Button>
         </div>
       </div>
-      {(streamingActivity || (summary && summary.length > 0)) && (
-        <Accordion
-          type="single"
-          collapsible
-          defaultValue={streamingActivity ? "summary" : undefined}
-          className="px-4"
-        >
-          <AccordionItem value="summary" className="border-b-0">
-            <AccordionTrigger className="py-2 text-sm">
-              <div className="flex flex-row gap-2 items-center text-primary">
-                <IconSparkles size={14} />
-                <p>Session summary</p>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pb-2">
-              {streamingActivity ? (
-                <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                  <Spinner size="sm" />
-                  <span className="truncate">{streamingActivity}</span>
-                </div>
-              ) : summary && summary.length > 0 ? (
-                <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
-                  {summary.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      )}
-      <Conversation className="flex-1">
-        <ConversationContent className="gap-4 p-4">
+      <AnimatePresence>
+        {(streamingActivity || (summary && summary.length > 0)) && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Accordion
+              type="single"
+              collapsible
+              defaultValue={streamingActivity ? "summary" : undefined}
+              className="px-4"
+            >
+              <AccordionItem value="summary" className="border-b-0">
+                <AccordionTrigger className="py-2 text-sm">
+                  <div className="flex flex-row gap-2 items-center text-primary">
+                    <IconSparkles size={14} />
+                    <p>Session summary</p>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  {streamingActivity ? (
+                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                      <Spinner size="sm" />
+                      <span className="truncate">{streamingActivity}</span>
+                    </div>
+                  ) : summary && summary.length > 0 ? (
+                    <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
+                      {summary.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="gap-3 p-3">
           {filteredMessages.length === 0 ? (
             <ConversationEmptyState
               title={
@@ -356,213 +376,290 @@ export function ChatPanel({
             />
           ) : (
             filteredMessages.map((message, index) => (
-              <AIMessage key={index} from={message.role}>
-                {message.role === "assistant" && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full overflow-hidden">
-                      <Image
-                        src="/icon.png"
-                        alt="Assistant"
-                        width={28}
-                        height={28}
-                      />
+              <motion.div
+                key={`${message.timestamp ?? index}-${message.role}-${index}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <AIMessage from={message.role}>
+                  {message.role === "assistant" && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full overflow-hidden">
+                        <Image
+                          src="/icon.png"
+                          alt="Assistant"
+                          width={28}
+                          height={28}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Eva
+                      </span>
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Eva
-                    </span>
-                  </div>
-                )}
-                <MessageContent
-                  className={
-                    message.role === "user"
-                      ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
-                      : "px-1 py-2"
-                  }
-                >
-                  {message.role === "assistant" && !message.content ? (
-                    <Reasoning isStreaming defaultOpen>
-                      <ReasoningTrigger
-                        getThinkingMessage={(streaming) =>
-                          streaming ? "Working..." : "Processing complete"
-                        }
-                      />
-                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                        <pre className="whitespace-pre-wrap font-mono text-xs">
-                          {streamingActivity || "Starting..."}
-                        </pre>
-                      </CollapsibleContent>
-                    </Reasoning>
-                  ) : (
-                    <>
-                      {message.role === "assistant" ? (
-                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                          {message.content}
-                        </MessageResponse>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
-                      )}
-                      {message.role === "assistant" && message.activityLog && (
-                        <Reasoning defaultOpen={false}>
-                          <ReasoningTrigger
-                            getThinkingMessage={() => "View logs"}
-                          />
-                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                              {message.activityLog}
-                            </pre>
-                          </CollapsibleContent>
-                        </Reasoning>
-                      )}
-                    </>
                   )}
-                </MessageContent>
-                {message.mode && message.role === "user" && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
-                    {message.mode === "execute" && (
-                      <>
-                        <IconCode className="w-3 h-3" /> Execute
-                      </>
-                    )}
-                    {message.mode === "ask" && (
-                      <>
-                        <IconMessageCircle2 className="w-3 h-3" /> Ask
-                      </>
-                    )}
-                    {message.mode === "plan" && (
-                      <>
-                        <IconClipboardList className="w-3 h-3" /> PRD
-                      </>
-                    )}
-                  </div>
-                )}
-                {message.role === "user" && (
-                  <div className="mt-0.5 ml-auto">
-                    {message.userId ? (
-                      <UserInitials
-                        userId={message.userId}
-                        hideLastSeen
-                        size="md"
-                      />
+                  <MessageContent
+                    className={
+                      message.role === "user"
+                        ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                        : "px-1 py-2"
+                    }
+                  >
+                    {message.role === "assistant" && !message.content ? (
+                      (() => {
+                        const steps = parseActivitySteps(streamingActivity);
+                        return steps ? (
+                          <ActivitySteps steps={steps} isStreaming />
+                        ) : (
+                          <Reasoning isStreaming defaultOpen>
+                            <ReasoningTrigger
+                              getThinkingMessage={(streaming) =>
+                                streaming ? "Working..." : "Processing complete"
+                              }
+                            />
+                            <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                              <pre className="whitespace-pre-wrap font-mono text-xs">
+                                {streamingActivity || "Starting..."}
+                              </pre>
+                            </CollapsibleContent>
+                          </Reasoning>
+                        );
+                      })()
                     ) : (
-                      <Avatar className="h-7 w-7">
-                        <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                          U
-                        </AvatarFallback>
-                      </Avatar>
+                      <>
+                        {message.role === "assistant" ? (
+                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                            {message.content}
+                          </MessageResponse>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                          </p>
+                        )}
+                        {message.role === "assistant" &&
+                          message.activityLog &&
+                          (() => {
+                            const steps = parseActivitySteps(
+                              message.activityLog,
+                            );
+                            return steps ? (
+                              <ActivitySteps steps={steps} />
+                            ) : (
+                              <Reasoning defaultOpen={false}>
+                                <ReasoningTrigger
+                                  getThinkingMessage={() => "View logs"}
+                                />
+                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                  <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                    {message.activityLog}
+                                  </pre>
+                                </CollapsibleContent>
+                              </Reasoning>
+                            );
+                          })()}
+                      </>
                     )}
-                  </div>
-                )}
-              </AIMessage>
+                  </MessageContent>
+                  {message.mode && message.role === "user" && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto animate-in fade-in duration-200">
+                      {message.mode === "execute" && (
+                        <>
+                          <IconCode className="w-3 h-3" /> Execute
+                        </>
+                      )}
+                      {message.mode === "ask" && (
+                        <>
+                          <IconMessageCircle2 className="w-3 h-3" /> Ask
+                        </>
+                      )}
+                      {message.mode === "plan" && (
+                        <>
+                          <IconClipboardList className="w-3 h-3" /> PRD
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {message.role === "user" && (
+                    <div className="mt-0.5 ml-auto">
+                      {message.userId ? (
+                        <UserInitials
+                          userId={message.userId}
+                          hideLastSeen
+                          size="md"
+                        />
+                      ) : (
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                            U
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+                  )}
+                </AIMessage>
+              </motion.div>
             ))
           )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
       <div className="px-3 pb-4 pt-3">
-        <div className="flex items-center gap-1 mb-2">
+        <AnimatePresence>
           {prUrl && (
-            <Link href={prUrl} target="_blank">
-              <Badge variant="outline" className="gap-1 cursor-pointer">
-                <IconGitPullRequest size={12} />
-                View PR
-              </Badge>
-            </Link>
+            <motion.div
+              className="mb-2 flex items-center gap-1"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.18 }}
+            >
+              <Link href={prUrl} target="_blank">
+                <Badge
+                  variant="outline"
+                  className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
+                >
+                  <IconGitPullRequest size={12} />
+                  View PR
+                </Badge>
+              </Link>
+            </motion.div>
           )}
-          <Link
-            href={
-              prUrl ??
-              `https://github.com/${repo.owner}/${repo.name}/tree/${branchName}`
-            }
-          >
-            <Badge variant="outline" className="gap-1 cursor-pointer">
-              <IconWorld size={12} />
-              View Preview
-            </Badge>
-          </Link>
-        </div>
-        {mode === "plan" && planContent && (
-          <Plan defaultOpen className="mb-2">
-            <PlanHeader className="p-4">
-              <PlanTitle>Product Requirements</PlanTitle>
-              <PlanTrigger />
-            </PlanHeader>
-            <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
-              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                {planContent}
-              </MessageResponse>
-            </PlanContent>
-            <PlanFooter className="px-4 pb-4 pt-0 gap-2">
-              <Button
-                size="sm"
-                className="bg-success text-success-foreground hover:bg-success/90"
-                onClick={() => setMode("execute")}
-              >
-                <IconCode className="w-3.5 h-3.5" />
-                Approve Plan
-              </Button>
-            </PlanFooter>
-          </Plan>
-        )}
-        <PromptInput onSubmit={handlePromptSubmit}>
-          <PromptInputTextarea
-            placeholder={
-              !isSandboxActive
-                ? "Start the sandbox to begin chatting..."
-                : mode === "execute"
-                  ? "Describe the changes to make to Eva..."
-                  : mode === "ask"
-                    ? "Ask Eva a question about the codebase..."
-                    : "Describe the feature or product requirements to Eva..."
-            }
-            disabled={isInputDisabled}
-          />
-          <PromptInputFooter>
-            <PromptInputTools>
-              <Tabs
-                value={mode}
-                onValueChange={(v) => {
-                  setMode(v as "execute" | "ask" | "plan");
-                }}
-              >
-                <TabsList className="h-8">
-                  <TabsTrigger
-                    value="execute"
-                    className="text-xs px-2 py-1 gap-1"
+        </AnimatePresence>
+        <AnimatePresence>
+          {mode === "plan" && planContent && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Plan defaultOpen className="mb-2">
+                <PlanHeader className="p-4">
+                  <PlanTitle>Product Requirements</PlanTitle>
+                  <PlanTrigger />
+                </PlanHeader>
+                <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                    {planContent}
+                  </MessageResponse>
+                </PlanContent>
+                <PlanFooter className="px-4 pb-4 pt-0 gap-2">
+                  <Button
+                    size="sm"
+                    className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
+                    onClick={() => setMode("execute")}
                   >
-                    <IconCode className="w-3 h-3" />
-                    Execute
-                  </TabsTrigger>
-                  <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
-                    <IconMessageCircle2 className="w-3 h-3" />
-                    Ask
-                  </TabsTrigger>
-                  <TabsTrigger value="plan" className="text-xs px-2 py-1 gap-1">
-                    <IconClipboardList className="w-3 h-3" />
-                    PRD
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <PromptInputSettings
-                model={model}
-                onModelChange={setModel}
-                responseLength={responseLength}
-                onResponseLengthChange={setResponseLength}
-                disabled={isInputDisabled}
-              />
-            </PromptInputTools>
-            <div className="flex items-center gap-1">
-              <PromptInputSpeech disabled={isInputDisabled} />
-              <PromptInputSubmit
-                status={submitStatus}
-                onStop={handleCancel}
-                disabled={isInputDisabled}
-              />
-            </div>
-          </PromptInputFooter>
-        </PromptInput>
+                    <IconCode className="w-3.5 h-3.5" />
+                    Approve Plan
+                  </Button>
+                </PlanFooter>
+              </Plan>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="relative pt-4">
+          <Tabs
+            value={mode}
+            onValueChange={(v) => {
+              setMode(v as "execute" | "ask" | "plan");
+            }}
+            className="absolute left-3 top-4 z-20 -translate-y-1/2"
+          >
+            <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+              <TabsTrigger
+                value="execute"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconCode className="w-3 h-3" />
+                Execute
+              </TabsTrigger>
+              <TabsTrigger
+                value="ask"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconMessageCircle2 className="w-3 h-3" />
+                Ask
+              </TabsTrigger>
+              <TabsTrigger
+                value="plan"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconClipboardList className="w-3 h-3" />
+                PRD
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <PromptInput onSubmit={handlePromptSubmit}>
+            <PromptInputTextarea
+              className="pt-8"
+              placeholder={
+                !isSandboxActive
+                  ? "Start the sandbox to begin chatting..."
+                  : mode === "execute"
+                    ? "Describe the changes to make to Eva..."
+                    : mode === "ask"
+                      ? "Ask Eva a question about the codebase..."
+                      : "Describe the feature or product requirements to Eva..."
+              }
+              disabled={isInputDisabled}
+            />
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputSettings
+                  model={model}
+                  onModelChange={setModel}
+                  responseLength={responseLength}
+                  onResponseLengthChange={setResponseLength}
+                  disabled={isInputDisabled}
+                />
+              </PromptInputTools>
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isInputDisabled} />
+                <PromptInputSubmit
+                  status={submitStatus}
+                  onStop={handleCancel}
+                  disabled={isInputDisabled}
+                />
+              </div>
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
+      <Dialog
+        open={showSummaryModal}
+        onOpenChange={(v) => {
+          if (!v) setShowSummaryModal(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {hasSummary ? "Regenerate Summary" : "Generate Summary"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              {hasSummary
+                ? "This will regenerate and replace the current session summary."
+                : "This will generate a session summary from the current chat history."}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowSummaryModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleGenerateSummary();
+                setShowSummaryModal(false);
+              }}
+              disabled={isSummarizing}
+            >
+              {isSummarizing ? <Spinner size="sm" /> : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={showReviewModal}
         onOpenChange={(v) => {
@@ -573,13 +670,24 @@ export function ChatPanel({
           <DialogHeader>
             <DialogTitle>Send for Code Review</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            By clicking this you confirm that all your changes have been tested
-            in your session, you are happy with those changes, have generated a
-            summary and agree with the changes. A developer will then review the
-            code changes Eva has made and get in contact to confirm if they are
-            happy before merging into staging/production.
-          </p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              By clicking this you confirm that all your changes have been
+              tested in your session, you are happy with those changes, have
+              generated a summary, and agree with the changes. Your session will
+              become uneditable while a developer reviews the code changes
+              before merging into staging/production.
+            </p>
+            <p>
+              The following audits will also run automatically in the
+              background:
+            </p>
+            <ul className="ml-5 list-disc space-y-1">
+              <li>Accessibility audit</li>
+              <li>Code testing audit</li>
+              <li>Code review audit</li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowReviewModal(false)}>
               Cancel

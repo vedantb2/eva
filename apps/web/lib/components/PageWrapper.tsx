@@ -28,31 +28,33 @@ export function PageWrapper({
   const router = useRouter();
 
   return (
-    <div className="flex-1 overflow-hidden bg-background">
-      <div className="h-full flex flex-col overflow-hidden">
-        <div className="px-4 py-3 flex items-center gap-3">
+    <div
+      className={`${fillHeight ? "h-full min-h-0" : ""} flex-1 overflow-hidden bg-background animate-in fade-in duration-300`}
+    >
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="motion-base flex items-center gap-3 border-b border-border/70 bg-card/60 p-4 backdrop-blur-sm">
           {showBack && (
             <Button
               size="icon"
-              variant="secondary"
+              variant="outline"
               onClick={onBack ?? (() => router.back())}
-              className="flex-shrink-0 rounded-full"
+              className="motion-press flex-shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.97]"
             >
               <IconArrowLeft size={16} className="text-muted-foreground" />
             </Button>
           )}
           {title && (
-            <h1 className="text-xl font-semibold text-foreground truncate">
+            <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-foreground animate-in fade-in slide-in-from-left-1 duration-300">
               {title}
             </h1>
           )}
           {headerCenter && (
-            <div className="flex-1 flex items-center justify-center gap-2">
+            <div className="flex-1 flex items-center justify-center gap-2 animate-in fade-in duration-300">
               {headerCenter}
             </div>
           )}
           {headerRight && (
-            <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <div className="ml-auto flex items-center gap-2 flex-shrink-0 animate-in fade-in slide-in-from-right-1 duration-300">
               {headerRight}
             </div>
           )}
@@ -61,7 +63,7 @@ export function PageWrapper({
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 ${childPadding ? "px-4 py-2" : ""}  ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? "px-4 py-4" : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {children}
           </div>

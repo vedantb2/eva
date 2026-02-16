@@ -164,22 +164,32 @@ export const designSessionWorkflow = workflow.define({
     );
 
     // Step 2: Setup sandbox + fire Claude CLI (with retry)
-    await step.runAction(
-      internal.daytona.setupAndExecuteDesign,
+    const { sandboxId } = await step.runAction(
+      internal.daytona.setupAndExecute,
       {
-        designSessionId: args.designSessionId,
+        entityId: args.designSessionId,
         existingSandboxId: sessionData.sandboxId,
         githubToken: args.githubToken,
         repoOwner: sessionData.repoOwner,
         repoName: sessionData.repoName,
         prompt: sessionData.prompt,
-        systemPrompt: DESIGN_SYSTEM_PROMPT,
         convexToken: args.convexToken,
+        completionMutation: "designWorkflow:handleCompletion",
+        entityIdField: "designSessionId",
         model: "opus",
         allowedTools: "Read,Glob,Grep,Skill",
+        systemPrompt: DESIGN_SYSTEM_PROMPT,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
+
+    // Persist sandbox ID so it can be reused next time
+    if (sandboxId !== sessionData.sandboxId) {
+      await step.runMutation(internal.designSessions.updateSandbox, {
+        id: args.designSessionId,
+        sandboxId,
+      });
+    }
 
     // Step 3: Wait for callback from sandbox
     const result = await step.awaitEvent(designCompleteEvent);

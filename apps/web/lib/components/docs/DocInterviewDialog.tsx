@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import {
   Button,
   Dialog,
@@ -61,6 +62,10 @@ export function DocInterviewDialog({
 }: DocInterviewDialogProps) {
   const addMessage = useMutation(api.docs.addInterviewMessage);
   const clearInterview = useMutation(api.docs.clearInterview);
+  const startDocInterview = useMutation(
+    api.docInterviewWorkflow.startInterview,
+  );
+  const startDocGenerate = useMutation(api.docInterviewWorkflow.startGenerate);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -104,12 +109,33 @@ export function DocInterviewDialog({
         const parsed = JSON.parse(lastMessage.content);
         if (parsed.description && parsed.requirements) {
           onOpenChange(false);
+        } else if (parsed.ready === true) {
+          // Interview is complete — trigger the generate phase
+          setIsLoading(true);
+          getWorkflowTokens(installationId).then(
+            ({ githubToken, convexToken }) =>
+              startDocGenerate({
+                docId: doc._id,
+                docTitle: doc.title,
+                previousAnswers: answers,
+                convexToken,
+                githubToken,
+              }),
+          );
         }
       } catch {
         // not generated content
       }
     }
-  }, [messages, onOpenChange]);
+  }, [
+    messages,
+    onOpenChange,
+    answers,
+    doc._id,
+    doc.title,
+    installationId,
+    startDocGenerate,
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,22 +152,17 @@ export function DocInterviewDialog({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "docs/interview.question",
-          data: {
-            docId: doc._id,
-            repoId: doc.repoId,
-            installationId,
-            docTitle: doc.title,
-            previousAnswers: currentAnswers,
-          },
-        }),
+      const { githubToken, convexToken } =
+        await getWorkflowTokens(installationId);
+      await startDocInterview({
+        docId: doc._id,
+        docTitle: doc.title,
+        previousAnswers: currentAnswers,
+        convexToken,
+        githubToken,
       });
     },
-    [doc._id, doc.repoId, doc.title, installationId],
+    [doc._id, doc.title, installationId, startDocInterview],
   );
 
   const handleAnswer = async (answer: string) => {

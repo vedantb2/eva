@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import {
   ActivitySteps,
   Button,
@@ -46,6 +47,7 @@ function DocEditor({ doc }: { doc: Doc }) {
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
+  const startTestGenMutation = useMutation(api.testGenWorkflow.startTestGen);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -128,13 +130,12 @@ function DocEditor({ doc }: { doc: Doc }) {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
     try {
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "docs/generate-tests.requested",
-          data: { docId: doc._id, repoId: doc.repoId },
-        }),
+      const { githubToken, convexToken } =
+        await getWorkflowTokens(installationId);
+      await startTestGenMutation({
+        docId: doc._id,
+        convexToken,
+        githubToken,
       });
     } finally {
       setIsTriggeringTestGen(false);

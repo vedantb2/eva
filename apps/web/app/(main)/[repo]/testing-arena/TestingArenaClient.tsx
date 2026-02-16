@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
@@ -133,6 +134,7 @@ export function TestingArenaClient({
 }) {
   const { repo, repoSlug } = useRepo();
   const docs = useQuery(api.docs.list, { repoId: repo._id });
+  const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [showTestAllModal, setShowTestAllModal] = useState(false);
 
@@ -141,14 +143,15 @@ export function TestingArenaClient({
     setShowTestAllModal(false);
     setIsTestingAll(true);
     try {
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
       for (const doc of docs) {
-        await fetch("/api/inngest/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "testing-arena/evaluate.doc",
-            data: { docId: doc._id, repoId: repo._id },
-          }),
+        await startEvaluation({
+          docId: doc._id,
+          repoId: repo._id,
+          convexToken,
+          githubToken,
         });
       }
     } finally {

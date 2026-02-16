@@ -2,7 +2,6 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 
@@ -88,11 +87,34 @@ async function getOrCreateSandbox(
 }
 
 /**
- * Callback handler script that runs inside the Daytona sandbox.
- * It spawns Claude CLI, parses stream-json output, streams activity updates
- * via ConvexHttpClient, and sends the final result when done.
+ * Sets up a git branch in the sandbox — creates it or checks it out if it exists.
  */
-function buildCallbackHandlerScript(): string {
+async function setupBranch(
+  sandbox: Sandbox,
+  branchName: string,
+): Promise<void> {
+  await sandbox.process.executeCommand(
+    `cd ${WORKSPACE_DIR} && git checkout -B ${branchName}`,
+    "/",
+    undefined,
+    10,
+  );
+}
+
+/**
+ * Generic callback handler script that runs inside the Daytona sandbox.
+ * Spawns Claude CLI, parses stream-json output, streams activity updates
+ * via Convex HTTP API, and calls the specified completion mutation when done.
+ *
+ * @param completionMutation - The Convex mutation path to call on completion
+ *   (e.g. "designWorkflow:handleCompletion", "summarizeWorkflow:handleCompletion")
+ * @param entityIdField - The field name for the entity ID in the completion args
+ *   (e.g. "designSessionId", "sessionId", "docId")
+ */
+function buildCallbackScript(
+  completionMutation: string,
+  entityIdField: string,
+): string {
   return `
 import { spawn } from "child_process";
 import { readFileSync } from "fs";
@@ -275,8 +297,8 @@ child.on("close", async (code) => {
   }
 
   try {
-    await callMutation("designWorkflow:handleCompletion", {
-      designSessionId: ENTITY_ID,
+    await callMutation("${completionMutation}", {
+      ${entityIdField}: ENTITY_ID,
       success: resultEvent ? !resultEvent.isError : code === 0,
       result: resultEvent?.result ?? rawOutput,
       error: resultEvent?.isError ? resultEvent.result : (code !== 0 ? "Claude CLI exited with code " + code : null),
@@ -291,8 +313,8 @@ child.on("close", async (code) => {
 child.on("error", async (err) => {
   clearInterval(interval);
   try {
-    await callMutation("designWorkflow:handleCompletion", {
-      designSessionId: ENTITY_ID,
+    await callMutation("${completionMutation}", {
+      ${entityIdField}: ENTITY_ID,
       success: false,
       result: null,
       error: err.message,
@@ -303,66 +325,119 @@ child.on("error", async (err) => {
 `.trim();
 }
 
-export const setupAndExecuteDesign = internalAction({
+/**
+ * Uploads prompt + script to sandbox and fires the script via nohup.
+ * Returns immediately — the script calls back to Convex when done.
+ */
+async function launchScript(
+  sandbox: Sandbox,
+  prompt: string,
+  completionMutation: string,
+  entityIdField: string,
+  convexToken: string,
+  entityId: string,
+  opts: {
+    model?: string;
+    allowedTools?: string;
+    systemPrompt?: string;
+    extraEnvVars?: Record<string, string>;
+  } = {},
+): Promise<void> {
+  // Upload the prompt
+  await sandbox.fs.uploadFile(
+    Buffer.from(prompt, "utf-8"),
+    "/tmp/design-prompt.txt",
+  );
+
+  // Upload the callback handler script
+  const handlerScript = buildCallbackScript(completionMutation, entityIdField);
+  await sandbox.fs.uploadFile(
+    Buffer.from(handlerScript, "utf-8"),
+    "/tmp/run-design.mjs",
+  );
+
+  // Build env vars and fire
+  const convexUrl = requireEnv("CONVEX_CLOUD_URL");
+  const envParts = [
+    `CONVEX_URL=${quote([convexUrl])}`,
+    `CONVEX_TOKEN=${quote([convexToken])}`,
+    `ENTITY_ID=${quote([entityId])}`,
+    `CLAUDE_MODEL=${opts.model ?? "opus"}`,
+    `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
+    `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
+  ];
+  if (opts.extraEnvVars) {
+    for (const [key, val] of Object.entries(opts.extraEnvVars)) {
+      envParts.push(`${key}=${quote([val])}`);
+    }
+  }
+  const envVars = envParts.join(" ");
+  await sandbox.process.executeCommand(
+    `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
+    "/",
+    undefined,
+    10,
+  );
+}
+
+/**
+ * Generic sandbox setup + script launch action for all workflows.
+ * Reuses or creates a sandbox, syncs repo, and fires the callback script.
+ */
+export const setupAndExecute = internalAction({
   args: {
-    designSessionId: v.id("designSessions"),
+    entityId: v.string(),
     existingSandboxId: v.optional(v.string()),
     githubToken: v.string(),
     repoOwner: v.string(),
     repoName: v.string(),
     prompt: v.string(),
-    systemPrompt: v.string(),
     convexToken: v.string(),
+    completionMutation: v.string(),
+    entityIdField: v.string(),
     model: v.optional(v.string()),
     allowedTools: v.optional(v.string()),
+    systemPrompt: v.optional(v.string()),
+    branchName: v.optional(v.string()),
+    ephemeral: v.optional(v.boolean()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
     const daytona = getDaytona();
 
-    const { sandbox, isNew } = await getOrCreateSandbox(
-      daytona,
-      args.existingSandboxId,
-      args.githubToken,
-      args.repoOwner,
-      args.repoName,
-    );
+    let sandbox: Sandbox;
 
-    if (isNew) {
-      await ctx.runMutation(internal.designSessions.updateSandbox, {
-        id: args.designSessionId,
-        sandboxId: sandbox.id,
-      });
+    if (args.ephemeral) {
+      // Always create a fresh sandbox for ephemeral workflows
+      sandbox = await createSandbox(daytona, args.githubToken);
+      await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
+    } else {
+      const result = await getOrCreateSandbox(
+        daytona,
+        args.existingSandboxId,
+        args.githubToken,
+        args.repoOwner,
+        args.repoName,
+      );
+      sandbox = result.sandbox;
     }
 
-    // Write the design prompt to a file in the sandbox
-    await sandbox.fs.uploadFile(
-      Buffer.from(args.prompt, "utf-8"),
-      "/tmp/design-prompt.txt",
-    );
+    if (args.branchName) {
+      await setupBranch(sandbox, args.branchName);
+    }
 
-    // Write the callback handler script
-    const handlerScript = buildCallbackHandlerScript();
-    await sandbox.fs.uploadFile(
-      Buffer.from(handlerScript, "utf-8"),
-      "/tmp/run-design.mjs",
-    );
-
-    // Execute the handler script (fire-and-forget via nohup)
-    const convexUrl = requireEnv("CONVEX_CLOUD_URL");
-    const envVars = [
-      `CONVEX_URL=${quote([convexUrl])}`,
-      `CONVEX_TOKEN=${quote([args.convexToken])}`,
-      `ENTITY_ID=${quote([args.designSessionId])}`,
-      `CLAUDE_MODEL=${args.model ?? "opus"}`,
-      `ALLOWED_TOOLS=${quote([args.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
-      `SYSTEM_PROMPT=${quote([args.systemPrompt])}`,
-    ].join(" ");
-    await sandbox.process.executeCommand(
-      `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
-      "/",
-      undefined,
-      10,
+    await launchScript(
+      sandbox,
+      args.prompt,
+      args.completionMutation,
+      args.entityIdField,
+      args.convexToken,
+      args.entityId,
+      {
+        model: args.model,
+        allowedTools: args.allowedTools,
+        systemPrompt: args.systemPrompt,
+      },
     );
 
     return { sandboxId: sandbox.id };

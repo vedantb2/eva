@@ -31,6 +31,7 @@ const projectValidator = v.object({
   projectStartDate: v.optional(v.number()),
   projectEndDate: v.optional(v.number()),
   deadline: v.optional(v.number()),
+  activeWorkflowId: v.optional(v.string()),
 });
 
 export const list = query({

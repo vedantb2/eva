@@ -128,24 +128,38 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 - **notifications** - User notifications
 - **annotations** - Chrome extension annotations/highlights
 
-### Inngest Background Jobs
+### Convex Workflows (Durable Background Jobs)
+
+Most background jobs use `@convex-dev/workflow` for durable orchestration. Located in `packages/backend/convex/`:
+
+- **designWorkflow.ts** - Design session execution (Claude CLI generates UI variations)
+- **summarizeWorkflow.ts** - Summarizes session history (Haiku, no tools)
+- **docPrdWorkflow.ts** - Parses uploaded PRD docs (Sonnet, read-only tools)
+- **evaluationWorkflow.ts** - Evaluates docs against requirements (Sonnet, read-only tools, ephemeral sandbox)
+- **docInterviewWorkflow.ts** - Doc interview Q&A + content generation (two separate workflows)
+- **projectInterviewWorkflow.ts** - Project interview Q&A + spec generation (two separate workflows)
+- **testGenWorkflow.ts** - Generates tests with git ops and PR creation (Sonnet, write tools, ephemeral sandbox)
+
+**Pattern**: Frontend calls `startXxx` mutation → `workflow.start()` → action fires Daytona sandbox with `nohup` → sandbox runs Claude CLI → sandbox calls back via `POST /api/mutation` with Clerk JWT → `handleCompletion` mutation calls `workflow.sendEvent()` → workflow saves result.
+
+**Shared utilities** in `daytona.ts`: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, `setupAndExecute` (generic internalAction).
+
+**Token flow**: Frontend calls `getWorkflowTokens(installationId)` server action (in `apps/web/app/(main)/[repo]/actions.ts`) to get GitHub + Convex tokens, passes them to the start mutation.
+
+### Inngest Background Jobs (Legacy — being migrated)
 
 Located in `apps/web/lib/inngest/functions/`:
 
 - **execute-task** - Runs agent tasks in Daytona sandbox
 - **session-execute** - Executes commands within a session sandbox
 - **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
-- **summarize-session** - Summarizes session history
 - **cleanup-project-sandbox** - Tears down inactive project sandboxes
 - **execute-research-query** - Runs analytics queries with AI
-- **interview-question** / **interview-spec** / **interview-chat** - Project interview workflow
-- **evaluate-doc** - Evaluates documentation against requirements
 - **build-project** - Autonomous project build workflow
-- **design-execute** - Design session execution
 
 ### Sandbox Execution
 
-The `apps/web/lib/inngest/sandbox.ts` module provides utilities for Daytona sandbox operations:
+The `apps/web/lib/inngest/sandbox.ts` module provides utilities for Daytona sandbox operations (used by remaining Inngest functions):
 
 - `getGitHubToken()` - Gets installation token from GitHub App
 - `cloneRepo()` / `setupBranch()` - Git operations in sandbox
@@ -174,8 +188,9 @@ Web-only components (accordion, avatar, badge, card, checkbox, label, popover, p
 
 ### Convex Extensions
 
-The backend uses three Convex component extensions (configured in `packages/backend/convex/convex.config.ts`):
+The backend uses four Convex component extensions (configured in `packages/backend/convex/convex.config.ts`):
 
+- `@convex-dev/workflow` - Durable workflows with retry, timeout, and event-driven orchestration
 - `@convex-dev/presence` - Real-time presence tracking (heartbeat in main layout)
 - `@convex-dev/prosemirror-sync` - Collaborative editing with Tiptap
 - `convex-timeline` - Timeline/history tracking

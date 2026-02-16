@@ -1,5 +1,16 @@
 # Changelog
 
+## Migrate 6 Remaining Inngest Functions to Convex Workflows — 2026-02-16
+
+- Migrated `summarizeSession`, `docPrdUpload`, `evaluateDoc`, `docInterview`, `interviewQuestion`, and `generateTests` from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`)
+- Generalized `daytona.ts` with shared utilities: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, and a new generic `setupAndExecute` internalAction used by all workflows
+- Created shared `getWorkflowTokens(installationId)` server action in `apps/web/app/(main)/[repo]/actions.ts`, replacing per-feature token fetching
+- Split interview workflows (docInterview, projectInterview) into separate question and generate/spec workflows, with `ready: true` detection on the frontend triggering the second phase
+- Added `activeWorkflowId` field to sessions, docs, projects, and evaluationReports tables for workflow event routing
+- Replaced all `fetch("/api/inngest/send")` calls in 8 frontend files with direct Convex mutation calls
+- Deleted 6 Inngest function files and removed their exports/registrations from `inngest/index.ts` and `api/inngest/route.ts`
+- Remaining Inngest functions: executeTask, buildProject, sessionExecute, startSandbox, stopSandbox, cleanupProjectSandbox, generateResearchQuery, confirmResearchQuery
+
 ## Migrate Design Sessions from Inngest to Convex Workflow — 2026-02-16
 
 - Migrated design session execution from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`) for durable orchestration with retry/timeout semantics

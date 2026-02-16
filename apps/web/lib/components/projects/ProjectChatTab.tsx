@@ -5,6 +5,7 @@ import { Button, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
@@ -57,6 +58,9 @@ export function ProjectChatTab({
 }: ProjectChatTabProps) {
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
+  const startProjectInterview = useMutation(
+    api.projectInterviewWorkflow.startInterview,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
@@ -119,23 +123,17 @@ export function ProjectChatTab({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "project/interview.question",
-          data: {
-            projectId,
-            repoId,
-            installationId,
-            featureDescription: rawInput,
-            previousAnswers: currentAnswers,
-          },
-        }),
+      const { githubToken, convexToken } =
+        await getWorkflowTokens(installationId);
+      await startProjectInterview({
+        projectId: projectId as Id<"projects">,
+        featureDescription: rawInput,
+        previousAnswers: currentAnswers,
+        convexToken,
+        githubToken,
       });
     },
-    [projectId, repoId, installationId, rawInput],
+    [projectId, repoId, installationId, rawInput, startProjectInterview],
   );
 
   const handleStartInterview = () => {

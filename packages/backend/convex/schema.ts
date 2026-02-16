@@ -70,6 +70,7 @@ const schema = defineSchema({
     projectStartDate: v.optional(v.number()),
     projectEndDate: v.optional(v.number()),
     deadline: v.optional(v.number()),
+    activeWorkflowId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -197,6 +198,7 @@ const schema = defineSchema({
       ),
     ),
     planContent: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -223,6 +225,7 @@ const schema = defineSchema({
       ),
     ),
     sandboxId: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     testGenStatus: v.optional(evaluationStatusValidator),
     testPrUrl: v.optional(v.string()),
     createdAt: v.number(),
@@ -287,6 +290,7 @@ const schema = defineSchema({
     results: v.array(evalResultValidator),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -67,6 +67,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -118,6 +119,7 @@ export function ChatPanel({
   const typedSessionId = sessionId as Id<"sessions">;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
+  const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
@@ -184,17 +186,13 @@ export function ChatPanel({
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "session/summary.generate",
-          data: {
-            sessionId,
-            repoId: repo._id,
-            installationId: repo.installationId,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startSummarize({
+        sessionId: typedSessionId,
+        convexToken,
+        githubToken,
       });
     } finally {
       setIsSummarizing(false);

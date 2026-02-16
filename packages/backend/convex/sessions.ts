@@ -40,6 +40,7 @@ const sessionValidator = v.object({
   messages: v.array(messageValidator),
   fileDiffs: v.optional(v.array(fileDiffValidator)),
   planContent: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
 });
 
 export const list = query({

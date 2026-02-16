@@ -12,6 +12,7 @@ const reportValidator = v.object({
   results: v.array(evalResultValidator),
   summary: v.optional(v.string()),
   error: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { ActivitySteps, Button, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -10,6 +10,7 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 export interface ConversationMessage {
   role: "user" | "assistant";
@@ -230,7 +231,10 @@ export function ProjectChatTab({
         {initialMessages.map((m, i) => {
           if (m.role === "assistant") {
             if (!m.content) {
-              return (
+              const steps = parseActivitySteps(streamingActivity);
+              return steps ? (
+                <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
+              ) : (
                 <ChatMessage
                   key={`msg-${i}`}
                   role="assistant"

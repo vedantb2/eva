@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ActivitySteps,
   Avatar,
   AvatarFallback,
   Card,
@@ -17,6 +18,7 @@ import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import { UserInitials } from "@conductor/shared";
 import type { Id } from "@conductor/backend";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -79,20 +81,28 @@ export function ChatMessage({
                   {content}
                 </Streamdown>
               )}
-              {logs && (
-                <Accordion type="single" collapsible className="mt-2 px-0">
-                  <AccordionItem value="logs" className="border-b-0">
-                    <AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline">
-                      View logs
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-0 overflow-hidden">
-                      <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
-                        {logs}
-                      </pre>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
+              {logs &&
+                (() => {
+                  const steps = parseActivitySteps(logs);
+                  return steps ? (
+                    <div className="mt-2">
+                      <ActivitySteps steps={steps} />
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="mt-2 px-0">
+                      <AccordionItem value="logs" className="border-b-0">
+                        <AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline">
+                          View logs
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-0 overflow-hidden">
+                          <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
+                            {logs}
+                          </pre>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  );
+                })()}
             </>
           )}
         </CardContent>

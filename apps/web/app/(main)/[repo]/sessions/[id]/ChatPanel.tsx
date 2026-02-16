@@ -334,7 +334,7 @@ export function ChatPanel({
               type="single"
               collapsible
               defaultValue={streamingActivity ? "summary" : undefined}
-              className="px-4"
+              className="px-6 bg-secondary rounded-b-3xl"
             >
               <AccordionItem value="summary" className="border-b-0">
                 <AccordionTrigger className="py-2 text-sm">
@@ -345,10 +345,18 @@ export function ChatPanel({
                 </AccordionTrigger>
                 <AccordionContent className="pb-2">
                   {streamingActivity ? (
-                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                      <Spinner size="sm" />
-                      <span className="truncate">{streamingActivity}</span>
-                    </div>
+                    (() => {
+                      const summarySteps =
+                        parseActivitySteps(streamingActivity);
+                      return summarySteps ? (
+                        <ActivitySteps steps={summarySteps} isStreaming />
+                      ) : (
+                        <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                          <Spinner size="sm" />
+                          <span className="truncate">{streamingActivity}</span>
+                        </div>
+                      );
+                    })()
                   ) : summary && summary.length > 0 ? (
                     <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
                       {summary.map((item, i) => (

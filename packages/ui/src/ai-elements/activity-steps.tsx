@@ -10,7 +10,6 @@ import {
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
 import {
-  CheckIcon,
   FileSearchIcon,
   PencilIcon,
   FilePlusIcon,
@@ -24,7 +23,7 @@ import {
   BrainIcon,
   WrenchIcon,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useState, useEffect } from "react";
 
 export interface ActivityStep {
   type:
@@ -95,6 +94,12 @@ export interface ActivityStepsProps extends ComponentProps<"div"> {
 
 export const ActivitySteps = memo(
   ({ steps, isStreaming, className, ...props }: ActivityStepsProps) => {
+    const [isOpen, setIsOpen] = useState(Boolean(isStreaming));
+
+    useEffect(() => {
+      setIsOpen(Boolean(isStreaming));
+    }, [isStreaming]);
+
     if (steps.length === 0) return null;
 
     const headerLabel = isStreaming
@@ -103,13 +108,14 @@ export const ActivitySteps = memo(
 
     return (
       <ChainOfThought
-        defaultOpen
+        open={isOpen}
+        onOpenChange={setIsOpen}
         className={cn("text-sm", className)}
         {...props}
       >
         <ChainOfThoughtHeader>{headerLabel}</ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-64 overflow-y-auto scrollbar">
             {steps.map((step, i) => (
               <ActivityStepItem
                 key={i}

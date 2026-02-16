@@ -7,6 +7,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import {
+  ActivitySteps,
   Button,
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -248,7 +250,10 @@ export function DocInterviewDialog({
             {messages.map((m, i) => {
               if (m.role === "assistant") {
                 if (!m.content) {
-                  return (
+                  const steps = parseActivitySteps(streaming?.currentActivity);
+                  return steps ? (
+                    <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
+                  ) : (
                     <ChatMessage
                       key={`msg-${i}`}
                       role="assistant"

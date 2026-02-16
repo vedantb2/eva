@@ -9,6 +9,7 @@ import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import {
+  ActivitySteps,
   Button,
   Tabs,
   TabsList,
@@ -37,6 +38,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "../UITestingPanel";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 interface EvalResult {
   requirement: string;
@@ -71,14 +73,22 @@ function ReportCard({
 
   return (
     <TestResults summary={summary}>
-      {report.status === "running" && (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Spinner size="sm" />
-          <span className="text-sm text-muted-foreground truncate">
-            {streamingActivity || "Evaluating codebase..."}
-          </span>
-        </div>
-      )}
+      {report.status === "running" &&
+        (() => {
+          const steps = parseActivitySteps(streamingActivity);
+          return steps ? (
+            <div className="px-4 py-3">
+              <ActivitySteps steps={steps} isStreaming />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Spinner size="sm" />
+              <span className="text-sm text-muted-foreground truncate">
+                {streamingActivity || "Evaluating codebase..."}
+              </span>
+            </div>
+          );
+        })()}
 
       {report.status === "error" && report.error && (
         <div className="p-4">

@@ -15,9 +15,13 @@
   "dependencies": {
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",
+    "@convex-dev/workflow": "^0.3.4",
+    "@daytonaio/sdk": "^0.143.0",
+    "@solvers-hub/llm-json": "^0.1.8",
     "convex": "^1.24.5",
     "convex-timeline": "^0.1.2",
-    "resend": "^4.6.0"
+    "resend": "^4.6.0",
+    "shell-quote": "^1.8.3"
   },
   "devDependencies": {
     "@types/node": "^22.18.5",

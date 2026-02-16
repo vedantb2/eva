@@ -304,6 +304,7 @@ const schema = defineSchema({
     title: v.string(),
     status: sessionStatusValidator,
     sandboxId: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
     updatedAt: v.optional(v.number()),

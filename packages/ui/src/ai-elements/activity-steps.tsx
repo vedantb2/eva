@@ -21,6 +21,7 @@ import {
   SearchIcon,
   WorkflowIcon,
   BookOpenIcon,
+  BrainIcon,
   WrenchIcon,
 } from "lucide-react";
 import { memo } from "react";
@@ -37,6 +38,7 @@ export interface ActivityStep {
     | "web_search"
     | "subtask"
     | "notebook"
+    | "thinking"
     | "tool";
   label: string;
   detail?: string;
@@ -54,6 +56,7 @@ const stepConfig = {
   web_search: { icon: SearchIcon, defaultLabel: "Web search" },
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
+  thinking: { icon: BrainIcon, defaultLabel: "Thinking..." },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 

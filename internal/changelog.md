@@ -1,5 +1,18 @@
 # Changelog
 
+## Migrate Design Sessions from Inngest to Convex Workflow — 2026-02-16
+
+- Migrated design session execution from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`) for durable orchestration with retry/timeout semantics
+- Moved all sandbox operations (Daytona SDK calls, Claude CLI execution) into `packages/backend/convex/daytona.ts` as a Convex `internalAction`
+- Sandbox callback now authenticates via Clerk JWT token passed through the workflow chain, calling Convex mutations directly via the HTTP API (`POST /api/mutation`) with `Authorization: Bearer <jwt>`
+- Removed custom HTTP endpoints (`http.ts`) and callback token storage — auth is handled by Clerk, not custom tokens
+- Moved GitHub App token generation to a Next.js server action (`getDesignTokens`) since `@octokit/auth-app` crypto doesn't work in Convex's Node.js runtime
+- Moved design prompt building logic from `apps/web/lib/prompts/designPrompts.ts` into `packages/backend/convex/designWorkflow.ts` to keep it co-located with the workflow
+- Created `WorkflowManager` singleton (`workflowManager.ts`) with retry defaults (3 attempts, exponential backoff)
+- Removed `callbackTokens` table and `callbackToken` field from `designSessions` schema
+- Deleted `apps/web/lib/inngest/functions/design-execute.ts` and removed design exports from Inngest config
+- Added `convex` to Dockerfile global install + `NODE_PATH` for future sandbox script improvements
+
 ## Activity Steps — Chain of Thought UI for Streaming Logs — 2026-02-13
 
 - Installed Chain of Thought component from AI Elements SDK into `packages/ui/src/ai-elements/chain-of-thought.tsx`

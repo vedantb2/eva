@@ -59,11 +59,15 @@ type DesignSession = NonNullable<
 type DesignMessage = DesignSession["messages"][number];
 type Variation = NonNullable<DesignMessage["variations"]>[number];
 
+const STARTING_STEPS: ActivityStep[] = [
+  { type: "thinking", label: "Starting...", status: "active" },
+];
+
 function parseActivitySteps(raw: string | undefined): ActivityStep[] {
-  if (!raw) return [];
+  if (!raw) return STARTING_STEPS;
   try {
     const parsed: Array<Record<string, string>> = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed) || parsed.length === 0) return STARTING_STEPS;
     return parsed.map((s) => ({
       type: (s.type ?? "tool") as ActivityStep["type"],
       label: s.label ?? "",
@@ -71,7 +75,7 @@ function parseActivitySteps(raw: string | undefined): ActivityStep[] {
       status: (s.status ?? "complete") as ActivityStep["status"],
     }));
   } catch {
-    return [];
+    return STARTING_STEPS;
   }
 }
 
@@ -235,18 +239,7 @@ export function DesignDetailClient({
                   >
                     {message.role === "assistant" && !message.content ? (
                       <ActivitySteps
-                        steps={
-                          parseActivitySteps(streaming?.currentActivity)
-                            .length > 0
-                            ? parseActivitySteps(streaming?.currentActivity)
-                            : [
-                                {
-                                  type: "thinking",
-                                  label: "Starting...",
-                                  status: "active" as const,
-                                },
-                              ]
-                        }
+                        steps={parseActivitySteps(streaming?.currentActivity)}
                         isStreaming
                       />
                     ) : (

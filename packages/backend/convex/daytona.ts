@@ -1,0 +1,370 @@
+"use node";
+
+import { v } from "convex/values";
+import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { Daytona, type Sandbox } from "@daytonaio/sdk";
+import { quote } from "shell-quote";
+
+const SNAPSHOT_NAME = "eva-snapshot";
+const WORKSPACE_DIR = "/workspace/repo";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
+
+function getDaytona(): Daytona {
+  return new Daytona({ apiKey: requireEnv("DAYTONA_API_KEY") });
+}
+
+async function createSandbox(
+  daytona: Daytona,
+  githubToken: string,
+): Promise<Sandbox> {
+  const sandbox = await daytona.create(
+    {
+      snapshot: SNAPSHOT_NAME,
+      envVars: {
+        GITHUB_TOKEN: githubToken,
+        CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
+        CLERK_SECRET_KEY: requireEnv("CLERK_SECRET_KEY"),
+      },
+      autoStopInterval: 15,
+      autoDeleteInterval: 30,
+    },
+    { timeout: 120 },
+  );
+  await sandbox.process.executeCommand(
+    'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+    "/",
+    undefined,
+    10,
+  );
+  return sandbox;
+}
+
+async function syncRepo(
+  sandbox: Sandbox,
+  githubToken: string,
+  owner: string,
+  name: string,
+): Promise<void> {
+  const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
+  await sandbox.process.executeCommand(
+    `cd ${WORKSPACE_DIR} && git remote set-url origin ${repoUrl}`,
+    "/",
+    undefined,
+    10,
+  );
+  await sandbox.process.executeCommand(
+    `cd ${WORKSPACE_DIR} && git pull`,
+    "/",
+    undefined,
+    60,
+  );
+}
+
+async function getOrCreateSandbox(
+  daytona: Daytona,
+  existingSandboxId: string | undefined,
+  githubToken: string,
+  owner: string,
+  name: string,
+): Promise<{ sandbox: Sandbox; isNew: boolean }> {
+  if (existingSandboxId) {
+    try {
+      const sandbox = await daytona.get(existingSandboxId);
+      await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+      return { sandbox, isNew: false };
+    } catch {
+      // Sandbox was deleted/expired, fall through to create a new one
+    }
+  }
+  const sandbox = await createSandbox(daytona, githubToken);
+  await syncRepo(sandbox, githubToken, owner, name);
+  return { sandbox, isNew: true };
+}
+
+/**
+ * Callback handler script that runs inside the Daytona sandbox.
+ * It spawns Claude CLI, parses stream-json output, streams activity updates
+ * via ConvexHttpClient, and sends the final result when done.
+ */
+function buildCallbackHandlerScript(): string {
+  return `
+import { spawn } from "child_process";
+import { readFileSync } from "fs";
+
+const CONVEX_URL = process.env.CONVEX_URL;
+const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
+const ENTITY_ID = process.env.ENTITY_ID;
+const MODEL = process.env.CLAUDE_MODEL || "opus";
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
+const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
+const WORK_DIR = "${WORKSPACE_DIR}";
+
+async function callMutation(path, args) {
+  const res = await fetch(CONVEX_URL + "/api/mutation", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + CONVEX_TOKEN,
+    },
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("Convex mutation " + path + " failed: " + res.status + " " + text);
+  }
+  return res.json();
+}
+
+const prompt = readFileSync("/tmp/design-prompt.txt", "utf8");
+
+function shortenPath(p) {
+  const parts = p.replace(/\\\\\\\\/g, "/").split("/");
+  if (parts.length <= 3) return parts.join("/");
+  return ".../" + parts.slice(-2).join("/");
+}
+
+function toolCallToStep(name, input) {
+  const path = input.file_path ? shortenPath(String(input.file_path)) : "";
+  switch (name) {
+    case "Read": return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
+    case "Glob": return { type: "search_files", label: "Searching files...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "Grep": return { type: "search_code", label: "Searching code...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "Write": return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
+    case "Edit": return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
+    case "Bash": return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 80) : undefined, status: "active" };
+    case "Skill": return { type: "tool", label: "Using Skill...", detail: input.skill ? String(input.skill) : undefined, status: "active" };
+    default: return { type: "tool", label: "Using " + name + "...", status: "active" };
+  }
+}
+
+let lastStepType = "";
+
+const completedLabels = {
+  "Starting Claude...": "Started Claude",
+  "Thinking...": "Thought",
+  "Generating response...": "Generated response",
+  "Reading file...": "Read file",
+  "Searching files...": "Searched files",
+  "Searching code...": "Searched code",
+  "Creating file...": "Created file",
+  "Editing file...": "Edited file",
+  "Running command...": "Ran command",
+  "Using Skill...": "Used Skill",
+};
+
+function markLastComplete() {
+  if (accumulatedSteps.length === 0) return;
+  const last = accumulatedSteps[accumulatedSteps.length - 1];
+  last.status = "complete";
+  if (completedLabels[last.label]) {
+    last.label = completedLabels[last.label];
+  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
+    last.label = "Used " + last.label.slice(6, -3);
+  }
+}
+
+function parseStreamEvent(line) {
+  try {
+    const event = JSON.parse(line);
+
+    // tool_result events mark the previous tool step as complete
+    if (event.type === "tool_result") {
+      markLastComplete();
+      return true;
+    }
+
+    if (event.type !== "assistant") return false;
+    let added = false;
+    for (const block of event.message?.content ?? []) {
+      if (block.type === "tool_use") {
+        markLastComplete();
+        accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
+        lastStepType = "tool";
+        added = true;
+      } else if (block.type === "thinking" && block.thinking) {
+        markLastComplete();
+        const preview = String(block.thinking).split("\\n")[0].slice(0, 120);
+        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: preview, status: "active" });
+        lastStepType = "thinking";
+        added = true;
+      }
+    }
+    if (!added && lastStepType !== "thinking") {
+      markLastComplete();
+      accumulatedSteps.push({ type: "thinking", label: "Generating response...", status: "active" });
+      lastStepType = "thinking";
+      added = true;
+    }
+    return added;
+  } catch { return false; }
+}
+
+const accumulatedSteps = [];
+let rawOutput = "";
+let lastProcessed = 0;
+
+async function flushStreaming() {
+  if (rawOutput.length <= lastProcessed) return;
+  const pending = rawOutput.slice(lastProcessed);
+  const lastNewline = pending.lastIndexOf("\\n");
+  if (lastNewline === -1) return;
+  lastProcessed += lastNewline + 1;
+  let hasNew = false;
+  for (const line of pending.slice(0, lastNewline).split("\\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    if (parseStreamEvent(clean)) hasNew = true;
+  }
+  if (hasNew) {
+    const stepsToSend = accumulatedSteps.slice(-30);
+    try {
+      await callMutation("streaming:set", {
+        entityId: ENTITY_ID,
+        currentActivity: JSON.stringify(stepsToSend),
+      });
+    } catch {}
+  }
+}
+
+// Send initial step immediately so frontend sees progress right away
+accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
+callMutation("streaming:set", {
+  entityId: ENTITY_ID,
+  currentActivity: JSON.stringify(accumulatedSteps),
+}).catch(() => {});
+
+const interval = setInterval(flushStreaming, 500);
+
+const escapedPrompt = JSON.stringify(prompt);
+const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
+const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
+const cmd = "echo " + escapedPrompt + " | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
+
+const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
+  env: { ...process.env },
+  stdio: ["pipe", "pipe", "pipe"],
+});
+
+child.stdout.on("data", (chunk) => { rawOutput += chunk.toString(); });
+child.stderr.on("data", () => {});
+
+child.on("close", async (code) => {
+  clearInterval(interval);
+  await flushStreaming();
+
+  for (const step of accumulatedSteps) step.status = "complete";
+  const activityLog = JSON.stringify(accumulatedSteps);
+
+  let resultEvent = null;
+  for (const line of rawOutput.split("\\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    try {
+      const parsed = JSON.parse(clean);
+      if (parsed.type === "result") {
+        const r = parsed.result ?? "";
+        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error) };
+      }
+    } catch {}
+  }
+
+  try {
+    await callMutation("designWorkflow:handleCompletion", {
+      designSessionId: ENTITY_ID,
+      success: resultEvent ? !resultEvent.isError : code === 0,
+      result: resultEvent?.result ?? rawOutput,
+      error: resultEvent?.isError ? resultEvent.result : (code !== 0 ? "Claude CLI exited with code " + code : null),
+      activityLog,
+    });
+  } catch (e) {
+    console.error("Failed to send completion:", e);
+    process.exit(1);
+  }
+});
+
+child.on("error", async (err) => {
+  clearInterval(interval);
+  try {
+    await callMutation("designWorkflow:handleCompletion", {
+      designSessionId: ENTITY_ID,
+      success: false,
+      result: null,
+      error: err.message,
+      activityLog: "[]",
+    });
+  } catch {}
+});
+`.trim();
+}
+
+export const setupAndExecuteDesign = internalAction({
+  args: {
+    designSessionId: v.id("designSessions"),
+    existingSandboxId: v.optional(v.string()),
+    githubToken: v.string(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prompt: v.string(),
+    systemPrompt: v.string(),
+    convexToken: v.string(),
+    model: v.optional(v.string()),
+    allowedTools: v.optional(v.string()),
+  },
+  returns: v.object({ sandboxId: v.string() }),
+  handler: async (ctx, args) => {
+    const daytona = getDaytona();
+
+    const { sandbox, isNew } = await getOrCreateSandbox(
+      daytona,
+      args.existingSandboxId,
+      args.githubToken,
+      args.repoOwner,
+      args.repoName,
+    );
+
+    if (isNew) {
+      await ctx.runMutation(internal.designSessions.updateSandbox, {
+        id: args.designSessionId,
+        sandboxId: sandbox.id,
+      });
+    }
+
+    // Write the design prompt to a file in the sandbox
+    await sandbox.fs.uploadFile(
+      Buffer.from(args.prompt, "utf-8"),
+      "/tmp/design-prompt.txt",
+    );
+
+    // Write the callback handler script
+    const handlerScript = buildCallbackHandlerScript();
+    await sandbox.fs.uploadFile(
+      Buffer.from(handlerScript, "utf-8"),
+      "/tmp/run-design.mjs",
+    );
+
+    // Execute the handler script (fire-and-forget via nohup)
+    const convexUrl = requireEnv("CONVEX_CLOUD_URL");
+    const envVars = [
+      `CONVEX_URL=${quote([convexUrl])}`,
+      `CONVEX_TOKEN=${quote([args.convexToken])}`,
+      `ENTITY_ID=${quote([args.designSessionId])}`,
+      `CLAUDE_MODEL=${args.model ?? "opus"}`,
+      `ALLOWED_TOOLS=${quote([args.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
+      `SYSTEM_PROMPT=${quote([args.systemPrompt])}`,
+    ].join(" ");
+    await sandbox.process.executeCommand(
+      `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
+      "/",
+      undefined,
+      10,
+    );
+
+    return { sandboxId: sandbox.id };
+  },
+});

@@ -10,7 +10,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pnpm dev            # Start web dev server (Next.js with Turbopack)
 pnpm convex         # Start Convex backend dev server
 pnpm convex:deploy  # Deploy Convex backend
-pnpm inngest        # Start Inngest dev server for background jobs
 pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
 ```
@@ -52,7 +51,7 @@ This is a monorepo (pnpm workspaces) with four apps and three shared packages:
 
 **Frontend:** Next.js 15, TypeScript, Tailwind CSS, shadcn/ui (Radix UI primitives), Clerk auth, ai-sdk with OpenRouter
 
-**Backend:** Convex (database + mutations/queries), Resend (email), Inngest (background jobs)
+**Backend:** Convex (database + mutations/queries + workflows), Resend (email)
 
 **Key Integrations:** GitHub API via Octokit, Claude Code SDK, Daytona SDK for sandbox code execution
 
@@ -67,14 +66,13 @@ apps/web/
 │   ├── (landing)/    # Public landing page
 │   └── api/          # Route handlers
 │       ├── github/   # GitHub branches, installation-token, repos
-│       ├── inngest/  # Inngest webhook + manual trigger
 │       └── sessions/ # Preview (WebSocket) and terminal (PTY) endpoints
 ├── lib/
 │   ├── components/   # Reusable UI components
 │   ├── contexts/     # React contexts (Theme, Repo, Sidebar)
 │   ├── hooks/        # Custom hooks
 │   ├── github/       # GitHub API utilities
-│   ├── inngest/      # Background job definitions and sandbox helpers
+│   ├── sandbox.ts    # Daytona sandbox utilities (PTY, WebSocket)
 │   └── prompts/      # AI system prompts
 ├── env/
 │   ├── client.ts     # Client-side env vars (NEXT_PUBLIC_*)
@@ -142,27 +140,13 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 - **taskWorkflow.ts** + **taskWorkflowActions.ts** - Task execution (Claude CLI implements code changes, creates PRs, runs audits). Actions split to separate file for Node.js runtime (Daytona SDK, LlmJson).
 - **buildWorkflow.ts** - Sequential project build (orchestrates multiple task executions via inter-workflow events)
 
-**Pattern**: Frontend calls `startXxx` mutation → `workflow.start()` → action fires Daytona sandbox with `nohup` → sandbox runs Claude CLI → sandbox calls back via `POST /api/mutation` with Clerk JWT → `handleCompletion` mutation calls `workflow.sendEvent()` → workflow saves result.
+**Workflow pattern**: Frontend calls `startXxx` mutation → `workflow.start()` → action fires Daytona sandbox with `nohup` → sandbox runs Claude CLI → sandbox calls back via `POST /api/mutation` with Clerk JWT → `handleCompletion` mutation calls `workflow.sendEvent()` → workflow saves result.
 
-**Shared utilities** in `daytona.ts`: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, `setupAndExecute` (generic internalAction).
+**Simple async pattern** (sessions/projects): Frontend calls public mutation → mutation does immediate DB writes + `ctx.scheduler.runAfter(0, internalAction)` → action does Daytona work → action calls `ctx.runMutation(internalMutation)` to update DB when done.
+
+**Shared utilities** in `daytona.ts`: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, `setupAndExecute` (generic internalAction), `deleteSandbox`, `startSessionSandbox`.
 
 **Token flow**: Frontend calls `getWorkflowTokens(installationId)` server action (in `apps/web/app/(main)/[repo]/actions.ts`) to get GitHub + Convex tokens, passes them to the start mutation.
-
-### Inngest Background Jobs (Legacy — being migrated)
-
-Located in `apps/web/lib/inngest/functions/`:
-
-- **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
-- **cleanup-project-sandbox** - Tears down inactive project sandboxes
-
-### Sandbox Execution
-
-The `apps/web/lib/inngest/sandbox.ts` module provides utilities for Daytona sandbox operations (used by remaining Inngest functions):
-
-- `getGitHubToken()` - Gets installation token from GitHub App
-- `cloneRepo()` / `setupBranch()` - Git operations in sandbox
-- `runClaudeCLI()` - Execute Claude Code CLI with model/tool options
-- `ensureProjectSandbox()` - Create or reuse existing sandbox
 
 ### Shared UI Package (`packages/ui/`)
 
@@ -230,5 +214,4 @@ Pre-commit runs `lint-staged` via Husky, which formats staged `*.{ts,tsx,js,jsx,
 - Default to Server Components; only use Client Components (`*Client.tsx`) for interactive elements requiring hooks, events, or browser APIs
 - Icons: `@tabler/icons-react` (primary), `lucide-react` (secondary)
 - URL state management with `nuqs` for search/filter/sort params
-- Inngest event naming: `{domain}/{action}.{status}` (e.g., `task/execute.requested`, `session/execute`)
 - Daytona sandboxes: snapshot-based (`eva-snapshot`), auto-stop 15min, auto-delete 30min, non-root user `eva`

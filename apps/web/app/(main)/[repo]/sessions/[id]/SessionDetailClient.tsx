@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +10,8 @@ import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Button, Spinner } from "@conductor/ui";
 import { IconLayoutSidebarRightExpand } from "@tabler/icons-react";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
 interface SessionDetailClientProps {
   sessionId: string;
@@ -21,8 +23,11 @@ const CHAT_MIN_EXPANDED_WIDTH_PX = 400;
 
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const typedSessionId = sessionId as Id<"sessions">;
+  const { installationId } = useRepo();
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
+  const startSandboxMutation = useMutation(api.sessions.startSandbox);
+  const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
   const chatPanelRef = usePanelRef();
   const [chatCollapsed, setChatCollapsed] = useState(false);
@@ -48,15 +53,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const handleSandboxToggle = async (action: "start" | "stop") => {
     setIsSandboxToggling(true);
     try {
-      const eventName =
-        action === "start" ? "session/sandbox.start" : "session/sandbox.stop";
-      const response = await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: eventName, data: { sessionId } }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to toggle sandbox");
+      if (action === "start") {
+        const { githubToken } = await getWorkflowTokens(installationId);
+        await startSandboxMutation({ sessionId: typedSessionId, githubToken });
+      } else {
+        await stopSandboxMutation({ sessionId: typedSessionId });
       }
     } finally {
       setIsSandboxToggling(false);

@@ -1,4 +1,5 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
 import {
@@ -390,6 +391,122 @@ export const updateLastMessage = mutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const startSandbox = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    githubToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) throw new Error("Repository not found");
+    const branchName = session.branchName || "main";
+    await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
+      sessionId: args.sessionId,
+      existingSandboxId: session.sandboxId,
+      githubToken: args.githubToken,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+    });
+    return null;
+  },
+});
+
+export const stopSandbox = mutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (session.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+        sandboxId: session.sandboxId,
+      });
+    }
+    await ctx.db.patch(args.sessionId, {
+      sandboxId: undefined,
+      status: "closed",
+      messages: [
+        ...session.messages,
+        {
+          role: "assistant" as const,
+          content: "Sandbox stopped. Start the sandbox to continue working.",
+          timestamp: Date.now(),
+          userId,
+        },
+      ],
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const sandboxReady = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    sandboxId: v.string(),
+    branchName: v.string(),
+    isNew: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    const content = args.isNew
+      ? `Sandbox started from snapshot! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
+      : `Sandbox reconnected! Continuing work on branch \`${args.branchName}\`.`;
+    const patch: Record<string, unknown> = {
+      messages: [
+        ...session.messages,
+        {
+          role: "assistant" as const,
+          content,
+          timestamp: Date.now(),
+        },
+      ],
+      updatedAt: Date.now(),
+    };
+    if (args.isNew) {
+      patch.sandboxId = args.sandboxId;
+      patch.branchName = args.branchName;
+      patch.status = "active";
+    }
+    await ctx.db.patch(args.sessionId, patch);
+    return null;
+  },
+});
+
+export const sandboxError = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    await ctx.db.patch(args.sessionId, {
+      messages: [
+        ...session.messages,
+        {
+          role: "assistant" as const,
+          content: `Failed to start sandbox: ${args.error}`,
+          timestamp: Date.now(),
+        },
+      ],
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

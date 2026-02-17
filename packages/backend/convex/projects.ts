@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getCurrentUserId } from "./auth";
@@ -648,6 +649,11 @@ export const clearProjectSandbox = mutation({
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
+    }
+    if (project.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+        sandboxId: project.sandboxId,
+      });
     }
     await ctx.db.patch(args.id, {
       sandboxId: undefined,

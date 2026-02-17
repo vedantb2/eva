@@ -1,5 +1,17 @@
 # Changelog
 
+## Complete Inngest Removal — Migrate Session Sandbox + Project Cleanup to Convex — 2026-02-17
+
+- Migrated final 3 Inngest functions (`startSandbox`, `stopSandbox`, `cleanupProjectSandbox`) to Convex
+- Added `deleteSandbox` internalAction in `daytona.ts` — fire-and-forget sandbox deletion reused by session stop and project cleanup
+- Added `startSessionSandbox` internalAction in `daytona.ts` — creates/reuses Daytona sandbox, sets up git + pnpm install + dev server + code-server, calls `sandboxReady`/`sandboxError` mutations when done
+- Added `startSandbox`, `stopSandbox`, `sandboxReady`, `sandboxError` to `sessions.ts` — public mutations use `ctx.scheduler.runAfter` pattern (no workflows needed)
+- Updated `clearProjectSandbox` in `projects.ts` to also schedule sandbox deletion via `deleteSandbox`
+- Updated frontend: `SessionsSidebar.tsx`, `SessionDetailClient.tsx`, `ProjectActiveLayout.tsx` — replaced `fetch("/api/inngest/send")` with direct Convex mutations
+- Created `apps/web/lib/sandbox.ts` with PTY/WebSocket utilities moved from `inngest/sandbox.ts`
+- **Fully removed Inngest**: deleted all files under `apps/web/lib/inngest/` and `apps/web/app/api/inngest/`, removed `inngest` dependency from package.json, removed `pnpm inngest` script
+- Updated CLAUDE.md to remove all Inngest references
+
 ## Migrate Task Execution + Build Project from Inngest to Convex Workflows — 2026-02-17
 
 - Migrated `executeTask` and `buildProject` from Inngest background jobs to Convex Workflows for durable orchestration

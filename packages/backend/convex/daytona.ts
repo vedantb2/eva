@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 
@@ -532,6 +533,107 @@ export const launchAudit = internalAction({
       { model: "haiku" },
     );
 
+    return null;
+  },
+});
+
+export const deleteSandbox = internalAction({
+  args: { sandboxId: v.string() },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    const daytona = getDaytona();
+    try {
+      const sandbox = await daytona.get(args.sandboxId);
+      await sandbox.delete();
+    } catch {
+      // Sandbox may already be deleted or expired
+    }
+    return null;
+  },
+});
+
+export const startSessionSandbox = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    existingSandboxId: v.optional(v.string()),
+    githubToken: v.string(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const daytona = getDaytona();
+
+      if (args.existingSandboxId) {
+        try {
+          const sandbox = await daytona.get(args.existingSandboxId);
+          await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+          await sandbox.process.executeCommand(
+            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+            "/",
+            undefined,
+            10,
+          );
+          await sandbox.process.executeCommand(
+            `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+            "/",
+            undefined,
+            10,
+          );
+          await ctx.runMutation(internal.sessions.sandboxReady, {
+            sessionId: args.sessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+          });
+          return null;
+        } catch {
+          // Sandbox dead or unresponsive, create new
+        }
+      }
+
+      const sandbox = await createSandbox(daytona, args.githubToken);
+      const repoUrl = `https://x-access-token:${args.githubToken}@github.com/${args.repoOwner}/${args.repoName}.git`;
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && git remote set-url origin ${repoUrl}`,
+        "/",
+        undefined,
+        10,
+      );
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${args.branchName} && pnpm install`,
+        "/",
+        undefined,
+        120,
+      );
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        "/",
+        undefined,
+        10,
+      );
+      await sandbox.process.executeCommand(
+        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+        "/",
+        undefined,
+        10,
+      );
+
+      await ctx.runMutation(internal.sessions.sandboxReady, {
+        sessionId: args.sessionId,
+        sandboxId: sandbox.id,
+        branchName: args.branchName,
+        isNew: true,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      await ctx.runMutation(internal.sessions.sandboxError, {
+        sessionId: args.sessionId,
+        error: message,
+      });
+    }
     return null;
   },
 });

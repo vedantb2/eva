@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
@@ -53,6 +53,7 @@ export function ProjectActiveLayout({
   );
 
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
+  const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
 
   useEffect(() => {
     if (
@@ -61,16 +62,9 @@ export function ProjectActiveLayout({
       !cleanupTriggeredRef.current
     ) {
       cleanupTriggeredRef.current = true;
-      fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "project/sandbox.cleanup",
-          data: { projectId: project._id, sandboxId: project.sandboxId },
-        }),
-      }).catch(() => {});
+      clearProjectSandbox({ id: project._id }).catch(() => {});
     }
-  }, [project.phase, project.sandboxId, project._id]);
+  }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
 
   const selectedTask = tasks?.find((t) => t._id === selectedTaskId) ?? null;
 

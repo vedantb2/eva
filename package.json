@@ -12,7 +12,6 @@
     "turbo": "pnpm --filter conductor turbo",
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend deploy",
-    "inngest": "pnpm --filter conductor inngest",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "snapshot:delete": "daytona snapshot delete eva-snapshot",

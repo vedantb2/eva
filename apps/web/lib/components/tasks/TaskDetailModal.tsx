@@ -25,6 +25,7 @@ import {
   Reasoning,
   ReasoningTrigger,
   ReasoningContent,
+  ActivitySteps,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -60,6 +61,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@conductor/shared/dates";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -98,6 +101,7 @@ export function TaskDetailModal({
     task?.repoId ? { repoId: task.repoId } : "skip",
   );
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
@@ -172,22 +176,20 @@ export function TaskDetailModal({
     setIsStarting(true);
     try {
       const result = await startExecution({ id: taskId });
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "task/execute.requested",
-          data: {
-            runId: result.runId,
-            taskId: result.taskId,
-            repoId: result.repoId,
-            installationId: result.installationId,
-            projectId: result.projectId,
-            branchName: result.branchName,
-            isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-            model: result.model,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        result.installationId,
+      );
+      await triggerExecution({
+        runId: result.runId,
+        taskId: result.taskId,
+        repoId: result.repoId,
+        installationId: result.installationId,
+        projectId: result.projectId,
+        branchName: result.branchName,
+        isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+        model: result.model,
+        convexToken,
+        githubToken,
       });
     } catch (err) {
       console.error("Failed to start execution:", err);
@@ -371,18 +373,28 @@ export function TaskDetailModal({
                           <AccordionContent>
                             <div className="space-y-2">
                               {run.status === "running" &&
-                                streaming?.currentActivity && (
-                                  <Reasoning isStreaming defaultOpen>
-                                    <ReasoningTrigger
-                                      getThinkingMessage={(s) =>
-                                        s ? "Working..." : "Processing complete"
-                                      }
-                                    />
-                                    <ReasoningContent>
-                                      {streaming.currentActivity}
-                                    </ReasoningContent>
-                                  </Reasoning>
-                                )}
+                                streaming?.currentActivity &&
+                                (() => {
+                                  const steps = parseActivitySteps(
+                                    streaming.currentActivity,
+                                  );
+                                  return steps ? (
+                                    <ActivitySteps steps={steps} isStreaming />
+                                  ) : (
+                                    <Reasoning isStreaming defaultOpen>
+                                      <ReasoningTrigger
+                                        getThinkingMessage={(s) =>
+                                          s
+                                            ? "Working..."
+                                            : "Processing complete"
+                                        }
+                                      />
+                                      <ReasoningContent>
+                                        {streaming.currentActivity}
+                                      </ReasoningContent>
+                                    </Reasoning>
+                                  );
+                                })()}
                               {run.resultSummary && (
                                 <p className="text-sm text-muted-foreground">
                                   {run.resultSummary}

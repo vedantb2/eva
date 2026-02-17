@@ -504,3 +504,34 @@ export const setupAndExecute = internalAction({
     return { sandboxId: sandbox.id };
   },
 });
+
+/**
+ * Launches a code audit in an existing sandbox via nohup (fire-and-forget).
+ * Reuses buildCallbackScript/launchScript — streaming activity updates are
+ * harmlessly ignored since the task is already marked complete by this point.
+ */
+export const launchAudit = internalAction({
+  args: {
+    sandboxId: v.string(),
+    prompt: v.string(),
+    taskId: v.string(),
+    convexToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    const daytona = getDaytona();
+    const sandbox = await daytona.get(args.sandboxId);
+
+    await launchScript(
+      sandbox,
+      args.prompt,
+      "taskWorkflow:handleAuditCompletion",
+      "taskId",
+      args.convexToken,
+      args.taskId,
+      { model: "haiku" },
+    );
+
+    return null;
+  },
+});

@@ -18,6 +18,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
@@ -39,6 +40,7 @@ export function QuickTasksKanbanBoard({
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
     null,
   );
@@ -75,21 +77,20 @@ export function QuickTasksKanbanBoard({
     try {
       for (const task of ownedTodoTasks) {
         const result = await startExecution({ id: task._id });
-        await fetch("/api/inngest/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "task/execute.requested",
-            data: {
-              runId: result.runId,
-              taskId: result.taskId,
-              repoId: result.repoId,
-              installationId: result.installationId,
-              projectId: result.projectId,
-              branchName: result.branchName,
-              isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-            },
-          }),
+        const { githubToken, convexToken } = await getWorkflowTokens(
+          result.installationId,
+        );
+        await triggerExecution({
+          runId: result.runId,
+          taskId: result.taskId,
+          repoId: result.repoId,
+          installationId: result.installationId,
+          projectId: result.projectId,
+          branchName: result.branchName,
+          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+          model: result.model,
+          convexToken,
+          githubToken,
         });
       }
     } catch (err) {

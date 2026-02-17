@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
@@ -41,6 +40,7 @@ const agentTaskValidator = v.object({
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(claudeModelValidator),
+  activeWorkflowId: v.optional(v.string()),
 });
 
 export const listByBoard = query({
@@ -272,31 +272,12 @@ export const moveToColumn = mutation({
       (max, t) => Math.max(max, t.order),
       -1,
     );
-    let runId: Id<"agentRuns"> | null = null;
-    if (targetColumn.isRunColumn && task.status === "todo") {
-      runId = await ctx.db.insert("agentRuns", {
-        taskId: args.id,
-        status: "queued",
-        logs: [],
-        startedAt: Date.now(),
-      });
-      await ctx.scheduler.runAfter(0, internal.agentExecution.trigger, {
-        runId,
-      });
-      await ctx.db.patch(args.id, {
-        columnId: args.columnId,
-        order: maxOrder + 1,
-        status: "todo",
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.patch(args.id, {
-        columnId: args.columnId,
-        order: maxOrder + 1,
-        updatedAt: Date.now(),
-      });
-    }
-    return runId;
+    await ctx.db.patch(args.id, {
+      columnId: args.columnId,
+      order: maxOrder + 1,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

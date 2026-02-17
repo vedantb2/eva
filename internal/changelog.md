@@ -1,5 +1,21 @@
 # Changelog
 
+## Migrate Task Execution + Build Project from Inngest to Convex Workflows — 2026-02-17
+
+- Migrated `executeTask` and `buildProject` from Inngest background jobs to Convex Workflows for durable orchestration
+- Created `taskWorkflow.ts` with task execution workflow: sandbox setup, Claude CLI execution, PR creation, subtask completion, notifications, and post-execution code audits
+- Created `taskWorkflowActions.ts` with Node.js-specific actions (GitHub PR creation) separated from the workflow file per Convex runtime constraints
+- Created `buildWorkflow.ts` with sequential project build workflow that orchestrates multiple task executions using inter-workflow events (`buildTaskDoneEvent`)
+- Updated three frontend components (TaskDetailModal, QuickTasksKanbanBoard, ProjectDetailClient) to use Convex mutations instead of `fetch("/api/inngest/send")`
+- Added `activeWorkflowId` to agentTasks and `activeBuildWorkflowId` to projects schema for workflow event routing
+- Removed dead code: deleted `agentExecution.ts` and removed auto-execute logic from `moveToColumn` (never called from frontend)
+- Updated chrome extension `App.tsx` to use Convex `triggerExecution` mutation instead of `fetch` to Inngest, using `/api/github/installation-token` for GitHub tokens
+- Deleted `execute-task.ts` and `build-project.ts` Inngest functions; remaining Inngest functions: startSandbox, stopSandbox, cleanupProjectSandbox
+- Migrated `runAudit` from synchronous Convex action to Daytona fire-and-forget pattern (`launchAudit` in `daytona.ts` + `auditCompleteEvent`/`handleAuditCompletion` callback)
+- `activeWorkflowId` is now cleared at end of workflow (after audit completes) instead of in `completeRun`, so audit callback can route events
+- Added `extractJsonBlock` helper in `taskWorkflow.ts` to replace `LlmJson` dependency (regex-based JSON extraction from raw LLM output)
+- Stripped `taskWorkflowActions.ts` down to only `createPullRequest` (removed `runAudit`, `LlmJson`, `Daytona` imports)
+
 ## Resizable console/terminal panel in session preview — 2026-02-17
 
 - Replaced fixed `h-64` console/terminal drawer with a draggable resizable panel using `react-resizable-panels`

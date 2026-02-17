@@ -71,6 +71,7 @@ const schema = defineSchema({
     projectEndDate: v.optional(v.number()),
     deadline: v.optional(v.number()),
     activeWorkflowId: v.optional(v.string()),
+    activeBuildWorkflowId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -108,6 +109,7 @@ const schema = defineSchema({
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
+    activeWorkflowId: v.optional(v.string()),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])

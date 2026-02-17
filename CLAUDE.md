@@ -139,6 +139,8 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 - **docInterviewWorkflow.ts** - Doc interview Q&A + content generation (two separate workflows)
 - **projectInterviewWorkflow.ts** - Project interview Q&A + spec generation (two separate workflows)
 - **testGenWorkflow.ts** - Generates tests with git ops and PR creation (Sonnet, write tools, ephemeral sandbox)
+- **taskWorkflow.ts** + **taskWorkflowActions.ts** - Task execution (Claude CLI implements code changes, creates PRs, runs audits). Actions split to separate file for Node.js runtime (Daytona SDK, LlmJson).
+- **buildWorkflow.ts** - Sequential project build (orchestrates multiple task executions via inter-workflow events)
 
 **Pattern**: Frontend calls `startXxx` mutation → `workflow.start()` → action fires Daytona sandbox with `nohup` → sandbox runs Claude CLI → sandbox calls back via `POST /api/mutation` with Clerk JWT → `handleCompletion` mutation calls `workflow.sendEvent()` → workflow saves result.
 
@@ -150,10 +152,8 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 
 Located in `apps/web/lib/inngest/functions/`:
 
-- **execute-task** - Runs agent tasks in Daytona sandbox
 - **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
 - **cleanup-project-sandbox** - Tears down inactive project sandboxes
-- **build-project** - Autonomous project build workflow
 
 ### Sandbox Execution
 

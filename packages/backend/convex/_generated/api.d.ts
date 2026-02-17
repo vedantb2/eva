@@ -8,13 +8,13 @@
  * @module
  */
 
-import type * as agentExecution from "../agentExecution.js";
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
 import type * as boards from "../boards.js";
+import type * as buildWorkflow from "../buildWorkflow.js";
 import type * as columns from "../columns.js";
 import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
@@ -45,6 +45,8 @@ import type * as taskAudits from "../taskAudits.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
+import type * as taskWorkflow from "../taskWorkflow.js";
+import type * as taskWorkflowActions from "../taskWorkflowActions.js";
 import type * as testGenWorkflow from "../testGenWorkflow.js";
 import type * as users from "../users.js";
 import type * as validators from "../validators.js";
@@ -57,13 +59,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  agentExecution: typeof agentExecution;
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;
   annotations: typeof annotations;
   auth: typeof auth;
   boards: typeof boards;
+  buildWorkflow: typeof buildWorkflow;
   columns: typeof columns;
   daytona: typeof daytona;
   designPersonas: typeof designPersonas;
@@ -94,6 +96,8 @@ declare const fullApi: ApiFromModules<{
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
   taskProof: typeof taskProof;
+  taskWorkflow: typeof taskWorkflow;
+  taskWorkflowActions: typeof taskWorkflowActions;
   testGenWorkflow: typeof testGenWorkflow;
   users: typeof users;
   validators: typeof validators;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   Tooltip,
@@ -29,15 +29,17 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { PlanContextPanel } from "@/lib/components/projects/PlanContextPanel";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
 interface ProjectDetailClientProps {
   projectId: string;
 }
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
-  const { fullName, repo } = useRepo();
+  const { fullName, repo, installationId } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+  const startBuild = useMutation(api.buildWorkflow.startBuild);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
@@ -171,13 +173,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </Button>
             <Button
               onClick={async () => {
-                await fetch("/api/inngest/send", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name: "project/build.requested",
-                    data: { projectId: typedProjectId },
-                  }),
+                const { githubToken, convexToken } =
+                  await getWorkflowTokens(installationId);
+                await startBuild({
+                  projectId: typedProjectId,
+                  convexToken,
+                  githubToken,
                 });
                 setIsBuildModalOpen(false);
               }}

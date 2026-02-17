@@ -121,6 +121,13 @@ async function setupBranch(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
+  // Push branch to remote so it exists before Claude starts — makes subsequent pushes fast
+  await sandbox.process.executeCommand(
+    `cd ${WORKSPACE_DIR} && git push -u origin ${branchName} 2>/dev/null || true`,
+    "/",
+    undefined,
+    30,
+  );
 }
 
 /**

@@ -68,7 +68,7 @@ export function RepoHomeClient() {
             className="rounded-full"
           />
           <span className="text-xl tracking-tight font-semibold text-primary">
-            Eva's Stats
+            jeoiajsoidjkas
           </span>
         </div>
         <p className="text-sm font-medium text-muted-foreground">

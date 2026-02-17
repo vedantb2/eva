@@ -539,7 +539,7 @@ export const createQuickTask = mutation({
       .first();
     if (!board) {
       const boardId = await ctx.db.insert("boards", {
-        name: "Quick Tasks",
+        name: "Kwik Tasks",
         ownerId: identity.subject,
         repoId: args.repoId,
         createdAt: Date.now(),

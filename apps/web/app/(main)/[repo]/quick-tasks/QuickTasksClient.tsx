@@ -57,7 +57,7 @@ export function QuickTasksClient() {
   return (
     <>
       <PageWrapper
-        title="Super Tasks"
+        title="Kwik Tasks"
         fillHeight
         childPadding={false}
         headerCenter={
@@ -187,9 +187,9 @@ export function QuickTasksClient() {
                       className="text-muted-foreground"
                     />
                   }
-                  title="No quick tasks"
-                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-                  actionLabel="Create Quick Task"
+                  title="No kwik tasks"
+                  description="Kwik tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+                  actionLabel="Create Kwik Task"
                   onAction={() => setIsCreating(true)}
                 />
               </motion.div>

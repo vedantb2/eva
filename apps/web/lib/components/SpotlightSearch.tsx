@@ -95,12 +95,12 @@ export function SpotlightSearch() {
                 <span className="text-xs text-muted-foreground">Build</span>
               </Command.Item>
               <Command.Item
-                value="Super Tasks"
+                value="Kwik Tasks"
                 className={itemClass}
                 onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}
               >
                 <IconChecklist size={16} className="flex-shrink-0" />
-                <span className="flex-1">Super Tasks</span>
+                <span className="flex-1">Kwik Tasks</span>
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item

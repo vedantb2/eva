@@ -1,5 +1,24 @@
 # Changelog
 
+## Move Projects Search Bar to Page Header — 2026-02-17
+
+- Moved the search bar from the toolbar row into the `PageWrapper` `headerCenter` slot on the Projects page
+- Search now sits in the sticky page header between the title and the "New Project" button
+- Simplified the toolbar row to only contain view toggle, phase filter, and sort controls
+
+## Migrate Session Execute from Inngest to Convex Workflows — 2026-02-17
+
+- Migrated `sessionExecute` (execute, ask, plan modes) from Inngest to Convex Workflows with fire-and-forget sandbox pattern
+- Created `sessionWorkflow.ts` with single unified workflow handling all 3 modes, prompt builders, diff parsing, and supporting internal functions
+- Added `runSandboxCommand` internalAction to `daytona.ts` for post-completion sandbox operations (git diff capture, plan.md reading)
+- Updated `getOrCreateSandbox` in `daytona.ts` to sync repo (fresh GitHub token + git pull) when reusing existing sandboxes
+- Execute mode captures git diffs via `runSandboxCommand` after Claude completes, plan mode reads `plan.md` content
+- Workflow supports cancel via `workflow.cancel` — replaces Inngest `cancelOn` event pattern
+- Updated web ChatPanel.tsx to use Convex mutations (`startExecute`, `cancelExecution`) instead of `fetch("/api/inngest/send")`
+- Updated chrome extension ChatPanel.tsx to call Convex mutation directly instead of Inngest API endpoint
+- Deleted `session-execute.ts` and removed from Inngest route registration
+- Remaining Inngest functions: executeTask, buildProject, startSandbox, stopSandbox, cleanupProjectSandbox
+
 ## Migrate Research Query Workflows from Inngest to Convex — 2026-02-17
 
 - Migrated `generateResearchQuery` and `confirmResearchQuery` from Inngest to Convex Workflows with fire-and-forget sandbox pattern

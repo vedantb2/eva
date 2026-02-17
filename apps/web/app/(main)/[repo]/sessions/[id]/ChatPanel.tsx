@@ -143,6 +143,8 @@ export function ChatPanel({
     },
   );
 
+  const startExecution = useMutation(api.sessionWorkflow.startExecute);
+
   const sendToApi = useCallback(
     async (
       message: string,
@@ -150,25 +152,20 @@ export function ChatPanel({
       sendModel: ClaudeModel,
       sendResponseLength: ResponseLength,
     ) => {
-      const response = await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "session/execute",
-          data: {
-            sessionId,
-            message,
-            mode: sendMode,
-            model: sendModel,
-            responseLength: sendResponseLength,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startExecution({
+        sessionId: typedSessionId,
+        message,
+        mode: sendMode,
+        model: sendModel,
+        responseLength: sendResponseLength,
+        convexToken,
+        githubToken,
       });
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
     },
-    [sessionId],
+    [repo.installationId, startExecution, typedSessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -228,19 +225,12 @@ export function ChatPanel({
     }
   }, [isSending, lastMessage]);
 
+  const cancelExecutionMutation = useMutation(
+    api.sessionWorkflow.cancelExecution,
+  );
+
   const handleCancel = async () => {
-    await fetch("/api/inngest/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "session/execute.cancel",
-        data: { sessionId },
-      }),
-    });
-    await updateLastMessage({
-      id: typedSessionId,
-      content: "Execution cancelled by user.",
-    });
+    await cancelExecutionMutation({ sessionId: typedSessionId });
   };
 
   const isInputDisabled = !isSandboxActive || isSending || isExecuting;

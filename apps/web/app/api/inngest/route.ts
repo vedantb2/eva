@@ -3,7 +3,6 @@ import {
   inngest,
   executeTask,
   cleanupProjectSandbox,
-  sessionExecute,
   startSandbox,
   stopSandbox,
   buildProject,
@@ -14,7 +13,6 @@ export const { GET, POST, PUT } = serve({
   functions: [
     executeTask,
     cleanupProjectSandbox,
-    sessionExecute,
     startSandbox,
     stopSandbox,
     buildProject,

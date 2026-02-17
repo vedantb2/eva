@@ -151,10 +151,8 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 Located in `apps/web/lib/inngest/functions/`:
 
 - **execute-task** - Runs agent tasks in Daytona sandbox
-- **session-execute** - Executes commands within a session sandbox
 - **session-sandbox** (start-sandbox / stop-sandbox) - Manages Daytona sandbox lifecycle for sessions
 - **cleanup-project-sandbox** - Tears down inactive project sandboxes
-- **execute-research-query** - Runs analytics queries with AI
 - **build-project** - Autonomous project build workflow
 
 ### Sandbox Execution

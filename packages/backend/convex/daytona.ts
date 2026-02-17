@@ -36,8 +36,8 @@ async function createSandbox(
         NEXT_PUBLIC_ENV: requireEnv("NEXT_PUBLIC_ENV"),
         // CONVEX_DEPLOYMENT: requireEnv("CONVEX_DEPLOYMENT"),
       },
-      autoStopInterval: 15,
-      autoDeleteInterval: 30,
+      autoStopInterval: 10,
+      autoDeleteInterval: 15,
     },
     { timeout: 120 },
   );
@@ -82,9 +82,10 @@ async function getOrCreateSandbox(
     try {
       const sandbox = await daytona.get(existingSandboxId);
       await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+      await syncRepo(sandbox, githubToken, owner, name);
       return { sandbox, isNew: false };
     } catch {
-      // Sandbox was deleted/expired, fall through to create a new one
+      // Sandbox was deleted/expired or sync failed, fall through to create a new one
     }
   }
   const sandbox = await createSandbox(daytona, githubToken);
@@ -94,17 +95,32 @@ async function getOrCreateSandbox(
 
 /**
  * Sets up a git branch in the sandbox — creates it or checks it out if it exists.
+ * Stashes dirty state first to prevent checkout failures, then verifies the switch.
  */
 async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
 ): Promise<void> {
+  // Stash any dirty state from previous executions, then checkout
   await sandbox.process.executeCommand(
-    `cd ${WORKSPACE_DIR} && git checkout -B ${branchName}`,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${branchName}`,
     "/",
     undefined,
     10,
   );
+  // Verify the branch was actually switched
+  const check = await sandbox.process.executeCommand(
+    `cd ${WORKSPACE_DIR} && git branch --show-current`,
+    "/",
+    undefined,
+    5,
+  );
+  const currentBranch = (check.result ?? "").trim();
+  if (currentBranch !== branchName) {
+    throw new Error(
+      `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
+    );
+  }
 }
 
 /**
@@ -385,6 +401,30 @@ async function launchScript(
     10,
   );
 }
+
+/**
+ * Runs a command on an existing sandbox and returns the output.
+ * Used for post-completion operations like capturing git diffs or reading files.
+ */
+export const runSandboxCommand = internalAction({
+  args: {
+    sandboxId: v.string(),
+    command: v.string(),
+    timeoutSeconds: v.optional(v.number()),
+  },
+  returns: v.string(),
+  handler: async (_ctx, args) => {
+    const daytona = getDaytona();
+    const sandbox = await daytona.get(args.sandboxId);
+    const resp = await sandbox.process.executeCommand(
+      args.command,
+      "/",
+      undefined,
+      args.timeoutSeconds ?? 30,
+    );
+    return (resp.result ?? "").trim();
+  },
+});
 
 /**
  * Generic sandbox setup + script launch action for all workflows.

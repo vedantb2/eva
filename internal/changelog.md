@@ -1,10 +1,12 @@
 # Changelog
 
-## Move Projects Search Bar to Page Header — 2026-02-17
+## Extract SearchInput component to packages/ui — 2026-02-17
 
-- Moved the search bar from the toolbar row into the `PageWrapper` `headerCenter` slot on the Projects page
-- Search now sits in the sticky page header between the title and the "New Project" button
-- Simplified the toolbar row to only contain view toggle, phase filter, and sort controls
+- Created `SearchInput` component in `packages/ui/src/ui/search-input.tsx` to replace repeated inline search bar pattern
+- Props: `value`, `onChange`, `onClear`, `placeholder`, `className`
+- Moved the projects page search bar into the `PageWrapper` `headerCenter` slot
+- Updated `ProjectsClient` and `QuickTasksClient` to use `SearchInput` instead of inline markup
+- Removed unused `Input`, `IconSearch`, `IconX` imports from both pages
 
 ## Migrate Session Execute from Inngest to Convex Workflows — 2026-02-17
 

@@ -93,6 +93,11 @@ export function ChatPanel({
   );
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const selectedRepo = useQuery(
+    api.githubRepos.get,
+    selectedRepoId ? { id: selectedRepoId as Id<"githubRepos"> } : "skip",
+  );
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
@@ -238,29 +243,32 @@ Please review all components and files used on this page before implementing the
           mode: "ask",
         });
 
-        const token = await getToken({ template: "convex" });
-        const response = await fetch(`${API_URL}/api/inngest/send`, {
+        const convexToken = await getToken({ template: "convex" });
+        if (!convexToken) throw new Error("Not authenticated");
+
+        if (!selectedRepo) throw new Error("Repository not found");
+        const ghRes = await fetch(`${API_URL}/api/github/installation-token`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${convexToken}`,
           },
           body: JSON.stringify({
-            name: "session/execute",
-            data: {
-              sessionId,
-              message: fullMessage,
-              mode: "ask",
-              model,
-              responseLength,
-            },
+            installationId: selectedRepo.installationId,
           }),
         });
+        if (!ghRes.ok) throw new Error("Failed to get GitHub token");
+        const { token: githubToken } = await ghRes.json();
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to send message");
-        }
+        await startExecution({
+          sessionId: sessionId as Id<"sessions">,
+          message: fullMessage,
+          mode: "ask",
+          model,
+          responseLength,
+          convexToken,
+          githubToken,
+        });
       } catch (error) {
         await appendMessage({
           role: "assistant",

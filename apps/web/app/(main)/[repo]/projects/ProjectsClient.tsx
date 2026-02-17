@@ -7,7 +7,7 @@ import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  Input,
+  SearchInput,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -29,8 +29,6 @@ import {
   IconFilter,
   IconSortAscending,
   IconSortDescending,
-  IconSearch,
-  IconX,
   IconTimeline,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
@@ -149,6 +147,15 @@ export function ProjectsClient() {
         title="Projects"
         fillHeight
         childPadding={false}
+        headerCenter={
+          <SearchInput
+            placeholder="Search projects..."
+            value={searchQuery}
+            onChange={(v) => setParams({ q: v || null })}
+            onClear={() => setParams({ q: null })}
+            className="animate-in fade-in duration-300"
+          />
+        }
         headerRight={
           <Button
             size="sm"
@@ -177,120 +184,89 @@ export function ProjectsClient() {
             />
           ) : (
             <div className="flex flex-col flex-1 min-h-0 gap-4">
-              <div className="flex items-center justify-between gap-2 flex-wrap flex-shrink-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center rounded-lg border border-border overflow-hidden">
-                    <Button
-                      variant={view === "kanban" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                      onClick={() => setParams({ view: "kanban" })}
-                    >
-                      <IconLayoutKanban size={16} />
-                    </Button>
-                    <Button
-                      variant={view === "timeline" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                      onClick={() => setParams({ view: "timeline" })}
-                    >
-                      <IconTimeline size={16} />
-                    </Button>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="sm">
-                        <IconFilter size={16} />
-                        {visiblePhases.size === PROJECT_PHASES.length
-                          ? "All Phases"
-                          : `${visiblePhases.size} Phases`}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {PROJECT_PHASES.map((p) => {
-                        const cfg = phaseConfig[p];
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={p}
-                            checked={visiblePhases.has(p)}
-                            onCheckedChange={() => handlePhaseToggle(p)}
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <cfg.icon
-                              size={16}
-                              className={cfg.text + " mr-2"}
-                            />
-                            <span className={cfg.text}>{cfg.label}</span>
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="sm">
-                        {sortDirection === "asc" ? (
-                          <IconSortAscending size={16} />
-                        ) : (
-                          <IconSortDescending size={16} />
-                        )}
-                        {sortField === "created" ? "Date" : "Title"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuRadioGroup
-                        value={sortField}
-                        onValueChange={(v) =>
-                          setParams({ sort: v as SortField })
-                        }
-                      >
-                        {SORT_FIELDS.map((item) => (
-                          <DropdownMenuRadioItem
-                            key={item.key}
-                            value={item.key}
-                          >
-                            {item.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+              <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                <div className="flex items-center rounded-lg border border-border overflow-hidden">
                   <Button
-                    variant="secondary"
+                    variant={view === "kanban" ? "secondary" : "ghost"}
                     size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                    }
+                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                    onClick={() => setParams({ view: "kanban" })}
                   >
-                    {sortDirection === "asc" ? (
-                      <IconSortAscending size={16} />
-                    ) : (
-                      <IconSortDescending size={16} />
-                    )}
+                    <IconLayoutKanban size={16} />
+                  </Button>
+                  <Button
+                    variant={view === "timeline" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                    onClick={() => setParams({ view: "timeline" })}
+                  >
+                    <IconTimeline size={16} />
                   </Button>
                 </div>
-                <div className="relative w-1/2 mx-auto">
-                  <IconSearch
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <Input
-                    placeholder="Search projects..."
-                    className="pl-9 pr-8 h-8 text-sm"
-                    value={searchQuery}
-                    onChange={(e) => setParams({ q: e.target.value || null })}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setParams({ q: null })}
-                      className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="sm">
+                      <IconFilter size={16} />
+                      {visiblePhases.size === PROJECT_PHASES.length
+                        ? "All Phases"
+                        : `${visiblePhases.size} Phases`}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {PROJECT_PHASES.map((p) => {
+                      const cfg = phaseConfig[p];
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={p}
+                          checked={visiblePhases.has(p)}
+                          onCheckedChange={() => handlePhaseToggle(p)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                          <span className={cfg.text}>{cfg.label}</span>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="sm">
+                      {sortDirection === "asc" ? (
+                        <IconSortAscending size={16} />
+                      ) : (
+                        <IconSortDescending size={16} />
+                      )}
+                      {sortField === "created" ? "Date" : "Title"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={sortField}
+                      onValueChange={(v) => setParams({ sort: v as SortField })}
                     >
-                      <IconX size={14} />
-                    </button>
+                      {SORT_FIELDS.map((item) => (
+                        <DropdownMenuRadioItem key={item.key} value={item.key}>
+                          {item.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() =>
+                    setParams({ dir: dir === "asc" ? "desc" : "asc" })
+                  }
+                >
+                  {sortDirection === "asc" ? (
+                    <IconSortAscending size={16} />
+                  ) : (
+                    <IconSortDescending size={16} />
                   )}
-                </div>
+                </Button>
               </div>
               <AnimatePresence initial={false} mode="wait">
                 {view === "kanban" ? (

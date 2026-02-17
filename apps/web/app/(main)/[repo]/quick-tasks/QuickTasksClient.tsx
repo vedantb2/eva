@@ -8,7 +8,7 @@ import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, Input, Spinner } from "@conductor/ui";
+import { Button, SearchInput, Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -18,7 +18,6 @@ import {
   IconChecklist,
   IconPlus,
   IconCheckbox,
-  IconSearch,
   IconX,
   IconFolders,
 } from "@tabler/icons-react";
@@ -62,27 +61,13 @@ export function QuickTasksClient() {
         childPadding={false}
         headerCenter={
           hasQuickTasks ? (
-            <div className="relative w-full max-w-lg animate-in fade-in duration-300">
-              <IconSearch
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                placeholder="Search tasks..."
-                className="h-8 pl-9 pr-8 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value || null)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery(null)}
-                  className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                >
-                  <IconX size={14} />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(v) => setSearchQuery(v || null)}
+              onClear={() => setSearchQuery(null)}
+              className="animate-in fade-in duration-300"
+            />
           ) : null
         }
         headerRight={

@@ -56,7 +56,7 @@ import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
-  Sessions: "sessions",
+  Create: "sessions",
   Research: "analyse",
 } as const;
 
@@ -130,7 +130,7 @@ export function Sidebar() {
                   icon: IconChecklist,
                 },
                 {
-                  name: "Sessions",
+                  name: "Create",
                   href: `/${repoSlug}/sessions`,
                   icon: IconTerminal2,
                 },
@@ -198,7 +198,7 @@ export function Sidebar() {
     contextSidebarMode === "design"
       ? "Designs"
       : contextSidebarMode === "sessions"
-        ? "Sessions"
+        ? "Create"
         : contextSidebarMode === "analyse"
           ? "Research"
           : "";

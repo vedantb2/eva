@@ -104,12 +104,12 @@ export function SpotlightSearch() {
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item
-                value="Sessions"
+                value="Create"
                 className={itemClass}
                 onSelect={() => handleSelect(`/${repoSlug}/sessions`)}
               >
                 <IconTerminal2 size={16} className="flex-shrink-0" />
-                <span className="flex-1">Sessions</span>
+                <span className="flex-1">Create</span>
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item
@@ -200,7 +200,7 @@ export function SpotlightSearch() {
             )}
 
             {search && sessions && sessions.length > 0 && (
-              <Command.Group heading="Sessions" className={headingClass}>
+              <Command.Group heading="Create" className={headingClass}>
                 {sessions.map((s) => (
                   <Command.Item
                     key={s._id}

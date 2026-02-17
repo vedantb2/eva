@@ -162,6 +162,7 @@ export const generateQueryWorkflow = workflow.define({
       success: result.success,
       result: result.result,
       error: result.error,
+      activityLog: result.activityLog,
     });
   },
 });
@@ -221,6 +222,7 @@ export const confirmQueryWorkflow = workflow.define({
       success: result.success,
       result: result.result,
       error: result.error,
+      activityLog: result.activityLog,
     });
   },
 });
@@ -338,6 +340,7 @@ export const saveGenerateResult = internalMutation({
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -362,6 +365,7 @@ export const saveGenerateResult = internalMutation({
     } else {
       last.content = `Error generating query: ${args.error || "Unknown error"}`;
     }
+    if (args.activityLog) last.activityLog = args.activityLog;
 
     await ctx.db.patch(args.queryId, {
       messages,
@@ -380,6 +384,7 @@ export const saveConfirmResult = internalMutation({
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -403,6 +408,7 @@ export const saveConfirmResult = internalMutation({
       msg.content = `Error executing query: ${args.error || "Unknown error"}`;
       msg.status = "confirmed";
     }
+    if (args.activityLog) msg.activityLog = args.activityLog;
 
     await ctx.db.patch(args.queryId, {
       messages,

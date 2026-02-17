@@ -243,43 +243,65 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                         })()
                       ) : message.role === "assistant" &&
                         message.status === "pending" ? (
-                        <Confirmation state="pending">
-                          <ConfirmationTitle>
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Generated query:
-                            </p>
-                          </ConfirmationTitle>
-                          <ConfirmationRequest>
-                            <CodeBlock
-                              code={message.content}
-                              language="typescript"
-                            >
-                              <CodeBlockCopyButton />
-                              <pre className="overflow-x-auto p-3 text-xs">
-                                <code>{message.content}</code>
-                              </pre>
-                            </CodeBlock>
-                          </ConfirmationRequest>
-                          <ConfirmationActions>
-                            <ConfirmationAction
-                              variant="outline"
-                              onClick={() => handleCancel(index)}
-                            >
-                              <IconX size={14} />
-                              Cancel
-                            </ConfirmationAction>
-                            <ConfirmationAction
-                              onClick={() => {
-                                const userMsg =
-                                  query.messages[index - 1]?.content ?? "";
-                                handleConfirm(index, message.content, userMsg);
-                              }}
-                            >
-                              <IconCheck size={14} />
-                              Run query
-                            </ConfirmationAction>
-                          </ConfirmationActions>
-                        </Confirmation>
+                        <>
+                          <Confirmation state="pending">
+                            <ConfirmationTitle>
+                              <p className="text-xs font-medium text-muted-foreground">
+                                Generated query:
+                              </p>
+                            </ConfirmationTitle>
+                            <ConfirmationRequest>
+                              <CodeBlock
+                                code={message.content}
+                                language="typescript"
+                              >
+                                <CodeBlockCopyButton />
+                                <pre className="overflow-x-auto p-3 text-xs">
+                                  <code>{message.content}</code>
+                                </pre>
+                              </CodeBlock>
+                            </ConfirmationRequest>
+                            <ConfirmationActions>
+                              <ConfirmationAction
+                                variant="outline"
+                                onClick={() => handleCancel(index)}
+                              >
+                                <IconX size={14} />
+                                Cancel
+                              </ConfirmationAction>
+                              <ConfirmationAction
+                                onClick={() => {
+                                  const userMsg =
+                                    query.messages[index - 1]?.content ?? "";
+                                  handleConfirm(
+                                    index,
+                                    message.content,
+                                    userMsg,
+                                  );
+                                }}
+                              >
+                                <IconCheck size={14} />
+                                Run query
+                              </ConfirmationAction>
+                            </ConfirmationActions>
+                          </Confirmation>
+                          {message.activityLog &&
+                            (() => {
+                              const steps = parseActivitySteps(
+                                message.activityLog,
+                              );
+                              return steps ? (
+                                <details className="mt-2 group">
+                                  <summary className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                                    Generation logs
+                                  </summary>
+                                  <div className="mt-2">
+                                    <ActivitySteps steps={steps} />
+                                  </div>
+                                </details>
+                              ) : null;
+                            })()}
+                        </>
                       ) : message.role === "assistant" &&
                         message.status === "cancelled" ? (
                         <Confirmation state="rejected">
@@ -301,6 +323,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                                   <SandboxTabsTrigger value="code">
                                     Code
                                   </SandboxTabsTrigger>
+                                  {message.activityLog && (
+                                    <SandboxTabsTrigger value="logs">
+                                      Logs
+                                    </SandboxTabsTrigger>
+                                  )}
                                 </SandboxTabsList>
                                 <SandboxTabContent value="output">
                                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -343,6 +370,19 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                                     )}
                                   </div>
                                 </SandboxTabContent>
+                                {message.activityLog && (
+                                  <SandboxTabContent value="logs">
+                                    <div className="p-3">
+                                      <ActivitySteps
+                                        steps={
+                                          parseActivitySteps(
+                                            message.activityLog,
+                                          ) ?? []
+                                        }
+                                      />
+                                    </div>
+                                  </SandboxTabContent>
+                                )}
                               </SandboxTabs>
                             </SandboxContent>
                           </Sandbox>

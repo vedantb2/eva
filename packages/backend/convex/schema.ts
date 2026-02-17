@@ -243,6 +243,7 @@ const schema = defineSchema({
         userId: v.optional(v.id("users")),
         queryCode: v.optional(v.string()),
         status: v.optional(queryConfirmationStatusValidator),
+        activityLog: v.optional(v.string()),
       }),
     ),
     createdAt: v.number(),

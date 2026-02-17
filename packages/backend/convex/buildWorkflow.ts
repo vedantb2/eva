@@ -27,7 +27,7 @@ export const buildProjectWorkflow = workflow.define({
       return;
     }
 
-    // Step 2: Execute tasks sequentially (skip index 0 — matches current Inngest behavior)
+    // Step 2: Execute tasks sequentially (skip index 0 — first task already started above)
     for (let i = 1; i < tasks.length; i++) {
       const task = tasks[i];
 

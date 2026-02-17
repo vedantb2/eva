@@ -30,11 +30,13 @@ import {
   PromptInputTools,
   PromptInputSubmit,
   PromptInputSettings,
+  ActivitySteps,
   type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import { parseActivitySteps } from "@/shared/parseActivitySteps";
 import {
   IconCheck,
   IconChevronRight,
@@ -450,20 +452,27 @@ Please review all components and files used on this page before implementing the
                         </CollapsibleContent>
                       </Collapsible>
                     ) : message.role === "assistant" && !message.content ? (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(streaming) =>
-                            streaming ? "Working..." : "Processing complete"
-                          }
-                        />
-                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                          <pre className="whitespace-pre-wrap font-mono text-xs">
-                            {streamingActivity ||
-                              message.activityLog ||
-                              "Starting..."}
-                          </pre>
-                        </CollapsibleContent>
-                      </Reasoning>
+                      (() => {
+                        const steps = parseActivitySteps(streamingActivity);
+                        return steps ? (
+                          <ActivitySteps steps={steps} isStreaming />
+                        ) : (
+                          <Reasoning isStreaming defaultOpen>
+                            <ReasoningTrigger
+                              getThinkingMessage={(streaming) =>
+                                streaming ? "Working..." : "Processing complete"
+                              }
+                            />
+                            <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                              <pre className="whitespace-pre-wrap font-mono text-xs">
+                                {streamingActivity ||
+                                  message.activityLog ||
+                                  "Starting..."}
+                              </pre>
+                            </CollapsibleContent>
+                          </Reasoning>
+                        );
+                      })()
                     ) : (
                       <>
                         {message.role === "assistant" ? (
@@ -476,18 +485,26 @@ Please review all components and files used on this page before implementing the
                           </p>
                         )}
                         {message.role === "assistant" &&
-                          message.activityLog && (
-                            <Reasoning defaultOpen={false}>
-                              <ReasoningTrigger
-                                getThinkingMessage={() => "View logs"}
-                              />
-                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                  {message.activityLog}
-                                </pre>
-                              </CollapsibleContent>
-                            </Reasoning>
-                          )}
+                          message.activityLog &&
+                          (() => {
+                            const steps = parseActivitySteps(
+                              message.activityLog,
+                            );
+                            return steps ? (
+                              <ActivitySteps steps={steps} />
+                            ) : (
+                              <Reasoning defaultOpen={false}>
+                                <ReasoningTrigger
+                                  getThinkingMessage={() => "View logs"}
+                                />
+                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                  <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                    {message.activityLog}
+                                  </pre>
+                                </CollapsibleContent>
+                              </Reasoning>
+                            );
+                          })()}
                       </>
                     )}
                   </MessageContent>
@@ -532,18 +549,25 @@ Please review all components and files used on this page before implementing the
                   </span>
                 </div>
                 <MessageContent className="px-1 py-2">
-                  <Reasoning isStreaming defaultOpen>
-                    <ReasoningTrigger
-                      getThinkingMessage={(streaming) =>
-                        streaming ? "Working..." : "Processing complete"
-                      }
-                    />
-                    <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                      <pre className="whitespace-pre-wrap font-mono text-xs">
-                        {streamingActivity || "Starting..."}
-                      </pre>
-                    </CollapsibleContent>
-                  </Reasoning>
+                  {(() => {
+                    const steps = parseActivitySteps(streamingActivity);
+                    return steps ? (
+                      <ActivitySteps steps={steps} isStreaming />
+                    ) : (
+                      <Reasoning isStreaming defaultOpen>
+                        <ReasoningTrigger
+                          getThinkingMessage={(streaming) =>
+                            streaming ? "Working..." : "Processing complete"
+                          }
+                        />
+                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                          <pre className="whitespace-pre-wrap font-mono text-xs">
+                            {streamingActivity || "Starting..."}
+                          </pre>
+                        </CollapsibleContent>
+                      </Reasoning>
+                    );
+                  })()}
                 </MessageContent>
               </AIMessage>
             )}

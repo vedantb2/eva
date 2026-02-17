@@ -29,6 +29,12 @@ async function createSandbox(
         GITHUB_TOKEN: githubToken,
         CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
         CLERK_SECRET_KEY: requireEnv("CLERK_SECRET_KEY"),
+        NEXT_PUBLIC_CONVEX_URL: requireEnv("NEXT_PUBLIC_CONVEX_URL"),
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: requireEnv(
+          "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+        ),
+        NEXT_PUBLIC_ENV: requireEnv("NEXT_PUBLIC_ENV"),
+        // CONVEX_DEPLOYMENT: requireEnv("CONVEX_DEPLOYMENT"),
       },
       autoStopInterval: 15,
       autoDeleteInterval: 30,
@@ -400,6 +406,7 @@ export const setupAndExecute = internalAction({
     systemPrompt: v.optional(v.string()),
     branchName: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
+    extraEnvVarNames: v.optional(v.array(v.string())),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -426,6 +433,12 @@ export const setupAndExecute = internalAction({
       await setupBranch(sandbox, args.branchName);
     }
 
+    const extraEnvVars: Record<string, string> = {};
+    for (const name of args.extraEnvVarNames ?? []) {
+      const val = process.env[name];
+      if (val) extraEnvVars[name] = val;
+    }
+
     await launchScript(
       sandbox,
       args.prompt,
@@ -437,6 +450,7 @@ export const setupAndExecute = internalAction({
         model: args.model,
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
+        extraEnvVars,
       },
     );
 

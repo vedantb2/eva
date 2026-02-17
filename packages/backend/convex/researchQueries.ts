@@ -22,6 +22,7 @@ const researchQueryValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
+  activeWorkflowId: v.optional(v.string()),
 });
 
 export const list = query({

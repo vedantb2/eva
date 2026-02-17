@@ -32,6 +32,7 @@ import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projects from "../projects.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
 import type * as researchQueries from "../researchQueries.js";
+import type * as researchQueryWorkflow from "../researchQueryWorkflow.js";
 import type * as routines from "../routines.js";
 import type * as savedQueries from "../savedQueries.js";
 import type * as sessions from "../sessions.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   prosemirrorSync: typeof prosemirrorSync;
   researchQueries: typeof researchQueries;
+  researchQueryWorkflow: typeof researchQueryWorkflow;
   routines: typeof routines;
   savedQueries: typeof savedQueries;
   sessions: typeof sessions;

@@ -57,7 +57,7 @@ import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
   Sessions: "sessions",
-  Analyse: "analyse",
+  Research: "analyse",
 } as const;
 
 type ContextSidebarMode = "main" | "design" | "sessions" | "analyse";
@@ -157,7 +157,7 @@ export function Sidebar() {
               groupIcon: IconChartBar,
               items: [
                 {
-                  name: "Analyse",
+                  name: "Research",
                   href: `/${repoSlug}/analyse`,
                   icon: IconBrain,
                 },
@@ -200,7 +200,7 @@ export function Sidebar() {
       : contextSidebarMode === "sessions"
         ? "Sessions"
         : contextSidebarMode === "analyse"
-          ? "Analyse"
+          ? "Research"
           : "";
   const contextCreateButtonTitle =
     contextSidebarMode === "design"

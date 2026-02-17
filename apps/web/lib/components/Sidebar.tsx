@@ -125,7 +125,7 @@ export function Sidebar() {
               groupIcon: IconTool,
               items: [
                 {
-                  name: "Quick Tasks",
+                  name: "Super Tasks",
                   href: `/${repoSlug}/quick-tasks`,
                   icon: IconChecklist,
                 },

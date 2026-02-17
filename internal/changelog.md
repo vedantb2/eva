@@ -1,5 +1,18 @@
 # Changelog
 
+## Migrate Research Query Workflows from Inngest to Convex — 2026-02-17
+
+- Migrated `generateResearchQuery` and `confirmResearchQuery` from Inngest to Convex Workflows with fire-and-forget sandbox pattern
+- Created `researchQueryWorkflow.ts` with both workflows, shared completion event, prompt builders, and all supporting internal functions
+- Added `extraEnvVarNames` arg to `setupAndExecute` in `daytona.ts` — workflows specify env var names, the action reads values from `process.env` (keeps secrets out of workflow args)
+- Added missing sandbox env vars (`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_ENV`) to `createSandbox` to match Inngest parity
+- Confirm workflow reuses the sandbox from the generate step via `sandboxId` stored on the research query document, avoiding redundant sandbox creation
+- Added `activeWorkflowId` and `sandboxId` fields to `researchQueries` schema
+- Updated `QueryDetailClient.tsx` to use Convex mutations with `getWorkflowTokens` instead of `fetch("/api/inngest/send")`
+- Added ActivitySteps streaming UI to the research query page
+- Deleted `execute-research-query.ts` and removed both functions from Inngest route
+- Remaining Inngest functions: executeTask, buildProject, sessionExecute, startSandbox, stopSandbox, cleanupProjectSandbox
+
 ## Migrate 6 Remaining Inngest Functions to Convex Workflows — 2026-02-16
 
 - Migrated `summarizeSession`, `docPrdUpload`, `evaluateDoc`, `docInterview`, `interviewQuestion`, and `generateTests` from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`)

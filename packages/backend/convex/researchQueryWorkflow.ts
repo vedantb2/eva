@@ -136,26 +136,29 @@ export const generateQueryWorkflow = workflow.define({
     );
 
     // Step 3: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
-      entityId: String(args.queryId),
-      githubToken: args.githubToken,
-      repoOwner: data.repoOwner,
-      repoName: data.repoName,
-      prompt: data.prompt,
-      convexToken: args.convexToken,
-      completionMutation: "researchQueryWorkflow:handleCompletion",
-      entityIdField: "queryId",
-      model: args.model || "sonnet",
-      allowedTools: "Bash",
-      ephemeral: true,
-    });
+    const { sandboxId } = await step.runAction(
+      internal.daytona.setupAndExecute,
+      {
+        entityId: String(args.queryId),
+        githubToken: args.githubToken,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        prompt: data.prompt,
+        convexToken: args.convexToken,
+        completionMutation: "researchQueryWorkflow:handleCompletion",
+        entityIdField: "queryId",
+        model: args.model || "sonnet",
+        allowedTools: "Bash",
+      },
+    );
 
     // Step 4: Wait for sandbox callback
     const result = await step.awaitEvent(queryCompleteEvent);
 
-    // Step 5: Save result
+    // Step 5: Save result + sandbox ID for reuse
     await step.runMutation(internal.researchQueryWorkflow.saveGenerateResult, {
       queryId: args.queryId,
+      sandboxId,
       success: result.success,
       result: result.result,
       error: result.error,
@@ -181,19 +184,21 @@ export const confirmQueryWorkflow = workflow.define({
       queryCode: args.queryCode,
     });
 
-    // Step 2: Get repo info and build analyse prompt
+    // Step 2: Get repo info, build analyse prompt, and get existing sandbox ID
     const data = await step.runQuery(
       internal.researchQueryWorkflow.getConfirmData,
       {
         repoId: args.repoId,
         question: args.question,
         queryCode: args.queryCode,
+        queryId: args.queryId,
       },
     );
 
-    // Step 3: Setup sandbox + fire Claude CLI (with CONVEX_DEPLOY_KEY)
+    // Step 3: Reuse existing sandbox + fire Claude CLI (with CONVEX_DEPLOY_KEY)
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: String(args.queryId),
+      existingSandboxId: data.sandboxId,
       githubToken: args.githubToken,
       repoOwner: data.repoOwner,
       repoName: data.repoName,
@@ -203,7 +208,6 @@ export const confirmQueryWorkflow = workflow.define({
       entityIdField: "queryId",
       model: "sonnet",
       allowedTools: "Bash",
-      ephemeral: true,
       extraEnvVarNames: ["CONVEX_DEPLOY_KEY"],
     });
 
@@ -282,21 +286,26 @@ export const getConfirmData = internalQuery({
     repoId: v.id("githubRepos"),
     question: v.string(),
     queryCode: v.string(),
+    queryId: v.id("researchQueries"),
   },
   returns: v.object({
     repoOwner: v.string(),
     repoName: v.string(),
     prompt: v.string(),
+    sandboxId: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    const rq = await ctx.db.get(args.queryId);
 
     const prompt = `${buildAnalysePrompt(String(args.repoId))}\n\nUser's question: ${args.question}\n\nQuery to execute:\n${args.queryCode}`;
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
       prompt,
+      sandboxId: rq?.sandboxId,
     };
   },
 });
@@ -325,6 +334,7 @@ export const markConfirmed = internalMutation({
 export const saveGenerateResult = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
+    sandboxId: v.string(),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -357,6 +367,7 @@ export const saveGenerateResult = internalMutation({
       messages,
       updatedAt: Date.now(),
       activeWorkflowId: undefined,
+      sandboxId: args.sandboxId,
     });
     return null;
   },

@@ -249,6 +249,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
     activeWorkflowId: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),

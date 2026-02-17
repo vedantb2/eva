@@ -44,8 +44,8 @@ import {
   IconDeviceMobile,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getDesignTokens } from "../actions";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
+import { getWorkflowTokens } from "../../actions";
 
 interface SandpackConfig {
   stylesCss: string;
@@ -148,7 +148,7 @@ export function DesignDetailClient({
     if (!text.trim()) return;
     setIsSending(true);
     try {
-      const { githubToken, convexToken } = await getDesignTokens(
+      const { githubToken, convexToken } = await getWorkflowTokens(
         repo.installationId,
       );
       await executeMessage({

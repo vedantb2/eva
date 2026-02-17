@@ -88,7 +88,7 @@ export function SandboxPanel({
   );
 
   const tabSwitcher = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
@@ -109,14 +109,14 @@ export function SandboxPanel({
       </Tabs>
       <Button
         size="icon"
-        variant={showConsole ? "secondary" : "ghost"}
-        className="h-7 w-7"
+        variant={showConsole ? "default" : "secondary"}
+        className="size-10"
         onClick={() => setShowConsole((current) => !current)}
       >
         {showConsole ? (
-          <IconLayoutBottombar className="w-4 h-4" />
+          <IconLayoutBottombar className="size-4" />
         ) : (
-          <IconLayoutBottombarCollapse className="w-4 h-4" />
+          <IconLayoutBottombarCollapse className="size-4" />
         )}
       </Button>
     </div>

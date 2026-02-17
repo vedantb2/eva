@@ -1,5 +1,15 @@
 # Changelog
 
+## Resizable console/terminal panel in session preview — 2026-02-17
+
+- Replaced fixed `h-64` console/terminal drawer with a draggable resizable panel using `react-resizable-panels`
+- When `showConsole` is true, the preview area splits into a vertical `Group` with a drag handle between the iframe and the console/terminal tabs
+- Preview panel defaults to 70%, console/terminal to 30%, with min 80px each and max 400px for the bottom panel
+- When `showConsole` is false, the iframe fills the full space (no panel group mounted)
+- Tab content uses `flex-1 min-h-0` instead of fixed `h-64` so it fills whatever size the user drags to
+- Added `data-[state=inactive]:hidden` on `forceMount` `TabsContent` to fix both panels being visible simultaneously
+- Drag handle has a subtle `IconGripHorizontal` indicator and highlights on hover/active
+
 ## SearchInput component + PageWrapper centering fix — 2026-02-17
 
 - Added `inputClassName` prop to `SearchInput` for sidebar-specific border/bg styling

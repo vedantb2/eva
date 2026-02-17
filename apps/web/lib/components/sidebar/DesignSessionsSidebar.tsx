@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  SearchInput,
   Spinner,
   cn,
 } from "@conductor/ui";
@@ -27,7 +28,6 @@ import {
   IconArchive,
   IconDotsVertical,
   IconPalette,
-  IconSearch,
 } from "@tabler/icons-react";
 
 interface DesignSessionsSidebarProps {
@@ -118,18 +118,14 @@ export function DesignSessionsSidebar({
   return (
     <>
       <div className="p-2 animate-in fade-in duration-300">
-        <div className="relative">
-          <IconSearch
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search design sessions..."
-            className="h-8 border-sidebar-border/80 bg-sidebar/70 pl-8 text-sm text-sidebar-foreground placeholder:text-muted-foreground"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          placeholder="Search design sessions..."
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onClear={() => setSearchQuery("")}
+          className="max-w-none"
+          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
+        />
       </div>
 
       <div className="flex-1">

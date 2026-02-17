@@ -1,12 +1,13 @@
 # Changelog
 
-## Extract SearchInput component to packages/ui — 2026-02-17
+## SearchInput component + PageWrapper centering fix — 2026-02-17
 
-- Created `SearchInput` component in `packages/ui/src/ui/search-input.tsx` to replace repeated inline search bar pattern
-- Props: `value`, `onChange`, `onClear`, `placeholder`, `className`
-- Moved the projects page search bar into the `PageWrapper` `headerCenter` slot
-- Updated `ProjectsClient` and `QuickTasksClient` to use `SearchInput` instead of inline markup
-- Removed unused `Input`, `IconSearch`, `IconX` imports from both pages
+- Added `inputClassName` prop to `SearchInput` for sidebar-specific border/bg styling
+- Fixed `PageWrapper` `headerCenter` to use absolute positioning so the search bar stays visually centered regardless of title/right content width
+- Migrated all 7 inline search bar instances to use `SearchInput`:
+  - `ProjectsClient`, `QuickTasksClient` (page headers)
+  - `TestingArenaClient` DocsListPanel, `DocsList` (panel search)
+  - `AnalyseSidebar`, `SessionsSidebar`, `DesignSessionsSidebar` (sidebar search with custom sidebar styling via `inputClassName`)
 
 ## Migrate Session Execute from Inngest to Convex Workflows — 2026-02-17
 

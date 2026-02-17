@@ -3,12 +3,11 @@
 import {
   IconFile,
   IconFileText,
-  IconSearch,
   IconDotsVertical,
   IconTrash,
 } from "@tabler/icons-react";
 import {
-  Input,
+  SearchInput,
   Spinner,
   Button,
   Dialog,
@@ -96,18 +95,13 @@ export function DocsList({ docs, repoSlug }: DocsListProps) {
     <>
       <div className="h-full flex flex-col">
         <div className="p-4">
-          <div className="relative">
-            <IconSearch
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              placeholder="Search docs..."
-              className="h-8 text-sm pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value || null)}
-            />
-          </div>
+          <SearchInput
+            placeholder="Search docs..."
+            value={searchQuery}
+            onChange={(v) => setSearchQuery(v || null)}
+            onClear={() => setSearchQuery(null)}
+            className="max-w-none"
+          />
         </div>
         <div className="flex-1 overflow-y-auto scrollbar">
           {filteredDocs.length === 0 ? (

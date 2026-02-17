@@ -1,4 +1,3 @@
-import * as React from "react";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { Input } from "./input";
 import { cn } from "../utils/cn";
@@ -9,6 +8,7 @@ interface SearchInputProps {
   onClear: () => void;
   placeholder?: string;
   className?: string;
+  inputClassName?: string;
 }
 
 function SearchInput({
@@ -17,16 +17,17 @@ function SearchInput({
   onClear,
   placeholder = "Search...",
   className,
+  inputClassName,
 }: SearchInputProps) {
   return (
     <div className={cn("relative w-full max-w-xs", className)}>
       <IconSearch
-        size={16}
+        size={14}
         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
       />
       <Input
         placeholder={placeholder}
-        className="h-8 pl-9 pr-8 text-sm"
+        className={cn("h-8 pl-8 pr-8 text-sm", inputClassName)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

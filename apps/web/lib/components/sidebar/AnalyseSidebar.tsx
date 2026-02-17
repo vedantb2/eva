@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  SearchInput,
   Spinner,
   cn,
 } from "@conductor/ui";
@@ -29,9 +30,7 @@ import {
   IconDotsVertical,
   IconFolder,
   IconRefresh,
-  IconSearch,
   IconTrash,
-  IconX,
 } from "@tabler/icons-react";
 
 interface AnalyseSidebarProps {
@@ -123,27 +122,14 @@ export function AnalyseSidebar({
   return (
     <>
       <div className="p-2">
-        <div className="relative">
-          <IconSearch
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search queries..."
-            className="h-8 border-sidebar-border/80 bg-sidebar/70 px-8 text-sm text-sidebar-foreground placeholder:text-muted-foreground"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-            >
-              <IconX size={14} />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          placeholder="Search queries..."
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onClear={() => setSearchQuery("")}
+          className="max-w-none"
+          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
+        />
       </div>
 
       <div className="flex-1">

@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop: Folder Picker + Optional Worktree — 2026-02-18
+
+- Replaced manual repo path text input with a native OS folder picker dialog — eliminates typos and invalid paths
+- Added "Create worktree" checkbox (default: checked) so users can run agents directly in a repo without creating a worktree/branch
+- When worktree is unchecked, branch input is hidden and agent spawns directly in the selected folder
+- `killAgent` now skips worktree removal when no worktree was created (checks `worktreePath` is non-empty)
+- New `dialog:openDirectory` IPC channel wired through preload bridge to Electron's `dialog.showOpenDialog`
+
 ## Improve Project Timeline UI — 2026-02-18
 
 - Increased row height (36→40px) and label column width (192→200px) for better readability

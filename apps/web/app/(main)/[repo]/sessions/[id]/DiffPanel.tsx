@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { IconFilePlus, IconFileCode, IconFileX } from "@tabler/icons-react";
+import { PatchDiff } from "@pierre/diffs/react";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type FileDiff = NonNullable<Session["fileDiffs"]>[number];
@@ -12,27 +13,20 @@ const statusConfig = {
   added: { icon: IconFilePlus, color: "text-success", label: "A" },
   modified: { icon: IconFileCode, color: "text-warning", label: "M" },
   deleted: { icon: IconFileX, color: "text-destructive", label: "D" },
-};
+} satisfies Record<
+  string,
+  { icon: typeof IconFilePlus; color: string; label: string }
+>;
 
-function getConfig(status: string) {
-  return (
-    statusConfig[status as keyof typeof statusConfig] ?? statusConfig.modified
-  );
+function isValidStatus(status: string): status is keyof typeof statusConfig {
+  return status in statusConfig;
 }
 
-function DiffLine({ line }: { line: string }) {
-  if (line.startsWith("+") && !line.startsWith("+++")) {
-    return <div className="bg-success/10 px-3 py-0 text-success">{line}</div>;
+function getConfig(status: string) {
+  if (isValidStatus(status)) {
+    return statusConfig[status];
   }
-  if (line.startsWith("-") && !line.startsWith("---")) {
-    return (
-      <div className="bg-destructive/10 px-3 py-0 text-destructive">{line}</div>
-    );
-  }
-  if (line.startsWith("@@")) {
-    return <div className="px-3 py-0 text-primary">{line}</div>;
-  }
-  return <div className="px-3 py-0 text-muted-foreground">{line}</div>;
+  return statusConfig.modified;
 }
 
 export function DiffPanel({
@@ -84,11 +78,16 @@ export function DiffPanel({
         </div>
         <div className="flex-1 overflow-auto">
           {activeDiff ? (
-            <pre className="text-xs font-mono leading-5">
-              {activeDiff.diff.split("\n").map((line, i) => (
-                <DiffLine key={i} line={line} />
-              ))}
-            </pre>
+            <PatchDiff
+              patch={activeDiff.diff}
+              options={{
+                diffStyle: "unified",
+                diffIndicators: "bars",
+                overflow: "scroll",
+                themeType: "system",
+                disableFileHeader: true,
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               Select a file to view changes

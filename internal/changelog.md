@@ -1,5 +1,12 @@
 # Changelog
 
+## Replace Session Diff Viewer with @pierre/diffs — 2026-02-18
+
+- Replaced the hand-rolled line-by-line diff renderer with `PatchDiff` from `@pierre/diffs` — the custom renderer had no syntax highlighting, no line numbers, and no inline change highlighting
+- `@pierre/diffs` provides Shiki-based syntax highlighting, line numbers, word-level inline diffs, and automatic light/dark theme via Shadow DOM — all for free with zero custom rendering code
+- Removed the `DiffLine` component entirely; the file sidebar and header bar are unchanged
+- Fixed `as` type assertion in `getConfig` with a proper type guard function
+
 ## Desktop: Session-Based Terminal Manager Rearchitecture — 2026-02-18
 
 - **Rearchitected the desktop app from agent-based one-shot workflow to session-based interactive terminal manager** — the app now focuses on being a lightweight IDE wrapper around CLI AI tools (Claude Code, OpenCode, Codex)

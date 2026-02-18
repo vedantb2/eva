@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Button, Textarea } from "@conductor/ui";
+import {
+  Button,
+  Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@conductor/ui";
 import {
   IconGitBranch,
   IconRefresh,
@@ -7,8 +13,11 @@ import {
   IconChevronLeft,
   IconPlus,
   IconMinus,
+  IconArrowUp,
+  IconEye,
 } from "@tabler/icons-react";
 import { GitFileItem } from "./GitFileItem";
+import { useDiffTabContext } from "../../contexts/DiffTabContext";
 import type { GitStatusResult, GitFileStatus } from "../../../preload/types";
 
 interface GitPanelProps {
@@ -20,6 +29,8 @@ export function GitPanel({ repoPath }: GitPanelProps) {
   const [status, setStatus] = useState<GitStatusResult | null>(null);
   const [commitMsg, setCommitMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const { openAllDiffsTab } = useDiffTabContext();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -47,6 +58,8 @@ export function GitPanel({ repoPath }: GitPanelProps) {
 
   const stagedFiles = status?.files.filter((f) => f.staged) ?? [];
   const unstagedFiles = status?.files.filter((f) => !f.staged) ?? [];
+  const totalFiles = (status?.files ?? []).length;
+  const ahead = status?.ahead ?? 0;
 
   async function handleStage(path: string) {
     await window.electronAPI.gitStage(repoPath, [path]);
@@ -79,6 +92,17 @@ export function GitPanel({ repoPath }: GitPanelProps) {
     refresh();
   }
 
+  async function handlePush() {
+    if (ahead === 0 || pushing) return;
+    setPushing(true);
+    try {
+      await window.electronAPI.gitPush(repoPath);
+      refresh();
+    } finally {
+      setPushing(false);
+    }
+  }
+
   if (collapsed) {
     return (
       <div className="w-8 shrink-0 border-l border-border flex flex-col items-center pt-2">
@@ -102,6 +126,20 @@ export function GitPanel({ repoPath }: GitPanelProps) {
         <span className="text-xs font-mono text-muted-foreground truncate flex-1">
           {status?.branch ?? "..."}
         </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => openAllDiffsTab(repoPath)}
+              disabled={totalFiles === 0}
+            >
+              <IconEye size={12} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Review all changes</TooltipContent>
+        </Tooltip>
         <Button
           size="icon"
           variant="ghost"
@@ -154,15 +192,38 @@ export function GitPanel({ repoPath }: GitPanelProps) {
           rows={2}
           className="resize-none text-xs"
         />
-        <Button
-          size="sm"
-          className="w-full"
-          disabled={!commitMsg.trim() || stagedFiles.length === 0}
-          onClick={handleCommit}
-        >
-          Commit ({stagedFiles.length} file{stagedFiles.length !== 1 ? "s" : ""}
-          )
-        </Button>
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            className="flex-1"
+            disabled={!commitMsg.trim() || stagedFiles.length === 0}
+            onClick={handleCommit}
+          >
+            Commit ({stagedFiles.length} file
+            {stagedFiles.length !== 1 ? "s" : ""})
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 shrink-0"
+                disabled={ahead === 0 || pushing}
+                onClick={handlePush}
+              >
+                <IconArrowUp
+                  size={14}
+                  className={pushing ? "animate-pulse" : ""}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {ahead > 0
+                ? `Push ${ahead} commit${ahead !== 1 ? "s" : ""}`
+                : "Nothing to push"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
     </aside>
   );

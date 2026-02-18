@@ -45,6 +45,11 @@ export async function commit(repoPath: string, message: string): Promise<void> {
   await git.commit(message);
 }
 
+export async function push(repoPath: string): Promise<void> {
+  const git = simpleGit(repoPath);
+  await git.push();
+}
+
 function splitPatchByFile(raw: string): RawFilePatch[] {
   if (!raw.trim()) return [];
   const blocks = raw.split(/(?=^diff --git )/m).filter(Boolean);

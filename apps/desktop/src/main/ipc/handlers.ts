@@ -14,6 +14,7 @@ import {
   stageFiles,
   unstageFiles,
   commit,
+  push,
   getStagedDiff,
   getUnstagedDiff,
 } from "../git/operations";
@@ -132,6 +133,10 @@ export function registerHandlers(win: BrowserWindow): void {
       await commit(repoPath, message);
     },
   );
+
+  ipcMain.handle(IPC_CHANNELS.GIT_PUSH, async (_event, repoPath: string) => {
+    await push(repoPath);
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.GIT_DIFF_STAGED,

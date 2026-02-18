@@ -1,17 +1,34 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import type { RawFilePatch } from "../../preload/types";
 
-interface DiffTab {
+export interface AllDiffFileEntry {
+  path: string;
+  status: RawFilePatch["status"];
+  staged: boolean;
+  patch: string;
+}
+
+interface SingleFileDiffTab {
+  kind: "single";
   id: string;
   filePath: string;
   staged: boolean;
   patch: string;
 }
 
+interface AllFilesDiffTab {
+  kind: "all";
+  id: string;
+  patches: AllDiffFileEntry[];
+}
+
+export type DiffTab = SingleFileDiffTab | AllFilesDiffTab;
+
 interface DiffTabContextValue {
   diffTabs: DiffTab[];
   activeDiffTabId: string | null;
   openDiffTab: (filePath: string, staged: boolean, repoPath: string) => void;
+  openAllDiffsTab: (repoPath: string) => void;
   closeDiffTab: (id: string) => void;
   focusDiffTab: (id: string) => void;
   clearActiveDiffTab: () => void;
@@ -23,6 +40,8 @@ const DiffTabContext = createContext<DiffTabContextValue | null>(null);
 function makeDiffTabId(filePath: string, staged: boolean): string {
   return `diff:${staged ? "staged" : "unstaged"}:${filePath}`;
 }
+
+const ALL_DIFFS_TAB_ID = "diff:all";
 
 export function DiffTabProvider({ children }: { children: React.ReactNode }) {
   const [diffTabs, setDiffTabs] = useState<DiffTab[]>([]);
@@ -42,14 +61,47 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
       setDiffTabs((prev) => {
         const existing = prev.find((t) => t.id === id);
         if (existing) {
-          return prev.map((t) => (t.id === id ? { ...t, patch } : t));
+          return prev.map((t) =>
+            t.id === id ? { kind: "single", id, filePath, staged, patch } : t,
+          );
         }
-        return [...prev, { id, filePath, staged, patch }];
+        return [...prev, { kind: "single", id, filePath, staged, patch }];
       });
       setActiveDiffTabId(id);
     },
     [],
   );
+
+  const openAllDiffsTab = useCallback(async (repoPath: string) => {
+    const [stagedDiffs, unstagedDiffs] = await Promise.all([
+      window.electronAPI.gitDiffStaged(repoPath),
+      window.electronAPI.gitDiffUnstaged(repoPath),
+    ]);
+
+    const entries: AllDiffFileEntry[] = [
+      ...stagedDiffs.map((d) => ({
+        path: d.path,
+        status: d.status,
+        staged: true,
+        patch: d.patch,
+      })),
+      ...unstagedDiffs.map((d) => ({
+        path: d.path,
+        status: d.status,
+        staged: false,
+        patch: d.patch,
+      })),
+    ];
+
+    setDiffTabs((prev) => {
+      const withoutAll = prev.filter((t) => t.id !== ALL_DIFFS_TAB_ID);
+      return [
+        ...withoutAll,
+        { kind: "all", id: ALL_DIFFS_TAB_ID, patches: entries },
+      ];
+    });
+    setActiveDiffTabId(ALL_DIFFS_TAB_ID);
+  }, []);
 
   const closeDiffTab = useCallback((id: string) => {
     setDiffTabs((prev) => prev.filter((t) => t.id !== id));
@@ -75,6 +127,7 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
         diffTabs,
         activeDiffTabId,
         openDiffTab,
+        openAllDiffsTab,
         closeDiffTab,
         focusDiffTab,
         clearActiveDiffTab,

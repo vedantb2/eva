@@ -71,6 +71,9 @@ const api: ElectronAPI = {
   gitCommit: (repoPath: string, message: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT, repoPath, message),
 
+  gitPush: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_PUSH, repoPath),
+
   gitDiffStaged: (repoPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STAGED, repoPath),
 

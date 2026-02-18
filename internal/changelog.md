@@ -1,5 +1,11 @@
 # Changelog
 
+## Desktop: View All Diffs + Push Button — 2026-02-18
+
+- **PR-style "Review All" diff view** — new "Review All" eye icon in git panel header opens a single tab showing all staged + unstaged diffs in collapsible file cards with status badges, reviewed checkboxes, and a progress summary bar
+- **Git push support** — added push button (arrow-up icon) next to the commit button, shows ahead count in tooltip, disabled when nothing to push. Full IPC pipeline: ipc-channels → operations → handlers → preload
+- **DiffTab discriminated union** — refactored `DiffTab` into `SingleFileDiffTab | AllFilesDiffTab` to support both single-file and all-files diff views in the same tab system. SessionPage routes to `AllDiffsView` or `PatchDiff` based on tab kind
+
 ## Desktop: Diff Tabs in Main Panel — 2026-02-18
 
 - **Moved diffs from inline expansion to center-panel tabs** — clicking a file in the git panel now opens a diff tab alongside terminal tabs (VS Code style) instead of expanding a cramped inline diff inside the narrow git panel

@@ -18,6 +18,7 @@ const IPC_CHANNELS = {
   GIT_STAGE: "git:stage",
   GIT_UNSTAGE: "git:unstage",
   GIT_COMMIT: "git:commit",
+  GIT_PUSH: "git:push",
   GIT_DIFF_STAGED: "git:diffStaged",
   GIT_DIFF_UNSTAGED: "git:diffUnstaged",
   GIT_WATCH_START: "git:watchStart",
@@ -70,6 +71,8 @@ const api = {
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_UNSTAGE, repoPath, files),
   gitCommit: (repoPath, message) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT, repoPath, message),
+  gitPush: (repoPath) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_PUSH, repoPath),
   gitDiffStaged: (repoPath) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STAGED, repoPath),
   gitDiffUnstaged: (repoPath) =>

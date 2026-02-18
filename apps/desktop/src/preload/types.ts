@@ -78,6 +78,7 @@ export interface ElectronAPI {
   gitStage: (repoPath: string, files: string[]) => Promise<void>;
   gitUnstage: (repoPath: string, files: string[]) => Promise<void>;
   gitCommit: (repoPath: string, message: string) => Promise<void>;
+  gitPush: (repoPath: string) => Promise<void>;
   gitDiffStaged: (repoPath: string) => Promise<RawFilePatch[]>;
   gitDiffUnstaged: (repoPath: string) => Promise<RawFilePatch[]>;
   gitWatchStart: (repoPath: string) => Promise<void>;

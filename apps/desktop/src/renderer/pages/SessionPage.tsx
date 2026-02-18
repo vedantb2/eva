@@ -15,8 +15,10 @@ import {
 } from "@tabler/icons-react";
 import { PatchDiff } from "@pierre/diffs/react";
 import { TerminalView } from "../components/terminal/TerminalView";
+import { AllDiffsView } from "../components/diff/AllDiffsView";
 import { useSessionContext } from "../contexts/SessionContext";
 import { useDiffTabContext } from "../contexts/DiffTabContext";
+import type { DiffTab } from "../contexts/DiffTabContext";
 import type { Session, ToolType, TerminalTab } from "../../preload/types";
 
 const TOOL_OPTIONS: { value: ToolType; label: string }[] = [
@@ -135,9 +137,7 @@ export function SessionPage() {
         {diffTabs.map((dt) => (
           <DiffTabButton
             key={dt.id}
-            id={dt.id}
-            filePath={dt.filePath}
-            staged={dt.staged}
+            tab={dt}
             isActive={dt.id === activeDiffTabId}
             onClick={() => handleDiffTabClick(dt.id)}
             onClose={() => handleDiffTabClose(dt.id)}
@@ -176,7 +176,10 @@ export function SessionPage() {
             visible={tab.tabId === activeTabId && !activeDiffTabId}
           />
         ))}
-        {activeDiffTab && (
+        {activeDiffTab && activeDiffTab.kind === "all" && (
+          <AllDiffsView patches={activeDiffTab.patches} />
+        )}
+        {activeDiffTab && activeDiffTab.kind === "single" && (
           <div className="absolute inset-0 overflow-auto bg-background p-4">
             {activeDiffTab.patch ? (
               <PatchDiff
@@ -244,23 +247,22 @@ function TabButton({
 }
 
 interface DiffTabButtonProps {
-  id: string;
-  filePath: string;
-  staged: boolean;
+  tab: DiffTab;
   isActive: boolean;
   onClick: () => void;
   onClose: () => void;
 }
 
 function DiffTabButton({
-  filePath,
-  staged,
+  tab,
   isActive,
   onClick,
   onClose,
 }: DiffTabButtonProps) {
-  const fileName = filePath.split("/").pop() ?? filePath;
-  const suffix = staged ? "(Staged)" : "(Working Tree)";
+  const label =
+    tab.kind === "all"
+      ? "All Changes"
+      : `${tab.filePath.split("/").pop() ?? tab.filePath} ${tab.staged ? "(Staged)" : "(Working Tree)"}`;
 
   return (
     <div
@@ -272,9 +274,7 @@ function DiffTabButton({
       onClick={onClick}
     >
       <IconFileCode size={12} />
-      <span>
-        {fileName} {suffix}
-      </span>
+      <span>{label}</span>
       <button
         className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent"
         onClick={(e) => {

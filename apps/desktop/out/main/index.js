@@ -52,6 +52,7 @@ const IPC_CHANNELS = {
   GIT_STAGE: "git:stage",
   GIT_UNSTAGE: "git:unstage",
   GIT_COMMIT: "git:commit",
+  GIT_PUSH: "git:push",
   GIT_DIFF_STAGED: "git:diffStaged",
   GIT_DIFF_UNSTAGED: "git:diffUnstaged",
   GIT_WATCH_START: "git:watchStart",
@@ -245,6 +246,10 @@ async function unstageFiles(repoPath, files) {
 async function commit(repoPath, message) {
   const git = simpleGit.simpleGit(repoPath);
   await git.commit(message);
+}
+async function push(repoPath) {
+  const git = simpleGit.simpleGit(repoPath);
+  await git.push();
 }
 function splitPatchByFile(raw) {
   if (!raw.trim()) return [];
@@ -2212,6 +2217,9 @@ function registerHandlers(win) {
       await commit(repoPath, message);
     },
   );
+  electron.ipcMain.handle(IPC_CHANNELS.GIT_PUSH, async (_event, repoPath) => {
+    await push(repoPath);
+  });
   electron.ipcMain.handle(
     IPC_CHANNELS.GIT_DIFF_STAGED,
     async (_event, repoPath) => {

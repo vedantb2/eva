@@ -22,6 +22,7 @@ interface KanbanColumnProps {
   children: ReactNode;
   droppable?: boolean;
   headerExtra?: ReactNode;
+  emptyLabel?: string;
 }
 
 export function KanbanColumn({
@@ -31,6 +32,7 @@ export function KanbanColumn({
   children,
   droppable = true,
   headerExtra,
+  emptyLabel = "No items",
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
   const Icon = config.icon;
@@ -49,11 +51,16 @@ export function KanbanColumn({
         >
           <Icon size={14} className={config.text} />
           {config.label}
-          <span className="text-muted-foreground/60 tabular-nums">{count}</span>
+          <span className="text-foreground/50 tabular-nums">{count}</span>
         </Badge>
         {headerExtra}
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0">
+        {count === 0 && (
+          <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
+            {emptyLabel}
+          </div>
+        )}
         {children}
       </CardContent>
     </Card>

@@ -20,6 +20,9 @@ import {
   DialogTitle,
   DialogFooter,
   Spinner,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
@@ -188,30 +191,45 @@ export function ProjectsClient() {
             <div className="flex flex-col flex-1 min-h-0 gap-4">
               <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                 <div className="flex items-center rounded-lg border border-border overflow-hidden">
-                  <Button
-                    variant={view === "kanban" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                    onClick={() => setParams({ view: "kanban" })}
-                  >
-                    <IconLayoutKanban size={16} />
-                  </Button>
-                  <Button
-                    variant={view === "timeline" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                    onClick={() => setParams({ view: "timeline" })}
-                  >
-                    <IconTimeline size={16} />
-                  </Button>
-                  <Button
-                    variant={view === "list" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                    onClick={() => setParams({ view: "list" })}
-                  >
-                    <IconList size={16} />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={view === "kanban" ? "secondary" : "ghost"}
+                        size="icon"
+                        className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                        onClick={() => setParams({ view: "kanban" })}
+                      >
+                        <IconLayoutKanban size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Kanban view</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={view === "timeline" ? "secondary" : "ghost"}
+                        size="icon"
+                        className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                        onClick={() => setParams({ view: "timeline" })}
+                      >
+                        <IconTimeline size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Timeline view</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={view === "list" ? "secondary" : "ghost"}
+                        size="icon"
+                        className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                        onClick={() => setParams({ view: "list" })}
+                      >
+                        <IconList size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>List view</TooltipContent>
+                  </Tooltip>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -242,11 +260,6 @@ export function ProjectsClient() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="secondary" size="sm">
-                      {sortDirection === "asc" ? (
-                        <IconSortAscending size={16} />
-                      ) : (
-                        <IconSortDescending size={16} />
-                      )}
                       {sortField === "created" ? "Date" : "Title"}
                     </Button>
                   </DropdownMenuTrigger>
@@ -263,20 +276,29 @@ export function ProjectsClient() {
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                  }
-                >
-                  {sortDirection === "asc" ? (
-                    <IconSortAscending size={16} />
-                  ) : (
-                    <IconSortDescending size={16} />
-                  )}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        setParams({ dir: dir === "asc" ? "desc" : "asc" })
+                      }
+                    >
+                      {sortDirection === "asc" ? (
+                        <IconSortAscending size={16} />
+                      ) : (
+                        <IconSortDescending size={16} />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {sortDirection === "asc"
+                      ? "Ascending — click to reverse"
+                      : "Descending — click to reverse"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <AnimatePresence initial={false} mode="wait">
                 {view === "kanban" ? (
@@ -297,6 +319,7 @@ export function ProjectsClient() {
                         config={phaseConfig[phase]}
                         count={projectsByPhase[phase]?.length ?? 0}
                         droppable={false}
+                        emptyLabel="No projects"
                       >
                         {projectsByPhase[phase]?.map((project) => (
                           <ProjectCard
@@ -319,11 +342,6 @@ export function ProjectsClient() {
                             }
                           />
                         ))}
-                        {(projectsByPhase[phase]?.length ?? 0) === 0 && (
-                          <div className="flex flex-1 min-h-full items-center justify-center py-4 text-xs text-muted-foreground">
-                            No projects
-                          </div>
-                        )}
                       </KanbanColumn>
                     ))}
                   </motion.div>
@@ -395,7 +413,11 @@ export function ProjectsClient() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setProjectToDelete(null)}>
+            <Button
+              variant="ghost"
+              onClick={() => setProjectToDelete(null)}
+              disabled={isDeleting}
+            >
               Cancel
             </Button>
             <Button

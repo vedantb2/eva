@@ -8,7 +8,14 @@ import type { Id } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, SearchInput, Spinner } from "@conductor/ui";
+import {
+  Button,
+  SearchInput,
+  Spinner,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
@@ -81,22 +88,32 @@ export function QuickTasksClient() {
           <div className="flex items-center gap-2">
             {hasQuickTasks && (
               <div className="flex items-center rounded-lg border border-border overflow-hidden">
-                <Button
-                  variant={view === "kanban" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                  onClick={() => setParams({ view: "kanban" })}
-                >
-                  <IconLayoutKanban size={16} />
-                </Button>
-                <Button
-                  variant={view === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                  onClick={() => setParams({ view: "list" })}
-                >
-                  <IconList size={16} />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={view === "kanban" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "kanban" })}
+                    >
+                      <IconLayoutKanban size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Kanban view</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={view === "list" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "list" })}
+                    >
+                      <IconList size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>List view</TooltipContent>
+                </Tooltip>
               </div>
             )}
             <AnimatePresence initial={false} mode="popLayout">

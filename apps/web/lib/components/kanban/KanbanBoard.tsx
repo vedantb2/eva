@@ -80,7 +80,7 @@ function SortableItem<T extends BaseTask>({
       layout
       ref={setNodeRef}
       style={style}
-      className={`cursor-grab rounded-xl transition-opacity duration-150 ${isDragging ? "opacity-40" : ""}`}
+      className={`rounded-xl transition-opacity duration-150 ${isDragging ? "opacity-40 cursor-grabbing" : "cursor-grab"}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}
@@ -219,7 +219,14 @@ export function KanbanBoard<T extends BaseTask>({
               size="sm"
               className="motion-press hover:scale-[1.01] active:scale-[0.99]"
             >
-              <IconFilter size={16} />
+              <IconFilter
+                size={16}
+                className={
+                  visibleStatuses.size < KANBAN_STATUSES.length
+                    ? "text-primary"
+                    : ""
+                }
+              />
               {visibleStatuses.size === KANBAN_STATUSES.length
                 ? "All Columns"
                 : `${visibleStatuses.size} Columns`}

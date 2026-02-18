@@ -33,9 +33,13 @@ export function ProjectsListView({
   repoFullName,
   onDelete,
 }: ProjectsListViewProps) {
-  const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(
-    () => new Set(PROJECT_PHASES),
-  );
+  const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
+    // Default to only non-empty sections open; fall back to all if everything is empty.
+    const nonEmpty = new Set(
+      PROJECT_PHASES.filter((p) => (projectsByPhase[p] ?? []).length > 0),
+    );
+    return nonEmpty.size > 0 ? nonEmpty : new Set(PROJECT_PHASES);
+  });
 
   const toggleSection = (phase: ProjectPhase) => {
     setOpenSections((prev) => {

@@ -7,16 +7,9 @@ import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
+import { FixAllDialog } from "./FixAllDialog";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Spinner,
-} from "@conductor/ui";
+import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
@@ -137,6 +130,7 @@ export function QuickTasksKanbanBoard({
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            branchName={task.branchName}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -150,58 +144,20 @@ export function QuickTasksKanbanBoard({
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            branchName={task.branchName}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
           />
         )}
       />
-      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Complete All Tasks</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground space-y-2">
-            {ownedTodoTasks.length > 0 ? (
-              <>
-                <p>
-                  Eva will run and complete {ownedTodoTasks.length} task
-                  {ownedTodoTasks.length !== 1 && "s"} you created.
-                </p>
-                {skippedCount > 0 && (
-                  <p className="text-warning">
-                    {skippedCount} task{skippedCount !== 1 && "s"} created by
-                    others will be skipped. Only the task owner can run Eva.
-                  </p>
-                )}
-                <p>
-                  If there is an issue, Eva will return the task to To Do with a
-                  red border.
-                </p>
-                <p>If successful, she will move it to Code Review.</p>
-              </>
-            ) : (
-              <p>
-                Only the task owner can run Eva. None of the todo tasks were
-                created by you.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={ownedTodoTasks.length === 0}
-              onClick={() => {
-                setIsConfirmOpen(false);
-                handleFixAll();
-              }}
-            >
-              Complete All
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FixAllDialog
+        isOpen={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        ownedCount={ownedTodoTasks.length}
+        skippedCount={skippedCount}
+        onConfirm={handleFixAll}
+        isLoading={isFixingAll}
+      />
       {selectedTaskId && (
         <TaskDetailModal
           isOpen={!!selectedTaskId}

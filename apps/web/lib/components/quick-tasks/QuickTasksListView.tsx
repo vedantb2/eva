@@ -16,11 +16,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Spinner,
 } from "@conductor/ui";
 import {
@@ -34,6 +29,7 @@ import {
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
+import { FixAllDialog } from "./FixAllDialog";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
@@ -266,6 +262,7 @@ export function QuickTasksListView({
                             status={task.status}
                             createdAt={task.createdAt}
                             createdBy={task.createdBy}
+                            branchName={task.branchName}
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);
@@ -287,53 +284,14 @@ export function QuickTasksListView({
           )}
         </div>
       </div>
-      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Complete All Tasks</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground space-y-2">
-            {ownedTodoTasks.length > 0 ? (
-              <>
-                <p>
-                  Eva will run and complete {ownedTodoTasks.length} task
-                  {ownedTodoTasks.length !== 1 && "s"} you created.
-                </p>
-                {skippedCount > 0 && (
-                  <p className="text-warning">
-                    {skippedCount} task{skippedCount !== 1 && "s"} created by
-                    others will be skipped. Only the task owner can run Eva.
-                  </p>
-                )}
-                <p>
-                  If there is an issue, Eva will return the task to To Do with a
-                  red border.
-                </p>
-                <p>If successful, she will move it to Code Review.</p>
-              </>
-            ) : (
-              <p>
-                Only the task owner can run Eva. None of the todo tasks were
-                created by you.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={ownedTodoTasks.length === 0}
-              onClick={() => {
-                setIsConfirmOpen(false);
-                handleFixAll();
-              }}
-            >
-              Complete All
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FixAllDialog
+        isOpen={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        ownedCount={ownedTodoTasks.length}
+        skippedCount={skippedCount}
+        onConfirm={handleFixAll}
+        isLoading={isFixingAll}
+      />
       {selectedTaskId && (
         <TaskDetailModal
           isOpen={!!selectedTaskId}

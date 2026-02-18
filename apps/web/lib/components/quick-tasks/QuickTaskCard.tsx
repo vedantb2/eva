@@ -16,6 +16,7 @@ import {
   IconGitBranch,
   IconGitPullRequest,
   IconDotsVertical,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
@@ -62,7 +63,7 @@ export function QuickTaskCard({
   return (
     <Card
       className={`relative overflow-hidden shadow-2xs transition-all duration-200 ${
-        hasError ? "border-destructive/40" : ""
+        hasError ? "border-destructive/60" : ""
       } ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:shadow-xs hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
@@ -144,9 +145,22 @@ export function QuickTaskCard({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          {createdBy && <UserInitials userId={createdBy} />}
-          <span className="text-xs text-muted-foreground ml-auto">
+        {/* {description && (
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {description}
+          </p>
+        )} */}
+        <div className="flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {createdBy && <UserInitials userId={createdBy} />}
+            {hasError && (
+              <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                <IconAlertCircle size={12} />
+                Failed
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground shrink-0">
             {dayjs(createdAt).fromNow()}
           </span>
         </div>

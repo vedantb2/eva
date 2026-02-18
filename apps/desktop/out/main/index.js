@@ -218,66 +218,6 @@ function spawnTab(win, sessionId, repoPath, tool, initialMessage) {
   }
   return tab;
 }
-function parseDiff(raw) {
-  const files = [];
-  const fileBlocks = raw.split(/^diff --git /m).filter(Boolean);
-  for (const block of fileBlocks) {
-    const lines = block.split("\n");
-    const headerLine = lines[0] ?? "";
-    const pathMatch = /b\/(.+)$/.exec(headerLine);
-    const path2 = pathMatch?.[1] ?? headerLine;
-    let status = "modified";
-    if (block.includes("\nnew file mode")) status = "added";
-    else if (block.includes("\ndeleted file mode")) status = "deleted";
-    else if (block.includes("\nrename to ")) status = "renamed";
-    const hunks = parseHunks(lines.slice(4));
-    files.push({ path: path2, status, hunks });
-  }
-  return files;
-}
-function parseHunks(lines) {
-  const hunks = [];
-  let current = null;
-  let oldLine = 0;
-  let newLine = 0;
-  for (const line of lines) {
-    const hunkHeader = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
-    if (hunkHeader) {
-      current = { header: line, lines: [] };
-      hunks.push(current);
-      oldLine = parseInt(hunkHeader[1] ?? "0", 10);
-      newLine = parseInt(hunkHeader[2] ?? "0", 10);
-      continue;
-    }
-    if (!current) continue;
-    if (line.startsWith("+")) {
-      const diffLine = {
-        type: "addition",
-        content: line.slice(1),
-        oldLineNo: null,
-        newLineNo: newLine++,
-      };
-      current.lines.push(diffLine);
-    } else if (line.startsWith("-")) {
-      const diffLine = {
-        type: "deletion",
-        content: line.slice(1),
-        oldLineNo: oldLine++,
-        newLineNo: null,
-      };
-      current.lines.push(diffLine);
-    } else if (line.startsWith(" ")) {
-      const diffLine = {
-        type: "context",
-        content: line.slice(1),
-        oldLineNo: oldLine++,
-        newLineNo: newLine++,
-      };
-      current.lines.push(diffLine);
-    }
-  }
-  return hunks;
-}
 async function getStatus(repoPath) {
   const git = simpleGit.simpleGit(repoPath);
   const status = await git.status();
@@ -306,15 +246,30 @@ async function commit(repoPath, message) {
   const git = simpleGit.simpleGit(repoPath);
   await git.commit(message);
 }
+function splitPatchByFile(raw) {
+  if (!raw.trim()) return [];
+  const blocks = raw.split(/(?=^diff --git )/m).filter(Boolean);
+  const patches = [];
+  for (const block of blocks) {
+    const pathMatch = /b\/(.+)$/.exec(block.split("\n")[0] ?? "");
+    const path2 = pathMatch?.[1] ?? "";
+    let status = "modified";
+    if (block.includes("\nnew file mode")) status = "added";
+    else if (block.includes("\ndeleted file mode")) status = "deleted";
+    else if (block.includes("\nrename to ")) status = "renamed";
+    patches.push({ path: path2, status, patch: block });
+  }
+  return patches;
+}
 async function getStagedDiff(repoPath) {
   const git = simpleGit.simpleGit(repoPath);
   const raw = await git.diff(["--cached", "--unified=3"]);
-  return parseDiff(raw);
+  return splitPatchByFile(raw);
 }
 async function getUnstagedDiff(repoPath) {
   const git = simpleGit.simpleGit(repoPath);
   const raw = await git.diff(["--unified=3"]);
-  return parseDiff(raw);
+  return splitPatchByFile(raw);
 }
 const EntryTypes = {
   FILE_TYPE: "files",

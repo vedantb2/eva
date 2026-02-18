@@ -51,22 +51,10 @@ export interface GitStatusResult {
   behind: number;
 }
 
-export interface DiffLine {
-  type: "context" | "addition" | "deletion";
-  content: string;
-  oldLineNo: number | null;
-  newLineNo: number | null;
-}
-
-export interface DiffHunk {
-  header: string;
-  lines: DiffLine[];
-}
-
-export interface DiffFile {
+export interface RawFilePatch {
   path: string;
   status: "added" | "modified" | "deleted" | "renamed";
-  hunks: DiffHunk[];
+  patch: string;
 }
 
 export interface ElectronAPI {
@@ -90,8 +78,8 @@ export interface ElectronAPI {
   gitStage: (repoPath: string, files: string[]) => Promise<void>;
   gitUnstage: (repoPath: string, files: string[]) => Promise<void>;
   gitCommit: (repoPath: string, message: string) => Promise<void>;
-  gitDiffStaged: (repoPath: string) => Promise<DiffFile[]>;
-  gitDiffUnstaged: (repoPath: string) => Promise<DiffFile[]>;
+  gitDiffStaged: (repoPath: string) => Promise<RawFilePatch[]>;
+  gitDiffUnstaged: (repoPath: string) => Promise<RawFilePatch[]>;
   gitWatchStart: (repoPath: string) => Promise<void>;
   gitWatchStop: (repoPath: string) => Promise<void>;
   onGitChanged: (callback: (repoPath: string) => void) => () => void;

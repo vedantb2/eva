@@ -1,5 +1,20 @@
 # Changelog
 
+## Desktop: Diff Tabs in Main Panel — 2026-02-18
+
+- **Moved diffs from inline expansion to center-panel tabs** — clicking a file in the git panel now opens a diff tab alongside terminal tabs (VS Code style) instead of expanding a cramped inline diff inside the narrow git panel
+- Created `DiffTabContext` to bridge the `GitPanel` ↔ `SessionPage` sibling gap — shared context holds diff tab state (open, close, focus), provided by `AppShellInner`
+- Deterministic tab IDs (`diff:staged:path` / `diff:unstaged:path`) ensure re-clicking a file focuses the existing tab rather than duplicating it
+- Diff tabs clear automatically on session switch
+- Removed inline expand/collapse logic from `GitFileItem`, deleted the now-unused `DiffViewer` component
+
+## Improve Diff Viewer UI (Web + Desktop) — 2026-02-18
+
+- **Web DiffPanel**: Added unified/split view toggle, word-level inline diff highlighting (`lineDiffType: "word"`), collapsible unchanged regions (`expandUnchanged`), and `+N -N` line count stats in the file sidebar — the bare-bones PatchDiff setup now feels closer to VS Code/GitHub's diff viewer
+- **Desktop DiffViewer**: Replaced the custom table-based diff renderer (DiffLine/DiffHunk/DiffFile types, manual line counting, no syntax highlighting) with `@pierre/diffs` PatchDiff — same library used by web, gives syntax highlighting, word-level diffs, and dark theme for free
+- **Desktop data flow simplification**: Removed `parseDiff()` in `diff.ts` that split raw git output into typed hunks/lines (100+ lines of parsing code). Replaced with `splitPatchByFile()` that just splits the raw multi-file patch into per-file strings — PatchDiff handles all parsing internally
+- Deleted `apps/desktop/src/main/git/diff.ts`, replaced `DiffFile`/`DiffHunk`/`DiffLine` types with single `RawFilePatch` interface
+
 ## Replace Session Diff Viewer with @pierre/diffs — 2026-02-18
 
 - Replaced the hand-rolled line-by-line diff renderer with `PatchDiff` from `@pierre/diffs` — the custom renderer had no syntax highlighting, no line numbers, and no inline change highlighting

@@ -1,17 +1,30 @@
 import { ipcMain, shell, dialog, BrowserWindow } from "electron";
 import { IPC_CHANNELS } from "../../shared/ipc-channels";
 import { spawnPty, writePty, resizePty, killPty } from "../pty/manager";
-import { addWorktree, removeWorktree } from "../git/worktree";
-import { getDiff, getBranches } from "../git/diff";
-import { spawnAgent, killAgent, listAgents } from "../agent/runner";
+import {
+  createSession,
+  getSession,
+  listSessions,
+  deleteSession,
+  removeTab,
+} from "../session/store";
+import { spawnTab } from "../session/tab-spawner";
+import {
+  getStatus,
+  stageFiles,
+  unstageFiles,
+  commit,
+  getStagedDiff,
+  getUnstagedDiff,
+} from "../git/operations";
+import { startWatching, stopWatching } from "../git/watcher";
 import type {
   PtySpawnOptions,
-  AgentSpawnOptions,
-  WorktreeAddOptions,
+  CreateSessionOptions,
+  CreateTabOptions,
 } from "../../preload/types";
 
 export function registerHandlers(win: BrowserWindow): void {
-  // PTY
   ipcMain.handle(IPC_CHANNELS.PTY_SPAWN, (_event, opts: PtySpawnOptions) => {
     spawnPty(opts.ptyId, opts.cwd, opts.cols, opts.rows, opts.env ?? {}, win);
   });
@@ -31,7 +44,6 @@ export function registerHandlers(win: BrowserWindow): void {
     killPty(ptyId);
   });
 
-  // Dialog
   ipcMain.handle(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY, async () => {
     const result = await dialog.showOpenDialog(win, {
       properties: ["openDirectory"],
@@ -40,64 +52,115 @@ export function registerHandlers(win: BrowserWindow): void {
     return result.filePaths[0];
   });
 
-  // Agents
   ipcMain.handle(
-    IPC_CHANNELS.AGENT_SPAWN,
-    async (_event, opts: AgentSpawnOptions) => {
-      return spawnAgent(
+    IPC_CHANNELS.SESSION_CREATE,
+    (_event, opts: CreateSessionOptions) => {
+      const session = createSession(opts.repoPath);
+      spawnTab(
         win,
-        opts.agentId,
+        session.sessionId,
         opts.repoPath,
-        opts.branchName,
-        opts.baseBranch,
-        opts.prompt,
-        opts.model,
-        opts.useWorktree,
+        opts.tool,
+        opts.initialMessage,
       );
+      startWatching(opts.repoPath, win);
+      return getSession(session.sessionId);
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.AGENT_KILL, async (_event, agentId: string) => {
-    await killAgent(win, agentId);
+  ipcMain.handle(IPC_CHANNELS.SESSION_LIST, () => {
+    return listSessions();
   });
 
-  ipcMain.handle(IPC_CHANNELS.AGENT_LIST, () => listAgents());
+  ipcMain.handle(IPC_CHANNELS.SESSION_GET, (_event, sessionId: string) => {
+    return getSession(sessionId);
+  });
 
-  // Git
+  ipcMain.handle(IPC_CHANNELS.SESSION_DELETE, (_event, sessionId: string) => {
+    const session = getSession(sessionId);
+    if (session) {
+      for (const tab of session.tabs) {
+        killPty(tab.ptyId);
+      }
+      stopWatching(session.repoPath);
+    }
+    deleteSession(sessionId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, opts: CreateTabOptions) => {
+    const session = getSession(opts.sessionId);
+    if (!session) return null;
+    return spawnTab(win, opts.sessionId, session.repoPath, opts.tool);
+  });
+
   ipcMain.handle(
-    IPC_CHANNELS.GIT_WORKTREE_ADD,
-    async (_event, opts: WorktreeAddOptions) => {
-      return addWorktree(
-        opts.repoPath,
-        opts.agentId,
-        opts.branchName,
-        opts.baseBranch,
-      );
+    IPC_CHANNELS.TAB_CLOSE,
+    (_event, sessionId: string, tabId: string) => {
+      const ptyId = removeTab(sessionId, tabId);
+      if (ptyId) killPty(ptyId);
+    },
+  );
+
+  ipcMain.on(
+    IPC_CHANNELS.TAB_SEND_MESSAGE,
+    (_event, _sessionId: string, tabId: string, message: string) => {
+      writePty(`tab-pty-${tabId}`, `${message}\r`);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.GIT_STATUS, async (_event, repoPath: string) => {
+    return getStatus(repoPath);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_STAGE,
+    async (_event, repoPath: string, files: string[]) => {
+      await stageFiles(repoPath, files);
     },
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.GIT_WORKTREE_REMOVE,
-    async (_event, worktreePath: string) => {
-      await removeWorktree(worktreePath);
+    IPC_CHANNELS.GIT_UNSTAGE,
+    async (_event, repoPath: string, files: string[]) => {
+      await unstageFiles(repoPath, files);
     },
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.GIT_DIFF,
-    async (_event, repoPath: string, branch?: string) => {
-      return getDiff(repoPath, branch);
+    IPC_CHANNELS.GIT_COMMIT,
+    async (_event, repoPath: string, message: string) => {
+      await commit(repoPath, message);
     },
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.GIT_BRANCHES,
+    IPC_CHANNELS.GIT_DIFF_STAGED,
     async (_event, repoPath: string) => {
-      return getBranches(repoPath);
+      return getStagedDiff(repoPath);
     },
   );
 
-  // Shell
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_DIFF_UNSTAGED,
+    async (_event, repoPath: string) => {
+      return getUnstagedDiff(repoPath);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_WATCH_START,
+    async (_event, repoPath: string) => {
+      startWatching(repoPath, win);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_WATCH_STOP,
+    async (_event, repoPath: string) => {
+      stopWatching(repoPath);
+    },
+  );
+
   ipcMain.on(IPC_CHANNELS.OPEN_IN_FINDER, (_event, path: string) => {
     shell.showItemInFolder(path);
   });

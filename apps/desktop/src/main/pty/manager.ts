@@ -29,7 +29,11 @@ export function spawnPty(
     cwd,
     cols,
     rows,
-    env: { ...process.env, ...env } as Record<string, string>,
+    env: Object.fromEntries(
+      Object.entries({ ...process.env, ...env }).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    ),
   });
 
   ptyProcess.onData((data: string) => {

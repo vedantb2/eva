@@ -1,3 +1,34 @@
+export type ToolType = "claude" | "opencode" | "codex" | "shell";
+
+export interface TerminalTab {
+  tabId: string;
+  sessionId: string;
+  ptyId: string;
+  tool: ToolType;
+  label: string;
+  createdAt: number;
+}
+
+export interface Session {
+  sessionId: string;
+  repoPath: string;
+  name: string;
+  createdAt: number;
+  tabs: TerminalTab[];
+  activeTabId: string;
+}
+
+export interface CreateSessionOptions {
+  repoPath: string;
+  tool: ToolType;
+  initialMessage?: string;
+}
+
+export interface CreateTabOptions {
+  sessionId: string;
+  tool: ToolType;
+}
+
 export interface PtySpawnOptions {
   ptyId: string;
   cwd: string;
@@ -6,34 +37,18 @@ export interface PtySpawnOptions {
   env?: Record<string, string>;
 }
 
-export interface AgentSpawnOptions {
-  agentId: string;
-  repoPath: string;
-  branchName: string;
-  baseBranch: string;
-  prompt: string;
-  model?: string;
-  useWorktree?: boolean;
+export interface GitFileStatus {
+  path: string;
+  indexStatus: string;
+  workTreeStatus: string;
+  staged: boolean;
 }
 
-export interface WorktreeAddOptions {
-  repoPath: string;
-  agentId: string;
-  branchName: string;
-  baseBranch: string;
-}
-
-export type AgentStatus = "idle" | "running" | "success" | "error" | "killed";
-
-export interface AgentInfo {
-  agentId: string;
-  repoPath: string;
-  branchName: string;
-  worktreePath: string;
-  ptyId: string;
-  status: AgentStatus;
-  startedAt: number;
-  prompt: string;
+export interface GitStatusResult {
+  files: GitFileStatus[];
+  branch: string;
+  ahead: number;
+  behind: number;
 }
 
 export interface DiffLine {
@@ -55,7 +70,6 @@ export interface DiffFile {
 }
 
 export interface ElectronAPI {
-  // PTY
   ptySpawn: (opts: PtySpawnOptions) => Promise<void>;
   ptyInput: (ptyId: string, data: string) => void;
   ptyResize: (ptyId: string, cols: number, rows: number) => Promise<void>;
@@ -63,24 +77,27 @@ export interface ElectronAPI {
   onPtyData: (callback: (ptyId: string, data: string) => void) => () => void;
   onPtyExit: (callback: (ptyId: string, code: number) => void) => () => void;
 
-  // Agents
-  agentSpawn: (opts: AgentSpawnOptions) => Promise<string>;
-  agentKill: (agentId: string) => Promise<void>;
-  agentList: () => Promise<AgentInfo[]>;
-  onAgentStatus: (
-    callback: (agentId: string, status: AgentStatus) => void,
-  ) => () => void;
+  sessionCreate: (opts: CreateSessionOptions) => Promise<Session>;
+  sessionList: () => Promise<Session[]>;
+  sessionDelete: (sessionId: string) => Promise<void>;
+  sessionGet: (sessionId: string) => Promise<Session | null>;
 
-  // Git
-  gitWorktreeAdd: (opts: WorktreeAddOptions) => Promise<string>;
-  gitWorktreeRemove: (worktreePath: string) => Promise<void>;
-  gitDiff: (repoPath: string, branch?: string) => Promise<DiffFile[]>;
-  gitBranches: (repoPath: string) => Promise<string[]>;
+  tabCreate: (opts: CreateTabOptions) => Promise<TerminalTab>;
+  tabClose: (sessionId: string, tabId: string) => Promise<void>;
+  tabSendMessage: (sessionId: string, tabId: string, message: string) => void;
 
-  // Dialog
+  gitStatus: (repoPath: string) => Promise<GitStatusResult>;
+  gitStage: (repoPath: string, files: string[]) => Promise<void>;
+  gitUnstage: (repoPath: string, files: string[]) => Promise<void>;
+  gitCommit: (repoPath: string, message: string) => Promise<void>;
+  gitDiffStaged: (repoPath: string) => Promise<DiffFile[]>;
+  gitDiffUnstaged: (repoPath: string) => Promise<DiffFile[]>;
+  gitWatchStart: (repoPath: string) => Promise<void>;
+  gitWatchStop: (repoPath: string) => Promise<void>;
+  onGitChanged: (callback: (repoPath: string) => void) => () => void;
+
   openDirectory: () => Promise<string | null>;
 
-  // Shell
   openInFinder: (path: string) => void;
   openExternal: (url: string) => void;
 }

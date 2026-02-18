@@ -3,13 +3,11 @@ import { IPC_CHANNELS } from "../shared/ipc-channels";
 import type {
   ElectronAPI,
   PtySpawnOptions,
-  AgentSpawnOptions,
-  AgentStatus,
-  WorktreeAddOptions,
+  CreateSessionOptions,
+  CreateTabOptions,
 } from "./types";
 
 const api: ElectronAPI = {
-  // PTY
   ptySpawn: (opts: PtySpawnOptions) =>
     ipcRenderer.invoke(IPC_CHANNELS.PTY_SPAWN, opts),
 
@@ -41,42 +39,59 @@ const api: ElectronAPI = {
     return () => ipcRenderer.off(IPC_CHANNELS.PTY_EXIT, handler);
   },
 
-  // Agents
-  agentSpawn: (opts: AgentSpawnOptions) =>
-    ipcRenderer.invoke(IPC_CHANNELS.AGENT_SPAWN, opts),
+  sessionCreate: (opts: CreateSessionOptions) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_CREATE, opts),
 
-  agentKill: (agentId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.AGENT_KILL, agentId),
+  sessionList: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_LIST),
 
-  agentList: () => ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST),
+  sessionGet: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET, sessionId),
 
-  onAgentStatus: (callback) => {
-    const handler = (
-      _: Electron.IpcRendererEvent,
-      agentId: string,
-      status: AgentStatus,
-    ) => callback(agentId, status);
-    ipcRenderer.on(IPC_CHANNELS.AGENT_STATUS, handler);
-    return () => ipcRenderer.off(IPC_CHANNELS.AGENT_STATUS, handler);
+  sessionDelete: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId),
+
+  tabCreate: (opts: CreateTabOptions) =>
+    ipcRenderer.invoke(IPC_CHANNELS.TAB_CREATE, opts),
+
+  tabClose: (sessionId: string, tabId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.TAB_CLOSE, sessionId, tabId),
+
+  tabSendMessage: (sessionId: string, tabId: string, message: string) =>
+    ipcRenderer.send(IPC_CHANNELS.TAB_SEND_MESSAGE, sessionId, tabId, message),
+
+  gitStatus: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_STATUS, repoPath),
+
+  gitStage: (repoPath: string, files: string[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_STAGE, repoPath, files),
+
+  gitUnstage: (repoPath: string, files: string[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_UNSTAGE, repoPath, files),
+
+  gitCommit: (repoPath: string, message: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT, repoPath, message),
+
+  gitDiffStaged: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STAGED, repoPath),
+
+  gitDiffUnstaged: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_UNSTAGED, repoPath),
+
+  gitWatchStart: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_WATCH_START, repoPath),
+
+  gitWatchStop: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_WATCH_STOP, repoPath),
+
+  onGitChanged: (callback) => {
+    const handler = (_: Electron.IpcRendererEvent, repoPath: string) =>
+      callback(repoPath);
+    ipcRenderer.on(IPC_CHANNELS.GIT_WATCH_CHANGED, handler);
+    return () => ipcRenderer.off(IPC_CHANNELS.GIT_WATCH_CHANGED, handler);
   },
 
-  // Git
-  gitWorktreeAdd: (opts: WorktreeAddOptions) =>
-    ipcRenderer.invoke(IPC_CHANNELS.GIT_WORKTREE_ADD, opts),
-
-  gitWorktreeRemove: (worktreePath: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.GIT_WORKTREE_REMOVE, worktreePath),
-
-  gitDiff: (repoPath: string, branch?: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF, repoPath, branch),
-
-  gitBranches: (repoPath: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.GIT_BRANCHES, repoPath),
-
-  // Dialog
   openDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY),
 
-  // Shell
   openInFinder: (path: string) =>
     ipcRenderer.send(IPC_CHANNELS.OPEN_IN_FINDER, path),
 

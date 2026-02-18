@@ -4,13 +4,15 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 
-interface AgentTerminalProps {
+interface TerminalViewProps {
   ptyId: string;
-  cwd: string;
+  visible: boolean;
 }
 
-export function AgentTerminal({ ptyId, cwd }: AgentTerminalProps) {
+export function TerminalView({ ptyId, visible }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -55,17 +57,13 @@ export function AgentTerminal({ ptyId, cwd }: AgentTerminalProps) {
     term.open(container);
     fitAddon.fit();
 
-    // Spawn PTY in main process
-    window.electronAPI
-      .ptySpawn({ ptyId, cwd, cols: term.cols, rows: term.rows })
-      .catch(console.error);
+    termRef.current = term;
+    fitAddonRef.current = fitAddon;
 
-    // User input → PTY
     const dataDisposable = term.onData((data) => {
       window.electronAPI.ptyInput(ptyId, data);
     });
 
-    // PTY output → terminal
     const removePtyData = window.electronAPI.onPtyData((incomingId, data) => {
       if (incomingId === ptyId) term.write(data);
     });
@@ -76,13 +74,12 @@ export function AgentTerminal({ ptyId, cwd }: AgentTerminalProps) {
       }
     });
 
-    // Resize observer
     const observer = new ResizeObserver(() => {
       try {
         fitAddon.fit();
         window.electronAPI
           .ptyResize(ptyId, term.cols, term.rows)
-          .catch(console.error);
+          .catch(() => {});
       } catch {
         // FitAddon can throw if the terminal isn't visible
       }
@@ -94,16 +91,30 @@ export function AgentTerminal({ ptyId, cwd }: AgentTerminalProps) {
       removePtyExit();
       dataDisposable.dispose();
       observer.disconnect();
-      window.electronAPI.ptyKill(ptyId).catch(console.error);
       term.dispose();
+      termRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [ptyId, cwd]);
+  }, [ptyId]);
+
+  useEffect(() => {
+    if (visible && fitAddonRef.current) {
+      try {
+        fitAddonRef.current.fit();
+      } catch {
+        // ignore
+      }
+    }
+  }, [visible]);
 
   return (
     <div
       ref={containerRef}
       className="w-full h-full overflow-hidden"
-      style={{ padding: "8px" }}
+      style={{
+        padding: "8px",
+        display: visible ? "block" : "none",
+      }}
     />
   );
 }

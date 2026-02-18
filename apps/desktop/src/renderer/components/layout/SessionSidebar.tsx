@@ -2,20 +2,20 @@ import { useNavigate, NavLink } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { IconPlus, IconSettings } from "@tabler/icons-react";
-import type { AgentInfo } from "../../../preload/types";
-import { SessionItem } from "../agents/SessionItem";
+import { useSessionContext } from "../../contexts/SessionContext";
+import { SessionItem } from "../sessions/SessionItem";
 
-interface SessionSidebarProps {
-  agents: AgentInfo[];
-  onKill: (agentId: string) => void;
-}
-
-export function SessionSidebar({ agents, onKill }: SessionSidebarProps) {
+export function SessionSidebar() {
   const navigate = useNavigate();
+  const { sessions, deleteSession } = useSessionContext();
+
+  async function handleDelete(sessionId: string) {
+    await deleteSession(sessionId);
+    navigate("/");
+  }
 
   return (
-    <aside className="w-64 shrink-0 flex flex-col border-r border-border h-screen bg-background">
-      {/* Drag region + title */}
+    <aside className="w-56 shrink-0 flex flex-col border-r border-border h-full bg-background">
       <div
         className="h-10 shrink-0 flex items-center px-3 gap-2"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -38,22 +38,27 @@ export function SessionSidebar({ agents, onKill }: SessionSidebarProps) {
         </Button>
       </div>
 
-      {/* Session list */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
-        {agents.length === 0 ? (
+        {sessions.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-10 px-3">
             No sessions yet.
             <br />
             Start a new one above.
           </p>
         ) : (
-          agents.map((agent) => (
-            <SessionItem key={agent.agentId} agent={agent} onKill={onKill} />
+          sessions.map((session) => (
+            <SessionItem
+              key={session.sessionId}
+              sessionId={session.sessionId}
+              name={session.name}
+              tabCount={session.tabs.length}
+              createdAt={session.createdAt}
+              onDelete={handleDelete}
+            />
           ))
         )}
       </div>
 
-      {/* Footer */}
       <div className="border-t border-border p-2 flex items-center gap-2 shrink-0">
         <UserButton />
         <NavLink

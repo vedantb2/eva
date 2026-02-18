@@ -2,7 +2,8 @@ import { app, BrowserWindow, shell } from "electron";
 import { join } from "path";
 import { registerHandlers } from "./ipc/handlers";
 import { killAllPtys } from "./pty/manager";
-import { listAgents, killAgent } from "./agent/runner";
+import { listSessions, deleteSession } from "./session/store";
+import { stopAllWatchers } from "./git/watcher";
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -52,15 +53,11 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", async () => {
-  // Clean up all running agents and their worktrees
-  const agents = listAgents();
-  await Promise.allSettled(
-    agents.map((a) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      if (win) return killAgent(win, a.agentId);
-      return Promise.resolve();
-    }),
-  );
+app.on("before-quit", () => {
+  const sessions = listSessions();
+  for (const session of sessions) {
+    deleteSession(session.sessionId);
+  }
+  stopAllWatchers();
   killAllPtys();
 });

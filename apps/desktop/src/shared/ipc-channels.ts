@@ -1,5 +1,4 @@
 export const IPC_CHANNELS = {
-  // PTY / Terminal
   PTY_SPAWN: "pty:spawn",
   PTY_INPUT: "pty:input",
   PTY_RESIZE: "pty:resize",
@@ -7,22 +6,27 @@ export const IPC_CHANNELS = {
   PTY_DATA: "pty:data",
   PTY_EXIT: "pty:exit",
 
-  // Agent lifecycle
-  AGENT_SPAWN: "agent:spawn",
-  AGENT_KILL: "agent:kill",
-  AGENT_LIST: "agent:list",
-  AGENT_STATUS: "agent:status",
+  SESSION_CREATE: "session:create",
+  SESSION_LIST: "session:list",
+  SESSION_DELETE: "session:delete",
+  SESSION_GET: "session:get",
 
-  // Git
-  GIT_WORKTREE_ADD: "git:worktree:add",
-  GIT_WORKTREE_REMOVE: "git:worktree:remove",
-  GIT_DIFF: "git:diff",
-  GIT_BRANCHES: "git:branches",
+  TAB_CREATE: "tab:create",
+  TAB_CLOSE: "tab:close",
+  TAB_SEND_MESSAGE: "tab:sendMessage",
 
-  // Dialog
+  GIT_STATUS: "git:status",
+  GIT_STAGE: "git:stage",
+  GIT_UNSTAGE: "git:unstage",
+  GIT_COMMIT: "git:commit",
+  GIT_DIFF_STAGED: "git:diffStaged",
+  GIT_DIFF_UNSTAGED: "git:diffUnstaged",
+  GIT_WATCH_START: "git:watchStart",
+  GIT_WATCH_STOP: "git:watchStop",
+  GIT_WATCH_CHANGED: "git:watchChanged",
+
   DIALOG_OPEN_DIRECTORY: "dialog:openDirectory",
 
-  // Shell
   OPEN_IN_FINDER: "shell:openInFinder",
   OPEN_EXTERNAL: "shell:openExternal",
 } as const;

@@ -15,8 +15,8 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.29.1",
     "@conductor/backend": "workspace:*",
-    "@conductor/ui": "workspace:*",
     "@conductor/shared": "workspace:*",
+    "@conductor/ui": "workspace:*",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -30,6 +30,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
+    "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.31.6",
@@ -39,6 +40,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.0",
+    "simple-git": "^3.31.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

@@ -1,34 +1,6 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
 import type { DiffFile, DiffHunk, DiffLine } from "../../preload/types";
 
-const execFileAsync = promisify(execFile);
-
-export async function getDiff(
-  repoPath: string,
-  branch?: string,
-): Promise<DiffFile[]> {
-  const args = branch
-    ? ["diff", `main...${branch}`, "--unified=3"]
-    : ["diff", "--unified=3"];
-
-  const { stdout } = await execFileAsync("git", args, { cwd: repoPath });
-  return parseDiff(stdout);
-}
-
-export async function getBranches(repoPath: string): Promise<string[]> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["branch", "--format=%(refname:short)"],
-    { cwd: repoPath },
-  );
-  return stdout
-    .split("\n")
-    .map((b) => b.trim())
-    .filter(Boolean);
-}
-
-function parseDiff(raw: string): DiffFile[] {
+export function parseDiff(raw: string): DiffFile[] {
   const files: DiffFile[] = [];
   const fileBlocks = raw.split(/^diff --git /m).filter(Boolean);
 

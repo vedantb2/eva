@@ -1,66 +1,36 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import type { AgentInfo, AgentStatus } from "../../../preload/types";
+import {
+  SessionProvider,
+  useSessionContext,
+} from "../../contexts/SessionContext";
 import { SessionSidebar } from "./SessionSidebar";
-
-interface AgentsContextValue {
-  agents: AgentInfo[];
-  onAgentSpawned: (agent: AgentInfo) => void;
-  onAgentKilled: (agentId: string) => void;
-}
-
-const AgentsContext = createContext<AgentsContextValue | null>(null);
-
-export function useAppShell(): AgentsContextValue {
-  const ctx = useContext(AgentsContext);
-  if (!ctx) throw new Error("useAppShell must be used within AppShell");
-  return ctx;
-}
+import { GitPanel } from "../git/GitPanel";
+import { useLocation } from "react-router-dom";
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
-export function AppShell({ children }: AppShellProps) {
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
+function AppShellInner({ children }: AppShellProps) {
+  const { sessions, activeSessionId } = useSessionContext();
+  const location = useLocation();
 
-  useEffect(() => {
-    window.electronAPI.agentList().then(setAgents);
-
-    const cleanup = window.electronAPI.onAgentStatus(
-      (agentId: string, status: AgentStatus) => {
-        setAgents((prev) =>
-          prev.map((a) => (a.agentId === agentId ? { ...a, status } : a)),
-        );
-      },
-    );
-
-    return cleanup;
-  }, []);
-
-  function handleAgentSpawned(agent: AgentInfo) {
-    setAgents((prev) => [agent, ...prev]);
-  }
-
-  function handleAgentKilled(agentId: string) {
-    setAgents((prev) =>
-      prev.map((a) =>
-        a.agentId === agentId ? { ...a, status: "killed" as AgentStatus } : a,
-      ),
-    );
-  }
+  const sessionMatch = /^\/session\/(.+)$/.exec(location.pathname);
+  const currentSessionId = sessionMatch?.[1] ?? activeSessionId;
+  const currentSession = sessions.find((s) => s.sessionId === currentSessionId);
 
   return (
-    <AgentsContext.Provider
-      value={{
-        agents,
-        onAgentSpawned: handleAgentSpawned,
-        onAgentKilled: handleAgentKilled,
-      }}
-    >
-      <div className="flex h-screen overflow-hidden bg-background text-foreground">
-        <SessionSidebar agents={agents} onKill={handleAgentKilled} />
-        <main className="flex-1 min-w-0 overflow-hidden">{children}</main>
-      </div>
-    </AgentsContext.Provider>
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <SessionSidebar />
+      <main className="flex-1 min-w-0 overflow-hidden">{children}</main>
+      {currentSession && <GitPanel repoPath={currentSession.repoPath} />}
+    </div>
+  );
+}
+
+export function AppShell({ children }: AppShellProps) {
+  return (
+    <SessionProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </SessionProvider>
   );
 }

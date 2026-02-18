@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop: Session-Based Terminal Manager Rearchitecture — 2026-02-18
+
+- **Rearchitected the desktop app from agent-based one-shot workflow to session-based interactive terminal manager** — the app now focuses on being a lightweight IDE wrapper around CLI AI tools (Claude Code, OpenCode, Codex)
+- Users select a repo folder, pick a tool, and get an interactive terminal session instead of filling a form to spawn a one-shot `claude --print` agent
+- Multiple terminal tabs per session (Claude Code, OpenCode, Codex, Shell) with tab switching that preserves scroll buffer via `display: none`
+- New git panel (right sidebar, collapsible) with real-time file status, stage/unstage, inline diffs, and commit — auto-refreshes via chokidar file watcher
+- Session sidebar replaces agent sidebar — shows repo name, tab count, and relative time
+- Removed all agent and worktree infrastructure (agent runner, worktree manager, agent IPC channels, agent types) — replaced with session store, tab spawner, git operations via `simple-git`
+- Added `simple-git` (clean git API) and `chokidar` (file watching) as new dependencies
+- Fixed `as Record<string, string>` type assertion in pty/manager.ts with proper `Object.fromEntries` + filter
+
 ## Desktop: Folder Picker + Optional Worktree — 2026-02-18
 
 - Replaced manual repo path text input with a native OS folder picker dialog — eliminates typos and invalid paths

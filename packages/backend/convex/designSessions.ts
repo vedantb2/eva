@@ -1,6 +1,9 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
+import { type WorkflowId } from "@convex-dev/workflow";
+import { workflow } from "./workflowManager";
 import { roleValidator, sessionStatusValidator } from "./validators";
 
 const variationValidator = v.object({
@@ -26,6 +29,7 @@ const designSessionValidator = v.object({
   title: v.string(),
   status: sessionStatusValidator,
   sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
@@ -157,14 +161,13 @@ export const selectVariation = mutation({
   },
 });
 
-export const updateSandbox = mutation({
+export const updateSandbox = internalMutation({
   args: {
     id: v.id("designSessions"),
     sandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     const updates: { sandboxId?: string; updatedAt: number } = {
@@ -172,6 +175,105 @@ export const updateSandbox = mutation({
     };
     if (args.sandboxId !== undefined) updates.sandboxId = args.sandboxId;
     await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
+export const executeMessage = mutation({
+  args: {
+    id: v.id("designSessions"),
+    message: v.string(),
+    personaId: v.optional(v.id("designPersonas")),
+    githubToken: v.string(),
+    convexToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+
+    // Add user message + empty assistant message (signals "generating" to UI)
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      messages: [
+        ...session.messages,
+        {
+          role: "user" as const,
+          content: args.message,
+          timestamp: now,
+          userId,
+          personaId: args.personaId,
+        },
+        {
+          role: "assistant" as const,
+          content: "",
+          timestamp: now,
+          activityLog: "",
+        },
+      ],
+      updatedAt: now,
+    });
+
+    // Start workflow
+    const workflowId = await workflow.start(
+      ctx,
+      internal.designWorkflow.designSessionWorkflow,
+      {
+        designSessionId: args.id,
+        message: args.message,
+        personaId: args.personaId,
+        convexToken: args.convexToken,
+        githubToken: args.githubToken,
+      },
+    );
+
+    // Store workflowId on the session
+    await ctx.db.patch(args.id, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    return null;
+  },
+});
+
+export const cancelExecution = mutation({
+  args: { id: v.id("designSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+
+    if (session.activeWorkflowId) {
+      try {
+        await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);
+      } catch {
+        // Workflow may have already completed
+      }
+    }
+
+    // Update the last message to show cancellation
+    const messages = [...session.messages];
+    const last = messages[messages.length - 1];
+    if (last && last.role === "assistant" && !last.content) {
+      last.content = "Design generation cancelled.";
+    }
+
+    // Clear streaming
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.id)))
+      .first();
+    if (streaming) await ctx.db.delete(streaming._id);
+
+    await ctx.db.patch(args.id, {
+      messages,
+      activeWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

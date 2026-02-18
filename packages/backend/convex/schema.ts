@@ -70,6 +70,8 @@ const schema = defineSchema({
     projectStartDate: v.optional(v.number()),
     projectEndDate: v.optional(v.number()),
     deadline: v.optional(v.number()),
+    activeWorkflowId: v.optional(v.string()),
+    activeBuildWorkflowId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -107,6 +109,7 @@ const schema = defineSchema({
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
+    activeWorkflowId: v.optional(v.string()),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
@@ -197,6 +200,7 @@ const schema = defineSchema({
       ),
     ),
     planContent: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -223,6 +227,7 @@ const schema = defineSchema({
       ),
     ),
     sandboxId: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     testGenStatus: v.optional(evaluationStatusValidator),
     testPrUrl: v.optional(v.string()),
     createdAt: v.number(),
@@ -240,11 +245,14 @@ const schema = defineSchema({
         userId: v.optional(v.id("users")),
         queryCode: v.optional(v.string()),
         status: v.optional(queryConfirmationStatusValidator),
+        activityLog: v.optional(v.string()),
       }),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
+    activeWorkflowId: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
@@ -287,6 +295,7 @@ const schema = defineSchema({
     results: v.array(evalResultValidator),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -304,6 +313,7 @@ const schema = defineSchema({
     title: v.string(),
     status: sessionStatusValidator,
     sandboxId: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
     updatedAt: v.optional(v.number()),

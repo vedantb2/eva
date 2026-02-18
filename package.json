@@ -12,9 +12,11 @@
     "turbo": "pnpm --filter conductor turbo",
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend deploy",
-    "inngest": "pnpm --filter conductor inngest",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
     "ext:build": "pnpm --filter eva-assist-extension build",
+    "desktop:dev": "pnpm --filter conductor-desktop dev",
+    "desktop:build": "pnpm --filter conductor-desktop build",
+    "desktop:dist": "pnpm --filter conductor-desktop dist",
     "snapshot:delete": "daytona snapshot delete eva-snapshot",
     "snapshot:create": "daytona snapshot create eva-snapshot --dockerfile Dockerfile",
     "prepare": "husky"
@@ -26,7 +28,11 @@
     "overrides": {
       "@types/react": "19.0.10",
       "@types/react-dom": "19.0.4"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "electron",
+      "node-pty"
+    ]
   },
   "devDependencies": {
     "husky": "^9.1.7",

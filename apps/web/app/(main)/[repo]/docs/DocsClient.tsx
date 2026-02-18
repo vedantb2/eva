@@ -16,11 +16,13 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { IconFilePlus, IconPlus, IconUpload } from "@tabler/icons-react";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
 export function DocsClient({ children }: { children: React.ReactNode }) {
   const { repo, repoSlug } = useRepo();
   const docs = useQuery(api.docs.list, { repoId: repo._id });
   const createDoc = useMutation(api.docs.create);
+  const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
   const [isCreating, setIsCreating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,23 +76,15 @@ export function DocsClient({ children }: { children: React.ReactNode }) {
 
       router.push(`/${repoSlug}/docs/${id}`);
 
-      const response = await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "docs/prd-upload.parse",
-          data: {
-            docId: id,
-            repoId: repo._id,
-            installationId: repo.installationId,
-            prdContent,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startPrdParse({
+        docId: id,
+        prdContent,
+        convexToken,
+        githubToken,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to start PRD parsing");
-      }
     } catch (error) {
       console.error("PRD upload failed", error);
     } finally {

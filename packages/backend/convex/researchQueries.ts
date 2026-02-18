@@ -10,6 +10,7 @@ const messageValidator = v.object({
   userId: v.optional(v.id("users")),
   queryCode: v.optional(v.string()),
   status: v.optional(queryConfirmationStatusValidator),
+  activityLog: v.optional(v.string()),
 });
 
 const researchQueryValidator = v.object({
@@ -22,6 +23,8 @@ const researchQueryValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
+  activeWorkflowId: v.optional(v.string()),
+  sandboxId: v.optional(v.string()),
 });
 
 export const list = query({

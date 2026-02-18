@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { designTabParser, viewModeParser } from "@/lib/search-params";
 import Image from "next/image";
@@ -28,9 +28,8 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  Reasoning,
-  CollapsibleContent,
-  ReasoningTrigger,
+  ActivitySteps,
+  type ActivityStep,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -46,6 +45,7 @@ import {
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
+import { getWorkflowTokens } from "../../actions";
 
 interface SandpackConfig {
   stylesCss: string;
@@ -58,6 +58,26 @@ type DesignSession = NonNullable<
 >;
 type DesignMessage = DesignSession["messages"][number];
 type Variation = NonNullable<DesignMessage["variations"]>[number];
+
+const STARTING_STEPS: ActivityStep[] = [
+  { type: "thinking", label: "Starting...", status: "active" },
+];
+
+function parseActivitySteps(raw: string | undefined): ActivityStep[] {
+  if (!raw) return STARTING_STEPS;
+  try {
+    const parsed: Array<Record<string, string>> = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return STARTING_STEPS;
+    return parsed.map((s) => ({
+      type: (s.type ?? "tool") as ActivityStep["type"],
+      label: s.label ?? "",
+      detail: s.detail,
+      status: (s.status ?? "complete") as ActivityStep["status"],
+    }));
+  } catch {
+    return STARTING_STEPS;
+  }
+}
 
 export function DesignDetailClient({
   designSessionId,
@@ -76,8 +96,8 @@ export function DesignDetailClient({
     session ? { repoId: session.repoId } : "skip",
   );
   const { repo } = useRepo();
-  const addMessage = useMutation(
-    api.designSessions.addMessage,
+  const executeMessage = useMutation(
+    api.designSessions.executeMessage,
   ).withOptimisticUpdate((localStore, args) => {
     const s = localStore.getQuery(api.designSessions.get, { id: args.id });
     if (!s) return;
@@ -89,8 +109,8 @@ export function DesignDetailClient({
         messages: [
           ...s.messages,
           {
-            role: args.role,
-            content: args.content,
+            role: "user",
+            content: args.message,
             timestamp: Date.now(),
             personaId: args.personaId,
           },
@@ -98,7 +118,7 @@ export function DesignDetailClient({
       },
     );
   });
-  const updateLastMessage = useMutation(api.designSessions.updateLastMessage);
+  const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const selectVariation = useMutation(api.designSessions.selectVariation);
 
   const [isSending, setIsSending] = useState(false);
@@ -124,50 +144,27 @@ export function DesignDetailClient({
 
   const latestVariations = getLatestVariations(session?.messages ?? []);
 
-  const sendToApi = useCallback(
-    async (message: string) => {
-      const response = await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "design/execute",
-          data: { designSessionId, message },
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to send message");
-    },
-    [designSessionId],
-  );
-
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
     setIsSending(true);
     try {
-      await addMessage({
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await executeMessage({
         id: typedId,
-        role: "user",
-        content: text.trim(),
+        message: text.trim(),
         personaId: selectedPersonaId,
+        githubToken,
+        convexToken,
       });
-      await sendToApi(text.trim());
     } catch {
       setIsSending(false);
     }
   };
 
   const handleCancel = async () => {
-    await fetch("/api/inngest/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "design/execute.cancel",
-        data: { designSessionId },
-      }),
-    });
-    await updateLastMessage({
-      id: typedId,
-      content: "Design generation cancelled.",
-    });
+    await cancelExecution({ id: typedId });
   };
 
   const handleSelectVariation = async (index: number) => {
@@ -241,18 +238,10 @@ export function DesignDetailClient({
                     }
                   >
                     {message.role === "assistant" && !message.content ? (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(s) =>
-                            s ? "Generating designs..." : "Generation complete"
-                          }
-                        />
-                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                          <pre className="whitespace-pre-wrap font-mono text-xs">
-                            {streaming?.currentActivity || "Starting..."}
-                          </pre>
-                        </CollapsibleContent>
-                      </Reasoning>
+                      <ActivitySteps
+                        steps={parseActivitySteps(streaming?.currentActivity)}
+                        isStreaming
+                      />
                     ) : (
                       <>
                         {message.role === "assistant" ? (
@@ -275,16 +264,9 @@ export function DesignDetailClient({
                         )}
                         {message.role === "assistant" &&
                           message.activityLog && (
-                            <Reasoning defaultOpen={false}>
-                              <ReasoningTrigger
-                                getThinkingMessage={() => "View logs"}
-                              />
-                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                  {message.activityLog}
-                                </pre>
-                              </CollapsibleContent>
-                            </Reasoning>
+                            <ActivitySteps
+                              steps={parseActivitySteps(message.activityLog)}
+                            />
                           )}
                       </>
                     )}

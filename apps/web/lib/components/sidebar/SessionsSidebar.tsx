@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import {
@@ -21,13 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  SearchInput,
   Spinner,
   cn,
 } from "@conductor/ui";
 import {
   IconArchive,
   IconDotsVertical,
-  IconSearch,
   IconTerminal2,
 } from "@tabler/icons-react";
 
@@ -37,6 +38,7 @@ interface SessionsSidebarProps {
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
+  installationId: number;
 }
 
 export function SessionsSidebar({
@@ -45,11 +47,14 @@ export function SessionsSidebar({
   pathname,
   onNavigate,
   createRequestId,
+  installationId,
 }: SessionsSidebarProps) {
   const router = useRouter();
   const sessions = useQuery(api.sessions.list, { repoId });
   const createSession = useMutation(api.sessions.create);
   const archiveSession = useMutation(api.sessions.archive);
+  const startSandboxMutation = useMutation(api.sessions.startSandbox);
+  const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -92,14 +97,7 @@ export function SessionsSidebar({
         (session) => session._id === sessionToArchive.id,
       );
       if (sessionData?.sandboxId) {
-        await fetch("/api/inngest/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "session/sandbox.stop",
-            data: { sessionId: sessionToArchive.id },
-          }),
-        });
+        await stopSandboxMutation({ sessionId: sessionToArchive.id });
       }
 
       await archiveSession({ id: sessionToArchive.id });
@@ -127,14 +125,9 @@ export function SessionsSidebar({
       router.push(`${baseUrl}/${id}`);
       onNavigate?.();
 
-      void fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "session/sandbox.start",
-          data: { sessionId: id },
-        }),
-      });
+      void getWorkflowTokens(installationId).then(({ githubToken }) =>
+        startSandboxMutation({ sessionId: id, githubToken }),
+      );
     } finally {
       setIsCreating(false);
     }
@@ -143,18 +136,14 @@ export function SessionsSidebar({
   return (
     <>
       <div className="p-2 animate-in fade-in duration-300">
-        <div className="relative">
-          <IconSearch
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search sessions..."
-            className="h-8 border-sidebar-border/80 bg-sidebar/70 pl-8 text-sm text-sidebar-foreground placeholder:text-muted-foreground"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          placeholder="Search sessions..."
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onClear={() => setSearchQuery("")}
+          className="max-w-none"
+          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
+        />
       </div>
 
       <div className="flex-1">

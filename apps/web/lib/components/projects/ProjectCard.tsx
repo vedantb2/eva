@@ -40,7 +40,7 @@ interface ProjectCardProps {
   repoFullName: string;
   createdAt: number;
   projectUrl: string;
-  cardBg: string;
+  accentColor: string;
   onDelete: () => void;
 }
 
@@ -54,7 +54,7 @@ export function ProjectCard({
   repoFullName,
   createdAt,
   projectUrl,
-  cardBg,
+  accentColor,
   onDelete,
 }: ProjectCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,75 +72,93 @@ export function ProjectCard({
     ),
   ];
   const isOwner = currentUserId === userId;
+
+  // Only render the menu when there's at least one actionable item.
+  const hasDropdownActions =
+    !!branchName || isOwner || currentUserId === undefined;
+
+  const MAX_AVATARS = 4;
+  const allAvatarIds =
+    participantIds.length > 0 ? participantIds : [userId as string | undefined];
+  const shownAvatarIds = allAvatarIds.slice(0, MAX_AVATARS);
+  const hiddenCount = allAvatarIds.length - MAX_AVATARS;
+
   return (
-    <div
-      className={`group relative rounded-xl border border-border p-2 transition-all duration-200 ${cardBg} hover:-translate-y-0.5 hover:shadow-sm`}
-    >
-      <div className="absolute top-1.5 right-1.5">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              className="motion-press flex shrink-0 text-muted-foreground hover:scale-105 hover:text-foreground active:scale-95"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <IconDots size={14} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {branchName ? (
-              <DropdownMenuItem
-                onClick={() =>
-                  window.open(
-                    `https://github.com/${repoFullName}/tree/${branchName}`,
-                    "_blank",
-                  )
-                }
+    <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-2xs backdrop-blur-sm transition-all duration-200 hover:shadow-xs hover:border-border hover:z-10">
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${accentColor}`}
+      />
+      {hasDropdownActions && (
+        <div className="absolute top-1.5 right-1.5 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="motion-press flex shrink-0 text-muted-foreground hover:scale-105 hover:text-foreground active:scale-95"
+                onClick={(e) => e.stopPropagation()}
               >
-                <IconGitBranch size={16} />
-                View Branch
+                <IconDots size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {branchName ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    window.open(
+                      `https://github.com/${repoFullName}/tree/${branchName}`,
+                      "_blank",
+                    )
+                  }
+                >
+                  <IconGitBranch size={16} />
+                  View Branch
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem
+                disabled={!isOwner}
+                onClick={() => {
+                  setEditTitle(title);
+                  setEditDescription(description ?? "");
+                  setEditOpen(true);
+                }}
+              >
+                <IconPencil size={16} />
+                Edit Details
+                {!isOwner && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Owner only
+                  </span>
+                )}
               </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              disabled={!isOwner}
-              onClick={() => {
-                setEditTitle(title);
-                setEditDescription(description ?? "");
-                setEditOpen(true);
-              }}
-            >
-              <IconPencil size={16} />
-              Edit Details
-              {!isOwner && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  Owner only
-                </span>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              disabled={!isOwner}
-              onClick={onDelete}
-            >
-              <IconTrash size={16} />
-              Delete
-              {!isOwner && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  Owner only
-                </span>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <button
-        type="button"
-        className="block w-full cursor-pointer rounded-lg text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+              <DropdownMenuItem
+                className="text-destructive"
+                disabled={!isOwner}
+                onClick={onDelete}
+              >
+                <IconTrash size={16} />
+                Delete
+                {!isOwner && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Owner only
+                  </span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+      <div
+        role="button"
+        tabIndex={0}
+        className="block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={() => setModalOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setModalOpen(true);
+        }}
       >
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="truncate text-sm font-semibold text-foreground transition-all duration-200 group-hover:text-primary">
+          <h3 className="truncate text-sm font-semibold text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>
@@ -149,26 +167,33 @@ export function ProjectCard({
             {description}
           </p>
         ) : rawInput ? (
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-muted-foreground/70 italic line-clamp-2">
             {rawInput}
           </p>
         ) : null}
         <ProjectProgressBar projectId={projectId} className="mt-2" />
-        <div className="mt-2.5 flex items-center justify-between">
-          <div className="flex -space-x-1">
-            {participantIds.length > 0 ? (
-              participantIds.map((id) => (
-                <UserInitials key={id} userId={id!} hideLastSeen />
-              ))
-            ) : (
-              <UserInitials userId={userId} />
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex -space-x-1 items-center">
+            {shownAvatarIds.map((id) =>
+              id ? (
+                <UserInitials
+                  key={id}
+                  userId={id as Id<"users">}
+                  hideLastSeen
+                />
+              ) : null,
+            )}
+            {hiddenCount > 0 && (
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted border border-background text-[10px] text-muted-foreground font-medium -ml-1">
+                +{hiddenCount}
+              </div>
             )}
           </div>
           <span className="text-xs text-muted-foreground">
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
-      </button>
+      </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>

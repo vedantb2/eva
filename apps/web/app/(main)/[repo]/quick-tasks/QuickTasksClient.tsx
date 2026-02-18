@@ -5,22 +5,31 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, Input, Spinner } from "@conductor/ui";
+import {
+  Button,
+  SearchInput,
+  Spinner,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
+import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
-import { searchParser } from "@/lib/search-params";
+import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
   IconChecklist,
   IconPlus,
   IconCheckbox,
-  IconSearch,
   IconX,
   IconFolders,
+  IconLayoutKanban,
+  IconList,
 } from "@tabler/icons-react";
 
 export function QuickTasksClient() {
@@ -32,7 +41,11 @@ export function QuickTasksClient() {
     new Set(),
   );
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [{ q, view }, setParams] = useQueryStates({
+    q: searchParser,
+    view: quickTaskViewParser,
+  });
+  const searchQuery = q;
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
@@ -62,31 +75,47 @@ export function QuickTasksClient() {
         childPadding={false}
         headerCenter={
           hasQuickTasks ? (
-            <div className="relative w-full max-w-lg animate-in fade-in duration-300">
-              <IconSearch
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                placeholder="Search tasks..."
-                className="h-8 pl-9 pr-8 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value || null)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery(null)}
-                  className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                >
-                  <IconX size={14} />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(v) => setParams({ q: v || null })}
+              onClear={() => setParams({ q: null })}
+              className="animate-in fade-in duration-300"
+            />
           ) : null
         }
         headerRight={
           <div className="flex items-center gap-2">
+            {hasQuickTasks && (
+              <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={view === "kanban" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "kanban" })}
+                    >
+                      <IconLayoutKanban size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Kanban view</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={view === "list" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                      onClick={() => setParams({ view: "list" })}
+                    >
+                      <IconList size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>List view</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
             <AnimatePresence initial={false} mode="popLayout">
               {hasQuickTasks &&
                 (isSelecting ? (
@@ -193,7 +222,7 @@ export function QuickTasksClient() {
                   onAction={() => setIsCreating(true)}
                 />
               </motion.div>
-            ) : (
+            ) : view === "kanban" ? (
               <motion.div
                 key="quick-tasks-board"
                 className="flex flex-1 min-h-0"
@@ -203,6 +232,22 @@ export function QuickTasksClient() {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksKanbanBoard
+                  repoId={repo._id}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="quick-tasks-list"
+                className="flex flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <QuickTasksListView
                   repoId={repo._id}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}

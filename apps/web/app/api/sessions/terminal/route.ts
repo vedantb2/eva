@@ -3,11 +3,7 @@ import { api } from "@conductor/backend";
 import { createConvex } from "@/lib/convex-auth";
 import { auth } from "@clerk/nextjs/server";
 import type { Id } from "@conductor/backend";
-import {
-  getSandbox,
-  WORKSPACE_DIR,
-  getPtyWebSocketUrl,
-} from "@/lib/inngest/sandbox";
+import { getSandbox, WORKSPACE_DIR, getPtyWebSocketUrl } from "@/lib/sandbox";
 
 export async function GET(request: NextRequest) {
   const { userId, getToken } = await auth();

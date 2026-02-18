@@ -4,6 +4,7 @@ import {
   SignedIn,
   SignedOut,
   SignInButton,
+  useAuth,
   useUser,
 } from "@clerk/chrome-extension";
 import { useMutation, useQuery } from "convex/react";
@@ -70,6 +71,7 @@ const isAllowedUrl = (url: string) => {
 
 function AuthenticatedApp() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
@@ -104,8 +106,35 @@ function AuthenticatedApp() {
   );
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
   const createFromTasks = useMutation(api.projects.createFromTasks);
+
+  const executeTaskWorkflow = useCallback(
+    async (result: Awaited<ReturnType<typeof startExecution>>) => {
+      const convexToken = await getToken({ template: "convex" });
+      if (!convexToken) throw new Error("Not authenticated");
+      const ghRes = await fetch(
+        `${CONDUCTOR_URL}/api/github/installation-token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${convexToken}`,
+          },
+          body: JSON.stringify({ installationId: result.installationId }),
+        },
+      );
+      if (!ghRes.ok) throw new Error("Failed to get GitHub token");
+      const { token: githubToken } = await ghRes.json();
+      await triggerExecution({
+        ...result,
+        convexToken,
+        githubToken,
+      });
+    },
+    [getToken, triggerExecution],
+  );
 
   const projects = useQuery(
     api.projects.list,
@@ -207,22 +236,7 @@ function AuthenticatedApp() {
           const result = await startExecution({
             id: taskId,
           });
-          await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: "task/execute.requested",
-              data: {
-                runId: result.runId,
-                taskId: result.taskId,
-                repoId: result.repoId,
-                installationId: result.installationId,
-                projectId: result.projectId,
-                branchName: result.branchName,
-                isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-              },
-            }),
-          });
+          await executeTaskWorkflow(result);
           created++;
         } catch (e) {
           console.error("Failed to run task:", e);
@@ -237,6 +251,7 @@ function AuthenticatedApp() {
       selectedRepoId,
       createQuickTask,
       startExecution,
+      executeTaskWorkflow,
       buildDescription,
       sendRunAllResult,
     ],
@@ -404,22 +419,7 @@ function AuthenticatedApp() {
             const result = await startExecution({
               id: taskId as Id<"agentTasks">,
             });
-            await fetch(`${CONDUCTOR_URL}/api/inngest/send`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: "task/execute.requested",
-                data: {
-                  runId: result.runId,
-                  taskId: result.taskId,
-                  repoId: result.repoId,
-                  installationId: result.installationId,
-                  projectId: result.projectId,
-                  branchName: result.branchName,
-                  isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-                },
-              }),
-            });
+            await executeTaskWorkflow(result);
           } catch (e) {
             console.error("Failed to run annotation task:", e);
           }
@@ -433,6 +433,7 @@ function AuthenticatedApp() {
     handleAddAllQuickTasks,
     handleRunAll,
     startExecution,
+    executeTaskWorkflow,
     syncedToolbarVisible,
   ]);
 

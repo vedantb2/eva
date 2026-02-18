@@ -32,7 +32,7 @@ export function PageWrapper({
       className={`${fillHeight ? "h-full min-h-0" : ""} flex-1 overflow-hidden bg-background animate-in fade-in duration-300`}
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="motion-base flex items-center gap-3 border-b border-border/70 bg-card/60 p-4 backdrop-blur-sm">
+        <div className="motion-base relative flex items-center gap-3 border-b border-border/70 bg-card/60 p-4 backdrop-blur-sm">
           {showBack && (
             <Button
               size="icon"
@@ -49,8 +49,8 @@ export function PageWrapper({
             </h1>
           )}
           {headerCenter && (
-            <div className="flex-1 flex items-center justify-center gap-2 animate-in fade-in duration-300">
-              {headerCenter}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in fade-in duration-300">
+              <div className="pointer-events-auto">{headerCenter}</div>
             </div>
           )}
           {headerRight && (

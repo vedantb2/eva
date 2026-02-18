@@ -18,6 +18,7 @@ import {
 import { useMutation } from "convex/react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import {
   Button,
@@ -62,7 +63,9 @@ import {
   SandboxTabsList,
   SandboxTabsTrigger,
   SandboxTabContent,
+  ActivitySteps,
 } from "@conductor/ui";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 interface QueryDetailClientProps {
   queryId: string;
@@ -85,24 +88,23 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const updateMessageStatus = useMutation(
     api.researchQueries.updateMessageStatus,
   );
+  const startGenerate = useMutation(api.researchQueryWorkflow.startGenerate);
+  const startConfirm = useMutation(api.researchQueryWorkflow.startConfirm);
 
   const handleSend = async (text: string) => {
     if (!text.trim() || isSending) return;
     setIsSending(true);
     try {
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "research/query.generate",
-          data: {
-            queryId: typedQueryId,
-            question: text.trim(),
-            repoId: repo._id,
-            model,
-            responseLength,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startGenerate({
+        queryId: typedQueryId,
+        question: text.trim(),
+        repoId: repo._id,
+        model,
+        convexToken,
+        githubToken,
       });
     } finally {
       setIsSending(false);
@@ -114,19 +116,17 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     queryCode: string,
     question: string,
   ) => {
-    await fetch("/api/inngest/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "research/query.confirm",
-        data: {
-          queryId: typedQueryId,
-          queryCode,
-          messageIndex,
-          question,
-          repoId: repo._id,
-        },
-      }),
+    const { githubToken, convexToken } = await getWorkflowTokens(
+      repo.installationId,
+    );
+    await startConfirm({
+      queryId: typedQueryId,
+      queryCode,
+      messageIndex,
+      question,
+      repoId: repo._id,
+      convexToken,
+      githubToken,
     });
   };
 
@@ -220,55 +220,88 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                       }
                     >
                       {message.role === "assistant" && !message.content ? (
-                        <Reasoning isStreaming defaultOpen>
-                          <ReasoningTrigger
-                            getThinkingMessage={(isStreaming) =>
-                              isStreaming ? "Analysing..." : "Analysis complete"
-                            }
-                          />
-                          <ReasoningContent>
-                            {streaming?.currentActivity || "Starting..."}
-                          </ReasoningContent>
-                        </Reasoning>
+                        (() => {
+                          const steps = parseActivitySteps(
+                            streaming?.currentActivity,
+                          );
+                          return steps ? (
+                            <ActivitySteps steps={steps} isStreaming />
+                          ) : (
+                            <Reasoning isStreaming defaultOpen>
+                              <ReasoningTrigger
+                                getThinkingMessage={(isStreaming) =>
+                                  isStreaming
+                                    ? "Analysing..."
+                                    : "Analysis complete"
+                                }
+                              />
+                              <ReasoningContent>
+                                {streaming?.currentActivity || "Starting..."}
+                              </ReasoningContent>
+                            </Reasoning>
+                          );
+                        })()
                       ) : message.role === "assistant" &&
                         message.status === "pending" ? (
-                        <Confirmation state="pending">
-                          <ConfirmationTitle>
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Generated query:
-                            </p>
-                          </ConfirmationTitle>
-                          <ConfirmationRequest>
-                            <CodeBlock
-                              code={message.content}
-                              language="typescript"
-                            >
-                              <CodeBlockCopyButton />
-                              <pre className="overflow-x-auto p-3 text-xs">
-                                <code>{message.content}</code>
-                              </pre>
-                            </CodeBlock>
-                          </ConfirmationRequest>
-                          <ConfirmationActions>
-                            <ConfirmationAction
-                              variant="outline"
-                              onClick={() => handleCancel(index)}
-                            >
-                              <IconX size={14} />
-                              Cancel
-                            </ConfirmationAction>
-                            <ConfirmationAction
-                              onClick={() => {
-                                const userMsg =
-                                  query.messages[index - 1]?.content ?? "";
-                                handleConfirm(index, message.content, userMsg);
-                              }}
-                            >
-                              <IconCheck size={14} />
-                              Run query
-                            </ConfirmationAction>
-                          </ConfirmationActions>
-                        </Confirmation>
+                        <>
+                          <Confirmation state="pending">
+                            <ConfirmationTitle>
+                              <p className="text-xs font-medium text-muted-foreground">
+                                Generated query:
+                              </p>
+                            </ConfirmationTitle>
+                            <ConfirmationRequest>
+                              <CodeBlock
+                                code={message.content}
+                                language="typescript"
+                              >
+                                <CodeBlockCopyButton />
+                                <pre className="overflow-x-auto p-3 text-xs">
+                                  <code>{message.content}</code>
+                                </pre>
+                              </CodeBlock>
+                            </ConfirmationRequest>
+                            <ConfirmationActions>
+                              <ConfirmationAction
+                                variant="outline"
+                                onClick={() => handleCancel(index)}
+                              >
+                                <IconX size={14} />
+                                Cancel
+                              </ConfirmationAction>
+                              <ConfirmationAction
+                                onClick={() => {
+                                  const userMsg =
+                                    query.messages[index - 1]?.content ?? "";
+                                  handleConfirm(
+                                    index,
+                                    message.content,
+                                    userMsg,
+                                  );
+                                }}
+                              >
+                                <IconCheck size={14} />
+                                Run query
+                              </ConfirmationAction>
+                            </ConfirmationActions>
+                          </Confirmation>
+                          {message.activityLog &&
+                            (() => {
+                              const steps = parseActivitySteps(
+                                message.activityLog,
+                              );
+                              return steps ? (
+                                <details className="mt-2 group">
+                                  <summary className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                                    Generation logs
+                                  </summary>
+                                  <div className="mt-2">
+                                    <ActivitySteps steps={steps} />
+                                  </div>
+                                </details>
+                              ) : null;
+                            })()}
+                        </>
                       ) : message.role === "assistant" &&
                         message.status === "cancelled" ? (
                         <Confirmation state="rejected">
@@ -290,6 +323,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                                   <SandboxTabsTrigger value="code">
                                     Code
                                   </SandboxTabsTrigger>
+                                  {message.activityLog && (
+                                    <SandboxTabsTrigger value="logs">
+                                      Logs
+                                    </SandboxTabsTrigger>
+                                  )}
                                 </SandboxTabsList>
                                 <SandboxTabContent value="output">
                                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -332,6 +370,19 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                                     )}
                                   </div>
                                 </SandboxTabContent>
+                                {message.activityLog && (
+                                  <SandboxTabContent value="logs">
+                                    <div className="p-3">
+                                      <ActivitySteps
+                                        steps={
+                                          parseActivitySteps(
+                                            message.activityLog,
+                                          ) ?? []
+                                        }
+                                      />
+                                    </div>
+                                  </SandboxTabContent>
+                                )}
                               </SandboxTabs>
                             </SandboxContent>
                           </Sandbox>

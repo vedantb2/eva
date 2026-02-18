@@ -1,12 +1,13 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
   Button,
-  Input,
+  SearchInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -14,7 +15,7 @@ import {
   DialogFooter,
   Spinner,
 } from "@conductor/ui";
-import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
+import { IconFileText } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryState } from "nuqs";
@@ -66,26 +67,14 @@ function DocsListPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 relative">
-        <IconSearch
-          size={14}
-          className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
+      <div className="p-4">
+        <SearchInput
           placeholder="Search docs..."
-          className="pl-8 pr-8 h-8 text-sm"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value || null)}
+          onChange={(v) => setSearchQuery(v || null)}
+          onClear={() => setSearchQuery(null)}
+          className="max-w-none"
         />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery(null)}
-            className="absolute right-7 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-          >
-            <IconX size={14} />
-          </button>
-        )}
       </div>
       <div className="flex-1 overflow-y-auto scrollbar">
         {filteredDocs.length === 0 ? (
@@ -133,6 +122,7 @@ export function TestingArenaClient({
 }) {
   const { repo, repoSlug } = useRepo();
   const docs = useQuery(api.docs.list, { repoId: repo._id });
+  const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [showTestAllModal, setShowTestAllModal] = useState(false);
 
@@ -141,14 +131,15 @@ export function TestingArenaClient({
     setShowTestAllModal(false);
     setIsTestingAll(true);
     try {
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
       for (const doc of docs) {
-        await fetch("/api/inngest/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "testing-arena/evaluate.doc",
-            data: { docId: doc._id, repoId: repo._id },
-          }),
+        await startEvaluation({
+          docId: doc._id,
+          repoId: repo._id,
+          convexToken,
+          githubToken,
         });
       }
     } finally {

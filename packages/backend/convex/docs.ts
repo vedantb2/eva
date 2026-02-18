@@ -39,6 +39,7 @@ const docValidator = v.object({
   requirements: v.optional(v.array(v.string())),
   interviewHistory: v.optional(v.array(interviewMessageValidator)),
   sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
   testGenStatus: v.optional(evaluationStatusValidator),
   testPrUrl: v.optional(v.string()),
   createdAt: v.number(),

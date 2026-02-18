@@ -67,6 +67,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -118,6 +119,7 @@ export function ChatPanel({
   const typedSessionId = sessionId as Id<"sessions">;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
+  const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
@@ -141,6 +143,8 @@ export function ChatPanel({
     },
   );
 
+  const startExecution = useMutation(api.sessionWorkflow.startExecute);
+
   const sendToApi = useCallback(
     async (
       message: string,
@@ -148,25 +152,20 @@ export function ChatPanel({
       sendModel: ClaudeModel,
       sendResponseLength: ResponseLength,
     ) => {
-      const response = await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "session/execute",
-          data: {
-            sessionId,
-            message,
-            mode: sendMode,
-            model: sendModel,
-            responseLength: sendResponseLength,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startExecution({
+        sessionId: typedSessionId,
+        message,
+        mode: sendMode,
+        model: sendModel,
+        responseLength: sendResponseLength,
+        convexToken,
+        githubToken,
       });
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
     },
-    [sessionId],
+    [repo.installationId, startExecution, typedSessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -184,17 +183,13 @@ export function ChatPanel({
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "session/summary.generate",
-          data: {
-            sessionId,
-            repoId: repo._id,
-            installationId: repo.installationId,
-          },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startSummarize({
+        sessionId: typedSessionId,
+        convexToken,
+        githubToken,
       });
     } finally {
       setIsSummarizing(false);
@@ -230,19 +225,12 @@ export function ChatPanel({
     }
   }, [isSending, lastMessage]);
 
+  const cancelExecutionMutation = useMutation(
+    api.sessionWorkflow.cancelExecution,
+  );
+
   const handleCancel = async () => {
-    await fetch("/api/inngest/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "session/execute.cancel",
-        data: { sessionId },
-      }),
-    });
-    await updateLastMessage({
-      id: typedSessionId,
-      content: "Execution cancelled by user.",
-    });
+    await cancelExecutionMutation({ sessionId: typedSessionId });
   };
 
   const isInputDisabled = !isSandboxActive || isSending || isExecuting;
@@ -336,7 +324,7 @@ export function ChatPanel({
               type="single"
               collapsible
               defaultValue={streamingActivity ? "summary" : undefined}
-              className="px-4"
+              className="px-6 bg-secondary rounded-b-3xl"
             >
               <AccordionItem value="summary" className="border-b-0">
                 <AccordionTrigger className="py-2 text-sm">
@@ -347,10 +335,18 @@ export function ChatPanel({
                 </AccordionTrigger>
                 <AccordionContent className="pb-2">
                   {streamingActivity ? (
-                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                      <Spinner size="sm" />
-                      <span className="truncate">{streamingActivity}</span>
-                    </div>
+                    (() => {
+                      const summarySteps =
+                        parseActivitySteps(streamingActivity);
+                      return summarySteps ? (
+                        <ActivitySteps steps={summarySteps} isStreaming />
+                      ) : (
+                        <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                          <Spinner size="sm" />
+                          <span className="truncate">{streamingActivity}</span>
+                        </div>
+                      );
+                    })()
                   ) : summary && summary.length > 0 ? (
                     <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
                       {summary.map((item, i) => (

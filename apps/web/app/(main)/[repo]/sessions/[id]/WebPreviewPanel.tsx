@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import {
   Spinner,
   Button,
@@ -24,6 +25,7 @@ import {
   IconWorld,
   IconExternalLink,
   IconMaximize,
+  IconGripHorizontal,
 } from "@tabler/icons-react";
 
 interface PreviewInfo {
@@ -154,69 +156,104 @@ export function WebPreviewPanel({
         containerRef={containerRef}
         tabSwitcher={tabSwitcher}
       />
-      <WebPreviewBody
-        key={iframeKey}
-        src={previewInfo?.url}
-        loading={
-          isLoading && !previewInfo ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-              <Spinner size="lg" />
+      {showConsole ? (
+        <Group orientation="vertical" className="flex-1 min-h-0">
+          <Panel defaultSize="70%" minSize={80}>
+            <WebPreviewBody
+              key={iframeKey}
+              src={previewInfo?.url}
+              loading={
+                isLoading && !previewInfo ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                    <Spinner size="lg" />
+                  </div>
+                ) : error ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-destructive">{error}</p>
+                    <Button size="sm" variant="secondary" onClick={onRefresh}>
+                      <IconRefresh className="w-4 h-4" />
+                      Retry
+                    </Button>
+                  </div>
+                ) : undefined
+              }
+            />
+          </Panel>
+          <Separator className="h-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors">
+            <div className="flex items-center justify-center h-3 -my-1.5 relative z-10">
+              <IconGripHorizontal className="w-4 h-4 text-muted-foreground/50" />
             </div>
-          ) : error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-destructive">{error}</p>
-              <Button size="sm" variant="secondary" onClick={onRefresh}>
-                <IconRefresh className="w-4 h-4" />
-                Retry
-              </Button>
-            </div>
-          ) : undefined
-        }
-      />
-      <Tabs
-        value={consoleTab}
-        onValueChange={(value) => {
-          if (value === "console" || value === "terminal") {
-            onConsoleTabChange(value);
-          }
-        }}
-        className={showConsole ? "border-t bg-muted/50 text-sm" : "hidden"}
-      >
-        <TabsList className="h-9 w-full justify-start rounded-none border-b border-border/70 bg-transparent px-2">
-          <TabsTrigger
-            value="console"
-            className="gap-1.5 rounded-none px-3 text-xs"
-          >
-            <IconBug className="h-3.5 w-3.5" />
-            Console
-          </TabsTrigger>
-          {terminal ? (
-            <TabsTrigger
-              value="terminal"
-              className="gap-1.5 rounded-none px-3 text-xs"
+          </Separator>
+          <Panel defaultSize="30%" minSize={80} maxSize={400}>
+            <Tabs
+              value={consoleTab}
+              onValueChange={(value) => {
+                if (value === "console" || value === "terminal") {
+                  onConsoleTabChange(value);
+                }
+              }}
+              className="h-full flex flex-col bg-muted/50 text-sm"
             >
-              <IconTerminal2 className="h-3.5 w-3.5" />
-              Terminal
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-        <TabsContent
-          forceMount
-          value="console"
-          className="mt-0 h-64 space-y-1 overflow-y-auto scrollbar px-4 py-3 font-mono"
-        >
-          <p className="text-xs text-muted-foreground">No console output</p>
-        </TabsContent>
-        {terminal ? (
-          <TabsContent
-            forceMount
-            value="terminal"
-            className="mt-0 h-64 overflow-y-auto scrollbar"
-          >
-            {terminal}
-          </TabsContent>
-        ) : null}
-      </Tabs>
+              <TabsList className="h-9 w-full justify-start rounded-none border-b border-border/70 bg-transparent px-2 flex-shrink-0">
+                <TabsTrigger
+                  value="console"
+                  className="gap-1.5 rounded-none px-3 text-xs"
+                >
+                  <IconBug className="h-3.5 w-3.5" />
+                  Console
+                </TabsTrigger>
+                {terminal ? (
+                  <TabsTrigger
+                    value="terminal"
+                    className="gap-1.5 rounded-none px-3 text-xs"
+                  >
+                    <IconTerminal2 className="h-3.5 w-3.5" />
+                    Terminal
+                  </TabsTrigger>
+                ) : null}
+              </TabsList>
+              <TabsContent
+                forceMount
+                value="console"
+                className="mt-0 flex-1 min-h-0 overflow-y-auto scrollbar px-4 py-3 font-mono data-[state=inactive]:hidden"
+              >
+                <p className="text-xs text-muted-foreground">
+                  No console output
+                </p>
+              </TabsContent>
+              {terminal ? (
+                <TabsContent
+                  forceMount
+                  value="terminal"
+                  className="mt-0 flex-1 min-h-0 overflow-hidden data-[state=inactive]:hidden"
+                >
+                  {terminal}
+                </TabsContent>
+              ) : null}
+            </Tabs>
+          </Panel>
+        </Group>
+      ) : (
+        <WebPreviewBody
+          key={iframeKey}
+          src={previewInfo?.url}
+          loading={
+            isLoading && !previewInfo ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                <Spinner size="lg" />
+              </div>
+            ) : error ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button size="sm" variant="secondary" onClick={onRefresh}>
+                  <IconRefresh className="w-4 h-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+      )}
     </WebPreview>
   );
 }

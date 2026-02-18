@@ -30,11 +30,13 @@ import {
   PromptInputTools,
   PromptInputSubmit,
   PromptInputSettings,
+  ActivitySteps,
   type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import { parseActivitySteps } from "@/shared/parseActivitySteps";
 import {
   IconCheck,
   IconChevronRight,
@@ -93,6 +95,11 @@ export function ChatPanel({
   );
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const selectedRepo = useQuery(
+    api.githubRepos.get,
+    selectedRepoId ? { id: selectedRepoId as Id<"githubRepos"> } : "skip",
+  );
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       const session = localStore.getQuery(api.sessions.get, { id: args.id });
@@ -238,29 +245,32 @@ Please review all components and files used on this page before implementing the
           mode: "ask",
         });
 
-        const token = await getToken({ template: "convex" });
-        const response = await fetch(`${API_URL}/api/inngest/send`, {
+        const convexToken = await getToken({ template: "convex" });
+        if (!convexToken) throw new Error("Not authenticated");
+
+        if (!selectedRepo) throw new Error("Repository not found");
+        const ghRes = await fetch(`${API_URL}/api/github/installation-token`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${convexToken}`,
           },
           body: JSON.stringify({
-            name: "session/execute",
-            data: {
-              sessionId,
-              message: fullMessage,
-              mode: "ask",
-              model,
-              responseLength,
-            },
+            installationId: selectedRepo.installationId,
           }),
         });
+        if (!ghRes.ok) throw new Error("Failed to get GitHub token");
+        const { token: githubToken } = await ghRes.json();
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to send message");
-        }
+        await startExecution({
+          sessionId: sessionId as Id<"sessions">,
+          message: fullMessage,
+          mode: "ask",
+          model,
+          responseLength,
+          convexToken,
+          githubToken,
+        });
       } catch (error) {
         await appendMessage({
           role: "assistant",
@@ -442,20 +452,27 @@ Please review all components and files used on this page before implementing the
                         </CollapsibleContent>
                       </Collapsible>
                     ) : message.role === "assistant" && !message.content ? (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(streaming) =>
-                            streaming ? "Working..." : "Processing complete"
-                          }
-                        />
-                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                          <pre className="whitespace-pre-wrap font-mono text-xs">
-                            {streamingActivity ||
-                              message.activityLog ||
-                              "Starting..."}
-                          </pre>
-                        </CollapsibleContent>
-                      </Reasoning>
+                      (() => {
+                        const steps = parseActivitySteps(streamingActivity);
+                        return steps ? (
+                          <ActivitySteps steps={steps} isStreaming />
+                        ) : (
+                          <Reasoning isStreaming defaultOpen>
+                            <ReasoningTrigger
+                              getThinkingMessage={(streaming) =>
+                                streaming ? "Working..." : "Processing complete"
+                              }
+                            />
+                            <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                              <pre className="whitespace-pre-wrap font-mono text-xs">
+                                {streamingActivity ||
+                                  message.activityLog ||
+                                  "Starting..."}
+                              </pre>
+                            </CollapsibleContent>
+                          </Reasoning>
+                        );
+                      })()
                     ) : (
                       <>
                         {message.role === "assistant" ? (
@@ -468,18 +485,26 @@ Please review all components and files used on this page before implementing the
                           </p>
                         )}
                         {message.role === "assistant" &&
-                          message.activityLog && (
-                            <Reasoning defaultOpen={false}>
-                              <ReasoningTrigger
-                                getThinkingMessage={() => "View logs"}
-                              />
-                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                  {message.activityLog}
-                                </pre>
-                              </CollapsibleContent>
-                            </Reasoning>
-                          )}
+                          message.activityLog &&
+                          (() => {
+                            const steps = parseActivitySteps(
+                              message.activityLog,
+                            );
+                            return steps ? (
+                              <ActivitySteps steps={steps} />
+                            ) : (
+                              <Reasoning defaultOpen={false}>
+                                <ReasoningTrigger
+                                  getThinkingMessage={() => "View logs"}
+                                />
+                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                  <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                    {message.activityLog}
+                                  </pre>
+                                </CollapsibleContent>
+                              </Reasoning>
+                            );
+                          })()}
                       </>
                     )}
                   </MessageContent>
@@ -524,18 +549,25 @@ Please review all components and files used on this page before implementing the
                   </span>
                 </div>
                 <MessageContent className="px-1 py-2">
-                  <Reasoning isStreaming defaultOpen>
-                    <ReasoningTrigger
-                      getThinkingMessage={(streaming) =>
-                        streaming ? "Working..." : "Processing complete"
-                      }
-                    />
-                    <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                      <pre className="whitespace-pre-wrap font-mono text-xs">
-                        {streamingActivity || "Starting..."}
-                      </pre>
-                    </CollapsibleContent>
-                  </Reasoning>
+                  {(() => {
+                    const steps = parseActivitySteps(streamingActivity);
+                    return steps ? (
+                      <ActivitySteps steps={steps} isStreaming />
+                    ) : (
+                      <Reasoning isStreaming defaultOpen>
+                        <ReasoningTrigger
+                          getThinkingMessage={(streaming) =>
+                            streaming ? "Working..." : "Processing complete"
+                          }
+                        />
+                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                          <pre className="whitespace-pre-wrap font-mono text-xs">
+                            {streamingActivity || "Starting..."}
+                          </pre>
+                        </CollapsibleContent>
+                      </Reasoning>
+                    );
+                  })()}
                 </MessageContent>
               </AIMessage>
             )}

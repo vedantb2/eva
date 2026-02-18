@@ -7,8 +7,7 @@
     "turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "inngest": "npx inngest-cli dev"
+    "lint": "next lint"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.1.6",
@@ -69,7 +68,6 @@
     "dayjs": "^1.11.13",
     "facehash": "^0.0.7",
     "framer-motion": "^12.12.1",
-    "inngest": "^3.49.1",
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.563.0",

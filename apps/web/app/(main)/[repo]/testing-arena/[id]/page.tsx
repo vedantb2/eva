@@ -3,11 +3,13 @@
 import { use, useState } from "react";
 import { useQueryState } from "nuqs";
 import { testingTabParser } from "@/lib/search-params";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import {
+  ActivitySteps,
   Button,
   Tabs,
   TabsList,
@@ -36,6 +38,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "../UITestingPanel";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 interface EvalResult {
   requirement: string;
@@ -70,14 +73,22 @@ function ReportCard({
 
   return (
     <TestResults summary={summary}>
-      {report.status === "running" && (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Spinner size="sm" />
-          <span className="text-sm text-muted-foreground truncate">
-            {streamingActivity || "Evaluating codebase..."}
-          </span>
-        </div>
-      )}
+      {report.status === "running" &&
+        (() => {
+          const steps = parseActivitySteps(streamingActivity);
+          return steps ? (
+            <div className="px-4 py-3">
+              <ActivitySteps steps={steps} isStreaming />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Spinner size="sm" />
+              <span className="text-sm text-muted-foreground truncate">
+                {streamingActivity || "Evaluating codebase..."}
+              </span>
+            </div>
+          );
+        })()}
 
       {report.status === "error" && report.error && (
         <div className="p-4">
@@ -295,6 +306,7 @@ export default function TestingArenaDocPage({
     api.streaming.get,
     runningReport ? { entityId: runningReport._id } : "skip",
   );
+  const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useQueryState("tab", testingTabParser);
 
@@ -302,13 +314,14 @@ export default function TestingArenaDocPage({
     if (!doc) return;
     setIsRunning(true);
     try {
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "testing-arena/evaluate.doc",
-          data: { docId: doc._id, repoId: repo._id },
-        }),
+      const { githubToken, convexToken } = await getWorkflowTokens(
+        repo.installationId,
+      );
+      await startEvaluation({
+        docId: doc._id,
+        repoId: repo._id,
+        convexToken,
+        githubToken,
       });
     } finally {
       setIsRunning(false);

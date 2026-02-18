@@ -7,6 +7,7 @@ import { api } from "@conductor/backend";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;
@@ -35,6 +36,9 @@ export function ProjectTabs({
   const updateProject = useMutation(api.projects.update);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const addMessageDb = useMutation(api.projects.addMessage);
+  const startProjectInterview = useMutation(
+    api.projectInterviewWorkflow.startInterview,
+  );
 
   const handleSpecGenerated = useCallback((spec: string) => {
     setPendingSpec(spec);
@@ -70,31 +74,26 @@ export function ProjectTabs({
       await updateProject({ id: projectId, phase: "draft" });
       await addMessageDb({ id: projectId, role: "user", content: reason });
 
-      await fetch("/api/inngest/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "project/interview.question",
-          data: {
-            projectId,
-            repoId,
-            installationId,
-            featureDescription: rawInput,
-            previousAnswers: answersFromHistory,
-            rejectionReason: reason,
-          },
-        }),
+      const { githubToken, convexToken } =
+        await getWorkflowTokens(installationId);
+      await startProjectInterview({
+        projectId,
+        featureDescription: rawInput,
+        previousAnswers: answersFromHistory,
+        rejectionReason: reason,
+        convexToken,
+        githubToken,
       });
 
       setPendingSpec(null);
     },
     [
       projectId,
-      repoId,
       installationId,
       rawInput,
       updateProject,
       addMessageDb,
+      startProjectInterview,
       answersFromHistory,
     ],
   );

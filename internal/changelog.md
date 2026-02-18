@@ -1,5 +1,145 @@
 # Changelog
 
+## Desktop: Session-Based Terminal Manager Rearchitecture — 2026-02-18
+
+- **Rearchitected the desktop app from agent-based one-shot workflow to session-based interactive terminal manager** — the app now focuses on being a lightweight IDE wrapper around CLI AI tools (Claude Code, OpenCode, Codex)
+- Users select a repo folder, pick a tool, and get an interactive terminal session instead of filling a form to spawn a one-shot `claude --print` agent
+- Multiple terminal tabs per session (Claude Code, OpenCode, Codex, Shell) with tab switching that preserves scroll buffer via `display: none`
+- New git panel (right sidebar, collapsible) with real-time file status, stage/unstage, inline diffs, and commit — auto-refreshes via chokidar file watcher
+- Session sidebar replaces agent sidebar — shows repo name, tab count, and relative time
+- Removed all agent and worktree infrastructure (agent runner, worktree manager, agent IPC channels, agent types) — replaced with session store, tab spawner, git operations via `simple-git`
+- Added `simple-git` (clean git API) and `chokidar` (file watching) as new dependencies
+- Fixed `as Record<string, string>` type assertion in pty/manager.ts with proper `Object.fromEntries` + filter
+
+## Desktop: Folder Picker + Optional Worktree — 2026-02-18
+
+- Replaced manual repo path text input with a native OS folder picker dialog — eliminates typos and invalid paths
+- Added "Create worktree" checkbox (default: checked) so users can run agents directly in a repo without creating a worktree/branch
+- When worktree is unchecked, branch input is hidden and agent spawns directly in the selected folder
+- `killAgent` now skips worktree removal when no worktree was created (checks `worktreePath` is non-empty)
+- New `dialog:openDirectory` IPC channel wired through preload bridge to Electron's `dialog.showOpenDialog`
+- **Fixed node-pty native module crash**: Config file was named `electron-vite.config.ts` (hyphens) but electron-vite v3 expects `electron.vite.config.ts` (dots) — the entire config was silently ignored, so `externalizeDepsPlugin()` never ran and node-pty was bundled inline instead of externalized. Renamed file; main bundle dropped from 54KB to 10KB.
+- Added `asarUnpack` for `node-pty` in electron-builder config so native `.node` binaries are accessible outside the asar archive in distribution builds
+
+## Improve Project Timeline UI — 2026-02-18
+
+- Increased row height (36→40px) and label column width (192→200px) for better readability
+- Adaptive day label spacing based on zoom level — prevents label overlap at low zoom
+- Alternating month shading in header for visual rhythm
+- Phase-colored dot next to project labels in the sidebar column
+- Alternating row backgrounds with hover highlight
+- Timeline bars use vibrant phase colors (rounded-full, 8px height) with tooltip showing title + date range
+- Today indicator: solid primary dot + vertical line replacing faint text
+- Deadline markers: centered diamond shape at row midpoint
+- Undated projects section: accent strip pattern with phase-colored left border
+- "Today" button with dot indicator for quick navigation
+
+## Add List View Toggle to Projects & Quick Tasks Pages — 2026-02-18
+
+- Added list view as a third view option on the Projects page (alongside kanban and timeline)
+- Added kanban/list view toggle to the Quick Tasks page (previously had no toggle)
+- List views show items grouped by section (phase for projects, status for tasks) with collapsible headers
+- Both list views reuse existing card components (ProjectCard, QuickTaskCard) for consistent behavior
+- Quick Tasks list view includes the "Fix All" button in the todo section header, status filtering, and selection mode support
+- View state persisted in URL via nuqs (`quickTaskViewParser` added to search-params.ts, `projectViewParser` expanded to include "list")
+
+## Complete Inngest Removal — Migrate Session Sandbox + Project Cleanup to Convex — 2026-02-17
+
+- Migrated final 3 Inngest functions (`startSandbox`, `stopSandbox`, `cleanupProjectSandbox`) to Convex
+- Added `deleteSandbox` internalAction in `daytona.ts` — fire-and-forget sandbox deletion reused by session stop and project cleanup
+- Added `startSessionSandbox` internalAction in `daytona.ts` — creates/reuses Daytona sandbox, sets up git + pnpm install + dev server + code-server, calls `sandboxReady`/`sandboxError` mutations when done
+- Added `startSandbox`, `stopSandbox`, `sandboxReady`, `sandboxError` to `sessions.ts` — public mutations use `ctx.scheduler.runAfter` pattern (no workflows needed)
+- Updated `clearProjectSandbox` in `projects.ts` to also schedule sandbox deletion via `deleteSandbox`
+- Updated frontend: `SessionsSidebar.tsx`, `SessionDetailClient.tsx`, `ProjectActiveLayout.tsx` — replaced `fetch("/api/inngest/send")` with direct Convex mutations
+- Created `apps/web/lib/sandbox.ts` with PTY/WebSocket utilities moved from `inngest/sandbox.ts`
+- **Fully removed Inngest**: deleted all files under `apps/web/lib/inngest/` and `apps/web/app/api/inngest/`, removed `inngest` dependency from package.json, removed `pnpm inngest` script
+- Updated CLAUDE.md to remove all Inngest references
+
+## Migrate Task Execution + Build Project from Inngest to Convex Workflows — 2026-02-17
+
+- Migrated `executeTask` and `buildProject` from Inngest background jobs to Convex Workflows for durable orchestration
+- Created `taskWorkflow.ts` with task execution workflow: sandbox setup, Claude CLI execution, PR creation, subtask completion, notifications, and post-execution code audits
+- Created `taskWorkflowActions.ts` with Node.js-specific actions (GitHub PR creation) separated from the workflow file per Convex runtime constraints
+- Created `buildWorkflow.ts` with sequential project build workflow that orchestrates multiple task executions using inter-workflow events (`buildTaskDoneEvent`)
+- Updated three frontend components (TaskDetailModal, QuickTasksKanbanBoard, ProjectDetailClient) to use Convex mutations instead of `fetch("/api/inngest/send")`
+- Added `activeWorkflowId` to agentTasks and `activeBuildWorkflowId` to projects schema for workflow event routing
+- Removed dead code: deleted `agentExecution.ts` and removed auto-execute logic from `moveToColumn` (never called from frontend)
+- Updated chrome extension `App.tsx` to use Convex `triggerExecution` mutation instead of `fetch` to Inngest, using `/api/github/installation-token` for GitHub tokens
+- Deleted `execute-task.ts` and `build-project.ts` Inngest functions; remaining Inngest functions: startSandbox, stopSandbox, cleanupProjectSandbox
+- Migrated `runAudit` from synchronous Convex action to Daytona fire-and-forget pattern (`launchAudit` in `daytona.ts` + `auditCompleteEvent`/`handleAuditCompletion` callback)
+- `activeWorkflowId` is now cleared at end of workflow (after audit completes) instead of in `completeRun`, so audit callback can route events
+- Added `extractJsonBlock` helper in `taskWorkflow.ts` to replace `LlmJson` dependency (regex-based JSON extraction from raw LLM output)
+- Stripped `taskWorkflowActions.ts` down to only `createPullRequest` (removed `runAudit`, `LlmJson`, `Daytona` imports)
+
+## Resizable console/terminal panel in session preview — 2026-02-17
+
+- Replaced fixed `h-64` console/terminal drawer with a draggable resizable panel using `react-resizable-panels`
+- When `showConsole` is true, the preview area splits into a vertical `Group` with a drag handle between the iframe and the console/terminal tabs
+- Preview panel defaults to 70%, console/terminal to 30%, with min 80px each and max 400px for the bottom panel
+- When `showConsole` is false, the iframe fills the full space (no panel group mounted)
+- Tab content uses `flex-1 min-h-0` instead of fixed `h-64` so it fills whatever size the user drags to
+- Added `data-[state=inactive]:hidden` on `forceMount` `TabsContent` to fix both panels being visible simultaneously
+- Drag handle has a subtle `IconGripHorizontal` indicator and highlights on hover/active
+
+## SearchInput component + PageWrapper centering fix — 2026-02-17
+
+- Added `inputClassName` prop to `SearchInput` for sidebar-specific border/bg styling
+- Fixed `PageWrapper` `headerCenter` to use absolute positioning so the search bar stays visually centered regardless of title/right content width
+- Migrated all 7 inline search bar instances to use `SearchInput`:
+  - `ProjectsClient`, `QuickTasksClient` (page headers)
+  - `TestingArenaClient` DocsListPanel, `DocsList` (panel search)
+  - `AnalyseSidebar`, `SessionsSidebar`, `DesignSessionsSidebar` (sidebar search with custom sidebar styling via `inputClassName`)
+
+## Migrate Session Execute from Inngest to Convex Workflows — 2026-02-17
+
+- Migrated `sessionExecute` (execute, ask, plan modes) from Inngest to Convex Workflows with fire-and-forget sandbox pattern
+- Created `sessionWorkflow.ts` with single unified workflow handling all 3 modes, prompt builders, diff parsing, and supporting internal functions
+- Added `runSandboxCommand` internalAction to `daytona.ts` for post-completion sandbox operations (git diff capture, plan.md reading)
+- Updated `getOrCreateSandbox` in `daytona.ts` to sync repo (fresh GitHub token + git pull) when reusing existing sandboxes
+- Execute mode captures git diffs via `runSandboxCommand` after Claude completes, plan mode reads `plan.md` content
+- Workflow supports cancel via `workflow.cancel` — replaces Inngest `cancelOn` event pattern
+- Updated web ChatPanel.tsx to use Convex mutations (`startExecute`, `cancelExecution`) instead of `fetch("/api/inngest/send")`
+- Updated chrome extension ChatPanel.tsx to call Convex mutation directly instead of Inngest API endpoint
+- Deleted `session-execute.ts` and removed from Inngest route registration
+- Remaining Inngest functions: executeTask, buildProject, startSandbox, stopSandbox, cleanupProjectSandbox
+
+## Migrate Research Query Workflows from Inngest to Convex — 2026-02-17
+
+- Migrated `generateResearchQuery` and `confirmResearchQuery` from Inngest to Convex Workflows with fire-and-forget sandbox pattern
+- Created `researchQueryWorkflow.ts` with both workflows, shared completion event, prompt builders, and all supporting internal functions
+- Added `extraEnvVarNames` arg to `setupAndExecute` in `daytona.ts` — workflows specify env var names, the action reads values from `process.env` (keeps secrets out of workflow args)
+- Added missing sandbox env vars (`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_ENV`) to `createSandbox` to match Inngest parity
+- Confirm workflow reuses the sandbox from the generate step via `sandboxId` stored on the research query document, avoiding redundant sandbox creation
+- Added `activeWorkflowId` and `sandboxId` fields to `researchQueries` schema
+- Updated `QueryDetailClient.tsx` to use Convex mutations with `getWorkflowTokens` instead of `fetch("/api/inngest/send")`
+- Added ActivitySteps streaming UI to the research query page
+- Deleted `execute-research-query.ts` and removed both functions from Inngest route
+- Remaining Inngest functions: executeTask, buildProject, sessionExecute, startSandbox, stopSandbox, cleanupProjectSandbox
+
+## Migrate 6 Remaining Inngest Functions to Convex Workflows — 2026-02-16
+
+- Migrated `summarizeSession`, `docPrdUpload`, `evaluateDoc`, `docInterview`, `interviewQuestion`, and `generateTests` from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`)
+- Generalized `daytona.ts` with shared utilities: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, and a new generic `setupAndExecute` internalAction used by all workflows
+- Created shared `getWorkflowTokens(installationId)` server action in `apps/web/app/(main)/[repo]/actions.ts`, replacing per-feature token fetching
+- Split interview workflows (docInterview, projectInterview) into separate question and generate/spec workflows, with `ready: true` detection on the frontend triggering the second phase
+- Added `activeWorkflowId` field to sessions, docs, projects, and evaluationReports tables for workflow event routing
+- Replaced all `fetch("/api/inngest/send")` calls in 8 frontend files with direct Convex mutation calls
+- Deleted 6 Inngest function files and removed their exports/registrations from `inngest/index.ts` and `api/inngest/route.ts`
+- Remaining Inngest functions: executeTask, buildProject, sessionExecute, startSandbox, stopSandbox, cleanupProjectSandbox, generateResearchQuery, confirmResearchQuery
+
+## Migrate Design Sessions from Inngest to Convex Workflow — 2026-02-16
+
+- Migrated design session execution from Inngest background jobs to Convex Workflow (`@convex-dev/workflow`) for durable orchestration with retry/timeout semantics
+- Moved all sandbox operations (Daytona SDK calls, Claude CLI execution) into `packages/backend/convex/daytona.ts` as a Convex `internalAction`
+- Sandbox callback now authenticates via Clerk JWT token passed through the workflow chain, calling Convex mutations directly via the HTTP API (`POST /api/mutation`) with `Authorization: Bearer <jwt>`
+- Removed custom HTTP endpoints (`http.ts`) and callback token storage — auth is handled by Clerk, not custom tokens
+- Moved GitHub App token generation to a Next.js server action (`getDesignTokens`) since `@octokit/auth-app` crypto doesn't work in Convex's Node.js runtime
+- Moved design prompt building logic from `apps/web/lib/prompts/designPrompts.ts` into `packages/backend/convex/designWorkflow.ts` to keep it co-located with the workflow
+- Created `WorkflowManager` singleton (`workflowManager.ts`) with retry defaults (3 attempts, exponential backoff)
+- Removed `callbackTokens` table and `callbackToken` field from `designSessions` schema
+- Deleted `apps/web/lib/inngest/functions/design-execute.ts` and removed design exports from Inngest config
+- Added `convex` to Dockerfile global install + `NODE_PATH` for future sandbox script improvements
+
 ## Activity Steps — Chain of Thought UI for Streaming Logs — 2026-02-13
 
 - Installed Chain of Thought component from AI Elements SDK into `packages/ui/src/ai-elements/chain-of-thought.tsx`

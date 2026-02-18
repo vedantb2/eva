@@ -57,7 +57,7 @@ export function QuickTasksClient() {
   return (
     <>
       <PageWrapper
-        title="Super Tasks"
+        title="Quick Tasks"
         fillHeight
         childPadding={false}
         headerCenter={

@@ -131,12 +131,12 @@ export function SpotlightSearch() {
                 <span className="text-xs text-muted-foreground">Test</span>
               </Command.Item>
               <Command.Item
-                value="Research"
+                value="Analyse"
                 className={itemClass}
                 onSelect={() => handleSelect(`/${repoSlug}/analyse`)}
               >
                 <IconBrain size={16} className="flex-shrink-0" />
-                <span className="flex-1">Research</span>
+                <span className="flex-1">Analyse</span>
                 <span className="text-xs text-muted-foreground">Data</span>
               </Command.Item>
               <Command.Item

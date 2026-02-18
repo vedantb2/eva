@@ -7,6 +7,7 @@ const config = {
     output: "release",
   },
   files: ["out/**/*", "!out/**/*.map"],
+  asarUnpack: ["**/node_modules/node-pty/**"],
   npmRebuild: true,
   mac: {
     category: "public.app-category.developer-tools",

@@ -7,6 +7,8 @@
 - When worktree is unchecked, branch input is hidden and agent spawns directly in the selected folder
 - `killAgent` now skips worktree removal when no worktree was created (checks `worktreePath` is non-empty)
 - New `dialog:openDirectory` IPC channel wired through preload bridge to Electron's `dialog.showOpenDialog`
+- **Fixed node-pty native module crash**: Config file was named `electron-vite.config.ts` (hyphens) but electron-vite v3 expects `electron.vite.config.ts` (dots) — the entire config was silently ignored, so `externalizeDepsPlugin()` never ran and node-pty was bundled inline instead of externalized. Renamed file; main bundle dropped from 54KB to 10KB.
+- Added `asarUnpack` for `node-pty` in electron-builder config so native `.node` binaries are accessible outside the asar archive in distribution builds
 
 ## Improve Project Timeline UI — 2026-02-18
 

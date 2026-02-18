@@ -8,6 +8,13 @@ import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import {
   ActivitySteps,
   Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
   Input,
   Spinner,
   Textarea,
@@ -35,6 +42,52 @@ import { DocInterviewDialog } from "./DocInterviewDialog";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
+
+function ConfirmDeleteButton({
+  onConfirm,
+  label,
+}: {
+  onConfirm: () => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={() => setOpen(true)}
+        className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
+      >
+        <IconX size={14} />
+      </Button>
+      <DialogContent hideCloseButton className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete {label}?</DialogTitle>
+          <DialogDescription>This action cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary" size="sm">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              onConfirm();
+              setOpen(false);
+            }}
+          >
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function DocViewer({ doc }: { doc: Doc }) {
   return <DocEditor key={doc._id} doc={doc} />;
@@ -299,14 +352,10 @@ function DocEditor({ doc }: { doc: Doc }) {
                       placeholder="e.g. Users can log in with email"
                       className="h-8 text-sm bg-card"
                     />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeRequirement(idx)}
-                      className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
-                    >
-                      <IconX size={14} />
-                    </Button>
+                    <ConfirmDeleteButton
+                      onConfirm={() => removeRequirement(idx)}
+                      label="requirement"
+                    />
                   </div>
                 ))}
               </div>
@@ -360,14 +409,10 @@ function DocEditor({ doc }: { doc: Doc }) {
                         placeholder={`Flow ${flowIdx + 1}`}
                         className="h-8 text-sm bg-background"
                       />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeFlow(flowIdx)}
-                        className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
-                      >
-                        <IconX size={14} />
-                      </Button>
+                      <ConfirmDeleteButton
+                        onConfirm={() => removeFlow(flowIdx)}
+                        label="flow"
+                      />
                     </div>
                     <div className="space-y-2">
                       {flow.steps.map((step, stepIdx) => (
@@ -383,14 +428,10 @@ function DocEditor({ doc }: { doc: Doc }) {
                             placeholder="Describe this step"
                             className="h-8 text-sm bg-background"
                           />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => removeStep(flowIdx, stepIdx)}
-                            className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
-                          >
-                            <IconX size={14} />
-                          </Button>
+                          <ConfirmDeleteButton
+                            onConfirm={() => removeStep(flowIdx, stepIdx)}
+                            label="step"
+                          />
                         </div>
                       ))}
                     </div>

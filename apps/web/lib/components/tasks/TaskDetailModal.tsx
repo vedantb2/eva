@@ -234,11 +234,11 @@ export function TaskDetailModal({
   const hasAudit = Boolean(audit);
   const modalWidthClass = hasAudit
     ? requestChangesPanel
-      ? "w-[min(96vw,96rem)]"
-      : "w-[min(95vw,84rem)]"
+      ? "max-w-[84rem]"
+      : "max-w-[72rem]"
     : requestChangesPanel
-      ? "w-[min(95vw,72rem)]"
-      : "w-[min(95vw,64rem)]";
+      ? "max-w-[64rem]"
+      : "max-w-[52rem]";
 
   const layoutGridClass = hasAudit
     ? requestChangesPanel

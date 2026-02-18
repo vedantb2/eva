@@ -1,5 +1,18 @@
 # Changelog
 
+## Improve Project Timeline UI — 2026-02-18
+
+- Increased row height (36→40px) and label column width (192→200px) for better readability
+- Adaptive day label spacing based on zoom level — prevents label overlap at low zoom
+- Alternating month shading in header for visual rhythm
+- Phase-colored dot next to project labels in the sidebar column
+- Alternating row backgrounds with hover highlight
+- Timeline bars use vibrant phase colors (rounded-full, 8px height) with tooltip showing title + date range
+- Today indicator: solid primary dot + vertical line replacing faint text
+- Deadline markers: centered diamond shape at row midpoint
+- Undated projects section: accent strip pattern with phase-colored left border
+- "Today" button with dot indicator for quick navigation
+
 ## Add List View Toggle to Projects & Quick Tasks Pages — 2026-02-18
 
 - Added list view as a third view option on the Projects page (alongside kanban and timeline)

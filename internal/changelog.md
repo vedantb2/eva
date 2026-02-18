@@ -1,5 +1,14 @@
 # Changelog
 
+## Add List View Toggle to Projects & Quick Tasks Pages — 2026-02-18
+
+- Added list view as a third view option on the Projects page (alongside kanban and timeline)
+- Added kanban/list view toggle to the Quick Tasks page (previously had no toggle)
+- List views show items grouped by section (phase for projects, status for tasks) with collapsible headers
+- Both list views reuse existing card components (ProjectCard, QuickTaskCard) for consistent behavior
+- Quick Tasks list view includes the "Fix All" button in the todo section header, status filtering, and selection mode support
+- View state persisted in URL via nuqs (`quickTaskViewParser` added to search-params.ts, `projectViewParser` expanded to include "list")
+
 ## Complete Inngest Removal — Migrate Session Sandbox + Project Cleanup to Convex — 2026-02-17
 
 - Migrated final 3 Inngest functions (`startSandbox`, `stopSandbox`, `cleanupProjectSandbox`) to Convex

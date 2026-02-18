@@ -5,21 +5,24 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button, SearchInput, Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
+import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
-import { searchParser } from "@/lib/search-params";
+import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
   IconChecklist,
   IconPlus,
   IconCheckbox,
   IconX,
   IconFolders,
+  IconLayoutKanban,
+  IconList,
 } from "@tabler/icons-react";
 
 export function QuickTasksClient() {
@@ -31,7 +34,11 @@ export function QuickTasksClient() {
     new Set(),
   );
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [{ q, view }, setParams] = useQueryStates({
+    q: searchParser,
+    view: quickTaskViewParser,
+  });
+  const searchQuery = q;
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
@@ -64,14 +71,34 @@ export function QuickTasksClient() {
             <SearchInput
               placeholder="Search tasks..."
               value={searchQuery}
-              onChange={(v) => setSearchQuery(v || null)}
-              onClear={() => setSearchQuery(null)}
+              onChange={(v) => setParams({ q: v || null })}
+              onClear={() => setParams({ q: null })}
               className="animate-in fade-in duration-300"
             />
           ) : null
         }
         headerRight={
           <div className="flex items-center gap-2">
+            {hasQuickTasks && (
+              <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                <Button
+                  variant={view === "kanban" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                  onClick={() => setParams({ view: "kanban" })}
+                >
+                  <IconLayoutKanban size={16} />
+                </Button>
+                <Button
+                  variant={view === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                  onClick={() => setParams({ view: "list" })}
+                >
+                  <IconList size={16} />
+                </Button>
+              </div>
+            )}
             <AnimatePresence initial={false} mode="popLayout">
               {hasQuickTasks &&
                 (isSelecting ? (
@@ -178,7 +205,7 @@ export function QuickTasksClient() {
                   onAction={() => setIsCreating(true)}
                 />
               </motion.div>
-            ) : (
+            ) : view === "kanban" ? (
               <motion.div
                 key="quick-tasks-board"
                 className="flex flex-1 min-h-0"
@@ -188,6 +215,22 @@ export function QuickTasksClient() {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksKanbanBoard
+                  repoId={repo._id}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="quick-tasks-list"
+                className="flex flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <QuickTasksListView
                   repoId={repo._id}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}

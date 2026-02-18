@@ -30,6 +30,7 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconTimeline,
+  IconList,
 } from "@tabler/icons-react";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
@@ -50,6 +51,7 @@ import {
   projectViewParser,
 } from "@/lib/search-params";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
+import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 
 const SORT_FIELDS = [
   { key: "created" as const, label: "Date Created" },
@@ -202,6 +204,14 @@ export function ProjectsClient() {
                   >
                     <IconTimeline size={16} />
                   </Button>
+                  <Button
+                    variant={view === "list" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                    onClick={() => setParams({ view: "list" })}
+                  >
+                    <IconList size={16} />
+                  </Button>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -317,7 +327,7 @@ export function ProjectsClient() {
                       </KanbanColumn>
                     ))}
                   </motion.div>
-                ) : (
+                ) : view === "timeline" ? (
                   <motion.div
                     key="projects-timeline-view"
                     className="flex flex-1 min-h-0"
@@ -329,6 +339,24 @@ export function ProjectsClient() {
                     <ProjectsTimeline
                       projects={filteredSorted}
                       repoFullName={fullName}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="projects-list-view"
+                    className="flex flex-1 min-h-0"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProjectsListView
+                      projectsByPhase={projectsByPhase}
+                      visiblePhases={visiblePhases}
+                      repoFullName={fullName}
+                      onDelete={(id, title) =>
+                        setProjectToDelete({ id, title })
+                      }
                     />
                   </motion.div>
                 )}

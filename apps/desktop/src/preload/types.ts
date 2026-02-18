@@ -62,8 +62,8 @@ export interface ElectronAPI {
   ptyInput: (ptyId: string, data: string) => void;
   ptyResize: (ptyId: string, cols: number, rows: number) => Promise<void>;
   ptyKill: (ptyId: string) => Promise<void>;
-  onPtyData: (callback: (ptyId: string, data: string) => void) => () => void;
-  onPtyExit: (callback: (ptyId: string, code: number) => void) => () => void;
+  onPtyData: (ptyId: string, callback: (data: string) => void) => () => void;
+  onPtyExit: (ptyId: string, callback: (code: number) => void) => () => void;
 
   sessionCreate: (opts: CreateSessionOptions) => Promise<Session>;
   sessionList: () => Promise<Session[]>;

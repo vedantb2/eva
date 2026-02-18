@@ -30,11 +30,11 @@ const STATUS_COLOR: Record<AllDiffFileEntry["status"], string> = {
 };
 
 export function AllDiffsView({ patches }: AllDiffsViewProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
 
-  const toggleCollapsed = useCallback((key: string) => {
-    setCollapsed((prev) => {
+  const toggleExpanded = useCallback((key: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -75,7 +75,7 @@ export function AllDiffsView({ patches }: AllDiffsViewProps) {
       <div className="p-4 flex flex-col gap-3">
         {patches.map((entry) => {
           const key = `${entry.staged ? "staged" : "unstaged"}:${entry.path}`;
-          const isCollapsed = collapsed.has(key);
+          const isExpanded = expanded.has(key);
           const isReviewed = reviewed.has(key);
           const StatusIcon = STATUS_ICON[entry.status];
 
@@ -86,15 +86,15 @@ export function AllDiffsView({ patches }: AllDiffsViewProps) {
             >
               <div
                 className="flex items-center gap-2 px-3 py-2 bg-card cursor-pointer select-none"
-                onClick={() => toggleCollapsed(key)}
+                onClick={() => toggleExpanded(key)}
               >
-                {isCollapsed ? (
-                  <IconChevronRight
+                {isExpanded ? (
+                  <IconChevronDown
                     size={14}
                     className="text-muted-foreground shrink-0"
                   />
                 ) : (
-                  <IconChevronDown
+                  <IconChevronRight
                     size={14}
                     className="text-muted-foreground shrink-0"
                   />
@@ -129,7 +129,7 @@ export function AllDiffsView({ patches }: AllDiffsViewProps) {
                   </span>
                 </div>
               </div>
-              {!isCollapsed && (
+              {isExpanded && (
                 <div className="border-t border-border">
                   <PatchDiff
                     patch={entry.patch}

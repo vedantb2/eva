@@ -117,7 +117,6 @@ export function QuickTasksKanbanBoard({
           status === "todo" && todoTasks.length > 0 ? (
             <Button
               size="sm"
-              variant="destructive"
               onClick={() => setIsConfirmOpen(true)}
               disabled={isFixingAll}
             >

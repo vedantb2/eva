@@ -1,12 +1,6 @@
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import {
-  // Avatar,
-  // AvatarFallback,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@conductor/ui";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { useQuery } from "convex/react";
 import { Facehash } from "facehash";
 import dayjs from "../utils/dates";
@@ -32,26 +26,21 @@ export function UserInitials({
     : user.lastSeenAt
       ? `${name} · Active ${dayjs(user.lastSeenAt).fromNow()}`
       : name;
-  const iconSize =
-    size === "md" ? "size-8" : size === "lg" ? "size-10" : "size-5";
   const iconSizePx = size === "md" ? 32 : size === "lg" ? 40 : 20;
-
-  // const avatar = (
-  //   <Avatar className={iconSize}>
-  //     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-  //       {initials}
-  //     </AvatarFallback>
-  //   </Avatar>
-  // );
+  const dotSize =
+    size === "lg" ? "h-3 w-3" : size === "md" ? "h-2.5 w-2.5" : "h-2 w-2";
 
   return (
     <Tooltip>
-      <TooltipTrigger>
-        <div className="relative bg-accent rounded-full">
+      <TooltipTrigger asChild>
+        <div
+          className="relative bg-accent rounded-full overflow-visible"
+          style={{ width: iconSizePx, height: iconSizePx }}
+        >
           <Facehash size={iconSizePx} name={initials} enableBlink interactive />
           {!hideLastSeen && user.lastSeenAt && (
             <span
-              className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
+              className={`absolute bottom-0 left-0 ${dotSize} block rounded-full border-2 border-background ${
                 online ? "bg-success" : "bg-warning"
               }`}
             />
@@ -61,22 +50,4 @@ export function UserInitials({
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
   );
-
-  // return (
-  //   <Tooltip>
-  //     <TooltipTrigger asChild>
-  //       <div className="relative">
-  //         {avatar}
-  //         {!hideLastSeen && user.lastSeenAt && (
-  //           <span
-  //             className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border-2 border-background ${
-  //               online ? "bg-success" : "bg-warning"
-  //             }`}
-  //           />
-  //         )}
-  //       </div>
-  //     </TooltipTrigger>
-  //     <TooltipContent>{tooltip}</TooltipContent>
-  //   </Tooltip>
-  // );
 }

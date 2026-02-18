@@ -40,7 +40,7 @@ interface ProjectCardProps {
   repoFullName: string;
   createdAt: number;
   projectUrl: string;
-  cardBg: string;
+  accentColor: string;
   onDelete: () => void;
 }
 
@@ -54,7 +54,7 @@ export function ProjectCard({
   repoFullName,
   createdAt,
   projectUrl,
-  cardBg,
+  accentColor,
   onDelete,
 }: ProjectCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -73,10 +73,11 @@ export function ProjectCard({
   ];
   const isOwner = currentUserId === userId;
   return (
-    <div
-      className={`group relative rounded-xl border border-border p-2 transition-all duration-200 ${cardBg} hover:-translate-y-0.5 hover:shadow-sm`}
-    >
-      <div className="absolute top-1.5 right-1.5">
+    <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-2xs backdrop-blur-sm transition-all duration-200 hover:shadow-xs hover:border-border hover:z-10">
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${accentColor}`}
+      />
+      <div className="absolute top-1.5 right-1.5 z-10">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -134,13 +135,17 @@ export function ProjectCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <button
-        type="button"
-        className="block w-full cursor-pointer rounded-lg text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+      <div
+        role="button"
+        tabIndex={0}
+        className="block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={() => setModalOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setModalOpen(true);
+        }}
       >
         <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="truncate text-sm font-semibold text-foreground transition-all duration-200 group-hover:text-primary">
+          <h3 className="truncate text-sm font-semibold text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>
@@ -154,7 +159,7 @@ export function ProjectCard({
           </p>
         ) : null}
         <ProjectProgressBar projectId={projectId} className="mt-2" />
-        <div className="mt-2.5 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           <div className="flex -space-x-1">
             {participantIds.length > 0 ? (
               participantIds.map((id) => (
@@ -168,7 +173,7 @@ export function ProjectCard({
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
-      </button>
+      </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>

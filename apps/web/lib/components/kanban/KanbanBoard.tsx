@@ -80,7 +80,7 @@ function SortableItem<T extends BaseTask>({
       layout
       ref={setNodeRef}
       style={style}
-      className={`motion-emphasized cursor-grab rounded-lg ${isDragging ? "opacity-50" : ""}`}
+      className={`cursor-grab rounded-xl transition-opacity duration-150 ${isDragging ? "opacity-40" : ""}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}
@@ -207,8 +207,8 @@ export function KanbanBoard<T extends BaseTask>({
     <div
       className={
         fillHeight
-          ? "flex flex-1 min-h-0 flex-col gap-1.5 animate-in fade-in duration-300"
-          : "space-y-2.5 animate-in fade-in duration-300"
+          ? "flex flex-1 min-h-0 flex-col gap-3 animate-in fade-in duration-300"
+          : "space-y-3 animate-in fade-in duration-300"
       }
     >
       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -251,7 +251,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragCancel={handleDragCancel}
       >
         <div
-          className={`flex w-full items-stretch gap-1.5 ${
+          className={`flex w-full items-stretch gap-3 ${
             fillHeight ? "min-h-0 flex-1 overflow-hidden" : ""
           }`}
         >
@@ -297,7 +297,7 @@ export function KanbanBoard<T extends BaseTask>({
         <DragOverlay>
           {activeItem ? (
             <div
-              className="pointer-events-none"
+              className="pointer-events-none rotate-[1.5deg] shadow-sm"
               style={
                 activeOverlayWidth
                   ? { width: `${activeOverlayWidth}px` }

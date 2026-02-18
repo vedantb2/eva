@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Card, CardContent, CardHeader } from "@conductor/ui";
+import { Badge, Card, CardHeader, CardContent } from "@conductor/ui";
 import { useDroppable } from "@dnd-kit/core";
 import { ReactNode } from "react";
 import type { IconCircle } from "@tabler/icons-react";
@@ -38,27 +38,22 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
-      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-hidden transition-colors ${
-        isOver ? "bg-muted dark:bg-accent" : "bg-card"
+      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip shadow-none transition-colors duration-200 ${
+        isOver ? "border-primary/30 bg-primary/5" : "bg-card/50"
       }`}
     >
-      <CardHeader className="flex flex-row items-center justify-between p-1.5 pb-1 md:p-1.5 md:pb-1 flex-shrink-0 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between p-2 pb-1 md:p-2 md:pb-1 flex-shrink-0 space-y-0">
         <Badge
           variant="outline"
-          className={`${config.bg} ${config.text} shadow-inner gap-1.5`}
+          className={`${config.bg} ${config.text} gap-1.5 border-transparent`}
         >
           <Icon size={14} className={config.text} />
           {config.label}
-          <Badge
-            variant="outline"
-            className={`${config.text} ${config.bg} ml-1 px-1.5 py-0`}
-          >
-            {count}
-          </Badge>
+          <span className="text-muted-foreground/60 tabular-nums">{count}</span>
         </Badge>
         {headerExtra}
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain p-1 pt-0 scrollbar md:p-1 md:pt-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0">
         {children}
       </CardContent>
     </Card>

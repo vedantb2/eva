@@ -21,7 +21,7 @@ export const phaseConfig: Record<
   ProjectPhase,
   {
     bg: string;
-    cardBg: string;
+    bar: string;
     text: string;
     label: string;
     icon: typeof IconNotes;
@@ -29,28 +29,28 @@ export const phaseConfig: Record<
 > = {
   draft: {
     bg: "bg-secondary",
-    cardBg: "bg-card",
+    bar: "bg-muted-foreground/50",
     text: "text-muted-foreground",
     label: "Draft",
     icon: IconNotes,
   },
   finalized: {
     bg: "bg-accent",
-    cardBg: "bg-card",
+    bar: "bg-primary",
     text: "text-primary",
     label: "Finalized",
     icon: IconCheck,
   },
   active: {
     bg: "bg-status-progress-bg",
-    cardBg: "bg-card",
+    bar: "bg-status-progress-bar",
     text: "text-status-progress",
     label: "Active",
     icon: IconClock,
   },
   completed: {
     bg: "bg-status-done-bg",
-    cardBg: "bg-card",
+    bar: "bg-status-done-bar",
     text: "text-status-done",
     label: "Completed",
     icon: IconCircleCheck,

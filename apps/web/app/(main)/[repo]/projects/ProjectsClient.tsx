@@ -272,7 +272,7 @@ export function ProjectsClient() {
                 {view === "kanban" ? (
                   <motion.div
                     key="projects-kanban-view"
-                    className="flex flex-1 min-h-0 items-stretch gap-1.5 overflow-x-auto overflow-y-hidden scrollbar"
+                    className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
@@ -300,7 +300,7 @@ export function ProjectsClient() {
                             repoFullName={fullName}
                             createdAt={project._creationTime}
                             projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
-                            cardBg={phaseConfig[phase].cardBg}
+                            accentColor={phaseConfig[phase].bar}
                             onDelete={() =>
                               setProjectToDelete({
                                 id: project._id,

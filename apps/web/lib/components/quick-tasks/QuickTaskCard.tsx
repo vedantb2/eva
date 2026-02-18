@@ -61,7 +61,13 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`w-full border shadow-none transition-all duration-200 ${statusConfig[status].cardBg} ${hasError ? "border-2 border-destructive" : "border-border"} ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${!isSelecting && onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:brightness-[0.99] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35" : ""}`}
+      className={`relative overflow-hidden shadow-2xs transition-all duration-200 ${
+        hasError ? "border-destructive/40" : ""
+      } ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${
+        !isSelecting && onClick
+          ? "cursor-pointer hover:shadow-xs hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          : ""
+      }`}
       onClick={isSelecting ? undefined : onClick}
       role={!isSelecting && onClick ? "button" : undefined}
       tabIndex={!isSelecting && onClick ? 0 : undefined}
@@ -73,7 +79,12 @@ export function QuickTaskCard({
         }
       }}
     >
-      <CardContent className="p-2 md:p-2 gap-1">
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${
+          hasError ? "bg-destructive" : statusConfig[status].bar
+        }`}
+      />
+      <CardContent className="p-2 pl-3 md:p-2 md:pl-3 space-y-1">
         <div className="flex min-w-0 items-center justify-between gap-2">
           {isSelecting && (
             <Checkbox
@@ -133,7 +144,7 @@ export function QuickTaskCard({
             )}
           </div>
         </div>
-        <div className="mt-0.5 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           {createdBy && <UserInitials userId={createdBy} />}
           <span className="text-xs text-muted-foreground ml-auto">
             {dayjs(createdAt).fromNow()}

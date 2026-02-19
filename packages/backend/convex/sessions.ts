@@ -416,6 +416,7 @@ export const startSandbox = mutation({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
+      repoId: session.repoId,
     });
     return null;
   },

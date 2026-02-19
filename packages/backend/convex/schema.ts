@@ -373,6 +373,11 @@ const schema = defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"]),
+  repoEnvVars: defineTable({
+    repoId: v.id("githubRepos"),
+    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    updatedAt: v.number(),
+  }).index("by_repo", ["repoId"]),
 });
 
 export default schema;

@@ -137,6 +137,7 @@ export const docInterviewWorkflow = workflow.define({
       entityIdField: "docId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      repoId: docData.repoId,
     });
 
     // Step 4: Wait for callback
@@ -163,6 +164,7 @@ export const getDocData = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
   }),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
@@ -175,6 +177,7 @@ export const getDocData = internalQuery({
       sandboxId: doc.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: doc.repoId,
     };
   },
 });
@@ -412,6 +415,7 @@ Output ONLY valid JSON.`;
       entityIdField: "docId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      repoId: docData.repoId,
     });
 
     const result = await step.awaitEvent(docInterviewCompleteEvent);

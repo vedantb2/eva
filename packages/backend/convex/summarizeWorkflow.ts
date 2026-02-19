@@ -46,6 +46,7 @@ export const summarizeSessionWorkflow = workflow.define({
       entityIdField: "sessionId",
       model: "haiku",
       allowedTools: "",
+      repoId: sessionData.repoId,
     });
 
     // Step 3: Wait for callback from sandbox
@@ -69,6 +70,7 @@ export const getSessionData = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -94,6 +96,7 @@ Respond with ONLY a JSON array of strings, no other text. Example: ["Built login
       sandboxId: session.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: session.repoId,
       prompt,
     };
   },

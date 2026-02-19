@@ -94,6 +94,7 @@ export const testGenWorkflow = workflow.define({
       allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
       ephemeral: true,
       branchName: docData.branchName,
+      repoId: docData.repoId,
     });
 
     // Step 4: Wait for callback
@@ -117,6 +118,7 @@ export const getDocData = internalQuery({
   returns: v.object({
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.string(),
     alreadyCompleted: v.boolean(),
@@ -132,6 +134,7 @@ export const getDocData = internalQuery({
       return {
         repoOwner: repo.owner,
         repoName: repo.name,
+        repoId: doc.repoId,
         prompt: "",
         branchName: "",
         alreadyCompleted: true,
@@ -170,6 +173,7 @@ ${formatUserFlows(doc.userFlows ?? [])}
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: doc.repoId,
       prompt,
       branchName,
       alreadyCompleted: false,

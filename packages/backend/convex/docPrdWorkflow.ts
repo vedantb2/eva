@@ -106,6 +106,7 @@ export const docPrdWorkflow = workflow.define({
       entityIdField: "docId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      repoId: docData.repoId,
     });
 
     // Step 3: Wait for callback
@@ -132,6 +133,7 @@ export const getDocData = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -158,6 +160,7 @@ Output ONLY valid JSON.`;
       sandboxId: doc.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: doc.repoId,
       prompt,
     };
   },

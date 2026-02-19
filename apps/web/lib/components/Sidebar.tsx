@@ -14,19 +14,21 @@ import {
   IconChecklist,
   IconChevronLeft,
   IconChevronRight,
+  IconDots,
   IconFileText,
   IconFlask,
   IconHammer,
-  IconInbox,
   IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
+  IconMoon,
   IconPalette,
   IconPlus,
   IconSelector,
   IconSettings,
   IconShield,
+  IconSun,
   IconTerminal2,
   IconTestPipe,
   IconTool,
@@ -34,12 +36,13 @@ import {
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Spinner,
   cn,
@@ -50,8 +53,8 @@ import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
-import { ThemeToggleClient } from "@/lib/components/ThemeToggleClient";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -83,7 +86,6 @@ export function Sidebar() {
   const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
 
   const repos = useQuery(api.githubRepos.list);
-  const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
 
   const repoSlug = useMemo(() => {
     const match = pathname.match(/^\/([^/]+)/);
@@ -168,16 +170,7 @@ export function Sidebar() {
     [repoSlug, isRepoRoute],
   );
 
-  const bottomNavigation = useMemo(
-    () => [
-      ...(isRepoRoute && repoSlug
-        ? [{ name: "Admin", href: `/${repoSlug}/admin`, icon: IconShield }]
-        : []),
-      { name: "Inbox", href: "/inbox", icon: IconInbox },
-      { name: "Settings", href: "/settings", icon: IconSettings },
-    ],
-    [repoSlug, isRepoRoute],
-  );
+  const { theme, toggleTheme } = useThemeContext();
 
   const handleRepoSelect = (selectedFullName: string) => {
     if (selectedFullName !== repoFullName) {
@@ -253,7 +246,13 @@ export function Sidebar() {
             Eva
           </span>
         </Link>
-        <ThemeToggleClient />
+        <Button size="icon" variant="ghost" onClick={toggleTheme}>
+          {theme === "dark" ? (
+            <IconSun size={18} className="text-muted-foreground" />
+          ) : (
+            <IconMoon size={18} className="text-muted-foreground" />
+          )}
+        </Button>
       </header>
 
       <AnimatePresence>
@@ -660,52 +659,6 @@ export function Sidebar() {
                   </AnimatePresence>
                 )}
               </div>
-
-              <AnimatePresence initial={false}>
-                {!showContextSidebar && (
-                  <motion.div
-                    className="space-y-1.5"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {bottomNavigation.map((item) => {
-                      const isActive = pathname.startsWith(item.href);
-                      const showBadge =
-                        item.name === "Inbox" && unreadCount > 0;
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          onClick={closeMobileSidebar}
-                          title={collapsed ? item.name : undefined}
-                          className={navItemClass(isActive)}
-                        >
-                          <span className="relative">
-                            <item.icon
-                              size={16}
-                              className="shrink-0 text-muted-foreground"
-                            />
-                            {collapsed && showBadge && (
-                              <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary animate-in zoom-in-50 duration-200" />
-                            )}
-                          </span>
-                          {!collapsed && item.name}
-                          {!collapsed && showBadge && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px] animate-in zoom-in-50 duration-200"
-                            >
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </Badge>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </nav>
 
             <div
@@ -728,20 +681,54 @@ export function Sidebar() {
                   }}
                 />
 
-                {collapsed ? (
-                  <>
-                    <ThemeToggleClient />
-                    <NotificationsPopoverClient />
-                  </>
-                ) : (
-                  <>
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
-                      {user?.fullName || user?.firstName || "User"}
-                    </p>
-                    <ThemeToggleClient />
-                    <NotificationsPopoverClient />
-                  </>
+                {!collapsed && (
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
+                    {user?.fullName || user?.firstName || "User"}
+                  </p>
                 )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-sidebar-foreground"
+                      title="Menu"
+                    >
+                      <IconDots size={16} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="top" align="end">
+                    <DropdownMenuItem onClick={toggleTheme}>
+                      {theme === "dark" ? (
+                        <IconSun size={16} className="mr-2" />
+                      ) : (
+                        <IconMoon size={16} className="mr-2" />
+                      )}
+                      Toggle Theme
+                    </DropdownMenuItem>
+                    {isRepoRoute && repoSlug && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href={`/${repoSlug}/admin`}>
+                            <IconShield size={16} className="mr-2" />
+                            Admin
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings">
+                        <IconSettings size={16} className="mr-2" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <NotificationsPopoverClient />
               </div>
             </div>
           </div>

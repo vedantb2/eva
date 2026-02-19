@@ -179,6 +179,7 @@ export const designSessionWorkflow = workflow.define({
         model: "opus",
         allowedTools: "Read,Glob,Grep,Skill",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
+        repoId: sessionData.repoId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
@@ -217,6 +218,7 @@ export const getSessionDataAndPrompt = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -267,6 +269,7 @@ export const getSessionDataAndPrompt = internalQuery({
       sandboxId: session.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: session.repoId,
       prompt,
     };
   },

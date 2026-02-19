@@ -220,6 +220,7 @@ export const sessionExecuteWorkflow = workflow.define({
         model: data.model,
         allowedTools: data.allowedTools,
         branchName: data.branchName,
+        repoId: data.repoId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
@@ -317,6 +318,7 @@ export const getSessionData = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.optional(v.string()),
     allowedTools: v.string(),
@@ -371,6 +373,7 @@ export const getSessionData = internalQuery({
       sandboxId: session.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: session.repoId,
       prompt,
       branchName,
       allowedTools: MODE_TOOLS[args.mode],

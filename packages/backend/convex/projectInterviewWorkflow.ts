@@ -163,6 +163,7 @@ export const projectInterviewWorkflow = workflow.define({
       entityIdField: "projectId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      repoId: projectData.repoId,
     });
 
     // Step 4: Wait for callback
@@ -187,6 +188,7 @@ export const getProjectData = internalQuery({
     sandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -199,6 +201,7 @@ export const getProjectData = internalQuery({
       sandboxId: project.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: project.repoId,
     };
   },
 });
@@ -414,6 +417,7 @@ Output ONLY valid JSON.`;
       entityIdField: "projectId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      repoId: projectData.repoId,
     });
 
     const result = await step.awaitEvent(projectInterviewCompleteEvent);

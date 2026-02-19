@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
-  IconServer2,
   IconLayoutDashboard,
   IconChartBar,
+  IconKey,
 } from "@tabler/icons-react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 
@@ -23,6 +23,7 @@ export default function AdminLayout({
   const navigation = [
     { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
     { name: "Stats", href: baseUrl + "/stats", icon: IconChartBar },
+    { name: "Env Variables", href: baseUrl + "/env-variables", icon: IconKey },
   ];
 
   return (

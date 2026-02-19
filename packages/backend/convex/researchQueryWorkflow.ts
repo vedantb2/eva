@@ -149,6 +149,7 @@ export const generateQueryWorkflow = workflow.define({
         entityIdField: "queryId",
         model: args.model || "sonnet",
         allowedTools: "Bash",
+        repoId: args.repoId,
       },
     );
 
@@ -210,6 +211,7 @@ export const confirmQueryWorkflow = workflow.define({
       model: "sonnet",
       allowedTools: "Bash",
       extraEnvVarNames: ["CONVEX_DEPLOY_KEY"],
+      repoId: args.repoId,
     });
 
     // Step 4: Wait for sandbox callback

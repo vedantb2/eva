@@ -22,11 +22,13 @@ function getDaytona(): Daytona {
 async function createSandbox(
   daytona: Daytona,
   githubToken: string,
+  extraEnvVars?: Record<string, string>,
 ): Promise<Sandbox> {
   const sandbox = await daytona.create(
     {
       snapshot: SNAPSHOT_NAME,
       envVars: {
+        ...extraEnvVars,
         GITHUB_TOKEN: githubToken,
         CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
         CLERK_SECRET_KEY: requireEnv("CLERK_SECRET_KEY"),
@@ -455,16 +457,26 @@ export const setupAndExecute = internalAction({
     branchName: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     extraEnvVarNames: v.optional(v.array(v.string())),
+    repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
     const daytona = getDaytona();
 
+    const repoEnvVars: Record<string, string> = {};
+    if (args.repoId) {
+      const vars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
+        repoId: args.repoId,
+      });
+      for (const v of vars) {
+        repoEnvVars[v.key] = v.value;
+      }
+    }
+
     let sandbox: Sandbox;
 
     if (args.ephemeral) {
-      // Always create a fresh sandbox for ephemeral workflows
-      sandbox = await createSandbox(daytona, args.githubToken);
+      sandbox = await createSandbox(daytona, args.githubToken, repoEnvVars);
       await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
     } else {
       const result = await getOrCreateSandbox(
@@ -481,7 +493,7 @@ export const setupAndExecute = internalAction({
       await setupBranch(sandbox, args.branchName);
     }
 
-    const extraEnvVars: Record<string, string> = {};
+    const extraEnvVars: Record<string, string> = { ...repoEnvVars };
     for (const name of args.extraEnvVarNames ?? []) {
       const val = process.env[name];
       if (val) extraEnvVars[name] = val;
@@ -630,11 +642,22 @@ export const startSessionSandbox = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
       const daytona = getDaytona();
+
+      const repoEnvVars: Record<string, string> = {};
+      if (args.repoId) {
+        const vars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
+          repoId: args.repoId,
+        });
+        for (const v of vars) {
+          repoEnvVars[v.key] = v.value;
+        }
+      }
 
       if (args.existingSandboxId) {
         try {
@@ -664,7 +687,11 @@ export const startSessionSandbox = internalAction({
         }
       }
 
-      const sandbox = await createSandbox(daytona, args.githubToken);
+      const sandbox = await createSandbox(
+        daytona,
+        args.githubToken,
+        repoEnvVars,
+      );
       const repoUrl = `https://x-access-token:${args.githubToken}@github.com/${args.repoOwner}/${args.repoName}.git`;
       await sandbox.process.executeCommand(
         `cd ${WORKSPACE_DIR} && git remote set-url origin ${repoUrl}`,

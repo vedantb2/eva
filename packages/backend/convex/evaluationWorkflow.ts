@@ -53,6 +53,7 @@ export const evaluationWorkflow = workflow.define({
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
       ephemeral: true,
+      repoId: docData.repoId,
     });
 
     // Step 4: Wait for callback
@@ -87,6 +88,7 @@ export const getDocData = internalQuery({
   returns: v.object({
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     prompt: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -135,6 +137,7 @@ Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON ob
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
+      repoId: doc.repoId,
       prompt,
     };
   },

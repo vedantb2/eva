@@ -142,6 +142,7 @@ export const taskExecutionWorkflow = workflow.define({
         model: args.model ?? "sonnet",
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         branchName: data.branchName,
+        repoId: args.repoId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );

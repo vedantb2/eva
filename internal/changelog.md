@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-Repo Environment Variables + Sidebar Cleanup — 2026-02-19
+
+- **Per-repo env vars**: Users can now configure key-value environment variables per GitHub repo via Admin > Env Variables. Variables are stored in Convex (`repoEnvVars` table), masked in the UI, and automatically injected into Daytona sandboxes when sessions and workflows run — so API keys, tokens, etc. are available to Claude without hardcoding
+- **Sandbox injection**: `createSandbox` accepts optional `extraEnvVars` spread before system vars (user vars can't overwrite system vars). `setupAndExecute` and `startSessionSandbox` look up repo env vars via `repoEnvVars.getForSandbox` when `repoId` is provided. All 10+ workflow files now pass `repoId` through to `setupAndExecute`
+- **Sidebar footer cleanup**: Replaced bottom nav items (Admin, Inbox, Settings) and standalone theme toggle with a compact dots-menu dropdown (`IconDots`) containing Toggle Theme, Admin (repo-scoped), and Settings — reduces footer clutter
+
 ## Snapshot Rebuild: Daily Schedule Instead of Per-Commit — 2026-02-19
 
 - Changed `rebuild-snapshot.yml` trigger from `push` to `main` to a daily cron at 7 AM UTC — avoids unnecessary snapshot rebuilds on every commit when the base image rarely changes

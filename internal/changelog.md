@@ -1,5 +1,15 @@
 # Changelog
 
+## Move Branch Selector from Sidebar to Inline Contexts — 2026-02-19
+
+- Removed the global sidebar branch selector — it stored a branch in `localStorage` but nothing ever read it (dead feature)
+- Branch selection is now per-context: standalone tasks, new projects, and testing arena each have their own `BranchSelect` inline component
+- **Standalone tasks**: Branch selector appears in the task detail modal sidebar when the task has no project and status is "todo". The selected `baseBranch` is threaded through `triggerExecution` → workflow → `setupAndExecute` so the sandbox checks out the correct base before creating the working branch
+- **New projects**: Branch selector added to the create project form. Stored as `baseBranch` on the project document and used when `startDevelopment` / `buildWorkflow` creates the working branch
+- **Testing arena**: Branch selector in the header (via nuqs URL state) so evaluations can test against a specific branch. Passed through `startEvaluation` → evaluation workflow → `setupAndExecute` as `baseBranch`
+- **Backend**: Added `baseBranch` param to `daytona.setupAndExecute` — when set, runs `git fetch + checkout + pull` on that branch before `setupBranch` creates the working branch. Added `baseBranch` to project schema and `projects.create` mutation
+- Created reusable `useBranches` hook (extracted from old `BranchSelector`) and `BranchSelect` controlled component
+
 ## Per-Repo Environment Variables + Sidebar Cleanup — 2026-02-19
 
 - **Per-repo env vars**: Users can now configure key-value environment variables per GitHub repo via Admin > Env Variables. Variables are stored in Convex (`repoEnvVars` table), masked in the UI, and automatically injected into Daytona sandboxes when sessions and workflows run — so API keys, tokens, etc. are available to Claude without hardcoding

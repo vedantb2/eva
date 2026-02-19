@@ -17,6 +17,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { BranchSelect } from "@/lib/components/BranchSelect";
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [baseBranch, setBaseBranch] = useState("main");
   const [isLoading, setIsLoading] = useState(false);
 
   const createProject = useMutation(api.projects.create);
@@ -41,10 +43,12 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         repoId: repo._id,
         title: title.trim(),
         rawInput: description.trim(),
+        baseBranch,
       });
 
       setTitle("");
       setDescription("");
+      setBaseBranch("main");
       onClose();
       router.push("/" + encodeRepoSlug(fullName) + "/projects/" + projectId);
     } finally {
@@ -81,6 +85,10 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Base Branch</label>
+            <BranchSelect value={baseBranch} onValueChange={setBaseBranch} />
           </div>
         </div>
         <DialogFooter>

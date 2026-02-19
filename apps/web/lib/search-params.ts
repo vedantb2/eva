@@ -76,3 +76,7 @@ const quickTaskViews = ["kanban", "list"] as const;
 export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
+
+export const branchParser = parseAsString
+  .withDefault("main")
+  .withOptions(searchOptions);

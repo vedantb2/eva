@@ -19,7 +19,7 @@ import { IconFileText } from "@tabler/icons-react";
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryState } from "nuqs";
-import { searchParser } from "@/lib/search-params";
+import { searchParser, branchParser } from "@/lib/search-params";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { Id } from "@conductor/backend";
@@ -125,6 +125,7 @@ export function TestingArenaClient({
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isTestingAll, setIsTestingAll] = useState(false);
   const [showTestAllModal, setShowTestAllModal] = useState(false);
+  const [branch, setBranch] = useQueryState("branch", branchParser);
 
   const handleTestAll = async () => {
     if (!docs || docs.length === 0) return;
@@ -140,6 +141,7 @@ export function TestingArenaClient({
           repoId: repo._id,
           convexToken,
           githubToken,
+          branchName: branch !== "main" ? branch : undefined,
         });
       }
     } finally {

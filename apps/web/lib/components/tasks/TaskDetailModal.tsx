@@ -56,6 +56,7 @@ import {
   IconBrain,
   IconFolder,
   IconTags,
+  IconGitBranch,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -63,6 +64,7 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@conductor/shared/dates";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { BranchSelect } from "@/lib/components/BranchSelect";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -113,6 +115,7 @@ export function TaskDetailModal({
   const generateUploadUrl = useMutation(api.taskProof.generateUploadUrl);
   const saveProof = useMutation(api.taskProof.save);
   const removeProof = useMutation(api.taskProof.remove);
+  const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -186,6 +189,7 @@ export function TaskDetailModal({
         installationId: result.installationId,
         projectId: result.projectId,
         branchName: result.branchName,
+        baseBranch: result.projectId ? undefined : baseBranch,
         isFirstTaskOnBranch: result.isFirstTaskOnBranch,
         model: result.model,
         convexToken,
@@ -826,6 +830,18 @@ export function TaskDetailModal({
                     </SelectContent>
                   </Select>
                 </div>
+                {!task?.projectId && status === "todo" && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconGitBranch size={12} />
+                      Base Branch
+                    </p>
+                    <BranchSelect
+                      value={baseBranch}
+                      onValueChange={setBaseBranch}
+                    />
+                  </div>
+                )}
                 {latestPrUrl && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">

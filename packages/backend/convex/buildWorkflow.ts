@@ -153,6 +153,7 @@ export const startTaskForBuild = internalMutation({
         installationId: repo.installationId,
         projectId: args.projectId,
         branchName: project.branchName,
+        baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
         model: task.model,
         convexToken: args.convexToken,

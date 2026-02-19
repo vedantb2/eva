@@ -455,6 +455,7 @@ export const setupAndExecute = internalAction({
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     extraEnvVarNames: v.optional(v.array(v.string())),
     repoId: v.optional(v.id("githubRepos")),
@@ -487,6 +488,15 @@ export const setupAndExecute = internalAction({
         args.repoName,
       );
       sandbox = result.sandbox;
+    }
+
+    if (args.baseBranch) {
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && git fetch origin ${args.baseBranch} && git checkout ${args.baseBranch} && git pull origin ${args.baseBranch}`,
+        "/",
+        undefined,
+        30,
+      );
     }
 
     if (args.branchName) {

@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useQueryState } from "nuqs";
-import { testingTabParser } from "@/lib/search-params";
+import { testingTabParser, branchParser } from "@/lib/search-params";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
@@ -39,6 +39,7 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "../UITestingPanel";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { BranchSelect } from "@/lib/components/BranchSelect";
 
 interface EvalResult {
   requirement: string;
@@ -309,6 +310,7 @@ export default function TestingArenaDocPage({
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useQueryState("tab", testingTabParser);
+  const [branch, setBranch] = useQueryState("branch", branchParser);
 
   const handleRunTest = async () => {
     if (!doc) return;
@@ -322,6 +324,7 @@ export default function TestingArenaDocPage({
         repoId: repo._id,
         convexToken,
         githubToken,
+        branchName: branch !== "main" ? branch : undefined,
       });
     } finally {
       setIsRunning(false);
@@ -365,14 +368,21 @@ export default function TestingArenaDocPage({
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button
-            size="sm"
-            onClick={activeTab === "code" ? handleRunTest : undefined}
-            disabled={activeTab === "code" && isRunning}
-          >
-            <IconPlayerPlay size={16} />
-            {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <BranchSelect
+              value={branch}
+              onValueChange={setBranch}
+              className="h-7 text-xs w-36"
+            />
+            <Button
+              size="sm"
+              onClick={activeTab === "code" ? handleRunTest : undefined}
+              disabled={activeTab === "code" && isRunning}
+            >
+              <IconPlayerPlay size={16} />
+              {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
+            </Button>
+          </div>
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">

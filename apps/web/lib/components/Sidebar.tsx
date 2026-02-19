@@ -49,7 +49,6 @@ import {
 } from "@conductor/ui";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
-import { BranchSelector } from "@/lib/components/sidebar/BranchSelector";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
@@ -521,13 +520,6 @@ export function Sidebar() {
                                   </DropdownMenuRadioGroup>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                              {repo && (
-                                <BranchSelector
-                                  owner={repo.owner}
-                                  repoName={repo.name}
-                                  installationId={repo.installationId}
-                                />
-                              )}
                             </div>
                           )}
 
@@ -670,7 +662,7 @@ export function Sidebar() {
               <div
                 className={cn(
                   "flex items-center",
-                  collapsed ? "flex-col gap-2" : "gap-3",
+                  collapsed ? "flex-col gap-2" : "gap-2 pr-2",
                 )}
               >
                 <UserButton
@@ -686,11 +678,12 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                 )}
+                <NotificationsPopoverClient />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      size="icon-sm"
+                      size="icon"
                       variant="ghost"
                       className="text-muted-foreground hover:text-sidebar-foreground"
                       title="Menu"
@@ -727,8 +720,6 @@ export function Sidebar() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <NotificationsPopoverClient />
               </div>
             </div>
           </div>

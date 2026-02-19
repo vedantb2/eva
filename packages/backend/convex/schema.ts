@@ -51,6 +51,7 @@ const schema = defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     lastSandboxActivity: v.optional(v.number()),

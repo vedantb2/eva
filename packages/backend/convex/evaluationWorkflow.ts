@@ -27,6 +27,7 @@ export const evaluationWorkflow = workflow.define({
     docId: v.id("docs"),
     convexToken: v.string(),
     githubToken: v.string(),
+    branchName: v.optional(v.string()),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Create report and set status to running
@@ -52,6 +53,7 @@ export const evaluationWorkflow = workflow.define({
       entityIdField: "reportId",
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
+      baseBranch: args.branchName,
       ephemeral: true,
       repoId: docData.repoId,
     });
@@ -259,6 +261,7 @@ export const startEvaluation = mutation({
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
     githubToken: v.string(),
+    branchName: v.optional(v.string()),
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
@@ -283,6 +286,7 @@ export const startEvaluation = mutation({
         docId: args.docId,
         convexToken: args.convexToken,
         githubToken: args.githubToken,
+        branchName: args.branchName,
       },
     );
 

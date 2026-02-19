@@ -20,6 +20,7 @@ const projectValidator = v.object({
   title: v.string(),
   description: v.optional(v.string()),
   branchName: v.optional(v.string()),
+  baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   lastSandboxActivity: v.optional(v.number()),
@@ -120,6 +121,7 @@ export const create = mutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     rawInput: v.string(),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
@@ -132,6 +134,7 @@ export const create = mutation({
       userId,
       title: args.title,
       rawInput: args.rawInput,
+      baseBranch: args.baseBranch,
       phase: "draft",
       projectStartDate: Date.now(),
       conversationHistory: [

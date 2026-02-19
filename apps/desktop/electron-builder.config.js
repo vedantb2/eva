@@ -11,7 +11,7 @@ const config = {
     "**/node_modules/node-pty/**",
     "**/node_modules/better-sqlite3/**",
   ],
-  npmRebuild: true,
+  npmRebuild: false,
   mac: {
     category: "public.app-category.developer-tools",
     target: [
@@ -34,6 +34,7 @@ const config = {
   win: {
     target: [{ target: "nsis", arch: ["x64"] }],
     icon: "build/icon.ico",
+    signAndEditExecutable: false,
   },
   nsis: {
     oneClick: false,

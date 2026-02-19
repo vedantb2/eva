@@ -169,6 +169,13 @@ importers:
 
   apps/desktop:
     dependencies:
+      better-sqlite3:
+        specifier: ^12.6.2
+        version: 12.6.2
+      node-pty:
+        specifier: ^1.0.0
+        version: 1.1.0
+    devDependencies:
       '@clerk/clerk-react':
         specifier: ^5.29.1
         version: 5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -181,6 +188,9 @@ importers:
       '@conductor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@electron/rebuild':
+        specifier: ^4.0.3
+        version: 4.0.3
       '@pierre/diffs':
         specifier: ^1.0.11
         version: 1.0.11(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -214,61 +224,6 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.36.1
         version: 3.36.1(react@19.2.1)
-      '@xterm/addon-fit':
-        specifier: ^0.10.0
-        version: 0.10.0(@xterm/xterm@5.5.0)
-      '@xterm/addon-web-links':
-        specifier: ^0.11.0
-        version: 0.11.0(@xterm/xterm@5.5.0)
-      '@xterm/addon-webgl':
-        specifier: ^0.19.0
-        version: 0.19.0
-      '@xterm/xterm':
-        specifier: ^5.5.0
-        version: 5.5.0
-      better-sqlite3:
-        specifier: ^12.6.2
-        version: 12.6.2
-      chokidar:
-        specifier: ^5.0.0
-        version: 5.0.0
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      convex:
-        specifier: ^1.31.6
-        version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
-      lucide-react:
-        specifier: ^0.563.0
-        version: 0.563.0(react@19.2.1)
-      nanoid:
-        specifier: ^5.1.6
-        version: 5.1.6
-      node-pty:
-        specifier: ^1.0.0
-        version: 1.1.0
-      react:
-        specifier: ^19.0.0
-        version: 19.2.1
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.1(react@19.2.1)
-      react-router-dom:
-        specifier: ^7.1.0
-        version: 7.13.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      simple-git:
-        specifier: ^3.31.1
-        version: 3.31.1
-      tailwind-merge:
-        specifier: ^2.6.0
-        version: 2.6.1
-    devDependencies:
-      '@electron/rebuild':
-        specifier: ^4.0.3
-        version: 4.0.3
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -284,9 +239,33 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.4.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@xterm/addon-fit':
+        specifier: ^0.10.0
+        version: 0.10.0(@xterm/xterm@5.5.0)
+      '@xterm/addon-web-links':
+        specifier: ^0.11.0
+        version: 0.11.0(@xterm/xterm@5.5.0)
+      '@xterm/addon-webgl':
+        specifier: ^0.19.0
+        version: 0.19.0
+      '@xterm/xterm':
+        specifier: ^5.5.0
+        version: 5.5.0
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.24(postcss@8.5.6)
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      convex:
+        specifier: ^1.31.6
+        version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
       electron:
         specifier: ^33.0.0
         version: 33.4.11
@@ -296,9 +275,30 @@ importers:
       electron-vite:
         specifier: ^3.0.0
         version: 3.1.0(vite@6.4.1(@types/node@22.19.9)(jiti@1.21.7)(lightningcss@1.27.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      lucide-react:
+        specifier: ^0.563.0
+        version: 0.563.0(react@19.2.1)
+      nanoid:
+        specifier: ^5.1.6
+        version: 5.1.6
       postcss:
         specifier: ^8.5.3
         version: 8.5.6
+      react:
+        specifier: ^19.0.0
+        version: 19.2.1
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.1(react@19.2.1)
+      react-router-dom:
+        specifier: ^7.1.0
+        version: 7.13.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      simple-git:
+        specifier: ^3.31.1
+        version: 3.31.1
+      tailwind-merge:
+        specifier: ^2.6.0
+        version: 2.6.1
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19(tsx@4.21.0)(yaml@2.8.2)

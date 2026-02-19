@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+dist/
+release/
+
 out
 
 # debug

@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   getOAuthMetadata,
+  getProtectedResourceMetadata,
   renderAuthForm,
   processAuthForm,
   exchangeToken,
@@ -53,8 +54,21 @@ function queryToStringRecord(req: Request): Record<string, string> {
 }
 
 const app = express();
+
+app.use((req: Request, _res: Response, next) => {
+  console.log(`→ ${req.method} ${req.path}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get(
+  "/.well-known/oauth-protected-resource",
+  (_req: Request, res: Response) => {
+    res.json(getProtectedResourceMetadata(getBaseUrl()));
+  },
+);
 
 app.get(
   "/.well-known/oauth-authorization-server",
@@ -63,8 +77,11 @@ app.get(
   },
 );
 
-app.post("/oauth/register", (_req: Request, res: Response) => {
-  res.status(201).json(handleClientRegistration());
+app.post("/oauth/register", (req: Request, res: Response) => {
+  console.log("  Registration body:", JSON.stringify(req.body));
+  const body =
+    typeof req.body === "object" && req.body !== null ? req.body : {};
+  res.status(201).json(handleClientRegistration(body));
 });
 
 app.get("/oauth/authorize", (req: Request, res: Response) => {
@@ -91,51 +108,71 @@ app.post("/oauth/authorize", (req: Request, res: Response) => {
 
 app.post("/oauth/token", (req: Request, res: Response) => {
   const body = bodyToStringRecord(req);
+  console.log("  Token request grant_type:", body.grant_type);
   const result = exchangeToken(body);
   if (result.ok) {
+    console.log("  Token exchange success");
     res.json(result.response);
   } else {
+    console.log("  Token exchange failed:", result.error.error);
     res.status(400).json(result.error);
   }
 });
 
-app.post("/mcp", async (req: Request, res: Response) => {
+async function handleMcpPost(req: Request, res: Response) {
+  const baseUrl = getBaseUrl();
+  const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
+
   const token = extractBearerToken(req.headers.authorization);
   if (!token) {
+    console.log("  401: no token, sending WWW-Authenticate");
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer resource_metadata="${resourceMetadataUrl}"`,
+    );
     res.status(401).json({ error: "Missing Authorization header" });
     return;
   }
 
   const credentials = verifyToken(token);
   if (!credentials) {
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer resource_metadata="${resourceMetadataUrl}"`,
+    );
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
 
   try {
+    console.log("  MCP: authenticated, handling request");
     const server = createMcpServer(credentials);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
+    console.log("  MCP: request handled ok");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
+    console.error("  MCP error:", message);
     if (!res.headersSent) {
       res.status(500).json({ error: message });
     }
   }
-});
+}
 
-app.get("/mcp", (_req: Request, res: Response) => {
-  res.status(405).json({ error: "SSE not supported in stateless mode" });
-});
+function handleMcpUnsupported(_req: Request, res: Response) {
+  res.status(405).json({ error: "Method not supported in stateless mode" });
+}
 
-app.delete("/mcp", (_req: Request, res: Response) => {
-  res
-    .status(405)
-    .json({ error: "Session deletion not supported in stateless mode" });
-});
+app.post("/", handleMcpPost);
+app.get("/", handleMcpUnsupported);
+app.delete("/", handleMcpUnsupported);
+
+app.post("/mcp", handleMcpPost);
+app.get("/mcp", handleMcpUnsupported);
+app.delete("/mcp", handleMcpUnsupported);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });

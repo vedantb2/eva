@@ -56,6 +56,41 @@ From this point, Claude can query the Convex database directly. Ask things like:
 
 `run_query` is the most powerful — Claude writes Convex server-side JavaScript and executes it read-only. Example: Claude might run `const tasks = await ctx.db.query("agentTasks").collect(); return tasks.filter(t => t.status === "done").length;` to answer "how many tasks are done?"
 
+## For the Business Team
+
+Once the server is deployed, here's what non-technical users need to do:
+
+### What You Need Before Starting
+
+Get these two things from your Convex dashboard (`dashboard.convex.dev`):
+
+1. **Deployment URL** — looks like `https://your-project-123.convex.cloud` (find it under Settings)
+2. **Deploy Key** — go to Settings > Deploy Keys and create one. Pick "read-only" so it can only read data, not change anything
+
+### Connecting (one-time, takes ~2 minutes)
+
+1. Open Claude and go to **Integrations** (or **Connectors**)
+2. Click **Add** and paste in the server URL you got from the dev team
+3. A page will pop up asking for your Deployment URL and Deploy Key — paste them in and hit **Connect**
+4. Done. You're connected.
+
+### Asking Questions
+
+Just talk to Claude normally. It now has access to your database and will query it automatically. Examples:
+
+- "What tables do we have?"
+- "Show me the last 20 tasks created"
+- "How many sessions are active right now?"
+- "Find all users who signed up in the last 7 days"
+- "What's the breakdown of task statuses?"
+
+No SQL or code knowledge needed — Claude writes the queries for you.
+
+### Troubleshooting
+
+- **"SSE not supported in stateless mode"** when opening the /mcp URL in a browser — this is normal. The MCP endpoint only works with Claude's client (POST requests), not browser tabs (GET requests).
+- **"Invalid or expired token"** — the server was likely restarted. Just remove and re-add the connector in Claude to reconnect.
+
 ## Architecture
 
 ```

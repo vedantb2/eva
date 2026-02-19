@@ -61,14 +61,24 @@ export function getOAuthMetadata(baseUrl: string) {
   };
 }
 
-export function handleClientRegistration() {
+export function getProtectedResourceMetadata(baseUrl: string) {
+  return {
+    resource: `${baseUrl}/mcp`,
+    authorization_servers: [baseUrl],
+    bearer_methods_supported: ["header"],
+  };
+}
+
+export function handleClientRegistration(requestBody: Record<string, unknown>) {
   const clientId = crypto.randomUUID();
   return {
+    ...requestBody,
     client_id: clientId,
     client_id_issued_at: Math.floor(Date.now() / 1000),
-    grant_types: ["authorization_code"],
-    response_types: ["code"],
-    token_endpoint_auth_method: "none",
+    grant_types: requestBody.grant_types ?? ["authorization_code"],
+    response_types: requestBody.response_types ?? ["code"],
+    token_endpoint_auth_method:
+      requestBody.token_endpoint_auth_method ?? "none",
   };
 }
 
@@ -185,6 +195,9 @@ const tokenBodySchema = z.object({
 interface TokenResponse {
   access_token: string;
   token_type: "Bearer";
+  expires_in: number;
+  scope: string;
+  refresh_token: string;
 }
 
 interface TokenError {
@@ -249,18 +262,36 @@ export function exchangeToken(body: Record<string, string>): TokenResult {
   }
 
   const tokenId = crypto.randomBytes(32).toString("hex");
+  const refreshTokenId = crypto.randomBytes(32).toString("hex");
+  const credentials = {
+    convexUrl: entry.convexUrl,
+    deployKey: entry.deployKey,
+  };
   tokenStore.set(tokenId, {
-    credentials: { convexUrl: entry.convexUrl, deployKey: entry.deployKey },
+    credentials,
+    expiresAt: Date.now() + TOKEN_TTL_MS,
+  });
+  tokenStore.set(refreshTokenId, {
+    credentials,
     expiresAt: Date.now() + TOKEN_TTL_MS,
   });
 
-  const token = jwt.sign({ tid: tokenId }, getJwtSecret(), {
+  const accessToken = jwt.sign({ tid: tokenId }, getJwtSecret(), {
     expiresIn: "30d",
+  });
+  const refreshToken = jwt.sign({ tid: refreshTokenId }, getJwtSecret(), {
+    expiresIn: "90d",
   });
 
   return {
     ok: true,
-    response: { access_token: token, token_type: "Bearer" },
+    response: {
+      access_token: accessToken,
+      token_type: "Bearer",
+      expires_in: 30 * 24 * 60 * 60,
+      scope: "claudeai",
+      refresh_token: refreshToken,
+    },
   };
 }
 

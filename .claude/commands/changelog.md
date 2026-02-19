@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Review all changes made in this conversation and add a new entry to `internal/changelog.md` in the repo root.
 
 Format: `## <Title> - <YYYY-MM-DD>` followed by bullet points describing each change.

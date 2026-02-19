@@ -173,7 +173,7 @@ export function Sidebar() {
 
   const handleRepoSelect = (selectedFullName: string) => {
     if (selectedFullName !== repoFullName) {
-      router.push(`/${encodeRepoSlug(selectedFullName)}/projects`);
+      router.push(`/${encodeRepoSlug(selectedFullName)}`);
     }
   };
 
@@ -427,6 +427,53 @@ export function Sidebar() {
               )}
             >
               <div className="space-y-4">
+                {!isRepoRoute && !collapsed && repos && repos.length > 0 && (
+                  <div className="space-y-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                        >
+                          <IconBrandGithub
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                          <span className="flex-1 truncate text-left text-sm font-medium">
+                            Select a repo
+                          </span>
+                          <IconSelector
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
+                        <DropdownMenuRadioGroup
+                          onValueChange={handleRepoSelect}
+                        >
+                          {repos.map((repoItem) => {
+                            const fullName = `${repoItem.owner}/${repoItem.name}`;
+                            return (
+                              <DropdownMenuRadioItem
+                                key={fullName}
+                                value={fullName}
+                              >
+                                <IconBrandGithub
+                                  size={16}
+                                  className="text-muted-foreground"
+                                />
+                                {fullName}
+                              </DropdownMenuRadioItem>
+                            );
+                          })}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+
                 {isRepoRoute && repoSlug && repoFullName && (
                   <AnimatePresence initial={false} mode="wait">
                     <motion.div

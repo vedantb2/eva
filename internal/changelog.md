@@ -1,5 +1,11 @@
 # Changelog
 
+## Desktop: Main Process Startup Optimizations — 2026-02-19
+
+- **Disabled default Electron menu**: `Menu.setApplicationMenu(null)` prevents Electron from building a full default menu at startup — wasted work since the app uses a custom frameless titlebar.
+- **Reordered startup sequence**: Previously `initDatabase()` → `createWindow()` (which registered handlers + loaded URL). Now: create window + load URL first, then init DB and register handlers while the renderer is loading. The renderer can't send IPC until its preload + React scripts execute, so handlers are ready well before they're needed.
+- **Lazy-loaded `simple-git` via dynamic import**: Changed from eager top-level `import { simpleGit }` to async `import("simple-git")` on first git operation. Since `simple-git` is externalized (not bundled), the eager `require()` was adding to handler registration time even though git ops aren't needed until the user opens a session with a repo.
+
 ## Desktop: Performance Improvements Round 4 — 2026-02-19
 
 - **Split SessionContext into two contexts**: Single monolithic context caused every consumer to re-render on any session change. Split into `SessionListContext` (sessions array) and `SessionActionsContext` (activeSessionId + callbacks). `HomePage` now only subscribes to actions — no longer re-renders when the session list changes.

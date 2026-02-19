@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, Menu, shell } from "electron";
 import { join } from "path";
 import { registerHandlers } from "./ipc/handlers";
 import { killAllPtys } from "./pty/manager";
@@ -26,8 +26,6 @@ function createWindow(): BrowserWindow {
     win.show();
   });
 
-  registerHandlers(win);
-
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
@@ -43,12 +41,15 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  const win = createWindow();
   initDatabase();
-  createWindow();
+  registerHandlers(win);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      const newWin = createWindow();
+      registerHandlers(newWin);
     }
   });
 });

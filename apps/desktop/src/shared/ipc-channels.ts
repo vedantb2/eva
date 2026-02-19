@@ -25,6 +25,7 @@ export const IPC_CHANNELS = {
   GIT_UNSTAGE: "git:unstage",
   GIT_COMMIT: "git:commit",
   GIT_PUSH: "git:push",
+  GIT_DIFF_FILE: "git:diffFile",
   GIT_DIFF_STAGED: "git:diffStaged",
   GIT_DIFF_UNSTAGED: "git:diffUnstaged",
   GIT_WATCH_START: "git:watchStart",

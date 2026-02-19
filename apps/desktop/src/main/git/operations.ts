@@ -83,3 +83,15 @@ export async function getUnstagedDiff(
   const raw = await git.diff(["--unified=3"]);
   return splitPatchByFile(raw);
 }
+
+export async function getFileDiff(
+  repoPath: string,
+  filePath: string,
+  staged: boolean,
+): Promise<string> {
+  const git = simpleGit(repoPath);
+  const args = staged
+    ? ["--cached", "--unified=3", "--", filePath]
+    : ["--unified=3", "--", filePath];
+  return git.diff(args);
+}

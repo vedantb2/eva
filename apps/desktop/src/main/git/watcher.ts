@@ -31,7 +31,7 @@ export function startWatching(repoPath: string, win: BrowserWindow): void {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.GIT_WATCH_CHANGED, repoPath);
       }
-    }, 500);
+    }, 1500);
   }
 
   watcher.on("add", notifyChange);

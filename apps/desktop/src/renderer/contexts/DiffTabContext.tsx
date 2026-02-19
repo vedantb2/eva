@@ -50,13 +50,11 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
   const openDiffTab = useCallback(
     async (filePath: string, staged: boolean, repoPath: string) => {
       const id = makeDiffTabId(filePath, staged);
-
-      const fetcher = staged
-        ? window.electronAPI.gitDiffStaged
-        : window.electronAPI.gitDiffUnstaged;
-      const allDiffs: RawFilePatch[] = await fetcher(repoPath);
-      const fileDiff = allDiffs.find((d) => d.path === filePath);
-      const patch = fileDiff?.patch ?? "";
+      const patch = await window.electronAPI.gitDiffFile(
+        repoPath,
+        filePath,
+        staged,
+      );
 
       setDiffTabs((prev) => {
         const existing = prev.find((t) => t.id === id);

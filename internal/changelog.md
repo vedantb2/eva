@@ -1,5 +1,23 @@
 # Changelog
 
+## Desktop: Performance Improvements Round 2 — 2026-02-19
+
+- **Removed StrictMode**: `React.StrictMode` double-fires every effect in dev mode, meaning PTYs spawn→kill→spawn, IPC calls fire twice, and git watchers start→stop→start. Removed it since this is a desktop app where we control the runtime.
+- **Per-file diff endpoint**: Clicking a file in the git panel was fetching diffs for ALL files then filtering to one. Added `getFileDiff(repoPath, filePath, staged)` that runs `git diff` scoped to a single file, making diff tab opens near-instant.
+- **Memoized GitFileItem, FileSection, TabButton, DiffTabButton**: Wrapped all list-rendered components in `React.memo()`. Removed `useDiffTabContext()` from GitFileItem (passed `onViewDiff` as prop instead) to stop context-change cascades.
+- **Stabilized callback references**: Wrapped all GitPanel action handlers in `useCallback`. Changed TabButton/DiffTabButton to accept handler + ID instead of pre-bound closures, so memo actually works.
+- **Watcher debounce 500ms → 1500ms**: During heavy file writes (Claude streaming), 500ms debounce triggered `git status` too frequently. 1500ms reduces thrash while still feeling responsive.
+- **In-flight refresh guard**: Added ref-based guard to GitPanel's `refresh()` — if a `git status` is already running, the next request is queued and runs after, preventing stacked concurrent calls.
+
+## Desktop: Performance Improvements — 2026-02-19
+
+- **Fixed SQLite N+1 queries**: `selectAllSessions()` was running 1 + N queries (one per session to fetch tabs). Replaced with a single `LEFT JOIN` query that fetches all sessions and tabs in one round-trip, then groups in JS.
+- **Eliminated unnecessary full-session reads**: `addTab`, `removeTab`, and `setActiveTab` each loaded the entire session (with all tabs) just to check existence. Replaced with lightweight single-column queries (`sessionExists`, `selectTabPtyId`, `tabExistsInSession`).
+- **Removed redundant re-query in SESSION_CREATE**: Handler was calling `getSession()` after `createSession()` + `spawnTab()`. Now constructs the return object directly from what those functions already produce.
+- **Batched PTY data before IPC**: Every byte of terminal output was firing a separate IPC message. Added `setImmediate`-based batching that coalesces all chunks within an event loop tick into a single IPC send, reducing hundreds of messages/sec to 1-2 during heavy output.
+- **Memoized SessionItem**: Wrapped in `React.memo()` so it only re-renders when its own props change, not on every session list update. Stabilized `handleDelete` callback with `useCallback` to avoid breaking memoization.
+- **Added xterm.js scrollback limit**: Set `scrollback: 5000` (was unlimited). Long sessions could accumulate hundreds of thousands of lines, eating memory and slowing rendering.
+
 ## Desktop: SQLite Persistence for Sessions — 2026-02-19
 
 - **Replaced in-memory session store with SQLite** (`better-sqlite3`) so sessions, tabs, and preferences survive app restarts. Previously all state was lost on quit.

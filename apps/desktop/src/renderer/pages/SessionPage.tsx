@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { Button } from "@conductor/ui";
 import {
   DropdownMenu,
@@ -131,8 +131,8 @@ export function SessionPage() {
             tab={tab}
             isActive={tab.tabId === activeTabId && !activeDiffTabId}
             canClose={session.tabs.length > 1}
-            onClick={() => handleTerminalTabClick(tab.tabId)}
-            onClose={() => handleCloseTab(tab.tabId)}
+            onTabClick={handleTerminalTabClick}
+            onTabClose={handleCloseTab}
           />
         ))}
         {diffTabs.map((dt) => (
@@ -140,8 +140,8 @@ export function SessionPage() {
             key={dt.id}
             tab={dt}
             isActive={dt.id === activeDiffTabId}
-            onClick={() => handleDiffTabClick(dt.id)}
-            onClose={() => handleDiffTabClose(dt.id)}
+            onTabClick={handleDiffTabClick}
+            onTabClose={handleDiffTabClose}
           />
         ))}
         <DropdownMenu>
@@ -210,16 +210,16 @@ interface TabButtonProps {
   tab: TerminalTab;
   isActive: boolean;
   canClose: boolean;
-  onClick: () => void;
-  onClose: () => void;
+  onTabClick: (tabId: string) => void;
+  onTabClose: (tabId: string) => void;
 }
 
-function TabButton({
+const TabButton = memo(function TabButton({
   tab,
   isActive,
   canClose,
-  onClick,
-  onClose,
+  onTabClick,
+  onTabClose,
 }: TabButtonProps) {
   return (
     <div
@@ -228,7 +228,7 @@ function TabButton({
           ? "bg-card text-foreground border-b-2 border-b-primary"
           : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
       }`}
-      onClick={onClick}
+      onClick={() => onTabClick(tab.tabId)}
     >
       <IconTerminal2 size={12} />
       <span>{tab.label}</span>
@@ -237,7 +237,7 @@ function TabButton({
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent"
           onClick={(e) => {
             e.stopPropagation();
-            onClose();
+            onTabClose(tab.tabId);
           }}
         >
           <IconX size={10} />
@@ -245,20 +245,20 @@ function TabButton({
       )}
     </div>
   );
-}
+});
 
 interface DiffTabButtonProps {
   tab: DiffTab;
   isActive: boolean;
-  onClick: () => void;
-  onClose: () => void;
+  onTabClick: (id: string) => void;
+  onTabClose: (id: string) => void;
 }
 
-function DiffTabButton({
+const DiffTabButton = memo(function DiffTabButton({
   tab,
   isActive,
-  onClick,
-  onClose,
+  onTabClick,
+  onTabClose,
 }: DiffTabButtonProps) {
   const label =
     tab.kind === "all"
@@ -272,7 +272,7 @@ function DiffTabButton({
           ? "bg-card text-foreground border-b-2 border-b-primary"
           : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
       }`}
-      onClick={onClick}
+      onClick={() => onTabClick(tab.id)}
     >
       <IconFileCode size={12} />
       <span>{label}</span>
@@ -280,11 +280,11 @@ function DiffTabButton({
         className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent"
         onClick={(e) => {
           e.stopPropagation();
-          onClose();
+          onTabClose(tab.id);
         }}
       >
         <IconX size={10} />
       </button>
     </div>
   );
-}
+});

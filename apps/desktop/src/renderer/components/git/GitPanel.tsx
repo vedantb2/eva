@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import {
   Button,
   Textarea,
@@ -30,15 +30,28 @@ export function GitPanel({ repoPath }: GitPanelProps) {
   const [commitMsg, setCommitMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
-  const { openAllDiffsTab } = useDiffTabContext();
+  const { openDiffTab, openAllDiffsTab } = useDiffTabContext();
+
+  const refreshInFlight = useRef(false);
+  const refreshQueued = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) {
+      refreshQueued.current = true;
+      return;
+    }
+    refreshInFlight.current = true;
     setLoading(true);
     try {
       const result = await window.electronAPI.gitStatus(repoPath);
       setStatus(result);
     } finally {
       setLoading(false);
+      refreshInFlight.current = false;
+      if (refreshQueued.current) {
+        refreshQueued.current = false;
+        refresh();
+      }
     }
   }, [repoPath]);
 
@@ -61,38 +74,44 @@ export function GitPanel({ repoPath }: GitPanelProps) {
   const totalFiles = (status?.files ?? []).length;
   const ahead = status?.ahead ?? 0;
 
-  async function handleStage(path: string) {
-    await window.electronAPI.gitStage(repoPath, [path]);
-    refresh();
-  }
+  const handleStage = useCallback(
+    async (path: string) => {
+      await window.electronAPI.gitStage(repoPath, [path]);
+      refresh();
+    },
+    [repoPath, refresh],
+  );
 
-  async function handleUnstage(path: string) {
-    await window.electronAPI.gitUnstage(repoPath, [path]);
-    refresh();
-  }
+  const handleUnstage = useCallback(
+    async (path: string) => {
+      await window.electronAPI.gitUnstage(repoPath, [path]);
+      refresh();
+    },
+    [repoPath, refresh],
+  );
 
-  async function handleStageAll() {
+  const handleStageAll = useCallback(async () => {
     const paths = unstagedFiles.map((f) => f.path);
     if (paths.length === 0) return;
     await window.electronAPI.gitStage(repoPath, paths);
     refresh();
-  }
+  }, [repoPath, refresh, unstagedFiles]);
 
-  async function handleUnstageAll() {
+  const handleUnstageAll = useCallback(async () => {
     const paths = stagedFiles.map((f) => f.path);
     if (paths.length === 0) return;
     await window.electronAPI.gitUnstage(repoPath, paths);
     refresh();
-  }
+  }, [repoPath, refresh, stagedFiles]);
 
-  async function handleCommit() {
+  const handleCommit = useCallback(async () => {
     if (!commitMsg.trim() || stagedFiles.length === 0) return;
     await window.electronAPI.gitCommit(repoPath, commitMsg.trim());
     setCommitMsg("");
     refresh();
-  }
+  }, [repoPath, commitMsg, stagedFiles.length, refresh]);
 
-  async function handlePush() {
+  const handlePush = useCallback(async () => {
     if (ahead === 0 || pushing) return;
     setPushing(true);
     try {
@@ -101,7 +120,11 @@ export function GitPanel({ repoPath }: GitPanelProps) {
     } finally {
       setPushing(false);
     }
-  }
+  }, [repoPath, ahead, pushing, refresh]);
+
+  const handleOpenAllDiffs = useCallback(() => {
+    openAllDiffsTab(repoPath);
+  }, [repoPath, openAllDiffsTab]);
 
   if (collapsed) {
     return (
@@ -132,7 +155,7 @@ export function GitPanel({ repoPath }: GitPanelProps) {
               size="icon"
               variant="ghost"
               className="h-6 w-6"
-              onClick={() => openAllDiffsTab(repoPath)}
+              onClick={handleOpenAllDiffs}
               disabled={totalFiles === 0}
             >
               <IconEye size={12} />
@@ -168,6 +191,7 @@ export function GitPanel({ repoPath }: GitPanelProps) {
           repoPath={repoPath}
           onStage={handleStage}
           onUnstage={handleUnstage}
+          onViewDiff={openDiffTab}
           actionLabel="Unstage All"
           actionIcon={<IconMinus size={12} />}
           onAction={handleUnstageAll}
@@ -178,6 +202,7 @@ export function GitPanel({ repoPath }: GitPanelProps) {
           repoPath={repoPath}
           onStage={handleStage}
           onUnstage={handleUnstage}
+          onViewDiff={openDiffTab}
           actionLabel="Stage All"
           actionIcon={<IconPlus size={12} />}
           onAction={handleStageAll}
@@ -235,17 +260,19 @@ interface FileSectionProps {
   repoPath: string;
   onStage: (path: string) => void;
   onUnstage: (path: string) => void;
+  onViewDiff: (filePath: string, staged: boolean, repoPath: string) => void;
   actionLabel: string;
   actionIcon: React.ReactNode;
   onAction: () => void;
 }
 
-function FileSection({
+const FileSection = memo(function FileSection({
   title,
   files,
   repoPath,
   onStage,
   onUnstage,
+  onViewDiff,
   actionLabel,
   actionIcon,
   onAction,
@@ -282,10 +309,11 @@ function FileSection({
               repoPath={repoPath}
               onStage={onStage}
               onUnstage={onUnstage}
+              onViewDiff={onViewDiff}
             />
           ))}
         </div>
       )}
     </div>
   );
-}
+});

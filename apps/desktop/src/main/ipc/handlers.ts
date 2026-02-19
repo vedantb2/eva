@@ -16,11 +16,17 @@ import {
   unstageFiles,
   commit,
   push,
+  getFileDiff,
   getStagedDiff,
   getUnstagedDiff,
 } from "../git/operations";
 import { startWatching, stopWatching } from "../git/watcher";
-import { getPreference, setPreference, selectRecentRepos } from "../db/queries";
+import {
+  getPreference,
+  setPreference,
+  selectRecentRepos,
+  selectSessionRepoPath,
+} from "../db/queries";
 import type {
   PtySpawnOptions,
   CreateSessionOptions,
@@ -59,7 +65,7 @@ export function registerHandlers(win: BrowserWindow): void {
     IPC_CHANNELS.SESSION_CREATE,
     (_event, opts: CreateSessionOptions) => {
       const session = createSession(opts.repoPath);
-      spawnTab(
+      const tab = spawnTab(
         win,
         session.sessionId,
         opts.repoPath,
@@ -67,7 +73,11 @@ export function registerHandlers(win: BrowserWindow): void {
         opts.initialMessage,
       );
       startWatching(opts.repoPath, win);
-      return getSession(session.sessionId);
+      if (tab) {
+        session.tabs.push(tab);
+        session.activeTabId = tab.tabId;
+      }
+      return session;
     },
   );
 
@@ -110,9 +120,9 @@ export function registerHandlers(win: BrowserWindow): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, opts: CreateTabOptions) => {
-    const session = getSession(opts.sessionId);
-    if (!session) return null;
-    return spawnTab(win, opts.sessionId, session.repoPath, opts.tool);
+    const repoPath = selectSessionRepoPath(opts.sessionId);
+    if (repoPath === null) return null;
+    return spawnTab(win, opts.sessionId, repoPath, opts.tool);
   });
 
   ipcMain.handle(
@@ -169,6 +179,13 @@ export function registerHandlers(win: BrowserWindow): void {
   ipcMain.handle(IPC_CHANNELS.GIT_PUSH, async (_event, repoPath: string) => {
     await push(repoPath);
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_DIFF_FILE,
+    async (_event, repoPath: string, filePath: string, staged: boolean) => {
+      return getFileDiff(repoPath, filePath, staged);
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.GIT_DIFF_STAGED,

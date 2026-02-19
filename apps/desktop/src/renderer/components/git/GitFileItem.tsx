@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Button } from "@conductor/ui";
 import {
   IconPlus,
@@ -7,7 +8,6 @@ import {
   IconFileMinus,
   IconFileUnknown,
 } from "@tabler/icons-react";
-import { useDiffTabContext } from "../../contexts/DiffTabContext";
 import type { GitFileStatus } from "../../../preload/types";
 
 interface GitFileItemProps {
@@ -15,6 +15,7 @@ interface GitFileItemProps {
   repoPath: string;
   onStage: (path: string) => void;
   onUnstage: (path: string) => void;
+  onViewDiff: (filePath: string, staged: boolean, repoPath: string) => void;
 }
 
 function getStatusIcon(file: GitFileStatus) {
@@ -38,14 +39,14 @@ function getStatusIcon(file: GitFileStatus) {
   }
 }
 
-export function GitFileItem({
+export const GitFileItem = memo(function GitFileItem({
   file,
   repoPath,
   onStage,
   onUnstage,
+  onViewDiff,
 }: GitFileItemProps) {
   const { Icon, color, label } = getStatusIcon(file);
-  const { openDiffTab } = useDiffTabContext();
 
   return (
     <div className="flex items-center gap-1 px-2 py-1 hover:bg-accent/50 rounded group">
@@ -57,7 +58,7 @@ export function GitFileItem({
       <Icon size={12} className={`shrink-0 ${color}`} />
       <span
         className="text-xs font-mono truncate flex-1 cursor-pointer"
-        onClick={() => openDiffTab(file.path, file.staged, repoPath)}
+        onClick={() => onViewDiff(file.path, file.staged, repoPath)}
       >
         {file.path}
       </span>
@@ -74,4 +75,4 @@ export function GitFileItem({
       </Button>
     </div>
   );
-}
+});

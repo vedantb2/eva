@@ -106,14 +106,27 @@ export function registerHandlers(win: BrowserWindow): void {
 
     touchSession(sessionId);
 
-    for (const tab of session.tabs) {
-      respawnTab(win, tab, session.repoPath);
+    const activeTab =
+      session.tabs.find((t) => t.tabId === session.activeTabId) ??
+      session.tabs[0];
+    if (activeTab) {
+      respawnTab(win, activeTab, session.repoPath);
     }
 
     startWatching(session.repoPath, win);
 
     return session;
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.TAB_RESPAWN,
+    (_event, sessionId: string, tabId: string) => {
+      const session = getSession(sessionId);
+      if (!session) return;
+      const tab = session.tabs.find((t) => t.tabId === tabId);
+      if (tab) respawnTab(win, tab, session.repoPath);
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.SESSION_RECENT_REPOS, (_event, limit: number) => {
     return selectRecentRepos(limit);

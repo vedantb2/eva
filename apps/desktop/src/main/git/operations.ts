@@ -1,12 +1,23 @@
-import { simpleGit } from "simple-git";
+import { simpleGit, type SimpleGit } from "simple-git";
 import type {
   GitStatusResult,
   GitFileStatus,
   RawFilePatch,
 } from "../../preload/types";
 
+const gitInstances = new Map<string, SimpleGit>();
+
+function getGit(repoPath: string): SimpleGit {
+  let git = gitInstances.get(repoPath);
+  if (!git) {
+    git = simpleGit(repoPath);
+    gitInstances.set(repoPath, git);
+  }
+  return git;
+}
+
 export async function getStatus(repoPath: string): Promise<GitStatusResult> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   const status = await git.status();
 
   const files: GitFileStatus[] = status.files.map((f) => ({
@@ -28,7 +39,7 @@ export async function stageFiles(
   repoPath: string,
   files: string[],
 ): Promise<void> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   await git.add(files);
 }
 
@@ -36,17 +47,17 @@ export async function unstageFiles(
   repoPath: string,
   files: string[],
 ): Promise<void> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   await git.reset(["HEAD", "--", ...files]);
 }
 
 export async function commit(repoPath: string, message: string): Promise<void> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   await git.commit(message);
 }
 
 export async function push(repoPath: string): Promise<void> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   await git.push();
 }
 
@@ -71,7 +82,7 @@ function splitPatchByFile(raw: string): RawFilePatch[] {
 }
 
 export async function getStagedDiff(repoPath: string): Promise<RawFilePatch[]> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   const raw = await git.diff(["--cached", "--unified=3"]);
   return splitPatchByFile(raw);
 }
@@ -79,7 +90,7 @@ export async function getStagedDiff(repoPath: string): Promise<RawFilePatch[]> {
 export async function getUnstagedDiff(
   repoPath: string,
 ): Promise<RawFilePatch[]> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   const raw = await git.diff(["--unified=3"]);
   return splitPatchByFile(raw);
 }
@@ -89,7 +100,7 @@ export async function getFileDiff(
   filePath: string,
   staged: boolean,
 ): Promise<string> {
-  const git = simpleGit(repoPath);
+  const git = getGit(repoPath);
   const args = staged
     ? ["--cached", "--unified=3", "--", filePath]
     : ["--unified=3", "--", filePath];

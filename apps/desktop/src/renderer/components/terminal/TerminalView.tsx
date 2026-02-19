@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalViewProps {
@@ -23,6 +24,7 @@ export function TerminalView({ ptyId, visible }: TerminalViewProps) {
       fontFamily: "Menlo, Monaco, 'Courier New', monospace",
       fontSize: 13,
       lineHeight: 1.4,
+      scrollback: 5000,
       theme: {
         background: "#1a1a1a",
         foreground: "#e5e5e5",
@@ -55,6 +57,13 @@ export function TerminalView({ ptyId, visible }: TerminalViewProps) {
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
     term.open(container);
+
+    try {
+      term.loadAddon(new WebglAddon());
+    } catch {
+      // WebGL context failed — xterm falls back to canvas automatically
+    }
+
     fitAddon.fit();
 
     termRef.current = term;
@@ -72,19 +81,24 @@ export function TerminalView({ ptyId, visible }: TerminalViewProps) {
       term.write(`\r\n[Process exited with code ${code}]\r\n`);
     });
 
+    let resizeRaf = 0;
     const observer = new ResizeObserver(() => {
-      try {
-        fitAddon.fit();
-        window.electronAPI
-          .ptyResize(ptyId, term.cols, term.rows)
-          .catch(() => {});
-      } catch {
-        // FitAddon can throw if the terminal isn't visible
-      }
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        try {
+          fitAddon.fit();
+          window.electronAPI
+            .ptyResize(ptyId, term.cols, term.rows)
+            .catch(() => {});
+        } catch {
+          // FitAddon can throw if the terminal isn't visible
+        }
+      });
     });
     observer.observe(container);
 
     return () => {
+      cancelAnimationFrame(resizeRaf);
       removePtyData();
       removePtyExit();
       dataDisposable.dispose();

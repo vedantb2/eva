@@ -75,6 +75,7 @@ export interface ElectronAPI {
   tabCreate: (opts: CreateTabOptions) => Promise<TerminalTab>;
   tabClose: (sessionId: string, tabId: string) => Promise<void>;
   tabSendMessage: (sessionId: string, tabId: string, message: string) => void;
+  tabRespawn: (sessionId: string, tabId: string) => Promise<void>;
 
   gitStatus: (repoPath: string) => Promise<GitStatusResult>;
   gitStage: (repoPath: string, files: string[]) => Promise<void>;

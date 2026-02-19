@@ -57,16 +57,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const handleDelete = useCallback(
-    async (sessionId: string) => {
-      await window.electronAPI.sessionDelete(sessionId);
-      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
-      if (activeSessionId === sessionId) {
-        setActiveSessionId(null);
-      }
-    },
-    [activeSessionId],
-  );
+  const handleDelete = useCallback(async (sessionId: string) => {
+    await window.electronAPI.sessionDelete(sessionId);
+    setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    setActiveSessionId((prev) => (prev === sessionId ? null : prev));
+  }, []);
 
   return (
     <SessionContext.Provider

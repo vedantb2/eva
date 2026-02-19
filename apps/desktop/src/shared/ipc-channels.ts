@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   TAB_CREATE: "tab:create",
   TAB_CLOSE: "tab:close",
   TAB_SEND_MESSAGE: "tab:sendMessage",
+  TAB_RESPAWN: "tab:respawn",
 
   PREFERENCES_GET: "preferences:get",
   PREFERENCES_SET: "preferences:set",

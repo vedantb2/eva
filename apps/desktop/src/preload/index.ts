@@ -75,6 +75,9 @@ const api: ElectronAPI = {
   tabSendMessage: (sessionId: string, tabId: string, message: string) =>
     ipcRenderer.send(IPC_CHANNELS.TAB_SEND_MESSAGE, sessionId, tabId, message),
 
+  tabRespawn: (sessionId: string, tabId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.TAB_RESPAWN, sessionId, tabId),
+
   gitStatus: (repoPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_STATUS, repoPath),
 

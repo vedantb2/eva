@@ -89,8 +89,11 @@ export function SessionPage() {
     (tabId: string) => {
       setActiveTabId(tabId);
       clearActiveDiffTab();
+      if (sessionId) {
+        window.electronAPI.tabRespawn(sessionId, tabId).catch(() => {});
+      }
     },
-    [clearActiveDiffTab],
+    [sessionId, clearActiveDiffTab],
   );
 
   const handleDiffTabClick = useCallback(

@@ -1,5 +1,22 @@
 # Changelog
 
+## Desktop: Performance Improvements Round 3 — 2026-02-19
+
+- **Cached simpleGit instances per repo**: Every git operation was constructing a new `simpleGit()` instance (re-discovering git config each time). Now cached per repo path, eliminating repeated setup across the 8 call sites.
+- **WebGL terminal renderer**: Added `@xterm/addon-webgl` for GPU-accelerated terminal rendering. Canvas renderer was the bottleneck during heavy Claude streaming output. Falls back to canvas automatically if WebGL context fails.
+- **Debounced ResizeObserver with rAF**: `fitAddon.fit()` + `ptyResize` IPC was firing on every pixel change during window resize. Now coalesced via `requestAnimationFrame` to at most one fit/resize per frame.
+- **Fixed handleDelete callback stability**: `handleDelete` in SessionContext depended on `activeSessionId`, causing the callback reference to change on every session switch and breaking all downstream memoization (SessionSidebar → SessionItem). Switched to functional updater for `setActiveSessionId` — now zero deps, stable forever.
+- **Lazy session restore (active tab only)**: `SESSION_RESTORE` was spawning PTYs for ALL tabs at once. Now only spawns the active tab's PTY. Added `TAB_RESPAWN` IPC channel so the renderer lazily spawns a tab's PTY when the user clicks it. `spawnPty` is already idempotent (returns immediately if PTY exists).
+
+## Move GitHub API Routes to Convex Actions — 2026-02-19
+
+- **Moved 4 Next.js API routes to Convex actions** (`packages/backend/convex/github.ts`): `getInstallationToken`, `listBranches`, `listRepos`, `createSessionPr`. Centralizes server-side GitHub logic in Convex, consistent with the earlier preview route migration.
+- **Web callers updated**: `ChatPanel.tsx` (create-pr), `useBranches.ts` (branches), `RepoSetupClient.tsx` (repos) now use `useAction` from `convex/react` instead of `fetch()` to Next.js API routes.
+- **Chrome extension callers updated**: `App.tsx` and `ChatPanel.tsx` now use `useAction(api.github.getInstallationToken)` instead of HTTP fetch to the web app, eliminating the dependency on `CONDUCTOR_URL`/`VITE_API_URL` for these calls.
+- **Deleted**: 4 API route files, `useGitHubToken.ts` hook (dead code).
+- **Added `octokit` and `@octokit/auth-app`** to `packages/backend` dependencies. GitHub App env vars (`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) must be set in Convex dashboard.
+- **Note**: `apps/web/lib/github/client.ts` still needed by server actions in `actions.ts` files — left as-is for now.
+
 ## Desktop: Performance Improvements Round 2 — 2026-02-19
 
 - **Removed StrictMode**: `React.StrictMode` double-fires every effect in dev mode, meaning PTYs spawn→kill→spawn, IPC calls fire twice, and git watchers start→stop→start. Removed it since this is a desktop app where we control the runtime.

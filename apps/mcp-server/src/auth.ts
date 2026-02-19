@@ -144,22 +144,28 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-export function renderRedirectPage(redirectUrl: string): string {
-  const safeUrl = escapeHtml(redirectUrl);
+export function renderRedirectPage(callbackUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Redirecting…</title>
+  <title>Connected</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #a3a3a3; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    p { font-size: 14px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fafafa; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+    .done { max-width: 360px; }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    p { color: #a3a3a3; font-size: 14px; margin-bottom: 20px; }
+    a { color: #6366f1; text-decoration: none; font-size: 14px; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <p>Connecting… this window should close automatically.</p>
-  <script>window.location.href = ${JSON.stringify(redirectUrl)};</script>
-  <noscript><meta http-equiv="refresh" content="0;url=${safeUrl}" /></noscript>
+  <div class="done">
+    <h1>Connected successfully</h1>
+    <p>Your Convex deployment is now linked. You may close this window.</p>
+    <a href="https://claude.ai/settings/connectors">Go to Claude Connectors</a>
+  </div>
+  <iframe src="${escapeHtml(callbackUrl)}" style="display:none" aria-hidden="true"></iframe>
 </body>
 </html>`;
 }

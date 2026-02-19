@@ -76,7 +76,13 @@ export const notificationTypeValidator = v.union(
   v.literal("task_assigned"),
   v.literal("comment_added"),
   v.literal("run_completed"),
+  v.literal("rate_limit"),
   v.literal("system"),
+);
+
+export const errorTypeValidator = v.union(
+  v.literal("rate_limit"),
+  v.literal("generic"),
 );
 
 export const roleUserValidator = v.union(
@@ -97,4 +103,9 @@ export const queryConfirmationStatusValidator = v.union(
   v.literal("pending"),
   v.literal("confirmed"),
   v.literal("cancelled"),
+);
+
+export const systemEnvVarCategoryValidator = v.union(
+  v.literal("claude_oauth"),
+  v.literal("infrastructure"),
 );

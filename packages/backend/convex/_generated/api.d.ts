@@ -10,6 +10,7 @@
 
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
+import type * as aiAccounts from "../aiAccounts.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
@@ -46,6 +47,8 @@ import type * as specs from "../specs.js";
 import type * as streaming from "../streaming.js";
 import type * as subtasks from "../subtasks.js";
 import type * as summarizeWorkflow from "../summarizeWorkflow.js";
+import type * as systemEnvVars from "../systemEnvVars.js";
+import type * as systemEnvVarsActions from "../systemEnvVarsActions.js";
 import type * as taskAudits from "../taskAudits.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
@@ -66,6 +69,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
+  aiAccounts: typeof aiAccounts;
   analytics: typeof analytics;
   annotations: typeof annotations;
   auth: typeof auth;
@@ -102,6 +106,8 @@ declare const fullApi: ApiFromModules<{
   streaming: typeof streaming;
   subtasks: typeof subtasks;
   summarizeWorkflow: typeof summarizeWorkflow;
+  systemEnvVars: typeof systemEnvVars;
+  systemEnvVarsActions: typeof systemEnvVarsActions;
   taskAudits: typeof taskAudits;
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;

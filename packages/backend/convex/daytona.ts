@@ -1,8 +1,10 @@
 "use node";
 
 import { v } from "convex/values";
+import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { DataModel } from "./_generated/dataModel";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { decryptValue } from "./encryption";
@@ -20,9 +22,67 @@ function getDaytona(): Daytona {
   return new Daytona({ apiKey: requireEnv("DAYTONA_API_KEY") });
 }
 
+const REQUIRED_INFRA_KEYS = [
+  "CLERK_SECRET_KEY",
+  "NEXT_PUBLIC_CONVEX_URL",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_ENV",
+];
+
+async function resolveSystemEnvVars(
+  ctx: GenericActionCtx<DataModel>,
+  oauthAccountKey?: string,
+): Promise<{
+  oauthToken: string;
+  accountKey: string;
+  infraEnvVars: Record<string, string>;
+}> {
+  const infraRows: Array<{ key: string; value: string }> = await ctx.runQuery(
+    internal.systemEnvVars.getForSandbox,
+    {},
+  );
+  const infraEnvVars: Record<string, string> = {};
+  for (const row of infraRows) {
+    infraEnvVars[row.key] = decryptValue(row.value);
+  }
+
+  for (const key of REQUIRED_INFRA_KEYS) {
+    if (!infraEnvVars[key]) {
+      const envVal = process.env[key];
+      if (envVal) infraEnvVars[key] = envVal;
+    }
+  }
+
+  let accountKey: string;
+  if (oauthAccountKey) {
+    accountKey = oauthAccountKey;
+  } else {
+    const available: string | null = await ctx.runQuery(
+      internal.aiAccounts.getAvailableAccountKey,
+      {},
+    );
+    if (!available) throw new Error("No OAuth accounts available");
+    accountKey = available;
+  }
+
+  const encryptedToken: string | null = await ctx.runQuery(
+    internal.systemEnvVars.getEncryptedValue,
+    { accountId: accountKey },
+  );
+  if (!encryptedToken) {
+    throw new Error(`OAuth token not found for account: ${accountKey}`);
+  }
+  const oauthToken = decryptValue(encryptedToken);
+
+  return { oauthToken, accountKey, infraEnvVars };
+}
+
 async function createSandbox(
   daytona: Daytona,
   githubToken: string,
+  oauthToken: string,
+  accountKey: string,
+  infraEnvVars: Record<string, string>,
   extraEnvVars?: Record<string, string>,
 ): Promise<Sandbox> {
   const sandbox = await daytona.create(
@@ -31,14 +91,9 @@ async function createSandbox(
       envVars: {
         ...extraEnvVars,
         GITHUB_TOKEN: githubToken,
-        CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
-        CLERK_SECRET_KEY: requireEnv("CLERK_SECRET_KEY"),
-        NEXT_PUBLIC_CONVEX_URL: requireEnv("NEXT_PUBLIC_CONVEX_URL"),
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: requireEnv(
-          "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-        ),
-        NEXT_PUBLIC_ENV: requireEnv("NEXT_PUBLIC_ENV"),
-        // CONVEX_DEPLOYMENT: requireEnv("CONVEX_DEPLOYMENT"),
+        CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
+        ...infraEnvVars,
+        ACCOUNT_KEY: accountKey,
       },
       autoStopInterval: 10,
       autoDeleteInterval: 15,
@@ -81,6 +136,9 @@ async function getOrCreateSandbox(
   githubToken: string,
   owner: string,
   name: string,
+  oauthToken: string,
+  accountKey: string,
+  infraEnvVars: Record<string, string>,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
@@ -92,7 +150,13 @@ async function getOrCreateSandbox(
       // Sandbox was deleted/expired or sync failed, fall through to create a new one
     }
   }
-  const sandbox = await createSandbox(daytona, githubToken);
+  const sandbox = await createSandbox(
+    daytona,
+    githubToken,
+    oauthToken,
+    accountKey,
+    infraEnvVars,
+  );
   await syncRepo(sandbox, githubToken, owner, name);
   return { sandbox, isNew: true };
 }
@@ -306,8 +370,9 @@ const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
   stdio: ["pipe", "pipe", "pipe"],
 });
 
+let stderrOutput = "";
 child.stdout.on("data", (chunk) => { rawOutput += chunk.toString(); });
-child.stderr.on("data", () => {});
+child.stderr.on("data", (chunk) => { stderrOutput += chunk.toString(); });
 
 child.on("close", async (code) => {
   clearInterval(interval);
@@ -329,6 +394,17 @@ child.on("close", async (code) => {
     } catch {}
   }
 
+  const allOutput = (resultEvent?.result ?? "") + " " + stderrOutput;
+  const rateLimitPatterns = ["usage limit", "rate_limit_error", "rate_limit", "429", "Usage limit reached"];
+  const isRateLimit = !resultEvent?.isError ? false : rateLimitPatterns.some(p => allOutput.toLowerCase().includes(p.toLowerCase()));
+  let limitResetAt = null;
+  if (isRateLimit) {
+    const resetMatch = allOutput.match(/limit will reset at ([^.\\n"]+)/i);
+    if (resetMatch && resetMatch[1]) {
+      try { limitResetAt = new Date(resetMatch[1].trim()).toISOString(); } catch {}
+    }
+  }
+
   try {
     await callMutation("${completionMutation}", {
       ${entityIdField}: ENTITY_ID,
@@ -336,6 +412,9 @@ child.on("close", async (code) => {
       result: resultEvent?.result ?? rawOutput,
       error: resultEvent?.isError ? resultEvent.result : (code !== 0 ? "Claude CLI exited with code " + code : null),
       activityLog,
+      errorType: isRateLimit ? "rate_limit" : null,
+      limitResetAt: limitResetAt,
+      accountKey: process.env.ACCOUNT_KEY || null,
     });
   } catch (e) {
     console.error("Failed to send completion:", e);
@@ -352,6 +431,9 @@ child.on("error", async (err) => {
       result: null,
       error: err.message,
       activityLog: "[]",
+      errorType: null,
+      limitResetAt: null,
+      accountKey: process.env.ACCOUNT_KEY || null,
     });
   } catch {}
 });
@@ -499,10 +581,12 @@ export const setupAndExecute = internalAction({
     ephemeral: v.optional(v.boolean()),
     extraEnvVarNames: v.optional(v.array(v.string())),
     repoId: v.optional(v.id("githubRepos")),
+    oauthAccountKey: v.optional(v.string()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
     const daytona = getDaytona();
+    const resolved = await resolveSystemEnvVars(ctx, args.oauthAccountKey);
 
     const repoEnvVars: Record<string, string> = {};
     if (args.repoId) {
@@ -517,7 +601,14 @@ export const setupAndExecute = internalAction({
     let sandbox: Sandbox;
 
     if (args.ephemeral) {
-      sandbox = await createSandbox(daytona, args.githubToken, repoEnvVars);
+      sandbox = await createSandbox(
+        daytona,
+        args.githubToken,
+        resolved.oauthToken,
+        resolved.accountKey,
+        resolved.infraEnvVars,
+        repoEnvVars,
+      );
       await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
     } else {
       const result = await getOrCreateSandbox(
@@ -526,6 +617,9 @@ export const setupAndExecute = internalAction({
         args.githubToken,
         args.repoOwner,
         args.repoName,
+        resolved.oauthToken,
+        resolved.accountKey,
+        resolved.infraEnvVars,
       );
       sandbox = result.sandbox;
     }
@@ -548,6 +642,7 @@ export const setupAndExecute = internalAction({
       const val = process.env[name];
       if (val) extraEnvVars[name] = val;
     }
+    extraEnvVars.ACCOUNT_KEY = resolved.accountKey;
 
     await launchScript(
       sandbox,
@@ -737,6 +832,7 @@ export const startSessionSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const daytona = getDaytona();
+      const resolved = await resolveSystemEnvVars(ctx);
 
       const repoEnvVars: Record<string, string> = {};
       if (args.repoId) {
@@ -779,6 +875,9 @@ export const startSessionSandbox = internalAction({
       const sandbox = await createSandbox(
         daytona,
         args.githubToken,
+        resolved.oauthToken,
+        resolved.accountKey,
+        resolved.infraEnvVars,
         repoEnvVars,
       );
       const repoUrl = `https://x-access-token:${args.githubToken}@github.com/${args.repoOwner}/${args.repoName}.git`;
@@ -838,6 +937,7 @@ export const startDesignSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const daytona = getDaytona();
+      const resolved = await resolveSystemEnvVars(ctx);
 
       const repoEnvVars: Record<string, string> = {};
       if (args.repoId) {
@@ -881,6 +981,9 @@ export const startDesignSandbox = internalAction({
       const sandbox = await createSandbox(
         daytona,
         args.githubToken,
+        resolved.oauthToken,
+        resolved.accountKey,
+        resolved.infraEnvVars,
         repoEnvVars,
       );
       await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);

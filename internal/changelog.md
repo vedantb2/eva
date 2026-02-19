@@ -1,5 +1,21 @@
 # Changelog
 
+## Dynamic System Environment Variables — 2026-02-19
+
+- **Why**: OAuth tokens and infrastructure secrets (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL, etc.) were hardcoded as Convex environment variable names. Adding/removing OAuth accounts required code changes. This makes the system inflexible and ties it to a specific deployment's env vars.
+- **New `systemEnvVars` table**: Stores env vars encrypted at rest (AES-256-GCM) with two categories: `claude_oauth` (OAuth tokens for rate limit rotation) and `infrastructure` (secrets injected into sandboxes). Only bootstrap vars remain as Convex env vars: `ENCRYPTION_KEY`, `DAYTONA_API_KEY`, `CONVEX_CLOUD_URL`.
+- **Dynamic OAuth discovery**: `aiAccounts.ts` no longer has a hardcoded 3-element array. `getAvailableAccountKey` dynamically queries `systemEnvVars` for `claude_oauth` entries and picks the first non-limited account. `aiAccountStatus` now references `systemEnvVars` via `accountId`.
+- **`resolveSystemEnvVars()` in `daytona.ts`**: Single helper that fetches infrastructure vars + resolves the OAuth token from DB before creating a sandbox. Includes process.env fallback for infrastructure keys during the transition period.
+- **Admin UI**: New "System Variables" tab under Admin (admin-gated) for managing system env vars — add, edit, reveal, copy, delete with encrypted storage.
+
+## Remote Convex MCP Server — 2026-02-19
+
+- **Why**: The Analyse page wraps "Claude generates and runs Convex queries" but Claude natively handles this better via MCP connectors. A remote MCP server lets any user connect their Convex deployment to Claude and query data directly — no custom UI needed.
+- **Architecture**: Stateless Express server at `apps/mcp-server/` using `@modelcontextprotocol/sdk` with Streamable HTTP transport. OAuth 2.0 with PKCE flow stores Convex credentials (deployment URL + deploy key) in a signed JWT — no database needed.
+- **5 MCP tools**: `list_tables` (schema discovery via `/api/shapes2` + `_system/frontend/getSchemas`), `query_table` (paginated reads via `_system/cli/tableData`), `get_document` (single doc by ID), `count_table` (document count), `run_query` (arbitrary read-only Convex query code via `/api/run_test_function`).
+- **`run_query` is the power tool**: Claude writes Convex server-side JS (joins, aggregations, filters) and executes it read-only. Replaces the entire Analyse page workflow.
+- **Replaces**: `apps/web/app/(main)/[repo]/analyse/` and related backend (`researchQueries.ts`, `researchQueryWorkflow.ts`, `savedQueries.ts`). Those can be deprecated once this ships.
+
 ## Desktop: Fix Slow Tab Switching and Navigation — 2026-02-19
 
 - **Render diff tabs with CSS visibility toggle instead of mount/unmount**: PatchDiff from `@pierre/diffs/react` was being unmounted and remounted from scratch on every diff tab switch — expensive because it re-parses and re-renders the full syntax-highlighted diff. Now uses the same pattern as TerminalView: all diff tabs stay mounted, inactive ones hidden via `display: none`. Wrapped in a memoized `DiffTabContent` component.

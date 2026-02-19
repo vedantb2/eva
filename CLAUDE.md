@@ -12,6 +12,7 @@ pnpm convex         # Start Convex backend dev server
 pnpm convex:deploy  # Deploy Convex backend
 pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
+pnpm mcp:dev        # Start Convex MCP server (requires MCP_JWT_SECRET env var)
 ```
 
 **Web-specific commands (from /apps/web):**
@@ -37,12 +38,13 @@ npx tsc              # TypeScript type check
 
 ## Architecture
 
-This is a monorepo (pnpm workspaces) with four apps and three shared packages:
+This is a monorepo (pnpm workspaces) with five apps and three shared packages:
 
 - **apps/web/** - Next.js 15 frontend (App Router, Turbopack)
 - **apps/chrome-extension/** - Chrome extension (Vite + React 19 + Radix UI, shadow DOM content scripts)
 - **apps/mobile/** - Expo/React Native app (NativeWind for styling)
 - **apps/teams-bot/** - Microsoft Teams bot
+- **apps/mcp-server/** - Remote Convex MCP server (Express, Streamable HTTP, OAuth 2.0 + PKCE)
 - **packages/backend/** - Convex serverless backend + shared package (`@conductor/backend`) exporting types (`Id`, `Doc`, `api`, `internal`)
 - **packages/shared/** - Smart shared components and utilities (`@conductor/shared`) that depend on Convex/backend — used by web and chrome-extension
 - **packages/ui/** - Shared UI components (`@conductor/ui`) used by web and chrome-extension
@@ -113,7 +115,9 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 - **agentTasks** - Work items with status, branch names, GitHub links
 - **subtasks** - Sub-items within tasks
 - **taskComments** / **taskDependencies** / **taskProof** - Task metadata
-- **agentRuns** - Task execution history with logs
+- **agentRuns** - Task execution history with logs (includes `errorType` and `limitResetAt` for rate limit tracking)
+- **systemEnvVars** - System-wide env vars (OAuth tokens, infrastructure secrets) stored encrypted, replacing hardcoded Convex env vars
+- **aiAccountStatus** - OAuth account rate limit tracking for multi-account rotation (references `systemEnvVars` via `accountId`)
 - **projects** - Development projects with phases (draft → finalized → active → completed)
 - **sessions** - Interactive Claude Code chat sessions with sandbox
 - **docs** - Repository documentation
@@ -143,7 +147,11 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 
 **Simple async pattern** (sessions/projects): Frontend calls public mutation → mutation does immediate DB writes + `ctx.scheduler.runAfter(0, internalAction)` → action does Daytona work → action calls `ctx.runMutation(internalMutation)` to update DB when done.
 
-**Shared utilities** in `daytona.ts`: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, `setupAndExecute` (generic internalAction), `deleteSandbox`, `startSessionSandbox`.
+**Shared utilities** in `daytona.ts`: `buildCallbackScript(completionMutation, entityIdField)`, `launchScript(sandbox, prompt, ...)`, `setupBranch(sandbox, branchName)`, `setupAndExecute` (generic internalAction), `deleteSandbox`, `startSessionSandbox`, `resolveSystemEnvVars` (fetches OAuth tokens + infra vars from `systemEnvVars` table, with process.env fallback for infra keys).
+
+**Rate limit retry**: Callback script classifies errors as `rate_limit` or `generic` via pattern matching on stderr/result. Task and session workflows auto-retry with the next available OAuth account (`aiAccounts.ts` dynamically queries `systemEnvVars` table for `claude_oauth` category). All 11 `handleCompletion` mutations accept optional `errorType`, `limitResetAt`, `accountKey` from the callback.
+
+**System env vars**: OAuth tokens and infrastructure secrets (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL, etc.) are stored encrypted in the `systemEnvVars` table instead of Convex environment variables. Only bootstrap vars remain as Convex env vars: `ENCRYPTION_KEY`, `DAYTONA_API_KEY`, `CONVEX_CLOUD_URL`. Managed via Admin > System Variables UI. `resolveSystemEnvVars()` in `daytona.ts` resolves these at sandbox creation time.
 
 **Token flow**: Frontend calls `getWorkflowTokens(installationId)` server action (in `apps/web/app/(main)/[repo]/actions.ts`) to get GitHub + Convex tokens, passes them to the start mutation.
 
@@ -194,7 +202,8 @@ Defined in `packages/backend/convex/validators.ts` — use these when writing Co
 - **sessionMode**: `execute | ask | plan | flag`
 - **sessionStatus**: `active | closed`
 - **phase** (projects): `draft | finalized | active | completed`
-- **notificationType**: `routine_complete | export_ready | task_complete | task_assigned | comment_added | run_completed | system`
+- **notificationType**: `routine_complete | export_ready | task_complete | task_assigned | comment_added | run_completed | rate_limit | system`
+- **errorType**: `rate_limit | generic`
 - **roleUser**: `business | dev`
 
 ## Git Hooks

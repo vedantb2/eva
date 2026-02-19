@@ -16,6 +16,8 @@ import {
   roleUserValidator,
   queryConfirmationStatusValidator,
   claudeModelValidator,
+  errorTypeValidator,
+  systemEnvVarCategoryValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -111,6 +113,7 @@ const schema = defineSchema({
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
     activeWorkflowId: v.optional(v.string()),
+    scheduledRetryAt: v.optional(v.number()),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
@@ -132,6 +135,8 @@ const schema = defineSchema({
     resultSummary: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     error: v.optional(v.string()),
+    errorType: v.optional(errorTypeValidator),
+    limitResetAt: v.optional(v.number()),
   }).index("by_task", ["taskId"]),
 
   githubRepos: defineTable({
@@ -382,6 +387,21 @@ const schema = defineSchema({
     vars: v.array(v.object({ key: v.string(), value: v.string() })),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
+  systemEnvVars: defineTable({
+    key: v.string(),
+    value: v.string(),
+    category: systemEnvVarCategoryValidator,
+    description: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_category", ["category"]),
+  aiAccountStatus: defineTable({
+    accountId: v.id("systemEnvVars"),
+    isLimited: v.boolean(),
+    limitResetAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_account", ["accountId"]),
 });
 
 export default schema;

@@ -1,0 +1,6 @@
+[build]
+builder = "railpack"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "node dist/index.js"

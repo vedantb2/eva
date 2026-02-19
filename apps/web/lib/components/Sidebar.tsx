@@ -26,7 +26,6 @@ import {
   IconPalette,
   IconPlus,
   IconSelector,
-  IconSettings,
   IconShield,
   IconSun,
   IconTerminal2,
@@ -758,13 +757,6 @@ export function Sidebar() {
                         </DropdownMenuItem>
                       </>
                     )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings">
-                        <IconSettings size={16} className="mr-2" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

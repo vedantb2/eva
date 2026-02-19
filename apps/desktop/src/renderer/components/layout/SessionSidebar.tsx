@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
@@ -9,10 +10,13 @@ export function SessionSidebar() {
   const navigate = useNavigate();
   const { sessions, deleteSession } = useSessionContext();
 
-  async function handleDelete(sessionId: string) {
-    await deleteSession(sessionId);
-    navigate("/");
-  }
+  const handleDelete = useCallback(
+    async (sessionId: string) => {
+      await deleteSession(sessionId);
+      navigate("/");
+    },
+    [deleteSession, navigate],
+  );
 
   return (
     <aside className="w-56 shrink-0 flex flex-col border-r border-border h-full bg-background">

@@ -84,19 +84,53 @@ export function selectSession(sessionId: string): Session | null {
 export function selectAllSessions(): Session[] {
   const db = getDatabase();
   const rows = db
-    .prepare("SELECT * FROM sessions ORDER BY last_opened_at DESC")
+    .prepare(
+      `SELECT
+         s.session_id, s.repo_path, s.name, s.created_at, s.active_tab_id,
+         t.tab_id, t.pty_id, t.tool, t.label, t.created_at AS tab_created_at
+       FROM sessions s
+       LEFT JOIN tabs t ON s.session_id = t.session_id
+       ORDER BY s.last_opened_at DESC, t.created_at ASC`,
+    )
     .all();
 
-  const result: Session[] = [];
-  for (const row of rows) {
-    if (!isRecord(row)) continue;
-    const tabRows = db
-      .prepare(
-        "SELECT * FROM tabs WHERE session_id = ? ORDER BY created_at ASC",
-      )
-      .all(String(row["session_id"]));
+  const sessionMap = new Map<string, Session>();
+  const sessionOrder: string[] = [];
 
-    const session = parseSessionWithTabs(row, tabRows);
+  for (const raw of rows) {
+    if (!isRecord(raw)) continue;
+    const sid = String(raw["session_id"]);
+
+    if (!sessionMap.has(sid)) {
+      sessionOrder.push(sid);
+      sessionMap.set(sid, {
+        sessionId: sid,
+        repoPath: String(raw["repo_path"]),
+        name: String(raw["name"]),
+        createdAt: Number(raw["created_at"]),
+        tabs: [],
+        activeTabId: String(raw["active_tab_id"]),
+      });
+    }
+
+    if (raw["tab_id"] !== null && raw["tab_id"] !== undefined) {
+      const session = sessionMap.get(sid);
+      if (session) {
+        session.tabs.push({
+          tabId: String(raw["tab_id"]),
+          sessionId: sid,
+          ptyId: String(raw["pty_id"]),
+          tool: toToolType(String(raw["tool"])),
+          label: String(raw["label"]),
+          createdAt: Number(raw["tab_created_at"]),
+        });
+      }
+    }
+  }
+
+  const result: Session[] = [];
+  for (const sid of sessionOrder) {
+    const session = sessionMap.get(sid);
     if (session) result.push(session);
   }
   return result;
@@ -184,4 +218,63 @@ export function selectRecentRepos(limit: number): string[] {
     }
   }
   return result;
+}
+
+export function sessionExists(sessionId: string): boolean {
+  const db = getDatabase();
+  const row = db
+    .prepare("SELECT 1 FROM sessions WHERE session_id = ? LIMIT 1")
+    .get(sessionId);
+  return row !== undefined;
+}
+
+export function selectTabPtyId(
+  sessionId: string,
+  tabId: string,
+): string | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      "SELECT pty_id FROM tabs WHERE tab_id = ? AND session_id = ? LIMIT 1",
+    )
+    .get(tabId, sessionId);
+  if (!isRecord(row)) return null;
+  return String(row["pty_id"]);
+}
+
+export function selectLastTabId(sessionId: string): string | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      "SELECT tab_id FROM tabs WHERE session_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+    .get(sessionId);
+  if (!isRecord(row)) return null;
+  return String(row["tab_id"]);
+}
+
+export function tabExistsInSession(sessionId: string, tabId: string): boolean {
+  const db = getDatabase();
+  const row = db
+    .prepare("SELECT 1 FROM tabs WHERE tab_id = ? AND session_id = ? LIMIT 1")
+    .get(tabId, sessionId);
+  return row !== undefined;
+}
+
+export function selectActiveTabId(sessionId: string): string {
+  const db = getDatabase();
+  const row = db
+    .prepare("SELECT active_tab_id FROM sessions WHERE session_id = ? LIMIT 1")
+    .get(sessionId);
+  if (!isRecord(row)) return "";
+  return String(row["active_tab_id"]);
+}
+
+export function selectSessionRepoPath(sessionId: string): string | null {
+  const db = getDatabase();
+  const row = db
+    .prepare("SELECT repo_path FROM sessions WHERE session_id = ? LIMIT 1")
+    .get(sessionId);
+  if (!isRecord(row)) return null;
+  return String(row["repo_path"]);
 }

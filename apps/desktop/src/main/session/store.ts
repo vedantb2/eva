@@ -10,6 +10,11 @@ import {
   updateLastOpened,
   insertTab,
   deleteTabById,
+  sessionExists,
+  selectTabPtyId,
+  selectLastTabId,
+  selectActiveTabId,
+  tabExistsInSession,
 } from "../db/queries";
 
 const TOOL_LABELS: Record<ToolType, string> = {
@@ -51,8 +56,7 @@ export function deleteSession(sessionId: string): Session | null {
 }
 
 export function addTab(sessionId: string, tool: ToolType): TerminalTab | null {
-  const session = selectSession(sessionId);
-  if (!session) return null;
+  if (!sessionExists(sessionId)) return null;
 
   const tabId = nanoid();
   const ptyId = `tab-pty-${tabId}`;
@@ -73,30 +77,22 @@ export function addTab(sessionId: string, tool: ToolType): TerminalTab | null {
 }
 
 export function removeTab(sessionId: string, tabId: string): string | null {
-  const session = selectSession(sessionId);
-  if (!session) return null;
+  const ptyId = selectTabPtyId(sessionId, tabId);
+  if (ptyId === null) return null;
 
-  const tab = session.tabs.find((t) => t.tabId === tabId);
-  if (!tab) return null;
-
+  const activeTabId = selectActiveTabId(sessionId);
   deleteTabById(tabId);
 
-  if (session.activeTabId === tabId) {
-    const remaining = session.tabs.filter((t) => t.tabId !== tabId);
-    if (remaining.length > 0) {
-      updateActiveTabId(sessionId, remaining[remaining.length - 1].tabId);
-    } else {
-      updateActiveTabId(sessionId, "");
-    }
+  if (activeTabId === tabId) {
+    const lastTabId = selectLastTabId(sessionId);
+    updateActiveTabId(sessionId, lastTabId ?? "");
   }
 
-  return tab.ptyId;
+  return ptyId;
 }
 
 export function setActiveTab(sessionId: string, tabId: string): void {
-  const session = selectSession(sessionId);
-  if (!session) return;
-  if (session.tabs.some((t) => t.tabId === tabId)) {
+  if (tabExistsInSession(sessionId, tabId)) {
     updateActiveTabId(sessionId, tabId);
   }
 }

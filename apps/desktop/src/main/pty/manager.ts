@@ -5,6 +5,8 @@ import { IPC_CHANNELS } from "../../shared/ipc-channels";
 interface PtyRecord {
   process: pty.IPty;
   ptyId: string;
+  buffer: string;
+  flushPending: boolean;
 }
 
 const ptyMap = new Map<string, PtyRecord>();
@@ -36,20 +38,39 @@ export function spawnPty(
     ),
   });
 
+  const record: PtyRecord = {
+    process: ptyProcess,
+    ptyId,
+    buffer: "",
+    flushPending: false,
+  };
+
   ptyProcess.onData((data: string) => {
-    if (!win.isDestroyed()) {
-      win.webContents.send(IPC_CHANNELS.PTY_DATA, ptyId, data);
+    record.buffer += data;
+    if (!record.flushPending) {
+      record.flushPending = true;
+      setImmediate(() => {
+        if (!win.isDestroyed() && record.buffer.length > 0) {
+          win.webContents.send(IPC_CHANNELS.PTY_DATA, ptyId, record.buffer);
+        }
+        record.buffer = "";
+        record.flushPending = false;
+      });
     }
   });
 
   ptyProcess.onExit(({ exitCode }) => {
+    if (record.buffer.length > 0 && !win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.PTY_DATA, ptyId, record.buffer);
+      record.buffer = "";
+    }
     if (!win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.PTY_EXIT, ptyId, exitCode);
     }
     ptyMap.delete(ptyId);
   });
 
-  ptyMap.set(ptyId, { process: ptyProcess, ptyId });
+  ptyMap.set(ptyId, record);
 }
 
 export function writePty(ptyId: string, data: string): void {

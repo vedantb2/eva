@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@conductor/ui";
 import { IconX, IconFolder } from "@tabler/icons-react";
@@ -18,7 +19,7 @@ function relativeTime(ts: number): string {
   return `${Math.floor(delta / 86_400_000)}d ago`;
 }
 
-export function SessionItem({
+export const SessionItem = memo(function SessionItem({
   sessionId,
   name,
   tabCount,
@@ -61,4 +62,4 @@ export function SessionItem({
       </Button>
     </div>
   );
-}
+});

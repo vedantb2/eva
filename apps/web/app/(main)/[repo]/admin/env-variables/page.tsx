@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import { EnvVariablesClient } from "./EnvVariablesClient";
-import { SystemEnvVarsClient } from "../system-env-vars/SystemEnvVarsClient";
+import { SystemEnvVarsClient } from "./SystemEnvVarsClient";
 
 export default function EnvVariablesPage() {
   const [tab, setTab] = useState("repo");

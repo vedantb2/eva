@@ -1,5 +1,10 @@
 # Changelog
 
+## Snapshot Rebuild: Daily Schedule Instead of Per-Commit — 2026-02-19
+
+- Changed `rebuild-snapshot.yml` trigger from `push` to `main` to a daily cron at 7 AM UTC — avoids unnecessary snapshot rebuilds on every commit when the base image rarely changes
+- Added `workflow_dispatch` for manual triggers when needed
+
 ## Fix Type Errors + Move View PR to Header — 2026-02-19
 
 - **Regenerated Convex types** — `npx convex codegen` to pick up the new `sessionAudits` module that was missing from the generated API types, fixing `api.sessionAudits` / `internal.sessionAudits` resolution errors

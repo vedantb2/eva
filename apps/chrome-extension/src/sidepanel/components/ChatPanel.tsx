@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/chrome-extension";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
@@ -46,8 +46,6 @@ import {
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 type SessionMessage = {
   role: "user" | "assistant";
@@ -95,6 +93,7 @@ export function ChatPanel({
   );
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const getInstallationToken = useAction(api.github.getInstallationTokenAction);
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const selectedRepo = useQuery(
     api.githubRepos.get,
@@ -249,18 +248,9 @@ Please review all components and files used on this page before implementing the
         if (!convexToken) throw new Error("Not authenticated");
 
         if (!selectedRepo) throw new Error("Repository not found");
-        const ghRes = await fetch(`${API_URL}/api/github/installation-token`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${convexToken}`,
-          },
-          body: JSON.stringify({
-            installationId: selectedRepo.installationId,
-          }),
+        const { token: githubToken } = await getInstallationToken({
+          installationId: selectedRepo.installationId,
         });
-        if (!ghRes.ok) throw new Error("Failed to get GitHub token");
-        const { token: githubToken } = await ghRes.json();
 
         await startExecution({
           sessionId: sessionId as Id<"sessions">,

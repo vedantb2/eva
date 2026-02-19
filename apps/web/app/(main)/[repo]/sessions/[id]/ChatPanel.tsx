@@ -64,7 +64,7 @@ import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -155,6 +155,7 @@ export function ChatPanel({
   );
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const createPr = useAction(api.github.createSessionPr);
   const startAuditMutation = useMutation(api.sessionAudits.startAudit);
   const sessionAudit = useQuery(
     api.sessionAudits.getBySession,
@@ -217,15 +218,7 @@ export function ChatPanel({
     setCompletedAudits(0);
     setIsCreatingPr(true);
     try {
-      const response = await fetch("/api/sessions/create-pr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create PR");
-      }
+      await createPr({ sessionId: typedSessionId });
       try {
         const { convexToken } = await getWorkflowTokens(repo.installationId);
         await startAuditMutation({

@@ -7,7 +7,7 @@ import {
   useAuth,
   useUser,
 } from "@clerk/chrome-extension";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
@@ -24,7 +24,7 @@ import {
 } from "@conductor/ui";
 import { IconBolt, IconMenu2, IconPlus } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { CONDUCTOR_URL, type StoredPin } from "@/shared/messaging";
+import { type StoredPin } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 
 function useTheme() {
@@ -100,6 +100,7 @@ function AuthenticatedApp() {
     `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() ||
     "?";
 
+  const getInstallationToken = useAction(api.github.getInstallationTokenAction);
   const createSession = useMutation(api.sessions.create);
   const getOrCreateExtensionSession = useMutation(
     api.sessions.getOrCreateExtensionSession,
@@ -114,26 +115,16 @@ function AuthenticatedApp() {
     async (result: Awaited<ReturnType<typeof startExecution>>) => {
       const convexToken = await getToken({ template: "convex" });
       if (!convexToken) throw new Error("Not authenticated");
-      const ghRes = await fetch(
-        `${CONDUCTOR_URL}/api/github/installation-token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${convexToken}`,
-          },
-          body: JSON.stringify({ installationId: result.installationId }),
-        },
-      );
-      if (!ghRes.ok) throw new Error("Failed to get GitHub token");
-      const { token: githubToken } = await ghRes.json();
+      const { token: githubToken } = await getInstallationToken({
+        installationId: result.installationId,
+      });
       await triggerExecution({
         ...result,
         convexToken,
         githubToken,
       });
     },
-    [getToken, triggerExecution],
+    [getToken, getInstallationToken, triggerExecution],
   );
 
   const projects = useQuery(

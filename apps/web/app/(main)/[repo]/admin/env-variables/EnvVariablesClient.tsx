@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -18,6 +18,8 @@ import {
 import {
   IconCheck,
   IconCopy,
+  IconEye,
+  IconEyeOff,
   IconKey,
   IconPencil,
   IconPlus,
@@ -25,20 +27,14 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
-function maskValue(value: string): string {
-  if (value.length > 8) {
-    return value.slice(0, 2) + "****" + value.slice(-4);
-  }
-  return "****";
-}
-
 export function EnvVariablesClient() {
   const { repoId } = useRepo();
   const vars = useQuery(api.repoEnvVars.list, { repoId });
-  const upsertVar = useMutation(api.repoEnvVars.upsertVar);
+  const upsertVar = useAction(api.repoEnvVarsActions.upsertVar);
+  const revealValue = useAction(api.repoEnvVarsActions.revealValue);
   const removeVar = useMutation(api.repoEnvVars.removeVar);
 
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [valueInput, setValueInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,10 +44,22 @@ export function EnvVariablesClient() {
 
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
 
-  const openAdd = () => {
+  const [revealedValues, setRevealedValues] = useState<Record<string, string>>(
+    {},
+  );
+  const [revealingKey, setRevealingKey] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const startAdd = () => {
+    setAdding(true);
     setKeyInput("");
     setValueInput("");
-    setAddDialogOpen(true);
+  };
+
+  const cancelAdd = () => {
+    setAdding(false);
+    setKeyInput("");
+    setValueInput("");
   };
 
   const handleAdd = async () => {
@@ -59,12 +67,14 @@ export function EnvVariablesClient() {
     setSaving(true);
     await upsertVar({ repoId, key: keyInput.trim(), value: valueInput });
     setSaving(false);
-    setAddDialogOpen(false);
+    setAdding(false);
+    setKeyInput("");
+    setValueInput("");
   };
 
-  const startEdit = (key: string, currentValue: string) => {
+  const startEdit = (key: string) => {
     setEditingKey(key);
-    setEditValue(currentValue);
+    setEditValue("");
   };
 
   const cancelEdit = () => {
@@ -79,19 +89,60 @@ export function EnvVariablesClient() {
     setSaving(false);
     setEditingKey(null);
     setEditValue("");
+    setRevealedValues((prev) => {
+      const next = { ...prev };
+      delete next[editingKey];
+      return next;
+    });
   };
 
   const confirmDelete = async () => {
     if (!deleteKey) return;
     await removeVar({ repoId, key: deleteKey });
+    setRevealedValues((prev) => {
+      const next = { ...prev };
+      delete next[deleteKey];
+      return next;
+    });
     setDeleteKey(null);
   };
+
+  const toggleReveal = async (key: string) => {
+    if (revealedValues[key] !== undefined) {
+      setRevealedValues((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+    setRevealingKey(key);
+    const value = await revealValue({ repoId, key });
+    if (value !== null) {
+      setRevealedValues((prev) => ({ ...prev, [key]: value }));
+    }
+    setRevealingKey(null);
+  };
+
+  const copyValue = async (key: string) => {
+    let value = revealedValues[key];
+    if (value === undefined) {
+      const result = await revealValue({ repoId, key });
+      if (result === null) return;
+      value = result;
+    }
+    await navigator.clipboard.writeText(value);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
+
+  const showTable = (vars && vars.length > 0) || adding;
 
   return (
     <PageWrapper
       title="Environment Variables"
       headerRight={
-        <Button size="sm" onClick={openAdd}>
+        <Button size="sm" onClick={startAdd} disabled={adding}>
           <IconPlus size={16} className="mr-1.5" />
           Add Variable
         </Button>
@@ -101,7 +152,7 @@ export function EnvVariablesClient() {
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
-      ) : vars.length === 0 ? (
+      ) : !showTable ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <IconKey size={48} className="mb-3 opacity-40" />
           <p className="text-sm">No environment variables configured</p>
@@ -121,6 +172,58 @@ export function EnvVariablesClient() {
               </tr>
             </thead>
             <tbody>
+              {adding && (
+                <tr className="border-b border-border/40">
+                  <td className="px-4 py-2.5">
+                    <Input
+                      value={keyInput}
+                      onChange={(e) => setKeyInput(e.target.value)}
+                      placeholder="e.g. API_KEY"
+                      className="h-7 font-mono text-xs"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") cancelAdd();
+                      }}
+                    />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Input
+                      value={valueInput}
+                      onChange={(e) => setValueInput(e.target.value)}
+                      placeholder="Enter value"
+                      className="h-7 font-mono text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAdd();
+                        if (e.key === "Escape") cancelAdd();
+                      }}
+                    />
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={handleAdd}
+                        disabled={
+                          !keyInput.trim() || !valueInput.trim() || saving
+                        }
+                        title="Save"
+                        className="text-primary hover:text-primary"
+                      >
+                        <IconCheck size={14} />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={cancelAdd}
+                        title="Cancel"
+                      >
+                        <IconX size={14} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {vars.map((v) => (
                 <tr
                   key={v.key}
@@ -132,7 +235,7 @@ export function EnvVariablesClient() {
                       <Input
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        placeholder="Enter value"
+                        placeholder="Enter new value"
                         className="h-7 font-mono text-xs"
                         autoFocus
                         onKeyDown={(e) => {
@@ -142,7 +245,7 @@ export function EnvVariablesClient() {
                       />
                     ) : (
                       <span className="font-mono text-xs text-muted-foreground">
-                        {maskValue(v.value)}
+                        {revealedValues[v.key] ?? v.value}
                       </span>
                     )}
                   </td>
@@ -173,15 +276,36 @@ export function EnvVariablesClient() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          onClick={() => navigator.clipboard.writeText(v.value)}
-                          title="Copy value"
+                          onClick={() => toggleReveal(v.key)}
+                          disabled={revealingKey === v.key}
+                          title={
+                            revealedValues[v.key] !== undefined
+                              ? "Hide value"
+                              : "Reveal value"
+                          }
                         >
-                          <IconCopy size={14} />
+                          {revealedValues[v.key] !== undefined ? (
+                            <IconEyeOff size={14} />
+                          ) : (
+                            <IconEye size={14} />
+                          )}
                         </Button>
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          onClick={() => startEdit(v.key, v.value)}
+                          onClick={() => copyValue(v.key)}
+                          title={copiedKey === v.key ? "Copied!" : "Copy value"}
+                        >
+                          {copiedKey === v.key ? (
+                            <IconCheck size={14} className="text-primary" />
+                          ) : (
+                            <IconCopy size={14} />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => startEdit(v.key)}
                           title="Edit"
                         >
                           <IconPencil size={14} />
@@ -204,54 +328,6 @@ export function EnvVariablesClient() {
           </table>
         </div>
       )}
-
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Variable</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Key
-              </label>
-              <Input
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="e.g. API_KEY"
-                className="font-mono text-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Value
-              </label>
-              <Input
-                value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                placeholder="Enter value"
-                className="font-mono text-sm"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleAdd}
-              disabled={!keyInput.trim() || !valueInput.trim() || saving}
-            >
-              {saving ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={deleteKey !== null}

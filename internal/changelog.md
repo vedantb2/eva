@@ -1,5 +1,13 @@
 # Changelog
 
+## Encrypt Repo Environment Variables at Rest — 2026-02-19
+
+- **Why**: Env var values were stored as plaintext in Convex, meaning anyone with dashboard access, data exports, or even the public `list` query could see raw secrets. The `list` query was sending real values to the client with only cosmetic client-side masking.
+- **Encryption**: AES-256-GCM via `node:crypto`. Values stored as `enc:<base64(iv+ciphertext+tag)>`. Requires `ENCRYPTION_KEY` Convex env var (32-byte hex).
+- **Server-side masking**: `list` query now returns `"••••••"` for all values — real values never leave the backend. Removed copy button from UI.
+- **Backward compatible**: `decryptValue()` passes through non-prefixed values as plaintext, so existing data works until re-saved through the UI.
+- **Architecture**: Split `upsertVar` from mutation to action in new `repoEnvVarsActions.ts` (`"use node"`) since encryption requires Node.js crypto. Decryption added to all 3 sandbox injection points in `daytona.ts`.
+
 ## Centralize GitHub API Access in Convex — 2026-02-19
 
 - **Unified GitHub auth across backend**: Moved `syncGitHubRepos` server action and `getWorkflowTokens` GitHub auth logic to Convex actions. All GitHub App token generation now flows through Convex, eliminating duplicated `@octokit/auth-app` code across web and sandbox modules.

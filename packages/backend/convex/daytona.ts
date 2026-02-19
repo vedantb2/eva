@@ -5,6 +5,7 @@ import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
+import { decryptValue } from "./encryption";
 
 const SNAPSHOT_NAME = "eva-snapshot";
 const WORKSPACE_DIR = "/workspace/repo";
@@ -509,7 +510,7 @@ export const setupAndExecute = internalAction({
         repoId: args.repoId,
       });
       for (const v of vars) {
-        repoEnvVars[v.key] = v.value;
+        repoEnvVars[v.key] = decryptValue(v.value);
       }
     }
 
@@ -743,7 +744,7 @@ export const startSessionSandbox = internalAction({
           repoId: args.repoId,
         });
         for (const v of vars) {
-          repoEnvVars[v.key] = v.value;
+          repoEnvVars[v.key] = decryptValue(v.value);
         }
       }
 
@@ -844,7 +845,7 @@ export const startDesignSandbox = internalAction({
           repoId: args.repoId,
         });
         for (const v of vars) {
-          repoEnvVars[v.key] = v.value;
+          repoEnvVars[v.key] = decryptValue(v.value);
         }
       }
 

@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query, internalQuery } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 
 export const list = query({
@@ -13,7 +18,7 @@ export const list = query({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return [];
-    return doc.vars;
+    return doc.vars.map((entry) => ({ key: entry.key, value: "••••••" }));
   },
 });
 
@@ -30,7 +35,7 @@ export const getForSandbox = internalQuery({
   },
 });
 
-export const upsertVar = mutation({
+export const upsertVarInternal = internalMutation({
   args: {
     repoId: v.id("githubRepos"),
     key: v.string(),
@@ -38,14 +43,12 @@ export const upsertVar = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const doc = await ctx.db
       .query("repoEnvVars")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
     if (doc) {
-      const vars = doc.vars.filter((v) => v.key !== args.key);
+      const vars = doc.vars.filter((entry) => entry.key !== args.key);
       vars.push({ key: args.key, value: args.value });
       await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
     } else {
@@ -73,7 +76,7 @@ export const removeVar = mutation({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return null;
-    const vars = doc.vars.filter((v) => v.key !== args.key);
+    const vars = doc.vars.filter((entry) => entry.key !== args.key);
     await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
     return null;
   },

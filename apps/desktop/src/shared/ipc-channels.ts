@@ -10,10 +10,15 @@ export const IPC_CHANNELS = {
   SESSION_LIST: "session:list",
   SESSION_DELETE: "session:delete",
   SESSION_GET: "session:get",
+  SESSION_RESTORE: "session:restore",
+  SESSION_RECENT_REPOS: "session:recentRepos",
 
   TAB_CREATE: "tab:create",
   TAB_CLOSE: "tab:close",
   TAB_SEND_MESSAGE: "tab:sendMessage",
+
+  PREFERENCES_GET: "preferences:get",
+  PREFERENCES_SET: "preferences:set",
 
   GIT_STATUS: "git:status",
   GIT_STAGE: "git:stage",

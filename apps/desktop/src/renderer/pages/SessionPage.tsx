@@ -49,6 +49,7 @@ export function SessionPage() {
   useEffect(() => {
     if (sessionId) {
       setActiveSessionId(sessionId);
+      window.electronAPI.sessionRestore(sessionId);
     }
   }, [sessionId, setActiveSessionId]);
 

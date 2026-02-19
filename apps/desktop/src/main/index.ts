@@ -2,8 +2,8 @@ import { app, BrowserWindow, shell } from "electron";
 import { join } from "path";
 import { registerHandlers } from "./ipc/handlers";
 import { killAllPtys } from "./pty/manager";
-import { listSessions, deleteSession } from "./session/store";
 import { stopAllWatchers } from "./git/watcher";
+import { initDatabase, closeDatabase } from "./db/database";
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -38,6 +38,7 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  initDatabase();
   createWindow();
 
   app.on("activate", () => {
@@ -54,10 +55,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  const sessions = listSessions();
-  for (const session of sessions) {
-    deleteSession(session.sessionId);
-  }
   stopAllWatchers();
   killAllPtys();
+  closeDatabase();
 });

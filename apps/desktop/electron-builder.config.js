@@ -7,7 +7,10 @@ const config = {
     output: "release",
   },
   files: ["out/**/*", "!out/**/*.map"],
-  asarUnpack: ["**/node_modules/node-pty/**"],
+  asarUnpack: [
+    "**/node_modules/node-pty/**",
+    "**/node_modules/better-sqlite3/**",
+  ],
   npmRebuild: true,
   mac: {
     category: "public.app-category.developer-tools",

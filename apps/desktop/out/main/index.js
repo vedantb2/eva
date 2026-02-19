@@ -3,6 +3,7 @@ const electron = require("electron");
 const path = require("path");
 const pty = require("node-pty");
 const node_crypto = require("node:crypto");
+const Database = require("better-sqlite3");
 const simpleGit = require("simple-git");
 const node_events = require("node:events");
 const node_fs = require("node:fs");
@@ -45,9 +46,13 @@ const IPC_CHANNELS = {
   SESSION_LIST: "session:list",
   SESSION_DELETE: "session:delete",
   SESSION_GET: "session:get",
+  SESSION_RESTORE: "session:restore",
+  SESSION_RECENT_REPOS: "session:recentRepos",
   TAB_CREATE: "tab:create",
   TAB_CLOSE: "tab:close",
   TAB_SEND_MESSAGE: "tab:sendMessage",
+  PREFERENCES_GET: "preferences:get",
+  PREFERENCES_SET: "preferences:set",
   GIT_STATUS: "git:status",
   GIT_STAGE: "git:stage",
   GIT_UNSTAGE: "git:unstage",
@@ -135,7 +140,215 @@ function nanoid(size = 21) {
   }
   return id;
 }
-const sessions = /* @__PURE__ */ new Map();
+const migrations = [
+  {
+    version: 1,
+    up: (db2) => {
+      db2.exec(`
+        CREATE TABLE sessions (
+          session_id TEXT PRIMARY KEY,
+          repo_path TEXT NOT NULL,
+          name TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          active_tab_id TEXT NOT NULL DEFAULT '',
+          last_opened_at INTEGER NOT NULL,
+          pinned INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE tabs (
+          tab_id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+          pty_id TEXT NOT NULL,
+          tool TEXT NOT NULL,
+          label TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX idx_tabs_session_id ON tabs(session_id);
+
+        CREATE TABLE preferences (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `);
+    },
+  },
+];
+function runMigrations(db2) {
+  const currentVersion = db2.pragma("user_version", { simple: true });
+  const version = typeof currentVersion === "number" ? currentVersion : 0;
+  const pending = migrations.filter((m) => m.version > version);
+  if (pending.length === 0) return;
+  const transaction = db2.transaction(() => {
+    for (const migration of pending) {
+      migration.up(db2);
+      db2.pragma(`user_version = ${migration.version}`);
+    }
+  });
+  transaction();
+}
+let db = null;
+function initDatabase() {
+  const dbPath = path.join(electron.app.getPath("userData"), "evacode.db");
+  db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+  runMigrations(db);
+}
+function getDatabase() {
+  if (!db) {
+    throw new Error("Database not initialized. Call initDatabase() first.");
+  }
+  return db;
+}
+function closeDatabase() {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+const VALID_TOOLS = {
+  claude: "claude",
+  opencode: "opencode",
+  codex: "codex",
+  shell: "shell",
+};
+function toToolType(raw) {
+  const tool = VALID_TOOLS[raw];
+  if (tool) return tool;
+  return "shell";
+}
+function isRecord(val) {
+  return typeof val === "object" && val !== null;
+}
+function parseTabRow(raw) {
+  if (!isRecord(raw)) return null;
+  return {
+    tabId: String(raw["tab_id"]),
+    sessionId: String(raw["session_id"]),
+    ptyId: String(raw["pty_id"]),
+    tool: toToolType(String(raw["tool"])),
+    label: String(raw["label"]),
+    createdAt: Number(raw["created_at"]),
+  };
+}
+function parseTabRows(rows) {
+  const result = [];
+  for (const row of rows) {
+    const tab = parseTabRow(row);
+    if (tab) result.push(tab);
+  }
+  return result;
+}
+function parseSessionWithTabs(raw, tabRows) {
+  if (!isRecord(raw)) return null;
+  return {
+    sessionId: String(raw["session_id"]),
+    repoPath: String(raw["repo_path"]),
+    name: String(raw["name"]),
+    createdAt: Number(raw["created_at"]),
+    tabs: parseTabRows(tabRows),
+    activeTabId: String(raw["active_tab_id"]),
+  };
+}
+function insertSession(sessionId, repoPath, name, createdAt) {
+  const db2 = getDatabase();
+  db2
+    .prepare(
+      `INSERT INTO sessions (session_id, repo_path, name, created_at, active_tab_id, last_opened_at, pinned)
+     VALUES (?, ?, ?, ?, '', ?, 0)`,
+    )
+    .run(sessionId, repoPath, name, createdAt, createdAt);
+}
+function selectSession(sessionId) {
+  const db2 = getDatabase();
+  const row = db2
+    .prepare("SELECT * FROM sessions WHERE session_id = ?")
+    .get(sessionId);
+  if (!row) return null;
+  const tabRows = db2
+    .prepare("SELECT * FROM tabs WHERE session_id = ? ORDER BY created_at ASC")
+    .all(sessionId);
+  return parseSessionWithTabs(row, tabRows);
+}
+function selectAllSessions() {
+  const db2 = getDatabase();
+  const rows = db2
+    .prepare("SELECT * FROM sessions ORDER BY last_opened_at DESC")
+    .all();
+  const result = [];
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const tabRows = db2
+      .prepare(
+        "SELECT * FROM tabs WHERE session_id = ? ORDER BY created_at ASC",
+      )
+      .all(String(row["session_id"]));
+    const session = parseSessionWithTabs(row, tabRows);
+    if (session) result.push(session);
+  }
+  return result;
+}
+function deleteSessionById(sessionId) {
+  const db2 = getDatabase();
+  db2.prepare("DELETE FROM sessions WHERE session_id = ?").run(sessionId);
+}
+function updateActiveTabId(sessionId, tabId) {
+  const db2 = getDatabase();
+  db2
+    .prepare("UPDATE sessions SET active_tab_id = ? WHERE session_id = ?")
+    .run(tabId, sessionId);
+}
+function updateLastOpened(sessionId) {
+  const db2 = getDatabase();
+  db2
+    .prepare("UPDATE sessions SET last_opened_at = ? WHERE session_id = ?")
+    .run(Date.now(), sessionId);
+}
+function insertTab(tabId, sessionId, ptyId, tool, label, createdAt) {
+  const db2 = getDatabase();
+  db2
+    .prepare(
+      `INSERT INTO tabs (tab_id, session_id, pty_id, tool, label, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(tabId, sessionId, ptyId, tool, label, createdAt);
+}
+function deleteTabById(tabId) {
+  const db2 = getDatabase();
+  db2.prepare("DELETE FROM tabs WHERE tab_id = ?").run(tabId);
+}
+function getPreference(key) {
+  const db2 = getDatabase();
+  const row = db2
+    .prepare("SELECT value FROM preferences WHERE key = ?")
+    .get(key);
+  if (!isRecord(row)) return null;
+  return String(row["value"]);
+}
+function setPreference(key, value) {
+  const db2 = getDatabase();
+  db2
+    .prepare("INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)")
+    .run(key, value);
+}
+function selectRecentRepos(limit) {
+  const db2 = getDatabase();
+  const rows = db2
+    .prepare(
+      `SELECT DISTINCT repo_path FROM sessions
+       ORDER BY last_opened_at DESC
+       LIMIT ?`,
+    )
+    .all(limit);
+  const result = [];
+  for (const row of rows) {
+    if (isRecord(row)) {
+      result.push(String(row["repo_path"]));
+    }
+  }
+  return result;
+}
 const TOOL_LABELS = {
   claude: "Claude Code",
   opencode: "OpenCode",
@@ -144,57 +357,66 @@ const TOOL_LABELS = {
 };
 function createSession(repoPath) {
   const sessionId = nanoid();
-  const session = {
+  const now = Date.now();
+  const name = path.basename(repoPath);
+  insertSession(sessionId, repoPath, name, now);
+  return {
     sessionId,
     repoPath,
-    name: path.basename(repoPath),
-    createdAt: Date.now(),
+    name,
+    createdAt: now,
     tabs: [],
     activeTabId: "",
   };
-  sessions.set(sessionId, session);
-  return session;
 }
 function getSession(sessionId) {
-  return sessions.get(sessionId) ?? null;
+  return selectSession(sessionId);
 }
 function listSessions() {
-  return Array.from(sessions.values()).sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
+  return selectAllSessions();
 }
 function deleteSession(sessionId) {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
-  sessions.delete(sessionId);
+  deleteSessionById(sessionId);
   return session;
 }
 function addTab(sessionId, tool) {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
   const tabId = nanoid();
-  const tab = {
+  const ptyId = `tab-pty-${tabId}`;
+  const label = TOOL_LABELS[tool];
+  const now = Date.now();
+  insertTab(tabId, sessionId, ptyId, tool, label, now);
+  updateActiveTabId(sessionId, tabId);
+  return {
     tabId,
     sessionId,
-    ptyId: `tab-pty-${tabId}`,
+    ptyId,
     tool,
-    label: TOOL_LABELS[tool],
-    createdAt: Date.now(),
+    label,
+    createdAt: now,
   };
-  session.tabs.push(tab);
-  session.activeTabId = tabId;
-  return tab;
 }
 function removeTab(sessionId, tabId) {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
   const tab = session.tabs.find((t) => t.tabId === tabId);
   if (!tab) return null;
-  session.tabs = session.tabs.filter((t) => t.tabId !== tabId);
-  if (session.activeTabId === tabId && session.tabs.length > 0) {
-    session.activeTabId = session.tabs[session.tabs.length - 1].tabId;
+  deleteTabById(tabId);
+  if (session.activeTabId === tabId) {
+    const remaining = session.tabs.filter((t) => t.tabId !== tabId);
+    if (remaining.length > 0) {
+      updateActiveTabId(sessionId, remaining[remaining.length - 1].tabId);
+    } else {
+      updateActiveTabId(sessionId, "");
+    }
   }
   return tab.ptyId;
+}
+function touchSession(sessionId) {
+  updateLastOpened(sessionId);
 }
 const TOOL_COMMANDS = {
   claude: "claude",
@@ -218,6 +440,15 @@ function spawnTab(win, sessionId, repoPath, tool, initialMessage) {
     }, 300);
   }
   return tab;
+}
+function respawnTab(win, tab, repoPath) {
+  spawnPty(tab.ptyId, repoPath, 120, 40, {}, win);
+  const command = TOOL_COMMANDS[tab.tool];
+  if (command) {
+    setTimeout(() => {
+      writePty(tab.ptyId, `${command}\r`);
+    }, 300);
+  }
 }
 async function getStatus(repoPath) {
   const git = simpleGit.simpleGit(repoPath);
@@ -2178,6 +2409,22 @@ function registerHandlers(win) {
     }
     deleteSession(sessionId);
   });
+  electron.ipcMain.handle(IPC_CHANNELS.SESSION_RESTORE, (_event, sessionId) => {
+    const session = getSession(sessionId);
+    if (!session) return null;
+    touchSession(sessionId);
+    for (const tab of session.tabs) {
+      respawnTab(win, tab, session.repoPath);
+    }
+    startWatching(session.repoPath, win);
+    return session;
+  });
+  electron.ipcMain.handle(
+    IPC_CHANNELS.SESSION_RECENT_REPOS,
+    (_event, limit) => {
+      return selectRecentRepos(limit);
+    },
+  );
   electron.ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, opts) => {
     const session = getSession(opts.sessionId);
     if (!session) return null;
@@ -2194,6 +2441,15 @@ function registerHandlers(win) {
     IPC_CHANNELS.TAB_SEND_MESSAGE,
     (_event, _sessionId, tabId, message) => {
       writePty(`tab-pty-${tabId}`, `${message}\r`);
+    },
+  );
+  electron.ipcMain.handle(IPC_CHANNELS.PREFERENCES_GET, (_event, key) => {
+    return getPreference(key);
+  });
+  electron.ipcMain.handle(
+    IPC_CHANNELS.PREFERENCES_SET,
+    (_event, key, value) => {
+      setPreference(key, value);
     },
   );
   electron.ipcMain.handle(IPC_CHANNELS.GIT_STATUS, async (_event, repoPath) => {
@@ -2279,6 +2535,7 @@ function createWindow() {
   return win;
 }
 electron.app.whenReady().then(() => {
+  initDatabase();
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {
@@ -2292,10 +2549,7 @@ electron.app.on("window-all-closed", () => {
   }
 });
 electron.app.on("before-quit", () => {
-  const sessions2 = listSessions();
-  for (const session of sessions2) {
-    deleteSession(session.sessionId);
-  }
   stopAllWatchers();
   killAllPtys();
+  closeDatabase();
 });

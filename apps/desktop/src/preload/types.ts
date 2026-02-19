@@ -69,6 +69,8 @@ export interface ElectronAPI {
   sessionList: () => Promise<Session[]>;
   sessionDelete: (sessionId: string) => Promise<void>;
   sessionGet: (sessionId: string) => Promise<Session | null>;
+  sessionRestore: (sessionId: string) => Promise<Session | null>;
+  recentRepos: (limit: number) => Promise<string[]>;
 
   tabCreate: (opts: CreateTabOptions) => Promise<TerminalTab>;
   tabClose: (sessionId: string, tabId: string) => Promise<void>;
@@ -84,6 +86,9 @@ export interface ElectronAPI {
   gitWatchStart: (repoPath: string) => Promise<void>;
   gitWatchStop: (repoPath: string) => Promise<void>;
   onGitChanged: (callback: (repoPath: string) => void) => () => void;
+
+  preferencesGet: (key: string) => Promise<string | null>;
+  preferencesSet: (key: string, value: string) => Promise<void>;
 
   openDirectory: () => Promise<string | null>;
 

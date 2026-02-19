@@ -60,6 +60,12 @@ const api: ElectronAPI = {
   sessionDelete: (sessionId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId),
 
+  sessionRestore: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESTORE, sessionId),
+
+  recentRepos: (limit: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_RECENT_REPOS, limit),
+
   tabCreate: (opts: CreateTabOptions) =>
     ipcRenderer.invoke(IPC_CHANNELS.TAB_CREATE, opts),
 
@@ -102,6 +108,12 @@ const api: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.GIT_WATCH_CHANGED, handler);
     return () => ipcRenderer.off(IPC_CHANNELS.GIT_WATCH_CHANGED, handler);
   },
+
+  preferencesGet: (key: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_GET, key),
+
+  preferencesSet: (key: string, value: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_SET, key, value),
 
   openDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY),
 

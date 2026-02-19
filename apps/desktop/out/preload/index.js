@@ -11,9 +11,13 @@ const IPC_CHANNELS = {
   SESSION_LIST: "session:list",
   SESSION_DELETE: "session:delete",
   SESSION_GET: "session:get",
+  SESSION_RESTORE: "session:restore",
+  SESSION_RECENT_REPOS: "session:recentRepos",
   TAB_CREATE: "tab:create",
   TAB_CLOSE: "tab:close",
   TAB_SEND_MESSAGE: "tab:sendMessage",
+  PREFERENCES_GET: "preferences:get",
+  PREFERENCES_SET: "preferences:set",
   GIT_STATUS: "git:status",
   GIT_STAGE: "git:stage",
   GIT_UNSTAGE: "git:unstage",
@@ -62,6 +66,10 @@ const api = {
     electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET, sessionId),
   sessionDelete: (sessionId) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId),
+  sessionRestore: (sessionId) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESTORE, sessionId),
+  recentRepos: (limit) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_RECENT_REPOS, limit),
   tabCreate: (opts) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.TAB_CREATE, opts),
   tabClose: (sessionId, tabId) =>
@@ -97,6 +105,10 @@ const api = {
     return () =>
       electron.ipcRenderer.off(IPC_CHANNELS.GIT_WATCH_CHANGED, handler);
   },
+  preferencesGet: (key) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_GET, key),
+  preferencesSet: (key, value) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_SET, key, value),
   openDirectory: () =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY),
   openInFinder: (path) =>

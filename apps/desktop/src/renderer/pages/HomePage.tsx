@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Textarea } from "@conductor/ui";
 import {
@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
-import { IconFolder, IconArrowUp } from "@tabler/icons-react";
+import { IconFolder, IconArrowUp, IconHistory } from "@tabler/icons-react";
 import { useSessionContext } from "../contexts/SessionContext";
 import type { ToolType } from "../../preload/types";
 
@@ -32,6 +32,11 @@ export function HomePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentRepos, setRecentRepos] = useState<string[]>([]);
+
+  useEffect(() => {
+    window.electronAPI.recentRepos(5).then(setRecentRepos);
+  }, []);
 
   async function handlePickFolder() {
     const selected = await window.electronAPI.openDirectory();
@@ -61,6 +66,10 @@ export function HomePage() {
       e.preventDefault();
       handleSubmit();
     }
+  }
+
+  function handleRecentRepoClick(path: string) {
+    setRepoPath(path);
   }
 
   const folderName = repoPath ? repoPath.split(/[/\\]/).pop() : null;
@@ -127,6 +136,27 @@ export function HomePage() {
 
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
+
+        {recentRepos.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <IconHistory size={12} />
+              <span>Recent</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              {recentRepos.map((path) => (
+                <button
+                  key={path}
+                  onClick={() => handleRecentRepoClick(path)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors text-left"
+                >
+                  <IconFolder size={12} className="shrink-0" />
+                  <span className="truncate">{path}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-muted-foreground text-center">
           Select a folder to open an interactive terminal session

@@ -1,8 +1,16 @@
 import { nanoid } from "nanoid";
-import type { Session, TerminalTab, ToolType } from "../../preload/types";
 import { basename } from "path";
-
-const sessions = new Map<string, Session>();
+import type { Session, TerminalTab, ToolType } from "../../preload/types";
+import {
+  insertSession,
+  selectSession,
+  selectAllSessions,
+  deleteSessionById,
+  updateActiveTabId,
+  updateLastOpened,
+  insertTab,
+  deleteTabById,
+} from "../db/queries";
 
 const TOOL_LABELS: Record<ToolType, string> = {
   claude: "Claude Code",
@@ -13,74 +21,86 @@ const TOOL_LABELS: Record<ToolType, string> = {
 
 export function createSession(repoPath: string): Session {
   const sessionId = nanoid();
-  const session: Session = {
+  const now = Date.now();
+  const name = basename(repoPath);
+  insertSession(sessionId, repoPath, name, now);
+
+  return {
     sessionId,
     repoPath,
-    name: basename(repoPath),
-    createdAt: Date.now(),
+    name,
+    createdAt: now,
     tabs: [],
     activeTabId: "",
   };
-  sessions.set(sessionId, session);
-  return session;
 }
 
 export function getSession(sessionId: string): Session | null {
-  return sessions.get(sessionId) ?? null;
+  return selectSession(sessionId);
 }
 
 export function listSessions(): Session[] {
-  return Array.from(sessions.values()).sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
+  return selectAllSessions();
 }
 
 export function deleteSession(sessionId: string): Session | null {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
-  sessions.delete(sessionId);
+  deleteSessionById(sessionId);
   return session;
 }
 
 export function addTab(sessionId: string, tool: ToolType): TerminalTab | null {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
 
   const tabId = nanoid();
-  const tab: TerminalTab = {
+  const ptyId = `tab-pty-${tabId}`;
+  const label = TOOL_LABELS[tool];
+  const now = Date.now();
+
+  insertTab(tabId, sessionId, ptyId, tool, label, now);
+  updateActiveTabId(sessionId, tabId);
+
+  return {
     tabId,
     sessionId,
-    ptyId: `tab-pty-${tabId}`,
+    ptyId,
     tool,
-    label: TOOL_LABELS[tool],
-    createdAt: Date.now(),
+    label,
+    createdAt: now,
   };
-
-  session.tabs.push(tab);
-  session.activeTabId = tabId;
-  return tab;
 }
 
 export function removeTab(sessionId: string, tabId: string): string | null {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return null;
 
   const tab = session.tabs.find((t) => t.tabId === tabId);
   if (!tab) return null;
 
-  session.tabs = session.tabs.filter((t) => t.tabId !== tabId);
+  deleteTabById(tabId);
 
-  if (session.activeTabId === tabId && session.tabs.length > 0) {
-    session.activeTabId = session.tabs[session.tabs.length - 1].tabId;
+  if (session.activeTabId === tabId) {
+    const remaining = session.tabs.filter((t) => t.tabId !== tabId);
+    if (remaining.length > 0) {
+      updateActiveTabId(sessionId, remaining[remaining.length - 1].tabId);
+    } else {
+      updateActiveTabId(sessionId, "");
+    }
   }
 
   return tab.ptyId;
 }
 
 export function setActiveTab(sessionId: string, tabId: string): void {
-  const session = sessions.get(sessionId);
+  const session = selectSession(sessionId);
   if (!session) return;
   if (session.tabs.some((t) => t.tabId === tabId)) {
-    session.activeTabId = tabId;
+    updateActiveTabId(sessionId, tabId);
   }
+}
+
+export function touchSession(sessionId: string): void {
+  updateLastOpened(sessionId);
 }

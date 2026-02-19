@@ -7,8 +7,9 @@ import {
   listSessions,
   deleteSession,
   removeTab,
+  touchSession,
 } from "../session/store";
-import { spawnTab } from "../session/tab-spawner";
+import { spawnTab, respawnTab } from "../session/tab-spawner";
 import {
   getStatus,
   stageFiles,
@@ -19,6 +20,7 @@ import {
   getUnstagedDiff,
 } from "../git/operations";
 import { startWatching, stopWatching } from "../git/watcher";
+import { getPreference, setPreference, selectRecentRepos } from "../db/queries";
 import type {
   PtySpawnOptions,
   CreateSessionOptions,
@@ -88,6 +90,25 @@ export function registerHandlers(win: BrowserWindow): void {
     deleteSession(sessionId);
   });
 
+  ipcMain.handle(IPC_CHANNELS.SESSION_RESTORE, (_event, sessionId: string) => {
+    const session = getSession(sessionId);
+    if (!session) return null;
+
+    touchSession(sessionId);
+
+    for (const tab of session.tabs) {
+      respawnTab(win, tab, session.repoPath);
+    }
+
+    startWatching(session.repoPath, win);
+
+    return session;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_RECENT_REPOS, (_event, limit: number) => {
+    return selectRecentRepos(limit);
+  });
+
   ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, opts: CreateTabOptions) => {
     const session = getSession(opts.sessionId);
     if (!session) return null;
@@ -106,6 +127,17 @@ export function registerHandlers(win: BrowserWindow): void {
     IPC_CHANNELS.TAB_SEND_MESSAGE,
     (_event, _sessionId: string, tabId: string, message: string) => {
       writePty(`tab-pty-${tabId}`, `${message}\r`);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.PREFERENCES_GET, (_event, key: string) => {
+    return getPreference(key);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.PREFERENCES_SET,
+    (_event, key: string, value: string) => {
+      setPreference(key, value);
     },
   );
 

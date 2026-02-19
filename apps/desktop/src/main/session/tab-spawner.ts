@@ -37,3 +37,18 @@ export function spawnTab(
 
   return tab;
 }
+
+export function respawnTab(
+  win: BrowserWindow,
+  tab: TerminalTab,
+  repoPath: string,
+): void {
+  spawnPty(tab.ptyId, repoPath, 120, 40, {}, win);
+
+  const command = TOOL_COMMANDS[tab.tool];
+  if (command) {
+    setTimeout(() => {
+      writePty(tab.ptyId, `${command}\r`);
+    }, 300);
+  }
+}

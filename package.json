@@ -30,6 +30,7 @@
       "@types/react-dom": "19.0.4"
     },
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "electron",
       "node-pty"
     ]

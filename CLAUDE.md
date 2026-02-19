@@ -224,8 +224,11 @@ Electron app (electron-vite v3) for interactive AI coding sessions. Session-base
 
 **Key modules:**
 
-- `src/main/session/store.ts` — In-memory session CRUD (Map<sessionId, Session>)
-- `src/main/session/tab-spawner.ts` — Spawns PTY + writes tool command (e.g. `claude\r`) after delay
+- `src/main/db/database.ts` — SQLite init (WAL mode, foreign keys), connection getter, close
+- `src/main/db/migrations.ts` — Version-stamped migrations using `PRAGMA user_version`
+- `src/main/db/queries.ts` — All prepared statement wrappers for sessions, tabs, preferences
+- `src/main/session/store.ts` — SQLite-backed session CRUD (sessions persist across restarts)
+- `src/main/session/tab-spawner.ts` — Spawns PTY + writes tool command (e.g. `claude\r`) after delay; `respawnTab()` for session restore
 - `src/main/git/operations.ts` — Git operations via `simple-git` (status, stage, unstage, commit, diff)
 - `src/main/git/watcher.ts` — File watching via `chokidar` with 500ms debounce, notifies renderer of changes
 - `src/main/pty/manager.ts` — PTY lifecycle (spawn, write, resize, kill) via `node-pty`

@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop: SQLite Persistence for Sessions — 2026-02-19
+
+- **Replaced in-memory session store with SQLite** (`better-sqlite3`) so sessions, tabs, and preferences survive app restarts. Previously all state was lost on quit.
+- **Session restore flow**: On app restart, persisted sessions appear in the sidebar. Clicking one re-spawns PTYs for all tabs (terminal output is blank but the CLI tool restarts). `spawnPty` guard makes this idempotent — safe on already-running sessions.
+- **New database module** (`src/main/db/`): `database.ts` (WAL mode, foreign keys, init/close lifecycle), `migrations.ts` (version-stamped via `PRAGMA user_version`), `queries.ts` (typed wrappers with boundary parsing instead of `as` casts).
+- **3 tables**: `sessions` (with `last_opened_at` for recency sorting, `pinned` for future use), `tabs` (FK cascade delete), `preferences` (key-value).
+- **Recent repos on home page**: Derived from sessions table via `SELECT DISTINCT repo_path`, shown as clickable items that pre-fill the folder path.
+- **Preferences IPC**: `preferences:get`/`preferences:set` channels for future settings persistence.
+- **App quit no longer deletes sessions**: Removed the `before-quit` loop that cleared all sessions; now just kills PTYs, stops watchers, and closes the DB.
+- Native module setup: `better-sqlite3` added to `onlyBuiltDependencies` (root package.json) and `asarUnpack` (electron-builder config).
+
 ## Refactor Design Sessions: Sandbox-Based Live Preview — 2026-02-19
 
 - **Switched from Sandpack to live iframe preview**: Design sessions now use a persistent Daytona sandbox with a real dev server instead of Sandpack. Claude writes actual files into the project's `app/design-preview/` directory, and the user sees real previews rendered by the project's own framework with actual Tailwind config/design tokens.

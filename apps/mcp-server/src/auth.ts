@@ -144,6 +144,26 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+export function renderRedirectPage(redirectUrl: string): string {
+  const safeUrl = escapeHtml(redirectUrl);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting…</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #a3a3a3; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    p { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <p>Connecting… this window should close automatically.</p>
+  <script>window.location.href = ${JSON.stringify(redirectUrl)};</script>
+  <noscript><meta http-equiv="refresh" content="0;url=${safeUrl}" /></noscript>
+</body>
+</html>`;
+}
+
 function validateRedirectUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);

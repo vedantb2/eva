@@ -5,6 +5,7 @@ import {
   getOAuthMetadata,
   getProtectedResourceMetadata,
   renderAuthForm,
+  renderRedirectPage,
   processAuthForm,
   exchangeToken,
   handleClientRegistration,
@@ -99,7 +100,7 @@ app.post("/oauth/authorize", (req: Request, res: Response) => {
   try {
     const body = bodyToStringRecord(req);
     const redirectUrl = processAuthForm(body);
-    res.redirect(redirectUrl);
+    res.type("html").send(renderRedirectPage(redirectUrl));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid request";
     res.status(400).send(message);

@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
@@ -433,6 +433,45 @@ export const runSandboxCommand = internalAction({
       args.timeoutSeconds ?? 30,
     );
     return (resp.result ?? "").trim();
+  },
+});
+
+export const getPreviewUrl = action({
+  args: {
+    sandboxId: v.string(),
+    port: v.number(),
+    checkReady: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    url: v.string(),
+    port: v.number(),
+    ready: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const daytona = getDaytona();
+    const sandbox = await daytona.get(args.sandboxId);
+    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 3600);
+
+    let ready = true;
+    if (args.checkReady) {
+      try {
+        const check = await sandbox.process.executeCommand(
+          `curl -s -o /dev/null -w "%{http_code}" http://localhost:${args.port}`,
+          "/",
+          undefined,
+          3,
+        );
+        const code = parseInt(check.result?.trim() || "0", 10);
+        ready = code >= 200 && code < 500;
+      } catch {
+        ready = false;
+      }
+    }
+
+    return { url: signedPreview.url, port: args.port, ready };
   },
 });
 

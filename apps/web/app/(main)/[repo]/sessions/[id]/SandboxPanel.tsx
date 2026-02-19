@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useAction } from "convex/react";
+import { api } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser } from "@/lib/search-params";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
@@ -12,7 +14,6 @@ import {
   IconLayoutBottombarCollapse,
 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { DiffPanel } from "./DiffPanel";
@@ -47,20 +48,14 @@ export function SandboxPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
   const fetchPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/sessions/preview?sessionId=${sessionId}&port=3000`,
-      );
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to get preview URL");
-      }
-      const data = await response.json();
+      const data = await getPreviewUrl({ sandboxId, port: 3000 });
       setPreviewInfo(data);
       setIframeKey((k) => k + 1);
     } catch (err) {
@@ -68,7 +63,7 @@ export function SandboxPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, sessionId]);
+  }, [sandboxId, isActive, getPreviewUrl]);
 
   useEffect(() => {
     if (isActive && sandboxId) {

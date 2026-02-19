@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -124,6 +124,7 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
+  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
   const [isSending, setIsSending] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
@@ -162,17 +163,15 @@ export function DesignDetailClient({
       return;
     }
     try {
-      const res = await fetch(
-        `/api/design/preview?designSessionId=${designSessionId}&port=3000`,
-      );
-      if (res.ok) {
-        const data: { url: string } = await res.json();
-        setPreviewUrl(data.url);
-      }
+      const data = await getPreviewUrl({
+        sandboxId: session.sandboxId,
+        port: 3000,
+      });
+      setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);
     }
-  }, [session?.sandboxId, designSessionId]);
+  }, [session?.sandboxId, getPreviewUrl]);
 
   useEffect(() => {
     fetchPreviewUrl();

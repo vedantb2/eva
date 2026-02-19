@@ -7,6 +7,8 @@ import {
   useRef,
   type ReactNode,
 } from "react";
+import { useAction } from "convex/react";
+import { api } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
 
@@ -28,6 +30,7 @@ export function EditorPanel({
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
+  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
   const pollForEditor = useCallback(async () => {
     if (!sandboxId || !isActive) return;
@@ -38,14 +41,11 @@ export function EditorPanel({
 
     const check = async () => {
       try {
-        const response = await fetch(
-          `/api/sessions/preview?sessionId=${sessionId}&port=8080&check=1`,
-        );
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to get editor URL");
-        }
-        const data = await response.json();
+        const data = await getPreviewUrl({
+          sandboxId,
+          port: 8080,
+          checkReady: true,
+        });
         if (data.ready) {
           setUrl(data.url);
           setIsLoading(false);
@@ -65,7 +65,7 @@ export function EditorPanel({
     };
 
     check();
-  }, [sandboxId, isActive, sessionId]);
+  }, [sandboxId, isActive, getPreviewUrl]);
 
   useEffect(() => {
     if (isActive && sandboxId) {

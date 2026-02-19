@@ -161,8 +161,8 @@ export function SystemEnvVarsClient() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Global variables (OAuth tokens, infrastructure) injected into all
-          sandboxes.
+          OAuth Token vars are rotated between accounts to avoid rate limits.
+          Infrastructure vars are injected into all sandboxes as static config.
         </p>
         <Button size="sm" onClick={startAdd} disabled={adding}>
           <IconPlus size={16} className="mr-1.5" />

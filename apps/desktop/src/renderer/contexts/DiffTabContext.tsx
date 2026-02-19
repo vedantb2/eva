@@ -30,9 +30,12 @@ interface AllFilesDiffTab {
 
 export type DiffTab = SingleFileDiffTab | AllFilesDiffTab;
 
-interface DiffTabContextValue {
+interface DiffTabDataValue {
   diffTabs: DiffTab[];
   activeDiffTabId: string | null;
+}
+
+interface DiffTabActionsValue {
   openDiffTab: (filePath: string, staged: boolean, repoPath: string) => void;
   openAllDiffsTab: (repoPath: string) => void;
   closeDiffTab: (id: string) => void;
@@ -41,7 +44,8 @@ interface DiffTabContextValue {
   clearAllDiffTabs: () => void;
 }
 
-const DiffTabContext = createContext<DiffTabContextValue | null>(null);
+const DiffTabDataContext = createContext<DiffTabDataValue | null>(null);
+const DiffTabActionsContext = createContext<DiffTabActionsValue | null>(null);
 
 function makeDiffTabId(filePath: string, staged: boolean): string {
   return `diff:${staged ? "staged" : "unstaged"}:${filePath}`;
@@ -125,10 +129,13 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
     setActiveDiffTabId(null);
   }, []);
 
-  const value = useMemo<DiffTabContextValue>(
+  const dataValue = useMemo<DiffTabDataValue>(
+    () => ({ diffTabs, activeDiffTabId }),
+    [diffTabs, activeDiffTabId],
+  );
+
+  const actionsValue = useMemo<DiffTabActionsValue>(
     () => ({
-      diffTabs,
-      activeDiffTabId,
       openDiffTab,
       openAllDiffsTab,
       closeDiffTab,
@@ -137,8 +144,6 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
       clearAllDiffTabs,
     }),
     [
-      diffTabs,
-      activeDiffTabId,
       openDiffTab,
       openAllDiffsTab,
       closeDiffTab,
@@ -149,14 +154,30 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <DiffTabContext.Provider value={value}>{children}</DiffTabContext.Provider>
+    <DiffTabDataContext.Provider value={dataValue}>
+      <DiffTabActionsContext.Provider value={actionsValue}>
+        {children}
+      </DiffTabActionsContext.Provider>
+    </DiffTabDataContext.Provider>
   );
 }
 
-export function useDiffTabContext(): DiffTabContextValue {
-  const ctx = useContext(DiffTabContext);
+export function useDiffTabData(): DiffTabDataValue {
+  const ctx = useContext(DiffTabDataContext);
   if (ctx === null) {
-    throw new Error("useDiffTabContext must be used within DiffTabProvider");
+    throw new Error("useDiffTabData must be used within DiffTabProvider");
   }
   return ctx;
+}
+
+export function useDiffTabActions(): DiffTabActionsValue {
+  const ctx = useContext(DiffTabActionsContext);
+  if (ctx === null) {
+    throw new Error("useDiffTabActions must be used within DiffTabProvider");
+  }
+  return ctx;
+}
+
+export function useDiffTabContext(): DiffTabDataValue & DiffTabActionsValue {
+  return { ...useDiffTabData(), ...useDiffTabActions() };
 }

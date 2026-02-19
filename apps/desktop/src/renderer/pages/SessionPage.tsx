@@ -17,7 +17,7 @@ import { PatchDiff } from "@pierre/diffs/react";
 import { TerminalView } from "../components/terminal/TerminalView";
 import { AllDiffsView } from "../components/diff/AllDiffsView";
 import { useSessionList, useSessionActions } from "../contexts/SessionContext";
-import { useDiffTabContext } from "../contexts/DiffTabContext";
+import { useDiffTabData, useDiffTabActions } from "../contexts/DiffTabContext";
 import type { DiffTab } from "../contexts/DiffTabContext";
 import type { Session, ToolType, TerminalTab } from "../../preload/types";
 
@@ -33,14 +33,9 @@ export function SessionPage() {
   const navigate = useNavigate();
   const { sessions } = useSessionList();
   const { setActiveSessionId, refreshSession } = useSessionActions();
-  const {
-    diffTabs,
-    activeDiffTabId,
-    closeDiffTab,
-    focusDiffTab,
-    clearActiveDiffTab,
-    clearAllDiffTabs,
-  } = useDiffTabContext();
+  const { diffTabs, activeDiffTabId } = useDiffTabData();
+  const { closeDiffTab, focusDiffTab, clearActiveDiffTab, clearAllDiffTabs } =
+    useDiffTabActions();
   const [activeTabId, setActiveTabId] = useState<string>("");
   const activeTabIdRef = useRef(activeTabId);
 
@@ -129,8 +124,6 @@ export function SessionPage() {
     );
   }
 
-  const activeDiffTab = diffTabs.find((t) => t.id === activeDiffTabId);
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center h-9 shrink-0 border-b border-border bg-background overflow-x-auto">
@@ -186,30 +179,13 @@ export function SessionPage() {
             visible={tab.tabId === activeTabId && !activeDiffTabId}
           />
         ))}
-        {activeDiffTab && activeDiffTab.kind === "all" && (
-          <AllDiffsView patches={activeDiffTab.patches} />
-        )}
-        {activeDiffTab && activeDiffTab.kind === "single" && (
-          <div className="absolute inset-0 overflow-auto bg-background p-4">
-            {activeDiffTab.patch ? (
-              <PatchDiff
-                patch={activeDiffTab.patch}
-                options={{
-                  themeType: "dark",
-                  diffIndicators: "bars",
-                  lineDiffType: "word",
-                  expandUnchanged: true,
-                  disableFileHeader: true,
-                  overflow: "scroll",
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                No changes
-              </div>
-            )}
-          </div>
-        )}
+        {diffTabs.map((dt) => (
+          <DiffTabContent
+            key={dt.id}
+            tab={dt}
+            visible={dt.id === activeDiffTabId}
+          />
+        ))}
       </div>
     </div>
   );
@@ -262,6 +238,52 @@ interface DiffTabButtonProps {
   onTabClick: (id: string) => void;
   onTabClose: (id: string) => void;
 }
+
+interface DiffTabContentProps {
+  tab: DiffTab;
+  visible: boolean;
+}
+
+const DiffTabContent = memo(function DiffTabContent({
+  tab,
+  visible,
+}: DiffTabContentProps) {
+  if (tab.kind === "all") {
+    return (
+      <div
+        style={{ display: visible ? "block" : "none" }}
+        className="absolute inset-0"
+      >
+        <AllDiffsView patches={tab.patches} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="absolute inset-0 overflow-auto bg-background p-4"
+      style={{ display: visible ? "block" : "none" }}
+    >
+      {tab.patch ? (
+        <PatchDiff
+          patch={tab.patch}
+          options={{
+            themeType: "dark",
+            diffIndicators: "bars",
+            lineDiffType: "word",
+            expandUnchanged: true,
+            disableFileHeader: true,
+            overflow: "scroll",
+          }}
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          No changes
+        </div>
+      )}
+    </div>
+  );
+});
 
 const DiffTabButton = memo(function DiffTabButton({
   tab,

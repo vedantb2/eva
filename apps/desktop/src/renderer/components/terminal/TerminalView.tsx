@@ -106,9 +106,9 @@ export const TerminalView = memo(function TerminalView({
       removePtyExit();
       dataDisposable.dispose();
       observer.disconnect();
-      term.dispose();
       termRef.current = null;
       fitAddonRef.current = null;
+      setTimeout(() => term.dispose(), 0);
     };
   }, [ptyId]);
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## Desktop: Fix Slow Tab Switching and Navigation — 2026-02-19
+
+- **Render diff tabs with CSS visibility toggle instead of mount/unmount**: PatchDiff from `@pierre/diffs/react` was being unmounted and remounted from scratch on every diff tab switch — expensive because it re-parses and re-renders the full syntax-highlighted diff. Now uses the same pattern as TerminalView: all diff tabs stay mounted, inactive ones hidden via `display: none`. Wrapped in a memoized `DiffTabContent` component.
+- **Defer xterm.js cleanup to next tick**: When navigating away from a session (e.g. clicking the plus button), all TerminalView components unmounted synchronously, each calling `term.dispose()` which tears down WebGL contexts. This blocked the navigation transition. Moved `term.dispose()` into `setTimeout(0)` so cleanup runs after React finishes the transition.
+- **Split DiffTabContext into data + actions**: GitPanel only needs `openDiffTab` and `openAllDiffsTab` (actions), but the monolithic context caused it to re-render on every `activeDiffTabId` change (`useContext` bypasses `memo`). Split into `DiffTabDataContext` and `DiffTabActionsContext` — same pattern already used by SessionContext.
+
+## Claude Usage Limit Detection + Auto-Switch + Schedule Later — 2026-02-19
+
+- **Why**: When Claude Code CLI hits usage limits during sandbox execution, tasks silently fail with a generic error. Users have no visibility into why a task failed or when they can retry. With multiple OAuth accounts available, the system should rotate to an available account before giving up.
+- **Error classification**: Callback script now captures stderr and classifies errors by pattern-matching rate limit indicators (`usage limit`, `rate_limit_error`, `429`). Extracts reset time when available.
+- **Multi-account rotation**: New `aiAccounts.ts` tracks per-account rate limit status. Task and session workflows automatically mark the current account as limited, clear expired limits, and retry with the next available account before failing.
+- **Schema additions**: `errorType`/`limitResetAt` on `agentRuns`, `scheduledRetryAt` on `agentTasks`, new `aiAccountStatus` table, `rate_limit` notification type.
+- **Frontend**: Rate limit banner in task detail modal with reset time and "Schedule Retry" button. Quick task cards show amber warning styling for rate-limited tasks vs red for generic errors. Rate limit notification type with warning styling.
+- **All 11 workflow `handleCompletion` mutations** updated to accept `errorType`, `limitResetAt`, and `accountKey` from the callback script.
+
 ## Desktop: Main Process Startup Optimizations — 2026-02-19
 
 - **Disabled default Electron menu**: `Menu.setApplicationMenu(null)` prevents Electron from building a full default menu at startup — wasted work since the app uses a custom frameless titlebar.

@@ -17,7 +17,7 @@ import {
   IconEye,
 } from "@tabler/icons-react";
 import { GitFileItem } from "./GitFileItem";
-import { useDiffTabContext } from "../../contexts/DiffTabContext";
+import { useDiffTabActions } from "../../contexts/DiffTabContext";
 import type { GitStatusResult, GitFileStatus } from "../../../preload/types";
 
 interface GitPanelProps {
@@ -30,7 +30,7 @@ export const GitPanel = memo(function GitPanel({ repoPath }: GitPanelProps) {
   const [commitMsg, setCommitMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
-  const { openDiffTab, openAllDiffsTab } = useDiffTabContext();
+  const { openDiffTab, openAllDiffsTab } = useDiffTabActions();
 
   const refreshInFlight = useRef(false);
   const refreshQueued = useRef(false);

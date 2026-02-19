@@ -53,7 +53,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body suppressHydrationWarning className="font-sans text-foreground">
-        <ClerkProvider>
+        <ClerkProvider
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
+        >
           <ClientProvider>{children}</ClientProvider>
         </ClerkProvider>
         <Analytics />

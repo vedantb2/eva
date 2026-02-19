@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Commit all staged changes and push to the remote.
 
 Steps:

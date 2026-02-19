@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Stage all files relevant to changes made in this conversation.
 
 Steps:

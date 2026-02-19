@@ -54,6 +54,7 @@ import {
   IconWorld,
   IconSparkles,
   IconSend,
+  IconCircleCheck,
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
@@ -63,7 +64,7 @@ import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -75,6 +76,12 @@ import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];
 type SessionMode = NonNullable<SessionMessage["mode"]>;
+
+const REVIEW_AUDITS = [
+  "Accessibility audit",
+  "Code testing audit",
+  "Code review audit",
+];
 
 interface ChatPanelProps {
   sessionId: string;
@@ -111,6 +118,10 @@ export function ChatPanel({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
+  const [reviewStep, setReviewStep] = useState<
+    "confirm" | "auditing" | "complete"
+  >("confirm");
+  const [completedAudits, setCompletedAudits] = useState(0);
   const [mode, setMode] = useQueryState("mode", sessionModeParser);
   const [, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
@@ -144,6 +155,11 @@ export function ChatPanel({
   );
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const startAuditMutation = useMutation(api.sessionAudits.startAudit);
+  const sessionAudit = useQuery(
+    api.sessionAudits.getBySession,
+    reviewStep === "auditing" ? { sessionId: typedSessionId } : "skip",
+  );
 
   const sendToApi = useCallback(
     async (
@@ -197,6 +213,8 @@ export function ChatPanel({
   };
 
   const handleCreatePr = async () => {
+    setReviewStep("auditing");
+    setCompletedAudits(0);
     setIsCreatingPr(true);
     try {
       const response = await fetch("/api/sessions/create-pr", {
@@ -208,11 +226,44 @@ export function ChatPanel({
         const data = await response.json();
         throw new Error(data.error || "Failed to create PR");
       }
-      setShowReviewModal(false);
+      try {
+        const { convexToken } = await getWorkflowTokens(repo.installationId);
+        await startAuditMutation({
+          sessionId: typedSessionId,
+          convexToken,
+        });
+      } catch {
+        setReviewStep("complete");
+      }
+    } catch {
+      setReviewStep("confirm");
     } finally {
       setIsCreatingPr(false);
     }
   };
+
+  const handleReviewModalClose = () => {
+    setShowReviewModal(false);
+    setReviewStep("confirm");
+    setCompletedAudits(0);
+  };
+
+  useEffect(() => {
+    if (reviewStep !== "auditing") return;
+    const status = sessionAudit?.status;
+    if (status !== "completed" && status !== "error") return;
+    const timers = REVIEW_AUDITS.map((_, i) =>
+      setTimeout(() => setCompletedAudits((prev) => prev + 1), (i + 1) * 400),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [sessionAudit?.status, reviewStep]);
+
+  useEffect(() => {
+    if (reviewStep === "auditing" && completedAudits >= REVIEW_AUDITS.length) {
+      const timer = setTimeout(() => setReviewStep("complete"), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [reviewStep, completedAudits]);
 
   const lastMessage = messages[messages.length - 1];
   const lastAssistantHasNoContent =
@@ -268,7 +319,17 @@ export function ChatPanel({
             <IconWorld size={14} />
             View Preview
           </Button>
-          {branchName && !prUrl && (
+          {prUrl ? (
+            <Link href={prUrl} target="_blank">
+              <Badge
+                variant="outline"
+                className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
+              >
+                <IconGitPullRequest size={12} />
+                View PR
+              </Badge>
+            </Link>
+          ) : branchName ? (
             <Button
               size="sm"
               variant="secondary"
@@ -278,7 +339,7 @@ export function ChatPanel({
               <IconSend size={12} />
               Send for Review
             </Button>
-          )}
+          ) : null}
           <Button
             size="icon"
             variant="secondary"
@@ -501,27 +562,6 @@ export function ChatPanel({
       </Conversation>
       <div className="px-3 pb-4 pt-3">
         <AnimatePresence>
-          {prUrl && (
-            <motion.div
-              className="mb-2 flex items-center gap-1"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.18 }}
-            >
-              <Link href={prUrl} target="_blank">
-                <Badge
-                  variant="outline"
-                  className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
-                >
-                  <IconGitPullRequest size={12} />
-                  View PR
-                </Badge>
-              </Link>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
           {mode === "plan" && planContent && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -659,43 +699,146 @@ export function ChatPanel({
       <Dialog
         open={showReviewModal}
         onOpenChange={(v) => {
-          if (!v) setShowReviewModal(false);
+          if (!v) handleReviewModalClose();
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send for Code Review</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              By clicking this you confirm that all your changes have been
-              tested in your session, you are happy with those changes, have
-              generated a summary, and agree with the changes. Your session will
-              become uneditable while a developer reviews the code changes
-              before merging into staging/production.
-            </p>
-            <p>
-              The following audits will also run automatically in the
-              background:
-            </p>
-            <ul className="ml-5 list-disc space-y-1">
-              <li>Accessibility audit</li>
-              <li>Code testing audit</li>
-              <li>Code review audit</li>
-            </ul>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowReviewModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-success text-success-foreground hover:bg-success/90"
-              onClick={handleCreatePr}
-              disabled={isCreatingPr}
-            >
-              {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
-            </Button>
-          </DialogFooter>
+          <AnimatePresence mode="wait">
+            {reviewStep === "confirm" && (
+              <motion.div
+                key="confirm"
+                className="space-y-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DialogHeader>
+                  <DialogTitle>Send for Code Review</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    By clicking this you confirm that all your changes have been
+                    tested in your session, you are happy with those changes,
+                    have generated a summary, and agree with the changes. Your
+                    session will become uneditable while a developer reviews the
+                    code changes before merging into staging/production.
+                  </p>
+                  <p>
+                    The following audits will also run automatically in the
+                    background:
+                  </p>
+                  <ul className="ml-5 list-disc space-y-1">
+                    <li>Accessibility audit</li>
+                    <li>Code testing audit</li>
+                    <li>Code review audit</li>
+                  </ul>
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={handleReviewModalClose}>
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-success text-success-foreground hover:bg-success/90"
+                    onClick={handleCreatePr}
+                    disabled={isCreatingPr}
+                  >
+                    {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
+                  </Button>
+                </DialogFooter>
+              </motion.div>
+            )}
+            {reviewStep === "auditing" && (
+              <motion.div
+                key="auditing"
+                className="space-y-4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DialogHeader>
+                  <DialogTitle>Auditing in Progress</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  {REVIEW_AUDITS.map((audit, i) => {
+                    const isComplete = i < completedAudits;
+                    const isActive =
+                      i === completedAudits &&
+                      completedAudits < REVIEW_AUDITS.length;
+                    return (
+                      <motion.div
+                        key={audit}
+                        className="flex items-center gap-3"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1, duration: 0.2 }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center">
+                          {isComplete ? (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 20,
+                              }}
+                            >
+                              <IconCircleCheck
+                                size={20}
+                                className="text-success"
+                              />
+                            </motion.div>
+                          ) : isActive ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border-2 border-muted" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-sm ${isComplete || isActive ? "text-foreground" : "text-muted-foreground"}`}
+                        >
+                          {audit}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+            {reviewStep === "complete" && (
+              <motion.div
+                key="complete"
+                className="space-y-4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <DialogHeader>
+                  <DialogTitle>Review Sent</DialogTitle>
+                </DialogHeader>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="rounded-lg border border-success/30 bg-success/10 p-4 text-center"
+                >
+                  <IconCircleCheck
+                    size={24}
+                    className="mx-auto mb-2 text-success"
+                  />
+                  <p className="text-sm font-medium text-success">
+                    This information has automatically been sent to the dev
+                    team.
+                  </p>
+                </motion.div>
+                <DialogFooter>
+                  <Button onClick={handleReviewModalClose}>Done</Button>
+                </DialogFooter>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </DialogContent>
       </Dialog>
     </div>

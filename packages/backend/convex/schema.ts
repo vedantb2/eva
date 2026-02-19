@@ -351,6 +351,16 @@ const schema = defineSchema({
   })
     .index("by_task", ["taskId"])
     .index("by_run", ["runId"]),
+  sessionAudits: defineTable({
+    sessionId: v.id("sessions"),
+    status: evaluationStatusValidator,
+    accessibility: v.array(evalResultValidator),
+    testing: v.array(evalResultValidator),
+    codeReview: v.array(evalResultValidator),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_session", ["sessionId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

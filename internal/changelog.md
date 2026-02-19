@@ -1,5 +1,21 @@
 # Changelog
 
+## Fix Type Errors + Move View PR to Header — 2026-02-19
+
+- **Regenerated Convex types** — `npx convex codegen` to pick up the new `sessionAudits` module that was missing from the generated API types, fixing `api.sessionAudits` / `internal.sessionAudits` resolution errors
+- **Removed invalid `branchName` prop** from `QuickTasksKanbanBoard` and `QuickTasksListView` — `agentTasks` schema doesn't have `branchName`, the card already fetches PR URL from `agentRuns` independently
+- **Moved "View PR" badge** from above the prompt input to the ChatPanel header bar, next to "Send for Review" — shows as a mutually exclusive pair: View PR when `prUrl` exists, Send for Review when only `branchName` exists
+
+## Multi-Step Review Modal for Sessions — 2026-02-19
+
+- Replaced the single-step confirmation dialog for "Send for Review" with a 3-step animated modal: Confirm → Auditing Progress → Review Sent
+- **Backend: `sessionAudits` table** — mirrors `taskAudits` structure (accessibility, testing, codeReview arrays with pass/fail results + summary). Indexed by `sessionId`
+- **Backend: `sessionAudits.ts`** — `getBySession` query (frontend subscribes for real-time status), `startAudit` mutation (creates record + schedules sandbox action), `handleCompletion` callback mutation (sandbox calls back with parsed JSON results), `fail` internal mutation
+- **Backend: `runSessionAudit` action in `daytona.ts`** — gets git diff from session sandbox, builds audit prompt (same 3-category format as task audits), launches Claude Haiku via `launchScript` with fire-and-forget nohup pattern. Sandbox calls back to `sessionAudits:handleCompletion` when done
+- **Frontend subscribes to real audit status** — `useQuery(api.sessionAudits.getBySession)` reactively updates when the audit record changes. Stagger animation (spinner → checkmark) triggers only when the backend audit completes, not on fake timers
+- **Graceful fallback**: if the audit mutation fails to start (e.g. sandbox inactive), the modal falls back to a timer-based animation so the user isn't stuck — the PR was still created successfully
+- Fixed dialog spacing: added `space-y-4` to each `motion.div` step wrapper to restore the `gap-4` lost when `AnimatePresence` became the only direct child of `DialogContent`
+
 ## Desktop: View All Diffs + Push Button — 2026-02-18
 
 - **PR-style "Review All" diff view** — new "Review All" eye icon in git panel header opens a single tab showing all staged + unstaged diffs in collapsible file cards with status badges, reviewed checkboxes, and a progress summary bar

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
   Dialog,
@@ -139,15 +138,16 @@ export function EnvVariablesClient() {
   const showTable = (vars && vars.length > 0) || adding;
 
   return (
-    <PageWrapper
-      title="Environment Variables"
-      headerRight={
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          Repo-specific variables injected into sandboxes for this repository.
+        </p>
         <Button size="sm" onClick={startAdd} disabled={adding}>
           <IconPlus size={16} className="mr-1.5" />
           Add Variable
         </Button>
-      }
-    >
+      </div>
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
@@ -156,10 +156,6 @@ export function EnvVariablesClient() {
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <IconKey size={48} className="mb-3 opacity-40" />
           <p className="text-sm">No environment variables configured</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            Variables are injected into sandboxes when sessions and workflows
-            run.
-          </p>
         </div>
       ) : (
         <div className="rounded-lg border border-border/70">
@@ -360,6 +356,6 @@ export function EnvVariablesClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageWrapper>
+    </div>
   );
 }

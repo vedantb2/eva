@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
   Dialog,
@@ -34,7 +33,6 @@ const CATEGORY_LABELS: Record<Category, string> = {
 };
 
 export function SystemEnvVarsClient() {
-  const isAdmin = useQuery(api.auth.isCurrentUserAdmin);
   const vars = useQuery(api.systemEnvVars.list);
   const upsertVar = useAction(api.systemEnvVarsActions.upsertVar);
   const revealValue = useAction(api.systemEnvVarsActions.revealValue);
@@ -57,17 +55,6 @@ export function SystemEnvVarsClient() {
   );
   const [revealingKey, setRevealingKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  if (isAdmin === false) {
-    return (
-      <PageWrapper title="System Variables">
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <IconServer size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">Access denied. Admin privileges required.</p>
-        </div>
-      </PageWrapper>
-    );
-  }
 
   const startAdd = () => {
     setAdding(true);
@@ -171,15 +158,17 @@ export function SystemEnvVarsClient() {
   const showTable = (vars && vars.length > 0) || adding;
 
   return (
-    <PageWrapper
-      title="System Variables"
-      headerRight={
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          Global variables (OAuth tokens, infrastructure) injected into all
+          sandboxes.
+        </p>
         <Button size="sm" onClick={startAdd} disabled={adding}>
           <IconPlus size={16} className="mr-1.5" />
           Add Variable
         </Button>
-      }
-    >
+      </div>
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
@@ -188,9 +177,6 @@ export function SystemEnvVarsClient() {
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <IconServer size={48} className="mb-3 opacity-40" />
           <p className="text-sm">No system variables configured</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            Add OAuth tokens and infrastructure variables for sandbox execution.
-          </p>
         </div>
       ) : (
         <div className="rounded-lg border border-border/70">
@@ -425,6 +411,6 @@ export function SystemEnvVarsClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageWrapper>
+    </div>
   );
 }

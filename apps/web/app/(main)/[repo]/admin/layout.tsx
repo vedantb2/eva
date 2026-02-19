@@ -2,15 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
-import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
   IconLayoutDashboard,
   IconChartBar,
   IconKey,
-  IconServer,
 } from "@tabler/icons-react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 
@@ -22,21 +19,10 @@ export default function AdminLayout({
   const { fullName } = useRepo();
   const pathname = usePathname();
   const baseUrl = "/" + encodeRepoSlug(fullName) + "/admin";
-  const isAdmin = useQuery(api.auth.isCurrentUserAdmin);
-
   const navigation = [
     { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
     { name: "Stats", href: baseUrl + "/stats", icon: IconChartBar },
     { name: "Env Variables", href: baseUrl + "/env-variables", icon: IconKey },
-    ...(isAdmin
-      ? [
-          {
-            name: "System Variables",
-            href: baseUrl + "/system-env-vars",
-            icon: IconServer,
-          },
-        ]
-      : []),
   ];
 
   return (

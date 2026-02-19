@@ -1,14 +1,18 @@
-import { useCallback } from "react";
+import { useCallback, memo } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { IconPlus, IconSettings } from "@tabler/icons-react";
-import { useSessionContext } from "../../contexts/SessionContext";
+import {
+  useSessionList,
+  useSessionActions,
+} from "../../contexts/SessionContext";
 import { SessionItem } from "../sessions/SessionItem";
 
-export function SessionSidebar() {
+export const SessionSidebar = memo(function SessionSidebar() {
   const navigate = useNavigate();
-  const { sessions, deleteSession } = useSessionContext();
+  const { sessions } = useSessionList();
+  const { deleteSession } = useSessionActions();
 
   const handleDelete = useCallback(
     async (sessionId: string) => {
@@ -81,4 +85,4 @@ export function SessionSidebar() {
       </div>
     </aside>
   );
-}
+});

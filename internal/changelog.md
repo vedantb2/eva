@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop: Performance Improvements Round 4 — 2026-02-19
+
+- **Split SessionContext into two contexts**: Single monolithic context caused every consumer to re-render on any session change. Split into `SessionListContext` (sessions array) and `SessionActionsContext` (activeSessionId + callbacks). `HomePage` now only subscribes to actions — no longer re-renders when the session list changes.
+- **Memoized provider values**: Both SessionContext and DiffTabContext were creating new value objects every render, defeating `React.memo` on all consumers. Wrapped in `useMemo`.
+- **Wrapped key components in `memo`**: `TerminalView`, `GitPanel`, and `SessionSidebar` now skip re-renders when their props haven't changed. Terminal is especially expensive (xterm.js reconciliation).
+- **Stabilized GitPanel filters and callbacks**: `stagedFiles`/`unstagedFiles` arrays were recreated every render via `.filter()`, defeating `FileSection` memo. Wrapped in `useMemo`. `handleStageAll`/`handleUnstageAll`/`handleCommit` now read from `status` directly instead of depending on the derived arrays.
+- **Reduced git watcher debounce**: 1500ms → 500ms. The old delay made the git panel feel sluggish after file saves. 500ms still coalesces rapid changes but feels responsive.
+- **Guarded redundant tab respawn IPC**: Clicking the already-active terminal tab was firing a `tabRespawn` IPC call on every click. Now tracks active tab in a ref and skips the call.
+- **SQLite performance pragmas**: Added `synchronous=NORMAL` (safe with WAL), `cache_size=-8000` (8MB page cache), `temp_store=MEMORY` (temp tables in RAM).
+- **Eliminated window flash on startup**: Added `show: false` + `ready-to-show` to BrowserWindow — window now appears fully rendered instead of flashing white.
+
 ## Encrypt Repo Environment Variables at Rest — 2026-02-19
 
 - **Why**: Env var values were stored as plaintext in Convex, meaning anyone with dashboard access, data exports, or even the public `list` query could see raw secrets. The `list` query was sending real values to the client with only cosmetic client-side masking.

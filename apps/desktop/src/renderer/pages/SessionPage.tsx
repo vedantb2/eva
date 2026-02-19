@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { Button } from "@conductor/ui";
 import {
   DropdownMenu,
@@ -16,7 +16,7 @@ import {
 import { PatchDiff } from "@pierre/diffs/react";
 import { TerminalView } from "../components/terminal/TerminalView";
 import { AllDiffsView } from "../components/diff/AllDiffsView";
-import { useSessionContext } from "../contexts/SessionContext";
+import { useSessionList, useSessionActions } from "../contexts/SessionContext";
 import { useDiffTabContext } from "../contexts/DiffTabContext";
 import type { DiffTab } from "../contexts/DiffTabContext";
 import type { Session, ToolType, TerminalTab } from "../../preload/types";
@@ -31,7 +31,8 @@ const TOOL_OPTIONS: { value: ToolType; label: string }[] = [
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { sessions, setActiveSessionId, refreshSession } = useSessionContext();
+  const { sessions } = useSessionList();
+  const { setActiveSessionId, refreshSession } = useSessionActions();
   const {
     diffTabs,
     activeDiffTabId,
@@ -41,6 +42,7 @@ export function SessionPage() {
     clearAllDiffTabs,
   } = useDiffTabContext();
   const [activeTabId, setActiveTabId] = useState<string>("");
+  const activeTabIdRef = useRef(activeTabId);
 
   const session: Session | undefined = sessions.find(
     (s) => s.sessionId === sessionId,
@@ -61,7 +63,9 @@ export function SessionPage() {
     if (session && session.tabs.length > 0) {
       const hasActiveTab = session.tabs.some((t) => t.tabId === activeTabId);
       if (!hasActiveTab) {
-        setActiveTabId(session.activeTabId || session.tabs[0].tabId);
+        const nextTabId = session.activeTabId || session.tabs[0].tabId;
+        setActiveTabId(nextTabId);
+        activeTabIdRef.current = nextTabId;
       }
     }
   }, [session, activeTabId]);
@@ -87,8 +91,10 @@ export function SessionPage() {
 
   const handleTerminalTabClick = useCallback(
     (tabId: string) => {
-      setActiveTabId(tabId);
       clearActiveDiffTab();
+      if (tabId === activeTabIdRef.current) return;
+      setActiveTabId(tabId);
+      activeTabIdRef.current = tabId;
       if (sessionId) {
         window.electronAPI.tabRespawn(sessionId, tabId).catch(() => {});
       }

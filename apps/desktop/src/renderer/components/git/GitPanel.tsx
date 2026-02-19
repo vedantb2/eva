@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import {
   Button,
   Textarea,
@@ -24,7 +24,7 @@ interface GitPanelProps {
   repoPath: string;
 }
 
-export function GitPanel({ repoPath }: GitPanelProps) {
+export const GitPanel = memo(function GitPanel({ repoPath }: GitPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [status, setStatus] = useState<GitStatusResult | null>(null);
   const [commitMsg, setCommitMsg] = useState("");
@@ -69,8 +69,14 @@ export function GitPanel({ repoPath }: GitPanelProps) {
     };
   }, [repoPath, refresh]);
 
-  const stagedFiles = status?.files.filter((f) => f.staged) ?? [];
-  const unstagedFiles = status?.files.filter((f) => !f.staged) ?? [];
+  const stagedFiles = useMemo(
+    () => status?.files.filter((f) => f.staged) ?? [],
+    [status],
+  );
+  const unstagedFiles = useMemo(
+    () => status?.files.filter((f) => !f.staged) ?? [],
+    [status],
+  );
   const totalFiles = (status?.files ?? []).length;
   const ahead = status?.ahead ?? 0;
 
@@ -91,25 +97,30 @@ export function GitPanel({ repoPath }: GitPanelProps) {
   );
 
   const handleStageAll = useCallback(async () => {
-    const paths = unstagedFiles.map((f) => f.path);
+    const paths = (status?.files.filter((f) => !f.staged) ?? []).map(
+      (f) => f.path,
+    );
     if (paths.length === 0) return;
     await window.electronAPI.gitStage(repoPath, paths);
     refresh();
-  }, [repoPath, refresh, unstagedFiles]);
+  }, [repoPath, refresh, status]);
 
   const handleUnstageAll = useCallback(async () => {
-    const paths = stagedFiles.map((f) => f.path);
+    const paths = (status?.files.filter((f) => f.staged) ?? []).map(
+      (f) => f.path,
+    );
     if (paths.length === 0) return;
     await window.electronAPI.gitUnstage(repoPath, paths);
     refresh();
-  }, [repoPath, refresh, stagedFiles]);
+  }, [repoPath, refresh, status]);
 
   const handleCommit = useCallback(async () => {
-    if (!commitMsg.trim() || stagedFiles.length === 0) return;
+    const hasStaged = status?.files.some((f) => f.staged) ?? false;
+    if (!commitMsg.trim() || !hasStaged) return;
     await window.electronAPI.gitCommit(repoPath, commitMsg.trim());
     setCommitMsg("");
     refresh();
-  }, [repoPath, commitMsg, stagedFiles.length, refresh]);
+  }, [repoPath, commitMsg, status, refresh]);
 
   const handlePush = useCallback(async () => {
     if (ahead === 0 || pushing) return;
@@ -252,7 +263,7 @@ export function GitPanel({ repoPath }: GitPanelProps) {
       </div>
     </aside>
   );
-}
+});
 
 interface FileSectionProps {
   title: string;

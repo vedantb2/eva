@@ -4,11 +4,15 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import type { Session, CreateSessionOptions } from "../../preload/types";
 
-interface SessionContextValue {
+interface SessionListContextValue {
   sessions: Session[];
+}
+
+interface SessionActionsContextValue {
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
   createSession: (opts: CreateSessionOptions) => Promise<Session>;
@@ -17,13 +21,28 @@ interface SessionContextValue {
   refreshSession: (sessionId: string) => Promise<void>;
 }
 
-const SessionContext = createContext<SessionContextValue | null>(null);
+const SessionListContext = createContext<SessionListContextValue | null>(null);
+const SessionActionsContext = createContext<SessionActionsContextValue | null>(
+  null,
+);
 
-export function useSessionContext(): SessionContextValue {
-  const ctx = useContext(SessionContext);
+export function useSessionList(): SessionListContextValue {
+  const ctx = useContext(SessionListContext);
   if (!ctx)
-    throw new Error("useSessionContext must be used within SessionProvider");
+    throw new Error("useSessionList must be used within SessionProvider");
   return ctx;
+}
+
+export function useSessionActions(): SessionActionsContextValue {
+  const ctx = useContext(SessionActionsContext);
+  if (!ctx)
+    throw new Error("useSessionActions must be used within SessionProvider");
+  return ctx;
+}
+
+export function useSessionContext(): SessionListContextValue &
+  SessionActionsContextValue {
+  return { ...useSessionList(), ...useSessionActions() };
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -63,19 +82,34 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId((prev) => (prev === sessionId ? null : prev));
   }, []);
 
+  const listValue = useMemo<SessionListContextValue>(
+    () => ({ sessions }),
+    [sessions],
+  );
+
+  const actionsValue = useMemo<SessionActionsContextValue>(
+    () => ({
+      activeSessionId,
+      setActiveSessionId,
+      createSession: handleCreate,
+      deleteSession: handleDelete,
+      refreshSessions,
+      refreshSession,
+    }),
+    [
+      activeSessionId,
+      handleCreate,
+      handleDelete,
+      refreshSessions,
+      refreshSession,
+    ],
+  );
+
   return (
-    <SessionContext.Provider
-      value={{
-        sessions,
-        activeSessionId,
-        setActiveSessionId,
-        createSession: handleCreate,
-        deleteSession: handleDelete,
-        refreshSessions,
-        refreshSession,
-      }}
-    >
-      {children}
-    </SessionContext.Provider>
+    <SessionListContext.Provider value={listValue}>
+      <SessionActionsContext.Provider value={actionsValue}>
+        {children}
+      </SessionActionsContext.Provider>
+    </SessionListContext.Provider>
   );
 }

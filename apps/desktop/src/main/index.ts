@@ -11,6 +11,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    show: false,
     titleBarStyle: "hiddenInset",
     icon: join(__dirname, "../../build/icon.png"),
     webPreferences: {
@@ -19,6 +20,10 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  win.once("ready-to-show", () => {
+    win.show();
   });
 
   registerHandlers(win);

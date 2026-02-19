@@ -10,6 +10,9 @@ export function initDatabase(): void {
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+  db.pragma("synchronous = NORMAL");
+  db.pragma("cache_size = -8000");
+  db.pragma("temp_store = MEMORY");
   runMigrations(db);
 }
 

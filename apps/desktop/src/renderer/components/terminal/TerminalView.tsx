@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -10,7 +10,10 @@ interface TerminalViewProps {
   visible: boolean;
 }
 
-export function TerminalView({ ptyId, visible }: TerminalViewProps) {
+export const TerminalView = memo(function TerminalView({
+  ptyId,
+  visible,
+}: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -129,4 +132,4 @@ export function TerminalView({ ptyId, visible }: TerminalViewProps) {
       }}
     />
   );
-}
+});

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@conductor/ui";
 import { IconFolder, IconArrowUp, IconHistory } from "@tabler/icons-react";
-import { useSessionContext } from "../contexts/SessionContext";
+import { useSessionActions } from "../contexts/SessionContext";
 import type { ToolType } from "../../preload/types";
 
 const TOOL_VALUES = ["claude", "opencode", "codex"] satisfies ToolType[];
@@ -26,7 +26,7 @@ function isToolType(v: string): v is ToolType {
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { createSession } = useSessionContext();
+  const { createSession } = useSessionActions();
   const [repoPath, setRepoPath] = useState("");
   const [tool, setTool] = useState<ToolType>("claude");
   const [message, setMessage] = useState("");

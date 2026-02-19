@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import type { RawFilePatch } from "../../preload/types";
 
 export interface AllDiffFileEntry {
@@ -119,21 +125,31 @@ export function DiffTabProvider({ children }: { children: React.ReactNode }) {
     setActiveDiffTabId(null);
   }, []);
 
+  const value = useMemo<DiffTabContextValue>(
+    () => ({
+      diffTabs,
+      activeDiffTabId,
+      openDiffTab,
+      openAllDiffsTab,
+      closeDiffTab,
+      focusDiffTab,
+      clearActiveDiffTab,
+      clearAllDiffTabs,
+    }),
+    [
+      diffTabs,
+      activeDiffTabId,
+      openDiffTab,
+      openAllDiffsTab,
+      closeDiffTab,
+      focusDiffTab,
+      clearActiveDiffTab,
+      clearAllDiffTabs,
+    ],
+  );
+
   return (
-    <DiffTabContext.Provider
-      value={{
-        diffTabs,
-        activeDiffTabId,
-        openDiffTab,
-        openAllDiffsTab,
-        closeDiffTab,
-        focusDiffTab,
-        clearActiveDiffTab,
-        clearAllDiffTabs,
-      }}
-    >
-      {children}
-    </DiffTabContext.Provider>
+    <DiffTabContext.Provider value={value}>{children}</DiffTabContext.Provider>
   );
 }
 

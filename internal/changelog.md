@@ -1,5 +1,14 @@
 # Changelog
 
+## Refactor Design Sessions: Sandbox-Based Live Preview — 2026-02-19
+
+- **Switched from Sandpack to live iframe preview**: Design sessions now use a persistent Daytona sandbox with a real dev server instead of Sandpack. Claude writes actual files into the project's `app/design-preview/` directory, and the user sees real previews rendered by the project's own framework with actual Tailwind config/design tokens.
+- **Git-tracked design history**: Each design iteration is committed on a `design/{designSessionId}` branch, so design history is tracked in git rather than stored as inline JSON.
+- **New sandbox lifecycle**: Added `startSandbox`/`stopSandbox` mutations and `startDesignSandbox` action — lighter than session sandboxes (no code-server, no terminal). Sandbox auto-starts on first message if not running.
+- **Workflow uses existing sandbox**: Instead of `setupAndExecute` creating a new sandbox per workflow run, the workflow now uses the already-running persistent sandbox via `launchOnExistingSandbox`.
+- **Backward compatibility**: Old design sessions with `variation.code` still render via Sandpack; new sessions with `variation.route` render via iframe.
+- **Schema changes**: Added `branchName` to `designSessions`, updated variation shape to include optional `route` and `filePath` fields alongside optional `code`.
+
 ## Move Branch Selector from Sidebar to Inline Contexts — 2026-02-19
 
 - Removed the global sidebar branch selector — it stored a branch in `localStorage` but nothing ever read it (dead feature)

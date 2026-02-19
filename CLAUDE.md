@@ -130,7 +130,7 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 
 Most background jobs use `@convex-dev/workflow` for durable orchestration. Located in `packages/backend/convex/`:
 
-- **designWorkflow.ts** - Design session execution (Claude CLI generates UI variations)
+- **designWorkflow.ts** - Design session execution (Claude CLI writes variation files to `app/design-preview/`, commits on `design/{id}` branch, previewed via live iframe)
 - **summarizeWorkflow.ts** - Summarizes session history (Haiku, no tools)
 - **docPrdWorkflow.ts** - Parses uploaded PRD docs (Sonnet, read-only tools)
 - **evaluationWorkflow.ts** - Evaluates docs against requirements (Sonnet, read-only tools, ephemeral sandbox)

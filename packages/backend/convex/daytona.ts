@@ -529,6 +529,45 @@ export const setupAndExecute = internalAction({
 });
 
 /**
+ * Launches the callback script on an already-running sandbox.
+ * Used by design sessions where the sandbox is started separately.
+ */
+export const launchOnExistingSandbox = internalAction({
+  args: {
+    sandboxId: v.string(),
+    entityId: v.string(),
+    prompt: v.string(),
+    convexToken: v.string(),
+    completionMutation: v.string(),
+    entityIdField: v.string(),
+    model: v.optional(v.string()),
+    allowedTools: v.optional(v.string()),
+    systemPrompt: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    const daytona = getDaytona();
+    const sandbox = await daytona.get(args.sandboxId);
+
+    await launchScript(
+      sandbox,
+      args.prompt,
+      args.completionMutation,
+      args.entityIdField,
+      args.convexToken,
+      args.entityId,
+      {
+        model: args.model,
+        allowedTools: args.allowedTools,
+        systemPrompt: args.systemPrompt,
+      },
+    );
+
+    return null;
+  },
+});
+
+/**
  * Launches a code audit in an existing sandbox via nohup (fire-and-forget).
  * Reuses buildCallbackScript/launchScript — streaming activity updates are
  * harmlessly ignored since the task is already marked complete by this point.
@@ -738,6 +777,97 @@ export const startSessionSandbox = internalAction({
       const message = e instanceof Error ? e.message : "Unknown error";
       await ctx.runMutation(internal.sessions.sandboxError, {
         sessionId: args.sessionId,
+        error: message,
+      });
+    }
+    return null;
+  },
+});
+
+export const startDesignSandbox = internalAction({
+  args: {
+    designSessionId: v.id("designSessions"),
+    existingSandboxId: v.optional(v.string()),
+    githubToken: v.string(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    repoId: v.optional(v.id("githubRepos")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const daytona = getDaytona();
+
+      const repoEnvVars: Record<string, string> = {};
+      if (args.repoId) {
+        const vars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
+          repoId: args.repoId,
+        });
+        for (const v of vars) {
+          repoEnvVars[v.key] = v.value;
+        }
+      }
+
+      if (args.existingSandboxId) {
+        try {
+          const sandbox = await daytona.get(args.existingSandboxId);
+          await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+          await syncRepo(
+            sandbox,
+            args.githubToken,
+            args.repoOwner,
+            args.repoName,
+          );
+          await setupBranch(sandbox, args.branchName);
+          await sandbox.process.executeCommand(
+            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+            "/",
+            undefined,
+            10,
+          );
+          await ctx.runMutation(internal.designSessions.sandboxReady, {
+            designSessionId: args.designSessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+          });
+          return null;
+        } catch {
+          // Sandbox dead or unresponsive, create new
+        }
+      }
+
+      const sandbox = await createSandbox(
+        daytona,
+        args.githubToken,
+        repoEnvVars,
+      );
+      await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
+      await setupBranch(sandbox, args.branchName);
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && pnpm install`,
+        "/",
+        undefined,
+        120,
+      );
+      await sandbox.process.executeCommand(
+        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        "/",
+        undefined,
+        10,
+      );
+
+      await ctx.runMutation(internal.designSessions.sandboxReady, {
+        designSessionId: args.designSessionId,
+        sandboxId: sandbox.id,
+        branchName: args.branchName,
+        isNew: true,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      await ctx.runMutation(internal.designSessions.sandboxError, {
+        designSessionId: args.designSessionId,
         error: message,
       });
     }

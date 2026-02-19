@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { designTabParser, viewModeParser } from "@/lib/search-params";
 import Image from "next/image";
@@ -16,11 +16,6 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -39,9 +34,10 @@ import {
 } from "@conductor/ui";
 import {
   IconCheck,
-  IconCode,
   IconDeviceDesktop,
   IconDeviceMobile,
+  IconPlayerPlay,
+  IconPlayerStop,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
@@ -77,6 +73,12 @@ function parseActivitySteps(raw: string | undefined): ActivityStep[] {
   } catch {
     return STARTING_STEPS;
   }
+}
+
+const VARIATION_KEYS = ["a", "b", "c"] as const;
+
+function isLegacyVariation(variation: Variation): boolean {
+  return !!variation.code && !variation.route;
 }
 
 export function DesignDetailClient({
@@ -120,8 +122,12 @@ export function DesignDetailClient({
   });
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const selectVariation = useMutation(api.designSessions.selectVariation);
+  const startSandboxMutation = useMutation(api.designSessions.startSandbox);
+  const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
 
   const [isSending, setIsSending] = useState(false);
+  const [isSandboxStarting, setIsSandboxStarting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
   const [{ tab, view }, setDesignParams] = useQueryStates({
@@ -136,13 +142,60 @@ export function DesignDetailClient({
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
   const isExecuting = isSending || lastAssistantHasNoContent;
 
+  const sandboxRunning = !!session?.sandboxId;
+
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
       setIsSending(false);
     }
   }, [isSending, lastMessage]);
 
+  useEffect(() => {
+    if (isSandboxStarting && session?.sandboxId) {
+      setIsSandboxStarting(false);
+    }
+  }, [isSandboxStarting, session?.sandboxId]);
+
+  const fetchPreviewUrl = useCallback(async () => {
+    if (!session?.sandboxId) {
+      setPreviewUrl(null);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/design/preview?designSessionId=${designSessionId}&port=3000`,
+      );
+      if (res.ok) {
+        const data: { url: string } = await res.json();
+        setPreviewUrl(data.url);
+      }
+    } catch {
+      setPreviewUrl(null);
+    }
+  }, [session?.sandboxId, designSessionId]);
+
+  useEffect(() => {
+    fetchPreviewUrl();
+  }, [fetchPreviewUrl]);
+
   const latestVariations = getLatestVariations(session?.messages ?? []);
+  const useLegacyPreview =
+    latestVariations.length > 0 && isLegacyVariation(latestVariations[0]);
+
+  const handleStartSandbox = async () => {
+    setIsSandboxStarting(true);
+    try {
+      const { githubToken } = await getWorkflowTokens(repo.installationId);
+      await startSandboxMutation({ id: typedId, githubToken });
+    } catch {
+      setIsSandboxStarting(false);
+    }
+  };
+
+  const handleStopSandbox = async () => {
+    await stopSandboxMutation({ id: typedId });
+    setPreviewUrl(null);
+  };
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
@@ -151,6 +204,11 @@ export function DesignDetailClient({
       const { githubToken, convexToken } = await getWorkflowTokens(
         repo.installationId,
       );
+
+      if (!sandboxRunning) {
+        await startSandboxMutation({ id: typedId, githubToken });
+      }
+
       await executeMessage({
         id: typedId,
         message: text.trim(),
@@ -202,11 +260,35 @@ export function DesignDetailClient({
       <div className="flex flex-col w-2/5 min-w-[320px] border-r border-border">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <h2 className="text-sm font-medium truncate">{session.title}</h2>
-          <ManagePersonasModal
-            repoId={session.repoId}
-            selectedPersonaId={selectedPersonaId}
-            onClearPersona={() => setSelectedPersonaId(undefined)}
-          />
+          <div className="flex items-center gap-2">
+            {sandboxRunning ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1"
+                onClick={handleStopSandbox}
+              >
+                <IconPlayerStop size={14} />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1"
+                onClick={handleStartSandbox}
+                disabled={isSandboxStarting}
+              >
+                <IconPlayerPlay size={14} />
+                {isSandboxStarting ? "Starting..." : "Start sandbox"}
+              </Button>
+            )}
+            <ManagePersonasModal
+              repoId={session.repoId}
+              selectedPersonaId={selectedPersonaId}
+              onClearPersona={() => setSelectedPersonaId(undefined)}
+            />
+          </div>
         </div>
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-4">
@@ -336,28 +418,7 @@ export function DesignDetailClient({
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs gap-1"
-                  >
-                    <IconCode size={14} />
-                    Code
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[80vh]">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {latestVariations[Number(activeTab)]?.label}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <pre className="text-xs font-mono whitespace-pre-wrap bg-secondary rounded-lg p-4 overflow-auto max-h-[60vh]">
-                    {latestVariations[Number(activeTab)]?.code}
-                  </pre>
-                </DialogContent>
-              </Dialog>
+              <div className="w-16" />
             </div>
             {latestVariations.map((variation, i) => (
               <TabsContent
@@ -366,51 +427,43 @@ export function DesignDetailClient({
                 className="flex-1 m-0 min-h-0 relative bg-muted/30"
               >
                 <div
-                  className={`[&>.sp-wrapper]:h-full transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+                  className={`transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
                 >
-                  <SandpackProvider
-                    template="react-ts"
-                    files={{
-                      "/App.tsx": variation.code,
-                      "/styles.css": {
-                        code: sandpackConfig.stylesCss,
-                        hidden: true,
-                      },
-                      "/setupTailwind.js": {
-                        code: sandpackConfig.tailwindConfig,
-                        hidden: true,
-                      },
-                      "/index.tsx": {
-                        code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root")!);\nroot.render(<StrictMode><App /></StrictMode>);`,
-                        hidden: true,
-                      },
-                    }}
-                    options={{
-                      externalResources: sandpackConfig.externalResources,
-                      visibleFiles: ["/App.tsx"],
-                      initMode: "immediate",
-                    }}
-                    customSetup={{
-                      entry: "/index.tsx",
-                      dependencies: {
-                        "@tabler/icons-react": "latest",
-                        recharts: "latest",
-                        "framer-motion": "latest",
-                        "date-fns": "latest",
-                        clsx: "latest",
-                      },
-                    }}
-                  >
-                    <SandpackPreview
-                      suppressHydrationWarning
-                      showNavigator
-                      showOpenNewtab
-                      showRestartButton
-                      showOpenInCodeSandbox={true}
-                      showRefreshButton
-                      style={{ height: "100%" }}
+                  {useLegacyPreview ? (
+                    <LegacySandpackPreview
+                      variation={variation}
+                      sandpackConfig={sandpackConfig}
                     />
-                  </SandpackProvider>
+                  ) : previewUrl ? (
+                    <iframe
+                      src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
+                      className="w-full h-full border-0"
+                      title={variation.label}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <div className="text-center">
+                        {sandboxRunning ? (
+                          <Spinner size="md" />
+                        ) : (
+                          <>
+                            <p className="text-sm mb-2">Sandbox not running</p>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={handleStartSandbox}
+                              disabled={isSandboxStarting}
+                            >
+                              <IconPlayerPlay size={14} />
+                              {isSandboxStarting
+                                ? "Starting..."
+                                : "Start sandbox"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             ))}
@@ -443,6 +496,60 @@ export function DesignDetailClient({
         )}
       </div>
     </div>
+  );
+}
+
+function LegacySandpackPreview({
+  variation,
+  sandpackConfig,
+}: {
+  variation: Variation;
+  sandpackConfig: SandpackConfig;
+}) {
+  return (
+    <SandpackProvider
+      template="react-ts"
+      files={{
+        "/App.tsx": variation.code ?? "",
+        "/styles.css": {
+          code: sandpackConfig.stylesCss,
+          hidden: true,
+        },
+        "/setupTailwind.js": {
+          code: sandpackConfig.tailwindConfig,
+          hidden: true,
+        },
+        "/index.tsx": {
+          code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root")!);\nroot.render(<StrictMode><App /></StrictMode>);`,
+          hidden: true,
+        },
+      }}
+      options={{
+        externalResources: sandpackConfig.externalResources,
+        visibleFiles: ["/App.tsx"],
+        initMode: "immediate",
+      }}
+      customSetup={{
+        entry: "/index.tsx",
+        dependencies: {
+          "@tabler/icons-react": "latest",
+          recharts: "latest",
+          "framer-motion": "latest",
+          "date-fns": "latest",
+          clsx: "latest",
+        },
+      }}
+    >
+      <SandpackPreview
+        suppressHydrationWarning
+        showNavigator
+        showOpenNewtab
+        showRestartButton
+        showOpenInCodeSandbox={true}
+        showRefreshButton
+        style={{ height: "100%" }}
+      />
+    </SandpackProvider>
   );
 }
 

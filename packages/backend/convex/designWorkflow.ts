@@ -18,23 +18,19 @@ const designCompleteEvent = defineEvent({
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
-// --- Prompt building (moved from apps/web/lib/prompts/designPrompts.ts) ---
-
-const DESIGN_SYSTEM_PROMPT = `You MUST output ONLY valid JSON in this exact format — no other text, no markdown fences, no explanation:
+const DESIGN_SYSTEM_PROMPT = `You MUST write 3 React component variation files and commit them, then output ONLY valid JSON:
 {
-  "summary": "Brief description of design decisions",
+  "summary": "Brief design decisions",
   "variations": [
-    {
-      "label": "Design A - [descriptor]",
-      "code": "A single React component file. MUST start with: import { useState, useEffect } from 'react'; (import any hooks you need). Then: export default function App() { ... }. Use Tailwind classes for all styling."
-    },
-    { "label": "Design B - [descriptor]", "code": "..." },
-    { "label": "Design C - [descriptor]", "code": "..." }
+    { "label": "Design A - [descriptor]", "route": "/design-preview?v=a", "filePath": "[path you wrote]" },
+    { "label": "Design B - [descriptor]", "route": "/design-preview?v=b", "filePath": "[path you wrote]" },
+    { "label": "Design C - [descriptor]", "route": "/design-preview?v=c", "filePath": "[path you wrote]" }
   ]
 }
 
-Rules for each variation:
-- Single React component file starting with \`import { useState } from 'react';\` (add useEffect or other hooks as needed), then \`export default function App() { ... }\`
+Rules for each variation file:
+- Write to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
+- Single React component with \`export default function VariationA() { ... }\` (or B/C)
 - ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
 - Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-slate-500, no text-gray-700)
 - Every clickable element and section header MUST include a @tabler/icons-react icon
@@ -43,14 +39,14 @@ Rules for each variation:
 - Add hover feedback on ALL interactive elements and smooth transitions
 - Add focus rings for accessibility
 - Follow ALL guidelines loaded from skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
-- DO NOT modify any files in the codebase
+- After writing all files, commit with a descriptive message and push
 - Output ONLY the JSON, no other text`;
 
 function buildDesignPrompt(
   repo: { owner: string; name: string },
   message: string,
   conversationHistory: Array<{ role: string; content: string }>,
-  selectedBase: { label: string; code: string } | null,
+  selectedBase: { label: string; filePath: string } | null,
   persona: { name: string; prompt: string } | null,
 ): string {
   const history = conversationHistory
@@ -61,13 +57,10 @@ function buildDesignPrompt(
 
   const baseContext = selectedBase
     ? `\n\n## Selected Base Design
-  The user selected "${selectedBase.label}" as the base. Here is its code:
-  \`\`\`jsx
-  ${selectedBase.code}
-  \`\`\`
-  IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
-  Only change what the user explicitly requests. Generate 3 variations that are refinements of THIS
-  design, not completely new approaches.`
+The user selected "${selectedBase.label}" as the base.
+Read the file at: ${selectedBase.filePath}
+IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
+Only change what the user explicitly requests. Create 3 refined variations of THIS design.`
     : "";
 
   const personaContext = persona
@@ -81,7 +74,7 @@ Design with this persona in mind — consider their goals, context, and preferen
   return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
 
 ## Your Task
-Read the codebase to understand the existing design system, then generate 3 React component variations based on the user's request.
+Read the codebase to understand the existing design system, then write 3 React component variation files based on the user's request.
 
 ## Steps
 1. Invoke the /frontend-design skill to load design quality guidelines
@@ -89,8 +82,34 @@ Read the codebase to understand the existing design system, then generate 3 Reac
 3. Invoke the /web-design-guidelines skill to load accessibility guidelines
 4. Read CLAUDE.md to understand the project
 5. Read the Tailwind config and globals.css to understand the design tokens
-6. Read existing components to understand STYLE PATTERNS (spacing, layout, visual language) — your output runs in isolation, so recreate patterns using plain JSX + Tailwind, no project imports
-7. Generate 3 distinct, interactive React component variations following the loaded guidelines
+6. Read existing components to understand STYLE PATTERNS (spacing, layout, visual language)
+7. Check if app/design-preview/page.tsx exists. If not, create the router scaffold:
+   - Create app/design-preview/page.tsx that lazy-imports variations/variation-{a,b,c}.tsx based on ?v= query param
+   - Create app/design-preview/variations/ directory
+8. Write 3 variation files to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
+9. Commit all changes with message: "design: ${message.slice(0, 60)}"
+10. Push to the current branch
+11. Output ONLY the JSON
+
+## Router Scaffold (create if app/design-preview/page.tsx doesn't exist)
+\`\`\`tsx
+'use client';
+import { lazy, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const variations: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+  a: lazy(() => import('./variations/variation-a')),
+  b: lazy(() => import('./variations/variation-b')),
+  c: lazy(() => import('./variations/variation-c')),
+};
+
+export default function DesignPreview() {
+  const params = useSearchParams();
+  const v = params.get('v') || 'a';
+  const Component = variations[v] || variations.a;
+  return <Suspense fallback={<div className="flex items-center justify-center h-screen"><p>Loading...</p></div>}><Component /></Suspense>;
+}
+\`\`\`
 
 ## Variation Strategies
 - Design A: Clean/conventional — prioritize clarity, familiar patterns, and straightforward navigation
@@ -98,7 +117,7 @@ Read the codebase to understand the existing design system, then generate 3 Reac
 - Design C: Compact/efficient — high information density, minimal chrome, space-efficient UI
 
 ## Design System
-The project uses a custom Tailwind config with CSS variables. Your components will be rendered in an environment that already provides these — just use the utility classes:
+The project uses a custom Tailwind config with CSS variables. Use the project's actual design tokens:
 
 **Colors:** bg-background, bg-foreground, bg-primary, bg-secondary, bg-muted, bg-accent, bg-card, bg-destructive, bg-success, bg-warning (and text-* equivalents, plus text-primary-foreground etc.)
 **Border:** border-border, border-input
@@ -106,15 +125,6 @@ The project uses a custom Tailwind config with CSS variables. Your components wi
 **Font:** font-sans (Inter is loaded automatically)
 
 CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-slate-500, text-gray-700, bg-zinc-600. Always use bg-primary, text-muted-foreground, etc.
-
-## Available Libraries
-The preview environment has these pre-installed — use them freely:
-- \`@tabler/icons-react\` — icons: \`import { IconSearch, IconSettings, IconBell, IconChevronDown, IconPlus, IconX, IconCheck, IconArrowRight, IconUser, IconMail, IconDots, IconFilter, IconCalendar, IconStar, IconTrash, IconPencil, IconEye, IconDownload, IconUpload, IconCopy, IconExternalLink, IconChartBar, IconActivity, IconClock, IconAlertTriangle, IconInfoCircle, IconChevronRight, IconLayoutKanban, IconSparkles } from "@tabler/icons-react"\`. Use icons on every button, nav item, section header, and list item.
-- \`recharts\` — data visualization: \`import { LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"\`. Use for any metrics, analytics, or data display. Generate realistic data arrays.
-- \`framer-motion\` — animations: \`import { motion, AnimatePresence } from "framer-motion"\`. Use \`<motion.div>\` for page transitions, staggered list reveals, hover scale effects, and layout animations. Makes everything feel polished.
-- \`date-fns\` — date formatting: \`import { format, formatDistanceToNow, subDays, subHours } from "date-fns"\`. Use for realistic timestamps like "2 hours ago" or "Jan 15, 2026".
-- \`clsx\` — conditional classes: \`import clsx from "clsx"\`. Use for toggling classes based on state.
-- Only font: Inter (\`font-sans\`). Use weight variation (font-medium, font-semibold, font-bold) and size contrast for hierarchy.
 
 ## Design Quality Guidelines
 - Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
@@ -153,7 +163,6 @@ export const designSessionWorkflow = workflow.define({
     githubToken: v.string(),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Fetch session data and build prompt
     const sessionData = await step.runQuery(
       internal.designWorkflow.getSessionDataAndPrompt,
       {
@@ -163,39 +172,35 @@ export const designSessionWorkflow = workflow.define({
       },
     );
 
-    // Step 2: Setup sandbox + fire Claude CLI (with retry)
-    const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+    if (!sessionData.sandboxId) {
+      await step.runMutation(internal.designWorkflow.saveResult, {
+        designSessionId: args.designSessionId,
+        success: false,
+        result: null,
+        error: "Sandbox not running. Start the sandbox first.",
+        activityLog: null,
+      });
+      return;
+    }
+
+    await step.runAction(
+      internal.daytona.launchOnExistingSandbox,
       {
+        sandboxId: sessionData.sandboxId,
         entityId: args.designSessionId,
-        existingSandboxId: sessionData.sandboxId,
-        githubToken: args.githubToken,
-        repoOwner: sessionData.repoOwner,
-        repoName: sessionData.repoName,
         prompt: sessionData.prompt,
         convexToken: args.convexToken,
         completionMutation: "designWorkflow:handleCompletion",
         entityIdField: "designSessionId",
         model: "opus",
-        allowedTools: "Read,Glob,Grep,Skill",
+        allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
-        repoId: sessionData.repoId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
 
-    // Persist sandbox ID so it can be reused next time
-    if (sandboxId !== sessionData.sandboxId) {
-      await step.runMutation(internal.designSessions.updateSandbox, {
-        id: args.designSessionId,
-        sandboxId,
-      });
-    }
-
-    // Step 3: Wait for callback from sandbox
     const result = await step.awaitEvent(designCompleteEvent);
 
-    // Step 4: Save results and clear workflow
     await step.runMutation(internal.designWorkflow.saveResult, {
       designSessionId: args.designSessionId,
       success: result.success,
@@ -216,6 +221,7 @@ export const getSessionDataAndPrompt = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    branchName: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -228,7 +234,6 @@ export const getSessionDataAndPrompt = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    // Get persona if provided
     let persona: { name: string; prompt: string } | null = null;
     if (args.personaId) {
       const personaDoc = await ctx.db.get(args.personaId);
@@ -237,8 +242,7 @@ export const getSessionDataAndPrompt = internalQuery({
       }
     }
 
-    // Get selected base variation if user picked one
-    let selectedBase: { label: string; code: string } | null = null;
+    let selectedBase: { label: string; filePath: string } | null = null;
     if (session.selectedVariationIndex !== undefined) {
       const lastAssistant = [...session.messages]
         .reverse()
@@ -246,13 +250,15 @@ export const getSessionDataAndPrompt = internalQuery({
       if (lastAssistant?.variations) {
         const variation =
           lastAssistant.variations[session.selectedVariationIndex];
-        if (variation) {
-          selectedBase = { label: variation.label, code: variation.code };
+        if (variation?.filePath) {
+          selectedBase = {
+            label: variation.label,
+            filePath: variation.filePath,
+          };
         }
       }
     }
 
-    // Build conversation history and prompt
     const conversationHistory = session.messages
       .filter((m) => m.content)
       .map((m) => ({ role: m.role, content: m.content }));
@@ -267,6 +273,7 @@ export const getSessionDataAndPrompt = internalQuery({
 
     return {
       sandboxId: session.sandboxId,
+      branchName: session.branchName,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: session.repoId,
@@ -285,7 +292,6 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) =>
@@ -306,12 +312,19 @@ export const saveResult = internalMutation({
       if (jsonStr) {
         const parsed: {
           summary?: string;
-          variations?: Array<{ label: string; code: string }>;
+          variations?: Array<{
+            label: string;
+            route?: string;
+            filePath?: string;
+            code?: string;
+          }>;
         } = JSON.parse(jsonStr);
         last.content = parsed.summary || "Here are 3 design variations:";
         last.activityLog = args.activityLog || undefined;
         last.variations = parsed.variations?.map((variation) => ({
           label: variation.label,
+          route: variation.route,
+          filePath: variation.filePath,
           code: variation.code,
         }));
       } else {
@@ -323,7 +336,6 @@ export const saveResult = internalMutation({
       last.activityLog = args.activityLog || undefined;
     }
 
-    // Clear the active workflow
     await ctx.db.patch(args.designSessionId, {
       messages,
       activeWorkflowId: undefined,
@@ -333,10 +345,6 @@ export const saveResult = internalMutation({
   },
 });
 
-/**
- * Called by the sandbox via ConvexHttpClient (authenticated with Clerk JWT).
- * Sends the workflow event to signal completion.
- */
 export const handleCompletion = mutation({
   args: {
     designSessionId: v.id("designSessions"),

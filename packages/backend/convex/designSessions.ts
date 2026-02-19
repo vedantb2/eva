@@ -8,7 +8,9 @@ import { roleValidator, sessionStatusValidator } from "./validators";
 
 const variationValidator = v.object({
   label: v.string(),
-  code: v.string(),
+  code: v.optional(v.string()),
+  route: v.optional(v.string()),
+  filePath: v.optional(v.string()),
 });
 
 const messageValidator = v.object({
@@ -29,6 +31,7 @@ const designSessionValidator = v.object({
   title: v.string(),
   status: sessionStatusValidator,
   sandboxId: v.optional(v.string()),
+  branchName: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
@@ -165,16 +168,111 @@ export const updateSandbox = internalMutation({
   args: {
     id: v.id("designSessions"),
     sandboxId: v.optional(v.string()),
+    branchName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    const updates: { sandboxId?: string; updatedAt: number } = {
+    const updates: Record<string, string | number> = {
       updatedAt: Date.now(),
     };
     if (args.sandboxId !== undefined) updates.sandboxId = args.sandboxId;
+    if (args.branchName !== undefined) updates.branchName = args.branchName;
     await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
+export const startSandbox = mutation({
+  args: {
+    id: v.id("designSessions"),
+    githubToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) throw new Error("Repository not found");
+    const branchName = session.branchName || `design/${args.id}`;
+    await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
+      designSessionId: args.id,
+      existingSandboxId: session.sandboxId,
+      githubToken: args.githubToken,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      repoId: session.repoId,
+    });
+    return null;
+  },
+});
+
+export const stopSandbox = mutation({
+  args: { id: v.id("designSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+    if (session.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+        sandboxId: session.sandboxId,
+      });
+    }
+    await ctx.db.patch(args.id, {
+      sandboxId: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const sandboxReady = internalMutation({
+  args: {
+    designSessionId: v.id("designSessions"),
+    sandboxId: v.string(),
+    branchName: v.string(),
+    isNew: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.designSessionId);
+    if (!session) return null;
+    await ctx.db.patch(args.designSessionId, {
+      sandboxId: args.sandboxId,
+      branchName: args.branchName,
+      status: "active",
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const sandboxError = internalMutation({
+  args: {
+    designSessionId: v.id("designSessions"),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.designSessionId);
+    if (!session) return null;
+    await ctx.db.patch(args.designSessionId, {
+      messages: [
+        ...session.messages,
+        {
+          role: "assistant" as const,
+          content: `Failed to start sandbox: ${args.error}`,
+          timestamp: Date.now(),
+        },
+      ],
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -194,7 +292,6 @@ export const executeMessage = mutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
-    // Add user message + empty assistant message (signals "generating" to UI)
     const now = Date.now();
     await ctx.db.patch(args.id, {
       messages: [
@@ -216,7 +313,6 @@ export const executeMessage = mutation({
       updatedAt: now,
     });
 
-    // Start workflow
     const workflowId = await workflow.start(
       ctx,
       internal.designWorkflow.designSessionWorkflow,
@@ -229,7 +325,6 @@ export const executeMessage = mutation({
       },
     );
 
-    // Store workflowId on the session
     await ctx.db.patch(args.id, {
       activeWorkflowId: String(workflowId),
     });
@@ -255,14 +350,12 @@ export const cancelExecution = mutation({
       }
     }
 
-    // Update the last message to show cancellation
     const messages = [...session.messages];
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && !last.content) {
       last.content = "Design generation cancelled.";
     }
 
-    // Clear streaming
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.id)))

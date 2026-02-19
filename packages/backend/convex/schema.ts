@@ -314,6 +314,7 @@ const schema = defineSchema({
     title: v.string(),
     status: sessionStatusValidator,
     sandboxId: v.optional(v.string()),
+    branchName: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
@@ -330,7 +331,9 @@ const schema = defineSchema({
           v.array(
             v.object({
               label: v.string(),
-              code: v.string(),
+              code: v.optional(v.string()),
+              route: v.optional(v.string()),
+              filePath: v.optional(v.string()),
             }),
           ),
         ),

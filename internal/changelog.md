@@ -1,5 +1,54 @@
 # Changelog
 
+## Snapshot Rebuild: Daily Schedule Instead of Per-Commit — 2026-02-19
+
+- Changed `rebuild-snapshot.yml` trigger from `push` to `main` to a daily cron at 7 AM UTC — avoids unnecessary snapshot rebuilds on every commit when the base image rarely changes
+- Added `workflow_dispatch` for manual triggers when needed
+
+## Fix Type Errors + Move View PR to Header — 2026-02-19
+
+- **Regenerated Convex types** — `npx convex codegen` to pick up the new `sessionAudits` module that was missing from the generated API types, fixing `api.sessionAudits` / `internal.sessionAudits` resolution errors
+- **Removed invalid `branchName` prop** from `QuickTasksKanbanBoard` and `QuickTasksListView` — `agentTasks` schema doesn't have `branchName`, the card already fetches PR URL from `agentRuns` independently
+- **Moved "View PR" badge** from above the prompt input to the ChatPanel header bar, next to "Send for Review" — shows as a mutually exclusive pair: View PR when `prUrl` exists, Send for Review when only `branchName` exists
+
+## Multi-Step Review Modal for Sessions — 2026-02-19
+
+- Replaced the single-step confirmation dialog for "Send for Review" with a 3-step animated modal: Confirm → Auditing Progress → Review Sent
+- **Backend: `sessionAudits` table** — mirrors `taskAudits` structure (accessibility, testing, codeReview arrays with pass/fail results + summary). Indexed by `sessionId`
+- **Backend: `sessionAudits.ts`** — `getBySession` query (frontend subscribes for real-time status), `startAudit` mutation (creates record + schedules sandbox action), `handleCompletion` callback mutation (sandbox calls back with parsed JSON results), `fail` internal mutation
+- **Backend: `runSessionAudit` action in `daytona.ts`** — gets git diff from session sandbox, builds audit prompt (same 3-category format as task audits), launches Claude Haiku via `launchScript` with fire-and-forget nohup pattern. Sandbox calls back to `sessionAudits:handleCompletion` when done
+- **Frontend subscribes to real audit status** — `useQuery(api.sessionAudits.getBySession)` reactively updates when the audit record changes. Stagger animation (spinner → checkmark) triggers only when the backend audit completes, not on fake timers
+- **Graceful fallback**: if the audit mutation fails to start (e.g. sandbox inactive), the modal falls back to a timer-based animation so the user isn't stuck — the PR was still created successfully
+- Fixed dialog spacing: added `space-y-4` to each `motion.div` step wrapper to restore the `gap-4` lost when `AnimatePresence` became the only direct child of `DialogContent`
+
+## Desktop: View All Diffs + Push Button — 2026-02-18
+
+- **PR-style "Review All" diff view** — new "Review All" eye icon in git panel header opens a single tab showing all staged + unstaged diffs in collapsible file cards with status badges, reviewed checkboxes, and a progress summary bar
+- **Git push support** — added push button (arrow-up icon) next to the commit button, shows ahead count in tooltip, disabled when nothing to push. Full IPC pipeline: ipc-channels → operations → handlers → preload
+- **DiffTab discriminated union** — refactored `DiffTab` into `SingleFileDiffTab | AllFilesDiffTab` to support both single-file and all-files diff views in the same tab system. SessionPage routes to `AllDiffsView` or `PatchDiff` based on tab kind
+
+## Desktop: Diff Tabs in Main Panel — 2026-02-18
+
+- **Moved diffs from inline expansion to center-panel tabs** — clicking a file in the git panel now opens a diff tab alongside terminal tabs (VS Code style) instead of expanding a cramped inline diff inside the narrow git panel
+- Created `DiffTabContext` to bridge the `GitPanel` ↔ `SessionPage` sibling gap — shared context holds diff tab state (open, close, focus), provided by `AppShellInner`
+- Deterministic tab IDs (`diff:staged:path` / `diff:unstaged:path`) ensure re-clicking a file focuses the existing tab rather than duplicating it
+- Diff tabs clear automatically on session switch
+- Removed inline expand/collapse logic from `GitFileItem`, deleted the now-unused `DiffViewer` component
+
+## Improve Diff Viewer UI (Web + Desktop) — 2026-02-18
+
+- **Web DiffPanel**: Added unified/split view toggle, word-level inline diff highlighting (`lineDiffType: "word"`), collapsible unchanged regions (`expandUnchanged`), and `+N -N` line count stats in the file sidebar — the bare-bones PatchDiff setup now feels closer to VS Code/GitHub's diff viewer
+- **Desktop DiffViewer**: Replaced the custom table-based diff renderer (DiffLine/DiffHunk/DiffFile types, manual line counting, no syntax highlighting) with `@pierre/diffs` PatchDiff — same library used by web, gives syntax highlighting, word-level diffs, and dark theme for free
+- **Desktop data flow simplification**: Removed `parseDiff()` in `diff.ts` that split raw git output into typed hunks/lines (100+ lines of parsing code). Replaced with `splitPatchByFile()` that just splits the raw multi-file patch into per-file strings — PatchDiff handles all parsing internally
+- Deleted `apps/desktop/src/main/git/diff.ts`, replaced `DiffFile`/`DiffHunk`/`DiffLine` types with single `RawFilePatch` interface
+
+## Replace Session Diff Viewer with @pierre/diffs — 2026-02-18
+
+- Replaced the hand-rolled line-by-line diff renderer with `PatchDiff` from `@pierre/diffs` — the custom renderer had no syntax highlighting, no line numbers, and no inline change highlighting
+- `@pierre/diffs` provides Shiki-based syntax highlighting, line numbers, word-level inline diffs, and automatic light/dark theme via Shadow DOM — all for free with zero custom rendering code
+- Removed the `DiffLine` component entirely; the file sidebar and header bar are unchanged
+- Fixed `as` type assertion in `getConfig` with a proper type guard function
+
 ## Desktop: Session-Based Terminal Manager Rearchitecture — 2026-02-18
 
 - **Rearchitected the desktop app from agent-based one-shot workflow to session-based interactive terminal manager** — the app now focuses on being a lightweight IDE wrapper around CLI AI tools (Claude Code, OpenCode, Codex)

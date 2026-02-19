@@ -7,6 +7,22 @@ import type {
   CreateTabOptions,
 } from "./types";
 
+const ptyDataListeners = new Map<string, (data: string) => void>();
+ipcRenderer.on(
+  IPC_CHANNELS.PTY_DATA,
+  (_: Electron.IpcRendererEvent, ptyId: string, data: string) => {
+    ptyDataListeners.get(ptyId)?.(data);
+  },
+);
+
+const ptyExitListeners = new Map<string, (code: number) => void>();
+ipcRenderer.on(
+  IPC_CHANNELS.PTY_EXIT,
+  (_: Electron.IpcRendererEvent, ptyId: string, code: number) => {
+    ptyExitListeners.get(ptyId)?.(code);
+  },
+);
+
 const api: ElectronAPI = {
   ptySpawn: (opts: PtySpawnOptions) =>
     ipcRenderer.invoke(IPC_CHANNELS.PTY_SPAWN, opts),
@@ -19,24 +35,18 @@ const api: ElectronAPI = {
 
   ptyKill: (ptyId: string) => ipcRenderer.invoke(IPC_CHANNELS.PTY_KILL, ptyId),
 
-  onPtyData: (callback) => {
-    const handler = (
-      _: Electron.IpcRendererEvent,
-      ptyId: string,
-      data: string,
-    ) => callback(ptyId, data);
-    ipcRenderer.on(IPC_CHANNELS.PTY_DATA, handler);
-    return () => ipcRenderer.off(IPC_CHANNELS.PTY_DATA, handler);
+  onPtyData: (ptyId: string, callback: (data: string) => void) => {
+    ptyDataListeners.set(ptyId, callback);
+    return () => {
+      ptyDataListeners.delete(ptyId);
+    };
   },
 
-  onPtyExit: (callback) => {
-    const handler = (
-      _: Electron.IpcRendererEvent,
-      ptyId: string,
-      code: number,
-    ) => callback(ptyId, code);
-    ipcRenderer.on(IPC_CHANNELS.PTY_EXIT, handler);
-    return () => ipcRenderer.off(IPC_CHANNELS.PTY_EXIT, handler);
+  onPtyExit: (ptyId: string, callback: (code: number) => void) => {
+    ptyExitListeners.set(ptyId, callback);
+    return () => {
+      ptyExitListeners.delete(ptyId);
+    };
   },
 
   sessionCreate: (opts: CreateSessionOptions) =>
@@ -70,6 +80,9 @@ const api: ElectronAPI = {
 
   gitCommit: (repoPath: string, message: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT, repoPath, message),
+
+  gitPush: (repoPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_PUSH, repoPath),
 
   gitDiffStaged: (repoPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STAGED, repoPath),

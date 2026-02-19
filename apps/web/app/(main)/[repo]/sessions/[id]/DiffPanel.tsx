@@ -3,36 +3,47 @@
 import { useState, type ReactNode } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
-import { IconFilePlus, IconFileCode, IconFileX } from "@tabler/icons-react";
+import {
+  IconFilePlus,
+  IconFileCode,
+  IconFileX,
+  IconLayoutRows,
+  IconLayoutColumns,
+} from "@tabler/icons-react";
+import { PatchDiff } from "@pierre/diffs/react";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type FileDiff = NonNullable<Session["fileDiffs"]>[number];
+type DiffStyle = "unified" | "split";
 
 const statusConfig = {
   added: { icon: IconFilePlus, color: "text-success", label: "A" },
   modified: { icon: IconFileCode, color: "text-warning", label: "M" },
   deleted: { icon: IconFileX, color: "text-destructive", label: "D" },
-};
+} satisfies Record<
+  string,
+  { icon: typeof IconFilePlus; color: string; label: string }
+>;
 
-function getConfig(status: string) {
-  return (
-    statusConfig[status as keyof typeof statusConfig] ?? statusConfig.modified
-  );
+function isValidStatus(status: string): status is keyof typeof statusConfig {
+  return status in statusConfig;
 }
 
-function DiffLine({ line }: { line: string }) {
-  if (line.startsWith("+") && !line.startsWith("+++")) {
-    return <div className="bg-success/10 px-3 py-0 text-success">{line}</div>;
+function getConfig(status: string) {
+  if (isValidStatus(status)) {
+    return statusConfig[status];
   }
-  if (line.startsWith("-") && !line.startsWith("---")) {
-    return (
-      <div className="bg-destructive/10 px-3 py-0 text-destructive">{line}</div>
-    );
+  return statusConfig.modified;
+}
+
+function countPatchStats(patch: string): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) added++;
+    else if (line.startsWith("-") && !line.startsWith("---")) removed++;
   }
-  if (line.startsWith("@@")) {
-    return <div className="px-3 py-0 text-primary">{line}</div>;
-  }
-  return <div className="px-3 py-0 text-muted-foreground">{line}</div>;
+  return { added, removed };
 }
 
 export function DiffPanel({
@@ -43,6 +54,7 @@ export function DiffPanel({
   tabSwitcher?: ReactNode;
 }) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [diffStyle, setDiffStyle] = useState<DiffStyle>("unified");
 
   if (!fileDiffs || fileDiffs.length === 0) {
     return (
@@ -62,12 +74,31 @@ export function DiffPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-1 border-b p-2">{tabSwitcher}</div>
+      <div className="flex items-center gap-1 border-b p-2">
+        {tabSwitcher}
+        <div className="ml-auto flex items-center gap-0.5">
+          <button
+            onClick={() => setDiffStyle("unified")}
+            className={`p-1 rounded ${diffStyle === "unified" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            title="Unified view"
+          >
+            <IconLayoutRows className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setDiffStyle("split")}
+            className={`p-1 rounded ${diffStyle === "split" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            title="Split view"
+          >
+            <IconLayoutColumns className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
       <div className="flex flex-1 min-h-0">
         <div className="w-56 overflow-y-auto flex-shrink-0">
           {fileDiffs.map((d) => {
             const config = getConfig(d.status);
             const Icon = config.icon;
+            const stats = countPatchStats(d.diff);
             return (
               <button
                 key={d.file}
@@ -78,17 +109,28 @@ export function DiffPanel({
               >
                 <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${config.color}`} />
                 <span className="truncate text-muted-foreground">{d.file}</span>
+                <span className="ml-auto flex items-center gap-1 flex-shrink-0 text-[10px] font-mono">
+                  <span className="text-success">+{stats.added}</span>
+                  <span className="text-destructive">-{stats.removed}</span>
+                </span>
               </button>
             );
           })}
         </div>
         <div className="flex-1 overflow-auto">
           {activeDiff ? (
-            <pre className="text-xs font-mono leading-5">
-              {activeDiff.diff.split("\n").map((line, i) => (
-                <DiffLine key={i} line={line} />
-              ))}
-            </pre>
+            <PatchDiff
+              patch={activeDiff.diff}
+              options={{
+                diffStyle,
+                diffIndicators: "bars",
+                overflow: "scroll",
+                themeType: "system",
+                disableFileHeader: true,
+                lineDiffType: "word",
+                expandUnchanged: true,
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               Select a file to view changes

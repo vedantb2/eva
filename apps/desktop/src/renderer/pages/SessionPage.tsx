@@ -7,9 +7,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@conductor/ui";
-import { IconPlus, IconX, IconTerminal2 } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconX,
+  IconTerminal2,
+  IconFileCode,
+} from "@tabler/icons-react";
+import { PatchDiff } from "@pierre/diffs/react";
 import { TerminalView } from "../components/terminal/TerminalView";
+import { AllDiffsView } from "../components/diff/AllDiffsView";
 import { useSessionContext } from "../contexts/SessionContext";
+import { useDiffTabContext } from "../contexts/DiffTabContext";
+import type { DiffTab } from "../contexts/DiffTabContext";
 import type { Session, ToolType, TerminalTab } from "../../preload/types";
 
 const TOOL_OPTIONS: { value: ToolType; label: string }[] = [
@@ -23,6 +32,14 @@ export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { sessions, setActiveSessionId, refreshSession } = useSessionContext();
+  const {
+    diffTabs,
+    activeDiffTabId,
+    closeDiffTab,
+    focusDiffTab,
+    clearActiveDiffTab,
+    clearAllDiffTabs,
+  } = useDiffTabContext();
   const [activeTabId, setActiveTabId] = useState<string>("");
 
   const session: Session | undefined = sessions.find(
@@ -34,6 +51,10 @@ export function SessionPage() {
       setActiveSessionId(sessionId);
     }
   }, [sessionId, setActiveSessionId]);
+
+  useEffect(() => {
+    clearAllDiffTabs();
+  }, [sessionId, clearAllDiffTabs]);
 
   useEffect(() => {
     if (session && session.tabs.length > 0) {
@@ -63,6 +84,28 @@ export function SessionPage() {
     [sessionId, session, refreshSession],
   );
 
+  const handleTerminalTabClick = useCallback(
+    (tabId: string) => {
+      setActiveTabId(tabId);
+      clearActiveDiffTab();
+    },
+    [clearActiveDiffTab],
+  );
+
+  const handleDiffTabClick = useCallback(
+    (id: string) => {
+      focusDiffTab(id);
+    },
+    [focusDiffTab],
+  );
+
+  const handleDiffTabClose = useCallback(
+    (id: string) => {
+      closeDiffTab(id);
+    },
+    [closeDiffTab],
+  );
+
   if (!sessionId) {
     navigate("/");
     return null;
@@ -76,6 +119,8 @@ export function SessionPage() {
     );
   }
 
+  const activeDiffTab = diffTabs.find((t) => t.id === activeDiffTabId);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center h-9 shrink-0 border-b border-border bg-background overflow-x-auto">
@@ -83,10 +128,19 @@ export function SessionPage() {
           <TabButton
             key={tab.tabId}
             tab={tab}
-            isActive={tab.tabId === activeTabId}
+            isActive={tab.tabId === activeTabId && !activeDiffTabId}
             canClose={session.tabs.length > 1}
-            onClick={() => setActiveTabId(tab.tabId)}
+            onClick={() => handleTerminalTabClick(tab.tabId)}
             onClose={() => handleCloseTab(tab.tabId)}
+          />
+        ))}
+        {diffTabs.map((dt) => (
+          <DiffTabButton
+            key={dt.id}
+            tab={dt}
+            isActive={dt.id === activeDiffTabId}
+            onClick={() => handleDiffTabClick(dt.id)}
+            onClose={() => handleDiffTabClose(dt.id)}
           />
         ))}
         <DropdownMenu>
@@ -119,9 +173,33 @@ export function SessionPage() {
           <TerminalView
             key={tab.ptyId}
             ptyId={tab.ptyId}
-            visible={tab.tabId === activeTabId}
+            visible={tab.tabId === activeTabId && !activeDiffTabId}
           />
         ))}
+        {activeDiffTab && activeDiffTab.kind === "all" && (
+          <AllDiffsView patches={activeDiffTab.patches} />
+        )}
+        {activeDiffTab && activeDiffTab.kind === "single" && (
+          <div className="absolute inset-0 overflow-auto bg-background p-4">
+            {activeDiffTab.patch ? (
+              <PatchDiff
+                patch={activeDiffTab.patch}
+                options={{
+                  themeType: "dark",
+                  diffIndicators: "bars",
+                  lineDiffType: "word",
+                  expandUnchanged: true,
+                  disableFileHeader: true,
+                  overflow: "scroll",
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                No changes
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -164,6 +242,48 @@ function TabButton({
           <IconX size={10} />
         </button>
       )}
+    </div>
+  );
+}
+
+interface DiffTabButtonProps {
+  tab: DiffTab;
+  isActive: boolean;
+  onClick: () => void;
+  onClose: () => void;
+}
+
+function DiffTabButton({
+  tab,
+  isActive,
+  onClick,
+  onClose,
+}: DiffTabButtonProps) {
+  const label =
+    tab.kind === "all"
+      ? "All Changes"
+      : `${tab.filePath.split("/").pop() ?? tab.filePath} ${tab.staged ? "(Staged)" : "(Working Tree)"}`;
+
+  return (
+    <div
+      className={`group flex items-center gap-1.5 px-3 h-full cursor-pointer border-r border-border text-xs select-none shrink-0 ${
+        isActive
+          ? "bg-card text-foreground border-b-2 border-b-primary"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+      }`}
+      onClick={onClick}
+    >
+      <IconFileCode size={12} />
+      <span>{label}</span>
+      <button
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <IconX size={10} />
+      </button>
     </div>
   );
 }

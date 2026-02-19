@@ -262,7 +262,6 @@ export function QuickTasksListView({
                             status={task.status}
                             createdAt={task.createdAt}
                             createdBy={task.createdBy}
-                            branchName={task.branchName}
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);

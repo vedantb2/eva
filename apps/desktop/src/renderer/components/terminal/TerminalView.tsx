@@ -64,14 +64,12 @@ export function TerminalView({ ptyId, visible }: TerminalViewProps) {
       window.electronAPI.ptyInput(ptyId, data);
     });
 
-    const removePtyData = window.electronAPI.onPtyData((incomingId, data) => {
-      if (incomingId === ptyId) term.write(data);
+    const removePtyData = window.electronAPI.onPtyData(ptyId, (data) => {
+      term.write(data);
     });
 
-    const removePtyExit = window.electronAPI.onPtyExit((incomingId, code) => {
-      if (incomingId === ptyId) {
-        term.write(`\r\n[Process exited with code ${code}]\r\n`);
-      }
+    const removePtyExit = window.electronAPI.onPtyExit(ptyId, (code) => {
+      term.write(`\r\n[Process exited with code ${code}]\r\n`);
     });
 
     const observer = new ResizeObserver(() => {

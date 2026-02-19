@@ -18,6 +18,7 @@ const IPC_CHANNELS = {
   GIT_STAGE: "git:stage",
   GIT_UNSTAGE: "git:unstage",
   GIT_COMMIT: "git:commit",
+  GIT_PUSH: "git:push",
   GIT_DIFF_STAGED: "git:diffStaged",
   GIT_DIFF_UNSTAGED: "git:diffUnstaged",
   GIT_WATCH_START: "git:watchStart",
@@ -27,6 +28,14 @@ const IPC_CHANNELS = {
   OPEN_IN_FINDER: "shell:openInFinder",
   OPEN_EXTERNAL: "shell:openExternal",
 };
+const ptyDataListeners = /* @__PURE__ */ new Map();
+electron.ipcRenderer.on(IPC_CHANNELS.PTY_DATA, (_, ptyId, data) => {
+  ptyDataListeners.get(ptyId)?.(data);
+});
+const ptyExitListeners = /* @__PURE__ */ new Map();
+electron.ipcRenderer.on(IPC_CHANNELS.PTY_EXIT, (_, ptyId, code) => {
+  ptyExitListeners.get(ptyId)?.(code);
+});
 const api = {
   ptySpawn: (opts) => electron.ipcRenderer.invoke(IPC_CHANNELS.PTY_SPAWN, opts),
   ptyInput: (ptyId, data) =>
@@ -34,15 +43,17 @@ const api = {
   ptyResize: (ptyId, cols, rows) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.PTY_RESIZE, ptyId, cols, rows),
   ptyKill: (ptyId) => electron.ipcRenderer.invoke(IPC_CHANNELS.PTY_KILL, ptyId),
-  onPtyData: (callback) => {
-    const handler = (_, ptyId, data) => callback(ptyId, data);
-    electron.ipcRenderer.on(IPC_CHANNELS.PTY_DATA, handler);
-    return () => electron.ipcRenderer.off(IPC_CHANNELS.PTY_DATA, handler);
+  onPtyData: (ptyId, callback) => {
+    ptyDataListeners.set(ptyId, callback);
+    return () => {
+      ptyDataListeners.delete(ptyId);
+    };
   },
-  onPtyExit: (callback) => {
-    const handler = (_, ptyId, code) => callback(ptyId, code);
-    electron.ipcRenderer.on(IPC_CHANNELS.PTY_EXIT, handler);
-    return () => electron.ipcRenderer.off(IPC_CHANNELS.PTY_EXIT, handler);
+  onPtyExit: (ptyId, callback) => {
+    ptyExitListeners.set(ptyId, callback);
+    return () => {
+      ptyExitListeners.delete(ptyId);
+    };
   },
   sessionCreate: (opts) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_CREATE, opts),
@@ -70,6 +81,8 @@ const api = {
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_UNSTAGE, repoPath, files),
   gitCommit: (repoPath, message) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT, repoPath, message),
+  gitPush: (repoPath) =>
+    electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_PUSH, repoPath),
   gitDiffStaged: (repoPath) =>
     electron.ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STAGED, repoPath),
   gitDiffUnstaged: (repoPath) =>

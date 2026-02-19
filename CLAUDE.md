@@ -215,3 +215,25 @@ Pre-commit runs `lint-staged` via Husky, which formats staged `*.{ts,tsx,js,jsx,
 - Icons: `@tabler/icons-react` (primary), `lucide-react` (secondary)
 - URL state management with `nuqs` for search/filter/sort params
 - Daytona sandboxes: snapshot-based (`eva-snapshot`), auto-stop 15min, auto-delete 30min, non-root user `eva`
+
+### Desktop App (`apps/desktop/`)
+
+Electron app (electron-vite v3) for interactive AI coding sessions. Session-based terminal manager wrapping CLI tools (Claude Code, OpenCode, Codex).
+
+**Architecture:** Three-panel layout — session sidebar (left), terminal + diff tabs (center), git panel (right). Clicking a file in the git panel opens a diff tab in the center panel (VS Code style) via `DiffTabContext`.
+
+**Key modules:**
+
+- `src/main/session/store.ts` — In-memory session CRUD (Map<sessionId, Session>)
+- `src/main/session/tab-spawner.ts` — Spawns PTY + writes tool command (e.g. `claude\r`) after delay
+- `src/main/git/operations.ts` — Git operations via `simple-git` (status, stage, unstage, commit, diff)
+- `src/main/git/watcher.ts` — File watching via `chokidar` with 500ms debounce, notifies renderer of changes
+- `src/main/pty/manager.ts` — PTY lifecycle (spawn, write, resize, kill) via `node-pty`
+- `src/renderer/contexts/SessionContext.tsx` — React context for session state
+- `src/renderer/contexts/DiffTabContext.tsx` — Shared context for diff tabs (bridges GitPanel ↔ SessionPage siblings)
+- `src/renderer/components/terminal/TerminalView.tsx` — xterm.js terminal (does NOT spawn/kill PTY — lifecycle managed by tab-spawner)
+- `src/renderer/components/git/GitPanel.tsx` — Git staging/commit UI with auto-refresh
+
+**Type check:** `npx tsc --noEmit -p tsconfig.json` (renderer) and `npx tsc --noEmit -p tsconfig.node.json` (main/preload)
+
+**ESM deps in main process:** `nanoid` and `chokidar` are ESM-only — must be excluded from `externalizeDepsPlugin()` in `electron.vite.config.ts` so they get bundled rather than `require()`d at runtime.

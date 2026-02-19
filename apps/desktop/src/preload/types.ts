@@ -51,22 +51,10 @@ export interface GitStatusResult {
   behind: number;
 }
 
-export interface DiffLine {
-  type: "context" | "addition" | "deletion";
-  content: string;
-  oldLineNo: number | null;
-  newLineNo: number | null;
-}
-
-export interface DiffHunk {
-  header: string;
-  lines: DiffLine[];
-}
-
-export interface DiffFile {
+export interface RawFilePatch {
   path: string;
   status: "added" | "modified" | "deleted" | "renamed";
-  hunks: DiffHunk[];
+  patch: string;
 }
 
 export interface ElectronAPI {
@@ -74,8 +62,8 @@ export interface ElectronAPI {
   ptyInput: (ptyId: string, data: string) => void;
   ptyResize: (ptyId: string, cols: number, rows: number) => Promise<void>;
   ptyKill: (ptyId: string) => Promise<void>;
-  onPtyData: (callback: (ptyId: string, data: string) => void) => () => void;
-  onPtyExit: (callback: (ptyId: string, code: number) => void) => () => void;
+  onPtyData: (ptyId: string, callback: (data: string) => void) => () => void;
+  onPtyExit: (ptyId: string, callback: (code: number) => void) => () => void;
 
   sessionCreate: (opts: CreateSessionOptions) => Promise<Session>;
   sessionList: () => Promise<Session[]>;
@@ -90,8 +78,9 @@ export interface ElectronAPI {
   gitStage: (repoPath: string, files: string[]) => Promise<void>;
   gitUnstage: (repoPath: string, files: string[]) => Promise<void>;
   gitCommit: (repoPath: string, message: string) => Promise<void>;
-  gitDiffStaged: (repoPath: string) => Promise<DiffFile[]>;
-  gitDiffUnstaged: (repoPath: string) => Promise<DiffFile[]>;
+  gitPush: (repoPath: string) => Promise<void>;
+  gitDiffStaged: (repoPath: string) => Promise<RawFilePatch[]>;
+  gitDiffUnstaged: (repoPath: string) => Promise<RawFilePatch[]>;
   gitWatchStart: (repoPath: string) => Promise<void>;
   gitWatchStop: (repoPath: string) => Promise<void>;
   onGitChanged: (callback: (repoPath: string) => void) => () => void;

@@ -1,6 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
@@ -41,6 +42,7 @@ const agentTaskValidator = v.object({
   assignedTo: v.optional(v.id("users")),
   model: v.optional(claudeModelValidator),
   activeWorkflowId: v.optional(v.string()),
+  scheduledRetryAt: v.optional(v.number()),
 });
 
 export const listByBoard = query({
@@ -827,6 +829,54 @@ export const deleteCascade = mutation({
         await ctx.db.delete(dep._id);
       }
       await ctx.db.delete(taskId);
+    }
+    return null;
+  },
+});
+
+export const scheduleRetry = mutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    retryAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== identity.subject) {
+      throw new Error("Task not found");
+    }
+
+    await ctx.db.patch(args.taskId, {
+      scheduledRetryAt: args.retryAt,
+      updatedAt: Date.now(),
+    });
+
+    ctx.scheduler.runAt(args.retryAt, internal.agentTasks.clearScheduledRetry, {
+      taskId: args.taskId,
+    });
+
+    return null;
+  },
+});
+
+export const clearScheduledRetry = internalMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (task && task.scheduledRetryAt) {
+      await ctx.db.patch(args.taskId, {
+        scheduledRetryAt: undefined,
+        updatedAt: Date.now(),
+      });
     }
     return null;
   },

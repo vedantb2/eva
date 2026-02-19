@@ -130,6 +130,7 @@ export function QuickTasksKanbanBoard({
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            scheduledRetryAt={task.scheduledRetryAt}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -143,6 +144,7 @@ export function QuickTasksKanbanBoard({
             status={task.status}
             createdAt={task.createdAt}
             createdBy={task.createdBy}
+            scheduledRetryAt={task.scheduledRetryAt}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
           />

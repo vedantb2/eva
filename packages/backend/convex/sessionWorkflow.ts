@@ -15,6 +15,9 @@ const sessionCompleteEvent = defineEvent({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    errorType: v.optional(v.union(v.literal("rate_limit"), v.null())),
+    limitResetAt: v.optional(v.union(v.string(), v.null())),
+    accountKey: v.optional(v.union(v.string(), v.null())),
   }),
 });
 
@@ -235,7 +238,46 @@ export const sessionExecuteWorkflow = workflow.define({
     }
 
     // Step 5: Wait for sandbox callback
-    const result = await step.awaitEvent(sessionCompleteEvent);
+    let result = await step.awaitEvent(sessionCompleteEvent);
+
+    // Step 5b: Handle rate limit — try auto-switching to another account
+    if (!result.success && result.errorType === "rate_limit") {
+      if (result.accountKey) {
+        await step.runMutation(internal.aiAccounts.markAccountLimited, {
+          accountKey: result.accountKey,
+          limitResetAt: result.limitResetAt
+            ? new Date(result.limitResetAt).getTime()
+            : undefined,
+        });
+      }
+
+      await step.runMutation(internal.aiAccounts.clearExpiredLimits, {});
+      const nextAccount = await step.runQuery(
+        internal.aiAccounts.getAvailableAccountKey,
+        {},
+      );
+
+      if (nextAccount) {
+        await step.runAction(internal.daytona.setupAndExecute, {
+          entityId: args.sessionId,
+          existingSandboxId: sandboxId,
+          githubToken: args.githubToken,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          prompt: data.prompt,
+          convexToken: args.convexToken,
+          completionMutation: "sessionWorkflow:handleCompletion",
+          entityIdField: "sessionId",
+          model: data.model,
+          allowedTools: data.allowedTools,
+          branchName: data.branchName,
+          repoId: data.repoId,
+          oauthAccountKey: nextAccount,
+        });
+
+        result = await step.awaitEvent(sessionCompleteEvent);
+      }
+    }
 
     // Step 6: Post-completion mode-specific operations
     let fileDiffs: string | undefined;
@@ -481,6 +523,9 @@ export const handleCompletion = mutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    errorType: v.optional(v.union(v.literal("rate_limit"), v.null())),
+    limitResetAt: v.optional(v.union(v.string(), v.null())),
+    accountKey: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -499,6 +544,9 @@ export const handleCompletion = mutation({
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
+        errorType: args.errorType,
+        limitResetAt: args.limitResetAt,
+        accountKey: args.accountKey,
       },
     });
 

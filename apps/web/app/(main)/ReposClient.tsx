@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@conductor/backend";
@@ -18,7 +18,6 @@ import {
   IconListCheck,
   IconGitBranch,
 } from "@tabler/icons-react";
-import { syncGitHubRepos } from "./actions";
 
 const GITHUB_APP_NAME = "v-conductor-dev";
 const WELCOME_DISMISSED_KEY = "eva-welcome-dismissed";
@@ -81,12 +80,13 @@ function WelcomeBanner() {
 
 export function ReposClient() {
   const repos = useQuery(api.githubRepos.list);
+  const syncRepos = useAction(api.github.syncRepos);
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await syncGitHubRepos();
+      await syncRepos();
     } catch (err) {
       console.error("Sync failed:", err);
     }

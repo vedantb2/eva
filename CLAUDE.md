@@ -65,8 +65,7 @@ apps/web/
 │   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
 │   └── api/          # Route handlers
-│       ├── github/   # GitHub branches, installation-token, repos
-│       └── sessions/ # Preview (WebSocket) and terminal (PTY) endpoints
+│       └── sessions/ # Terminal (PTY/WebSocket) endpoints
 ├── lib/
 │   ├── components/   # Reusable UI components
 │   ├── contexts/     # React contexts (Theme, Repo, Sidebar)

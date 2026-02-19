@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { Container } from "@/lib/components/ui/Container";
 import { Button, Spinner } from "@conductor/ui";
@@ -34,23 +34,19 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
   const syncedRef = useRef(false);
 
   const createRepo = useMutation(api.githubRepos.create);
+  const fetchRepos = useAction(api.github.listRepos);
 
   useEffect(() => {
-    fetch("/api/github/repos/" + installationId)
-      .then((res) => res.json())
+    fetchRepos({ installationId: Number(installationId) })
       .then((data) => {
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setRepos(data.repos || []);
-        }
+        setRepos(data);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Failed to fetch repos");
         setLoading(false);
       });
-  }, [installationId]);
+  }, [installationId, fetchRepos]);
 
   useEffect(() => {
     if (!loading && repos.length > 0 && autoSync && !syncedRef.current) {

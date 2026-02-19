@@ -25,6 +25,7 @@ import type * as docPrdWorkflow from "../docPrdWorkflow.js";
 import type * as docs from "../docs.js";
 import type * as evaluationReports from "../evaluationReports.js";
 import type * as evaluationWorkflow from "../evaluationWorkflow.js";
+import type * as github from "../github.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   docs: typeof docs;
   evaluationReports: typeof evaluationReports;
   evaluationWorkflow: typeof evaluationWorkflow;
+  github: typeof github;
   githubRepos: typeof githubRepos;
   notifications: typeof notifications;
   presence: typeof presence;

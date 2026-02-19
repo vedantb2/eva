@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { Octokit } from "octokit";
 
 export const createPullRequest = internalAction({
   args: {
@@ -14,27 +15,22 @@ export const createPullRequest = internalAction({
   },
   returns: v.union(v.string(), v.null()),
   handler: async (_ctx, args) => {
-    const res = await fetch(
-      `https://api.github.com/repos/${args.repoOwner}/${args.repoName}/pulls`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${args.githubToken}`,
-          Accept: "application/vnd.github+json",
-        },
-        body: JSON.stringify({
-          title: args.title,
-          body: `## Task\n${args.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
-          head: args.branchName,
-          base: "main",
-        }),
-      },
-    );
-    if (!res.ok) {
-      console.error(`Failed to create PR: ${await res.text()}`);
+    const octokit = new Octokit({ auth: args.githubToken });
+    try {
+      const pr = await octokit.rest.pulls.create({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        title: args.title,
+        body: `## Task\n${args.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
+        head: args.branchName,
+        base: "main",
+      });
+      return pr.data.html_url;
+    } catch (error) {
+      console.error(
+        `Failed to create PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
-    const pr: { html_url: string } = await res.json();
-    return pr.html_url;
   },
 });

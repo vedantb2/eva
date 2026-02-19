@@ -1,4 +1,9 @@
-import { mutation, query, internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  internalQuery,
+} from "./_generated/server";
 import { v } from "convex/values";
 
 const githubRepoValidator = v.object({
@@ -92,6 +97,31 @@ export const remove = mutation({
       throw new Error("Repository not found");
     }
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const upsert = internalMutation({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    installationId: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .first();
+    if (!existing) {
+      await ctx.db.insert("githubRepos", {
+        owner: args.owner,
+        name: args.name,
+        installationId: args.installationId,
+      });
+    }
     return null;
   },
 });

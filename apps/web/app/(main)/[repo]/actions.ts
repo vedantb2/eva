@@ -1,8 +1,9 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { createAppAuth } from "@octokit/auth-app";
-import { serverEnv } from "@/env/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@conductor/backend";
+import { clientEnv } from "@/env/client";
 
 export async function getWorkflowTokens(
   installationId: number,
@@ -11,16 +12,12 @@ export async function getWorkflowTokens(
   const convexToken = await getToken({ template: "convex" });
   if (!convexToken) throw new Error("Not authenticated");
 
-  const ghAuth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token: githubToken } = await ghAuth({
-    type: "installation",
-    installationId,
-  });
+  const convex = new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
+  convex.setAuth(convexToken);
+  const { token: githubToken } = await convex.action(
+    api.github.getInstallationTokenAction,
+    { installationId },
+  );
 
   return { githubToken, convexToken };
 }

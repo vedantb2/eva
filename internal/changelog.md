@@ -1,5 +1,13 @@
 # Changelog
 
+## Centralize GitHub API Access in Convex — 2026-02-19
+
+- **Unified GitHub auth across backend**: Moved `syncGitHubRepos` server action and `getWorkflowTokens` GitHub auth logic to Convex actions. All GitHub App token generation now flows through Convex, eliminating duplicated `@octokit/auth-app` code across web and sandbox modules.
+- **Refactored task PR creation**: Updated `taskWorkflowActions.ts` to use Octokit instead of raw fetch, consistent with other Convex GitHub actions.
+- **Removed GitHub client code from web app**: Deleted `apps/web/lib/github/client.ts` (dead code) and removed `octokit` and `@octokit/auth-app` from web dependencies. GitHub App env vars no longer needed by web — only Convex.
+- **Cleaned up dead code**: Removed `getGitHubToken` from sandbox.ts (never imported), deleted `syncGitHubRepos` server action file (migrated to Convex), removed unused GITHUB\_\* env vars from web server env validation.
+- **Preserved server action for auth layering**: Kept `getWorkflowTokens` as a Next.js server action (still needs Clerk token) — it now delegates GitHub auth to `getInstallationTokenAction` Convex action. ~20 callers unchanged (same signature).
+
 ## Desktop: Performance Improvements Round 3 — 2026-02-19
 
 - **Cached simpleGit instances per repo**: Every git operation was constructing a new `simpleGit()` instance (re-discovering git config each time). Now cached per repo path, eliminating repeated setup across the 8 call sites.

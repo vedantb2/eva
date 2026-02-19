@@ -1,19 +1,12 @@
 "use client";
 
-import useSWR from "swr";
+import { useState, useEffect, useCallback } from "react";
+import { useAction } from "convex/react";
+import { api } from "@conductor/backend";
 
 interface Branch {
   name: string;
   protected: boolean;
-}
-
-async function fetchBranches(url: string): Promise<Branch[]> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("Failed to fetch branches");
-  }
-  const data = (await res.json()) as { branches?: Branch[] };
-  return data.branches ?? [];
 }
 
 export function useBranches(
@@ -21,22 +14,34 @@ export function useBranches(
   repoName: string,
   installationId: number,
 ) {
-  const params = new URLSearchParams({
-    owner,
-    repo: repoName,
-    installationId: String(installationId),
-  });
-  const branchesUrl = `/api/github/branches?${params}`;
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isValidating, setIsValidating] = useState(false);
+  const fetchBranches = useAction(api.github.listBranches);
 
-  const {
-    data: branches = [],
-    isLoading,
-    isValidating,
-    mutate,
-  } = useSWR<Branch[]>(branchesUrl, fetchBranches, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60_000,
-  });
+  const load = useCallback(async () => {
+    try {
+      const result = await fetchBranches({
+        installationId,
+        owner,
+        repo: repoName,
+      });
+      setBranches(result);
+    } catch (err) {
+      console.error("Failed to fetch branches:", err);
+    }
+  }, [fetchBranches, installationId, owner, repoName]);
 
-  return { branches, isLoading, isValidating, refresh: mutate };
+  useEffect(() => {
+    setIsLoading(true);
+    load().finally(() => setIsLoading(false));
+  }, [load]);
+
+  const refresh = useCallback(async () => {
+    setIsValidating(true);
+    await load();
+    setIsValidating(false);
+  }, [load]);
+
+  return { branches, isLoading, isValidating, refresh };
 }

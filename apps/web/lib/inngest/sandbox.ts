@@ -1,5 +1,4 @@
 import { Daytona, Sandbox } from "@daytonaio/sdk";
-import { createAppAuth } from "@octokit/auth-app";
 // @ts-ignore
 import { quote } from "shell-quote";
 import { LlmJson } from "@solvers-hub/llm-json";
@@ -85,17 +84,6 @@ export async function getPtyWebSocketUrl(
   if (!baseUrl.endsWith("/")) baseUrl += "/";
   baseUrl += sandbox.id;
   return `${baseUrl.replace(/^http/, "ws")}/process/pty/${ptySessionId}/connect?DAYTONA_SANDBOX_AUTH_KEY=${previewLink.token}`;
-}
-
-export async function getGitHubToken(installationId: number): Promise<string> {
-  const auth = createAppAuth({
-    appId: serverEnv.GITHUB_APP_ID,
-    privateKey: serverEnv.GITHUB_PRIVATE_KEY,
-    clientId: serverEnv.GITHUB_CLIENT_ID,
-    clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-  });
-  const { token } = await auth({ type: "installation", installationId });
-  return token;
 }
 
 export async function syncRepo(

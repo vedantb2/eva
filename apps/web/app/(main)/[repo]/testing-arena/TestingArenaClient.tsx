@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 import {
   Button,
@@ -121,6 +122,7 @@ export function TestingArenaClient({
   children: React.ReactNode;
 }) {
   const { repo, repoSlug } = useRepo();
+  const setupStatus = useSetupStatus();
   const docs = useQuery(api.docs.list, { repoId: repo._id });
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isTestingAll, setIsTestingAll] = useState(false);
@@ -182,7 +184,9 @@ export function TestingArenaClient({
             <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleTestAll}>Yes save me Eva</Button>
+            <Button onClick={handleTestAll} disabled={!setupStatus?.isReady}>
+              Yes save me Eva
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

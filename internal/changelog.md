@@ -1,5 +1,12 @@
 # Changelog
 
+## System Env Var Validation + Infrastructure Category Cleanup — 2026-02-20
+
+- **Why**: Workflows (sessions, projects, tasks, design, testing) failed mid-execution with cryptic errors like "No OAuth accounts available" when required system env vars weren't configured. No upfront validation or user feedback existed. Additionally, the admin UI exposed an "Infrastructure" category for vars that should be Convex env vars, not platform DB entries.
+- **Validation**: New `getSetupStatus` Convex query checks if at least 1 OAuth token is configured. `useSetupStatus` hook + `SetupBanner` component show a persistent dismissible alert on all repo pages when setup is incomplete.
+- **Hard block**: All 8 workflow trigger points (task execution, session chat, session sandbox auto-start, design send/sandbox, project build, project chat, testing arena) disable their action buttons when no OAuth tokens are configured.
+- **Admin UI cleanup**: Removed the Infrastructure category from the System Variables admin page. Only OAuth tokens are shown/addable now — infrastructure vars should live as Convex env vars with process.env fallback.
+
 ## MCP Server: Persistent Token Storage — 2026-02-20
 
 - **Why**: MCP server stored OAuth tokens (user Convex credentials) in in-memory Maps. Every Railway deploy/restart wiped all tokens, forcing users to re-authenticate by entering their Convex URL + deploy key again.

@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import type { Id } from "@conductor/backend";
 import {
   ActivitySteps,
@@ -297,6 +298,7 @@ export default function TestingArenaDocPage({
 }) {
   const { id } = use(params);
   const { repo } = useRepo();
+  const setupStatus = useSetupStatus();
   const doc = useQuery(api.docs.get, { id: id as Id<"docs"> });
   const reports = useQuery(
     api.evaluationReports.listByDoc,
@@ -377,7 +379,9 @@ export default function TestingArenaDocPage({
             <Button
               size="sm"
               onClick={activeTab === "code" ? handleRunTest : undefined}
-              disabled={activeTab === "code" && isRunning}
+              disabled={
+                (activeTab === "code" && isRunning) || !setupStatus?.isReady
+              }
             >
               <IconPlayerPlay size={16} />
               {isRunning && activeTab === "code" ? "Running..." : "Run Test"}

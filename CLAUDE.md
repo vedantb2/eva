@@ -118,7 +118,7 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 - **subtasks** - Sub-items within tasks
 - **taskComments** / **taskDependencies** / **taskProof** - Task metadata
 - **agentRuns** - Task execution history with logs (includes `errorType` and `limitResetAt` for rate limit tracking)
-- **systemEnvVars** - System-wide env vars (OAuth tokens, infrastructure secrets) stored encrypted, replacing hardcoded Convex env vars
+- **systemEnvVars** - OAuth tokens (`claude_oauth` category) stored encrypted for multi-account rate limit rotation. Infrastructure category exists for backward compat but infrastructure vars should be Convex env vars (process.env fallback in `resolveSystemEnvVars`)
 - **aiAccountStatus** - OAuth account rate limit tracking for multi-account rotation (references `systemEnvVars` via `accountId`)
 - **extensionReleases** - Chrome extension CRX releases stored in Convex file storage, versioned, served via `/api/updates/extension` for Chrome auto-update
 - **projects** - Development projects with phases (draft → finalized → active → completed)
@@ -154,7 +154,7 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 
 **Rate limit retry**: Callback script classifies errors as `rate_limit` or `generic` via pattern matching on stderr/result. Task and session workflows auto-retry with the next available OAuth account (`aiAccounts.ts` dynamically queries `systemEnvVars` table for `claude_oauth` category). All 11 `handleCompletion` mutations accept optional `errorType`, `limitResetAt`, `accountKey` from the callback.
 
-**System env vars**: OAuth tokens and infrastructure secrets (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL, etc.) are stored encrypted in the `systemEnvVars` table instead of Convex environment variables. Only bootstrap vars remain as Convex env vars: `ENCRYPTION_KEY`, `DAYTONA_API_KEY`, `CONVEX_CLOUD_URL`. Managed via Admin > System Variables UI. `resolveSystemEnvVars()` in `daytona.ts` resolves these at sandbox creation time.
+**System env vars**: OAuth tokens are stored encrypted in the `systemEnvVars` table (`claude_oauth` category) for multi-account rate limit rotation. Infrastructure vars (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL, etc.) should be set as Convex env vars — `resolveSystemEnvVars()` in `daytona.ts` falls back to `process.env` for them. Bootstrap vars: `ENCRYPTION_KEY`, `DAYTONA_API_KEY`, `CONVEX_CLOUD_URL`. Admin UI (System Variables tab) only shows OAuth tokens. `getSetupStatus` query checks if at least 1 OAuth token exists — used by `useSetupStatus` hook + `SetupBanner` to block AI features until configured.
 
 **Token flow**: Frontend calls `getWorkflowTokens(installationId)` server action (in `apps/web/app/(main)/[repo]/actions.ts`) to get GitHub + Convex tokens, passes them to the start mutation.
 

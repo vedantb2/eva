@@ -65,6 +65,7 @@ import dayjs from "@conductor/shared/dates";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -80,6 +81,7 @@ export function TaskDetailModal({
   taskId,
 }: TaskDetailModalProps) {
   const task = useQuery(api.agentTasks.get, { id: taskId });
+  const setupStatus = useSetupStatus();
   const currentUserId = useQuery(api.auth.me);
   const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
@@ -977,7 +979,11 @@ export function TaskDetailModal({
                       <Button
                         onClick={handleStartExecution}
                         disabled={
-                          isStarting || isBlocked || hasActiveRun || !isOwner
+                          isStarting ||
+                          isBlocked ||
+                          hasActiveRun ||
+                          !isOwner ||
+                          !setupStatus?.isReady
                         }
                       >
                         {isStarting ? (
@@ -989,9 +995,11 @@ export function TaskDetailModal({
                       </Button>
                     </div>
                   </TooltipTrigger>
-                  {!isOwner && (
+                  {(!isOwner || !setupStatus?.isReady) && (
                     <TooltipContent>
-                      Only the task owner can run Eva
+                      {!setupStatus?.isReady
+                        ? "Configure OAuth tokens in Admin > System Variables"
+                        : "Only the task owner can run Eva"}
                     </TooltipContent>
                   )}
                 </Tooltip>

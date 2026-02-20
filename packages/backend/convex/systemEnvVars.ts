@@ -140,6 +140,28 @@ export const removeVar = mutation({
   },
 });
 
+export const getSetupStatus = query({
+  args: {},
+  returns: v.object({
+    oauthAccountCount: v.number(),
+    isReady: v.boolean(),
+  }),
+  handler: async (ctx) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return { oauthAccountCount: 0, isReady: false };
+
+    const oauthAccounts = await ctx.db
+      .query("systemEnvVars")
+      .withIndex("by_category", (q) => q.eq("category", "claude_oauth"))
+      .collect();
+
+    return {
+      oauthAccountCount: oauthAccounts.length,
+      isReady: oauthAccounts.length >= 1,
+    };
+  },
+});
+
 export const isAdmin = internalQuery({
   args: {},
   returns: v.boolean(),

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import {
+  Alert,
+  AlertDescription,
   Button,
   Dialog,
   DialogContent,
@@ -14,6 +16,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import {
+  IconAlertTriangle,
   IconCheck,
   IconCopy,
   IconEye,
@@ -24,24 +27,23 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-
-type Category = "claude_oauth" | "infrastructure";
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  claude_oauth: "OAuth Token",
-  infrastructure: "Infrastructure",
-};
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
 export function SystemEnvVarsClient() {
-  const vars = useQuery(api.systemEnvVars.list);
+  const allVars = useQuery(api.systemEnvVars.list);
+  const setupStatus = useSetupStatus();
   const upsertVar = useAction(api.systemEnvVarsActions.upsertVar);
   const revealValue = useAction(api.systemEnvVarsActions.revealValue);
   const removeVar = useMutation(api.systemEnvVars.removeVar);
 
+  const vars = useMemo(
+    () => allVars?.filter((v) => v.category === "claude_oauth"),
+    [allVars],
+  );
+
   const [adding, setAdding] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [valueInput, setValueInput] = useState("");
-  const [categoryInput, setCategoryInput] = useState<Category>("claude_oauth");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -60,7 +62,6 @@ export function SystemEnvVarsClient() {
     setAdding(true);
     setKeyInput("");
     setValueInput("");
-    setCategoryInput("claude_oauth");
     setDescriptionInput("");
   };
 
@@ -77,7 +78,7 @@ export function SystemEnvVarsClient() {
     await upsertVar({
       key: keyInput.trim(),
       value: valueInput,
-      category: categoryInput,
+      category: "claude_oauth",
       description: descriptionInput.trim() || undefined,
     });
     setSaving(false);
@@ -159,14 +160,22 @@ export function SystemEnvVarsClient() {
 
   return (
     <div>
+      {setupStatus && !setupStatus.isReady && (
+        <Alert variant="destructive" className="mb-4">
+          <IconAlertTriangle size={18} />
+          <AlertDescription>
+            Add at least one OAuth token to enable AI features. Tokens are
+            rotated between accounts to avoid rate limits.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          OAuth Token vars are rotated between accounts to avoid rate limits.
-          Infrastructure vars are injected into all sandboxes as static config.
+          OAuth tokens are rotated between accounts to avoid rate limits.
         </p>
         <Button size="sm" onClick={startAdd} disabled={adding}>
           <IconPlus size={16} className="mr-1.5" />
-          Add Variable
+          Add Token
         </Button>
       </div>
       {vars === undefined ? (
@@ -176,7 +185,7 @@ export function SystemEnvVarsClient() {
       ) : !showTable ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <IconServer size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">No system variables configured</p>
+          <p className="text-sm">No OAuth tokens configured</p>
         </div>
       ) : (
         <div className="rounded-lg border border-border/70">
@@ -184,7 +193,6 @@ export function SystemEnvVarsClient() {
             <thead>
               <tr className="border-b border-border/60 text-left text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">Key</th>
-                <th className="px-4 py-2.5 font-medium">Category</th>
                 <th className="px-4 py-2.5 font-medium">Description</th>
                 <th className="px-4 py-2.5 font-medium">Value</th>
                 <th className="px-4 py-2.5 text-right font-medium">Actions</th>
@@ -197,25 +205,13 @@ export function SystemEnvVarsClient() {
                     <Input
                       value={keyInput}
                       onChange={(e) => setKeyInput(e.target.value)}
-                      placeholder="e.g. CLAUDE_CODE_OAUTH_TOKEN"
+                      placeholder="e.g. account-1"
                       className="h-7 font-mono text-xs"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Escape") cancelAdd();
                       }}
                     />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <select
-                      value={categoryInput}
-                      onChange={(e) =>
-                        setCategoryInput(e.target.value as Category)
-                      }
-                      className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-                    >
-                      <option value="claude_oauth">OAuth Token</option>
-                      <option value="infrastructure">Infrastructure</option>
-                    </select>
                   </td>
                   <td className="px-4 py-2.5">
                     <Input
@@ -232,7 +228,7 @@ export function SystemEnvVarsClient() {
                     <Input
                       value={valueInput}
                       onChange={(e) => setValueInput(e.target.value)}
-                      placeholder="Enter value"
+                      placeholder="OAuth token value"
                       className="h-7 font-mono text-xs"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAdd();
@@ -272,11 +268,6 @@ export function SystemEnvVarsClient() {
                   className="border-b border-border/40 last:border-0"
                 >
                   <td className="px-4 py-2.5 font-mono text-xs">{v.key}</td>
-                  <td className="px-4 py-2.5">
-                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {CATEGORY_LABELS[v.category]}
-                    </span>
-                  </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {v.description || "—"}
                   </td>
@@ -387,7 +378,7 @@ export function SystemEnvVarsClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete System Variable</DialogTitle>
+            <DialogTitle>Delete OAuth Token</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete{" "}

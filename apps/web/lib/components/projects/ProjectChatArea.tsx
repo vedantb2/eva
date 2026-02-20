@@ -17,6 +17,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconMessageCircle } from "@tabler/icons-react";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface ProjectChatAreaProps {
@@ -31,6 +32,7 @@ export function ProjectChatArea({
   selectedTaskTitle,
 }: ProjectChatAreaProps) {
   const addMessage = useMutation(api.projects.addMessage);
+  const setupStatus = useSetupStatus();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
@@ -81,17 +83,17 @@ export function ProjectChatArea({
                 ? `Discuss "${selectedTaskTitle}"...`
                 : "Send a message..."
             }
-            disabled={isSending}
+            disabled={isSending || !setupStatus?.isReady}
           />
           <PromptInputFooter>
             <PromptInputTools>
               <PromptInputSettings
                 model={model}
                 onModelChange={setModel}
-                disabled={isSending}
+                disabled={isSending || !setupStatus?.isReady}
               />
             </PromptInputTools>
-            <PromptInputSubmit disabled={isSending} />
+            <PromptInputSubmit disabled={isSending || !setupStatus?.isReady} />
           </PromptInputFooter>
         </PromptInput>
       </div>

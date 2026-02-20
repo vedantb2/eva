@@ -8,6 +8,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import {
@@ -50,6 +51,7 @@ export function SessionsSidebar({
   installationId,
 }: SessionsSidebarProps) {
   const router = useRouter();
+  const setupStatus = useSetupStatus();
   const sessions = useQuery(api.sessions.list, { repoId });
   const createSession = useMutation(api.sessions.create);
   const archiveSession = useMutation(api.sessions.archive);
@@ -125,9 +127,11 @@ export function SessionsSidebar({
       router.push(`${baseUrl}/${id}`);
       onNavigate?.();
 
-      void getWorkflowTokens(installationId).then(({ githubToken }) =>
-        startSandboxMutation({ sessionId: id, githubToken }),
-      );
+      if (setupStatus?.isReady) {
+        void getWorkflowTokens(installationId).then(({ githubToken }) =>
+          startSandboxMutation({ sessionId: id, githubToken }),
+        );
+      }
     } finally {
       setIsCreating(false);
     }

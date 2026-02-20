@@ -40,6 +40,7 @@ import {
   IconPlayerStop,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { getWorkflowTokens } from "../../actions";
 
@@ -126,6 +127,7 @@ export function DesignDetailClient({
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
+  const setupStatus = useSetupStatus();
   const [isSending, setIsSending] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -197,7 +199,7 @@ export function DesignDetailClient({
   };
 
   const handleSend = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !setupStatus?.isReady) return;
     setIsSending(true);
     try {
       const { githubToken, convexToken } = await getWorkflowTokens(
@@ -276,7 +278,7 @@ export function DesignDetailClient({
                 variant="ghost"
                 className="h-7 text-xs gap-1"
                 onClick={handleStartSandbox}
-                disabled={isSandboxStarting}
+                disabled={isSandboxStarting || !setupStatus?.isReady}
               >
                 <IconPlayerPlay size={14} />
                 {isSandboxStarting ? "Starting..." : "Start sandbox"}
@@ -362,7 +364,7 @@ export function DesignDetailClient({
           <PromptInput onSubmit={handlePromptSubmit}>
             <PromptInputTextarea
               placeholder="Describe the design you want..."
-              disabled={isExecuting}
+              disabled={isExecuting || !setupStatus?.isReady}
             />
             <PromptInputFooter>
               <PersonaDropdown
@@ -371,11 +373,13 @@ export function DesignDetailClient({
                 onChange={setSelectedPersonaId}
               />
               <div className="flex items-center gap-1">
-                <PromptInputSpeech disabled={isExecuting} />
+                <PromptInputSpeech
+                  disabled={isExecuting || !setupStatus?.isReady}
+                />
                 <PromptInputSubmit
                   status={submitStatus}
                   onStop={handleCancel}
-                  disabled={isExecuting}
+                  disabled={isExecuting || !setupStatus?.isReady}
                 />
               </div>
             </PromptInputFooter>
@@ -451,7 +455,9 @@ export function DesignDetailClient({
                               size="sm"
                               variant="secondary"
                               onClick={handleStartSandbox}
-                              disabled={isSandboxStarting}
+                              disabled={
+                                isSandboxStarting || !setupStatus?.isReady
+                              }
                             >
                               <IconPlayerPlay size={14} />
                               {isSandboxStarting

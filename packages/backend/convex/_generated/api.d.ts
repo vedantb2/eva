@@ -27,6 +27,7 @@ import type * as docs from "../docs.js";
 import type * as encryption from "../encryption.js";
 import type * as evaluationReports from "../evaluationReports.js";
 import type * as evaluationWorkflow from "../evaluationWorkflow.js";
+import type * as extensionReleases from "../extensionReleases.js";
 import type * as github from "../github.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as notifications from "../notifications.js";
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   encryption: typeof encryption;
   evaluationReports: typeof evaluationReports;
   evaluationWorkflow: typeof evaluationWorkflow;
+  extensionReleases: typeof extensionReleases;
   github: typeof github;
   githubRepos: typeof githubRepos;
   notifications: typeof notifications;

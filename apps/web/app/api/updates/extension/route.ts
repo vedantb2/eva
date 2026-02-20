@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@conductor/backend";
+import { clientEnv } from "@/env/client";
 
-const EXTENSION_ID = process.env.EXTENSION_ID || "conductor-extension";
+const EXTENSION_ID = process.env.EXTENSION_ID ?? "conductor-extension";
 
-function getExtensionDir(): string {
-  return join(process.cwd(), "..", "chrome-extension", "dist");
-}
-
-function getLatestVersion(): string {
-  const manifestPath = join(getExtensionDir(), "manifest.json");
-  if (existsSync(manifestPath)) {
-    try {
-      const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
-      return manifest.version || "1.0.0";
-    } catch {
-      return "1.0.0";
-    }
-  }
-  return "1.0.0";
+function getConvex(): ConvexHttpClient {
+  return new ConvexHttpClient(clientEnv.NEXT_PUBLIC_CONVEX_URL);
 }
 
 export async function GET(request: NextRequest) {
@@ -26,13 +14,33 @@ export async function GET(request: NextRequest) {
   const file = searchParams.get("file");
 
   if (file === "updates.xml") {
-    const version = getLatestVersion();
-    const baseUrl = request.nextUrl.origin;
+    const convex = getConvex();
+    const release = await convex.query(api.extensionReleases.getLatest, {});
+
+    if (!release) {
+      const xml = `<?xml version='1.0' encoding='UTF-8'?>
+<gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
+  <app appid='${EXTENSION_ID}'>
+    <updatecheck status='noupdate' />
+  </app>
+</gupdate>`;
+
+      return new NextResponse(xml, {
+        headers: {
+          "Content-Type": "application/xml",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
+    const crxUrl =
+      release.crxUrl ??
+      `${request.nextUrl.origin}/api/updates/extension?file=conductor.crx`;
 
     const xml = `<?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
   <app appid='${EXTENSION_ID}'>
-    <updatecheck codebase='${baseUrl}/api/updates/extension?file=conductor.crx' version='${version}' />
+    <updatecheck codebase='${crxUrl}' version='${release.version}' />
   </app>
 </gupdate>`;
 
@@ -45,49 +53,22 @@ export async function GET(request: NextRequest) {
   }
 
   if (file === "conductor.crx") {
-    const crxPath = join(getExtensionDir(), "conductor.crx");
+    const convex = getConvex();
+    const release = await convex.query(api.extensionReleases.getLatest, {});
 
-    if (!existsSync(crxPath)) {
+    if (!release?.crxUrl) {
       return NextResponse.json(
-        { error: "Extension package not found. Run build first." },
+        { error: "No extension release found. Run ext:release first." },
         { status: 404 },
       );
     }
 
-    const crxBuffer = readFileSync(crxPath);
-
-    return new NextResponse(crxBuffer, {
-      headers: {
-        "Content-Type": "application/x-chrome-extension",
-        "Content-Disposition": "attachment; filename=conductor.crx",
-        "Content-Length": crxBuffer.length.toString(),
-      },
-    });
-  }
-
-  if (file === "manifest.json") {
-    const manifestPath = join(getExtensionDir(), "manifest.json");
-
-    if (!existsSync(manifestPath)) {
-      return NextResponse.json(
-        { error: "Manifest not found" },
-        { status: 404 },
-      );
-    }
-
-    const manifest = readFileSync(manifestPath, "utf-8");
-
-    return new NextResponse(manifest, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    return NextResponse.redirect(release.crxUrl, 302);
   }
 
   return NextResponse.json(
     {
-      error:
-        "Invalid request. Use ?file=updates.xml, ?file=conductor.crx, or ?file=manifest.json",
+      error: "Invalid request. Use ?file=updates.xml or ?file=conductor.crx",
     },
     { status: 400 },
   );

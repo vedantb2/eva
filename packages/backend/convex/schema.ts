@@ -402,6 +402,12 @@ const schema = defineSchema({
     limitResetAt: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_account", ["accountId"]),
+  extensionReleases: defineTable({
+    version: v.string(),
+    crxStorageId: v.id("_storage"),
+    releasedAt: v.number(),
+    notes: v.optional(v.string()),
+  }).index("by_version", ["version"]),
 });
 
 export default schema;

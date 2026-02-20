@@ -1,5 +1,13 @@
 # Changelog
 
+## Chrome Extension Distribution Pipeline — 2026-02-19
+
+- **Why**: The Eva Assist Chrome extension had no distribution pipeline. Team members had to manually load the unpacked `dist/` folder in developer mode, with no auto-update mechanism. This doesn't scale for team adoption.
+- **Convex backend**: New `extensionReleases` table stores CRX files in Convex file storage with version tracking. Public `getLatest` query (unauthenticated, required by Chrome's update poller). Admin mutations protected by `EXTENSION_ADMIN_KEY` env var.
+- **Update server**: Fixed `apps/web/app/api/updates/extension/route.ts` — previously read from local filesystem (broken on Vercel), now queries Convex for the latest release and serves Omaha-protocol XML. CRX downloads redirect to Convex storage URL.
+- **Release script**: `pnpm ext:release` builds the extension, injects `update_url` into the manifest, packs as CRX using Chrome CLI, uploads to Convex storage, and records the release. Chrome auto-updates within ~5 hours.
+- **Intune deployment**: PowerShell scripts and README with 4 deployment methods (Settings Catalog, OMA-URI, PowerShell script, manual registry). Uses `normal_installed` mode — auto-installs but users can remove.
+
 ## Dynamic System Environment Variables — 2026-02-19
 
 - **Why**: OAuth tokens and infrastructure secrets (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL, etc.) were hardcoded as Convex environment variable names. Adding/removing OAuth accounts required code changes. This makes the system inflexible and ties it to a specific deployment's env vars.

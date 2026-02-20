@@ -12,6 +12,7 @@ pnpm convex         # Start Convex backend dev server
 pnpm convex:deploy  # Deploy Convex backend
 pnpm ext:dev        # Start chrome extension dev server
 pnpm ext:build      # Build chrome extension
+pnpm ext:release    # Build, pack CRX, upload to Convex, record release
 pnpm mcp:dev        # Start Convex MCP server (requires MCP_JWT_SECRET env var)
 ```
 
@@ -67,7 +68,8 @@ apps/web/
 │   │   └── repos/    # Repository listing and setup
 │   ├── (landing)/    # Public landing page
 │   └── api/          # Route handlers
-│       └── sessions/ # Terminal (PTY/WebSocket) endpoints
+│       ├── sessions/ # Terminal (PTY/WebSocket) endpoints
+│       └── updates/  # Chrome extension update server (Omaha XML + CRX redirect)
 ├── lib/
 │   ├── components/   # Reusable UI components
 │   ├── contexts/     # React contexts (Theme, Repo, Sidebar)
@@ -118,6 +120,7 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 - **agentRuns** - Task execution history with logs (includes `errorType` and `limitResetAt` for rate limit tracking)
 - **systemEnvVars** - System-wide env vars (OAuth tokens, infrastructure secrets) stored encrypted, replacing hardcoded Convex env vars
 - **aiAccountStatus** - OAuth account rate limit tracking for multi-account rotation (references `systemEnvVars` via `accountId`)
+- **extensionReleases** - Chrome extension CRX releases stored in Convex file storage, versioned, served via `/api/updates/extension` for Chrome auto-update
 - **projects** - Development projects with phases (draft → finalized → active → completed)
 - **sessions** - Interactive Claude Code chat sessions with sandbox
 - **docs** - Repository documentation

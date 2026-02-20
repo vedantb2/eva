@@ -1,0 +1,78 @@
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+function validateAdminKey(key: string): void {
+  const expected = process.env.EXTENSION_ADMIN_KEY;
+  if (!expected || key !== expected) {
+    throw new Error("Unauthorized");
+  }
+}
+
+export const getLatest = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      version: v.string(),
+      crxUrl: v.union(v.string(), v.null()),
+      releasedAt: v.number(),
+      notes: v.union(v.string(), v.null()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx) => {
+    const release = await ctx.db
+      .query("extensionReleases")
+      .order("desc")
+      .first();
+
+    if (!release) return null;
+
+    const crxUrl = await ctx.storage.getUrl(release.crxStorageId);
+
+    return {
+      version: release.version,
+      crxUrl,
+      releasedAt: release.releasedAt,
+      notes: release.notes ?? null,
+    };
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: { adminKey: v.string() },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    validateAdminKey(args.adminKey);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const recordRelease = mutation({
+  args: {
+    adminKey: v.string(),
+    version: v.string(),
+    crxStorageId: v.id("_storage"),
+    notes: v.optional(v.string()),
+  },
+  returns: v.id("extensionReleases"),
+  handler: async (ctx, args) => {
+    validateAdminKey(args.adminKey);
+
+    const existing = await ctx.db
+      .query("extensionReleases")
+      .withIndex("by_version", (q) => q.eq("version", args.version))
+      .first();
+
+    if (existing) {
+      await ctx.storage.delete(existing.crxStorageId);
+      await ctx.db.delete(existing._id);
+    }
+
+    return await ctx.db.insert("extensionReleases", {
+      version: args.version,
+      crxStorageId: args.crxStorageId,
+      releasedAt: Date.now(),
+      notes: args.notes,
+    });
+  },
+});

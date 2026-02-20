@@ -42,4 +42,4 @@ jobs:
           fi
 
       - name: Push snapshot to Daytona
-        run: daytona snapshot push eva-snapshot:build --name eva-snapshot
+        run: daytona snapshot push eva-snapshot:build --name eva-snapshot --cpu 4 --memory 8 --disk 20

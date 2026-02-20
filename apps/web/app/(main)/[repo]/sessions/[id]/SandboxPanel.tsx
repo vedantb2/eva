@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { useQueryState } from "nuqs";
@@ -49,27 +49,47 @@ export function SandboxPanel({
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
 
   const fetchPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
     setIsLoading(true);
     setError(null);
+    stopPolling();
     try {
-      const data = await getPreviewUrl({ sandboxId, port: 3000 });
-      setPreviewInfo(data);
-      setIframeKey((k) => k + 1);
+      const data = await getPreviewUrl({
+        sandboxId,
+        port: 3000,
+        checkReady: true,
+      });
+      if (data.ready) {
+        setPreviewInfo(data);
+        setIframeKey((k) => k + 1);
+        setIsLoading(false);
+      } else {
+        pollingRef.current = setTimeout(() => {
+          fetchPreview();
+        }, 3000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load preview");
-    } finally {
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl]);
+  }, [sandboxId, isActive, getPreviewUrl, stopPolling]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
       fetchPreview();
     }
-  }, [isActive, sandboxId, fetchPreview]);
+    return stopPolling;
+  }, [isActive, sandboxId, fetchPreview, stopPolling]);
 
   const terminal = useMemo(
     () => (

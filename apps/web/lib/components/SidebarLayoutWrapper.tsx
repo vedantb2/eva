@@ -39,7 +39,7 @@ export function SidebarLayoutWrapper({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-2.5 backdrop-blur-sm">
         <Button
           size="icon-sm"
@@ -78,7 +78,7 @@ export function SidebarLayoutWrapper({
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="h-full">
-              <div className="flex h-full flex-col overflow-hidden border-r border-border/70 bg-card/90 shadow-lg backdrop-blur-xl">
+              <div className="flex h-full flex-col overflow-hidden border-r border-border/50 bg-sidebar shadow-xs backdrop-blur-xl">
                 <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                   <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
                     {title}
@@ -112,7 +112,7 @@ export function SidebarLayoutWrapper({
           )}
         >
           <div className="h-full">
-            <div className="flex h-full flex-col overflow-hidden border-r border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
+            <div className="flex h-full flex-col overflow-hidden border-r border-border/50 bg-sidebar shadow-xs backdrop-blur-sm">
               <div
                 className={`border-b border-border/70 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >
@@ -178,7 +178,7 @@ export function SidebarLayoutWrapper({
             </div>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background animate-in fade-in duration-300">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden animate-in fade-in duration-300">
           {children}
         </div>
       </div>

@@ -274,7 +274,7 @@ export function Sidebar() {
         )}
       >
         <div className="h-full p-2 lg:p-3 lg:pr-2">
-          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border/70 bg-sidebar/90 shadow-lg backdrop-blur-xl">
+          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border/50 bg-sidebar shadow-xs backdrop-blur-xl">
             <div
               className={cn(
                 "flex h-16 items-center border-b border-sidebar-border/60",

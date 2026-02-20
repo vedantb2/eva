@@ -4,9 +4,9 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import {
   getOAuthMetadata,
   getProtectedResourceMetadata,
-  renderAuthForm,
+  renderAuthPage,
   renderRedirectPage,
-  processAuthForm,
+  processClerkAuth,
   exchangeToken,
   handleClientRegistration,
   verifyToken,
@@ -88,7 +88,7 @@ app.post("/oauth/register", (req: Request, res: Response) => {
 app.get("/oauth/authorize", (req: Request, res: Response) => {
   try {
     const query = queryToStringRecord(req);
-    const html = renderAuthForm(query);
+    const html = renderAuthPage(query);
     res.type("html").send(html);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid request";
@@ -96,10 +96,10 @@ app.get("/oauth/authorize", (req: Request, res: Response) => {
   }
 });
 
-app.post("/oauth/authorize", (req: Request, res: Response) => {
+app.post("/oauth/authorize", async (req: Request, res: Response) => {
   try {
     const body = bodyToStringRecord(req);
-    const redirectUrl = processAuthForm(body);
+    const redirectUrl = await processClerkAuth(body);
     res.type("html").send(renderRedirectPage(redirectUrl));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid request";

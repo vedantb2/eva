@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
+import { verifyToken as verifyClerkToken } from "@clerk/backend";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { callConductorAction } from "./convex-api.js";
 
 export interface ConvexCredentials {
   convexUrl: string;
@@ -9,34 +9,21 @@ export interface ConvexCredentials {
 }
 
 interface AuthCodeEntry {
-  convexUrl: string;
-  deployKey: string;
+  clerkUserId: string;
   codeChallenge: string;
   redirectUri: string;
   expiresAt: number;
 }
 
-interface TokenStoreEntry {
-  credentials: ConvexCredentials;
-  expiresAt: number;
-}
-
 const authCodeStore = new Map<string, AuthCodeEntry>();
-const tokenStore = new Map<string, TokenStoreEntry>();
 
 const CODE_TTL_MS = 5 * 60 * 1000;
-const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 setInterval(() => {
   const now = Date.now();
   for (const [code, entry] of authCodeStore) {
     if (entry.expiresAt < now) {
       authCodeStore.delete(code);
-    }
-  }
-  for (const [id, entry] of tokenStore) {
-    if (entry.expiresAt < now) {
-      tokenStore.delete(id);
     }
   }
 }, 60_000);
@@ -47,6 +34,33 @@ function getJwtSecret(): string {
     throw new Error("MCP_JWT_SECRET environment variable is required");
   }
   return secret;
+}
+
+function getClerkPublishableKey(): string {
+  const key = process.env.CLERK_PUBLISHABLE_KEY;
+  if (!key) {
+    throw new Error("CLERK_PUBLISHABLE_KEY environment variable is required");
+  }
+  return key;
+}
+
+function getClerkSecretKey(): string {
+  const key = process.env.CLERK_SECRET_KEY;
+  if (!key) {
+    throw new Error("CLERK_SECRET_KEY environment variable is required");
+  }
+  return key;
+}
+
+function getConductorCredentials(): ConvexCredentials {
+  const convexUrl = process.env.CONDUCTOR_CONVEX_URL;
+  const deployKey = process.env.CONDUCTOR_DEPLOY_KEY;
+  if (!convexUrl || !deployKey) {
+    throw new Error(
+      "CONDUCTOR_CONVEX_URL and CONDUCTOR_DEPLOY_KEY environment variables are required",
+    );
+  }
+  return { convexUrl: convexUrl.replace(/\/$/, ""), deployKey };
 }
 
 export function getOAuthMetadata(baseUrl: string) {
@@ -91,51 +105,6 @@ const authorizeQuerySchema = z.object({
   code_challenge_method: z.string(),
 });
 
-export function renderAuthForm(query: Record<string, string>): string {
-  const params = authorizeQuerySchema.parse(query);
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connect Convex Deployment</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fafafa; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 32px; width: 100%; max-width: 420px; }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-    .subtitle { color: #a3a3a3; font-size: 14px; margin-bottom: 24px; }
-    label { display: block; font-size: 13px; font-weight: 500; color: #d4d4d4; margin-bottom: 6px; }
-    input[type="text"], input[type="password"] { width: 100%; padding: 10px 12px; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; color: #fafafa; font-size: 14px; margin-bottom: 16px; outline: none; }
-    input:focus { border-color: #6366f1; }
-    .help { font-size: 12px; color: #737373; margin-top: -12px; margin-bottom: 16px; }
-    button { width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
-    button:hover { background: #4f46e5; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Connect Convex Deployment</h1>
-    <p class="subtitle">Enter your Convex deployment credentials to allow Claude to query your data.</p>
-    <form method="POST" action="/oauth/authorize">
-      <input type="hidden" name="client_id" value="${escapeHtml(params.client_id)}" />
-      <input type="hidden" name="redirect_uri" value="${escapeHtml(params.redirect_uri)}" />
-      <input type="hidden" name="state" value="${escapeHtml(params.state)}" />
-      <input type="hidden" name="code_challenge" value="${escapeHtml(params.code_challenge)}" />
-      <input type="hidden" name="code_challenge_method" value="${escapeHtml(params.code_challenge_method)}" />
-      <label for="convex_url">Deployment URL</label>
-      <input type="text" id="convex_url" name="convex_url" placeholder="https://your-project-123.convex.cloud" required />
-      <p class="help">Find this in your Convex dashboard under Settings &rarr; URL.</p>
-      <label for="deploy_key">Deploy Key</label>
-      <input type="password" id="deploy_key" name="deploy_key" placeholder="prod:abc123..." required />
-      <p class="help">Generate one in Settings &rarr; Deploy Keys. Use a "read-only" key for safety.</p>
-      <button type="submit">Connect</button>
-    </form>
-  </div>
-</body>
-</html>`;
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -143,6 +112,129 @@ function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+export function renderAuthPage(query: Record<string, string>): string {
+  const params = authorizeQuerySchema.parse(query);
+  const publishableKey = getClerkPublishableKey();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in to Conductor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a; color: #fafafa;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh;
+    }
+    .container { width: 100%; max-width: 440px; text-align: center; padding: 24px; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: #a3a3a3; font-size: 14px; margin-bottom: 24px; }
+    #sign-in-container { min-height: 300px; display: flex; justify-content: center; }
+    .error { color: #ef4444; font-size: 14px; margin-top: 16px; display: none; }
+    .loading { color: #a3a3a3; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sign in to Conductor</h1>
+    <p class="subtitle">Sign in with your Conductor account to connect Claude.</p>
+    <div id="sign-in-container">
+      <p class="loading">Loading...</p>
+    </div>
+    <p id="error-msg" class="error"></p>
+    <form id="auth-form" method="POST" action="/oauth/authorize" style="display:none">
+      <input type="hidden" name="client_id" value="${escapeHtml(params.client_id)}" />
+      <input type="hidden" name="redirect_uri" value="${escapeHtml(params.redirect_uri)}" />
+      <input type="hidden" name="state" value="${escapeHtml(params.state)}" />
+      <input type="hidden" name="code_challenge" value="${escapeHtml(params.code_challenge)}" />
+      <input type="hidden" name="code_challenge_method" value="${escapeHtml(params.code_challenge_method)}" />
+      <input type="hidden" name="clerk_token" id="clerk-token" value="" />
+    </form>
+  </div>
+  <script>
+    var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
+
+    var keyParts = PUBLISHABLE_KEY.split('_');
+    var keyPayload = keyParts.slice(2).join('_');
+    var fapiUrl = atob(keyPayload).replace(/\\$$/, '');
+
+    var script = document.createElement('script');
+    script.src = 'https://' + fapiUrl + '/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.setAttribute('data-clerk-publishable-key', PUBLISHABLE_KEY);
+    script.addEventListener('load', initClerk);
+    script.addEventListener('error', function() {
+      showError('Failed to load authentication. Please try again.');
+    });
+    document.head.appendChild(script);
+
+    function initClerk() {
+      var clerk = window.Clerk;
+      if (!clerk) {
+        showError('Failed to initialize authentication.');
+        return;
+      }
+
+      clerk.load().then(function() {
+        if (clerk.session) {
+          submitToken(clerk);
+          return;
+        }
+
+        var container = document.getElementById('sign-in-container');
+        container.innerHTML = '';
+        clerk.mountSignIn(container, {
+          appearance: {
+            variables: {
+              colorBackground: '#171717',
+              colorText: '#fafafa',
+              colorPrimary: '#6366f1',
+              colorInputBackground: '#0a0a0a',
+              colorInputText: '#fafafa'
+            }
+          }
+        });
+
+        clerk.addListener(function(event) {
+          if (event.session) {
+            clerk.unmountSignIn(container);
+            container.innerHTML = '<p class="loading">Connecting...</p>';
+            submitToken(clerk);
+          }
+        });
+      }).catch(function() {
+        showError('Failed to load sign-in. Please try again.');
+      });
+    }
+
+    function submitToken(clerk) {
+      clerk.session.getToken().then(function(token) {
+        if (!token) {
+          showError('Failed to get session token. Please try again.');
+          return;
+        }
+        document.getElementById('clerk-token').value = token;
+        document.getElementById('auth-form').submit();
+      }).catch(function() {
+        showError('Authentication failed. Please try again.');
+      });
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>`;
 }
 
 export function renderRedirectPage(callbackUrl: string): string {
@@ -162,8 +254,8 @@ export function renderRedirectPage(callbackUrl: string): string {
 </head>
 <body>
   <div class="done">
-    <h1>Connected successfully</h1>
-    <p>Your Convex deployment is now linked. You may close this window.</p>
+    <h1>Signed in successfully</h1>
+    <p>Your Conductor account is now connected. You may close this window.</p>
     <a href="https://claude.ai/settings/connectors">Go to Claude Connectors</a>
   </div>
   <iframe src="${escapeHtml(callbackUrl)}" style="display:none" aria-hidden="true"></iframe>
@@ -180,9 +272,8 @@ function validateRedirectUri(uri: string): boolean {
   }
 }
 
-const formBodySchema = z.object({
-  convex_url: z.string(),
-  deploy_key: z.string(),
+const clerkAuthBodySchema = z.object({
+  clerk_token: z.string(),
   client_id: z.string(),
   redirect_uri: z.string(),
   state: z.string(),
@@ -190,21 +281,39 @@ const formBodySchema = z.object({
   code_challenge_method: z.string(),
 });
 
-export function processAuthForm(body: Record<string, string>): string {
-  const params = formBodySchema.parse(body);
+export async function processClerkAuth(
+  body: Record<string, string>,
+): Promise<string> {
+  const params = clerkAuthBodySchema.parse(body);
 
   if (!validateRedirectUri(params.redirect_uri)) {
     throw new Error("Invalid redirect URI");
   }
 
+  const result = await verifyClerkToken(params.clerk_token, {
+    secretKey: getClerkSecretKey(),
+  });
+
+  if (result.errors) {
+    throw new Error("Invalid Clerk token");
+  }
+
+  const clerkPayload = z.object({ sub: z.string() }).safeParse(result.data);
+
+  if (!clerkPayload.success) {
+    throw new Error("Invalid Clerk token: missing user ID");
+  }
+
+  const clerkUserId = clerkPayload.data.sub;
+
   const code = crypto.randomBytes(32).toString("hex");
   authCodeStore.set(code, {
-    convexUrl: params.convex_url.replace(/\/$/, ""),
-    deployKey: params.deploy_key,
+    clerkUserId,
     codeChallenge: params.code_challenge,
     redirectUri: params.redirect_uri,
     expiresAt: Date.now() + CODE_TTL_MS,
   });
+
   const redirectUrl = new URL(params.redirect_uri);
   redirectUrl.searchParams.set("code", code);
   redirectUrl.searchParams.set("state", params.state);
@@ -235,21 +344,6 @@ interface TokenError {
 type TokenResult =
   | { ok: true; response: TokenResponse }
   | { ok: false; error: TokenError };
-
-function persistToken(
-  tokenId: string,
-  credentials: ConvexCredentials,
-  expiresAt: number,
-): void {
-  callConductorAction("mcpTokensActions:store", {
-    tokenId,
-    convexUrl: credentials.convexUrl,
-    deployKey: credentials.deployKey,
-    expiresAt,
-  }).catch((err) => {
-    console.error("Failed to persist MCP token to Convex:", err);
-  });
-}
 
 export async function exchangeToken(
   body: Record<string, string>,
@@ -305,24 +399,10 @@ export async function exchangeToken(
     };
   }
 
-  const tokenId = crypto.randomBytes(32).toString("hex");
-  const refreshTokenId = crypto.randomBytes(32).toString("hex");
-  const credentials = {
-    convexUrl: entry.convexUrl,
-    deployKey: entry.deployKey,
-  };
-  const expiresAt = Date.now() + TOKEN_TTL_MS;
-
-  tokenStore.set(tokenId, { credentials, expiresAt });
-  tokenStore.set(refreshTokenId, { credentials, expiresAt });
-
-  persistToken(tokenId, credentials, expiresAt);
-  persistToken(refreshTokenId, credentials, expiresAt);
-
-  const accessToken = jwt.sign({ tid: tokenId }, getJwtSecret(), {
+  const accessToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
     expiresIn: "30d",
   });
-  const refreshToken = jwt.sign({ tid: refreshTokenId }, getJwtSecret(), {
+  const refreshToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
     expiresIn: "90d",
   });
 
@@ -338,54 +418,16 @@ export async function exchangeToken(
   };
 }
 
-const tokenPayloadSchema = z.object({ tid: z.string() });
-
-const retrieveResponseSchema = z.union([
-  z.object({
-    convexUrl: z.string(),
-    deployKey: z.string(),
-    expiresAt: z.number(),
-  }),
-  z.null(),
-]);
+const mcpTokenPayloadSchema = z.object({ sub: z.string() });
 
 export async function verifyToken(
   token: string,
 ): Promise<ConvexCredentials | null> {
   try {
     const decoded = jwt.verify(token, getJwtSecret());
-    const payload = tokenPayloadSchema.safeParse(decoded);
+    const payload = mcpTokenPayloadSchema.safeParse(decoded);
     if (!payload.success) return null;
-
-    const tokenId = payload.data.tid;
-
-    const cached = tokenStore.get(tokenId);
-    if (cached) {
-      if (cached.expiresAt < Date.now()) {
-        tokenStore.delete(tokenId);
-        return null;
-      }
-      return cached.credentials;
-    }
-
-    const result = await callConductorAction("mcpTokensActions:retrieve", {
-      tokenId,
-    });
-    const parsed = retrieveResponseSchema.parse(result);
-    if (!parsed || parsed.expiresAt < Date.now()) {
-      return null;
-    }
-
-    const credentials = {
-      convexUrl: parsed.convexUrl,
-      deployKey: parsed.deployKey,
-    };
-    tokenStore.set(tokenId, {
-      credentials,
-      expiresAt: parsed.expiresAt,
-    });
-
-    return credentials;
+    return getConductorCredentials();
   } catch {
     return null;
   }

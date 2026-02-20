@@ -1,5 +1,12 @@
 # Changelog
 
+## MCP Server: Clerk Authentication — 2026-02-20
+
+- **Why**: MCP server required users to manually enter a Convex deployment URL and deploy key during OAuth authorization. This was disconnected from the main app's auth — users already have Conductor accounts via Clerk, yet had to provide raw credentials for the MCP integration.
+- **Solution**: Replaced the manual credential form with Clerk's prebuilt sign-in widget on the OAuth authorize page. After sign-in, the server verifies the Clerk session token server-side (`@clerk/backend`), then issues MCP OAuth tokens containing the user's Clerk ID.
+- **Simplification**: MCP tools now use shared `CONDUCTOR_CONVEX_URL` + `CONDUCTOR_DEPLOY_KEY` env vars for all Convex API calls. JWTs are self-contained (no database lookup needed). Removed `tokenStore` in-memory cache, `persistToken`, and `mcpTokens` table dependency. The `mcpTokens` table is now dead code (cleanup in follow-up).
+- **New env vars**: `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` required on the MCP server (same values as the web app).
+
 ## System Env Var Validation + Infrastructure Category Cleanup — 2026-02-20
 
 - **Why**: Workflows (sessions, projects, tasks, design, testing) failed mid-execution with cryptic errors like "No OAuth accounts available" when required system env vars weren't configured. No upfront validation or user feedback existed. Additionally, the admin UI exposed an "Infrastructure" category for vars that should be Convex env vars, not platform DB entries.

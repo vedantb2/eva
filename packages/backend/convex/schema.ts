@@ -408,12 +408,6 @@ const schema = defineSchema({
     releasedAt: v.number(),
     notes: v.optional(v.string()),
   }).index("by_version", ["version"]),
-  mcpTokens: defineTable({
-    tokenId: v.string(),
-    convexUrl: v.string(),
-    deployKey: v.string(),
-    expiresAt: v.number(),
-  }).index("by_token_id", ["tokenId"]),
 });
 
 export default schema;

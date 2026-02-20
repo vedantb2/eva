@@ -1,5 +1,12 @@
 # Changelog
 
+## MCP Server: Persistent Token Storage — 2026-02-20
+
+- **Why**: MCP server stored OAuth tokens (user Convex credentials) in in-memory Maps. Every Railway deploy/restart wiped all tokens, forcing users to re-authenticate by entering their Convex URL + deploy key again.
+- **Solution**: New `mcpTokens` Convex table stores token→credentials mapping with encrypted deploy keys (AES-256-GCM via existing `encryption.ts`). MCP server writes to Convex on token creation (fire-and-forget) and falls back to Convex on cache miss after restart.
+- **Architecture**: In-memory Map kept as hot cache for zero-latency reads. Convex actions (`mcpTokensActions.ts`) handle encryption/decryption server-side — MCP server only needs `CONDUCTOR_CONVEX_URL` + `CONDUCTOR_DEPLOY_KEY` env vars, not `ENCRYPTION_KEY`.
+- **Graceful degradation**: If Conductor env vars aren't set, server falls back to in-memory-only behavior (current behavior). No breaking changes.
+
 ## Chrome Extension Distribution Pipeline — 2026-02-19
 
 - **Why**: The Eva Assist Chrome extension had no distribution pipeline. Team members had to manually load the unpacked `dist/` folder in developer mode, with no auto-update mechanism. This doesn't scale for team adoption.

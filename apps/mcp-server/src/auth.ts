@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { callConductorAction } from "./convex-api.js";
 
 export interface ConvexCredentials {
   convexUrl: string;
@@ -235,7 +236,24 @@ type TokenResult =
   | { ok: true; response: TokenResponse }
   | { ok: false; error: TokenError };
 
-export function exchangeToken(body: Record<string, string>): TokenResult {
+function persistToken(
+  tokenId: string,
+  credentials: ConvexCredentials,
+  expiresAt: number,
+): void {
+  callConductorAction("mcpTokensActions:store", {
+    tokenId,
+    convexUrl: credentials.convexUrl,
+    deployKey: credentials.deployKey,
+    expiresAt,
+  }).catch((err) => {
+    console.error("Failed to persist MCP token to Convex:", err);
+  });
+}
+
+export async function exchangeToken(
+  body: Record<string, string>,
+): Promise<TokenResult> {
   const parseResult = tokenBodySchema.safeParse(body);
   if (!parseResult.success) {
     return {
@@ -293,14 +311,13 @@ export function exchangeToken(body: Record<string, string>): TokenResult {
     convexUrl: entry.convexUrl,
     deployKey: entry.deployKey,
   };
-  tokenStore.set(tokenId, {
-    credentials,
-    expiresAt: Date.now() + TOKEN_TTL_MS,
-  });
-  tokenStore.set(refreshTokenId, {
-    credentials,
-    expiresAt: Date.now() + TOKEN_TTL_MS,
-  });
+  const expiresAt = Date.now() + TOKEN_TTL_MS;
+
+  tokenStore.set(tokenId, { credentials, expiresAt });
+  tokenStore.set(refreshTokenId, { credentials, expiresAt });
+
+  persistToken(tokenId, credentials, expiresAt);
+  persistToken(refreshTokenId, credentials, expiresAt);
 
   const accessToken = jwt.sign({ tid: tokenId }, getJwtSecret(), {
     expiresIn: "30d",
@@ -323,18 +340,52 @@ export function exchangeToken(body: Record<string, string>): TokenResult {
 
 const tokenPayloadSchema = z.object({ tid: z.string() });
 
-export function verifyToken(token: string): ConvexCredentials | null {
+const retrieveResponseSchema = z.union([
+  z.object({
+    convexUrl: z.string(),
+    deployKey: z.string(),
+    expiresAt: z.number(),
+  }),
+  z.null(),
+]);
+
+export async function verifyToken(
+  token: string,
+): Promise<ConvexCredentials | null> {
   try {
     const decoded = jwt.verify(token, getJwtSecret());
     const payload = tokenPayloadSchema.safeParse(decoded);
     if (!payload.success) return null;
 
-    const entry = tokenStore.get(payload.data.tid);
-    if (!entry || entry.expiresAt < Date.now()) {
-      tokenStore.delete(payload.data.tid);
+    const tokenId = payload.data.tid;
+
+    const cached = tokenStore.get(tokenId);
+    if (cached) {
+      if (cached.expiresAt < Date.now()) {
+        tokenStore.delete(tokenId);
+        return null;
+      }
+      return cached.credentials;
+    }
+
+    const result = await callConductorAction("mcpTokensActions:retrieve", {
+      tokenId,
+    });
+    const parsed = retrieveResponseSchema.parse(result);
+    if (!parsed || parsed.expiresAt < Date.now()) {
       return null;
     }
-    return entry.credentials;
+
+    const credentials = {
+      convexUrl: parsed.convexUrl,
+      deployKey: parsed.deployKey,
+    };
+    tokenStore.set(tokenId, {
+      credentials,
+      expiresAt: parsed.expiresAt,
+    });
+
+    return credentials;
   } catch {
     return null;
   }

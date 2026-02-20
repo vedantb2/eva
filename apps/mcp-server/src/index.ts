@@ -107,10 +107,10 @@ app.post("/oauth/authorize", (req: Request, res: Response) => {
   }
 });
 
-app.post("/oauth/token", (req: Request, res: Response) => {
+app.post("/oauth/token", async (req: Request, res: Response) => {
   const body = bodyToStringRecord(req);
   console.log("  Token request grant_type:", body.grant_type);
-  const result = exchangeToken(body);
+  const result = await exchangeToken(body);
   if (result.ok) {
     console.log("  Token exchange success");
     res.json(result.response);
@@ -135,7 +135,7 @@ async function handleMcpPost(req: Request, res: Response) {
     return;
   }
 
-  const credentials = verifyToken(token);
+  const credentials = await verifyToken(token);
   if (!credentials) {
     res.setHeader(
       "WWW-Authenticate",

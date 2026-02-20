@@ -165,6 +165,38 @@ export function wrapQueryHandler(handlerBody: string): string {
   ].join("\n");
 }
 
+function getConductorConfig(): { url: string; deployKey: string } {
+  const url = process.env.CONDUCTOR_CONVEX_URL;
+  const deployKey = process.env.CONDUCTOR_DEPLOY_KEY;
+  if (!url || !deployKey) {
+    throw new Error(
+      "CONDUCTOR_CONVEX_URL and CONDUCTOR_DEPLOY_KEY env vars are required for token persistence",
+    );
+  }
+  return { url: url.replace(/\/$/, ""), deployKey };
+}
+
+export async function callConductorAction(
+  path: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const { url, deployKey } = getConductorConfig();
+  const response = await fetch(`${url}/api/action`, {
+    method: "POST",
+    headers: authHeaders(deployKey),
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`Conductor action ${path} failed: HTTP ${response.status}`);
+  }
+  const json = await response.json();
+  const result = convexResponse.parse(json);
+  if (result.status === "error") {
+    throw new Error(`Conductor action ${path} failed: ${result.errorMessage}`);
+  }
+  return result.value;
+}
+
 export async function runTestQuery(
   convexUrl: string,
   deployKey: string,

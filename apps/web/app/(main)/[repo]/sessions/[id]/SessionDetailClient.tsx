@@ -9,7 +9,10 @@ import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Button, Spinner } from "@conductor/ui";
-import { IconLayoutSidebarRightExpand } from "@tabler/icons-react";
+import {
+  IconLayoutSidebarRightExpand,
+  IconGripVertical,
+} from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 
@@ -141,7 +144,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
                 fileDiffs={session.fileDiffs}
               />
             </Panel>
-            <Separator className="w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors" />
+            <Separator className="w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors">
+              <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
+                <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />
+              </div>
+            </Separator>
             <Panel
               defaultSize={CHAT_DEFAULT_SIZE}
               minSize={CHAT_MIN_EXPANDED_WIDTH_PX}

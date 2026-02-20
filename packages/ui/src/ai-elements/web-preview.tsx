@@ -214,7 +214,7 @@ export const WebPreviewBody = ({
   const { url, iframeRef } = useWebPreview();
 
   return (
-    <div className="flex-1 relative overflow-hidden min-h-0">
+    <div className="flex-1 h-full relative overflow-hidden min-h-0">
       <iframe
         ref={iframeRef}
         className={cn("size-full", className)}

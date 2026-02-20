@@ -1,0 +1,40 @@
+name: Release Chrome Extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/chrome-extension/**"
+      - "packages/ui/**"
+      - "packages/shared/**"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Decode PEM key
+        run: |
+          mkdir -p apps/chrome-extension/keys
+          echo "${{ secrets.EXTENSION_PEM_KEY_B64 }}" | base64 -d > apps/chrome-extension/keys/extension.pem
+
+      - name: Release extension
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+          EXTENSION_ADMIN_KEY: ${{ secrets.EXTENSION_ADMIN_KEY }}
+          EXTENSION_UPDATE_URL: ${{ secrets.EXTENSION_UPDATE_URL }}
+          CHROME_PATH: google-chrome-stable
+        run: npx tsx scripts/release-extension.ts

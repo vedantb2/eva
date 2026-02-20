@@ -3,7 +3,7 @@
   "name": "Eva Assist",
   "version": "1.0.0",
   "description": "AI-powered assistant for asking questions and flagging issues in your codebase",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArdxyGE5DB2mJ3PMqVE5k2FzppoBlrAGBDHss5gTiT+32LE6Q/bdrzKKULhl3s87FRRDOXsHil3/liQmnOeOAE07DWp9N0DoD2Yk/MrgrjI/aOFb01deCjcfim0K6z8YRIBvWXxXxmX1dE154I6uqF1jtk9gciy1RePSE1/yxQCM/joCDxerCt3saR5xJ7Ql8jG2Re9jvitYfrFL4Wtfq3nHq2u1CevegZAMIbL4cJE0RGvGlEHtj+La9WQr1cQ5gzSnk5ehHJNO3IpP6t1v0QvWoBSS76K4BKP0ivh58Vlwjv1dBb0i0khjNOX+SsupDR2gIMLnoMJ+K9ur/ps5lSwIDAQAB",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmZhuLNCNxlK7vevsCBN0LKqoGKEiaCafFZrLtNKDD9XdVvuUYSE9PodC04Z7RZMJEmBNWpcYIMxokZNm5iBuoB0cCvDZIEasy6MdKFW4/AqJbXo++4fOfhnPPE9BIj/yZt4gVwOVg5n+GBihmrL5Ljubni0kucRVfMjPvq/IUe+F9qYcRS6cxDfDG96fMKtitpaRh3PbWdR8wxtBEtMwpQ3CSPi2jby5SnfyJ81ioraap7ihB1vPZa29NAwFQydWo/WjFSNC/Yo1udN5ds0LzeUjXoisnp43PnJy/NThnyYJCZiSQ+Y6umlMeBQPKJNIONCMycW0+/OqV1F5p+s0ewIDAQAB",
   "permissions": [
     "activeTab",
     "storage",

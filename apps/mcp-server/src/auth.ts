@@ -290,21 +290,16 @@ export async function processClerkAuth(
     throw new Error("Invalid redirect URI");
   }
 
-  const result = await verifyClerkToken(params.clerk_token, {
+  const clerkPayload = await verifyClerkToken(params.clerk_token, {
     secretKey: getClerkSecretKey(),
   });
 
-  if (result.errors) {
-    throw new Error("Invalid Clerk token");
-  }
-
-  const clerkPayload = z.object({ sub: z.string() }).safeParse(result.data);
-
-  if (!clerkPayload.success) {
+  const parsed = z.object({ sub: z.string() }).safeParse(clerkPayload);
+  if (!parsed.success) {
     throw new Error("Invalid Clerk token: missing user ID");
   }
 
-  const clerkUserId = clerkPayload.data.sub;
+  const clerkUserId = parsed.data.sub;
 
   const code = crypto.randomBytes(32).toString("hex");
   authCodeStore.set(code, {

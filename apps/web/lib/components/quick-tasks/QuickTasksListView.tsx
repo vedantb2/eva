@@ -262,6 +262,7 @@ export function QuickTasksListView({
                             status={task.status}
                             createdAt={task.createdAt}
                             createdBy={task.createdBy}
+                            scheduledRetryAt={task.scheduledRetryAt}
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);

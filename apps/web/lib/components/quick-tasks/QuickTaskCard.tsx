@@ -17,6 +17,8 @@ import {
   IconGitPullRequest,
   IconDotsVertical,
   IconAlertCircle,
+  IconAlertTriangle,
+  IconClock,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
@@ -36,6 +38,7 @@ interface QuickTaskCardProps {
   createdAt: number;
   createdBy?: Id<"users">;
   branchName?: string;
+  scheduledRetryAt?: number;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -50,6 +53,7 @@ export function QuickTaskCard({
   createdAt,
   createdBy,
   branchName,
+  scheduledRetryAt,
   onClick,
   isSelecting,
   isSelected,
@@ -58,12 +62,18 @@ export function QuickTaskCard({
   const { fullName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
-  const hasError = runs?.[0]?.status === "error";
+  const latestRun = runs?.[0];
+  const hasError = latestRun?.status === "error";
+  const isRateLimited = hasError && latestRun?.errorType === "rate_limit";
 
   return (
     <Card
       className={`relative overflow-hidden shadow-2xs transition-all duration-200 ${
-        hasError ? "border-destructive/60" : ""
+        hasError
+          ? isRateLimited
+            ? "border-warning/60"
+            : "border-destructive/60"
+          : ""
       } ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:shadow-xs hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
@@ -82,7 +92,11 @@ export function QuickTaskCard({
     >
       <div
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${
-          hasError ? "bg-destructive" : statusConfig[status].bar
+          hasError
+            ? isRateLimited
+              ? "bg-warning"
+              : "bg-destructive"
+            : statusConfig[status].bar
         }`}
       />
       <CardContent className="p-2 pl-3 md:p-2 md:pl-3 space-y-1">
@@ -153,10 +167,22 @@ export function QuickTaskCard({
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-1.5 min-w-0">
             {createdBy && <UserInitials userId={createdBy} />}
-            {hasError && (
-              <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
-                <IconAlertCircle size={12} />
-                Failed
+            {hasError &&
+              (isRateLimited ? (
+                <span className="flex items-center gap-1 text-xs text-warning shrink-0">
+                  <IconAlertTriangle size={12} />
+                  Rate Limited
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                  <IconAlertCircle size={12} />
+                  Failed
+                </span>
+              ))}
+            {scheduledRetryAt && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                <IconClock size={12} />
+                Retrying {dayjs(scheduledRetryAt).fromNow()}
               </span>
             )}
           </div>

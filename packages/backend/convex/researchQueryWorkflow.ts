@@ -434,6 +434,9 @@ export const handleCompletion = mutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    errorType: v.optional(v.union(v.literal("rate_limit"), v.null())),
+    limitResetAt: v.optional(v.union(v.string(), v.null())),
+    accountKey: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

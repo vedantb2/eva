@@ -1,7 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { runStatusValidator, logLevelValidator } from "./validators";
+import {
+  runStatusValidator,
+  logLevelValidator,
+  errorTypeValidator,
+} from "./validators";
 import { createNotification } from "./notifications";
 
 const logEntryValidator = v.object({
@@ -21,6 +25,8 @@ const agentRunValidator = v.object({
   resultSummary: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   error: v.optional(v.string()),
+  errorType: v.optional(errorTypeValidator),
+  limitResetAt: v.optional(v.number()),
 });
 
 export const get = query({

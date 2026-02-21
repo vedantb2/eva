@@ -57,6 +57,7 @@ import {
   IconFolder,
   IconTags,
   IconGitBranch,
+  IconClock,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -109,6 +110,7 @@ export function TaskDetailModal({
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
+  const scheduleRetry = useMutation(api.agentTasks.scheduleRetry);
   const comments = useQuery(api.taskComments.listByTask, { taskId });
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
@@ -125,6 +127,8 @@ export function TaskDetailModal({
   const [commentText, setCommentText] = useState("");
   const [requestChangesPanel, setRequestChangesPanel] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -169,6 +173,10 @@ export function TaskDetailModal({
   };
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const latestRun = runs?.[0];
+  const isRateLimited =
+    latestRun?.status === "error" && latestRun?.errorType === "rate_limit";
+  const limitResetAt = isRateLimited ? latestRun?.limitResetAt : undefined;
   const status = task?.status;
   const showProofSection = status !== "todo" && status !== "in_progress";
   const projectOptions = projects ?? [];
@@ -339,6 +347,36 @@ export function TaskDetailModal({
                   </div>
                 )}
 
+                {isRateLimited && (
+                  <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-warning font-medium text-sm mb-1">
+                      <IconAlertTriangle size={16} />
+                      Usage limit reached
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {limitResetAt
+                        ? `Resets ${dayjs(limitResetAt).fromNow()} (${dayjs(limitResetAt).format("h:mm A")})`
+                        : "Reset time unknown"}
+                    </p>
+                    {task?.scheduledRetryAt ? (
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                        <IconClock size={14} />
+                        Retry scheduled {dayjs(task.scheduledRetryAt).fromNow()}
+                      </p>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={() => setShowScheduleDialog(true)}
+                      >
+                        <IconClock size={14} />
+                        Schedule Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 {runs && runs.length > 0 && (
                   <div className="pt-4">
                     <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
@@ -359,13 +397,18 @@ export function TaskDetailModal({
                                   run.status === "success"
                                     ? "success"
                                     : run.status === "error"
-                                      ? "destructive"
+                                      ? run.errorType === "rate_limit"
+                                        ? "warning"
+                                        : "destructive"
                                       : run.status === "running"
                                         ? "warning"
                                         : "outline"
                                 }
                               >
-                                {run.status}
+                                {run.status === "error" &&
+                                run.errorType === "rate_limit"
+                                  ? "rate limited"
+                                  : run.status}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {run.startedAt
@@ -1073,6 +1116,57 @@ export function TaskDetailModal({
               {dependentTasks && dependentTasks.length > 0
                 ? ` ${dependentTasks.length + 1} Tasks`
                 : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconClock size={18} />
+              Schedule Retry
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              All accounts have reached their usage limits.
+              {limitResetAt
+                ? ` The earliest reset is ${dayjs(limitResetAt).fromNow()} (${dayjs(limitResetAt).format("h:mm A")}).`
+                : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Schedule this task to automatically retry when limits reset.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowScheduleDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isScheduling || !limitResetAt}
+              onClick={async () => {
+                if (!limitResetAt) return;
+                setIsScheduling(true);
+                try {
+                  await scheduleRetry({
+                    taskId,
+                    retryAt: limitResetAt,
+                  });
+                  setShowScheduleDialog(false);
+                } finally {
+                  setIsScheduling(false);
+                }
+              }}
+            >
+              {isScheduling && (
+                <IconLoader2 size={16} className="animate-spin" />
+              )}
+              Schedule Retry
             </Button>
           </DialogFooter>
         </DialogContent>

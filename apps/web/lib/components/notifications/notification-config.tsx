@@ -9,6 +9,7 @@ import {
   IconUserPlus,
   IconMessage,
   IconPlayerPlay,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@conductor/ui";
 import type { BadgeProps } from "@conductor/ui";
@@ -70,6 +71,13 @@ export const typeConfig: Record<
     badgeVariant: "success",
     iconBg: "bg-success/10",
     iconColor: "text-success",
+  },
+  rate_limit: {
+    icon: IconAlertTriangle,
+    label: "Rate Limited",
+    badgeVariant: "warning",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   system: {
     icon: IconInfoCircle,

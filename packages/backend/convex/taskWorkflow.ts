@@ -17,6 +17,9 @@ const taskCompleteEvent = defineEvent({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    errorType: v.optional(v.union(v.literal("rate_limit"), v.null())),
+    limitResetAt: v.optional(v.union(v.string(), v.null())),
+    accountKey: v.optional(v.union(v.string(), v.null())),
   }),
 });
 
@@ -158,7 +161,47 @@ export const taskExecutionWorkflow = workflow.define({
     }
 
     // Step 5: Wait for sandbox callback
-    const result = await step.awaitEvent(taskCompleteEvent);
+    let result = await step.awaitEvent(taskCompleteEvent);
+
+    // Step 5b: Handle rate limit — try auto-switching to another account
+    if (!result.success && result.errorType === "rate_limit") {
+      if (result.accountKey) {
+        await step.runMutation(internal.aiAccounts.markAccountLimited, {
+          accountKey: result.accountKey,
+          limitResetAt: result.limitResetAt
+            ? new Date(result.limitResetAt).getTime()
+            : undefined,
+        });
+      }
+
+      await step.runMutation(internal.aiAccounts.clearExpiredLimits, {});
+      const nextAccount = await step.runQuery(
+        internal.aiAccounts.getAvailableAccountKey,
+        {},
+      );
+
+      if (nextAccount) {
+        await step.runAction(internal.daytona.setupAndExecute, {
+          entityId: String(args.taskId),
+          existingSandboxId: sandboxId,
+          githubToken: args.githubToken,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          prompt: data.prompt,
+          convexToken: args.convexToken,
+          completionMutation: "taskWorkflow:handleCompletion",
+          entityIdField: "taskId",
+          model: args.model ?? "sonnet",
+          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+          branchName: data.branchName,
+          baseBranch: args.baseBranch,
+          repoId: args.repoId,
+          oauthAccountKey: nextAccount,
+        });
+
+        result = await step.awaitEvent(taskCompleteEvent);
+      }
+    }
 
     // Step 6: Create PR if first task on branch
     let prUrl: string | null = null;
@@ -185,6 +228,14 @@ export const taskExecutionWorkflow = workflow.define({
       error: result.error,
       prUrl,
       hasSubtasks: data.hasSubtasks,
+      errorType:
+        !result.success && result.errorType === "rate_limit"
+          ? "rate_limit"
+          : undefined,
+      limitResetAt:
+        !result.success && result.limitResetAt
+          ? new Date(result.limitResetAt).getTime()
+          : undefined,
     });
 
     // Step 8: Run audit (non-fatal, fire-and-forget via Daytona)
@@ -338,6 +389,10 @@ export const completeRun = internalMutation({
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
     hasSubtasks: v.boolean(),
+    errorType: v.optional(
+      v.union(v.literal("rate_limit"), v.literal("generic")),
+    ),
+    limitResetAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -354,6 +409,8 @@ export const completeRun = internalMutation({
         : undefined,
       prUrl: args.prUrl ?? undefined,
       error: args.success ? undefined : (args.error ?? "Unknown error"),
+      errorType: args.errorType,
+      limitResetAt: args.limitResetAt,
     });
 
     // Update task status
@@ -399,7 +456,12 @@ export const completeRun = internalMutation({
 
     // Create notifications
     if (task) {
-      const statusText = args.success ? "succeeded" : "failed";
+      const isRateLimit = args.errorType === "rate_limit";
+      const statusText = args.success
+        ? "succeeded"
+        : isRateLimit
+          ? "hit usage limit"
+          : "failed";
       const notifyUsers = new Set(
         [task.createdBy, task.assignedTo].filter(
           (id): id is Id<"users"> => id !== undefined,
@@ -408,7 +470,7 @@ export const completeRun = internalMutation({
       for (const userId of notifyUsers) {
         await createNotification(ctx, {
           userId,
-          type: "run_completed",
+          type: isRateLimit ? "rate_limit" : "run_completed",
           title: `Run ${statusText} for "${task.title}"`,
           repoId: task.repoId,
           projectId: task.projectId,
@@ -535,6 +597,9 @@ export const handleCompletion = mutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    errorType: v.optional(v.union(v.literal("rate_limit"), v.null())),
+    limitResetAt: v.optional(v.union(v.string(), v.null())),
+    accountKey: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -552,6 +617,9 @@ export const handleCompletion = mutation({
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
+        errorType: args.errorType,
+        limitResetAt: args.limitResetAt,
+        accountKey: args.accountKey,
       },
     });
 

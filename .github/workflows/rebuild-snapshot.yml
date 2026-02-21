@@ -1,18 +1,69 @@
 name: Rebuild Daytona Snapshot
 
 on:
-  # Changed from on-push-to-main to daily schedule to avoid unnecessary rebuilds on every commit
-  # push:
-  #   branches: [main]
-  schedule:
-    - cron: "0 7 * * *"
   workflow_dispatch:
+    inputs:
+      snapshot_name:
+        description: "Daytona snapshot name"
+        required: true
+      custom_commands:
+        description: "JSON array of custom setup commands"
+        required: false
+        default: "[]"
+      custom_env_vars:
+        description: "JSON array of {key,value} env var pairs"
+        required: false
+        default: "[]"
 
 jobs:
   rebuild-snapshot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate Dockerfile
+        env:
+          CUSTOM_ENV_VARS: ${{ inputs.custom_env_vars }}
+          CUSTOM_COMMANDS: ${{ inputs.custom_commands }}
+        run: |
+          cat > Dockerfile.snapshot <<'BASEEOF'
+          FROM node:20-bullseye
+
+          RUN apt-get update && apt-get install -y git curl
+          RUN corepack enable
+          RUN npm install -g @anthropic-ai/claude-code agent-browser convex
+          RUN npx playwright install-deps chromium
+          RUN curl -fsSL https://code-server.dev/install.sh | sh
+
+          RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
+          USER eva
+          RUN npx playwright install chromium
+          WORKDIR /workspace
+
+          RUN mkdir -p /home/eva/.claude/plugins/marketplaces
+          RUN git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official
+          RUN git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93
+          RUN echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"interface-design@Dammyjay93":true}}' > /home/eva/.claude/settings.json
+
+          ENV PNPM_HOME=/home/eva/.pnpm
+          ENV NODE_PATH=/usr/lib/node_modules
+          ENV PATH=$PNPM_HOME:$PATH
+          RUN mkdir -p $PNPM_HOME
+
+          COPY --chown=eva:eva . /workspace/repo
+          BASEEOF
+
+          printf '%s' "$CUSTOM_ENV_VARS" | jq -r '.[] | "ENV \(.key)=\(.value | @json)"' >> Dockerfile.snapshot
+
+          printf '%s' "$CUSTOM_COMMANDS" | jq -r '.[] | "RUN \(.)"' >> Dockerfile.snapshot
+
+          cat >> Dockerfile.snapshot <<'TAILEOF'
+          WORKDIR /workspace/repo/apps/web
+          RUN pnpm install
+          TAILEOF
+
+          echo "=== Generated Dockerfile ==="
+          cat Dockerfile.snapshot
 
       - name: Install Daytona CLI
         run: |
@@ -24,22 +75,17 @@ jobs:
         run: daytona login --api-key ${{ secrets.DAYTONA_API_KEY }}
 
       - name: Build Docker image
-        run: |
-          docker build \
-            --platform linux/amd64 \
-            --build-arg GITHUB_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} \
-            -t eva-snapshot:build \
-            .
+        run: docker build --platform linux/amd64 -f Dockerfile.snapshot -t ${{ inputs.snapshot_name }}:build .
 
       - name: Delete existing snapshot
         run: |
-          SNAPSHOT_ID=$(daytona snapshot list --format json | jq -r '.[] | select(.name == "eva-snapshot") | .id // empty')
+          SNAPSHOT_ID=$(daytona snapshot list --format json | jq -r --arg name "${{ inputs.snapshot_name }}" '.[] | select(.name == $name) | .id // empty')
           if [ -n "$SNAPSHOT_ID" ]; then
             echo "Deleting snapshot: $SNAPSHOT_ID"
             daytona snapshot delete "$SNAPSHOT_ID"
           else
-            echo "No existing eva-snapshot found"
+            echo "No existing snapshot found"
           fi
 
       - name: Push snapshot to Daytona
-        run: daytona snapshot push eva-snapshot:build --name eva-snapshot --cpu 2 --memory 4 --disk 8
+        run: daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 2 --memory 4 --disk 8

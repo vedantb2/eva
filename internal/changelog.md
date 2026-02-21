@@ -1,5 +1,15 @@
 # Changelog
 
+## Per-Repo Snapshot Management (GitHub Actions) — 2026-02-20
+
+- **Why**: All sandboxes used a hardcoded `eva-snapshot` rebuilt daily by a GitHub Action. Users couldn't control when snapshots rebuild, customize their setup, or manage snapshots for different repos independently. The initial Daytona SDK approach hit sandbox storage limitations during image builds.
+- **Solution**: New admin UI (Admin > Snapshots) lets users configure per-repo Daytona snapshots with custom rebuild schedules (daily/every 3 days/weekly/manual), custom setup commands, and custom environment variables baked into the snapshot image.
+- **Dynamic crons**: Uses `@convex-dev/crons` component for per-repo dynamic scheduling — each repo gets its own independent cron job that self-registers and self-deletes when the schedule changes.
+- **GitHub Actions build**: Instead of building snapshots via Daytona SDK (which has storage limits), Convex triggers a `workflow_dispatch` on the repo's `rebuild-snapshot.yml` GitHub Action. The workflow generates a Dockerfile dynamically, builds the Docker image on GitHub's runner (14GB+ disk), and pushes to Daytona via CLI. Convex polls the GitHub Actions API for completion.
+- **Per-repo setup**: Each repo needs `rebuild-snapshot.yml` workflow file + `DAYTONA_API_KEY` GitHub secret + `SNAPSHOT_GITHUB_PAT` (with `actions:write` scope) in Admin > Env Variables.
+- **Fallback**: Repos without a snapshot config continue using the global `eva-snapshot`.
+- **New tables**: `repoSnapshots` (config per repo) and `snapshotBuilds` (build history with logs, `workflowRunId` for GitHub Actions link).
+
 ## MCP Server: Clerk Authentication — 2026-02-20
 
 - **Why**: MCP server required users to manually enter a Convex deployment URL and deploy key during OAuth authorization. This was disconnected from the main app's auth — users already have Conductor accounts via Clerk, yet had to provide raw credentials for the MCP integration.

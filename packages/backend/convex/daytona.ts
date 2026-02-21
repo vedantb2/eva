@@ -84,10 +84,11 @@ async function createSandbox(
   accountKey: string,
   infraEnvVars: Record<string, string>,
   extraEnvVars?: Record<string, string>,
+  snapshotName?: string,
 ): Promise<Sandbox> {
   const sandbox = await daytona.create(
     {
-      snapshot: SNAPSHOT_NAME,
+      snapshot: snapshotName ?? SNAPSHOT_NAME,
       envVars: {
         ...extraEnvVars,
         GITHUB_TOKEN: githubToken,
@@ -140,6 +141,7 @@ async function getOrCreateSandbox(
   oauthToken: string,
   accountKey: string,
   infraEnvVars: Record<string, string>,
+  snapshotName?: string,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
@@ -157,6 +159,8 @@ async function getOrCreateSandbox(
     oauthToken,
     accountKey,
     infraEnvVars,
+    undefined,
+    snapshotName,
   );
   await syncRepo(sandbox, githubToken, owner, name);
   return { sandbox, isNew: true };
@@ -599,6 +603,17 @@ export const setupAndExecute = internalAction({
       }
     }
 
+    let repoSnapshotName: string | undefined;
+    if (args.repoId) {
+      const repoSnapshot = await ctx.runQuery(
+        internal.repoSnapshots.getRepoSnapshotName,
+        { repoId: args.repoId },
+      );
+      if (repoSnapshot) {
+        repoSnapshotName = repoSnapshot.snapshotName;
+      }
+    }
+
     let sandbox: Sandbox;
 
     if (args.ephemeral) {
@@ -609,6 +624,7 @@ export const setupAndExecute = internalAction({
         resolved.accountKey,
         resolved.infraEnvVars,
         repoEnvVars,
+        repoSnapshotName,
       );
       await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
     } else {
@@ -621,6 +637,7 @@ export const setupAndExecute = internalAction({
         resolved.oauthToken,
         resolved.accountKey,
         resolved.infraEnvVars,
+        repoSnapshotName,
       );
       sandbox = result.sandbox;
     }
@@ -845,6 +862,17 @@ export const startSessionSandbox = internalAction({
         }
       }
 
+      let repoSnapshotName: string | undefined;
+      if (args.repoId) {
+        const repoSnapshot = await ctx.runQuery(
+          internal.repoSnapshots.getRepoSnapshotName,
+          { repoId: args.repoId },
+        );
+        if (repoSnapshot) {
+          repoSnapshotName = repoSnapshot.snapshotName;
+        }
+      }
+
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
@@ -880,6 +908,7 @@ export const startSessionSandbox = internalAction({
         resolved.accountKey,
         resolved.infraEnvVars,
         repoEnvVars,
+        repoSnapshotName,
       );
       const repoUrl = `https://x-access-token:${args.githubToken}@github.com/${args.repoOwner}/${args.repoName}.git`;
       await sandbox.process.executeCommand(
@@ -950,6 +979,17 @@ export const startDesignSandbox = internalAction({
         }
       }
 
+      let repoSnapshotName: string | undefined;
+      if (args.repoId) {
+        const repoSnapshot = await ctx.runQuery(
+          internal.repoSnapshots.getRepoSnapshotName,
+          { repoId: args.repoId },
+        );
+        if (repoSnapshot) {
+          repoSnapshotName = repoSnapshot.snapshotName;
+        }
+      }
+
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
@@ -986,6 +1026,7 @@ export const startDesignSandbox = internalAction({
         resolved.accountKey,
         resolved.infraEnvVars,
         repoEnvVars,
+        repoSnapshotName,
       );
       await syncRepo(sandbox, args.githubToken, args.repoOwner, args.repoName);
       await setupBranch(sandbox, args.branchName);

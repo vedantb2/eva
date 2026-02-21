@@ -18,6 +18,9 @@ import {
   claudeModelValidator,
   errorTypeValidator,
   systemEnvVarCategoryValidator,
+  snapshotScheduleValidator,
+  snapshotBuildStatusValidator,
+  snapshotBuildTriggerValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -408,6 +411,33 @@ const schema = defineSchema({
     releasedAt: v.number(),
     notes: v.optional(v.string()),
   }).index("by_version", ["version"]),
+  repoSnapshots: defineTable({
+    repoId: v.id("githubRepos"),
+    snapshotName: v.string(),
+    schedule: snapshotScheduleValidator,
+    cronJobId: v.optional(v.string()),
+    customSetupCommands: v.array(v.string()),
+    customEnvVars: v.array(
+      v.object({
+        key: v.string(),
+        value: v.string(),
+      }),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_repoId", ["repoId"]),
+  snapshotBuilds: defineTable({
+    repoSnapshotId: v.id("repoSnapshots"),
+    status: snapshotBuildStatusValidator,
+    triggeredBy: snapshotBuildTriggerValidator,
+    logs: v.string(),
+    error: v.optional(v.string()),
+    workflowRunId: v.optional(v.number()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_repoSnapshotId", ["repoSnapshotId"])
+    .index("by_status", ["status"]),
 });
 
 export default schema;

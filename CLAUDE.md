@@ -131,6 +131,8 @@ Keep these distinct: sessions should stay interactive and lightweight, projects 
 - **githubRepos** - GitHub repository references
 - **notifications** - User notifications
 - **annotations** - Chrome extension annotations/highlights
+- **repoSnapshots** - Per-repo Daytona snapshot config (schedule, custom setup commands, custom env vars). Managed via Admin > Snapshots UI.
+- **snapshotBuilds** - Snapshot build history with logs, status, error tracking, and `workflowRunId` for GitHub Actions link
 
 ### Convex Workflows (Durable Background Jobs)
 
@@ -145,6 +147,7 @@ Most background jobs use `@convex-dev/workflow` for durable orchestration. Locat
 - **testGenWorkflow.ts** - Generates tests with git ops and PR creation (Sonnet, write tools, ephemeral sandbox)
 - **taskWorkflow.ts** + **taskWorkflowActions.ts** - Task execution (Claude CLI implements code changes, creates PRs, runs audits). Actions split to separate file for Node.js runtime (Daytona SDK, LlmJson).
 - **buildWorkflow.ts** - Sequential project build (orchestrates multiple task executions via inter-workflow events)
+- **repoSnapshots.ts** + **snapshotActions.ts** - Per-repo snapshot management. Mutations/queries in `repoSnapshots.ts` (cron management via `@convex-dev/crons`), GitHub Actions trigger + polling in `snapshotActions.ts` (Node.js runtime). Triggers `rebuild-snapshot.yml` workflow_dispatch on target repo, polls GitHub API for completion.
 
 **Workflow pattern**: Frontend calls `startXxx` mutation → `workflow.start()` → action fires Daytona sandbox with `nohup` → sandbox runs Claude CLI → sandbox calls back via `POST /api/mutation` with Clerk JWT → `handleCompletion` mutation calls `workflow.sendEvent()` → workflow saves result.
 
@@ -180,10 +183,11 @@ Web-only components (accordion, avatar, badge, card, checkbox, label, popover, p
 
 ### Convex Extensions
 
-The backend uses four Convex component extensions (configured in `packages/backend/convex/convex.config.ts`):
+The backend uses five Convex component extensions (configured in `packages/backend/convex/convex.config.ts`):
 
 - `@convex-dev/workflow` - Durable workflows with retry, timeout, and event-driven orchestration
 - `@convex-dev/presence` - Real-time presence tracking (heartbeat in main layout)
+- `@convex-dev/crons` - Dynamic runtime cron jobs for per-repo snapshot rebuild scheduling
 - `@convex-dev/prosemirror-sync` - Collaborative editing with Tiptap
 - `convex-timeline` - Timeline/history tracking
 
@@ -225,7 +229,7 @@ Pre-commit runs `lint-staged` via Husky, which formats staged `*.{ts,tsx,js,jsx,
 - Default to Server Components; only use Client Components (`*Client.tsx`) for interactive elements requiring hooks, events, or browser APIs
 - Icons: `@tabler/icons-react` (primary), `lucide-react` (secondary)
 - URL state management with `nuqs` for search/filter/sort params
-- Daytona sandboxes: snapshot-based (`eva-snapshot`), auto-stop 15min, auto-delete 30min, non-root user `eva`
+- Daytona sandboxes: snapshot-based (per-repo custom snapshot or fallback `eva-snapshot`), auto-stop 15min, auto-delete 30min, non-root user `eva`
 
 ### Desktop App (`apps/desktop/`)
 

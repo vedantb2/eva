@@ -37,6 +37,7 @@ import type * as projects from "../projects.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
+import type * as repoSnapshots from "../repoSnapshots.js";
 import type * as researchQueries from "../researchQueries.js";
 import type * as researchQueryWorkflow from "../researchQueryWorkflow.js";
 import type * as routines from "../routines.js";
@@ -44,6 +45,7 @@ import type * as savedQueries from "../savedQueries.js";
 import type * as sessionAudits from "../sessionAudits.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
 import type * as sessions from "../sessions.js";
+import type * as snapshotActions from "../snapshotActions.js";
 import type * as specs from "../specs.js";
 import type * as streaming from "../streaming.js";
 import type * as subtasks from "../subtasks.js";
@@ -97,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   prosemirrorSync: typeof prosemirrorSync;
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
+  repoSnapshots: typeof repoSnapshots;
   researchQueries: typeof researchQueries;
   researchQueryWorkflow: typeof researchQueryWorkflow;
   routines: typeof routines;
@@ -104,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   sessionAudits: typeof sessionAudits;
   sessionWorkflow: typeof sessionWorkflow;
   sessions: typeof sessions;
+  snapshotActions: typeof snapshotActions;
   specs: typeof specs;
   streaming: typeof streaming;
   subtasks: typeof subtasks;
@@ -826,6 +830,57 @@ export declare const components: {
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
         }
+      >;
+    };
+  };
+  crons: {
+    public: {
+      del: FunctionReference<
+        "mutation",
+        "internal",
+        { identifier: { id: string } | { name: string } },
+        null
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { identifier: { id: string } | { name: string } },
+        {
+          args: Record<string, any>;
+          functionHandle: string;
+          id: string;
+          name?: string;
+          schedule:
+            | { kind: "interval"; ms: number }
+            | { cronspec: string; kind: "cron"; tz?: string };
+        } | null
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          args: Record<string, any>;
+          functionHandle: string;
+          id: string;
+          name?: string;
+          schedule:
+            | { kind: "interval"; ms: number }
+            | { cronspec: string; kind: "cron"; tz?: string };
+        }>
+      >;
+      register: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: Record<string, any>;
+          functionHandle: string;
+          name?: string;
+          schedule:
+            | { kind: "interval"; ms: number }
+            | { cronspec: string; kind: "cron"; tz?: string };
+        },
+        string
       >;
     };
   };

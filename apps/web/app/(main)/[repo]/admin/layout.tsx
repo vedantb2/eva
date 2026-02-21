@@ -8,6 +8,7 @@ import {
   IconLayoutDashboard,
   IconChartBar,
   IconKey,
+  IconCamera,
 } from "@tabler/icons-react";
 import { SidebarLayoutWrapper } from "@/lib/components/SidebarLayoutWrapper";
 
@@ -23,6 +24,7 @@ export default function AdminLayout({
     { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
     { name: "Stats", href: baseUrl + "/stats", icon: IconChartBar },
     { name: "Env Variables", href: baseUrl + "/env-variables", icon: IconKey },
+    { name: "Snapshots", href: baseUrl + "/snapshots", icon: IconCamera },
   ];
 
   return (

@@ -109,3 +109,21 @@ export const systemEnvVarCategoryValidator = v.union(
   v.literal("claude_oauth"),
   v.literal("infrastructure"),
 );
+
+export const snapshotScheduleValidator = v.union(
+  v.literal("daily"),
+  v.literal("every_3_days"),
+  v.literal("weekly"),
+  v.literal("manual"),
+);
+
+export const snapshotBuildStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("success"),
+  v.literal("error"),
+);
+
+export const snapshotBuildTriggerValidator = v.union(
+  v.literal("cron"),
+  v.literal("manual"),
+);

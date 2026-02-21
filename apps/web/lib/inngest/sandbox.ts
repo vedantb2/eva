@@ -382,7 +382,7 @@ export async function runClaudeCLIStreaming(
   options: StreamingClaudeCLIOptions,
 ): Promise<ClaudeCLIResult> {
   const {
-    model = "sonnet",
+    model = "haiku",
     allowedTools = ["Read", "Glob", "Grep"],
     workDir = WORKSPACE_DIR,
     timeout = 900,

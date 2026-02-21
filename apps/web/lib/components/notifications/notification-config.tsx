@@ -5,6 +5,7 @@ import {
   IconRepeat,
   IconFileExport,
   IconCheck,
+  IconAlertTriangle,
   IconInfoCircle,
   IconUserPlus,
   IconMessage,
@@ -70,6 +71,13 @@ export const typeConfig: Record<
     badgeVariant: "success",
     iconBg: "bg-success/10",
     iconColor: "text-success",
+  },
+  rate_limit: {
+    icon: IconAlertTriangle,
+    label: "Rate Limit",
+    badgeVariant: "warning",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   system: {
     icon: IconInfoCircle,

@@ -19,8 +19,6 @@
     "desktop:build": "pnpm --filter conductor-desktop build",
     "desktop:dist": "pnpm --filter conductor-desktop dist",
     "mcp:dev": "pnpm --filter conductor-mcp-server dev",
-    "snapshot:delete": "daytona snapshot delete eva-snapshot",
-    "snapshot:create": "daytona snapshot create eva-snapshot --dockerfile Dockerfile",
     "prepare": "husky"
   },
   "lint-staged": {

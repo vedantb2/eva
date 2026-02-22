@@ -14,7 +14,6 @@ import {
   IconChecklist,
   IconChevronLeft,
   IconChevronRight,
-  IconDots,
   IconFileText,
   IconFlask,
   IconHammer,
@@ -38,18 +37,19 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Spinner,
   cn,
 } from "@conductor/ui";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { AdminSidebar } from "@/lib/components/sidebar/AdminSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
+import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
+import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -59,13 +59,30 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
   Sessions: "sessions",
   Analyse: "analyse",
+  Admin: "admin",
+  Documents: "docs",
+  "Testing Arena": "testing-arena",
 } as const;
 
-type ContextSidebarMode = "main" | "design" | "sessions" | "analyse";
+type ContextSidebarMode =
+  | "main"
+  | "design"
+  | "sessions"
+  | "analyse"
+  | "admin"
+  | "docs"
+  | "testing-arena";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segment = pathname.split("/")[2];
-  if (segment === "design" || segment === "sessions" || segment === "analyse") {
+  if (
+    segment === "design" ||
+    segment === "sessions" ||
+    segment === "analyse" ||
+    segment === "admin" ||
+    segment === "docs" ||
+    segment === "testing-arena"
+  ) {
     return segment;
   }
   return "main";
@@ -82,6 +99,9 @@ export function Sidebar() {
   const [designCreateRequestId, setDesignCreateRequestId] = useState(0);
   const [sessionsCreateRequestId, setSessionsCreateRequestId] = useState(0);
   const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
+  const [docsCreateRequestId, setDocsCreateRequestId] = useState(0);
+  const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
+    useState(0);
 
   const repos = useQuery(api.githubRepos.list);
 
@@ -163,6 +183,17 @@ export function Sidebar() {
                 },
               ],
             },
+            {
+              label: "ADMIN",
+              groupIcon: IconShield,
+              items: [
+                {
+                  name: "Admin",
+                  href: `/${repoSlug}/admin`,
+                  icon: IconShield,
+                },
+              ],
+            },
           ]
         : [],
     [repoSlug, isRepoRoute],
@@ -178,11 +209,11 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all",
+      "group motion-base flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "border-sidebar-primary/20 bg-sidebar-accent text-sidebar-primary shadow-xs"
-        : "border-transparent text-sidebar-foreground/80 hover:border-sidebar-border/70 hover:bg-sidebar-accent/75 hover:text-sidebar-foreground",
+        ? "border-sidebar-primary/35 bg-sidebar-primary/10 text-sidebar-primary shadow-sm"
+        : "border-transparent text-sidebar-foreground/80 hover:-translate-y-[1px] hover:border-sidebar-border/85 hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
     );
 
   const contextSidebarTitle =
@@ -192,7 +223,15 @@ export function Sidebar() {
         ? "Sessions"
         : contextSidebarMode === "analyse"
           ? "Analyse"
-          : "";
+          : contextSidebarMode === "admin"
+            ? "Admin"
+            : contextSidebarMode === "docs"
+              ? "Documents"
+              : contextSidebarMode === "testing-arena"
+                ? "Testing Arena"
+                : "";
+
+  const showContextCreate = contextSidebarMode !== "admin";
   const contextCreateButtonTitle =
     contextSidebarMode === "design"
       ? "New design session"
@@ -200,7 +239,11 @@ export function Sidebar() {
         ? "New session"
         : contextSidebarMode === "analyse"
           ? "New query"
-          : "New item";
+          : contextSidebarMode === "docs"
+            ? "New document"
+            : contextSidebarMode === "testing-arena"
+              ? "Test all"
+              : "New item";
 
   const handleContextCreate = () => {
     if (contextSidebarMode === "design") {
@@ -213,6 +256,14 @@ export function Sidebar() {
     }
     if (contextSidebarMode === "analyse") {
       setAnalyseCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "docs") {
+      setDocsCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "testing-arena") {
+      setTestingArenaCreateRequestId((current) => current + 1);
     }
   };
 
@@ -220,7 +271,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background px-4 backdrop-blur-xl lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4  lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -231,7 +282,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-          className="mx-auto flex items-center gap-2 rounded-xl border border-border/60 bg-card/80 px-2.5 py-1.5 shadow-xs backdrop-blur-sm"
+          className="mx-auto flex items-center gap-2 rounded-xl border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
         >
           <Image
             src="/icon.png"
@@ -256,7 +307,7 @@ export function Sidebar() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-background/55 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-background/62  lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -270,14 +321,14 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-72 lg:w-20" : "w-72",
+          collapsed ? "w-80 lg:w-20" : "w-80",
         )}
       >
         <div className="h-full p-2 lg:p-3 lg:pr-2">
-          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border/50 bg-sidebar shadow-xs backdrop-blur-xl">
+          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-sidebar-border/60 bg-sidebar shadow-sm lg:bg-sidebar/92 ">
             <div
               className={cn(
-                "flex h-16 items-center border-b border-sidebar-border/60",
+                "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -317,7 +368,7 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
-                        {!collapsed && (
+                        {!collapsed && showContextCreate && (
                           <Button
                             size="icon"
                             variant="ghost"
@@ -487,7 +538,13 @@ export function Sidebar() {
                       transition={{ duration: 0.2 }}
                     >
                       {showContextSidebar ? (
-                        collapsed ? null : repo ? (
+                        collapsed ? null : contextSidebarMode === "admin" ? (
+                          <AdminSidebar
+                            repoSlug={repoSlug}
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                          />
+                        ) : repo ? (
                           contextSidebarMode === "design" ? (
                             <DesignSessionsSidebar
                               repoId={repo._id}
@@ -504,6 +561,24 @@ export function Sidebar() {
                               onNavigate={closeMobileSidebar}
                               createRequestId={sessionsCreateRequestId}
                               installationId={repo.installationId}
+                            />
+                          ) : contextSidebarMode === "docs" ? (
+                            <DocsSidebar
+                              repoId={repo._id}
+                              repoSlug={repoSlug}
+                              installationId={repo.installationId}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                              createRequestId={docsCreateRequestId}
+                            />
+                          ) : contextSidebarMode === "testing-arena" ? (
+                            <TestingArenaSidebar
+                              repoId={repo._id}
+                              repoSlug={repoSlug}
+                              installationId={repo.installationId}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                              createRequestId={testingArenaCreateRequestId}
                             />
                           ) : (
                             <AnalyseSidebar
@@ -701,7 +776,7 @@ export function Sidebar() {
 
             <div
               className={cn(
-                "border-t border-sidebar-border/60 bg-sidebar-accent/25",
+                "border-t border-sidebar-border/60 bg-sidebar-accent/32",
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >
@@ -726,39 +801,19 @@ export function Sidebar() {
                 )}
                 <NotificationsPopoverClient />
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-sidebar-foreground"
-                      title="Menu"
-                    >
-                      <IconDots size={16} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="top" align="end">
-                    <DropdownMenuItem onClick={toggleTheme}>
-                      {theme === "dark" ? (
-                        <IconSun size={16} className="mr-2" />
-                      ) : (
-                        <IconMoon size={16} className="mr-2" />
-                      )}
-                      Toggle Theme
-                    </DropdownMenuItem>
-                    {isRepoRoute && repoSlug && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={`/${repoSlug}/admin`}>
-                            <IconShield size={16} className="mr-2" />
-                            Admin
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-sidebar-foreground"
+                  title="Toggle theme"
+                  onClick={toggleTheme}
+                >
+                  {theme === "dark" ? (
+                    <IconSun size={16} />
+                  ) : (
+                    <IconMoon size={16} />
+                  )}
+                </Button>
               </div>
             </div>
           </div>

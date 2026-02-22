@@ -16,20 +16,23 @@ export function SetupBanner() {
 
   return (
     <div className="px-4 pt-4">
-      <Alert variant="destructive" className="flex items-center gap-3">
+      <Alert
+        variant="destructive"
+        className="flex items-center gap-3 border-destructive/35 bg-destructive/12 shadow-sm"
+      >
         <IconAlertTriangle size={18} className="flex-shrink-0" />
         <AlertDescription className="flex-1">
-          AI features are unavailable — no OAuth tokens configured.{" "}
+          AI features are unavailable: no OAuth tokens configured.{" "}
           <Link
             href={`/${repoSlug}/admin/env-variables`}
-            className="underline font-medium hover:opacity-80"
+            className="font-medium underline underline-offset-2 hover:opacity-80"
           >
             Configure in Admin &rarr; System Variables
           </Link>
         </AlertDescription>
         <button
           onClick={() => setDismissed(true)}
-          className="flex-shrink-0 p-1 rounded-md hover:bg-destructive/20"
+          className="motion-press flex-shrink-0 rounded-md p-1 hover:scale-105 hover:bg-destructive/20"
         >
           <IconX size={14} />
         </button>

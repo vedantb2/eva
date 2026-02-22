@@ -20,7 +20,22 @@ export function ProjectProgressBar({
 }: ProjectProgressBarProps) {
   const progress = useQuery(api.projects.getTaskProgress, { projectId });
 
-  if (!progress || progress.total === 0) return null;
+  if (!progress) return null;
+
+  if (progress.total === 0) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`h-1.5 overflow-hidden rounded-full bg-secondary/85 ${className ?? ""}`}
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <span className="text-xs text-muted-foreground">No tasks yet</span>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <Tooltip>

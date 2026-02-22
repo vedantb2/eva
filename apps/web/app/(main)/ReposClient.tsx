@@ -38,7 +38,7 @@ function WelcomeBanner() {
   ];
 
   return (
-    <Card className="mb-6 overflow-hidden border border-border/70 bg-card shadow-none">
+    <Card className="ui-surface-strong mb-6 overflow-hidden">
       <CardContent className="p-0">
         <div className="relative p-4 sm:p-5">
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
@@ -180,7 +180,7 @@ export function ReposClient() {
                   href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
                   className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                 >
-                  <Card className="motion-emphasized cursor-pointer bg-secondary shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:shadow-sm">
+                  <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
                     <CardContent className="gap-3 p-3">
                       <IconBrandGithub
                         size={20}

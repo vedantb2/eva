@@ -16,13 +16,12 @@ import {
   IconGitBranch,
   IconGitPullRequest,
   IconDotsVertical,
-  IconAlertCircle,
+  IconClock,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@conductor/shared";
 import {
   statusConfig,
   type TaskStatus,
@@ -48,7 +47,6 @@ export function QuickTaskCard({
   description,
   status,
   createdAt,
-  createdBy,
   branchName,
   onClick,
   isSelecting,
@@ -57,68 +55,85 @@ export function QuickTaskCard({
 }: QuickTaskCardProps) {
   const { fullName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
+  const statusMeta = statusConfig[status];
+  const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
+  const showActions = Boolean(branchName || latestPrUrl);
 
   return (
     <Card
-      className={`relative overflow-hidden shadow-2xs transition-all duration-200 ${
-        hasError ? "border-destructive/60" : ""
-      } ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${
+      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
+        hasError
+          ? "border-destructive/60 bg-destructive/5"
+          : "hover:border-primary/25 hover:bg-card"
+      } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${
         !isSelecting && onClick
-          ? "cursor-pointer hover:shadow-xs hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
       onClick={isSelecting ? undefined : onClick}
       role={!isSelecting && onClick ? "button" : undefined}
       tabIndex={!isSelecting && onClick ? 0 : undefined}
-      onKeyDown={(e) => {
+      onKeyDown={(event) => {
         if (isSelecting || !onClick) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
           onClick();
         }
       }}
     >
       <div
-        className={`absolute left-0 top-0 bottom-0 w-[3px] ${
-          hasError ? "bg-destructive" : statusConfig[status].bar
-        }`}
+        className={`pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-30 group-focus-within:opacity-30 ${accentClass}`}
       />
-      <CardContent className="p-2 pl-3 md:p-2 md:pl-3 space-y-1">
-        <div className="flex min-w-0 items-center justify-between gap-2">
+      <div
+        className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
+      />
+      <CardContent className="relative z-[1] space-y-1 px-2 py-2 pl-2.5">
+        <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect?.()}
-              className="flex-shrink-0"
+              className="mt-0.5 flex-shrink-0"
             />
           )}
-          <h4 className="min-w-0 flex-1 truncate font-medium text-sm">
-            {title}
-          </h4>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="min-w-0 flex-1">
+            <h4
+              className={`text-sm font-semibold leading-5 text-foreground ${
+                description ? "line-clamp-1" : "line-clamp-2"
+              }`}
+            >
+              {title}
+            </h4>
+            {description ? (
+              <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
             <SubtaskProgress taskId={id} />
-            {(branchName || latestPrUrl) && (
+            {showActions ? (
               <div
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      size="icon-sm"
+                      size="icon-xs"
                       variant="ghost"
-                      className="motion-press hover:scale-105 active:scale-95"
+                      className="motion-press rounded-full hover:scale-105 active:scale-95"
                     >
                       <IconDotsVertical
-                        size={14}
+                        size={13}
                         className="text-muted-foreground"
                       />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    {branchName && (
+                    {branchName ? (
                       <DropdownMenuItem
                         onClick={() =>
                           window.open(
@@ -130,37 +145,24 @@ export function QuickTaskCard({
                         <IconGitBranch size={16} />
                         View Branch
                       </DropdownMenuItem>
-                    )}
-                    {latestPrUrl && (
+                    ) : null}
+                    {latestPrUrl ? (
                       <DropdownMenuItem
                         onClick={() => window.open(latestPrUrl, "_blank")}
                       >
                         <IconGitPullRequest size={16} />
                         View PR
                       </DropdownMenuItem>
-                    )}
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
-        {/* {description && (
-          <p className="text-xs text-muted-foreground line-clamp-1">
-            {description}
-          </p>
-        )} */}
-        <div className="flex items-center gap-2 justify-between">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {createdBy && <UserInitials userId={createdBy} />}
-            {hasError && (
-              <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
-                <IconAlertCircle size={12} />
-                Failed
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-muted-foreground shrink-0">
+        <div className="flex items-center justify-end gap-2">
+          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] leading-none text-muted-foreground">
+            <IconClock size={11} />
             {dayjs(createdAt).fromNow()}
           </span>
         </div>

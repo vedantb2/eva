@@ -11,7 +11,6 @@ import {
   IconChecklist,
 } from "@tabler/icons-react";
 import { Icon as TablerIcon } from "@tabler/icons-react";
-import Link from "next/link";
 import Image from "next/image";
 
 function StatCard({
@@ -24,9 +23,9 @@ function StatCard({
   value: string | number;
 }) {
   return (
-    <Card className="bg-secondary">
-      <CardContent className="p-5 flex flex-col gap-2.5">
-        <Icon size={24} className="text-muted-foreground" />
+    <Card className="ui-surface-interactive h-full">
+      <CardContent className="flex h-full flex-col gap-3 p-5">
+        <Icon size={22} className="text-primary" />
         <div>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
             {value}
@@ -57,24 +56,26 @@ export function RepoHomeClient() {
   }
 
   return (
-    <div className="flex items-center justify-center h-full p-6">
-      <div className="w-full max-w-2xl space-y-4">
-        <div className="flex items-center gap-1.5 w-max">
-          <Image
-            src="/icon.png"
-            alt="Eva"
-            width={30}
-            height={30}
-            className="rounded-full"
-          />
-          <span className="text-xl tracking-tight font-semibold text-primary">
-            Eva's Stats
-          </span>
+    <div className="flex h-full items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-3xl space-y-4">
+        <div className="ui-surface p-5 sm:p-6">
+          <div className="flex items-center gap-2 w-max">
+            <Image
+              src="/icon.png"
+              alt="Eva"
+              width={30}
+              height={30}
+              className="rounded-full"
+            />
+            <span className="text-xl tracking-tight font-semibold text-primary">
+              Eva's Stats
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-medium text-muted-foreground">
+            {repo.owner}/{repo.name}
+          </p>
         </div>
-        <p className="text-sm font-medium text-muted-foreground">
-          {repo.owner}/{repo.name}
-        </p>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <StatCard
             icon={IconGitPullRequest}
             label="PRs Shipped"

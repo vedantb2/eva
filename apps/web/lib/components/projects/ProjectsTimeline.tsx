@@ -6,20 +6,37 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import {
+  PROJECT_PHASES,
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { Tooltip, TooltipTrigger, TooltipContent, Button } from "@conductor/ui";
+import {
+  Badge,
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  cn,
+} from "@conductor/ui";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
-const DAY_MS = 86400000;
-const LABEL_WIDTH = 192;
-const ROW_HEIGHT = 36;
+const DAY_MS = 86_400_000;
+const LABEL_WIDTH = 208;
+const ROW_HEIGHT = 42;
 const MIN_PX_PER_DAY = 8;
 const MAX_PX_PER_DAY = 80;
+const DEFAULT_PX_PER_DAY = 24;
+const ZOOM_FACTOR = 1.2;
+const DRAG_THRESHOLD_PX = 4;
+
+interface DragState {
+  startX: number;
+  startScroll: number;
+  moved: boolean;
+}
 
 interface ProjectsTimelineProps {
   projects: Project[];
@@ -34,16 +51,18 @@ export function ProjectsTimeline({
     useState<Id<"projects"> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pxPerDay, setPxPerDay] = useState(30);
+  const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const dragRef = useRef<{ startX: number; startScroll: number } | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
+  const isDragging = dragRef.current !== null;
 
   const { withDates, withoutDates, originDate, totalSpanDays } = useMemo(() => {
     const dated = projects.filter(
-      (p) => p.projectStartDate && p.projectEndDate,
+      (project) => project.projectStartDate && project.projectEndDate,
     );
     const undated = projects.filter(
-      (p) => !p.projectStartDate || !p.projectEndDate,
+      (project) => !project.projectStartDate || !project.projectEndDate,
     );
 
     if (dated.length === 0) {
@@ -55,16 +74,18 @@ export function ProjectsTimeline({
       };
     }
 
-    const allDates = dated.flatMap((p) => {
-      const d = [p.projectStartDate!, p.projectEndDate!];
-      if (p.deadline) d.push(p.deadline);
-      return d;
+    const allDates = dated.flatMap((project) => {
+      const dates = [project.projectStartDate!, project.projectEndDate!];
+      if (project.deadline) dates.push(project.deadline);
+      return dates;
     });
-    const min = Math.min(...allDates);
-    const max = Math.max(...allDates);
-    const padding = Math.max(Math.ceil((max - min) / DAY_MS) * 0.5, 180);
-    const origin = min - padding * DAY_MS;
-    const span = Math.ceil((max - origin) / DAY_MS) + padding;
+    const today = Date.now();
+    const minDate = Math.min(...allDates, today);
+    const maxDate = Math.max(...allDates, today);
+    const spanDays = Math.max(1, Math.ceil((maxDate - minDate) / DAY_MS) + 1);
+    const paddingDays = Math.min(60, Math.max(14, Math.ceil(spanDays * 0.15)));
+    const origin = minDate - paddingDays * DAY_MS;
+    const span = spanDays + paddingDays * 2;
 
     return {
       withDates: dated,
@@ -74,18 +95,94 @@ export function ProjectsTimeline({
     };
   }, [projects]);
 
+  const phaseTotals = useMemo(() => {
+    const totals = PROJECT_PHASES.reduce(
+      (acc, phase) => {
+        acc[phase] = 0;
+        return acc;
+      },
+      {} as Record<ProjectPhase, number>,
+    );
+
+    for (const project of projects) {
+      const phase = project.phase as ProjectPhase;
+      if (phase in totals) totals[phase] += 1;
+    }
+
+    return totals;
+  }, [projects]);
+
   const totalWidth = totalSpanDays * pxPerDay;
 
+  const clampScroll = useCallback(
+    (next: number, width = totalWidth) => {
+      const container = containerRef.current;
+      if (!container) return Math.max(0, next);
+      const viewportWidth = Math.max(0, container.clientWidth - LABEL_WIDTH);
+      const maxScroll = Math.max(0, width - viewportWidth);
+      return Math.min(Math.max(0, next), maxScroll);
+    },
+    [totalWidth],
+  );
+
+  const setClampedScroll = useCallback(
+    (next: number | ((prev: number) => number), width?: number) => {
+      setScrollLeft((prev) => {
+        const raw = typeof next === "function" ? next(prev) : next;
+        return clampScroll(raw, width ?? totalWidth);
+      });
+    },
+    [clampScroll, totalWidth],
+  );
+
   const scrollToToday = useCallback(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || totalSpanDays === 0) return;
     const todayOffset = ((Date.now() - originDate) / DAY_MS) * pxPerDay;
-    const viewWidth = containerRef.current.clientWidth - LABEL_WIDTH;
-    setScrollLeft(Math.max(0, todayOffset - viewWidth / 2));
-  }, [originDate, pxPerDay]);
+    const viewWidth = Math.max(
+      0,
+      containerRef.current.clientWidth - LABEL_WIDTH,
+    );
+    setClampedScroll(todayOffset - viewWidth / 2);
+  }, [originDate, pxPerDay, setClampedScroll, totalSpanDays]);
+
+  const setZoom = useCallback(
+    (nextZoom: number, anchorX?: number) => {
+      const clampedZoom = Math.min(
+        MAX_PX_PER_DAY,
+        Math.max(MIN_PX_PER_DAY, nextZoom),
+      );
+      if (clampedZoom === pxPerDay) return;
+
+      const container = containerRef.current;
+      if (!container) {
+        setPxPerDay(clampedZoom);
+        return;
+      }
+
+      const viewportWidth = Math.max(0, container.clientWidth - LABEL_WIDTH);
+      const anchor = anchorX ?? viewportWidth / 2;
+      const dayAtAnchor = (scrollLeft + anchor) / pxPerDay;
+      const nextTotalWidth = totalSpanDays * clampedZoom;
+      const nextScroll = dayAtAnchor * clampedZoom - anchor;
+
+      setPxPerDay(clampedZoom);
+      setClampedScroll(nextScroll, nextTotalWidth);
+    },
+    [pxPerDay, scrollLeft, setClampedScroll, totalSpanDays],
+  );
 
   useEffect(() => {
-    if (!containerRef.current || totalSpanDays === 0) return;
-    scrollToToday();
+    setClampedScroll((prev) => prev);
+  }, [setClampedScroll, totalWidth]);
+
+  useEffect(() => {
+    if (totalSpanDays === 0) return;
+    const raf = requestAnimationFrame(() => {
+      scrollToToday();
+    });
+    // Keep first render centered to current date after layout is measured.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => cancelAnimationFrame(raf);
   }, [totalSpanDays, originDate]);
 
   const monthLabels = useMemo(() => {
@@ -110,23 +207,32 @@ export function ProjectsTimeline({
     return labels;
   }, [originDate, totalSpanDays, pxPerDay]);
 
+  const dayLabelStep = useMemo(() => {
+    if (pxPerDay >= 30) return 1;
+    if (pxPerDay >= 18) return 2;
+    if (pxPerDay >= 11) return 7;
+    return 14;
+  }, [pxPerDay]);
+
   const dayLabels = useMemo(() => {
     if (totalSpanDays === 0) return [];
-    const step = 1;
     const labels: { label: string; x: number }[] = [];
-    for (let d = 0; d <= totalSpanDays; d += step) {
+    for (let day = 0; day <= totalSpanDays; day += dayLabelStep) {
+      const date = dayjs(originDate).add(day, "day");
       labels.push({
-        label: dayjs(originDate).add(d, "day").format("D"),
-        x: d * pxPerDay,
+        label: dayLabelStep <= 2 ? date.format("D") : date.format("MMM D"),
+        x: day * pxPerDay,
       });
     }
     return labels;
-  }, [originDate, totalSpanDays, pxPerDay]);
+  }, [dayLabelStep, originDate, totalSpanDays, pxPerDay]);
 
   const todayX = useMemo(() => {
     if (totalSpanDays === 0) return null;
     return ((Date.now() - originDate) / DAY_MS) * pxPerDay;
   }, [originDate, totalSpanDays, pxPerDay]);
+
+  const zoomPercent = Math.round((pxPerDay / DEFAULT_PX_PER_DAY) * 100);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -135,56 +241,158 @@ export function ProjectsTimeline({
         const container = containerRef.current;
         if (!container) return;
         const rect = container.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left - LABEL_WIDTH + scrollLeft;
-        const dayAtMouse = mouseX / pxPerDay;
-        const delta = e.deltaY > 0 ? 0.85 : 1.18;
-        const next = Math.min(
-          MAX_PX_PER_DAY,
-          Math.max(MIN_PX_PER_DAY, pxPerDay * delta),
-        );
-        setPxPerDay(next);
-        const newMouseX = dayAtMouse * next;
-        setScrollLeft(
-          Math.max(0, newMouseX - (e.clientX - rect.left - LABEL_WIDTH)),
-        );
-      } else {
-        setScrollLeft((prev) => Math.max(0, prev + e.deltaX + e.deltaY));
+        const viewportX = Math.max(0, e.clientX - rect.left - LABEL_WIDTH);
+        const delta = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+        setZoom(pxPerDay * delta, viewportX);
+        return;
+      }
+
+      const isHorizontalIntent =
+        e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (isHorizontalIntent) {
+        e.preventDefault();
+        const delta =
+          Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        setClampedScroll((prev) => prev + delta);
       }
     },
-    [pxPerDay, scrollLeft],
+    [pxPerDay, setClampedScroll, setZoom],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0) return;
-      const target = e.target as HTMLElement;
-      if (target.closest("button")) return;
-      dragRef.current = { startX: e.clientX, startScroll: scrollLeft };
+      dragRef.current = {
+        startX: e.clientX,
+        startScroll: scrollLeft,
+        moved: false,
+      };
       e.preventDefault();
     },
     [scrollLeft],
   );
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragRef.current) return;
-    const dx = dragRef.current.startX - e.clientX;
-    setScrollLeft(Math.max(0, dragRef.current.startScroll + dx));
-  }, []);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!dragRef.current) return;
+      const movement = Math.abs(dragRef.current.startX - e.clientX);
+      if (movement > DRAG_THRESHOLD_PX) {
+        dragRef.current.moved = true;
+      }
+      const dx = dragRef.current.startX - e.clientX;
+      setClampedScroll(dragRef.current.startScroll + dx);
+    },
+    [setClampedScroll],
+  );
 
   const handleMouseUp = useCallback(() => {
+    if (dragRef.current?.moved) {
+      suppressClickRef.current = true;
+      requestAnimationFrame(() => {
+        suppressClickRef.current = false;
+      });
+    }
     dragRef.current = null;
+  }, []);
+
+  const openProject = useCallback((projectId: Id<"projects">) => {
+    if (suppressClickRef.current) return;
+    setSelectedProjectId(projectId);
   }, []);
 
   if (projects.length === 0) return null;
 
   return (
     <>
-      <div className="flex flex-col flex-1 min-h-0 animate-in fade-in duration-300">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/70 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className="h-6 border-border/70 bg-background/70 text-[11px] text-muted-foreground"
+            >
+              {withDates.length} scheduled
+            </Badge>
+            {withoutDates.length > 0 && (
+              <Badge
+                variant="outline"
+                className="h-6 border-border/70 bg-background/70 text-[11px] text-muted-foreground"
+              >
+                {withoutDates.length} unscheduled
+              </Badge>
+            )}
+            {PROJECT_PHASES.map((phase) => {
+              const count = phaseTotals[phase];
+              if (count === 0) return null;
+              const config = phaseConfig[phase];
+              const Icon = config.icon;
+              return (
+                <Badge
+                  key={phase}
+                  variant="outline"
+                  className={cn(
+                    "h-6 gap-1 border-border/70 bg-background/70 text-[11px]",
+                    config.text,
+                  )}
+                >
+                  <Icon size={12} />
+                  {config.label}
+                  <span className="tabular-nums text-foreground/60">
+                    {count}
+                  </span>
+                </Badge>
+              );
+            })}
+          </div>
+          {withDates.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="hidden text-xs text-muted-foreground lg:block">
+                Drag to pan - Shift + wheel to scroll - Ctrl/Cmd + wheel to zoom
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7"
+                onClick={() => setZoom(pxPerDay / ZOOM_FACTOR)}
+              >
+                -
+              </Button>
+              <span className="min-w-10 text-center text-xs font-medium tabular-nums text-muted-foreground">
+                {zoomPercent}%
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7"
+                onClick={() => setZoom(pxPerDay * ZOOM_FACTOR)}
+              >
+                +
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setZoom(DEFAULT_PX_PER_DAY)}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={scrollToToday}
+              >
+                Today
+              </Button>
+            </div>
+          )}
+        </div>
+
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="flex-1 min-h-0 overflow-hidden select-none relative"
-            style={{ cursor: dragRef.current ? "grabbing" : "grab" }}
+            className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-card/60 select-none"
+            style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -193,170 +401,235 @@ export function ProjectsTimeline({
           >
             {todayX !== null && (
               <div
-                className="absolute top-0 bottom-0 z-20 w-px bg-primary/30 pointer-events-none transition-[left] duration-200 ease-out"
+                className="pointer-events-none absolute inset-y-0 z-20 transition-[left] duration-200 ease-out"
                 style={{ left: todayX - scrollLeft + LABEL_WIDTH }}
               >
-                <div className="absolute -top-1 -left-[11px] text-[9px] text-primary/50 rounded px-1">
+                <div className="absolute inset-y-0 left-0 w-px bg-primary/40" />
+                <div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-primary/35 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                   Today
                 </div>
               </div>
             )}
-            <div className="flex border-b border-border">
-              <div
-                className="flex-shrink-0 flex items-end pb-1"
-                style={{ width: LABEL_WIDTH }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="motion-press h-6 text-xs text-muted-foreground hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={scrollToToday}
-                >
-                  Today
-                </Button>
-              </div>
-              <div className="flex-1 overflow-hidden">
+
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex border-b border-border/70 bg-background/55">
                 <div
-                  className="relative transition-transform duration-200 ease-out"
-                  style={{
-                    width: totalWidth,
-                    transform: `translateX(-${scrollLeft}px)`,
-                  }}
+                  className="flex shrink-0 items-end px-3 pb-2"
+                  style={{ width: LABEL_WIDTH }}
                 >
-                  <div className="relative h-5">
-                    {monthLabels.map((m, i) => (
-                      <div
-                        key={i}
-                        className="absolute flex items-center truncate border-l border-border/50 pl-1.5 text-[10px] font-medium text-foreground/70 transition-[left,width] duration-200 ease-out"
-                        style={{ left: m.x, width: m.width, height: 20 }}
-                      >
-                        {m.label}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="relative h-5">
-                    {dayLabels.map((d, i) => (
-                      <span
-                        key={i}
-                        className="absolute whitespace-nowrap text-[10px] text-muted-foreground transition-[left] duration-200 ease-out"
-                        style={{ left: d.x }}
-                      >
-                        {d.label}
-                      </span>
-                    ))}
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    Project
+                  </span>
+                </div>
+                <div className="flex-1 overflow-hidden border-l border-border/60">
+                  <div
+                    className="relative bg-gradient-to-b from-muted/30 to-transparent transition-transform duration-200 ease-out"
+                    style={{
+                      width: totalWidth,
+                      transform: `translateX(-${scrollLeft}px)`,
+                    }}
+                  >
+                    <div className="relative h-7">
+                      {monthLabels.map((month, index) => (
+                        <div
+                          key={`${month.label}-${index}`}
+                          className="absolute flex h-full items-center truncate border-l border-border/60 px-2 text-[10px] font-semibold text-foreground/70 transition-[left,width] duration-200 ease-out"
+                          style={{ left: month.x, width: month.width }}
+                        >
+                          {month.label}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="relative h-6 border-t border-border/50">
+                      {dayLabels.map((day, index) => (
+                        <span
+                          key={`${day.label}-${index}`}
+                          className="absolute whitespace-nowrap px-1 text-[10px] text-muted-foreground transition-[left] duration-200 ease-out"
+                          style={{ left: day.x }}
+                        >
+                          {day.label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div
-              className="overflow-y-auto scrollbar"
-              style={{ maxHeight: "calc(100% - 40px)" }}
-            >
-              {withDates.map((project) => {
-                const start = project.projectStartDate!;
-                const end = project.projectEndDate!;
-                const barLeft = ((start - originDate) / DAY_MS) * pxPerDay;
-                const barWidth = Math.max(
-                  ((end - start) / DAY_MS) * pxPerDay,
-                  4,
-                );
-                const phase = project.phase as ProjectPhase;
-                const config = phaseConfig[phase];
-                const deadlineX = project.deadline
-                  ? ((project.deadline - originDate) / DAY_MS) * pxPerDay
-                  : null;
+              <div className="min-h-0 overflow-y-auto scrollbar">
+                {withDates.map((project, index) => {
+                  const start = project.projectStartDate!;
+                  const end = project.projectEndDate!;
+                  const barLeft = ((start - originDate) / DAY_MS) * pxPerDay;
+                  const barWidth = Math.max(
+                    ((end - start) / DAY_MS) * pxPerDay,
+                    6,
+                  );
+                  const phase = project.phase as ProjectPhase;
+                  const config = phaseConfig[phase];
+                  const durationDays = Math.max(
+                    1,
+                    Math.round((end - start) / DAY_MS) + 1,
+                  );
+                  const deadlineX = project.deadline
+                    ? ((project.deadline - originDate) / DAY_MS) * pxPerDay
+                    : null;
+                  const showRangeLabel = barWidth > 74;
+                  const showDuration = barWidth > 126;
 
-                return (
-                  <div
-                    key={project._id}
-                    className="flex items-center animate-in fade-in duration-300"
-                    style={{ height: ROW_HEIGHT }}
-                  >
-                    <button
-                      className="motion-base flex-shrink-0 truncate rounded-sm pr-3 text-left text-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                      style={{ width: LABEL_WIDTH }}
-                      onClick={() => setSelectedProjectId(project._id)}
-                    >
-                      {project.title}
-                    </button>
+                  return (
                     <div
-                      className="flex-1 overflow-hidden relative"
+                      key={project._id}
+                      className={cn(
+                        "group flex items-center border-b border-border/35 last:border-b-0 animate-in fade-in duration-300",
+                        index % 2 === 0
+                          ? "bg-background/25"
+                          : "bg-background/10",
+                      )}
                       style={{ height: ROW_HEIGHT }}
                     >
-                      <div
-                        className="relative h-full transition-transform duration-200 ease-out"
-                        style={{
-                          width: totalWidth,
-                          transform: `translateX(-${scrollLeft}px)`,
-                        }}
+                      <button
+                        className="motion-base flex h-full shrink-0 items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                        style={{ width: LABEL_WIDTH }}
+                        onClick={() => openProject(project._id)}
                       >
-                        <button
-                          className={`absolute top-1.5 flex cursor-pointer items-center rounded-md px-2 transition-[left,width,filter,transform] duration-200 ease-out hover:scale-[1.01] hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${config.bg}`}
-                          style={{
-                            left: barLeft,
-                            width: barWidth,
-                            height: ROW_HEIGHT - 12,
-                          }}
-                          onClick={() => setSelectedProjectId(project._id)}
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            config.bar,
+                          )}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                          {project.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "hidden text-[11px] sm:inline",
+                            config.text,
+                          )}
                         >
-                          <span
-                            className={`text-[11px] font-medium ${config.text} truncate`}
+                          {config.label}
+                        </span>
+                      </button>
+
+                      <div
+                        className="relative h-full flex-1 overflow-hidden border-l border-border/50"
+                        style={{ height: ROW_HEIGHT }}
+                      >
+                        <div
+                          className="relative h-full transition-transform duration-200 ease-out"
+                          style={{
+                            width: totalWidth,
+                            transform: `translateX(-${scrollLeft}px)`,
+                          }}
+                        >
+                          <button
+                            className={cn(
+                              "absolute top-1/2 flex -translate-y-1/2 items-center gap-1 overflow-hidden rounded-md border border-border/50 bg-card/95 pr-1.5 shadow-sm transition-[left,width,transform,filter,box-shadow] duration-200 ease-out hover:scale-[1.01] hover:brightness-95 hover:shadow",
+                              config.bg,
+                            )}
+                            style={{
+                              left: barLeft,
+                              width: barWidth,
+                              height: ROW_HEIGHT - 16,
+                            }}
+                            onClick={() => openProject(project._id)}
                           >
-                            {dayjs(start).format("MMM D")} –{" "}
-                            {dayjs(end).format("MMM D")}
-                          </span>
-                        </button>
-                        {deadlineX !== null && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className="absolute z-20 flex flex-col items-center transition-[left] duration-200 ease-out"
-                                style={{ left: deadlineX, top: 0, bottom: 0 }}
+                            <span
+                              className={cn(
+                                "absolute inset-y-0 left-0 w-1 rounded-l-md",
+                                config.bar,
+                              )}
+                            />
+                            {showRangeLabel && (
+                              <span
+                                className={cn(
+                                  "truncate pl-2 text-[11px] font-medium",
+                                  config.text,
+                                )}
                               >
-                                <div className="w-px h-full bg-destructive/60" />
-                                <div className="absolute top-1 w-2.5 h-2.5 bg-destructive rotate-45 rounded-sm" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              Deadline:{" "}
-                              {dayjs(project.deadline).format("MMM D, YYYY")}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                                {dayjs(start).format("MMM D")} -{" "}
+                                {dayjs(end).format("MMM D")}
+                              </span>
+                            )}
+                            {showDuration && (
+                              <span className="ml-auto rounded bg-background/60 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
+                                {durationDays}d
+                              </span>
+                            )}
+                          </button>
+                          {deadlineX !== null && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className="absolute inset-y-0 z-20 transition-[left] duration-200 ease-out"
+                                  style={{ left: deadlineX }}
+                                >
+                                  <div className="absolute inset-y-0 left-0 w-px bg-destructive/60" />
+                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-destructive shadow-sm" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Deadline:{" "}
+                                {dayjs(project.deadline).format("MMM D, YYYY")}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
 
         {withoutDates.length > 0 && (
-          <div className={withDates.length > 0 ? "mt-4 flex-shrink-0" : ""}>
-            <p className="text-xs font-medium text-muted-foreground mb-2">
-              No dates set
-            </p>
-            <div className="space-y-1">
+          <div
+            className={cn(
+              "rounded-xl border border-dashed border-border/75 bg-muted/20 p-3",
+              withDates.length > 0
+                ? "max-h-56 flex-shrink-0 overflow-y-auto scrollbar"
+                : "min-h-0 flex-1 overflow-y-auto",
+            )}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Unscheduled Projects
+              </p>
+              <span className="text-xs text-muted-foreground">
+                {withoutDates.length}
+              </span>
+            </div>
+            <div className="grid gap-1.5 sm:grid-cols-2">
               {withoutDates.map((project) => {
                 const phase = project.phase as ProjectPhase;
                 const config = phaseConfig[phase];
                 return (
                   <button
                     key={project._id}
-                    className="motion-base flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all hover:translate-x-0.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                    onClick={() => setSelectedProjectId(project._id)}
+                    className="motion-base flex items-center gap-2 rounded-lg border border-border/65 bg-background/70 px-3 py-2 text-left transition-all hover:-translate-y-[1px] hover:border-primary/25 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                    onClick={() => openProject(project._id)}
                   >
                     <span
-                      className={`w-2 h-2 rounded-full ${config.bg} flex-shrink-0`}
+                      className={cn(
+                        "h-2 w-2 shrink-0 rounded-full",
+                        config.bar,
+                      )}
                     />
-                    <span className="text-sm font-medium text-foreground truncate">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                       {project.title}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-auto">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "h-5 border-transparent px-1.5 text-[10px]",
+                        config.bg,
+                        config.text,
+                      )}
+                    >
                       {config.label}
-                    </span>
+                    </Badge>
                   </button>
                 );
               })}

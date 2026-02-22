@@ -11,11 +11,17 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   return (
     <div
-      className={`relative h-screen flex flex-col overflow-hidden transition-[padding] duration-300 ${collapsed ? "lg:pl-20" : "lg:pl-72"}`}
+      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-80"}`}
     >
-      <div className="h-full overflow-hidden flex flex-col bg-background lg:m-3 lg:ml-0 lg:rounded-2xl lg:border lg:border-border/50 lg:bg-card lg:shadow-xs lg:backdrop-blur-sm">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background/85 lg:m-3 lg:ml-0 lg:rounded-2xl lg:border lg:border-border/55 lg:bg-card/80 lg:shadow-sm lg:">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
+        />
         <SetupBanner />
-        <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+        <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
+          {children}
+        </div>
       </div>
     </div>
   );

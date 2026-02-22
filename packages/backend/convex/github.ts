@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
 
@@ -187,6 +188,7 @@ export const syncRepos = action({
     const appOctokit = getAppOctokit();
     const installations = await appOctokit.rest.apps.listInstallations();
 
+    const connectedIds: Array<Id<"githubRepos">> = [];
     let totalAdded = 0;
     for (const installation of installations.data) {
       const octokit = await getInstallationOctokit(installation.id);
@@ -195,14 +197,19 @@ export const syncRepos = action({
       });
 
       for (const repo of repos.data.repositories) {
-        await ctx.runMutation(internal.githubRepos.upsert, {
+        const id = await ctx.runMutation(internal.githubRepos.upsert, {
           owner: repo.owner.login,
           name: repo.name,
           installationId: installation.id,
         });
+        connectedIds.push(id);
         totalAdded++;
       }
     }
+
+    await ctx.runMutation(internal.githubRepos.syncConnectedStatus, {
+      connectedIds,
+    });
 
     return { success: true, synced: totalAdded };
   },

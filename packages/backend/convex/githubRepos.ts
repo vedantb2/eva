@@ -12,6 +12,7 @@ const githubRepoValidator = v.object({
   owner: v.string(),
   name: v.string(),
   installationId: v.number(),
+  connected: v.optional(v.boolean()),
 });
 
 export const list = query({
@@ -107,7 +108,7 @@ export const upsert = internalMutation({
     name: v.string(),
     installationId: v.number(),
   },
-  returns: v.null(),
+  returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("githubRepos")
@@ -115,12 +116,30 @@ export const upsert = internalMutation({
         q.eq("owner", args.owner).eq("name", args.name),
       )
       .first();
-    if (!existing) {
-      await ctx.db.insert("githubRepos", {
-        owner: args.owner,
-        name: args.name,
-        installationId: args.installationId,
-      });
+    if (existing) {
+      await ctx.db.patch(existing._id, { connected: true });
+      return existing._id;
+    }
+    return await ctx.db.insert("githubRepos", {
+      owner: args.owner,
+      name: args.name,
+      installationId: args.installationId,
+      connected: true,
+    });
+  },
+});
+
+export const syncConnectedStatus = internalMutation({
+  args: { connectedIds: v.array(v.id("githubRepos")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connectedSet = new Set(args.connectedIds);
+    const all = await ctx.db.query("githubRepos").collect();
+    for (const repo of all) {
+      const shouldBeConnected = connectedSet.has(repo._id);
+      if (repo.connected !== shouldBeConnected) {
+        await ctx.db.patch(repo._id, { connected: shouldBeConnected });
+      }
     }
     return null;
   },

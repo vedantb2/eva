@@ -1,5 +1,19 @@
 # Changelog
 
+## Repos: Add Connection Status Tracking — 2026-02-22
+
+- **Why**: When users revoked access to a repo via GitHub, the repo remained in the list showing no indication it was no longer connected. Users had no way to distinguish between active and disconnected repos.
+- **Schema change**: Added optional `connected` boolean field to `githubRepos` table to track repo accessibility status.
+- **Sync detection**: Modified `syncRepos` action to compare repos returned by GitHub API against stored repos. Repos no longer accessible are marked `connected: false`; newly found repos are marked `connected: true`. Added `syncConnectedStatus` internal mutation to handle bulk status updates.
+- **UI indicator**: Added red "Disconnected" badge to repo cards when `connected: false`. GitHub icon also dims for disconnected repos, providing visual feedback that access has been revoked.
+
+## Repos Page: Onboarding UI Overhaul — 2026-02-22
+
+- **Why**: The previous empty state was a sparse icon + button with no context. New users had no understanding of what the platform offered before connecting GitHub. The welcome banner was also minimal and gave little guidance once repos were connected.
+- **Empty state redesigned** into a full `EmptyOnboarding` component: a 3-step progress indicator, a focused CTA section (connect GitHub), and a feature preview grid of four platform sections (Projects, Sessions, Quick Tasks, Documents) with descriptions.
+- **WelcomeBanner improved** into a "Getting started with Eva" guide with a 4-column feature grid, showing each tool's name and purpose. Now animated in/out with `motion/react` via `AnimatePresence`.
+- **State lifted**: Welcome-dismissed state moved from inside `WelcomeBanner` to `ReposClient` so the parent controls conditional rendering, and `AnimatePresence` can handle the exit animation cleanly.
+
 ## MCP Server: Convex HTTP Action Bug Fixes — 2026-02-22
 
 - **Why**: Two bugs prevented the MCP server from bootstrapping after deployment. First, the Convex bundler rejected `http.ts` because it statically imported `mcpRoutes.ts` → `encryption.ts` → `node:crypto`, and Convex's V8 HTTP router cannot have Node.js APIs in its import chain. Second, the bootstrap and env-vars endpoints were being called on the wrong domain — Convex HTTP actions are served at `.convex.site`, not `.convex.cloud`, but `CONDUCTOR_CONVEX_URL` uses `.convex.cloud`.

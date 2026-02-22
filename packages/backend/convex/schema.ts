@@ -146,6 +146,7 @@ const schema = defineSchema({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
+    connected: v.optional(v.boolean()),
   }).index("by_owner_name", ["owner", "name"]),
 
   subtasks: defineTable({

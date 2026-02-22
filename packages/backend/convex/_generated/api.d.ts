@@ -30,6 +30,8 @@ import type * as evaluationWorkflow from "../evaluationWorkflow.js";
 import type * as extensionReleases from "../extensionReleases.js";
 import type * as github from "../github.js";
 import type * as githubRepos from "../githubRepos.js";
+import type * as http from "../http.js";
+import type * as mcpRoutes from "../mcpRoutes.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
@@ -92,6 +94,8 @@ declare const fullApi: ApiFromModules<{
   extensionReleases: typeof extensionReleases;
   github: typeof github;
   githubRepos: typeof githubRepos;
+  http: typeof http;
+  mcpRoutes: typeof mcpRoutes;
   notifications: typeof notifications;
   presence: typeof presence;
   projectInterviewWorkflow: typeof projectInterviewWorkflow;

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export interface ConvexCredentials {
   convexUrl: string;
-  deployKey: string;
+  clerkUserId: string;
 }
 
 interface AuthCodeEntry {
@@ -52,15 +52,12 @@ function getClerkSecretKey(): string {
   return key;
 }
 
-function getConductorCredentials(): ConvexCredentials {
+function getConvexUrl(): string {
   const convexUrl = process.env.CONDUCTOR_CONVEX_URL;
-  const deployKey = process.env.CONDUCTOR_DEPLOY_KEY;
-  if (!convexUrl || !deployKey) {
-    throw new Error(
-      "CONDUCTOR_CONVEX_URL and CONDUCTOR_DEPLOY_KEY environment variables are required",
-    );
+  if (!convexUrl) {
+    throw new Error("CONDUCTOR_CONVEX_URL environment variable is required");
   }
-  return { convexUrl: convexUrl.replace(/\/$/, ""), deployKey };
+  return convexUrl.replace(/\/$/, "");
 }
 
 export function getOAuthMetadata(baseUrl: string) {
@@ -422,7 +419,7 @@ export async function verifyToken(
     const decoded = jwt.verify(token, getJwtSecret());
     const payload = mcpTokenPayloadSchema.safeParse(decoded);
     if (!payload.success) return null;
-    return getConductorCredentials();
+    return { convexUrl: getConvexUrl(), clerkUserId: payload.data.sub };
   } catch {
     return null;
   }

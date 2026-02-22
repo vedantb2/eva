@@ -11,7 +11,7 @@
     "dev": "pnpm --filter conductor dev",
     "turbo": "pnpm --filter conductor turbo",
     "convex": "pnpm --filter @conductor/backend dev",
-    "convex:deploy": "pnpm --filter @conductor/backend deploy",
+    "convex:deploy": "pnpm --filter @conductor/backend run deploy",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",

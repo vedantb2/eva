@@ -14,7 +14,6 @@ import {
   IconChecklist,
   IconChevronLeft,
   IconChevronRight,
-  IconDots,
   IconFileText,
   IconFlask,
   IconHammer,
@@ -38,15 +37,14 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Spinner,
   cn,
 } from "@conductor/ui";
 import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { AdminSidebar } from "@/lib/components/sidebar/AdminSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -59,13 +57,19 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
   Sessions: "sessions",
   Analyse: "analyse",
+  Admin: "admin",
 } as const;
 
-type ContextSidebarMode = "main" | "design" | "sessions" | "analyse";
+type ContextSidebarMode = "main" | "design" | "sessions" | "analyse" | "admin";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segment = pathname.split("/")[2];
-  if (segment === "design" || segment === "sessions" || segment === "analyse") {
+  if (
+    segment === "design" ||
+    segment === "sessions" ||
+    segment === "analyse" ||
+    segment === "admin"
+  ) {
     return segment;
   }
   return "main";
@@ -163,6 +167,17 @@ export function Sidebar() {
                 },
               ],
             },
+            {
+              label: "ADMIN",
+              groupIcon: IconShield,
+              items: [
+                {
+                  name: "Admin",
+                  href: `/${repoSlug}/admin`,
+                  icon: IconShield,
+                },
+              ],
+            },
           ]
         : [],
     [repoSlug, isRepoRoute],
@@ -192,7 +207,11 @@ export function Sidebar() {
         ? "Sessions"
         : contextSidebarMode === "analyse"
           ? "Analyse"
-          : "";
+          : contextSidebarMode === "admin"
+            ? "Admin"
+            : "";
+
+  const showContextCreate = contextSidebarMode !== "admin";
   const contextCreateButtonTitle =
     contextSidebarMode === "design"
       ? "New design session"
@@ -317,7 +336,7 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
-                        {!collapsed && (
+                        {!collapsed && showContextCreate && (
                           <Button
                             size="icon"
                             variant="ghost"
@@ -487,7 +506,13 @@ export function Sidebar() {
                       transition={{ duration: 0.2 }}
                     >
                       {showContextSidebar ? (
-                        collapsed ? null : repo ? (
+                        collapsed ? null : contextSidebarMode === "admin" ? (
+                          <AdminSidebar
+                            repoSlug={repoSlug}
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                          />
+                        ) : repo ? (
                           contextSidebarMode === "design" ? (
                             <DesignSessionsSidebar
                               repoId={repo._id}
@@ -726,39 +751,19 @@ export function Sidebar() {
                 )}
                 <NotificationsPopoverClient />
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-sidebar-foreground"
-                      title="Menu"
-                    >
-                      <IconDots size={16} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="top" align="end">
-                    <DropdownMenuItem onClick={toggleTheme}>
-                      {theme === "dark" ? (
-                        <IconSun size={16} className="mr-2" />
-                      ) : (
-                        <IconMoon size={16} className="mr-2" />
-                      )}
-                      Toggle Theme
-                    </DropdownMenuItem>
-                    {isRepoRoute && repoSlug && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={`/${repoSlug}/admin`}>
-                            <IconShield size={16} className="mr-2" />
-                            Admin
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-sidebar-foreground"
+                  title="Toggle theme"
+                  onClick={toggleTheme}
+                >
+                  {theme === "dark" ? (
+                    <IconSun size={16} />
+                  ) : (
+                    <IconMoon size={16} />
+                  )}
+                </Button>
               </div>
             </div>
           </div>

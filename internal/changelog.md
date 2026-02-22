@@ -1,5 +1,13 @@
 # Changelog
 
+## Admin Elevated to Sidebar Context Panel — 2026-02-22
+
+- **Why**: Admin was buried in a three-dots dropdown at the sidebar footer, making it hard to discover and inconsistent with how other sections (Design, Sessions, Analyse) work.
+- **Solution**: Added "Admin" as a first-class sidebar nav item under an ADMIN group. Clicking it opens a context sidebar panel (same pattern as Design/Sessions/Analyse) with links to Overview, Stats, Env Variables, and Snapshots.
+- **New file**: `apps/web/lib/components/sidebar/AdminSidebar.tsx` — simple static nav, no Convex queries needed, renders immediately without waiting for repo data.
+- **Sidebar changes**: Added `"admin"` to `ContextSidebarMode`, `CONTEXT_SIDEBAR_BY_NAV_NAME`, and `getInitialContextSidebarMode`. `+` create button is hidden when in admin context mode. Admin removed from footer dropdown.
+- **Admin layout simplified**: Removed `SidebarLayoutWrapper` and the duplicated secondary sidebar from `admin/layout.tsx` — now just renders `{children}` directly.
+
 ## Per-Repo Snapshot Management (GitHub Actions) — 2026-02-20
 
 - **Why**: All sandboxes used a hardcoded `eva-snapshot` rebuilt daily by a GitHub Action. Users couldn't control when snapshots rebuild, customize their setup, or manage snapshots for different repos independently. The initial Daytona SDK approach hit sandbox storage limitations during image builds.
@@ -379,7 +387,7 @@
 ## Restyle to shadcn Nova + Neutral + Teal — 2026-02-12
 
 - **CSS Variables**: Neutralized all teal-tinted grays (foreground, card-foreground, popover-foreground, sidebar colors) to pure neutral (0 chroma) in both light and dark mode. Updated primary hue from 178° to 183.788° to match shadcn teal preset. Reduced `--radius` from 0.75rem to 0.625rem. Darkened dark mode background from 0.182 to 0.145, bumped muted-foreground to 0.708 for better contrast.
-- **UI Primitives (packages/ui)**: Applied Nova compact sizing — buttons (h-10→h-9, h-9→h-8, h-11→h-10), inputs (h-10→h-9), tabs (h-9→h-8), card padding (p-6→p-5), dialog (gap-5 p-7 rounded-2xl → gap-4 p-6 rounded-xl), badge (rounded-full→rounded-md), dropdown items (rounded-lg→rounded-sm, py-2→py-1.5), popover (rounded-xl→rounded-lg, p-4→p-3). Removed glass effects from dropdowns/popovers (no more backdrop-blur-xl/bg-popover/90).
+- **UI Primitives (packages/ui)**: Applied Nova compact sizing — buttons (h-10→h-9, h-9→h-8, h-11→h-10), inputs (h-10→h-9), tabs (h-9→h-8), card padding (p-6→p-5), dialog (gap-5 p-7 rounded-2xl → gap-4 p-6 rounded-xl), badge (rounded-full→rounded-md), dropdown items (rounded-lg→rounded-sm, py-2→py-1.5), popover (rounded-xl→rounded-lg, p-4→p-3). Removed glass effects from dropdowns/popovers (no more /bg-popover/90).
 - **App Components**: Compacted PageWrapper (px-5→px-4, py-3→py-2.5, title text-xl→text-lg), Container gaps/padding reduced by 1 step, EmptyState (py-20→py-16, icon w-14→w-12), SidebarLayoutWrapper headers reduced, Sidebar nav items (py-2.5→py-2), kanban column/board gaps, project cards (p-4→p-3), quick task cards (p-3→p-2.5), docs list items, active tasks accordion trigger.
 - **Page Layouts**: Repo layout rounded-l-2xl→rounded-l-xl, sidebar item padding reduced across sessions/design/analyse/admin layouts, inbox item padding reduced, repos grid gap reduced.
 - **Chrome Extension**: Synced all CSS variables to match web app — neutralized grays, updated primary hue, reduced radius from 1rem to 0.625rem.
@@ -388,14 +396,14 @@
 
 - **Phase 1 — Design Foundations**: Shifted all teal-tinted grays to pure neutral grays (light + dark mode), softer diffused shadows (Apple-style barely-there depth), bumped `--radius` to 14px, tighter letter spacing (-0.02em), added `.glass` utility for frosted glass surfaces
 - **Phase 2 — Layout & Navigation**: Sidebar gets frosted glass effect on desktop, nav items use explicit teal for active state (`bg-primary/10 text-primary`), taller nav items (40px), rounder pill shape (`rounded-lg`), stronger hover feedback, more breathing room in group headers, footer divider, page titles bumped to `text-xl`, increased padding throughout PageWrapper and Container, sidebar layout width to 320px, content area rounded to `rounded-l-2xl`
-- **Phase 3 — Components**: Cards `rounded-xl`, buttons `rounded-lg` with taller sizes (h-10 default), badges pill-shaped (`rounded-full`), inputs taller with `rounded-lg`, dialogs `rounded-2xl` with lighter overlay + stronger blur, popovers/dropdowns get glass effect (`backdrop-blur-xl bg-popover/90`), dropdown items `rounded-lg` with more padding, tabs get active shadow lift, empty state larger icon container + title, kanban columns more padding + gap, quick task cards subtler shadow, project cards rounder with hover shadow
+- **Phase 3 — Components**: Cards `rounded-xl`, buttons `rounded-lg` with taller sizes (h-10 default), badges pill-shaped (`rounded-full`), inputs taller with `rounded-lg`, dialogs `rounded-2xl` with lighter overlay + stronger blur, popovers/dropdowns get glass effect (` bg-popover/90`), dropdown items `rounded-lg` with more padding, tabs get active shadow lift, empty state larger icon container + title, kanban columns more padding + gap, quick task cards subtler shadow, project cards rounder with hover shadow
 
 ## Apple Design Philosophy Pass — Border Reduction, Frosted Glass, Selection Styling — 2026-02-12
 
 - Removed `border-b border-border` from PageWrapper header — sections now separated by whitespace and typography hierarchy
 - Removed `border-b border-border` from both SidebarLayoutWrapper headers (mobile + desktop) — same Apple-style space separation
 - Removed `border-t border-sidebar-border` from Sidebar bottom user section — reduces visual noise
-- Added `backdrop-blur-sm` to Dialog overlay for Apple's frosted glass effect, lightened overlay from `bg-black/50` to `bg-black/40`
+- Added ``to Dialog overlay for Apple's frosted glass effect, lightened overlay from`bg-black/50`to`bg-black/40`
 - Bumped Dialog content from `rounded-md` to `rounded-lg` for Apple's generous modal corner radius
 - Added `::selection { background: rgb(var(--primary) / 0.15) }` for tinted text selection highlighting
 

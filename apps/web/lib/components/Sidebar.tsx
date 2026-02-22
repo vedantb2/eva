@@ -220,7 +220,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4  lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -231,7 +231,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-          className="mx-auto flex items-center gap-2 rounded-xl border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm backdrop-blur-md"
+          className="mx-auto flex items-center gap-2 rounded-xl border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
         >
           <Image
             src="/icon.png"
@@ -256,7 +256,7 @@ export function Sidebar() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-background/62 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-background/62  lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -274,7 +274,7 @@ export function Sidebar() {
         )}
       >
         <div className="h-full p-2 lg:p-3 lg:pr-2">
-          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-sidebar-border/60 bg-sidebar/92 shadow-sm backdrop-blur-xl">
+          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-sidebar-border/60 bg-sidebar/92 shadow-sm ">
             <div
               className={cn(
                 "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",

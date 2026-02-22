@@ -254,10 +254,10 @@
 
 @layer components {
   .ui-surface {
-    @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm backdrop-blur-md;
+    @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm;
   }
   .ui-surface-strong {
-    @apply rounded-2xl border border-border/80 bg-card/95 shadow-md backdrop-blur-md;
+    @apply rounded-2xl border border-border/80 bg-card/95 shadow-md;
   }
   .ui-surface-interactive {
     @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;

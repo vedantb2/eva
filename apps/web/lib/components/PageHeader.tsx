@@ -23,7 +23,7 @@ export function PageHeader({
     return null;
 
   return (
-    <div className="motion-base flex items-center gap-2 border-b border-border/70 bg-card/65 px-3 py-3 backdrop-blur-md sm:gap-3 sm:px-4">
+    <div className="motion-base flex items-center gap-2 border-b border-border/70 bg-card/65 px-3 py-3  sm:gap-3 sm:px-4">
       {showBack && (
         <button
           onClick={onBack ?? (() => router.back())}

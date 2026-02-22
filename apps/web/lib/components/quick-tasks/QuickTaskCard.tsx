@@ -76,7 +76,7 @@ export function QuickTaskCard({
 
   return (
     <Card
-      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow,background-color] duration-200 ${
+      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         hasError
           ? "border-destructive/60 bg-destructive/5"
           : "hover:border-primary/25 hover:bg-card"

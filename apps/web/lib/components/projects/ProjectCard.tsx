@@ -85,7 +85,7 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
@@ -97,7 +97,7 @@ export function ProjectCard({
               <Button
                 size="icon-sm"
                 variant="ghost"
-                className="motion-press flex shrink-0 rounded-full border border-transparent bg-background/45 text-muted-foreground backdrop-blur-sm hover:scale-105 hover:border-border/65 hover:bg-background/80 hover:text-foreground active:scale-95"
+                className="motion-press flex shrink-0 rounded-full border border-transparent bg-background/45 text-muted-foreground  hover:scale-105 hover:border-border/65 hover:bg-background/80 hover:text-foreground active:scale-95"
                 onClick={(event) => event.stopPropagation()}
               >
                 <IconDots size={14} />

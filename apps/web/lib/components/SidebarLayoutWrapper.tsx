@@ -40,7 +40,7 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-3 backdrop-blur-md">
+      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-3 ">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -58,7 +58,7 @@ export function SidebarLayoutWrapper({
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="lg:hidden fixed inset-0 z-40 bg-background/60 backdrop-blur-sm"
+            className="lg:hidden fixed inset-0 z-40 bg-background/60 "
             onClick={() => setMobileOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -78,7 +78,7 @@ export function SidebarLayoutWrapper({
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="h-full">
-              <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm backdrop-blur-xl">
+              <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm ">
                 <div className="flex items-center justify-between border-b border-border/70 bg-sidebar-accent/30 px-4 py-3">
                   <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
                     {title}
@@ -112,7 +112,7 @@ export function SidebarLayoutWrapper({
           )}
         >
           <div className="h-full">
-            <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm backdrop-blur-xl">
+            <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm ">
               <div
                 className={`border-b border-border/70 bg-sidebar-accent/30 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >

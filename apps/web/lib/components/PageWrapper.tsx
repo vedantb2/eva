@@ -32,7 +32,7 @@ export function PageWrapper({
       className={`${fillHeight ? "h-full min-h-0" : ""} flex-1 overflow-hidden animate-in fade-in duration-300`}
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="motion-base relative border-b border-border/70 bg-card/65 px-3 py-3 backdrop-blur-md sm:px-4">
+        <div className="motion-base relative border-b border-border/70 bg-card/65 px-3 py-3  sm:px-4">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {showBack && (

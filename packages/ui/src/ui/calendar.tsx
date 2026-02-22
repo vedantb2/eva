@@ -22,7 +22,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "rounded-xl border border-border/70 bg-card/90 p-3 shadow-sm backdrop-blur-sm",
+        "rounded-xl border border-border/70 bg-card/90 p-3 shadow-sm ",
         className,
       )}
       classNames={{

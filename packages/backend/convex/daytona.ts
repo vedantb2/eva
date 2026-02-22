@@ -95,7 +95,6 @@ async function createSandbox(
         CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
         ...infraEnvVars,
         ACCOUNT_KEY: accountKey,
-        DISABLE_AUTH: "true",
       },
       autoStopInterval: 10,
       autoDeleteInterval: 15,

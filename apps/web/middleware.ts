@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(["/api(.*)"]);
+const isPublicRoute = createRouteMatcher(["/api(.*)", "/sandbox-auth"]);
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -20,10 +20,6 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-function authDisabledMiddleware(_req: NextRequest) {
-  return NextResponse.next();
-}
-
 const clerkHandler = clerkMiddleware(async (auth, req) => {
   const origin = req.headers.get("origin") || "";
   const url = req.url;
@@ -40,7 +36,19 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   }
 
   if (!isPublicRoute(req)) {
-    await auth.protect();
+    const { userId } = await auth();
+    if (!userId) {
+      const hasSandboxUser = Boolean(process.env.SANDBOX_CLERK_USER_ID);
+      const attempted = Boolean(req.cookies.get("sandbox_auth_attempted"));
+      if (hasSandboxUser && !attempted) {
+        const redirectTarget = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+        const sandboxAuthUrl = req.nextUrl.clone();
+        sandboxAuthUrl.pathname = "/sandbox-auth";
+        sandboxAuthUrl.searchParams.set("redirect", redirectTarget);
+        return NextResponse.redirect(sandboxAuthUrl);
+      }
+      await auth.protect();
+    }
   }
 
   const response = NextResponse.next();
@@ -56,9 +64,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   return response;
 });
 
-export default process.env.DISABLE_AUTH === "true"
-  ? authDisabledMiddleware
-  : clerkHandler;
+export default clerkHandler;
 
 export const config = {
   matcher: [

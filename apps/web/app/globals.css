@@ -5,18 +5,24 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 230 235 233;
-    --app-shell: 228 233 231;
+    --background: 242 246 245;
+    --app-shell: 235 239 238;
     --foreground: 28 33 35;
+    --shell-gradient-start: 246 249 248;
+    --shell-gradient-mid: 239 244 243;
+    --shell-gradient-end: 232 238 236;
+    --ambient-1: 18 165 148;
+    --ambient-2: 37 99 235;
+    --grid-line: 125 138 145;
     --card: 255 255 255;
     --card-foreground: 24 28 31;
     --popover: 255 255 255;
     --popover-foreground: 24 28 31;
     --primary: 16 145 130;
     --primary-foreground: 255 255 255;
-    --secondary: 236 240 239;
-    --secondary-foreground: 40 52 50;
-    --muted: 239 243 242;
+    --secondary: 233 239 238;
+    --secondary-foreground: 35 47 45;
+    --muted: 239 244 243;
     --muted-foreground: 102 112 118;
     --accent: 224 240 236;
     --accent-foreground: 12 105 95;
@@ -26,8 +32,8 @@
     --success-foreground: 255 255 255;
     --warning: 217 119 6;
     --warning-foreground: 255 255 255;
-    --border: 207 215 213;
-    --input: 207 215 213;
+    --border: 199 209 207;
+    --input: 199 209 207;
     --ring: 16 145 130;
     --chart-1: 16 145 130;
     --chart-2: 20 184 166;
@@ -52,13 +58,13 @@
     --status-done-bg: 187 247 208;
     --status-done-subtle: 240 253 244;
     --status-done-bar: 74 222 128;
-    --sidebar: 250 252 251;
+    --sidebar: 247 250 249;
     --sidebar-foreground: 24 28 31;
     --sidebar-primary: 13 132 122;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 243 247 246;
+    --sidebar-accent: 241 246 245;
     --sidebar-accent-foreground: 13 112 101;
-    --sidebar-border: 225 230 229;
+    --sidebar-border: 214 223 221;
     --sidebar-ring: 16 145 130;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
@@ -90,18 +96,24 @@
 
   .dark {
     color-scheme: dark;
-    --background: 8 9 10;
-    --app-shell: 8 9 10;
+    --background: 9 11 12;
+    --app-shell: 9 12 13;
     --foreground: 227 232 231;
+    --shell-gradient-start: 8 10 11;
+    --shell-gradient-mid: 11 14 15;
+    --shell-gradient-end: 15 19 20;
+    --ambient-1: 52 199 181;
+    --ambient-2: 59 130 246;
+    --grid-line: 74 83 89;
     --card: 24 27 28;
     --card-foreground: 227 232 231;
     --popover: 22 25 26;
     --popover-foreground: 227 232 231;
     --primary: 52 199 181;
     --primary-foreground: 8 23 20;
-    --secondary: 34 38 39;
+    --secondary: 30 34 35;
     --secondary-foreground: 214 222 220;
-    --muted: 30 34 35;
+    --muted: 27 31 32;
     --muted-foreground: 148 162 160;
     --accent: 34 47 44;
     --accent-foreground: 214 233 228;
@@ -111,8 +123,8 @@
     --success-foreground: 8 20 13;
     --warning: 251 191 36;
     --warning-foreground: 26 19 4;
-    --border: 57 64 66;
-    --input: 57 64 66;
+    --border: 54 62 64;
+    --input: 54 62 64;
     --ring: 52 199 181;
     --chart-1: 52 199 181;
     --chart-2: 20 184 166;
@@ -137,13 +149,13 @@
     --status-done-bg: 23 58 36;
     --status-done-subtle: 16 43 28;
     --status-done-bar: 34 197 94;
-    --sidebar: 17 19 20;
+    --sidebar: 14 17 18;
     --sidebar-foreground: 207 216 214;
     --sidebar-primary: 52 199 181;
     --sidebar-primary-foreground: 8 23 20;
-    --sidebar-accent: 33 37 38;
+    --sidebar-accent: 28 33 34;
     --sidebar-accent-foreground: 228 242 238;
-    --sidebar-border: 56 63 65;
+    --sidebar-border: 47 55 57;
     --sidebar-ring: 52 199 181;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
@@ -175,14 +187,64 @@
     min-height: 100%;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     letter-spacing: var(--tracking-normal);
-    background-image: linear-gradient(
+    position: relative;
+    isolation: isolate;
+    background-color: rgb(var(--background));
+  }
+  body::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: -20% -10%;
+    z-index: -2;
+    background:
+      radial-gradient(
+        48rem 38rem at 6% 2%,
+        rgb(var(--ambient-1) / 0.18),
+        transparent 65%
+      ),
+      radial-gradient(
+        36rem 32rem at 94% 0%,
+        rgb(var(--ambient-2) / 0.16),
+        transparent 64%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(var(--shell-gradient-start)) 0%,
+        rgb(var(--shell-gradient-mid)) 46%,
+        rgb(var(--shell-gradient-end)) 100%
+      );
+  }
+  body::after {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.32;
+    background-image:
+      linear-gradient(
+        to right,
+        rgb(var(--grid-line) / 0.12) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        rgb(var(--grid-line) / 0.12) 1px,
+        transparent 1px
+      );
+    background-size: 28px 28px;
+    mask-image: linear-gradient(
       180deg,
-      rgb(var(--background)),
-      rgb(var(--secondary) / 0.3)
+      rgb(0 0 0 / 0.5) 0%,
+      rgb(0 0 0 / 0.16) 40%,
+      transparent 100%
     );
-    background-attachment: fixed;
+  }
+  main {
+    position: relative;
   }
   ::selection {
     background: rgb(var(--primary) / 0.22);
@@ -192,10 +254,13 @@
 
 @layer components {
   .ui-surface {
-    @apply rounded-xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-sm;
+    @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm backdrop-blur-md;
   }
   .ui-surface-strong {
-    @apply rounded-xl border border-border/80 bg-card shadow-md backdrop-blur-sm;
+    @apply rounded-2xl border border-border/80 bg-card/95 shadow-md backdrop-blur-md;
+  }
+  .ui-surface-interactive {
+    @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
   }
   .ui-panel {
     @apply ui-surface p-4 md:p-5;

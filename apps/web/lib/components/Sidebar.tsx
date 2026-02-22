@@ -178,11 +178,11 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all",
+      "group motion-base flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "border-sidebar-primary/20 bg-sidebar-accent text-sidebar-primary shadow-xs"
-        : "border-transparent text-sidebar-foreground/80 hover:border-sidebar-border/70 hover:bg-sidebar-accent/75 hover:text-sidebar-foreground",
+        ? "border-sidebar-primary/35 bg-sidebar-primary/10 text-sidebar-primary shadow-sm"
+        : "border-transparent text-sidebar-foreground/80 hover:-translate-y-[1px] hover:border-sidebar-border/85 hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
     );
 
   const contextSidebarTitle =
@@ -220,7 +220,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background px-4 backdrop-blur-xl lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -231,7 +231,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-          className="mx-auto flex items-center gap-2 rounded-xl border border-border/60 bg-card/80 px-2.5 py-1.5 shadow-xs backdrop-blur-sm"
+          className="mx-auto flex items-center gap-2 rounded-xl border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm backdrop-blur-md"
         >
           <Image
             src="/icon.png"
@@ -256,7 +256,7 @@ export function Sidebar() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-background/55 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-background/62 backdrop-blur-sm lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -274,10 +274,10 @@ export function Sidebar() {
         )}
       >
         <div className="h-full p-2 lg:p-3 lg:pr-2">
-          <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border/50 bg-sidebar shadow-xs backdrop-blur-xl">
+          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-sidebar-border/60 bg-sidebar/92 shadow-sm backdrop-blur-xl">
             <div
               className={cn(
-                "flex h-16 items-center border-b border-sidebar-border/60",
+                "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -701,7 +701,7 @@ export function Sidebar() {
 
             <div
               className={cn(
-                "border-t border-sidebar-border/60 bg-sidebar-accent/25",
+                "border-t border-sidebar-border/60 bg-sidebar-accent/32",
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >

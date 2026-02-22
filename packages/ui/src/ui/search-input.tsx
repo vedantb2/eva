@@ -20,14 +20,14 @@ function SearchInput({
   inputClassName,
 }: SearchInputProps) {
   return (
-    <div className={cn("relative w-full max-w-xs", className)}>
+    <div className={cn("relative w-full max-w-sm", className)}>
       <IconSearch
-        size={14}
+        size={15}
         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
       />
       <Input
         placeholder={placeholder}
-        className={cn("h-8 pl-8 pr-8 text-sm", inputClassName)}
+        className={cn("h-9 pl-8 pr-8 text-sm", inputClassName)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

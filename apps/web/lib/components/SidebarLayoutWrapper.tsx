@@ -40,7 +40,7 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-2.5 backdrop-blur-sm">
+      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-3 backdrop-blur-md">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -58,7 +58,7 @@ export function SidebarLayoutWrapper({
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="lg:hidden fixed inset-0 z-40 bg-background/55 backdrop-blur-sm"
+            className="lg:hidden fixed inset-0 z-40 bg-background/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -71,15 +71,15 @@ export function SidebarLayoutWrapper({
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="lg:hidden fixed inset-y-0 left-0 z-50 w-72"
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-[19.5rem]"
             initial={{ x: -24, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -24, opacity: 0 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="h-full">
-              <div className="flex h-full flex-col overflow-hidden border-r border-border/50 bg-sidebar shadow-xs backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+              <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-border/70 bg-sidebar-accent/30 px-4 py-3">
                   <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
                     {title}
                   </h1>
@@ -112,9 +112,9 @@ export function SidebarLayoutWrapper({
           )}
         >
           <div className="h-full">
-            <div className="flex h-full flex-col overflow-hidden border-r border-border/50 bg-sidebar shadow-xs backdrop-blur-sm">
+            <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar/95 shadow-sm backdrop-blur-xl">
               <div
-                className={`border-b border-border/70 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
+                className={`border-b border-border/70 bg-sidebar-accent/30 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >
                 <AnimatePresence initial={false} mode="wait">
                   {collapsed ? (

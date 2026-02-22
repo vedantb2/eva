@@ -1,5 +1,12 @@
 # Changelog
 
+## MCP Server: Convex HTTP Action Bug Fixes — 2026-02-22
+
+- **Why**: Two bugs prevented the MCP server from bootstrapping after deployment. First, the Convex bundler rejected `http.ts` because it statically imported `mcpRoutes.ts` → `encryption.ts` → `node:crypto`, and Convex's V8 HTTP router cannot have Node.js APIs in its import chain. Second, the bootstrap and env-vars endpoints were being called on the wrong domain — Convex HTTP actions are served at `.convex.site`, not `.convex.cloud`, but `CONDUCTOR_CONVEX_URL` uses `.convex.cloud`.
+- **`node:crypto` fix**: Restructured `http.ts` to define handlers inline with no static imports of node-specific code. The `/api/mcp/env-vars` handler now delegates env var decryption to `mcpRoutes.getDecryptedRepoEnvVars` (a Node.js `internalAction`) via `ctx.runAction` at runtime, keeping the V8 bundle free of `node:crypto`.
+- **`.convex.site` fix**: Added `toSiteUrl()` helper in `convex-api.ts` that derives the `.convex.site` domain from the `.convex.cloud` URL. Bootstrap and env-vars calls now use the site URL; all other Convex REST API calls (`/api/query`, `/api/run_test_function`) continue using `.convex.cloud`.
+- **Troubleshooting docs**: Updated README with specific error messages for 401/404/500 bootstrap failures, added the Convex deployment step to setup instructions, and documented the `.convex.cloud` vs `.convex.site` URL distinction.
+
 ## Remove Sandpack/CodeSandbox from Design Sessions — 2026-02-22
 
 - **Why**: The `@codesandbox/sandpack-react` package was only used for a legacy preview path (`LegacySandpackPreview`) for old design session variations that stored raw React component code in a `code` field. The modern flow uses Daytona sandboxes with iframe previews. The legacy path was dead weight adding a large dependency.

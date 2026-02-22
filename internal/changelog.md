@@ -1,5 +1,13 @@
 # Changelog
 
+## Documents and Testing Arena Sidebar Migration — 2026-02-22
+
+- **Why**: Documents and Testing Arena had their own `SidebarLayoutWrapper`-based secondary sidebars inside the page layout, inconsistent with how Design, Sessions, Analyse, and Admin work through the main sidebar context panel.
+- **Solution**: Created `DocsSidebar` and `TestingArenaSidebar` components and wired them into the main `Sidebar.tsx` context panel pattern. Both nav items now transition the sidebar instead of rendering a separate panel.
+- **DocsSidebar**: Search + doc list with delete (dots menu), create new untitled doc via `+` button, Upload PRD button at sidebar bottom. All logic moved from `DocsClient` + `DocsList`.
+- **TestingArenaSidebar**: Search + doc list as test targets, "Test All" confirmation dialog triggered by `+` button. All logic moved from `TestingArenaClient`.
+- **Deleted**: `DocsClient.tsx`, `TestingArenaClient.tsx`, `DocsList.tsx` — all now unused; layouts simplified to `{children}`.
+
 ## Admin Elevated to Sidebar Context Panel — 2026-02-22
 
 - **Why**: Admin was buried in a three-dots dropdown at the sidebar footer, making it hard to discover and inconsistent with how other sections (Design, Sessions, Analyse) work.

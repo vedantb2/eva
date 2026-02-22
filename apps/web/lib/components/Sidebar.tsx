@@ -47,7 +47,9 @@ import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccord
 import { AdminSidebar } from "@/lib/components/sidebar/AdminSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
+import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
+import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -58,9 +60,18 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Sessions: "sessions",
   Analyse: "analyse",
   Admin: "admin",
+  Documents: "docs",
+  "Testing Arena": "testing-arena",
 } as const;
 
-type ContextSidebarMode = "main" | "design" | "sessions" | "analyse" | "admin";
+type ContextSidebarMode =
+  | "main"
+  | "design"
+  | "sessions"
+  | "analyse"
+  | "admin"
+  | "docs"
+  | "testing-arena";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segment = pathname.split("/")[2];
@@ -68,7 +79,9 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
     segment === "design" ||
     segment === "sessions" ||
     segment === "analyse" ||
-    segment === "admin"
+    segment === "admin" ||
+    segment === "docs" ||
+    segment === "testing-arena"
   ) {
     return segment;
   }
@@ -86,6 +99,9 @@ export function Sidebar() {
   const [designCreateRequestId, setDesignCreateRequestId] = useState(0);
   const [sessionsCreateRequestId, setSessionsCreateRequestId] = useState(0);
   const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
+  const [docsCreateRequestId, setDocsCreateRequestId] = useState(0);
+  const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
+    useState(0);
 
   const repos = useQuery(api.githubRepos.list);
 
@@ -209,7 +225,11 @@ export function Sidebar() {
           ? "Analyse"
           : contextSidebarMode === "admin"
             ? "Admin"
-            : "";
+            : contextSidebarMode === "docs"
+              ? "Documents"
+              : contextSidebarMode === "testing-arena"
+                ? "Testing Arena"
+                : "";
 
   const showContextCreate = contextSidebarMode !== "admin";
   const contextCreateButtonTitle =
@@ -219,7 +239,11 @@ export function Sidebar() {
         ? "New session"
         : contextSidebarMode === "analyse"
           ? "New query"
-          : "New item";
+          : contextSidebarMode === "docs"
+            ? "New document"
+            : contextSidebarMode === "testing-arena"
+              ? "Test all"
+              : "New item";
 
   const handleContextCreate = () => {
     if (contextSidebarMode === "design") {
@@ -232,6 +256,14 @@ export function Sidebar() {
     }
     if (contextSidebarMode === "analyse") {
       setAnalyseCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "docs") {
+      setDocsCreateRequestId((current) => current + 1);
+      return;
+    }
+    if (contextSidebarMode === "testing-arena") {
+      setTestingArenaCreateRequestId((current) => current + 1);
     }
   };
 
@@ -529,6 +561,24 @@ export function Sidebar() {
                               onNavigate={closeMobileSidebar}
                               createRequestId={sessionsCreateRequestId}
                               installationId={repo.installationId}
+                            />
+                          ) : contextSidebarMode === "docs" ? (
+                            <DocsSidebar
+                              repoId={repo._id}
+                              repoSlug={repoSlug}
+                              installationId={repo.installationId}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                              createRequestId={docsCreateRequestId}
+                            />
+                          ) : contextSidebarMode === "testing-arena" ? (
+                            <TestingArenaSidebar
+                              repoId={repo._id}
+                              repoSlug={repoSlug}
+                              installationId={repo.installationId}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                              createRequestId={testingArenaCreateRequestId}
                             />
                           ) : (
                             <AnalyseSidebar

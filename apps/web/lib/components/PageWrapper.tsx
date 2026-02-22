@@ -58,7 +58,7 @@ export function PageWrapper({
             ) : (
               <div className="hidden md:block" />
             )}
-            <div className="flex items-center justify-end gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+            <div className="flex min-h-10 items-center justify-end gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
               {headerRight}
             </div>
           </div>

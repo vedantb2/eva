@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";

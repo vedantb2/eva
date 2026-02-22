@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import {
   IconBrain,
   IconBrandGithub,

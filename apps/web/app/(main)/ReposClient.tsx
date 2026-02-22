@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAction, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";

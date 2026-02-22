@@ -668,9 +668,6 @@ importers:
       facehash:
         specifier: ^0.0.7
         version: 0.0.7(@types/react@19.0.10)(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      framer-motion:
-        specifier: ^12.12.1
-        version: 12.33.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       jspdf:
         specifier: ^3.0.0
         version: 3.0.4

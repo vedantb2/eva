@@ -58,7 +58,7 @@ import {
   IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, cn } from "@conductor/ui";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import {
   IconPlus,
   IconLayoutSidebarLeftCollapse,

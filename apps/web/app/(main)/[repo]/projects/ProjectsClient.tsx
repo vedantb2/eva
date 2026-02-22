@@ -44,7 +44,7 @@ import {
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import { useState, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useQueryStates } from "nuqs";
 import {
   searchParser,

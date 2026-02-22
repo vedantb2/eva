@@ -12,7 +12,7 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { useState, useMemo, ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";

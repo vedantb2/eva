@@ -8,7 +8,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { designTabParser, viewModeParser } from "@/lib/search-params";
 import Image from "next/image";
-import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
 import {
   Button,
   Spinner,
@@ -44,12 +43,6 @@ import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { getWorkflowTokens } from "../../actions";
 
-interface SandpackConfig {
-  stylesCss: string;
-  tailwindConfig: string;
-  externalResources: string[];
-}
-
 type DesignSession = NonNullable<
   FunctionReturnType<typeof api.designSessions.get>
 >;
@@ -78,16 +71,10 @@ function parseActivitySteps(raw: string | undefined): ActivityStep[] {
 
 const VARIATION_KEYS = ["a", "b", "c"] as const;
 
-function isLegacyVariation(variation: Variation): boolean {
-  return !!variation.code && !variation.route;
-}
-
 export function DesignDetailClient({
   designSessionId,
-  sandpackConfig,
 }: {
   designSessionId: string;
-  sandpackConfig: SandpackConfig;
 }) {
   const typedId = designSessionId as Id<"designSessions">;
   const session = useQuery(api.designSessions.get, { id: typedId });
@@ -180,8 +167,6 @@ export function DesignDetailClient({
   }, [fetchPreviewUrl]);
 
   const latestVariations = getLatestVariations(session?.messages ?? []);
-  const useLegacyPreview =
-    latestVariations.length > 0 && isLegacyVariation(latestVariations[0]);
 
   const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
@@ -432,12 +417,7 @@ export function DesignDetailClient({
                 <div
                   className={`transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
                 >
-                  {useLegacyPreview ? (
-                    <LegacySandpackPreview
-                      variation={variation}
-                      sandpackConfig={sandpackConfig}
-                    />
-                  ) : previewUrl ? (
+                  {previewUrl ? (
                     <iframe
                       src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
                       className="w-full h-full border-0"
@@ -501,60 +481,6 @@ export function DesignDetailClient({
         )}
       </div>
     </div>
-  );
-}
-
-function LegacySandpackPreview({
-  variation,
-  sandpackConfig,
-}: {
-  variation: Variation;
-  sandpackConfig: SandpackConfig;
-}) {
-  return (
-    <SandpackProvider
-      template="react-ts"
-      files={{
-        "/App.tsx": variation.code ?? "",
-        "/styles.css": {
-          code: sandpackConfig.stylesCss,
-          hidden: true,
-        },
-        "/setupTailwind.js": {
-          code: sandpackConfig.tailwindConfig,
-          hidden: true,
-        },
-        "/index.tsx": {
-          code: `import "./setupTailwind";\nimport "./styles.css";\nimport React, { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App";\n\nconst root = createRoot(document.getElementById("root")!);\nroot.render(<StrictMode><App /></StrictMode>);`,
-          hidden: true,
-        },
-      }}
-      options={{
-        externalResources: sandpackConfig.externalResources,
-        visibleFiles: ["/App.tsx"],
-        initMode: "immediate",
-      }}
-      customSetup={{
-        entry: "/index.tsx",
-        dependencies: {
-          "@tabler/icons-react": "latest",
-          recharts: "latest",
-          "framer-motion": "latest",
-          "date-fns": "latest",
-          clsx: "latest",
-        },
-      }}
-    >
-      <SandpackPreview
-        suppressHydrationWarning
-        showNavigator
-        showOpenNewtab
-        showRestartButton
-        showOpenInCodeSandbox={true}
-        showRefreshButton
-        style={{ height: "100%" }}
-      />
-    </SandpackProvider>
   );
 }
 

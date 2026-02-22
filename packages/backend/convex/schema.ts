@@ -339,7 +339,6 @@ const schema = defineSchema({
           v.array(
             v.object({
               label: v.string(),
-              code: v.optional(v.string()),
               route: v.optional(v.string()),
               filePath: v.optional(v.string()),
             }),

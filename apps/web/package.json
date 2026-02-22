@@ -14,7 +14,6 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@clerk/backend": "^2.29.5",
     "@clerk/nextjs": "^6.24.0",
-    "@codesandbox/sandpack-react": "^2.20.0",
     "@conductor/backend": "workspace:*",
     "@conductor/shared": "workspace:*",
     "@conductor/ui": "workspace:*",

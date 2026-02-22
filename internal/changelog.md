@@ -1,5 +1,12 @@
 # Changelog
 
+## Remove Sandpack/CodeSandbox from Design Sessions — 2026-02-22
+
+- **Why**: The `@codesandbox/sandpack-react` package was only used for a legacy preview path (`LegacySandpackPreview`) for old design session variations that stored raw React component code in a `code` field. The modern flow uses Daytona sandboxes with iframe previews. The legacy path was dead weight adding a large dependency.
+- **Removed**: `LegacySandpackPreview` component, `SandpackConfig` interface, `isLegacyVariation` helper, and `sandpackConfig` prop from `DesignDetailClient`. Removed `getSandpackConfig()` and all CSS/theme extraction logic from `page.tsx`.
+- **Schema cleanup**: Removed `code` field from `variationValidator` in `designSessions.ts` and from `schema.ts`. Ran a one-time DB migration (`migrateRemoveLegacyCode`) to strip the field from all existing documents, then removed the migration function.
+- **Package removed**: `@codesandbox/sandpack-react` uninstalled from `apps/web`.
+
 ## MCP Server: Repo-Aware Queries Without Credential Exposure — 2026-02-22
 
 - **Why**: The previous `get_repo_env_vars` tool returned decrypted environment variable values (API keys, database URLs) as MCP tool output, making credentials visible to Claude and users. This violated the security requirement that only query results should be returned, never credential values.

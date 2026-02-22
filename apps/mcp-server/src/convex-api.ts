@@ -10,9 +10,15 @@ function getMcpSecret(): string {
   return secret;
 }
 
+// Convex HTTP actions (http.ts routes) are served at .convex.site, not .convex.cloud.
+// Database/REST API calls go to .convex.cloud. Derive the site URL for HTTP action calls.
+function toSiteUrl(convexUrl: string): string {
+  return convexUrl.replace(/\.convex\.cloud$/, ".convex.site");
+}
+
 export async function getDeployKey(convexUrl: string): Promise<string> {
   if (cachedDeployKey) return cachedDeployKey;
-  const response = await fetch(`${convexUrl}/api/mcp/bootstrap`, {
+  const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/bootstrap`, {
     headers: { Authorization: `MCPBootstrap ${getMcpSecret()}` },
   });
   if (!response.ok) {
@@ -248,7 +254,7 @@ async function getRepoEnvVars(
   deployKey: string,
   repoId: string,
 ): Promise<EnvVar[]> {
-  const response = await fetch(`${convexUrl}/api/mcp/env-vars`, {
+  const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/env-vars`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

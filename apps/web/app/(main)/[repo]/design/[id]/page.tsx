@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { themeExtend } from "@/lib/tailwind-theme";
+import { themeExtend } from "@/tailwind.config.js";
 import { DesignDetailClient } from "./DesignDetailClient";
 
 const BODY_RESET = `*, *::before, *::after { box-sizing: border-box; border-color: oklch(var(--border)); }

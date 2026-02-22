@@ -55,7 +55,6 @@ import {
   IconSparkles,
   IconSend,
   IconCircleCheck,
-  IconLayoutSidebarRightCollapse,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -96,7 +95,6 @@ interface ChatPanelProps {
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
-  onCollapse: () => void;
 }
 
 export function ChatPanel({
@@ -111,7 +109,6 @@ export function ChatPanel({
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
-  onCollapse,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const setupStatus = useSetupStatus();
@@ -296,15 +293,7 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between p-3 animate-in fade-in duration-300">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
-          onClick={onCollapse}
-        >
-          <IconLayoutSidebarRightCollapse size={16} />
-        </Button>
+      <div className="flex items-center justify-end p-3 animate-in fade-in duration-300">
         <div className="flex items-center gap-2">
           <Button
             size="sm"

@@ -12,6 +12,8 @@ import {
   IconCode,
   IconLayoutBottombar,
   IconLayoutBottombarCollapse,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { TerminalPanel } from "./TerminalPanel";
@@ -31,6 +33,8 @@ interface SandboxPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   fileDiffs: Session["fileDiffs"];
+  chatVisible?: boolean;
+  onToggleChat?: () => void;
 }
 
 export function SandboxPanel({
@@ -38,6 +42,8 @@ export function SandboxPanel({
   sandboxId,
   isActive,
   fileDiffs,
+  chatVisible,
+  onToggleChat,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [showConsole, setShowConsole] = useState(true);
@@ -104,6 +110,20 @@ export function SandboxPanel({
 
   const tabSwitcher = (
     <div className="flex items-center gap-2">
+      {onToggleChat && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-10 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          onClick={onToggleChat}
+        >
+          {chatVisible ? (
+            <IconLayoutSidebarLeftCollapse className="size-4" />
+          ) : (
+            <IconLayoutSidebarLeftExpand className="size-4" />
+          )}
+        </Button>
+      )}
       <Tabs
         value={activeTab}
         onValueChange={(v) => {

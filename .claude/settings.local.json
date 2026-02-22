@@ -1,26 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(test:*)",
-      "Bash(xargs:*)",
-      "Bash(python:*)",
       "WebSearch",
-      "WebFetch(domain:docs.convex.dev)",
-      "WebFetch(domain:www.heroui.com)",
-      "WebFetch(domain:gist.github.com)",
-      "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:docs.dndkit.com)",
-      "WebFetch(domain:blog.logrocket.com)",
       "mcp__ide__getDiagnostics",
       "Bash",
       "Read",
       "WebFetch",
       "WebSearch",
-      "WebFetch(domain:apps.apple.com)",
-      "WebFetch(domain:www.producthunt.com)",
-      "Bash(pnpm run api:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
       "mcp__plugin_context7_context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs"
     ]

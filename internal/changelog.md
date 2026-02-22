@@ -1,5 +1,23 @@
 # Changelog
 
+## MCP Server: Repo-Aware Queries Without Credential Exposure — 2026-02-22
+
+- **Why**: The previous `get_repo_env_vars` tool returned decrypted environment variable values (API keys, database URLs) as MCP tool output, making credentials visible to Claude and users. This violated the security requirement that only query results should be returned, never credential values.
+- **Removed**: `get_repo_env_vars` tool — no longer exposes env var values.
+- **Repo-aware queries**: All 5 query tools (`list_tables`, `query_table`, `get_document`, `run_query`, `count_table`) now accept an optional `repoId` parameter. When provided, the MCP server internally fetches that repo's Convex credentials from Conductor's `repoEnvVars`, resolves the correct Convex URL and deploy key, and queries that repo's database — credentials never leave server memory.
+- **New function**: `getRepoConvexCredentials()` in `convex-api.ts` fetches repo env vars, extracts `NEXT_PUBLIC_CONVEX_URL`/`CONVEX_URL` and `CONVEX_DEPLOY_KEY`/`CONVEX_ADMIN_KEY`, and caches them by repoId.
+- **New helper**: `resolveTarget()` in `tools.ts` determines whether a query targets Conductor's Convex (default) or a repo's own Convex (when `repoId` provided).
+- **User experience**: Claude calls `list_repos`, user picks a repo, Claude adds `repoId` to subsequent query tools. All credential resolution happens server-side; only results are returned.
+
+## MCP Server: Auth-Only Setup + Codebase Env Var Injection — 2026-02-22
+
+- **Why**: The MCP server required `CONDUCTOR_DEPLOY_KEY` as an MCP server env var (Railway), which was redundant config to manage separately from the Convex deployment. Users also had no way to select a codebase and get its env vars injected into Claude's context.
+- **Deploy key bootstrap**: `CONDUCTOR_DEPLOY_KEY` is now stored only in Convex env vars. On first tool call, the MCP server fetches it via `GET /api/mcp/bootstrap` (authenticated with `MCPBootstrap {MCP_JWT_SECRET}`) and caches it in memory. Removed from Railway/MCP server env vars.
+- **New Convex HTTP routes** (`packages/backend/convex/http.ts` + `mcpRoutes.ts`): `GET /api/mcp/bootstrap` returns the deploy key; `POST /api/mcp/env-vars` returns decrypted env vars for a given repo (using `repoEnvVars.getForSandbox` + `decryptValue`).
+- **New MCP tools**: `list_repos` (lists all connected GitHub repos) and `get_repo_env_vars` (returns decrypted per-repo env vars). Claude now prompts the user to pick a codebase, then injects that repo's vars into context.
+- **`ConvexCredentials` interface change**: Removed `deployKey` field, added `clerkUserId`. Deploy key is lazily bootstrapped in `convex-api.ts` and cached module-level.
+- **Architectural reason**: Centralising the deploy key in Convex env vars means it's managed in one place alongside `ENCRYPTION_KEY` and other backend secrets, rather than duplicated across two deployments.
+
 ## Documents and Testing Arena Sidebar Migration — 2026-02-22
 
 - **Why**: Documents and Testing Arena had their own `SidebarLayoutWrapper`-based secondary sidebars inside the page layout, inconsistent with how Design, Sessions, Analyse, and Admin work through the main sidebar context panel.

@@ -10,6 +10,7 @@ import {
   IconDots,
   IconTrash,
   IconPencil,
+  IconClock,
 } from "@tabler/icons-react";
 import {
   DropdownMenu,
@@ -73,30 +74,31 @@ export function ProjectCard({
   ];
   const isOwner = currentUserId === userId;
 
-  // Only render the menu when there's at least one actionable item.
   const hasDropdownActions =
     !!branchName || isOwner || currentUserId === undefined;
+  const previewText = description ?? rawInput;
 
-  const MAX_AVATARS = 4;
+  const MAX_AVATARS = 3;
   const allAvatarIds =
     participantIds.length > 0 ? participantIds : [userId as string | undefined];
   const shownAvatarIds = allAvatarIds.slice(0, MAX_AVATARS);
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-2xs backdrop-blur-sm transition-all duration-200 hover:shadow-xs hover:border-border hover:z-10">
+    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+      <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
-        className={`absolute left-0 top-0 bottom-0 w-[3px] ${accentColor}`}
+        className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
       />
       {hasDropdownActions && (
-        <div className="absolute top-1.5 right-1.5 z-10">
+        <div className="absolute right-2 top-2 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 size="icon-sm"
                 variant="ghost"
-                className="motion-press flex shrink-0 text-muted-foreground hover:scale-105 hover:text-foreground active:scale-95"
-                onClick={(e) => e.stopPropagation()}
+                className="motion-press flex shrink-0 rounded-full border border-transparent bg-background/45 text-muted-foreground backdrop-blur-sm hover:scale-105 hover:border-border/65 hover:bg-background/80 hover:text-foreground active:scale-95"
+                onClick={(event) => event.stopPropagation()}
               >
                 <IconDots size={14} />
               </Button>
@@ -126,7 +128,7 @@ export function ProjectCard({
                 <IconPencil size={16} />
                 Edit Details
                 {!isOwner && (
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     Owner only
                   </span>
                 )}
@@ -139,7 +141,7 @@ export function ProjectCard({
                 <IconTrash size={16} />
                 Delete
                 {!isOwner && (
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     Owner only
                   </span>
                 )}
@@ -151,57 +153,65 @@ export function ProjectCard({
       <div
         role="button"
         tabIndex={0}
-        className="block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        className="relative z-[1] block w-full cursor-pointer p-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={() => setModalOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setModalOpen(true);
+        onKeyDown={(event) => {
+          if (event.key === "Enter") setModalOpen(true);
+          if (event.key === " ") {
+            event.preventDefault();
+            setModalOpen(true);
+          }
         }}
       >
-        <div className="flex items-center gap-2 mb-1 pr-8">
-          <h3 className="truncate text-sm font-semibold text-foreground transition-colors duration-200 group-hover:text-primary">
+        <div className="pr-8">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>
-        {description ? (
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {description}
-          </p>
-        ) : rawInput ? (
-          <p className="text-xs text-muted-foreground/70 italic line-clamp-2">
-            {rawInput}
+        {previewText ? (
+          <p
+            className={`mt-2 line-clamp-2 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
+          >
+            {previewText}
           </p>
         ) : null}
-        <ProjectProgressBar projectId={projectId} className="mt-2" />
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex -space-x-1 items-center">
-            {shownAvatarIds.map((id) =>
-              id ? (
-                <UserInitials
-                  key={id}
-                  userId={id as Id<"users">}
-                  hideLastSeen
-                />
-              ) : null,
-            )}
-            {hiddenCount > 0 && (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted border border-background text-[10px] text-muted-foreground font-medium -ml-1">
-                +{hiddenCount}
-              </div>
-            )}
+        <ProjectProgressBar
+          projectId={projectId}
+          className="mt-3 h-2 bg-secondary/75"
+        />
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-center">
+            <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
+              {shownAvatarIds.map((id) =>
+                id ? (
+                  <UserInitials
+                    key={id}
+                    userId={id as Id<"users">}
+                    hideLastSeen
+                  />
+                ) : null,
+              )}
+              {hiddenCount > 0 && (
+                <div className="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-semibold text-muted-foreground">
+                  +{hiddenCount}
+                </div>
+              )}
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+            <IconClock size={12} />
             {dayjs(createdAt).fromNow()}
           </span>
         </div>
       </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent onClick={(e) => e.stopPropagation()}>
+        <DialogContent onClick={(event) => event.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={async (e) => {
-              e.preventDefault();
+            onSubmit={async (event) => {
+              event.preventDefault();
               await updateProject({
                 id: projectId,
                 title: editTitle,
@@ -216,7 +226,7 @@ export function ProjectCard({
               <Input
                 id="edit-title"
                 value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
+                onChange={(event) => setEditTitle(event.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -224,7 +234,7 @@ export function ProjectCard({
               <Textarea
                 id="edit-description"
                 value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
+                onChange={(event) => setEditDescription(event.target.value)}
                 rows={3}
               />
             </div>

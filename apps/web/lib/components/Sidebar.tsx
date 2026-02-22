@@ -321,7 +321,7 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-72 lg:w-20" : "w-72",
+          collapsed ? "w-80 lg:w-20" : "w-80",
         )}
       >
         <div className="h-full p-2 lg:p-3 lg:pr-2">

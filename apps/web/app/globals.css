@@ -68,7 +68,7 @@
     --sidebar-ring: 16 145 130;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.625rem;
+    --radius: 0.5rem;
     --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 8% / 0.09);
     --shadow-xs: 0px 2px 6px -2px hsl(0 0% 8% / 0.12);
     --shadow-sm:
@@ -159,7 +159,7 @@
     --sidebar-ring: 52 199 181;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.625rem;
+    --radius: 0.5rem;
     --shadow-2xs: 0px 2px 6px -2px hsl(0 0% 0% / 0.24);
     --shadow-xs: 0px 4px 10px -4px hsl(0 0% 0% / 0.28);
     --shadow-sm:

@@ -295,8 +295,8 @@ export function ProjectsClient() {
                   </TooltipTrigger>
                   <TooltipContent>
                     {sortDirection === "asc"
-                      ? "Ascending — click to reverse"
-                      : "Descending — click to reverse"}
+                      ? "Ascending - click to reverse"
+                      : "Descending - click to reverse"}
                   </TooltipContent>
                 </Tooltip>
               </div>

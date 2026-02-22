@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -17,26 +16,16 @@ import {
   IconGitBranch,
   IconGitPullRequest,
   IconDotsVertical,
-  IconAlertCircle,
   IconClock,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@conductor/shared";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-
-const statusChipLabels: Record<TaskStatus, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  business_review: "Biz Review",
-  code_review: "Code Review",
-  done: "Done",
-};
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -58,7 +47,6 @@ export function QuickTaskCard({
   description,
   status,
   createdAt,
-  createdBy,
   branchName,
   onClick,
   isSelecting,
@@ -70,13 +58,12 @@ export function QuickTaskCard({
   const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
   const statusMeta = statusConfig[status];
-  const StatusIcon = statusMeta.icon;
   const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
   const showActions = Boolean(branchName || latestPrUrl);
 
   return (
     <Card
-      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 ${
+      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         hasError
           ? "border-destructive/60 bg-destructive/5"
           : "hover:border-primary/25 hover:bg-card"
@@ -97,13 +84,13 @@ export function QuickTaskCard({
       }}
     >
       <div
-        className={`pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full opacity-35 blur-2xl ${accentClass}`}
+        className={`pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-30 group-focus-within:opacity-30 ${accentClass}`}
       />
       <div
-        className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentClass}`}
+        className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-2 p-3 pl-3.5">
-        <div className="flex min-w-0 items-start gap-2">
+      <CardContent className="relative z-[1] space-y-1 px-2 py-2 pl-2.5">
+        <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
               checked={isSelected}
@@ -112,16 +99,20 @@ export function QuickTaskCard({
             />
           )}
           <div className="min-w-0 flex-1">
-            <h4 className="line-clamp-2 text-sm font-semibold leading-5 text-foreground">
+            <h4
+              className={`text-sm font-semibold leading-5 text-foreground ${
+                description ? "line-clamp-1" : "line-clamp-2"
+              }`}
+            >
               {title}
             </h4>
             {description ? (
-              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
                 {description}
               </p>
             ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             <SubtaskProgress taskId={id} />
             {showActions ? (
               <div
@@ -131,12 +122,12 @@ export function QuickTaskCard({
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      size="icon-sm"
+                      size="icon-xs"
                       variant="ghost"
                       className="motion-press rounded-full hover:scale-105 active:scale-95"
                     >
                       <IconDotsVertical
-                        size={14}
+                        size={13}
                         className="text-muted-foreground"
                       />
                     </Button>
@@ -169,10 +160,9 @@ export function QuickTaskCard({
             ) : null}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5"></div>
-          <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <IconClock size={12} />
+        <div className="flex items-center justify-end gap-2">
+          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] leading-none text-muted-foreground">
+            <IconClock size={11} />
             {dayjs(createdAt).fromNow()}
           </span>
         </div>

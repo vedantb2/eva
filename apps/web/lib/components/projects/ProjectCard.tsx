@@ -85,7 +85,7 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+    <div className="group relative shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
@@ -179,8 +179,8 @@ export function ProjectCard({
           projectId={projectId}
           className="mt-3 h-2 bg-secondary/75"
         />
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center">
             <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
               {shownAvatarIds.map((id) =>
                 id ? (
@@ -198,7 +198,7 @@ export function ProjectCard({
               )}
             </div>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
             <IconClock size={12} />
             {dayjs(createdAt).fromNow()}
           </span>

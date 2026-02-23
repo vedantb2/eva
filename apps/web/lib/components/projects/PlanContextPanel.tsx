@@ -142,7 +142,7 @@ export function PlanContextPanel({
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] px-4 py-3 rounded-xl ${
+                    className={`max-w-[80%] px-4 py-3 rounded-lg ${
                       isUser
                         ? "bg-primary text-primary-foreground rounded-br-none"
                         : "bg-muted rounded-tl-none"

@@ -80,7 +80,7 @@ function SortableItem<T extends BaseTask>({
       layout
       ref={setNodeRef}
       style={style}
-      className={`rounded-xl transition-opacity duration-150 ${isDragging ? "opacity-40 cursor-grabbing" : "cursor-grab"}`}
+      className={`rounded-lg transition-opacity duration-150 ${isDragging ? "opacity-40 cursor-grabbing" : "cursor-grab"}`}
       {...attributes}
       {...listeners}
       onClick={() => onItemClick(item)}

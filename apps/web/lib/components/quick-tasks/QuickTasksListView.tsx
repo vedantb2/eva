@@ -260,8 +260,6 @@ export function QuickTasksListView({
                             title={task.title}
                             description={task.description}
                             status={task.status}
-                            createdAt={task.createdAt}
-                            createdBy={task.createdBy}
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);

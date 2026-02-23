@@ -37,14 +37,14 @@ export function ActiveTasksAccordion({
   }
 
   return (
-    <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 p-1.5">
+    <div className="rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 p-1.5">
       <Accordion
         type="multiple"
         defaultValue={["active-tasks"]}
         className="px-0"
       >
         <AccordionItem value="active-tasks" className="border-b-0 px-0">
-          <AccordionTrigger className="rounded-xl px-3 py-2 hover:bg-sidebar-accent/70 hover:no-underline">
+          <AccordionTrigger className="rounded-lg px-3 py-2 hover:bg-sidebar-accent/70 hover:no-underline">
             <div className="flex items-center gap-2">
               <IconListCheck size={16} className="text-primary" />
               <span className="text-sm font-medium text-foreground">
@@ -61,9 +61,9 @@ export function ActiveTasksAccordion({
                 <Link
                   key={task._id}
                   href={getTaskLink(task)}
-                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                  className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                 >
-                  <div className="flex items-center justify-between rounded-xl border border-transparent p-2.5 transition-colors hover:border-sidebar-border/70 hover:bg-sidebar-accent/60">
+                  <div className="flex items-center justify-between rounded-lg border border-transparent p-2.5 transition-colors hover:border-sidebar-border/70 hover:bg-sidebar-accent/60">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground truncate">
                         {task.title}

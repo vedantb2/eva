@@ -10,7 +10,6 @@ import {
   IconDots,
   IconTrash,
   IconPencil,
-  IconClock,
 } from "@tabler/icons-react";
 import {
   DropdownMenu,
@@ -27,7 +26,6 @@ import {
   Label,
   Textarea,
 } from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { ProjectCardModal } from "./ProjectCardModal";
 
@@ -85,7 +83,7 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   return (
-    <div className="group relative shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+    <div className="group relative shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
@@ -153,7 +151,7 @@ export function ProjectCard({
       <div
         role="button"
         tabIndex={0}
-        className="relative z-[1] block w-full cursor-pointer p-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        className="relative z-[1] block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={() => setModalOpen(true)}
         onKeyDown={(event) => {
           if (event.key === "Enter") setModalOpen(true);
@@ -164,22 +162,22 @@ export function ProjectCard({
         }}
       >
         <div className="pr-8">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
+          <h3 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
         </div>
         {previewText ? (
           <p
-            className={`mt-2 line-clamp-2 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
+            className={`mt-1 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
           >
             {previewText}
           </p>
         ) : null}
         <ProjectProgressBar
           projectId={projectId}
-          className="mt-3 h-2 bg-secondary/75"
+          className="mt-2 h-1.5 bg-secondary/75"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="flex min-w-0 items-center">
             <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
               {shownAvatarIds.map((id) =>
@@ -198,10 +196,6 @@ export function ProjectCard({
               )}
             </div>
           </div>
-          <span className="ml-auto inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
-            <IconClock size={12} />
-            {dayjs(createdAt).fromNow()}
-          </span>
         </div>
       </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -257,6 +251,7 @@ export function ProjectCard({
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         projectId={projectId}
+        createdAt={createdAt}
         projectUrl={projectUrl}
       />
     </div>

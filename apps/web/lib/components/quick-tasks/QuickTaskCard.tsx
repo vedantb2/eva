@@ -16,9 +16,7 @@ import {
   IconGitBranch,
   IconGitPullRequest,
   IconDotsVertical,
-  IconClock,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -32,8 +30,6 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
-  createdAt: number;
-  createdBy?: Id<"users">;
   branchName?: string;
   onClick?: () => void;
   isSelecting?: boolean;
@@ -46,7 +42,6 @@ export function QuickTaskCard({
   title,
   description,
   status,
-  createdAt,
   branchName,
   onClick,
   isSelecting,
@@ -89,7 +84,7 @@ export function QuickTaskCard({
       <div
         className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-1 px-2 py-2 pl-2.5">
+      <CardContent className="relative z-[1] space-y-1 px-2 py-1.5 pl-3">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
@@ -99,11 +94,7 @@ export function QuickTaskCard({
             />
           )}
           <div className="min-w-0 flex-1">
-            <h4
-              className={`text-sm font-semibold leading-5 text-foreground ${
-                description ? "line-clamp-1" : "line-clamp-2"
-              }`}
-            >
+            <h4 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground">
               {title}
             </h4>
             {description ? (
@@ -159,12 +150,6 @@ export function QuickTaskCard({
               </div>
             ) : null}
           </div>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] leading-none text-muted-foreground">
-            <IconClock size={11} />
-            {dayjs(createdAt).fromNow()}
-          </span>
         </div>
       </CardContent>
     </Card>

@@ -6,7 +6,6 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import {
-  PROJECT_PHASES,
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
@@ -14,7 +13,6 @@ import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
   Badge,
-  Button,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -93,23 +91,6 @@ export function ProjectsTimeline({
       originDate: origin,
       totalSpanDays: span,
     };
-  }, [projects]);
-
-  const phaseTotals = useMemo(() => {
-    const totals = PROJECT_PHASES.reduce(
-      (acc, phase) => {
-        acc[phase] = 0;
-        return acc;
-      },
-      {} as Record<ProjectPhase, number>,
-    );
-
-    for (const project of projects) {
-      const phase = project.phase as ProjectPhase;
-      if (phase in totals) totals[phase] += 1;
-    }
-
-    return totals;
   }, [projects]);
 
   const totalWidth = totalSpanDays * pxPerDay;
@@ -232,8 +213,6 @@ export function ProjectsTimeline({
     return ((Date.now() - originDate) / DAY_MS) * pxPerDay;
   }, [originDate, totalSpanDays, pxPerDay]);
 
-  const zoomPercent = Math.round((pxPerDay / DEFAULT_PX_PER_DAY) * 100);
-
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -305,93 +284,10 @@ export function ProjectsTimeline({
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/70 px-3 py-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant="outline"
-              className="h-6 border-border/70 bg-background/70 text-[11px] text-muted-foreground"
-            >
-              {withDates.length} scheduled
-            </Badge>
-            {withoutDates.length > 0 && (
-              <Badge
-                variant="outline"
-                className="h-6 border-border/70 bg-background/70 text-[11px] text-muted-foreground"
-              >
-                {withoutDates.length} unscheduled
-              </Badge>
-            )}
-            {PROJECT_PHASES.map((phase) => {
-              const count = phaseTotals[phase];
-              if (count === 0) return null;
-              const config = phaseConfig[phase];
-              const Icon = config.icon;
-              return (
-                <Badge
-                  key={phase}
-                  variant="outline"
-                  className={cn(
-                    "h-6 gap-1 border-border/70 bg-background/70 text-[11px]",
-                    config.text,
-                  )}
-                >
-                  <Icon size={12} />
-                  {config.label}
-                  <span className="tabular-nums text-foreground/60">
-                    {count}
-                  </span>
-                </Badge>
-              );
-            })}
-          </div>
-          {withDates.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <div className="hidden text-xs text-muted-foreground lg:block">
-                Drag to pan - Shift + wheel to scroll - Ctrl/Cmd + wheel to zoom
-              </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="h-7 w-7"
-                onClick={() => setZoom(pxPerDay / ZOOM_FACTOR)}
-              >
-                -
-              </Button>
-              <span className="min-w-10 text-center text-xs font-medium tabular-nums text-muted-foreground">
-                {zoomPercent}%
-              </span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="h-7 w-7"
-                onClick={() => setZoom(pxPerDay * ZOOM_FACTOR)}
-              >
-                +
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => setZoom(DEFAULT_PX_PER_DAY)}
-              >
-                Reset
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={scrollToToday}
-              >
-                Today
-              </Button>
-            </div>
-          )}
-        </div>
-
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-card/60 select-none"
+            className="relative flex min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-card/60 select-none"
             style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
@@ -587,7 +483,7 @@ export function ProjectsTimeline({
         {withoutDates.length > 0 && (
           <div
             className={cn(
-              "rounded-xl border border-dashed border-border/75 bg-muted/20 p-3",
+              "rounded-lg border border-dashed border-border/75 bg-muted/20 p-3",
               withDates.length > 0
                 ? "max-h-56 flex-shrink-0 overflow-y-auto scrollbar"
                 : "min-h-0 flex-1 overflow-y-auto",
@@ -638,14 +534,21 @@ export function ProjectsTimeline({
         )}
       </div>
 
-      {selectedProjectId && (
-        <ProjectCardModal
-          isOpen
-          onClose={() => setSelectedProjectId(null)}
-          projectId={selectedProjectId}
-          projectUrl={`/${encodeRepoSlug(repoFullName)}/projects/${selectedProjectId}`}
-        />
-      )}
+      {selectedProjectId &&
+        (() => {
+          const selectedProject = projects.find(
+            (p) => p._id === selectedProjectId,
+          );
+          return selectedProject ? (
+            <ProjectCardModal
+              isOpen
+              onClose={() => setSelectedProjectId(null)}
+              projectId={selectedProjectId}
+              createdAt={selectedProject._creationTime}
+              projectUrl={`/${encodeRepoSlug(repoFullName)}/projects/${selectedProjectId}`}
+            />
+          ) : null;
+        })()}
     </>
   );
 }

@@ -44,6 +44,7 @@ interface ProjectCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: Id<"projects">;
+  createdAt: number;
   projectUrl: string;
 }
 
@@ -51,6 +52,7 @@ export function ProjectCardModal({
   isOpen,
   onClose,
   projectId,
+  createdAt,
   projectUrl,
 }: ProjectCardModalProps) {
   const router = useRouter();
@@ -96,6 +98,19 @@ export function ProjectCardModal({
               </div>
 
               <div className="pl-0 sm:pl-4 sm:border-l sm:border-border/40 space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconCalendar size={12} />
+                    Created
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {dayjs(createdAt).format("MMM D, YYYY")}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {dayjs(createdAt).fromNow()}
+                  </p>
+                </div>
+
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                     <IconFlag size={12} />

@@ -209,7 +209,7 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group motion-base flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+      "group motion-base flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
         ? "border-sidebar-primary/35 bg-sidebar-primary/10 text-sidebar-primary shadow-sm"
@@ -282,7 +282,7 @@ export function Sidebar() {
         </Button>
         <Link
           href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-          className="mx-auto flex items-center gap-2 rounded-xl border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
+          className="mx-auto flex items-center gap-2 rounded-lg border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
         >
           <Image
             src="/icon.png"
@@ -418,7 +418,7 @@ export function Sidebar() {
                       {!collapsed && (
                         <Link
                           href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
-                          className="inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sidebar-foreground"
+                          className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <Image
                             src="/icon.png"

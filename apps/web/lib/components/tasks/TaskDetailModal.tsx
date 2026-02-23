@@ -57,6 +57,7 @@ import {
   IconFolder,
   IconTags,
   IconGitBranch,
+  IconCalendar,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -654,6 +655,21 @@ export function TaskDetailModal({
               )}
 
               <div className="pl-4 space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <IconCalendar size={12} />
+                    Created
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {task?.createdAt
+                      ? dayjs(task.createdAt).format("MMM D, YYYY")
+                      : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {task?.createdAt ? dayjs(task.createdAt).fromNow() : ""}
+                  </p>
+                </div>
+
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                     <IconCircleDot size={12} />

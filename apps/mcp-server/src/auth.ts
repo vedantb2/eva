@@ -234,32 +234,6 @@ export function renderAuthPage(query: Record<string, string>): string {
 </html>`;
 }
 
-export function renderRedirectPage(callbackUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Connected</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fafafa; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
-    .done { max-width: 360px; }
-    h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-    p { color: #a3a3a3; font-size: 14px; margin-bottom: 20px; }
-    a { color: #6366f1; text-decoration: none; font-size: 14px; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <div class="done">
-    <h1>Signed in successfully</h1>
-    <p>Your Conductor account is now connected. You may close this window.</p>
-    <a href="https://claude.ai/settings/connectors">Go to Claude Connectors</a>
-  </div>
-  <iframe src="${escapeHtml(callbackUrl)}" style="display:none" aria-hidden="true"></iframe>
-</body>
-</html>`;
-}
-
 function validateRedirectUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);

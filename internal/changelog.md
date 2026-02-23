@@ -1,5 +1,12 @@
 # Changelog
 
+## MCP Server: Fix OAuth 302 Redirect for Third-Party Clients — 2026-02-23
+
+- **Why**: The `POST /oauth/authorize` endpoint rendered an HTML page with a hidden iframe to deliver the authorization code. This worked for Claude Desktop's popup-based flow but broke for any other MCP client (ChatGPT, Cursor, etc.) that expected a standard OAuth 302 redirect. Third-party clients would hang forever waiting for the redirect callback.
+- **Root cause**: `renderRedirectPage()` function rendered HTML with `<iframe src="${callbackUrl}">` instead of issuing an HTTP 302 redirect. This was designed for popup windows but violated the OAuth 2.1 spec (RFC 6749 Section 4.1.2) which requires a 302 redirect to `redirect_uri?code={code}&state={state}`.
+- **Fix**: Replaced `res.type("html").send(renderRedirectPage(redirectUrl))` with `res.redirect(redirectUrl)` in the POST handler. Deleted the `renderRedirectPage` function entirely.
+- **Impact**: The OAuth flow now works universally — Claude Desktop popups, third-party MCP clients in tabs, embedded browsers. All follow 302 redirects correctly.
+
 ## Repos: Add Connection Status Tracking — 2026-02-22
 
 - **Why**: When users revoked access to a repo via GitHub, the repo remained in the list showing no indication it was no longer connected. Users had no way to distinguish between active and disconnected repos.

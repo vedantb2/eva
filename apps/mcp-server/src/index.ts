@@ -5,7 +5,6 @@ import {
   getOAuthMetadata,
   getProtectedResourceMetadata,
   renderAuthPage,
-  renderRedirectPage,
   processClerkAuth,
   exchangeToken,
   handleClientRegistration,
@@ -100,7 +99,7 @@ app.post("/oauth/authorize", async (req: Request, res: Response) => {
   try {
     const body = bodyToStringRecord(req);
     const redirectUrl = await processClerkAuth(body);
-    res.type("html").send(renderRedirectPage(redirectUrl));
+    res.redirect(redirectUrl);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid request";
     res.status(400).send(message);

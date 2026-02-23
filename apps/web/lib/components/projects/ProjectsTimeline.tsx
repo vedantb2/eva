@@ -166,6 +166,13 @@ export function ProjectsTimeline({
     return () => cancelAnimationFrame(raf);
   }, [totalSpanDays, originDate]);
 
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
   const monthLabels = useMemo(() => {
     if (totalSpanDays === 0) return [];
     const labels: { label: string; x: number; width: number }[] = [];
@@ -238,21 +245,8 @@ export function ProjectsTimeline({
     [pxPerDay, setClampedScroll, setZoom],
   );
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      dragRef.current = {
-        startX: e.clientX,
-        startScroll: scrollLeft,
-        moved: false,
-      };
-      e.preventDefault();
-    },
-    [scrollLeft],
-  );
-
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent) => {
       if (!dragRef.current) return;
       const movement = Math.abs(dragRef.current.startX - e.clientX);
       if (movement > DRAG_THRESHOLD_PX) {
@@ -272,7 +266,24 @@ export function ProjectsTimeline({
       });
     }
     dragRef.current = null;
-  }, []);
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+  }, [handleMouseMove]);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      dragRef.current = {
+        startX: e.clientX,
+        startScroll: scrollLeft,
+        moved: false,
+      };
+      e.preventDefault();
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [scrollLeft, handleMouseMove, handleMouseUp],
+  );
 
   const openProject = useCallback((projectId: Id<"projects">) => {
     if (suppressClickRef.current) return;
@@ -291,9 +302,6 @@ export function ProjectsTimeline({
             style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
           >
             {todayX !== null && (
               <div

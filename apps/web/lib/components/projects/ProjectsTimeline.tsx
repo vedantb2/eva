@@ -13,7 +13,6 @@ import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
   Button,
-  Badge,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -524,14 +523,6 @@ export function ProjectsTimeline({
                         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                           {project.title}
                         </span>
-                        <span
-                          className={cn(
-                            "hidden text-[11px] sm:inline",
-                            config.text,
-                          )}
-                        >
-                          {config.label}
-                        </span>
                       </button>
 
                       <div
@@ -643,16 +634,6 @@ export function ProjectsTimeline({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                       {project.title}
                     </span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "h-5 border-transparent px-1.5 text-[10px]",
-                        config.bg,
-                        config.text,
-                      )}
-                    >
-                      {config.label}
-                    </Badge>
                   </button>
                 );
               })}

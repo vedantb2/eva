@@ -1,11 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { useState } from "react";
 import {
-  Alert,
-  AlertDescription,
   Button,
   Dialog,
   DialogContent,
@@ -16,35 +12,42 @@ import {
   Spinner,
 } from "@conductor/ui";
 import {
-  IconAlertTriangle,
   IconCheck,
   IconCopy,
   IconEye,
   IconEyeOff,
+  IconKey,
   IconPencil,
   IconPlus,
-  IconServer,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
-export function SystemEnvVarsClient() {
-  const allVars = useQuery(api.systemEnvVars.list);
-  const setupStatus = useSetupStatus();
-  const upsertVar = useAction(api.systemEnvVarsActions.upsertVar);
-  const revealValue = useAction(api.systemEnvVarsActions.revealValue);
-  const removeVar = useMutation(api.systemEnvVars.removeVar);
+interface EnvVar {
+  key: string;
+  value: string;
+}
 
-  const vars = useMemo(
-    () => allVars?.filter((v) => v.category === "claude_oauth"),
-    [allVars],
-  );
+interface EnvVarsTableProps {
+  vars: EnvVar[] | undefined;
+  onUpsert?: (key: string, value: string) => Promise<void>;
+  onReveal?: (key: string) => Promise<string | null>;
+  onRemove?: (key: string) => Promise<void>;
+  description: string;
+  readOnly?: boolean;
+}
 
+export function EnvVarsTable({
+  vars,
+  onUpsert,
+  onReveal,
+  onRemove,
+  description,
+  readOnly = false,
+}: EnvVarsTableProps) {
   const [adding, setAdding] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [valueInput, setValueInput] = useState("");
-  const [descriptionInput, setDescriptionInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -62,27 +65,22 @@ export function SystemEnvVarsClient() {
     setAdding(true);
     setKeyInput("");
     setValueInput("");
-    setDescriptionInput("");
   };
 
   const cancelAdd = () => {
     setAdding(false);
     setKeyInput("");
     setValueInput("");
-    setDescriptionInput("");
   };
 
   const handleAdd = async () => {
-    if (!keyInput.trim() || !valueInput.trim()) return;
+    if (!keyInput.trim() || !valueInput.trim() || !onUpsert) return;
     setSaving(true);
-    await upsertVar({
-      key: keyInput.trim(),
-      value: valueInput,
-      category: "claude_oauth",
-      description: descriptionInput.trim() || undefined,
-    });
+    await onUpsert(keyInput.trim(), valueInput);
     setSaving(false);
-    cancelAdd();
+    setAdding(false);
+    setKeyInput("");
+    setValueInput("");
   };
 
   const startEdit = (key: string) => {
@@ -96,16 +94,9 @@ export function SystemEnvVarsClient() {
   };
 
   const saveEdit = async () => {
-    if (!editingKey || !editValue.trim()) return;
-    const existing = vars?.find((v) => v.key === editingKey);
-    if (!existing) return;
+    if (!editingKey || !editValue.trim() || !onUpsert) return;
     setSaving(true);
-    await upsertVar({
-      key: editingKey,
-      value: editValue,
-      category: existing.category,
-      description: existing.description,
-    });
+    await onUpsert(editingKey, editValue);
     setSaving(false);
     setEditingKey(null);
     setEditValue("");
@@ -117,8 +108,8 @@ export function SystemEnvVarsClient() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteKey) return;
-    await removeVar({ key: deleteKey });
+    if (!deleteKey || !onRemove) return;
+    await onRemove(deleteKey);
     setRevealedValues((prev) => {
       const next = { ...prev };
       delete next[deleteKey];
@@ -128,6 +119,7 @@ export function SystemEnvVarsClient() {
   };
 
   const toggleReveal = async (key: string) => {
+    if (!onReveal) return;
     if (revealedValues[key] !== undefined) {
       setRevealedValues((prev) => {
         const next = { ...prev };
@@ -137,7 +129,7 @@ export function SystemEnvVarsClient() {
       return;
     }
     setRevealingKey(key);
-    const value = await revealValue({ key });
+    const value = await onReveal(key);
     if (value !== null) {
       setRevealedValues((prev) => ({ ...prev, [key]: value }));
     }
@@ -145,9 +137,10 @@ export function SystemEnvVarsClient() {
   };
 
   const copyValue = async (key: string) => {
+    if (!onReveal) return;
     let value = revealedValues[key];
     if (value === undefined) {
-      const result = await revealValue({ key });
+      const result = await onReveal(key);
       if (result === null) return;
       value = result;
     }
@@ -160,23 +153,14 @@ export function SystemEnvVarsClient() {
 
   return (
     <div>
-      {setupStatus && !setupStatus.isReady && (
-        <Alert variant="destructive" className="mb-4">
-          <IconAlertTriangle size={18} />
-          <AlertDescription>
-            Add at least one OAuth token to enable AI features. Tokens are
-            rotated between accounts to avoid rate limits.
-          </AlertDescription>
-        </Alert>
-      )}
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          OAuth tokens are rotated between accounts to avoid rate limits.
-        </p>
-        <Button size="sm" onClick={startAdd} disabled={adding}>
-          <IconPlus size={16} className="mr-1.5" />
-          Add Token
-        </Button>
+        <p className="text-xs text-muted-foreground">{description}</p>
+        {!readOnly && (
+          <Button size="sm" onClick={startAdd} disabled={adding}>
+            <IconPlus size={16} className="mr-1.5" />
+            Add Variable
+          </Button>
+        )}
       </div>
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">
@@ -184,8 +168,8 @@ export function SystemEnvVarsClient() {
         </div>
       ) : !showTable ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <IconServer size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">No OAuth tokens configured</p>
+          <IconKey size={48} className="mb-3 opacity-40" />
+          <p className="text-sm">No environment variables configured</p>
         </div>
       ) : (
         <div className="rounded-lg border border-border/70">
@@ -193,7 +177,6 @@ export function SystemEnvVarsClient() {
             <thead>
               <tr className="border-b border-border/60 text-left text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">Key</th>
-                <th className="px-4 py-2.5 font-medium">Description</th>
                 <th className="px-4 py-2.5 font-medium">Value</th>
                 <th className="px-4 py-2.5 text-right font-medium">Actions</th>
               </tr>
@@ -205,7 +188,7 @@ export function SystemEnvVarsClient() {
                     <Input
                       value={keyInput}
                       onChange={(e) => setKeyInput(e.target.value)}
-                      placeholder="e.g. account-1"
+                      placeholder="e.g. API_KEY"
                       className="h-7 font-mono text-xs"
                       autoFocus
                       onKeyDown={(e) => {
@@ -215,20 +198,9 @@ export function SystemEnvVarsClient() {
                   </td>
                   <td className="px-4 py-2.5">
                     <Input
-                      value={descriptionInput}
-                      onChange={(e) => setDescriptionInput(e.target.value)}
-                      placeholder="Optional description"
-                      className="h-7 text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") cancelAdd();
-                      }}
-                    />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Input
                       value={valueInput}
                       onChange={(e) => setValueInput(e.target.value)}
-                      placeholder="OAuth token value"
+                      placeholder="Enter value"
                       className="h-7 font-mono text-xs"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAdd();
@@ -268,9 +240,6 @@ export function SystemEnvVarsClient() {
                   className="border-b border-border/40 last:border-0"
                 >
                   <td className="px-4 py-2.5 font-mono text-xs">{v.key}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {v.description || "—"}
-                  </td>
                   <td className="px-4 py-2.5">
                     {editingKey === v.key ? (
                       <Input
@@ -343,23 +312,27 @@ export function SystemEnvVarsClient() {
                             <IconCopy size={14} />
                           )}
                         </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => startEdit(v.key)}
-                          title="Edit"
-                        >
-                          <IconPencil size={14} />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => setDeleteKey(v.key)}
-                          title="Delete"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <IconTrash size={14} />
-                        </Button>
+                        {!readOnly && (
+                          <>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => startEdit(v.key)}
+                              title="Edit"
+                            >
+                              <IconPencil size={14} />
+                            </Button>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => setDeleteKey(v.key)}
+                              title="Delete"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <IconTrash size={14} />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </td>
@@ -378,15 +351,14 @@ export function SystemEnvVarsClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete OAuth Token</DialogTitle>
+            <DialogTitle>Delete Variable</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete{" "}
             <span className="font-mono font-medium text-foreground">
               {deleteKey}
             </span>
-            ? This will also remove any linked account status. This cannot be
-            undone.
+            ? This cannot be undone.
           </p>
           <DialogFooter>
             <Button

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import { EnvVariablesClient } from "./EnvVariablesClient";
-import { SystemEnvVarsClient } from "./SystemEnvVarsClient";
+import { TeamEnvVarsClient } from "./TeamEnvVarsClient";
 
 export function EnvVariablesPageClient() {
   const [tab, setTab] = useState("repo");
@@ -14,11 +14,11 @@ export function EnvVariablesPageClient() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="repo">Repo</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
       </Tabs>
       {tab === "repo" && <EnvVariablesClient />}
-      {tab === "system" && <SystemEnvVarsClient />}
+      {tab === "team" && <TeamEnvVarsClient />}
     </PageWrapper>
   );
 }

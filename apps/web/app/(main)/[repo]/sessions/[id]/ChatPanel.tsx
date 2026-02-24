@@ -72,6 +72,7 @@ import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import dayjs from "@conductor/shared/dates";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];
@@ -474,9 +475,40 @@ export function ChatPanel({
                             {message.content}
                           </MessageResponse>
                         ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
-                          </p>
+                          <>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              {message.content}
+                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                              {message.mode && (
+                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                                  {message.mode === "execute" && (
+                                    <>
+                                      <IconCode className="w-2.5 h-2.5" />{" "}
+                                      Execute
+                                    </>
+                                  )}
+                                  {message.mode === "ask" && (
+                                    <>
+                                      <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
+                                      Ask
+                                    </>
+                                  )}
+                                  {message.mode === "plan" && (
+                                    <>
+                                      <IconClipboardList className="w-2.5 h-2.5" />{" "}
+                                      PRD
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                              {message.timestamp && (
+                                <span className="text-[11px] text-muted-foreground/60">
+                                  {dayjs(message.timestamp).format("h:mm A")}
+                                </span>
+                              )}
+                            </div>
+                          </>
                         )}
                         {message.role === "assistant" &&
                           message.activityLog &&
@@ -502,25 +534,6 @@ export function ChatPanel({
                       </>
                     )}
                   </MessageContent>
-                  {message.mode && message.role === "user" && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto animate-in fade-in duration-200">
-                      {message.mode === "execute" && (
-                        <>
-                          <IconCode className="w-3 h-3" /> Execute
-                        </>
-                      )}
-                      {message.mode === "ask" && (
-                        <>
-                          <IconMessageCircle2 className="w-3 h-3" /> Ask
-                        </>
-                      )}
-                      {message.mode === "plan" && (
-                        <>
-                          <IconClipboardList className="w-3 h-3" /> PRD
-                        </>
-                      )}
-                    </div>
-                  )}
                   {message.role === "user" && (
                     <div className="mt-0.5 ml-auto">
                       {message.userId ? (

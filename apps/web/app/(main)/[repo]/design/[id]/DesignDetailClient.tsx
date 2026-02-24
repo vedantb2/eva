@@ -42,6 +42,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { getWorkflowTokens } from "../../actions";
+import dayjs from "@conductor/shared/dates";
 
 type DesignSession = NonNullable<
   FunctionReturnType<typeof api.designSessions.get>
@@ -184,16 +185,12 @@ export function DesignDetailClient({
   };
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || !setupStatus?.isReady) return;
+    if (!text.trim() || !setupStatus?.isReady || !sandboxRunning) return;
     setIsSending(true);
     try {
       const { githubToken, convexToken } = await getWorkflowTokens(
         repo.installationId,
       );
-
-      if (!sandboxRunning) {
-        await startSandboxMutation({ id: typedId, githubToken });
-      }
 
       await executeMessage({
         id: typedId,
@@ -279,7 +276,13 @@ export function DesignDetailClient({
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-4">
             {session.messages.length === 0 ? (
-              <ConversationEmptyState title="Describe the UI you want to design" />
+              <ConversationEmptyState
+                title={
+                  sandboxRunning
+                    ? "Describe the UI you want to design"
+                    : "Start the sandbox to begin designing"
+                }
+              />
             ) : (
               session.messages.map((message, index) => (
                 <AIMessage key={index} from={message.role}>
@@ -321,13 +324,20 @@ export function DesignDetailClient({
                             <p className="text-sm whitespace-pre-wrap break-words">
                               {message.content}
                             </p>
-                            {message.personaId && (
-                              <p className="text-[11px] text-muted-foreground mt-1">
-                                {personas?.find(
-                                  (p) => p._id === message.personaId,
-                                )?.name ?? "Persona"}
-                              </p>
-                            )}
+                            <div className="flex items-center justify-between gap-3">
+                              {message.personaId && (
+                                <span className="text-[11px] text-muted-foreground/60">
+                                  {personas?.find(
+                                    (p) => p._id === message.personaId,
+                                  )?.name ?? "Persona"}
+                                </span>
+                              )}
+                              {message.timestamp && (
+                                <span className="text-[11px] text-muted-foreground/60">
+                                  {dayjs(message.timestamp).format("h:mm A")}
+                                </span>
+                              )}
+                            </div>
                           </>
                         )}
                         {message.role === "assistant" &&
@@ -348,8 +358,12 @@ export function DesignDetailClient({
         <div className="px-3 pb-4 pt-3">
           <PromptInput onSubmit={handlePromptSubmit}>
             <PromptInputTextarea
-              placeholder="Describe the design you want..."
-              disabled={isExecuting || !setupStatus?.isReady}
+              placeholder={
+                !sandboxRunning
+                  ? "Start the sandbox to begin designing..."
+                  : "Describe the design you want..."
+              }
+              disabled={isExecuting || !setupStatus?.isReady || !sandboxRunning}
             />
             <PromptInputFooter>
               <PersonaDropdown
@@ -359,12 +373,16 @@ export function DesignDetailClient({
               />
               <div className="flex items-center gap-1">
                 <PromptInputSpeech
-                  disabled={isExecuting || !setupStatus?.isReady}
+                  disabled={
+                    isExecuting || !setupStatus?.isReady || !sandboxRunning
+                  }
                 />
                 <PromptInputSubmit
                   status={submitStatus}
                   onStop={handleCancel}
-                  disabled={isExecuting || !setupStatus?.isReady}
+                  disabled={
+                    isExecuting || !setupStatus?.isReady || !sandboxRunning
+                  }
                 />
               </div>
             </PromptInputFooter>

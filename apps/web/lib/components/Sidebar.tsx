@@ -560,7 +560,6 @@ export function Sidebar() {
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                               createRequestId={sessionsCreateRequestId}
-                              installationId={repo.installationId}
                             />
                           ) : contextSidebarMode === "docs" ? (
                             <DocsSidebar

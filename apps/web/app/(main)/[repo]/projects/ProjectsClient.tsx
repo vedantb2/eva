@@ -172,7 +172,7 @@ export function ProjectsClient() {
           </Button>
         }
       >
-        <div className="flex flex-1 min-h-0 flex-col p-4">
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-4">
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />
@@ -188,7 +188,7 @@ export function ProjectsClient() {
               onAction={() => setIsCreating(true)}
             />
           ) : (
-            <div className="flex flex-col flex-1 min-h-0 gap-4">
+            <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-4">
               <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                 <div className="flex items-center rounded-lg border border-border overflow-hidden">
                   <Tooltip>
@@ -348,7 +348,7 @@ export function ProjectsClient() {
                 ) : view === "timeline" ? (
                   <motion.div
                     key="projects-timeline-view"
-                    className="flex flex-1 min-h-0"
+                    className="flex flex-1 min-h-0 min-w-0"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}

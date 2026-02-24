@@ -12,6 +12,7 @@ import {
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 import {
+  Button,
   Badge,
   Tooltip,
   TooltipContent,
@@ -29,11 +30,14 @@ const MAX_PX_PER_DAY = 80;
 const DEFAULT_PX_PER_DAY = 24;
 const ZOOM_FACTOR = 1.2;
 const DRAG_THRESHOLD_PX = 4;
+const EDGE_EXPAND_DAYS = 180;
+const EDGE_EXPAND_THRESHOLD_PX = 240;
 
 interface DragState {
   startX: number;
   startScroll: number;
   moved: boolean;
+  pointerId: number;
 }
 
 interface ProjectsTimelineProps {
@@ -51,48 +55,60 @@ export function ProjectsTimeline({
   const containerRef = useRef<HTMLDivElement>(null);
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [extraSpanDays, setExtraSpanDays] = useState({ left: 0, right: 0 });
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
-  const isDragging = dragRef.current !== null;
+  const hasAutoCenteredRef = useRef(false);
 
-  const { withDates, withoutDates, originDate, totalSpanDays } = useMemo(() => {
-    const dated = projects.filter(
-      (project) => project.projectStartDate && project.projectEndDate,
-    );
-    const undated = projects.filter(
-      (project) => !project.projectStartDate || !project.projectEndDate,
-    );
+  const { withDates, withoutDates, baseOriginDate, baseSpanDays } =
+    useMemo(() => {
+      const dated = projects.filter(
+        (project) => project.projectStartDate && project.projectEndDate,
+      );
+      const undated = projects.filter(
+        (project) => !project.projectStartDate || !project.projectEndDate,
+      );
 
-    if (dated.length === 0) {
+      if (dated.length === 0) {
+        return {
+          withDates: [],
+          withoutDates: undated,
+          baseOriginDate: 0,
+          baseSpanDays: 0,
+        };
+      }
+
+      const allDates = dated.flatMap((project) => {
+        const dates = [project.projectStartDate!, project.projectEndDate!];
+        if (project.deadline) dates.push(project.deadline);
+        return dates;
+      });
+      const today = Date.now();
+      const minDate = Math.min(...allDates, today);
+      const maxDate = Math.max(...allDates, today);
+      const spanDays = Math.max(1, Math.ceil((maxDate - minDate) / DAY_MS) + 1);
+      const paddingDays = Math.min(
+        60,
+        Math.max(14, Math.ceil(spanDays * 0.15)),
+      );
+      const origin = minDate - paddingDays * DAY_MS;
+      const span = spanDays + paddingDays * 2;
+
       return {
-        withDates: [],
+        withDates: dated,
         withoutDates: undated,
-        originDate: 0,
-        totalSpanDays: 0,
+        baseOriginDate: origin,
+        baseSpanDays: span,
       };
-    }
+    }, [projects]);
 
-    const allDates = dated.flatMap((project) => {
-      const dates = [project.projectStartDate!, project.projectEndDate!];
-      if (project.deadline) dates.push(project.deadline);
-      return dates;
-    });
-    const today = Date.now();
-    const minDate = Math.min(...allDates, today);
-    const maxDate = Math.max(...allDates, today);
-    const spanDays = Math.max(1, Math.ceil((maxDate - minDate) / DAY_MS) + 1);
-    const paddingDays = Math.min(60, Math.max(14, Math.ceil(spanDays * 0.15)));
-    const origin = minDate - paddingDays * DAY_MS;
-    const span = spanDays + paddingDays * 2;
-
-    return {
-      withDates: dated,
-      withoutDates: undated,
-      originDate: origin,
-      totalSpanDays: span,
-    };
-  }, [projects]);
-
+  const originDate =
+    baseSpanDays === 0 ? 0 : baseOriginDate - extraSpanDays.left * DAY_MS;
+  const totalSpanDays =
+    baseSpanDays === 0
+      ? 0
+      : baseSpanDays + extraSpanDays.left + extraSpanDays.right;
   const totalWidth = totalSpanDays * pxPerDay;
 
   const clampScroll = useCallback(
@@ -157,21 +173,56 @@ export function ProjectsTimeline({
   }, [setClampedScroll, totalWidth]);
 
   useEffect(() => {
-    if (totalSpanDays === 0) return;
+    setExtraSpanDays({ left: 0, right: 0 });
+    hasAutoCenteredRef.current = false;
+  }, [baseOriginDate, baseSpanDays]);
+
+  useEffect(() => {
+    if (totalSpanDays === 0 || hasAutoCenteredRef.current) return;
+    hasAutoCenteredRef.current = true;
     const raf = requestAnimationFrame(() => {
       scrollToToday();
     });
     // Keep first render centered to current date after layout is measured.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => cancelAnimationFrame(raf);
-  }, [totalSpanDays, originDate]);
+  }, [scrollToToday, totalSpanDays]);
 
   useEffect(() => {
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
+    if (totalSpanDays === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const viewportWidth = Math.max(0, container.clientWidth - LABEL_WIDTH);
+    const maxScroll = Math.max(0, totalWidth - viewportWidth);
+    const thresholdPx = Math.max(
+      EDGE_EXPAND_THRESHOLD_PX,
+      Math.round(viewportWidth * 0.2),
+    );
+
+    if (scrollLeft <= thresholdPx) {
+      const deltaPx = EDGE_EXPAND_DAYS * pxPerDay;
+      const nextTotalWidth = (totalSpanDays + EDGE_EXPAND_DAYS) * pxPerDay;
+      const nextMaxScroll = Math.max(0, nextTotalWidth - viewportWidth);
+      const nextScrollLeft = Math.min(scrollLeft + deltaPx, nextMaxScroll);
+      const appliedDelta = nextScrollLeft - scrollLeft;
+      setExtraSpanDays((prev) => ({
+        left: prev.left + EDGE_EXPAND_DAYS,
+        right: prev.right,
+      }));
+      setScrollLeft(nextScrollLeft);
+      if (dragRef.current) {
+        dragRef.current.startScroll += appliedDelta;
+      }
+      return;
+    }
+
+    if (maxScroll - scrollLeft <= thresholdPx) {
+      setExtraSpanDays((prev) => ({
+        left: prev.left,
+        right: prev.right + EDGE_EXPAND_DAYS,
+      }));
+    }
+  }, [pxPerDay, scrollLeft, totalSpanDays, totalWidth]);
 
   const monthLabels = useMemo(() => {
     if (totalSpanDays === 0) return [];
@@ -222,67 +273,118 @@ export function ProjectsTimeline({
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      const isHorizontalIntent = e.shiftKey || absX > absY * 1.2;
+
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const container = containerRef.current;
         if (!container) return;
         const rect = container.getBoundingClientRect();
-        const viewportX = Math.max(0, e.clientX - rect.left - LABEL_WIDTH);
+        const viewportWidth = Math.max(0, container.clientWidth - LABEL_WIDTH);
+        const viewportX = Math.min(
+          viewportWidth,
+          Math.max(0, e.clientX - rect.left - LABEL_WIDTH),
+        );
         const delta = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
         setZoom(pxPerDay * delta, viewportX);
         return;
       }
 
-      const isHorizontalIntent =
-        e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
       if (isHorizontalIntent) {
         e.preventDefault();
         const delta =
           Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
         setClampedScroll((prev) => prev + delta);
+        return;
       }
+
+      // Default wheel behavior on timeline: vertical wheel zooms in/out.
+      e.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const viewportWidth = Math.max(0, container.clientWidth - LABEL_WIDTH);
+      const viewportX = Math.min(
+        viewportWidth,
+        Math.max(0, e.clientX - rect.left - LABEL_WIDTH),
+      );
+      const delta = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+      setZoom(pxPerDay * delta, viewportX);
     },
     [pxPerDay, setClampedScroll, setZoom],
   );
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const movement = Math.abs(dragRef.current.startX - e.clientX);
-      if (movement > DRAG_THRESHOLD_PX) {
-        dragRef.current.moved = true;
-      }
-      const dx = dragRef.current.startX - e.clientX;
-      setClampedScroll(dragRef.current.startScroll + dx);
-    },
-    [setClampedScroll],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    if (dragRef.current?.moved) {
+  const finishDrag = useCallback((pointerId?: number) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (pointerId !== undefined && drag.pointerId !== pointerId) return;
+    if (drag.moved) {
       suppressClickRef.current = true;
       requestAnimationFrame(() => {
         suppressClickRef.current = false;
       });
     }
     dragRef.current = null;
-    window.removeEventListener("mousemove", handleMouseMove);
-    window.removeEventListener("mouseup", handleMouseUp);
-  }, [handleMouseMove]);
+    setIsDragging(false);
+  }, []);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
+      if (dragRef.current) return;
       dragRef.current = {
         startX: e.clientX,
         startScroll: scrollLeft,
         moved: false,
+        pointerId: e.pointerId,
       };
+      setIsDragging(true);
       e.preventDefault();
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [scrollLeft, handleMouseMove, handleMouseUp],
+    [scrollLeft],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const movement = Math.abs(drag.startX - e.clientX);
+      if (movement > DRAG_THRESHOLD_PX) {
+        drag.moved = true;
+      }
+      const dx = drag.startX - e.clientX;
+      setClampedScroll(drag.startScroll + dx);
+    },
+    [setClampedScroll],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      finishDrag(e.pointerId);
+    },
+    [finishDrag],
+  );
+
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      finishDrag(e.pointerId);
+    },
+    [finishDrag],
+  );
+
+  const handleLostPointerCapture = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      finishDrag(e.pointerId);
+    },
+    [finishDrag],
   );
 
   const openProject = useCallback((projectId: Id<"projects">) => {
@@ -294,14 +396,18 @@ export function ProjectsTimeline({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="relative flex min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-card/60 select-none"
+            className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-card/60 select-none"
             style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onLostPointerCapture={handleLostPointerCapture}
           >
             {todayX !== null && (
               <div
@@ -315,17 +421,30 @@ export function ProjectsTimeline({
               </div>
             )}
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="flex border-b border-border/70 bg-background/55">
                 <div
-                  className="flex shrink-0 items-end px-3 pb-2"
+                  className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2"
                   style={{ width: LABEL_WIDTH }}
                 >
                   <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                     Project
                   </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px]"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      scrollToToday();
+                    }}
+                  >
+                    Today
+                  </Button>
                 </div>
-                <div className="flex-1 overflow-hidden border-l border-border/60">
+                <div className="min-w-0 flex-1 overflow-hidden border-l border-border/60">
                   <div
                     className="relative bg-gradient-to-b from-muted/30 to-transparent transition-transform duration-200 ease-out"
                     style={{
@@ -359,7 +478,7 @@ export function ProjectsTimeline({
                 </div>
               </div>
 
-              <div className="min-h-0 overflow-y-auto scrollbar">
+              <div className="min-h-0 min-w-0 overflow-y-auto scrollbar">
                 {withDates.map((project, index) => {
                   const start = project.projectStartDate!;
                   const end = project.projectEndDate!;
@@ -416,7 +535,7 @@ export function ProjectsTimeline({
                       </button>
 
                       <div
-                        className="relative h-full flex-1 overflow-hidden border-l border-border/50"
+                        className="relative h-full min-w-0 flex-1 overflow-hidden border-l border-border/50"
                         style={{ height: ROW_HEIGHT }}
                       >
                         <div

@@ -40,8 +40,8 @@ export function KanbanColumn({
   return (
     <Card
       ref={setNodeRef}
-      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip shadow-none transition-colors duration-200 ${
-        isOver ? "border-primary/30 bg-primary/5" : "bg-card/50"
+      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip shadow-none transition-colors duration-200 border-none ${
+        isOver ? "bg-primary/10" : "bg-accent/40"
       }`}
     >
       <CardHeader className="flex flex-row items-center justify-between p-2 pb-1 md:p-2 md:pb-1 flex-shrink-0 space-y-0">

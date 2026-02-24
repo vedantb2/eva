@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  IconLayoutDashboard,
-  IconChartBar,
-  IconKey,
-  IconCamera,
-} from "@tabler/icons-react";
+import { IconChartBar, IconKey, IconCamera } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
 interface AdminSidebarProps {
@@ -23,7 +18,6 @@ export function AdminSidebar({
   const baseUrl = `/${repoSlug}/admin`;
 
   const navigation = [
-    { name: "Overview", href: baseUrl, icon: IconLayoutDashboard },
     { name: "Stats", href: `${baseUrl}/stats`, icon: IconChartBar },
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
@@ -32,9 +26,7 @@ export function AdminSidebar({
   return (
     <div className="space-y-1 px-1">
       {navigation.map((item) => {
-        const isActive =
-          pathname === item.href ||
-          (item.href !== baseUrl && pathname.startsWith(item.href));
+        const isActive = pathname.startsWith(item.href);
         return (
           <Link
             key={item.name}

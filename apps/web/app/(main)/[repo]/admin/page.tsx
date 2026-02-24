@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default function AdminPage({ params }: { params: { repo: string } }) {
-  redirect(`/${params.repo}/admin/stats`);
+export default async function AdminPage({
+  params,
+}: {
+  params: Promise<{ repo: string }>;
+}) {
+  const { repo } = await params;
+  redirect(`/${repo}/admin/stats`);
 }

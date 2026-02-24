@@ -398,17 +398,6 @@ child.on("close", async (code) => {
     } catch {}
   }
 
-  const allOutput = (resultEvent?.result ?? "") + " " + stderrOutput;
-  const rateLimitPatterns = ["usage limit", "rate_limit_error", "rate_limit", "429", "Usage limit reached"];
-  const isRateLimit = !resultEvent?.isError ? false : rateLimitPatterns.some(p => allOutput.toLowerCase().includes(p.toLowerCase()));
-  let limitResetAt = null;
-  if (isRateLimit) {
-    const resetMatch = allOutput.match(/limit will reset at ([^.\\n"]+)/i);
-    if (resetMatch && resetMatch[1]) {
-      try { limitResetAt = new Date(resetMatch[1].trim()).toISOString(); } catch {}
-    }
-  }
-
   try {
     await callMutation("${completionMutation}", {
       ${entityIdField}: ENTITY_ID,
@@ -416,9 +405,6 @@ child.on("close", async (code) => {
       result: resultEvent?.result ?? rawOutput,
       error: resultEvent?.isError ? resultEvent.result : (code !== 0 ? "Claude CLI exited with code " + code : null),
       activityLog,
-      errorType: isRateLimit ? "rate_limit" : null,
-      limitResetAt: limitResetAt,
-      accountKey: process.env.ACCOUNT_KEY || null,
     });
   } catch (e) {
     console.error("Failed to send completion:", e);
@@ -435,9 +421,6 @@ child.on("error", async (err) => {
       result: null,
       error: err.message,
       activityLog: "[]",
-      errorType: null,
-      limitResetAt: null,
-      accountKey: process.env.ACCOUNT_KEY || null,
     });
   } catch {}
 });

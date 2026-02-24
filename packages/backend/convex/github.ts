@@ -72,8 +72,9 @@ export const getInstallationTokenAction = action({
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
     const creds = getGitHubCredentials();
     const auth = createAppAuth(creds);
     const installationAuth = await auth({
@@ -93,8 +94,9 @@ export const listBranches = action({
   returns: v.array(v.object({ name: v.string(), protected: v.boolean() })),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
     const octokit = await getInstallationOctokit(args.installationId);
     const allBranches = await octokit.paginate(
       octokit.rest.repos.listBranches,
@@ -122,8 +124,9 @@ export const listRepos = action({
   ),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
     const octokit = await getInstallationOctokit(args.installationId);
     const repos = await octokit.rest.apps.listReposAccessibleToInstallation({
       per_page: 100,
@@ -144,8 +147,9 @@ export const createSessionPr = action({
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
     const session = await ctx.runQuery(internal.sessions.getInternal, {
       id: args.sessionId,
     });
@@ -186,13 +190,16 @@ export const syncRepos = action({
   returns: v.object({ success: v.boolean(), synced: v.number() }),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
 
-    const clerkUserId = identity.subject;
     const user = await ctx.runQuery(internal.auth.getUserByClerkId, {
-      clerkId: clerkUserId,
+      clerkId: identity.subject,
     });
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      throw new Error("User not found");
+    }
 
     const personalTeamId = await ctx.runMutation(
       internal.teams.getOrCreatePersonal,

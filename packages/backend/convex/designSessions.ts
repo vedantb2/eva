@@ -1,10 +1,10 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { getCurrentUserId } from "./auth";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { roleValidator, sessionStatusValidator } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 const variationValidator = v.object({
   label: v.string(),
@@ -38,12 +38,10 @@ const designSessionValidator = v.object({
   messages: v.array(messageValidator),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     const sessions = await ctx.db
       .query("designSessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -57,28 +55,24 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("designSessions") },
   returns: v.union(designSessionValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
   },
   returns: v.id("designSessions"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     return await ctx.db.insert("designSessions", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       title: args.title,
       status: "active",
       messages: [],
@@ -87,7 +81,7 @@ export const create = mutation({
   },
 });
 
-export const addMessage = mutation({
+export const addMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     role: roleValidator,
@@ -98,8 +92,6 @@ export const addMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     await ctx.db.patch(args.id, {
@@ -110,7 +102,7 @@ export const addMessage = mutation({
           content: args.content,
           timestamp: Date.now(),
           activityLog: args.activityLog,
-          userId,
+          userId: ctx.userId,
           personaId: args.personaId,
           variations: args.variations,
         },
@@ -121,7 +113,7 @@ export const addMessage = mutation({
   },
 });
 
-export const updateLastMessage = mutation({
+export const updateLastMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     content: v.optional(v.string()),
@@ -130,7 +122,6 @@ export const updateLastMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     const messages = [...session.messages];
@@ -144,15 +135,13 @@ export const updateLastMessage = mutation({
   },
 });
 
-export const selectVariation = mutation({
+export const selectVariation = authMutation({
   args: {
     id: v.id("designSessions"),
     variationIndex: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     await ctx.db.patch(args.id, {
@@ -183,15 +172,13 @@ export const updateSandbox = internalMutation({
   },
 });
 
-export const startSandbox = mutation({
+export const startSandbox = authMutation({
   args: {
     id: v.id("designSessions"),
     githubToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     const repo = await ctx.db.get(session.repoId);
@@ -210,12 +197,10 @@ export const startSandbox = mutation({
   },
 });
 
-export const stopSandbox = mutation({
+export const stopSandbox = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     if (session.sandboxId) {
@@ -276,7 +261,7 @@ export const sandboxError = internalMutation({
   },
 });
 
-export const executeMessage = mutation({
+export const executeMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     message: v.string(),
@@ -286,8 +271,6 @@ export const executeMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
@@ -299,7 +282,7 @@ export const executeMessage = mutation({
           role: "user" as const,
           content: args.message,
           timestamp: now,
-          userId,
+          userId: ctx.userId,
           personaId: args.personaId,
         },
         {
@@ -332,12 +315,10 @@ export const executeMessage = mutation({
   },
 });
 
-export const cancelExecution = mutation({
+export const cancelExecution = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
@@ -370,15 +351,13 @@ export const cancelExecution = mutation({
   },
 });
 
-export const archive = mutation({
+export const archive = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    if (session.userId !== userId) throw new Error("Not authorized");
+    if (session.userId !== ctx.userId) throw new Error("Not authorized");
     await ctx.db.patch(args.id, { archived: true });
     return null;
   },

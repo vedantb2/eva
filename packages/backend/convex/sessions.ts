@@ -1,12 +1,7 @@
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 import {
   roleValidator,
   sessionModeValidator,
@@ -49,14 +44,10 @@ const sessionValidator = v.object({
   activeWorkflowId: v.optional(v.string()),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(sessionValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -70,42 +61,34 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("sessions") },
   returns: v.union(sessionValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
   },
   returns: v.id("sessions"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     return await ctx.db.insert("sessions", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       title: args.title,
       status: "active",
       messages: [],
-      createdBy: userId,
+      createdBy: ctx.userId,
       updatedAt: Date.now(),
     });
   },
 });
 
-export const addMessage = mutation({
+export const addMessage = authMutation({
   args: {
     id: v.id("sessions"),
     role: roleValidator,
@@ -115,10 +98,6 @@ export const addMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -132,7 +111,7 @@ export const addMessage = mutation({
           timestamp: Date.now(),
           mode: args.mode,
           activityLog: args.activityLog,
-          userId,
+          userId: ctx.userId,
         },
       ],
       updatedAt: Date.now(),
@@ -141,17 +120,13 @@ export const addMessage = mutation({
   },
 });
 
-export const updateStatus = mutation({
+export const updateStatus = authMutation({
   args: {
     id: v.id("sessions"),
     status: sessionStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -161,7 +136,7 @@ export const updateStatus = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("sessions"),
     title: v.optional(v.string()),
@@ -170,10 +145,6 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -187,32 +158,27 @@ export const update = mutation({
   },
 });
 
-export const updateSummary = mutation({
+export const updateSummary = authMutation({
   args: {
     id: v.id("sessions"),
     summary: v.array(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     await ctx.db.patch(args.id, { summary: args.summary });
     return null;
   },
 });
 
-export const archive = mutation({
+export const archive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
     }
-    if (session.userId !== userId) {
+    if (session.userId !== ctx.userId) {
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { archived: true });
@@ -220,7 +186,7 @@ export const archive = mutation({
   },
 });
 
-export const updateSandbox = mutation({
+export const updateSandbox = authMutation({
   args: {
     id: v.id("sessions"),
     sandboxId: v.optional(v.string()),
@@ -229,7 +195,6 @@ export const updateSandbox = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -248,11 +213,10 @@ export const updateSandbox = mutation({
   },
 });
 
-export const clearSandbox = mutation({
+export const clearSandbox = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -262,14 +226,13 @@ export const clearSandbox = mutation({
   },
 });
 
-export const updatePtySession = mutation({
+export const updatePtySession = authMutation({
   args: {
     id: v.id("sessions"),
     ptySessionId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -282,14 +245,13 @@ export const updatePtySession = mutation({
   },
 });
 
-export const updateFileDiffs = mutation({
+export const updateFileDiffs = authMutation({
   args: {
     id: v.id("sessions"),
     fileDiffs: v.array(fileDiffValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) {
       throw new Error("Session not found");
@@ -364,14 +326,13 @@ export const getOrCreateExtensionSession = mutation({
   },
 });
 
-export const updatePlanContent = mutation({
+export const updatePlanContent = authMutation({
   args: {
     id: v.id("sessions"),
     planContent: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Session not found");
     await ctx.db.patch(args.id, { planContent: args.planContent });
@@ -379,7 +340,7 @@ export const updatePlanContent = mutation({
   },
 });
 
-export const updateLastMessage = mutation({
+export const updateLastMessage = authMutation({
   args: {
     id: v.id("sessions"),
     content: v.optional(v.string()),
@@ -387,7 +348,6 @@ export const updateLastMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Session not found");
     const messages = [...session.messages];
@@ -400,15 +360,13 @@ export const updateLastMessage = mutation({
   },
 });
 
-export const startSandbox = mutation({
+export const startSandbox = authMutation({
   args: {
     sessionId: v.id("sessions"),
     githubToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     const repo = await ctx.db.get(session.repoId);
@@ -427,12 +385,10 @@ export const startSandbox = mutation({
   },
 });
 
-export const stopSandbox = mutation({
+export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.sandboxId) {
@@ -449,7 +405,7 @@ export const stopSandbox = mutation({
           role: "assistant" as const,
           content: "Sandbox stopped. Start the sandbox to continue working.",
           timestamp: Date.now(),
-          userId,
+          userId: ctx.userId,
         },
       ],
       updatedAt: Date.now(),

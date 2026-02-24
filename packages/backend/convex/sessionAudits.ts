@@ -1,10 +1,10 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { evaluationStatusValidator, evalResultValidator } from "./validators";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 
-export const getBySession = query({
+export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
   returns: v.union(
     v.object({
@@ -22,8 +22,6 @@ export const getBySession = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
     const audits = await ctx.db
       .query("sessionAudits")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -33,16 +31,13 @@ export const getBySession = query({
   },
 });
 
-export const startAudit = mutation({
+export const startAudit = authMutation({
   args: {
     sessionId: v.id("sessions"),
     convexToken: v.string(),
   },
   returns: v.id("sessionAudits"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (!session.sandboxId) throw new Error("No sandbox available");
@@ -75,7 +70,7 @@ function extractJsonBlock(text: string): string {
   return text;
 }
 
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
     success: v.boolean(),
@@ -85,9 +80,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
     const audits = await ctx.db
       .query("sessionAudits")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))

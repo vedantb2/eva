@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
@@ -294,7 +294,7 @@ export const createPrAction = internalMutation({
 /**
  * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     docId: v.id("docs"),
     success: v.boolean(),
@@ -304,9 +304,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const doc = await ctx.db.get(args.docId);
     if (!doc || !doc.activeWorkflowId) return null;
 
@@ -328,7 +325,7 @@ export const handleCompletion = mutation({
 /**
  * Public mutation to start the test generation workflow.
  */
-export const startTestGen = mutation({
+export const startTestGen = authMutation({
   args: {
     docId: v.id("docs"),
     convexToken: v.string(),
@@ -336,9 +333,6 @@ export const startTestGen = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const doc = await ctx.db.get(args.docId);
     if (!doc) throw new Error("Doc not found");
 

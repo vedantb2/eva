@@ -1,18 +1,11 @@
 import { v } from "convex/values";
-import {
-  mutation,
-  query,
-  internalQuery,
-  internalMutation,
-} from "./_generated/server";
-import { getCurrentUserId } from "./auth";
+import { internalQuery, internalMutation } from "./_generated/server";
+import { authQuery, authMutation } from "./functions";
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     const doc = await ctx.db
       .query("repoEnvVars")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -62,15 +55,13 @@ export const upsertVarInternal = internalMutation({
   },
 });
 
-export const removeVar = mutation({
+export const removeVar = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     key: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const doc = await ctx.db
       .query("repoEnvVars")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))

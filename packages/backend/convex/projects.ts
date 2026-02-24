@@ -1,9 +1,8 @@
-import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { getCurrentUserId } from "./auth";
 import { roleValidator, phaseValidator } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -36,14 +35,10 @@ const projectValidator = v.object({
   activeWorkflowId: v.optional(v.string()),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(projectValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -79,14 +74,10 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("projects") },
   returns: v.union(projectValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       return null;
@@ -116,7 +107,7 @@ export const get = query({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -125,13 +116,9 @@ export const create = mutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     return await ctx.db.insert("projects", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       title: args.title,
       rawInput: args.rawInput,
       baseBranch: args.baseBranch,
@@ -141,14 +128,14 @@ export const create = mutation({
         {
           role: "user",
           content: args.rawInput,
-          userId,
+          userId: ctx.userId,
         },
       ],
     });
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("projects"),
     title: v.optional(v.string()),
@@ -164,10 +151,6 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -182,7 +165,7 @@ export const update = mutation({
   },
 });
 
-export const addMessage = mutation({
+export const addMessage = authMutation({
   args: {
     id: v.id("projects"),
     role: roleValidator,
@@ -191,10 +174,6 @@ export const addMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -206,7 +185,7 @@ export const addMessage = mutation({
           role: args.role,
           content: args.content,
           activityLog: args.activityLog,
-          userId,
+          userId: ctx.userId,
         },
       ],
     });
@@ -214,14 +193,10 @@ export const addMessage = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -231,19 +206,15 @@ export const remove = mutation({
   },
 });
 
-export const deleteCascade = mutation({
+export const deleteCascade = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
     }
-    if (project.userId !== userId) {
+    if (project.userId !== ctx.userId) {
       throw new Error("Not authorized");
     }
     const tasks = await ctx.db
@@ -286,14 +257,10 @@ export const deleteCascade = mutation({
   },
 });
 
-export const clearMessages = mutation({
+export const clearMessages = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -305,14 +272,10 @@ export const clearMessages = mutation({
   },
 });
 
-export const getTaskCount = query({
+export const getTaskCount = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return 0;
-    }
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -321,7 +284,7 @@ export const getTaskCount = query({
   },
 });
 
-export const getTaskProgress = query({
+export const getTaskProgress = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({
     total: v.number(),
@@ -332,16 +295,6 @@ export const getTaskProgress = query({
     done: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    const empty = {
-      total: 0,
-      todo: 0,
-      in_progress: 0,
-      business_review: 0,
-      code_review: 0,
-      done: 0,
-    };
-    if (!userId) return empty;
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -418,20 +371,12 @@ function parseSpec(specJson: string): ParsedSpec {
   };
 }
 
-export const startDevelopment = mutation({
+export const startDevelopment = authMutation({
   args: {
     projectId: v.id("projects"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.projectId);
     if (!project) {
       throw new Error("Project not found");
@@ -457,7 +402,7 @@ export const startDevelopment = mutation({
     if (!board) {
       const boardId = await ctx.db.insert("boards", {
         name: "Project Tasks",
-        ownerId: identity.subject,
+        ownerId: ctx.userId,
         repoId: project.repoId,
         createdAt: Date.now(),
       });
@@ -499,7 +444,7 @@ export const startDevelopment = mutation({
         order: i,
         createdAt: now,
         updatedAt: now,
-        createdBy: userId,
+        createdBy: ctx.userId,
       });
       taskIdMap.set(taskNumber, taskId);
       for (let j = 0; j < task.subtasks.length; j++) {
@@ -542,7 +487,7 @@ export const startDevelopment = mutation({
         order: spec.tasks.length + i,
         createdAt: now,
         updatedAt: now,
-        createdBy: userId,
+        createdBy: ctx.userId,
       });
       for (let j = 0; j < audit.subtasks.length; j++) {
         await ctx.db.insert("subtasks", {
@@ -568,7 +513,7 @@ export const startDevelopment = mutation({
   },
 });
 
-export const createFromTasks = mutation({
+export const createFromTasks = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -576,10 +521,6 @@ export const createFromTasks = mutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const slugify = (text: string) =>
       text
         .toLowerCase()
@@ -589,7 +530,7 @@ export const createFromTasks = mutation({
     const branchName = `conductor/${slugify(args.title)}`;
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       title: args.title,
       rawInput: args.title,
       phase: "active",
@@ -607,14 +548,13 @@ export const createFromTasks = mutation({
   },
 });
 
-export const updatePrUrl = mutation({
+export const updatePrUrl = authMutation({
   args: {
     id: v.id("projects"),
     prUrl: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -624,14 +564,13 @@ export const updatePrUrl = mutation({
   },
 });
 
-export const updateProjectSandbox = mutation({
+export const updateProjectSandbox = authMutation({
   args: {
     id: v.id("projects"),
     sandboxId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -644,11 +583,10 @@ export const updateProjectSandbox = mutation({
   },
 });
 
-export const clearProjectSandbox = mutation({
+export const clearProjectSandbox = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -666,11 +604,10 @@ export const clearProjectSandbox = mutation({
   },
 });
 
-export const updateLastSandboxActivity = mutation({
+export const updateLastSandboxActivity = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) {
       throw new Error("Project not found");
@@ -680,7 +617,7 @@ export const updateLastSandboxActivity = mutation({
   },
 });
 
-export const updateLastConversationMessage = mutation({
+export const updateLastConversationMessage = authMutation({
   args: {
     id: v.id("projects"),
     content: v.optional(v.string()),
@@ -688,7 +625,6 @@ export const updateLastConversationMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const project = await ctx.db.get(args.id);
     if (!project) throw new Error("Project not found");
     const messages = [...project.conversationHistory];

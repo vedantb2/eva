@@ -1,19 +1,15 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authMutation, authQuery } from "./functions";
 
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = authMutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     return await ctx.storage.generateUploadUrl();
   },
 });
 
-export const save = mutation({
+export const save = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     storageId: v.id("_storage"),
@@ -22,16 +18,12 @@ export const save = mutation({
   },
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.taskId);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     return await ctx.db.insert("taskProof", {
@@ -44,7 +36,7 @@ export const save = mutation({
   },
 });
 
-export const listByTask = query({
+export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
     v.object({
@@ -59,16 +51,12 @@ export const listByTask = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const task = await ctx.db.get(args.taskId);
     if (!task) {
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const proofs = await ctx.db
@@ -84,14 +72,10 @@ export const listByTask = query({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("taskProof") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const proof = await ctx.db.get(args.id);
     if (!proof) {
       throw new Error("Proof not found");
@@ -101,7 +85,7 @@ export const remove = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Proof not found");
     }
     await ctx.storage.delete(proof.storageId);

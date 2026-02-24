@@ -1,6 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 
 const dependencyValidator = v.object({
   _id: v.id("taskDependencies"),
@@ -9,14 +8,10 @@ const dependencyValidator = v.object({
   dependsOnId: v.id("agentTasks"),
 });
 
-export const getForTask = query({
+export const getForTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     return await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -24,14 +19,10 @@ export const getForTask = query({
   },
 });
 
-export const getDependents = query({
+export const getDependents = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     return await ctx.db
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
@@ -39,7 +30,7 @@ export const getDependents = query({
   },
 });
 
-export const getDependencies = query({
+export const getDependencies = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
     v.object({
@@ -50,10 +41,6 @@ export const getDependencies = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const dependencies = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -74,14 +61,10 @@ export const getDependencies = query({
   },
 });
 
-export const isBlocked = query({
+export const isBlocked = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return false;
-    }
     const dependencies = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -96,17 +79,13 @@ export const isBlocked = query({
   },
 });
 
-export const add = mutation({
+export const add = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     dependsOnId: v.id("agentTasks"),
   },
   returns: v.id("taskDependencies"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     if (args.taskId === args.dependsOnId) {
       throw new Error("A task cannot depend on itself");
     }
@@ -125,14 +104,10 @@ export const add = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("taskDependencies") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const dep = await ctx.db.get(args.id);
     if (!dep) {
       throw new Error("Dependency not found");
@@ -142,17 +117,13 @@ export const remove = mutation({
   },
 });
 
-export const removeByTasks = mutation({
+export const removeByTasks = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     dependsOnId: v.id("agentTasks"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const dep = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))

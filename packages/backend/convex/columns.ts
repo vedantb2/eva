@@ -1,5 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authQuery, authMutation } from "./functions";
 
 const columnValidator = v.object({
   _id: v.id("columns"),
@@ -10,16 +10,12 @@ const columnValidator = v.object({
   isRunColumn: v.optional(v.boolean()),
 });
 
-export const listByBoard = query({
+export const listByBoard = authQuery({
   args: { boardId: v.id("boards") },
   returns: v.array(columnValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const columns = await ctx.db
@@ -30,19 +26,15 @@ export const listByBoard = query({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     boardId: v.id("boards"),
     name: v.string(),
   },
   returns: v.id("columns"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Board not found");
     }
     const columns = await ctx.db
@@ -59,7 +51,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("columns"),
     name: v.optional(v.string()),
@@ -67,16 +59,12 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const column = await ctx.db.get(args.id);
     if (!column) {
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Column not found");
     }
     if (args.isRunColumn === true) {
@@ -98,23 +86,19 @@ export const update = mutation({
   },
 });
 
-export const reorder = mutation({
+export const reorder = authMutation({
   args: {
     id: v.id("columns"),
     newOrder: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const column = await ctx.db.get(args.id);
     if (!column) {
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Column not found");
     }
     const oldOrder = column.order;
@@ -142,20 +126,16 @@ export const reorder = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("columns") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const column = await ctx.db.get(args.id);
     if (!column) {
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Column not found");
     }
     const tasks = await ctx.db

@@ -1,6 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 import { Timeline } from "convex-timeline";
 import { components } from "./_generated/api";
 import { evaluationStatusValidator, roleValidator } from "./validators";
@@ -46,14 +46,10 @@ const docValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(docValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     return await ctx.db
       .query("docs")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -61,19 +57,15 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("docs") },
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -86,10 +78,6 @@ export const create = mutation({
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const now = Date.now();
     return await ctx.db.insert("docs", {
       repoId: args.repoId,
@@ -104,7 +92,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("docs"),
     title: v.optional(v.string()),
@@ -117,10 +105,6 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Doc not found");
@@ -146,14 +130,10 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Doc not found");
@@ -164,14 +144,10 @@ export const remove = mutation({
   },
 });
 
-export const startTestGen = mutation({
+export const startTestGen = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Doc not found");
@@ -184,14 +160,10 @@ export const startTestGen = mutation({
   },
 });
 
-export const completeTestGen = mutation({
+export const completeTestGen = authMutation({
   args: { id: v.id("docs"), prUrl: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Doc not found");
@@ -204,14 +176,10 @@ export const completeTestGen = mutation({
   },
 });
 
-export const failTestGen = mutation({
+export const failTestGen = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Doc not found");
@@ -223,12 +191,10 @@ export const failTestGen = mutation({
   },
 });
 
-export const saveVersion = mutation({
+export const saveVersion = authMutation({
   args: { id: v.id("docs"), content: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Doc not found");
     await docTimeline.push(ctx, `doc:${args.id}`, {
@@ -239,12 +205,10 @@ export const saveVersion = mutation({
   },
 });
 
-export const timelineUndo = mutation({
+export const timelineUndo = authMutation({
   args: { id: v.id("docs") },
   returns: v.union(snapshotValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const result = await docTimeline.undo(ctx, `doc:${args.id}`);
     const snapshot = parseSnapshot(result);
     if (snapshot) {
@@ -257,12 +221,10 @@ export const timelineUndo = mutation({
   },
 });
 
-export const timelineRedo = mutation({
+export const timelineRedo = authMutation({
   args: { id: v.id("docs") },
   returns: v.union(snapshotValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const result = await docTimeline.redo(ctx, `doc:${args.id}`);
     const snapshot = parseSnapshot(result);
     if (snapshot) {
@@ -275,7 +237,7 @@ export const timelineRedo = mutation({
   },
 });
 
-export const timelineStatus = query({
+export const timelineStatus = authQuery({
   args: { id: v.id("docs") },
   returns: v.object({
     canUndo: v.boolean(),
@@ -284,19 +246,14 @@ export const timelineStatus = query({
     length: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId)
-      return { canUndo: false, canRedo: false, position: null, length: 0 };
     return await docTimeline.status(ctx, `doc:${args.id}`);
   },
 });
 
-export const timelineHistory = query({
+export const timelineHistory = authQuery({
   args: { id: v.id("docs") },
   returns: v.array(v.object({ position: v.number(), title: v.string() })),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     const nodes = await docTimeline.listNodes(ctx, `doc:${args.id}`);
     return nodes.map((node) => {
       const snapshot = parseSnapshot(node.document);
@@ -305,7 +262,7 @@ export const timelineHistory = query({
   },
 });
 
-export const addInterviewMessage = mutation({
+export const addInterviewMessage = authMutation({
   args: {
     id: v.id("docs"),
     role: roleValidator,
@@ -314,7 +271,6 @@ export const addInterviewMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Doc not found");
     const history = doc.interviewHistory ?? [];
@@ -322,14 +278,14 @@ export const addInterviewMessage = mutation({
       role: args.role,
       content: args.content,
       activityLog: args.activityLog,
-      userId: userId ?? undefined,
+      userId: ctx.userId,
     });
     await ctx.db.patch(args.id, { interviewHistory: history });
     return null;
   },
 });
 
-export const updateLastInterviewMessage = mutation({
+export const updateLastInterviewMessage = authMutation({
   args: {
     id: v.id("docs"),
     content: v.optional(v.string()),
@@ -337,7 +293,6 @@ export const updateLastInterviewMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Doc not found");
     const history = [...(doc.interviewHistory ?? [])];
@@ -350,11 +305,10 @@ export const updateLastInterviewMessage = mutation({
   },
 });
 
-export const clearInterview = mutation({
+export const clearInterview = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Doc not found");
     await ctx.db.patch(args.id, {
@@ -365,11 +319,10 @@ export const clearInterview = mutation({
   },
 });
 
-export const updateDocSandbox = mutation({
+export const updateDocSandbox = authMutation({
   args: { id: v.id("docs"), sandboxId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Doc not found");
     await ctx.db.patch(args.id, { sandboxId: args.sandboxId });

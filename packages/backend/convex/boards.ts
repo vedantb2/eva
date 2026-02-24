@@ -1,12 +1,12 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { taskStatusValidator } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 const boardValidator = v.object({
   _id: v.id("boards"),
   _creationTime: v.number(),
   name: v.string(),
-  ownerId: v.string(),
+  ownerId: v.id("users"),
   repoId: v.optional(v.id("githubRepos")),
   createdAt: v.number(),
 });
@@ -37,54 +37,42 @@ const agentTaskValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const list = query({
+export const list = authQuery({
   args: {},
   returns: v.array(boardValidator),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     return await ctx.db
       .query("boards")
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
+      .withIndex("by_owner", (q) => q.eq("ownerId", ctx.userId))
       .collect();
   },
 });
 
-export const listByRepo = query({
+export const listByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(boardValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return boards.filter((b) => b.ownerId === identity.subject);
+    return boards.filter((b) => b.ownerId === ctx.userId);
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("boards") },
   returns: v.union(boardValidator, v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return null;
     }
     return board;
   },
 });
 
-export const getWithColumns = query({
+export const getWithColumns = authQuery({
   args: { id: v.id("boards") },
   returns: v.union(
     v.object({
@@ -99,12 +87,8 @@ export const getWithColumns = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return null;
     }
     const columns = await ctx.db
@@ -126,17 +110,13 @@ export const getWithColumns = query({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: { name: v.string(), repoId: v.optional(v.id("githubRepos")) },
   returns: v.id("boards"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const boardId = await ctx.db.insert("boards", {
       name: args.name,
-      ownerId: identity.subject,
+      ownerId: ctx.userId,
       repoId: args.repoId,
       createdAt: Date.now(),
     });
@@ -157,19 +137,15 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("boards"),
     name: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Board not found");
     }
     await ctx.db.patch(args.id, { name: args.name });
@@ -177,16 +153,12 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("boards") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Board not found");
     }
     const tasks = await ctx.db

@@ -495,7 +495,9 @@ export const getPreviewUrl = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
 
     const daytona = getDaytona();
     const sandbox = await daytona.get(args.sandboxId);

@@ -1,8 +1,8 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
 import { createNotification } from "./notifications";
+import { authQuery, authMutation } from "./functions";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -23,14 +23,10 @@ const agentRunValidator = v.object({
   error: v.optional(v.string()),
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(agentRunValidator, v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
     const run = await ctx.db.get(args.id);
     if (!run) {
       return null;
@@ -40,14 +36,14 @@ export const get = query({
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return null;
     }
     return run;
   },
 });
 
-export const getWithDetails = query({
+export const getWithDetails = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(
     v.object({
@@ -60,10 +56,6 @@ export const getWithDetails = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
     const run = await ctx.db.get(args.id);
     if (!run) {
       return null;
@@ -73,7 +65,7 @@ export const getWithDetails = query({
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return null;
     }
     return {
@@ -86,20 +78,16 @@ export const getWithDetails = query({
   },
 });
 
-export const listByTask = query({
+export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(agentRunValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const task = await ctx.db.get(args.taskId);
     if (!task) {
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const runs = await ctx.db
@@ -110,7 +98,7 @@ export const listByTask = query({
   },
 });
 
-export const listAll = query({
+export const listAll = authQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -121,13 +109,9 @@ export const listAll = query({
     }),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const boards = await ctx.db
       .query("boards")
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
+      .withIndex("by_owner", (q) => q.eq("ownerId", ctx.userId))
       .collect();
     const boardMap = new Map(boards.map((b) => [b._id, b]));
     const tasks = await ctx.db.query("agentTasks").collect();
@@ -152,17 +136,13 @@ export const listAll = query({
   },
 });
 
-export const updateStatus = mutation({
+export const updateStatus = authMutation({
   args: {
     id: v.id("agentRuns"),
     status: runStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const run = await ctx.db.get(args.id);
     if (!run) {
       throw new Error("Run not found");
@@ -172,7 +152,7 @@ export const updateStatus = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {
@@ -189,7 +169,7 @@ export const updateStatus = mutation({
   },
 });
 
-export const appendLog = mutation({
+export const appendLog = authMutation({
   args: {
     id: v.id("agentRuns"),
     level: logLevelValidator,
@@ -197,10 +177,6 @@ export const appendLog = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const run = await ctx.db.get(args.id);
     if (!run) {
       throw new Error("Run not found");
@@ -210,7 +186,7 @@ export const appendLog = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {
@@ -228,7 +204,7 @@ export const appendLog = mutation({
   },
 });
 
-export const complete = mutation({
+export const complete = authMutation({
   args: {
     id: v.id("agentRuns"),
     success: v.boolean(),
@@ -238,10 +214,6 @@ export const complete = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const run = await ctx.db.get(args.id);
     if (!run) {
       throw new Error("Run not found");
@@ -251,7 +223,7 @@ export const complete = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {

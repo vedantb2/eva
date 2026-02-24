@@ -1,9 +1,8 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { getCurrentUserId } from "./auth";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
+import { authQuery, authMutation } from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
   if (tags === undefined) {
@@ -44,16 +43,12 @@ const agentTaskValidator = v.object({
   activeWorkflowId: v.optional(v.string()),
 });
 
-export const listByBoard = query({
+export const listByBoard = authQuery({
   args: { boardId: v.id("boards") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     return await ctx.db
@@ -63,20 +58,16 @@ export const listByBoard = query({
   },
 });
 
-export const listByColumn = query({
+export const listByColumn = authQuery({
   args: { columnId: v.id("columns") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const column = await ctx.db.get(args.columnId);
     if (!column) {
       return [];
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const tasks = await ctx.db
@@ -87,14 +78,10 @@ export const listByColumn = query({
   },
 });
 
-export const listByProject = query({
+export const listByProject = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     return await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -102,27 +89,23 @@ export const listByProject = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("agentTasks") },
   returns: v.union(agentTaskValidator, v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return null;
     }
     return task;
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     columnId: v.id("columns"),
     title: v.string(),
@@ -135,17 +118,12 @@ export const create = mutation({
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const userId = await getCurrentUserId(ctx);
     const column = await ctx.db.get(args.columnId);
     if (!column) {
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Column not found");
     }
     const tasks = await ctx.db
@@ -167,12 +145,12 @@ export const create = mutation({
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
-      createdBy: userId ?? undefined,
+      createdBy: ctx.userId,
     });
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("agentTasks"),
     title: v.optional(v.string()),
@@ -187,16 +165,12 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
@@ -212,8 +186,7 @@ export const update = mutation({
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
-      const currentUserId = await getCurrentUserId(ctx);
-      if (args.assignedTo && args.assignedTo !== currentUserId) {
+      if (args.assignedTo && args.assignedTo !== ctx.userId) {
         await createNotification(ctx, {
           userId: args.assignedTo,
           type: "task_assigned",
@@ -227,23 +200,19 @@ export const update = mutation({
   },
 });
 
-export const moveToColumn = mutation({
+export const moveToColumn = authMutation({
   args: {
     id: v.id("agentTasks"),
     columnId: v.id("columns"),
   },
   returns: v.union(v.id("agentRuns"), v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const targetColumn = await ctx.db.get(args.columnId);
@@ -284,23 +253,19 @@ export const moveToColumn = mutation({
   },
 });
 
-export const updateOrder = mutation({
+export const updateOrder = authMutation({
   args: {
     id: v.id("agentTasks"),
     order: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     await ctx.db.patch(args.id, {
@@ -311,23 +276,19 @@ export const updateOrder = mutation({
   },
 });
 
-export const updateStatus = mutation({
+export const updateStatus = authMutation({
   args: {
     id: v.id("agentTasks"),
     status: taskStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const workStatuses = [
@@ -355,8 +316,7 @@ export const updateStatus = mutation({
       updatedAt: Date.now(),
     });
     if (args.status === "done") {
-      const currentUserId = await getCurrentUserId(ctx);
-      if (task.createdBy && task.createdBy !== currentUserId) {
+      if (task.createdBy && task.createdBy !== ctx.userId) {
         await createNotification(ctx, {
           userId: task.createdBy,
           type: "task_complete",
@@ -367,7 +327,7 @@ export const updateStatus = mutation({
       }
       if (
         task.assignedTo &&
-        task.assignedTo !== currentUserId &&
+        task.assignedTo !== ctx.userId &&
         task.assignedTo !== task.createdBy
       ) {
         await createNotification(ctx, {
@@ -404,16 +364,12 @@ export const updateStatus = mutation({
   },
 });
 
-export const getActiveTasks = query({
+export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const boards = await ctx.db.query("boards").collect();
-    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const ownedBoards = boards.filter((b) => b.ownerId === ctx.userId);
     const relevantBoards = args.repoId
       ? ownedBoards.filter((b) => b.repoId === args.repoId)
       : ownedBoards;
@@ -436,20 +392,16 @@ export const getActiveTasks = query({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const runs = await ctx.db
@@ -478,19 +430,15 @@ export const remove = mutation({
   },
 });
 
-export const getAllTasks = query({
+export const getAllTasks = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const ownedBoards = boards.filter((b) => b.ownerId === identity.subject);
+    const ownedBoards = boards.filter((b) => b.ownerId === ctx.userId);
     const allTasks = [];
     for (const board of ownedBoards) {
       const tasks = await ctx.db
@@ -503,7 +451,7 @@ export const getAllTasks = query({
   },
 });
 
-export const createQuickTask = mutation({
+export const createQuickTask = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -512,11 +460,6 @@ export const createQuickTask = mutation({
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const userId = await getCurrentUserId(ctx);
     let board = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -524,7 +467,7 @@ export const createQuickTask = mutation({
     if (!board) {
       const boardId = await ctx.db.insert("boards", {
         name: "Quick Tasks",
-        ownerId: identity.subject,
+        ownerId: ctx.userId,
         repoId: args.repoId,
         createdAt: Date.now(),
       });
@@ -571,10 +514,10 @@ export const createQuickTask = mutation({
       order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
-      createdBy: userId ?? undefined,
+      createdBy: ctx.userId,
       assignedTo: args.assignedTo,
     });
-    if (args.assignedTo && args.assignedTo !== userId) {
+    if (args.assignedTo && args.assignedTo !== ctx.userId) {
       await createNotification(ctx, {
         userId: args.assignedTo,
         type: "task_assigned",
@@ -586,7 +529,7 @@ export const createQuickTask = mutation({
   },
 });
 
-export const startExecution = mutation({
+export const startExecution = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.object({
     runId: v.id("agentRuns"),
@@ -599,16 +542,12 @@ export const startExecution = mutation({
     model: v.optional(claudeModelValidator),
   }),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     if (!task.repoId) {
@@ -688,7 +627,7 @@ export const startExecution = mutation({
   },
 });
 
-export const getDependentTasks = query({
+export const getDependentTasks = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
     v.object({
@@ -698,10 +637,6 @@ export const getDependentTasks = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const dependents = await ctx.db
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
@@ -721,17 +656,13 @@ export const getDependentTasks = query({
   },
 });
 
-export const assignToProject = mutation({
+export const assignToProject = authMutation({
   args: {
     taskIds: v.array(v.id("agentTasks")),
     projectId: v.id("projects"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const project = await ctx.db.get(args.projectId);
     if (!project) {
       throw new Error("Project not found");
@@ -749,7 +680,7 @@ export const assignToProject = mutation({
   },
 });
 
-export const getStatusesByIds = query({
+export const getStatusesByIds = authQuery({
   args: { ids: v.array(v.id("agentTasks")) },
   returns: v.array(
     v.object({
@@ -758,8 +689,6 @@ export const getStatusesByIds = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
     const results: {
       id: Id<"agentTasks">;
       status:
@@ -777,20 +706,16 @@ export const getStatusesByIds = query({
   },
 });
 
-export const deleteCascade = mutation({
+export const deleteCascade = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.id);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const tasksToDelete: Id<"agentTasks">[] = [args.id];

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
-import { getCurrentUserId } from "./auth";
+import { internalMutation } from "./_generated/server";
+import { authQuery, authMutation } from "./functions";
 
 export const getOrCreatePersonal = internalMutation({
   args: { userId: v.id("users") },
@@ -34,28 +34,25 @@ export const getOrCreatePersonal = internalMutation({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     name: v.string(),
   },
   returns: v.id("teams"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     if (!args.name.trim()) {
       throw new Error("Team name is required");
     }
 
     const teamId = await ctx.db.insert("teams", {
       name: args.name,
-      createdBy: userId,
+      createdBy: ctx.userId,
       createdAt: Date.now(),
     });
 
     await ctx.db.insert("teamMembers", {
       teamId,
-      userId,
+      userId: ctx.userId,
       role: "owner",
       joinedAt: Date.now(),
     });
@@ -64,7 +61,7 @@ export const create = mutation({
   },
 });
 
-export const list = query({
+export const list = authQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -78,12 +75,9 @@ export const list = query({
     }),
   ),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
-
     const memberships = await ctx.db
       .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
 
     const teams = [];
@@ -101,7 +95,7 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("teams") },
   returns: v.union(
     v.object({
@@ -116,16 +110,13 @@ export const get = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
-
     const team = await ctx.db.get(args.id);
     if (!team) return null;
 
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.id).eq("userId", userId),
+        q.eq("teamId", args.id).eq("userId", ctx.userId),
       )
       .first();
 
@@ -138,20 +129,17 @@ export const get = query({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("teams"),
     name: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.id).eq("userId", userId),
+        q.eq("teamId", args.id).eq("userId", ctx.userId),
       )
       .first();
 
@@ -167,13 +155,10 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("teams") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const team = await ctx.db.get(args.id);
     if (!team) throw new Error("Team not found");
 
@@ -184,7 +169,7 @@ export const remove = mutation({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.id).eq("userId", userId),
+        q.eq("teamId", args.id).eq("userId", ctx.userId),
       )
       .first();
 

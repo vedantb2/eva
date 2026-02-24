@@ -1,8 +1,8 @@
-import { mutation, query, MutationCtx } from "./_generated/server";
+import { mutation, MutationCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { getCurrentUserId } from "./auth";
 import { notificationTypeValidator } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 export async function createNotification(
   ctx: MutationCtx,
@@ -51,72 +51,62 @@ const notificationValidator = v.object({
   createdAt: v.number(),
 });
 
-export const list = query({
+export const list = authQuery({
   args: {},
   returns: v.array(notificationValidator),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     return await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .order("desc")
       .collect();
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("notifications") },
   returns: v.union(notificationValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
     const notification = await ctx.db.get(args.id);
-    if (!notification || notification.userId !== userId) return null;
+    if (!notification || notification.userId !== ctx.userId) return null;
     return notification;
   },
 });
 
-export const countUnread = query({
+export const countUnread = authQuery({
   args: {},
   returns: v.number(),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return 0;
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_user_and_read", (q) =>
-        q.eq("userId", userId).eq("read", false),
+        q.eq("userId", ctx.userId).eq("read", false),
       )
       .collect();
     return unread.length;
   },
 });
 
-export const markAsRead = mutation({
+export const markAsRead = authMutation({
   args: { id: v.id("notifications") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const notification = await ctx.db.get(args.id);
-    if (!notification || notification.userId !== userId)
+    if (!notification || notification.userId !== ctx.userId)
       throw new Error("Not found");
     await ctx.db.patch(args.id, { read: true });
     return null;
   },
 });
 
-export const markAllAsRead = mutation({
+export const markAllAsRead = authMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_user_and_read", (q) =>
-        q.eq("userId", userId).eq("read", false),
+        q.eq("userId", ctx.userId).eq("read", false),
       )
       .collect();
     for (const n of unread) {

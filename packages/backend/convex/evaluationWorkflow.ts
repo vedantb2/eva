@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { evalResultValidator } from "./validators";
 
@@ -221,7 +221,7 @@ export const saveResult = internalMutation({
 /**
  * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     reportId: v.id("evaluationReports"),
     success: v.boolean(),
@@ -231,9 +231,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const report = await ctx.db.get(args.reportId);
     if (!report || !report.activeWorkflowId) return null;
 
@@ -255,7 +252,7 @@ export const handleCompletion = mutation({
 /**
  * Public mutation to start an evaluation workflow from the frontend.
  */
-export const startEvaluation = mutation({
+export const startEvaluation = authMutation({
   args: {
     docId: v.id("docs"),
     repoId: v.id("githubRepos"),
@@ -265,9 +262,6 @@ export const startEvaluation = mutation({
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const now = Date.now();
     const reportId = await ctx.db.insert("evaluationReports", {
       repoId: args.repoId,

@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
@@ -293,7 +293,7 @@ export const saveResult = internalMutation({
 /**
  * Called by sandbox via Convex HTTP API (authenticated with Clerk JWT).
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     projectId: v.id("projects"),
     success: v.boolean(),
@@ -303,9 +303,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const project = await ctx.db.get(args.projectId);
     if (!project || !project.activeWorkflowId) return null;
 
@@ -327,7 +324,7 @@ export const handleCompletion = mutation({
 /**
  * Public mutation to start a project interview question.
  */
-export const startInterview = mutation({
+export const startInterview = authMutation({
   args: {
     projectId: v.id("projects"),
     featureDescription: v.string(),
@@ -340,9 +337,6 @@ export const startInterview = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
@@ -431,7 +425,7 @@ Output ONLY valid JSON.`;
   },
 });
 
-export const handleSpecCompletion = mutation({
+export const handleSpecCompletion = authMutation({
   args: {
     projectId: v.id("projects"),
     success: v.boolean(),
@@ -441,9 +435,6 @@ export const handleSpecCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const project = await ctx.db.get(args.projectId);
     if (!project || !project.activeWorkflowId) return null;
 
@@ -520,7 +511,7 @@ export const saveSpecResult = internalMutation({
 /**
  * Public mutation to start the spec generation phase.
  */
-export const startSpec = mutation({
+export const startSpec = authMutation({
   args: {
     projectId: v.id("projects"),
     featureDescription: v.string(),
@@ -532,9 +523,6 @@ export const startSpec = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 

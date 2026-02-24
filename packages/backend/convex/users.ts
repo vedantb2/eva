@@ -1,6 +1,7 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { roleUserValidator } from "./validators";
+import { authQuery } from "./functions";
 
 export const get = query({
   args: { id: v.id("users") },
@@ -23,7 +24,7 @@ export const get = query({
   },
 });
 
-export const listAll = query({
+export const listAll = authQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -35,8 +36,6 @@ export const listAll = query({
     }),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
     const users = await ctx.db.query("users").collect();
     return users.map((u) => ({
       _id: u._id,

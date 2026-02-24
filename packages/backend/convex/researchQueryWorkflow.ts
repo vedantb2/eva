@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 
 // --- Shared completion event ---
 
@@ -427,7 +427,7 @@ export const saveConfirmResult = internalMutation({
  * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
  * Routes completion event to the active workflow.
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     queryId: v.id("researchQueries"),
     success: v.boolean(),
@@ -437,9 +437,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const rq = await ctx.db.get(args.queryId);
     if (!rq || !rq.activeWorkflowId) return null;
 
@@ -461,7 +458,7 @@ export const handleCompletion = mutation({
 /**
  * Start the generate query workflow from the frontend.
  */
-export const startGenerate = mutation({
+export const startGenerate = authMutation({
   args: {
     queryId: v.id("researchQueries"),
     question: v.string(),
@@ -472,9 +469,6 @@ export const startGenerate = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const rq = await ctx.db.get(args.queryId);
     if (!rq) throw new Error("Research query not found");
 
@@ -502,7 +496,7 @@ export const startGenerate = mutation({
 /**
  * Start the confirm/execute query workflow from the frontend.
  */
-export const startConfirm = mutation({
+export const startConfirm = authMutation({
   args: {
     queryId: v.id("researchQueries"),
     queryCode: v.string(),
@@ -514,9 +508,6 @@ export const startConfirm = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const rq = await ctx.db.get(args.queryId);
     if (!rq) throw new Error("Research query not found");
 

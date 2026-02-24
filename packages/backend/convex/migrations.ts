@@ -113,3 +113,61 @@ export const removeTeamSlugs = internalMutation({
     return { teamsUpdated: allTeams.length };
   },
 });
+
+export const migrateBoardsAndCommentsToUserIds = internalMutation({
+  args: {},
+  returns: v.object({
+    boardsUpdated: v.number(),
+    commentsUpdated: v.number(),
+    boardsSkipped: v.number(),
+    commentsSkipped: v.number(),
+  }),
+  handler: async (ctx) => {
+    let boardsUpdated = 0;
+    let commentsUpdated = 0;
+    let boardsSkipped = 0;
+    let commentsSkipped = 0;
+
+    const allBoards = await ctx.db.query("boards").collect();
+    for (const board of allBoards) {
+      const ownerId = board.ownerId;
+      if (typeof ownerId !== "string") {
+        continue;
+      }
+
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", ownerId))
+        .first();
+
+      if (user) {
+        await ctx.db.patch(board._id, { ownerId: user._id });
+        boardsUpdated++;
+      } else {
+        boardsSkipped++;
+      }
+    }
+
+    const allComments = await ctx.db.query("taskComments").collect();
+    for (const comment of allComments) {
+      const authorId = comment.authorId;
+      if (typeof authorId !== "string") {
+        continue;
+      }
+
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", authorId))
+        .first();
+
+      if (user) {
+        await ctx.db.patch(comment._id, { authorId: user._id });
+        commentsUpdated++;
+      } else {
+        commentsSkipped++;
+      }
+    }
+
+    return { boardsUpdated, commentsUpdated, boardsSkipped, commentsSkipped };
+  },
+});

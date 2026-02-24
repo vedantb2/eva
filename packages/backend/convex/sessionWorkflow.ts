@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { sessionModeValidator } from "./validators";
 
 // --- Completion event ---
@@ -474,7 +474,7 @@ export const saveResult = internalMutation({
  * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
  * Routes the completion event to the waiting workflow.
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
     success: v.boolean(),
@@ -484,12 +484,9 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.activeWorkflowId) return null;
-    if (session.userId !== userId) throw new Error("Not authorized");
+    if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
     await workflow.sendEvent(ctx, {
       ...sessionCompleteEvent,
@@ -509,7 +506,7 @@ export const handleCompletion = mutation({
 /**
  * Frontend trigger — starts the session execution workflow.
  */
-export const startExecute = mutation({
+export const startExecute = authMutation({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
@@ -521,12 +518,9 @@ export const startExecute = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.userId !== userId) throw new Error("Not authorized");
+    if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
     // Only allow ask, plan, execute modes
     if (
@@ -562,18 +556,15 @@ export const startExecute = mutation({
 /**
  * Cancel an active session workflow.
  */
-export const cancelExecution = mutation({
+export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.userId !== userId) throw new Error("Not authorized");
+    if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
     if (session.activeWorkflowId) {
       await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);

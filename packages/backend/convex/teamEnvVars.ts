@@ -1,23 +1,15 @@
 import { v } from "convex/values";
-import {
-  mutation,
-  query,
-  internalQuery,
-  internalMutation,
-} from "./_generated/server";
-import { getCurrentUserId } from "./auth";
+import { internalQuery, internalMutation } from "./_generated/server";
+import { authQuery, authMutation } from "./functions";
 
-export const list = query({
+export const list = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -73,20 +65,17 @@ export const upsertVarInternal = internalMutation({
   },
 });
 
-export const removeVar = mutation({
+export const removeVar = authMutation({
   args: {
     teamId: v.id("teams"),
     key: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 

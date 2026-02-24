@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 import { teamMemberRoleValidator } from "./validators";
 
-export const list = query({
+export const list = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(
     v.object({
@@ -24,13 +23,10 @@ export const list = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
-
     const currentUserMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -60,20 +56,17 @@ export const list = query({
   },
 });
 
-export const add = mutation({
+export const add = authMutation({
   args: {
     teamId: v.id("teams"),
     userEmail: v.string(),
   },
   returns: v.id("teamMembers"),
   handler: async (ctx, args) => {
-    const currentUserId = await getCurrentUserId(ctx);
-    if (!currentUserId) throw new Error("Not authenticated");
-
     const currentUserMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", currentUserId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -112,20 +105,17 @@ export const add = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: {
     teamId: v.id("teams"),
     userId: v.id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUserId = await getCurrentUserId(ctx);
-    if (!currentUserId) throw new Error("Not authenticated");
-
     const currentUserMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", currentUserId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -144,7 +134,7 @@ export const remove = mutation({
       throw new Error("User is not a member of this team");
     }
 
-    if (args.userId === currentUserId) {
+    if (args.userId === ctx.userId) {
       const allOwners = await ctx.db
         .query("teamMembers")
         .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
@@ -161,7 +151,7 @@ export const remove = mutation({
   },
 });
 
-export const updateRole = mutation({
+export const updateRole = authMutation({
   args: {
     teamId: v.id("teams"),
     userId: v.id("users"),
@@ -169,13 +159,10 @@ export const updateRole = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUserId = await getCurrentUserId(ctx);
-    if (!currentUserId) throw new Error("Not authenticated");
-
     const currentUserMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", currentUserId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 

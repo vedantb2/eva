@@ -1,6 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 import { evaluationStatusValidator, evalResultValidator } from "./validators";
 
 const reportValidator = v.object({
@@ -17,14 +16,10 @@ const reportValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const listByDoc = query({
+export const listByDoc = authQuery({
   args: { docId: v.id("docs") },
   returns: v.array(reportValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const reports = await ctx.db
       .query("evaluationReports")
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
@@ -33,29 +28,21 @@ export const listByDoc = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("evaluationReports") },
   returns: v.union(reportValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     docId: v.id("docs"),
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const now = Date.now();
     return await ctx.db.insert("evaluationReports", {
       repoId: args.repoId,
@@ -68,14 +55,13 @@ export const create = mutation({
   },
 });
 
-export const updateEvalStatus = mutation({
+export const updateEvalStatus = authMutation({
   args: {
     id: v.id("evaluationReports"),
     status: evaluationStatusValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -88,7 +74,7 @@ export const updateEvalStatus = mutation({
   },
 });
 
-export const completeEval = mutation({
+export const completeEval = authMutation({
   args: {
     id: v.id("evaluationReports"),
     results: v.array(evalResultValidator),
@@ -96,7 +82,6 @@ export const completeEval = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -111,14 +96,13 @@ export const completeEval = mutation({
   },
 });
 
-export const failEval = mutation({
+export const failEval = authMutation({
   args: {
     id: v.id("evaluationReports"),
     error: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");
@@ -132,14 +116,13 @@ export const failEval = mutation({
   },
 });
 
-export const updateEvalSummary = mutation({
+export const updateEvalSummary = authMutation({
   args: {
     id: v.id("evaluationReports"),
     summary: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getCurrentUserId(ctx);
     const report = await ctx.db.get(args.id);
     if (!report) {
       throw new Error("Report not found");

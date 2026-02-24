@@ -6,6 +6,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 
 const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),
@@ -217,7 +218,7 @@ export const removeFromTeam = mutation({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     owner: v.string(),
     name: v.string(),
@@ -225,20 +226,6 @@ export const create = mutation({
   },
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const clerkUserId = identity.subject;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
-      .first();
-    if (!user) {
-      throw new Error("User not found");
-    }
-
     const existing = await ctx.db
       .query("githubRepos")
       .withIndex("by_owner_name", (q) =>
@@ -251,7 +238,7 @@ export const create = mutation({
 
     const teams = await ctx.db
       .query("teams")
-      .withIndex("by_created_by", (q) => q.eq("createdBy", user._id))
+      .withIndex("by_created_by", (q) => q.eq("createdBy", ctx.userId))
       .collect();
     const personalTeam = teams.find((t) => t.isPersonal === true);
 
@@ -259,20 +246,16 @@ export const create = mutation({
       owner: args.owner,
       name: args.name,
       installationId: args.installationId,
-      connectedBy: user._id,
+      connectedBy: ctx.userId,
       teamId: personalTeam?._id,
     });
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const repo = await ctx.db.get(args.id);
     if (!repo) {
       throw new Error("Repository not found");

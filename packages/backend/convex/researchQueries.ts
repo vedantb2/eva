@@ -1,6 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 import { roleValidator, queryConfirmationStatusValidator } from "./validators";
 
 const messageValidator = v.object({
@@ -27,14 +27,10 @@ const researchQueryValidator = v.object({
   sandboxId: v.optional(v.string()),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(researchQueryValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const queries = await ctx.db
       .query("researchQueries")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -43,43 +39,35 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("researchQueries") },
   returns: v.union(researchQueryValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
   },
   returns: v.id("researchQueries"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const now = Date.now();
     return await ctx.db.insert("researchQueries", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       title: args.title,
       messages: [],
       createdAt: now,
       updatedAt: now,
-      createdBy: userId,
+      createdBy: ctx.userId,
     });
   },
 });
 
-export const addMessage = mutation({
+export const addMessage = authMutation({
   args: {
     id: v.id("researchQueries"),
     role: roleValidator,
@@ -89,10 +77,6 @@ export const addMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const query = await ctx.db.get(args.id);
     if (!query) {
       throw new Error("Query not found");
@@ -104,7 +88,7 @@ export const addMessage = mutation({
           role: args.role,
           content: args.content,
           timestamp: Date.now(),
-          userId,
+          userId: ctx.userId,
           queryCode: args.queryCode,
           status: args.status,
         },
@@ -115,7 +99,7 @@ export const addMessage = mutation({
   },
 });
 
-export const updateLastMessage = mutation({
+export const updateLastMessage = authMutation({
   args: {
     id: v.id("researchQueries"),
     content: v.string(),
@@ -123,8 +107,6 @@ export const updateLastMessage = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const query = await ctx.db.get(args.id);
     if (!query) throw new Error("Query not found");
     const messages = [...query.messages];
@@ -137,7 +119,7 @@ export const updateLastMessage = mutation({
   },
 });
 
-export const updateMessageStatus = mutation({
+export const updateMessageStatus = authMutation({
   args: {
     id: v.id("researchQueries"),
     messageIndex: v.number(),
@@ -147,8 +129,6 @@ export const updateMessageStatus = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const query = await ctx.db.get(args.id);
     if (!query) throw new Error("Query not found");
     const messages = [...query.messages];
@@ -162,17 +142,13 @@ export const updateMessageStatus = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("researchQueries"),
     title: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const query = await ctx.db.get(args.id);
     if (!query) {
       throw new Error("Query not found");
@@ -186,19 +162,15 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("researchQueries") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
     const query = await ctx.db.get(args.id);
     if (!query) {
       throw new Error("Query not found");
     }
-    if (query.userId !== userId) {
+    if (query.userId !== ctx.userId) {
       throw new Error("Not authorized");
     }
     await ctx.db.delete(args.id);

@@ -1,6 +1,5 @@
 import {
   mutation,
-  query,
   QueryCtx,
   MutationCtx,
   internalQuery,
@@ -8,6 +7,7 @@ import {
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { themeValidator } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx,
@@ -126,7 +126,7 @@ export const getUserByClerkId = internalQuery({
   },
 });
 
-export const me = query({
+export const getUserIdFromIdentity = internalQuery({
   args: {},
   returns: v.union(v.id("users"), v.null()),
   handler: async (ctx) => {
@@ -134,16 +134,19 @@ export const me = query({
   },
 });
 
-export const isCurrentUserAdmin = query({
+export const me = authQuery({
+  args: {},
+  returns: v.id("users"),
+  handler: async (ctx) => {
+    return ctx.userId;
+  },
+});
+
+export const isCurrentUserAdmin = authQuery({
   args: {},
   returns: v.boolean(),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return false;
-    }
-
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(ctx.userId);
     return user?.isAdmin === true;
   },
 });
@@ -196,46 +199,38 @@ export const ensureUserExists = mutation({
   },
 });
 
-export const getTheme = query({
+export const getTheme = authQuery({
   args: {},
   returns: v.union(themeValidator, v.null()),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(ctx.userId);
     return user?.theme ?? null;
   },
 });
 
-export const setTheme = mutation({
+export const setTheme = authMutation({
   args: { theme: themeValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    await ctx.db.patch(userId, { theme: args.theme });
+    await ctx.db.patch(ctx.userId, { theme: args.theme });
     return null;
   },
 });
 
-export const getToolbarVisible = query({
+export const getToolbarVisible = authQuery({
   args: {},
   returns: v.union(v.boolean(), v.null()),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(ctx.userId);
     return user?.toolbarVisible ?? null;
   },
 });
 
-export const setToolbarVisible = mutation({
+export const setToolbarVisible = authMutation({
   args: { visible: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    await ctx.db.patch(userId, { toolbarVisible: args.visible });
+    await ctx.db.patch(ctx.userId, { toolbarVisible: args.visible });
     return null;
   },
 });

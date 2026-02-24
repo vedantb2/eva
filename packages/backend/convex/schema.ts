@@ -85,7 +85,7 @@ const schema = defineSchema({
 
   boards: defineTable({
     name: v.string(),
-    ownerId: v.string(),
+    ownerId: v.id("users"),
     repoId: v.optional(v.id("githubRepos")),
     createdAt: v.number(),
   })
@@ -164,7 +164,7 @@ const schema = defineSchema({
   taskComments: defineTable({
     taskId: v.id("agentTasks"),
     content: v.string(),
-    authorId: v.string(),
+    authorId: v.id("users"),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 

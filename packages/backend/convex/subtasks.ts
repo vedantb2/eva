@@ -1,5 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authQuery, authMutation } from "./functions";
 
 const subtaskValidator = v.object({
   _id: v.id("subtasks"),
@@ -10,20 +10,16 @@ const subtaskValidator = v.object({
   order: v.number(),
 });
 
-export const listByTask = query({
+export const listByTask = authQuery({
   args: { parentTaskId: v.id("agentTasks") },
   returns: v.array(subtaskValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const task = await ctx.db.get(args.parentTaskId);
     if (!task) {
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const subtasks = await ctx.db
@@ -34,17 +30,13 @@ export const listByTask = query({
   },
 });
 
-export const markCompleted = mutation({
+export const markCompleted = authMutation({
   args: {
     parentTaskId: v.id("agentTasks"),
     completedIndices: v.array(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
@@ -59,23 +51,19 @@ export const markCompleted = mutation({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     parentTaskId: v.id("agentTasks"),
     title: v.string(),
   },
   returns: v.id("subtasks"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.parentTaskId);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const subtasks = await ctx.db
@@ -92,7 +80,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("subtasks"),
     title: v.optional(v.string()),
@@ -100,10 +88,6 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const subtask = await ctx.db.get(args.id);
     if (!subtask) {
       throw new Error("Subtask not found");
@@ -113,7 +97,7 @@ export const update = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Subtask not found");
     }
     const updates: { title?: string; completed?: boolean } = {};
@@ -124,14 +108,10 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("subtasks") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const subtask = await ctx.db.get(args.id);
     if (!subtask) {
       throw new Error("Subtask not found");
@@ -141,7 +121,7 @@ export const remove = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Subtask not found");
     }
     await ctx.db.delete(args.id);
@@ -149,7 +129,7 @@ export const remove = mutation({
   },
 });
 
-export const reorder = mutation({
+export const reorder = authMutation({
   args: {
     updates: v.array(
       v.object({
@@ -160,10 +140,6 @@ export const reorder = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     for (const update of args.updates) {
       const subtask = await ctx.db.get(update.id);
       if (!subtask) {
@@ -174,7 +150,7 @@ export const reorder = mutation({
         continue;
       }
       const board = await ctx.db.get(task.boardId);
-      if (!board || board.ownerId !== identity.subject) {
+      if (!board || board.ownerId !== ctx.userId) {
         continue;
       }
       await ctx.db.patch(update.id, { order: update.order });

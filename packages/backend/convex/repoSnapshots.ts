@@ -1,19 +1,14 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { components } from "./_generated/api";
 import { Crons } from "@convex-dev/crons";
-import { getCurrentUserId } from "./auth";
 import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
 } from "./validators";
+import { authQuery, authMutation } from "./functions";
 
 const crons = new Crons(components.crons);
 
@@ -25,7 +20,7 @@ const SCHEDULE_INTERVALS: Record<string, number> = {
 
 const STALE_BUILD_MS = 20 * 60 * 1000;
 
-export const getRepoSnapshot = query({
+export const getRepoSnapshot = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(
     v.object({
@@ -43,8 +38,6 @@ export const getRepoSnapshot = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
     return await ctx.db
       .query("repoSnapshots")
       .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
@@ -65,7 +58,7 @@ export const getRepoSnapshotName = internalQuery({
   },
 });
 
-export const listBuilds = query({
+export const listBuilds = authQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.array(
     v.object({
@@ -82,8 +75,6 @@ export const listBuilds = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     const builds = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repoSnapshotId", (q) =>
@@ -95,7 +86,7 @@ export const listBuilds = query({
   },
 });
 
-export const getBuild = query({
+export const getBuild = authQuery({
   args: { buildId: v.id("snapshotBuilds") },
   returns: v.union(
     v.object({
@@ -113,13 +104,11 @@ export const getBuild = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
     return await ctx.db.get(args.buildId);
   },
 });
 
-export const saveRepoSnapshot = mutation({
+export const saveRepoSnapshot = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     schedule: snapshotScheduleValidator,
@@ -128,9 +117,6 @@ export const saveRepoSnapshot = mutation({
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const existing = await ctx.db
       .query("repoSnapshots")
       .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
@@ -204,13 +190,10 @@ export const saveRepoSnapshot = mutation({
   },
 });
 
-export const deleteRepoSnapshot = mutation({
+export const deleteRepoSnapshot = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const config = await ctx.db.get(args.repoSnapshotId);
     if (!config) return null;
 
@@ -279,13 +262,10 @@ export const triggerScheduledBuild = internalMutation({
   },
 });
 
-export const startBuild = mutation({
+export const startBuild = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.id("snapshotBuilds"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const config = await ctx.db.get(args.repoSnapshotId);
     if (!config) throw new Error("Snapshot config not found");
 

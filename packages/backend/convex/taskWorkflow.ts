@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
@@ -528,7 +528,7 @@ export const saveAuditResult = internalMutation({
 /**
  * Sandbox callback — routes completion event to the waiting workflow.
  */
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     success: v.boolean(),
@@ -538,9 +538,6 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const task = await ctx.db.get(args.taskId);
     if (!task || !task.activeWorkflowId) return null;
 
@@ -606,7 +603,7 @@ export const clearActiveWorkflow = internalMutation({
  * Frontend trigger — starts the task execution workflow.
  * Called after agentTasks.startExecution which creates the run and returns metadata.
  */
-export const triggerExecution = mutation({
+export const triggerExecution = authMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
@@ -622,9 +619,6 @@ export const triggerExecution = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
 

@@ -21,6 +21,7 @@
     "@octokit/auth-app": "^8.1.2",
     "@solvers-hub/llm-json": "^0.1.8",
     "convex": "^1.24.5",
+    "convex-helpers": "^0.1.111",
     "convex-timeline": "^0.1.2",
     "octokit": "^5.0.5",
     "resend": "^4.6.0",

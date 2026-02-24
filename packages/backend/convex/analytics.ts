@@ -1,8 +1,7 @@
-import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery } from "./functions";
 
-export const getTaskStats = query({
+export const getTaskStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -18,19 +17,6 @@ export const getTaskStats = query({
     }),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return {
-        total: 0,
-        byStatus: {
-          todo: 0,
-          in_progress: 0,
-          business_review: 0,
-          code_review: 0,
-          done: 0,
-        },
-      };
-    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -60,7 +46,7 @@ export const getTaskStats = query({
   },
 });
 
-export const getRunStats = query({
+export const getRunStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -77,15 +63,6 @@ export const getRunStats = query({
     prsCreated: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return {
-        total: 0,
-        byStatus: { queued: 0, running: 0, success: 0, error: 0 },
-        successRate: 0,
-        prsCreated: 0,
-      };
-    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -124,7 +101,7 @@ export const getRunStats = query({
   },
 });
 
-export const getSessionStats = query({
+export const getSessionStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -140,14 +117,6 @@ export const getSessionStats = query({
     }),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return {
-        total: 0,
-        active: 0,
-        messagesByMode: { execute: 0, ask: 0, plan: 0, flag: 0 },
-      };
-    }
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -170,7 +139,7 @@ export const getSessionStats = query({
   },
 });
 
-export const getProjectStats = query({
+export const getProjectStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -193,14 +162,6 @@ export const getProjectStats = query({
     ),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return {
-        total: 0,
-        byPhase: { draft: 0, finalized: 0, active: 0, completed: 0 },
-        topProjects: [],
-      };
-    }
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -229,7 +190,7 @@ export const getProjectStats = query({
   },
 });
 
-export const getImpactStats = query({
+export const getImpactStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -242,16 +203,6 @@ export const getImpactStats = query({
     tasksCompleted: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return {
-        prsShipped: 0,
-        totalSessions: 0,
-        sessionsWithPr: 0,
-        shipRate: 0,
-        tasksCompleted: 0,
-      };
-    }
     const prUrls = new Set<string>();
     const sessions = await ctx.db
       .query("sessions")
@@ -316,7 +267,7 @@ export const getImpactStats = query({
   },
 });
 
-export const getActiveUsers = query({
+export const getActiveUsers = authQuery({
   args: {
     repoId: v.id("githubRepos"),
   },
@@ -324,8 +275,6 @@ export const getActiveUsers = query({
     count: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return { count: 0 };
     const fiveMinAgo = Date.now() - 300_000;
     const sessions = await ctx.db
       .query("sessions")
@@ -347,7 +296,7 @@ export const getActiveUsers = query({
   },
 });
 
-export const getActivityTimeline = query({
+export const getActivityTimeline = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.number(),
@@ -363,10 +312,6 @@ export const getActivityTimeline = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const now = Date.now();
     const buckets: Record<
       number,
@@ -432,7 +377,7 @@ export const getActivityTimeline = query({
   },
 });
 
-export const getLeaderboard = query({
+export const getLeaderboard = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
@@ -447,10 +392,6 @@ export const getLeaderboard = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))

@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 
 const designCompleteEvent = defineEvent({
@@ -345,7 +345,7 @@ export const saveResult = internalMutation({
   },
 });
 
-export const handleCompletion = mutation({
+export const handleCompletion = authMutation({
   args: {
     designSessionId: v.id("designSessions"),
     success: v.boolean(),
@@ -355,12 +355,9 @@ export const handleCompletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const session = await ctx.db.get(args.designSessionId);
     if (!session || !session.activeWorkflowId) return null;
-    if (session.userId !== userId) throw new Error("Not authorized");
+    if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
     await workflow.sendEvent(ctx, {
       ...designCompleteEvent,

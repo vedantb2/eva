@@ -1,31 +1,26 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
 import { createNotification } from "./notifications";
+import { authQuery, authMutation } from "./functions";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
   _creationTime: v.number(),
   taskId: v.id("agentTasks"),
   content: v.string(),
-  authorId: v.string(),
+  authorId: v.id("users"),
   createdAt: v.number(),
 });
 
-export const listByTask = query({
+export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(taskCommentValidator),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
     const task = await ctx.db.get(args.taskId);
     if (!task) {
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       return [];
     }
     const comments = await ctx.db
@@ -36,33 +31,28 @@ export const listByTask = query({
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     content: v.string(),
   },
   returns: v.id("taskComments"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const task = await ctx.db.get(args.taskId);
     if (!task) {
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
     const commentId = await ctx.db.insert("taskComments", {
       taskId: args.taskId,
       content: args.content,
-      authorId: identity.subject,
+      authorId: ctx.userId,
       createdAt: Date.now(),
     });
-    const currentUserId = await getCurrentUserId(ctx);
-    if (task.assignedTo && task.assignedTo !== currentUserId) {
+    if (task.assignedTo && task.assignedTo !== ctx.userId) {
       await createNotification(ctx, {
         userId: task.assignedTo,
         type: "comment_added",
@@ -75,14 +65,10 @@ export const create = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("taskComments") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
     const comment = await ctx.db.get(args.id);
     if (!comment) {
       throw new Error("Comment not found");
@@ -92,7 +78,7 @@ export const remove = mutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== identity.subject) {
+    if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Comment not found");
     }
     await ctx.db.delete(args.id);

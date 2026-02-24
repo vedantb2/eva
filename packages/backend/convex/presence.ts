@@ -2,13 +2,13 @@ import { mutation, query } from "./_generated/server";
 import { components } from "./_generated/api";
 import { v } from "convex/values";
 import { Presence } from "@convex-dev/presence";
-import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 
 const presence = new Presence(components.presence);
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-export const heartbeat = mutation({
+export const heartbeat = authMutation({
   args: {
     roomId: v.string(),
     userId: v.string(),
@@ -16,6 +16,9 @@ export const heartbeat = mutation({
     interval: v.number(),
   },
   handler: async (ctx, { roomId, userId, sessionId, interval }) => {
+    if (userId !== ctx.userId) {
+      throw new Error("Cannot send heartbeat for another user");
+    }
     const result = await presence.heartbeat(
       ctx,
       roomId,
@@ -23,15 +26,12 @@ export const heartbeat = mutation({
       sessionId,
       interval,
     );
-    const currentUserId = await getCurrentUserId(ctx);
-    if (currentUserId) {
-      const user = await ctx.db.get(currentUserId);
-      if (
-        user &&
-        (!user.lastSeenAt || Date.now() - user.lastSeenAt > FIVE_MINUTES)
-      ) {
-        await ctx.db.patch(currentUserId, { lastSeenAt: Date.now() });
-      }
+    const user = await ctx.db.get(ctx.userId);
+    if (
+      user &&
+      (!user.lastSeenAt || Date.now() - user.lastSeenAt > FIVE_MINUTES)
+    ) {
+      await ctx.db.patch(ctx.userId, { lastSeenAt: Date.now() });
     }
     return result;
   },

@@ -1,6 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
+import { authQuery, authMutation } from "./functions";
 
 const savedQueryValidator = v.object({
   _id: v.id("savedQueries"),
@@ -14,12 +13,10 @@ const savedQueryValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const list = query({
+export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(savedQueryValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
     return await ctx.db
       .query("savedQueries")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -27,17 +24,15 @@ export const list = query({
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("savedQueries") },
   returns: v.union(savedQueryValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return null;
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = mutation({
+export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -46,12 +41,10 @@ export const create = mutation({
   },
   returns: v.id("savedQueries"),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const now = Date.now();
     return await ctx.db.insert("savedQueries", {
       repoId: args.repoId,
-      userId,
+      userId: ctx.userId,
       researchQueryId: args.researchQueryId,
       title: args.title,
       query: args.query,
@@ -61,7 +54,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authMutation({
   args: {
     id: v.id("savedQueries"),
     title: v.optional(v.string()),
@@ -69,11 +62,9 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Saved query not found");
-    if (existing.userId !== userId) throw new Error("Not authorized");
+    if (existing.userId !== ctx.userId) throw new Error("Not authorized");
     const updates: { title?: string; query?: string; updatedAt: number } = {
       updatedAt: Date.now(),
     };
@@ -84,15 +75,13 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = authMutation({
   args: { id: v.id("savedQueries") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Saved query not found");
-    if (existing.userId !== userId) throw new Error("Not authorized");
+    if (existing.userId !== ctx.userId) throw new Error("Not authorized");
     await ctx.db.delete(args.id);
     return null;
   },

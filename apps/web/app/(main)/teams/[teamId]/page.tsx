@@ -1,9 +1,10 @@
 import { TeamDetailClient } from "./TeamDetailClient";
 
-export default function TeamDetailPage({
+export default async function TeamDetailPage({
   params,
 }: {
-  params: { teamId: string };
+  params: Promise<{ teamId: string }>;
 }) {
-  return <TeamDetailClient teamId={params.teamId} />;
+  const { teamId } = await params;
+  return <TeamDetailClient teamId={teamId} />;
 }

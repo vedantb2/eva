@@ -68,7 +68,6 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
-import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -112,7 +111,6 @@ export function ChatPanel({
   onSandboxToggle,
 }: ChatPanelProps) {
   const { repo } = useRepo();
-  const setupStatus = useSetupStatus();
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -277,8 +275,7 @@ export function ChatPanel({
     await cancelExecutionMutation({ sessionId: typedSessionId });
   };
 
-  const isInputDisabled =
-    !isSandboxActive || isSending || isExecuting || !setupStatus?.isReady;
+  const isInputDisabled = !isSandboxActive || isSending || isExecuting;
   const submitStatus = isExecuting
     ? lastAssistantHasNoContent
       ? "streaming"

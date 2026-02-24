@@ -1,3 +1,12 @@
+[] add the screenshots, gifs
+
+[x] one thing, get rid of slug for the teams and instead just use the team.\_id for the url, why do we have a slug anyway?
+
+[x] second thing, can you check if an env var exists for CLAUDE_CODE_OAUTH_TOKEN when entering a repo (based on the team) and if no I want it to show the setup banner still cos this is basically an env that's required to use the platform. I don't it as a hardcoded field, just a check and then the user needs to add it
+
+[x] few more things, the env vars in the admin page don't have the view button so I cant see them
+second thing is why do we have an isPersonal field for the teams? is this needed
+
 []Make it general purpose ready
 []Create snapshots based on repo
 []Contact simran and aimilia for their thoughts

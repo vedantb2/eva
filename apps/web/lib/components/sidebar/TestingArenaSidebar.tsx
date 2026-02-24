@@ -20,7 +20,6 @@ import { IconFileText } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
-import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -39,7 +38,6 @@ export function TestingArenaSidebar({
   onNavigate,
   createRequestId,
 }: TestingArenaSidebarProps) {
-  const setupStatus = useSetupStatus();
   const docs = useQuery(api.docs.list, { repoId });
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
 
@@ -163,10 +161,7 @@ export function TestingArenaSidebar({
             <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleTestAll}
-              disabled={!setupStatus?.isReady || isTestingAll}
-            >
+            <Button onClick={handleTestAll} disabled={isTestingAll}>
               {isTestingAll ? <Spinner size="sm" /> : "Yes save me Eva"}
             </Button>
           </DialogFooter>

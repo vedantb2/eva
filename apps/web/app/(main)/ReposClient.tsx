@@ -225,6 +225,7 @@ function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
 
 export function ReposClient() {
   const repos = useQuery(api.githubRepos.list);
+  const teams = useQuery(api.teams.list) ?? [];
   const syncRepos = useAction(api.github.syncRepos);
   const [syncing, setSyncing] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(true);
@@ -253,6 +254,25 @@ export function ReposClient() {
   const configureUrl = "https://github.com/settings/installations";
 
   const hasRepos = repos && repos.length > 0;
+
+  const groupedRepos = repos
+    ? repos.reduce<Record<string, typeof repos>>((groups, repo) => {
+        const groupKey = repo.teamId
+          ? (teams.find((t) => t._id === repo.teamId)?.name ?? "Unknown Team")
+          : "Personal";
+        if (!groups[groupKey]) {
+          groups[groupKey] = [];
+        }
+        groups[groupKey].push(repo);
+        return groups;
+      }, {})
+    : {};
+
+  const groupNames = Object.keys(groupedRepos).sort((a, b) => {
+    if (a === "Personal") return -1;
+    if (b === "Personal") return 1;
+    return a.localeCompare(b);
+  });
 
   return (
     <PageWrapper
@@ -306,55 +326,66 @@ export function ReposClient() {
               <WelcomeBanner onDismiss={handleDismissWelcome} />
             )}
           </AnimatePresence>
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            <AnimatePresence initial={false}>
-              {repos.map((repo, index) => (
-                <motion.div
-                  key={repo._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{
-                    duration: 0.2,
-                    delay: Math.min(index * 0.03, 0.2),
-                  }}
-                >
-                  <Link
-                    href={"/" + encodeRepoSlug(repo.owner + "/" + repo.name)}
-                    className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                  >
-                    <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
-                      <CardContent className="gap-3 p-3">
-                        <IconBrandGithub
-                          size={20}
-                          className={
-                            repo.connected === false
-                              ? "text-destructive/60"
-                              : "text-muted-foreground"
+          <div className="space-y-6">
+            {groupNames.map((groupName) => (
+              <div key={groupName}>
+                <h2 className="mb-3 text-sm font-semibold text-foreground">
+                  {groupName}
+                </h2>
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  <AnimatePresence initial={false}>
+                    {groupedRepos[groupName].map((repo, index) => (
+                      <motion.div
+                        key={repo._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{
+                          duration: 0.2,
+                          delay: Math.min(index * 0.03, 0.2),
+                        }}
+                      >
+                        <Link
+                          href={
+                            "/" + encodeRepoSlug(repo.owner + "/" + repo.name)
                           }
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {repo.name}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {repo.owner}
-                          </p>
-                        </div>
-                        {repo.connected === false && (
-                          <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
-                            <IconPlugConnectedX size={11} />
-                            <span className="text-[11px] font-medium">
-                              Disconnected
-                            </span>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                        >
+                          <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
+                            <CardContent className="flex items-center gap-3 p-3">
+                              <IconBrandGithub
+                                size={20}
+                                className={
+                                  repo.connected === false
+                                    ? "text-destructive/60"
+                                    : "text-muted-foreground"
+                                }
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {repo.name}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {repo.owner}
+                                </p>
+                              </div>
+                              {repo.connected === false && (
+                                <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
+                                  <IconPlugConnectedX size={11} />
+                                  <span className="text-[11px] font-medium">
+                                    Disconnected
+                                  </span>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}

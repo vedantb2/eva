@@ -29,7 +29,6 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
-import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -37,7 +36,6 @@ interface ProjectDetailClientProps {
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { fullName, repo, installationId } = useRepo();
-  const setupStatus = useSetupStatus();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
@@ -160,7 +158,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
               Cancel
             </Button>
             <Button
-              disabled={!setupStatus?.isReady}
+              disabled={false}
               onClick={async () => {
                 const { githubToken, convexToken } =
                   await getWorkflowTokens(installationId);

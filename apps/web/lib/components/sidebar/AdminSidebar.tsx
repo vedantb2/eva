@@ -18,7 +18,6 @@ export function AdminSidebar({
   const baseUrl = `/${repoSlug}/admin`;
 
   const navigation = [
-    { name: "Stats", href: `${baseUrl}/stats`, icon: IconChartBar },
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
   ];

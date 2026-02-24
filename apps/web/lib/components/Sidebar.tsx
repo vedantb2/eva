@@ -17,6 +17,7 @@ import {
   IconFileText,
   IconFlask,
   IconHammer,
+  IconHome,
   IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
@@ -25,11 +26,12 @@ import {
   IconPalette,
   IconPlus,
   IconSelector,
-  IconShield,
+  IconSettings,
   IconSun,
   IconTerminal2,
   IconTestPipe,
   IconTool,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
@@ -59,7 +61,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
   Sessions: "sessions",
   Analyse: "analyse",
-  Admin: "admin",
+  Settings: "admin",
   Documents: "docs",
   "Testing Arena": "testing-arena",
 } as const;
@@ -185,12 +187,17 @@ export function Sidebar() {
             },
             {
               label: "ADMIN",
-              groupIcon: IconShield,
+              groupIcon: IconSettings,
               items: [
                 {
-                  name: "Admin",
+                  name: "Stats",
+                  href: `/${repoSlug}/admin/stats`,
+                  icon: IconChartBar,
+                },
+                {
+                  name: "Settings",
                   href: `/${repoSlug}/admin`,
-                  icon: IconShield,
+                  icon: IconSettings,
                 },
               ],
             },
@@ -281,7 +288,7 @@ export function Sidebar() {
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         <Link
-          href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
+          href="/"
           className="mx-auto flex items-center gap-2 rounded-lg border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
         >
           <Image
@@ -417,7 +424,7 @@ export function Sidebar() {
                     <>
                       {!collapsed && (
                         <Link
-                          href={isRepoRoute && repoSlug ? `/${repoSlug}` : "/"}
+                          href="/"
                           className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <Image
@@ -434,6 +441,28 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
+                        {isRepoRoute && repoSlug && !collapsed && (
+                          <Link
+                            href={`/${repoSlug}`}
+                            onClick={closeMobileSidebar}
+                          >
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="motion-press hover:scale-[1.03] active:scale-[0.97]"
+                              title="Home"
+                            >
+                              <IconHome
+                                size={18}
+                                className={
+                                  pathname === `/${repoSlug}`
+                                    ? "text-sidebar-primary"
+                                    : "text-muted-foreground"
+                                }
+                              />
+                            </Button>
+                          </Link>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"

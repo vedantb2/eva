@@ -1,42 +1,87 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Alert, AlertDescription } from "@conductor/ui";
-import { IconAlertTriangle, IconX } from "@tabler/icons-react";
-import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
+import { useQuery } from "convex/react";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Button,
+} from "@conductor/ui";
+import { IconAlertTriangle } from "@tabler/icons-react";
+import Link from "next/link";
 
 export function SetupBanner() {
-  const status = useSetupStatus();
-  const { repoSlug } = useRepo();
+  const { repo } = useRepo();
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed || status === undefined || status.isReady) return null;
+  const team = useQuery(
+    api.teams.get,
+    repo.teamId ? { id: repo.teamId } : "skip",
+  );
+
+  const teamEnvVars = useQuery(
+    api.teamEnvVars.list,
+    repo.teamId ? { teamId: repo.teamId } : "skip",
+  );
+
+  if (!repo.teamId || !team) {
+    return null;
+  }
+
+  if (teamEnvVars === undefined) {
+    return null;
+  }
+
+  const hasOAuthToken = teamEnvVars.some(
+    (v) => v.key === "CLAUDE_CODE_OAUTH_TOKEN",
+  );
+
+  if (hasOAuthToken || dismissed) {
+    return null;
+  }
 
   return (
-    <div className="px-4 pt-4">
-      <Alert
-        variant="destructive"
-        className="flex items-center gap-3 border-destructive/35 bg-destructive/12 shadow-sm"
-      >
-        <IconAlertTriangle size={18} className="flex-shrink-0" />
-        <AlertDescription className="flex-1">
-          AI features are unavailable: no OAuth tokens configured.{" "}
-          <Link
-            href={`/${repoSlug}/admin/env-variables`}
-            className="font-medium underline underline-offset-2 hover:opacity-80"
-          >
-            Configure in Admin &rarr; System Variables
+    <Dialog open={true} onOpenChange={(open) => !open && setDismissed(true)}>
+      <DialogContent>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10">
+              <IconAlertTriangle
+                size={20}
+                className="text-yellow-600 dark:text-yellow-500"
+              />
+            </div>
+            <DialogTitle>OAuth Setup Required</DialogTitle>
+          </div>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            To use sandboxes and AI features, you need to configure your Claude
+            Code OAuth token in your team's environment variables.
+          </p>
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Required Variable:
+            </p>
+            <code className="rounded bg-background px-2 py-1 font-mono text-sm">
+              CLAUDE_CODE_OAUTH_TOKEN
+            </code>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDismissed(true)}>
+            Dismiss
+          </Button>
+          <Link href={`/teams/${team._id}`}>
+            <Button>Configure Team Settings</Button>
           </Link>
-        </AlertDescription>
-        <button
-          onClick={() => setDismissed(true)}
-          className="motion-press flex-shrink-0 rounded-md p-1 hover:scale-105 hover:bg-destructive/20"
-        >
-          <IconX size={14} />
-        </button>
-      </Alert>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

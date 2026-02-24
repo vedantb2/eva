@@ -96,12 +96,15 @@ export const listBranches = action({
     if (!identity) throw new Error("Not authenticated");
 
     const octokit = await getInstallationOctokit(args.installationId);
-    const branches = await octokit.rest.repos.listBranches({
-      owner: args.owner,
-      repo: args.repo,
-      per_page: 100,
-    });
-    return branches.data.map((b) => ({ name: b.name, protected: b.protected }));
+    const allBranches = await octokit.paginate(
+      octokit.rest.repos.listBranches,
+      {
+        owner: args.owner,
+        repo: args.repo,
+        per_page: 100,
+      },
+    );
+    return allBranches.map((b) => ({ name: b.name, protected: b.protected }));
   },
 });
 

@@ -1,15 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
 } from "@conductor/ui";
-import { IconGitBranch, IconLoader2 } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconLoader2,
+  IconCheck,
+  IconChevronDown,
+} from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useBranches } from "@/lib/hooks/useBranches";
+import { cn } from "@conductor/ui";
 
 interface BranchSelectProps {
   value: string;
@@ -28,6 +40,7 @@ export function BranchSelect({
     repo.name,
     repo.installationId,
   );
+  const [open, setOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -39,25 +52,57 @@ export function BranchSelect({
   }
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className={className ?? "h-8 text-sm"}>
-        <SelectValue>
-          <div className="flex items-center gap-1.5">
-            <IconGitBranch size={14} className="text-muted-foreground" />
-            <span>{value}</span>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between", className ?? "h-8 text-sm")}
+        >
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <IconGitBranch
+              size={14}
+              className="text-muted-foreground shrink-0"
+            />
+            <span className="truncate">{value}</span>
           </div>
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent className="max-h-64 overflow-auto scrollbar">
-        {branches.map((branch) => (
-          <SelectItem key={branch.name} value={branch.name}>
-            <div className="flex items-center gap-1.5">
-              <IconGitBranch size={14} className="text-muted-foreground" />
-              {branch.name}
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+          <IconChevronDown size={14} className="ml-2 opacity-60 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search branches..." />
+          <CommandList
+            className="max-h-[300px]"
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <CommandEmpty>No branch found.</CommandEmpty>
+            <CommandGroup>
+              {branches.map((branch) => (
+                <CommandItem
+                  key={branch.name}
+                  value={branch.name}
+                  onSelect={(currentValue) => {
+                    onValueChange(currentValue);
+                    setOpen(false);
+                  }}
+                >
+                  <IconGitBranch size={14} className="text-muted-foreground" />
+                  {branch.name}
+                  <IconCheck
+                    size={14}
+                    className={cn(
+                      "ml-auto",
+                      value === branch.name ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

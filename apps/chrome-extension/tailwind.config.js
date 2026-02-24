@@ -3,7 +3,7 @@ import tailwindcssAnimate from "tailwindcss-animate";
 /** @type {import('tailwindcss').Config} */
 
 function c(name) {
-  return `oklch(var(--${name}) / <alpha-value>)`;
+  return `rgb(var(--${name}) / <alpha-value>)`;
 }
 
 const config = {

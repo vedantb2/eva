@@ -344,7 +344,7 @@ function InputCard({
 
   return (
     <div
-      className={`absolute rounded-xl border ${dark ? "bg-neutral-800 border-neutral-700" : "bg-white border-neutral-200"}`}
+      className={`absolute rounded-lg border ${dark ? "bg-neutral-800 border-neutral-700" : "bg-white border-neutral-200"}`}
       style={{
         left: position.x - 15,
         top: position.y + 22,
@@ -1183,7 +1183,7 @@ export function AnnotationOverlay() {
       {ext.active && (
         <>
           <div
-            className="fixed inset-0 pointer-events-none rounded-md"
+            className="fixed inset-0 pointer-events-none rounded-lg"
             style={{
               zIndex: 2147483644,
               border: "1px solid #109182",
@@ -1226,7 +1226,7 @@ export function AnnotationOverlay() {
 
           {tooltipPin && tooltipId && !activeInputId && (
             <div
-              className={`absolute pointer-events-none rounded-md border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
+              className={`absolute pointer-events-none rounded-lg border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
               style={{
                 left: tooltipPin.x - 15,
                 top: tooltipPin.y + 22,

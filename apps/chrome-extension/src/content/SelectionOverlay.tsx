@@ -325,7 +325,7 @@ export function SelectionOverlay({
     <>
       <>
         <div
-          className="fixed inset-0 pointer-events-none rounded-md"
+          className="fixed inset-0 pointer-events-none rounded-lg"
           style={{
             zIndex: 2147483644,
             border: "1px solid #109182",

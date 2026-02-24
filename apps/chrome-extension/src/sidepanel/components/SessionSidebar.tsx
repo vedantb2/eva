@@ -117,7 +117,7 @@ export function SessionSidebar({
                         onSessionSelect(session._id);
                         onClose();
                       }}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors w-full text-left ${
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left ${
                         session._id === currentSessionId
                           ? "bg-accent text-primary font-medium"
                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -156,7 +156,7 @@ export function SessionSidebar({
                   designSessions.map((design) => (
                     <button
                       key={design._id}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors w-full text-left text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     >
                       <IconPalette className="size-4 shrink-0" />
                       <span className="truncate">{design.title}</span>

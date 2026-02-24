@@ -29,6 +29,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputSpeech,
   PromptInputSettings,
   ActivitySteps,
   type ClaudeModel,
@@ -37,12 +38,16 @@ import {
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import { parseActivitySteps } from "@/shared/parseActivitySteps";
+import dayjs from "@conductor/shared/dates";
 import {
   IconCheck,
   IconChevronRight,
   IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
+  IconCode,
+  IconClipboardList,
+  IconMessageCircle2,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
@@ -413,12 +418,12 @@ Please review all components and files used on this page before implementing the
                   <MessageContent
                     className={
                       message.role === "user"
-                        ? "rounded-2xl bg-secondary text-foreground px-4 py-3"
+                        ? "rounded-lg bg-secondary text-foreground px-4 py-3"
                         : "px-1 py-2"
                     }
                   >
                     {isFlagResponse && prev ? (
-                      <Collapsible className="rounded-xl rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
+                      <Collapsible className="rounded-lg rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
                         <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
                           <IconCheck
                             size={16}
@@ -470,9 +475,40 @@ Please review all components and files used on this page before implementing the
                             {message.content}
                           </MessageResponse>
                         ) : (
-                          <p className="whitespace-pre-wrap break-words text-sm">
-                            {message.content}
-                          </p>
+                          <>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              {message.content}
+                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                              {message.mode && (
+                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                                  {message.mode === "execute" && (
+                                    <>
+                                      <IconCode className="w-2.5 h-2.5" />{" "}
+                                      Execute
+                                    </>
+                                  )}
+                                  {message.mode === "ask" && (
+                                    <>
+                                      <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
+                                      Ask
+                                    </>
+                                  )}
+                                  {message.mode === "plan" && (
+                                    <>
+                                      <IconClipboardList className="w-2.5 h-2.5" />{" "}
+                                      PRD
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                              {message.timestamp && (
+                                <span className="text-[11px] text-muted-foreground/60">
+                                  {dayjs(message.timestamp).format("h:mm A")}
+                                </span>
+                              )}
+                            </div>
+                          </>
                         )}
                         {message.role === "assistant" &&
                           message.activityLog &&
@@ -498,18 +534,6 @@ Please review all components and files used on this page before implementing the
                       </>
                     )}
                   </MessageContent>
-                  {message.role === "user" &&
-                    message.mode &&
-                    (message.mode === "ask" || message.mode === "flag") && (
-                      <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1 ml-auto">
-                        {message.mode === "ask" ? (
-                          <IconMessageCircle size={12} />
-                        ) : (
-                          <IconFlag size={12} />
-                        )}
-                        {message.mode === "ask" ? "Ask" : "Flag"}
-                      </span>
-                    )}
                   {message.role === "user" && message.userId && (
                     <div className="mt-0.5 ml-auto">
                       <UserInitials
@@ -606,42 +630,55 @@ Please review all components and files used on this page before implementing the
           </Tooltip>
         </div>
 
-        <PromptInput onSubmit={handlePromptSubmit}>
-          <PromptInputTextarea
-            placeholder={getPlaceholder()}
-            disabled={isInputDisabled}
-          />
-          <PromptInputFooter>
-            <PromptInputTools>
-              <Tabs
-                value={mode}
-                onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
+        <div className="relative pt-4">
+          <Tabs
+            value={mode}
+            onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
+            className="absolute left-3 top-4 z-20 -translate-y-1/2"
+          >
+            <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+              <TabsTrigger
+                value="ask"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
-                <TabsList className="h-8">
-                  <TabsTrigger value="ask" className="text-xs px-2 py-1 gap-1">
-                    <IconMessageCircle size={14} />
-                    Ask
-                  </TabsTrigger>
-                  <TabsTrigger value="flag" className="text-xs px-2 py-1 gap-1">
-                    <IconFlag size={14} />
-                    Flag
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <PromptInputSettings
-                model={model}
-                onModelChange={setModel}
-                responseLength={responseLength}
-                onResponseLengthChange={setResponseLength}
-                disabled={isInputDisabled}
-              />
-            </PromptInputTools>
-            <PromptInputSubmit
-              status={isLoading ? "submitted" : undefined}
+                <IconMessageCircle className="w-3 h-3" />
+                Ask
+              </TabsTrigger>
+              <TabsTrigger
+                value="flag"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconFlag className="w-3 h-3" />
+                Flag
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <PromptInput onSubmit={handlePromptSubmit}>
+            <PromptInputTextarea
+              className="pt-8"
+              placeholder={getPlaceholder()}
               disabled={isInputDisabled}
             />
-          </PromptInputFooter>
-        </PromptInput>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputSettings
+                  model={model}
+                  onModelChange={setModel}
+                  responseLength={responseLength}
+                  onResponseLengthChange={setResponseLength}
+                  disabled={isInputDisabled}
+                />
+              </PromptInputTools>
+              <div className="flex items-center gap-1">
+                <PromptInputSpeech disabled={isInputDisabled} />
+                <PromptInputSubmit
+                  status={isLoading ? "submitted" : undefined}
+                  disabled={isInputDisabled}
+                />
+              </div>
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
     </div>
   );

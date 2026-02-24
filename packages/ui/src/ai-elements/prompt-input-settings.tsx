@@ -60,7 +60,7 @@ export function PromptInputSettings({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50",
+            "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50",
             className,
           )}
           disabled={disabled}

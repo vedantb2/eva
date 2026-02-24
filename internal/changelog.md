@@ -1,5 +1,13 @@
 # Changelog
 
+## Projects Timeline: Fix Drag-to-Pan on Windows — 2026-02-24
+
+- **Why**: Viewport panning (grab-and-drag to scroll timeline) was completely broken on Windows. Clicking and dragging did nothing, making it impossible to navigate the timeline without scroll/zoom.
+- **Root cause**: The refactor from mouse events to pointer events introduced a regression. `e.movementX` returns 0 on Windows when pointer capture is active, so `scrollLeft` never changed during drag operations.
+- **Fix**: Rewrote the three pointer handlers (`handlePointerDown`, `handlePointerMove`, `handlePointerUp`) to use absolute `clientX` delta instead of incremental `movementX`. The new implementation tracks `{ startX: number; startScroll: number }` in a single `dragRef`, computes `delta = startX - clientX`, and applies `startScroll + delta` for reliable cross-platform panning.
+- **Movement threshold**: The implementation only sets `isDragging(true)` when `|delta| > DRAG_THRESHOLD_PX` (4px), allowing clicks on project bars/labels to pass through naturally without suppression. Changed `onPointerDownCapture` to `onPointerDown` so child elements receive their events first.
+- **Impact**: Timeline panning now works reliably on all platforms (Windows, macOS, Linux) using absolute position math that avoids accumulated errors from incremental deltas.
+
 ## MCP Server: Fix OAuth 302 Redirect for Third-Party Clients — 2026-02-23
 
 - **Why**: The `POST /oauth/authorize` endpoint rendered an HTML page with a hidden iframe to deliver the authorization code. This worked for Claude Desktop's popup-based flow but broke for any other MCP client (ChatGPT, Cursor, etc.) that expected a standard OAuth 302 redirect. Third-party clients would hang forever waiting for the redirect callback.

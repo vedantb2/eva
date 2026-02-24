@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { ClientProvider } from "../lib/components/ClientProvider";
@@ -15,13 +15,6 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: "/icon-192x192.png",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: "#0d9488",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -37,6 +30,14 @@ export const metadata: Metadata = {
     description:
       "Meet Eva, your new AI coworker. Manage tasks, ship code, and track progress in real-time.",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0d9488",
 };
 
 const inter = Inter({

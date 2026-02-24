@@ -420,7 +420,7 @@ export const TestError = ({
   ...props
 }: TestErrorProps) => (
   <div
-    className={cn("mt-2 rounded-md bg-destructive/10 p-3", className)}
+    className={cn("mt-2 rounded-lg bg-destructive/10 p-3", className)}
     {...props}
   >
     {children}

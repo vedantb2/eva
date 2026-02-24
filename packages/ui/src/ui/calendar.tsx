@@ -57,7 +57,7 @@ function Calendar({
         table: "w-full border-collapse",
         weekdays: cn("flex", defaultClassNames.weekdays),
         weekday: cn(
-          "text-muted-foreground rounded-md flex-1 font-medium text-[0.76rem] uppercase tracking-[0.08em] select-none",
+          "text-muted-foreground rounded-lg flex-1 font-medium text-[0.76rem] uppercase tracking-[0.08em] select-none",
           defaultClassNames.weekday,
         ),
         week: cn("flex w-full mt-2", defaultClassNames.week),
@@ -66,7 +66,7 @@ function Calendar({
           defaultClassNames.day,
         ),
         today: cn(
-          "rounded-md border border-primary/25 bg-primary/10 text-primary",
+          "rounded-lg border border-primary/25 bg-primary/10 text-primary",
           defaultClassNames.today,
         ),
         outside: cn(

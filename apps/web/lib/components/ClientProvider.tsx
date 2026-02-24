@@ -9,6 +9,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { TooltipProvider } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
+import { EnsureUser } from "./EnsureUser";
 
 if (!clientEnv.NEXT_PUBLIC_CONVEX_URL) {
   throw new Error("Missing NEXT_PUBLIC_CONVEX_URL in your .env file");
@@ -21,16 +22,20 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     <NuqsAdapter>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ConvexQueryCacheProvider>
-          <NextThemesProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ThemeProvider>
-              <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-            </ThemeProvider>
-          </NextThemesProvider>
+          <EnsureUser>
+            <NextThemesProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <ThemeProvider>
+                <TooltipProvider delayDuration={300}>
+                  {children}
+                </TooltipProvider>
+              </ThemeProvider>
+            </NextThemesProvider>
+          </EnsureUser>
         </ConvexQueryCacheProvider>
       </ConvexProviderWithClerk>
     </NuqsAdapter>

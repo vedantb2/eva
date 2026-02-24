@@ -5,7 +5,7 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
 interface PageWrapperProps {
-  title?: string;
+  title?: React.ReactNode;
   headerCenter?: React.ReactNode;
   headerRight?: React.ReactNode;
   showBack?: boolean;

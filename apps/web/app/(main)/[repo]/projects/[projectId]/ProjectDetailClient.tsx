@@ -28,7 +28,6 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { PlanContextPanel } from "@/lib/components/projects/PlanContextPanel";
 import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
 import { useSetupStatus } from "@/lib/hooks/useSetupStatus";
 
@@ -71,38 +70,22 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
 
   return (
     <PageWrapper
-      title={project.title}
+      title={
+        <div className="flex items-center gap-2">
+          <span>{project.title}</span>
+          <ProjectPhaseBadge phase={project.phase} />
+        </div>
+      }
       showBack
       fillHeight
       childPadding={false}
       headerCenter={
-        <div className="flex items-center gap-3">
-          <ProjectPhaseBadge phase={project.phase} />
-          {project.branchName && (
-            <div className="flex items-center gap-1 text-muted-foreground text-sm">
-              <IconGitBranch size={14} />
-              {project.branchName}
-            </div>
-          )}
-          {project.prUrl && (
-            <Button size="sm" variant="ghost" className="rounded-full" asChild>
-              <Link
-                href={project.prUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <IconGitPullRequest size={14} />
-                <span className="text-xs">View PR</span>
-              </Link>
-            </Button>
-          )}
-          {!isDraftOrFinalized && project.generatedSpec && (
-            <PlanContextPanel
-              generatedSpec={project.generatedSpec}
-              conversationHistory={project.conversationHistory}
-            />
-          )}
-        </div>
+        project.branchName ? (
+          <div className="flex items-center gap-1 text-muted-foreground text-sm">
+            <IconGitBranch size={14} />
+            {project.branchName}
+          </div>
+        ) : undefined
       }
       headerRight={
         !isDraftOrFinalized ? (
@@ -144,6 +127,9 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             projectId={typedProjectId}
             project={project}
             repoSlug={encodeRepoSlug(fullName)}
+            generatedSpec={project.generatedSpec}
+            conversationHistory={project.conversationHistory}
+            prUrl={project.prUrl}
           />
         )}
       </div>

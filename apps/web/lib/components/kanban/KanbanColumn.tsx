@@ -44,10 +44,10 @@ export function KanbanColumn({
         isOver ? "bg-primary/10" : "bg-accent/40"
       }`}
     >
-      <CardHeader className="flex flex-row items-center justify-between p-2 pb-1 md:p-2 md:pb-1 flex-shrink-0 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between p-2 pb-2 md:p-2 md:pb-2 flex-shrink-0 space-y-0">
         <Badge
           variant="outline"
-          className={`${config.bg} ${config.text} gap-1.5 border-transparent`}
+          className={`${config.bg} ${config.text} gap-1.5 border-transparent py-1`}
         >
           <Icon size={14} className={config.text} />
           {config.label}

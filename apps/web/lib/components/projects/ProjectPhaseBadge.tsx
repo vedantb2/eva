@@ -35,9 +35,9 @@ export const phaseConfig: Record<
     icon: IconNotes,
   },
   finalized: {
-    bg: "bg-accent",
-    bar: "bg-primary",
-    text: "text-primary",
+    bg: "bg-blue-500/10",
+    bar: "bg-blue-500",
+    text: "text-blue-600 dark:text-blue-400",
     label: "Finalized",
     icon: IconCheck,
   },

@@ -9,14 +9,17 @@ import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectChatArea } from "./ProjectChatArea";
 import { ProjectTaskDetailPanel } from "./ProjectTaskDetailPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
+import { PlanContextPanel } from "./PlanContextPanel";
 import {
   IconChecklist,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconMessageCircle,
   IconX,
+  IconGitPullRequest,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
+import Link from "next/link";
 
 interface Project {
   _id: Id<"projects">;
@@ -38,12 +41,21 @@ interface ProjectActiveLayoutProps {
   projectId: Id<"projects">;
   project: Project;
   repoSlug: string;
+  generatedSpec?: string;
+  conversationHistory: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
+  prUrl?: string;
 }
 
 export function ProjectActiveLayout({
   projectId,
   project,
   repoSlug,
+  generatedSpec,
+  conversationHistory,
+  prUrl,
 }: ProjectActiveLayoutProps) {
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
@@ -113,6 +125,33 @@ export function ProjectActiveLayout({
                   onSelectTask={setSelectedTaskId}
                 />
               </div>
+              {(generatedSpec || prUrl) && (
+                <div className="border-t border-border/60 p-2 flex justify-center gap-2">
+                  {prUrl && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full"
+                      asChild
+                    >
+                      <Link
+                        href={prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <IconGitPullRequest size={14} />
+                        <span className="text-xs">PR</span>
+                      </Link>
+                    </Button>
+                  )}
+                  {generatedSpec && (
+                    <PlanContextPanel
+                      generatedSpec={generatedSpec}
+                      conversationHistory={conversationHistory}
+                    />
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

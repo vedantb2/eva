@@ -27,12 +27,14 @@ interface BranchSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export function BranchSelect({
   value,
   onValueChange,
   className,
+  disabled,
 }: BranchSelectProps) {
   const { repo } = useRepo();
   const { branches, isLoading } = useBranches(
@@ -52,12 +54,17 @@ export function BranchSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
+    <Popover
+      open={disabled ? false : open}
+      onOpenChange={setOpen}
+      modal={false}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn("w-full justify-between", className ?? "h-8 text-sm")}
         >
           <div className="flex items-center gap-1.5 min-w-0 flex-1">

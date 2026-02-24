@@ -45,7 +45,6 @@ import {
   IconArrowUp,
   IconMessagePlus,
   IconX,
-  IconUpload,
   IconPhoto,
   IconLoader2,
   IconShieldCheck,
@@ -57,7 +56,7 @@ import {
   IconFolder,
   IconTags,
   IconGitBranch,
-  IconCalendar,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -115,12 +114,8 @@ export function TaskDetailModal({
   const removeComment = useMutation(api.taskComments.remove);
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
-  const generateUploadUrl = useMutation(api.taskProof.generateUploadUrl);
-  const saveProof = useMutation(api.taskProof.save);
-  const removeProof = useMutation(api.taskProof.remove);
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -136,37 +131,16 @@ export function TaskDetailModal({
     setTagsInput((task?.tags ?? []).join(", "));
   }, [task?.tags]);
 
+  useEffect(() => {
+    setBaseBranch(task?.baseBranch ?? "main");
+  }, [task?.baseBranch]);
+
   const handleAddComment = async (e: FormEvent) => {
     e.preventDefault();
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
     await createComment({ taskId, content: text });
-  };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleUploadProof = async (file: File) => {
-    setIsUploading(true);
-    try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const { storageId } = await result.json();
-      await saveProof({
-        taskId,
-        storageId,
-        fileName: file.name,
-        fileType: file.type,
-      });
-    } catch (err) {
-      console.error("Failed to upload proof:", err);
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
@@ -239,7 +213,8 @@ export function TaskDetailModal({
   };
 
   const hasAudit = Boolean(audit);
-  const modalWidthClass = hasAudit
+  const hasSecondColumn = hasAudit || showProofSection;
+  const modalWidthClass = hasSecondColumn
     ? requestChangesPanel
       ? "max-w-[84rem]"
       : "max-w-[72rem]"
@@ -247,7 +222,7 @@ export function TaskDetailModal({
       ? "max-w-[64rem]"
       : "max-w-[52rem]";
 
-  const layoutGridClass = hasAudit
+  const layoutGridClass = hasSecondColumn
     ? requestChangesPanel
       ? "grid-cols-[1fr_1fr_200px_1fr]"
       : "grid-cols-[1fr_1fr_200px]"
@@ -294,9 +269,16 @@ export function TaskDetailModal({
                         : null;
                     return (
                       <div>
-                        <h4 className="text-sm font-medium text-foreground mb-2">
-                          Description
-                        </h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-foreground">
+                            Description
+                          </h4>
+                          <span className="text-xs text-muted-foreground">
+                            {task?.createdAt
+                              ? dayjs(task.createdAt).format("MMM D, YYYY")
+                              : ""}
+                          </span>
+                        </div>
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {mainDesc}
                         </p>
@@ -346,7 +328,10 @@ export function TaskDetailModal({
                       <IconTerminal2 size={16} />
                       Agent Runs ({runs.length})
                     </h4>
-                    <Accordion type="multiple" className="space-y-2">
+                    <Accordion
+                      type="multiple"
+                      className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2"
+                    >
                       {runs.map((run) => (
                         <AccordionItem
                           key={run._id}
@@ -459,217 +444,181 @@ export function TaskDetailModal({
                     </Accordion>
                   </div>
                 )}
-
-                {showProofSection && (
-                  <div className="pt-4">
-                    <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-                      <IconPhoto size={14} />
-                      Proof of Completion
-                    </h4>
-                    {proofs && proofs.length > 0 && (
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        {proofs.map((proof) => (
-                          <div
-                            key={proof._id}
-                            className="group relative rounded-lg overflow-hidden bg-muted"
-                          >
-                            {proof.url &&
-                              proof.fileType.startsWith("image/") && (
-                                <img
-                                  src={proof.url}
-                                  alt={proof.fileName}
-                                  className="w-full h-32 object-cover"
-                                />
-                              )}
-                            {proof.url &&
-                              proof.fileType.startsWith("video/") && (
-                                <video
-                                  src={proof.url}
-                                  controls
-                                  className="w-full h-32 object-cover"
-                                />
-                              )}
-                            <div className="flex items-center justify-between p-2">
-                              <span className="text-xs text-muted-foreground truncate">
-                                {proof.fileName}
-                              </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 opacity-0 group-hover:opacity-100"
-                                onClick={() => removeProof({ id: proof._id })}
-                              >
-                                <IconTrash size={14} />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,video/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleUploadProof(file);
-                          e.target.value = "";
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                    >
-                      {isUploading ? (
-                        <IconLoader2 size={14} className="animate-spin" />
-                      ) : (
-                        <IconUpload size={14} />
-                      )}
-                      Upload Proof
-                    </Button>
-                  </div>
-                )}
               </div>
 
-              {audit && (
+              {(audit || showProofSection) && (
                 <div className="pl-4 space-y-4 overflow-y-auto scrollbar">
-                  <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-                    <IconShieldCheck size={16} />
-                    Post-Execution Audit
-                    <Badge
-                      variant={
-                        audit.status === "completed"
-                          ? "success"
-                          : audit.status === "error"
-                            ? "destructive"
-                            : "warning"
-                      }
-                    >
-                      {audit.status}
-                    </Badge>
-                  </h4>
-                  {audit.status === "running" &&
-                    auditStreaming?.currentActivity && (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(s) =>
-                            s ? "Auditing..." : "Audit complete"
-                          }
-                        />
-                        <ReasoningContent>
-                          {auditStreaming.currentActivity}
-                        </ReasoningContent>
-                      </Reasoning>
-                    )}
-                  {audit.status === "error" && audit.error && (
-                    <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-                      {audit.error}
-                    </div>
-                  )}
-                  {audit.status === "completed" && (
-                    <>
-                      {audit.summary && (
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {audit.summary}
+                  {showProofSection && (
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                        <IconPhoto size={14} />
+                        Proof of Completion
+                      </h4>
+                      {proofs && proofs.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {proofs.map((proof) => (
+                            <div
+                              key={proof._id}
+                              className="relative rounded-lg overflow-hidden bg-muted"
+                            >
+                              {proof.url &&
+                                proof.fileType.startsWith("image/") && (
+                                  <img
+                                    src={proof.url}
+                                    alt={proof.fileName}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                )}
+                              {proof.url &&
+                                proof.fileType.startsWith("video/") && (
+                                  <video
+                                    src={proof.url}
+                                    controls
+                                    className="w-full h-32 object-cover"
+                                  />
+                                )}
+                              <div className="p-2">
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {proof.fileName}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No proof uploaded yet
                         </p>
                       )}
-                      <Accordion type="multiple" className="space-y-2">
-                        {[
-                          {
-                            key: "accessibility",
-                            label: "Accessibility",
-                            items: audit.accessibility,
-                          },
-                          {
-                            key: "testing",
-                            label: "Code Testing",
-                            items: audit.testing,
-                          },
-                          {
-                            key: "codeReview",
-                            label: "Code Review",
-                            items: audit.codeReview,
-                          },
-                        ].map((section) => (
-                          <AccordionItem
-                            key={section.key}
-                            value={section.key}
-                            className="border rounded-lg px-3"
-                          >
-                            <AccordionTrigger>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">{section.label}</span>
-                                <Badge
-                                  variant={
-                                    section.items.every((i) => i.passed)
-                                      ? "success"
-                                      : "destructive"
-                                  }
-                                >
-                                  {section.items.filter((i) => i.passed).length}
-                                  /{section.items.length}
-                                </Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-2">
-                                {section.items.map((item, i) => (
-                                  <div
-                                    key={i}
-                                    className="flex items-start gap-2 text-sm"
-                                  >
-                                    {item.passed ? (
-                                      <IconCheck
-                                        size={16}
-                                        className="text-success mt-0.5 flex-shrink-0"
-                                      />
-                                    ) : (
-                                      <IconAlertTriangle
-                                        size={16}
-                                        className="text-destructive mt-0.5 flex-shrink-0"
-                                      />
-                                    )}
-                                    <div>
-                                      <span className="font-medium">
-                                        {item.requirement}
-                                      </span>
-                                      <p className="text-muted-foreground">
-                                        {item.detail}
-                                      </p>
-                                    </div>
+                    </div>
+                  )}
+
+                  {audit && (
+                    <>
+                      <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <IconShieldCheck size={16} />
+                        Post-Execution Audit
+                        <Badge
+                          variant={
+                            audit.status === "completed"
+                              ? "success"
+                              : audit.status === "error"
+                                ? "destructive"
+                                : "warning"
+                          }
+                        >
+                          {audit.status}
+                        </Badge>
+                      </h4>
+                      {audit.status === "running" &&
+                        auditStreaming?.currentActivity && (
+                          <Reasoning isStreaming defaultOpen>
+                            <ReasoningTrigger
+                              getThinkingMessage={(s) =>
+                                s ? "Auditing..." : "Audit complete"
+                              }
+                            />
+                            <ReasoningContent>
+                              {auditStreaming.currentActivity}
+                            </ReasoningContent>
+                          </Reasoning>
+                        )}
+                      {audit.status === "error" && audit.error && (
+                        <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+                          {audit.error}
+                        </div>
+                      )}
+                      {audit.status === "completed" && (
+                        <>
+                          {audit.summary && (
+                            <p className="text-sm text-muted-foreground mb-3">
+                              {audit.summary}
+                            </p>
+                          )}
+                          <Accordion type="multiple" className="space-y-2">
+                            {[
+                              {
+                                key: "accessibility",
+                                label: "Accessibility",
+                                items: audit.accessibility,
+                              },
+                              {
+                                key: "testing",
+                                label: "Code Testing",
+                                items: audit.testing,
+                              },
+                              {
+                                key: "codeReview",
+                                label: "Code Review",
+                                items: audit.codeReview,
+                              },
+                            ].map((section) => (
+                              <AccordionItem
+                                key={section.key}
+                                value={section.key}
+                                className="border rounded-lg px-3"
+                              >
+                                <AccordionTrigger>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">
+                                      {section.label}
+                                    </span>
+                                    <Badge
+                                      variant={
+                                        section.items.every((i) => i.passed)
+                                          ? "success"
+                                          : "destructive"
+                                      }
+                                    >
+                                      {
+                                        section.items.filter((i) => i.passed)
+                                          .length
+                                      }
+                                      /{section.items.length}
+                                    </Badge>
                                   </div>
-                                ))}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-2">
+                                    {section.items.map((item, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-start gap-2 text-sm"
+                                      >
+                                        {item.passed ? (
+                                          <IconCheck
+                                            size={16}
+                                            className="text-success mt-0.5 flex-shrink-0"
+                                          />
+                                        ) : (
+                                          <IconAlertTriangle
+                                            size={16}
+                                            className="text-destructive mt-0.5 flex-shrink-0"
+                                          />
+                                        )}
+                                        <div>
+                                          <span className="font-medium">
+                                            {item.requirement}
+                                          </span>
+                                          <p className="text-muted-foreground">
+                                            {item.detail}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
               )}
 
               <div className="pl-4 space-y-4">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <IconCalendar size={12} />
-                    Created
-                  </p>
-                  <p className="text-sm text-foreground">
-                    {task?.createdAt
-                      ? dayjs(task.createdAt).format("MMM D, YYYY")
-                      : "—"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {task?.createdAt ? dayjs(task.createdAt).fromNow() : ""}
-                  </p>
-                </div>
-
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                     <IconCircleDot size={12} />
@@ -828,6 +777,19 @@ export function TaskDetailModal({
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                     <IconBrain size={12} />
                     Model
+                    {status !== "todo" && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <IconInfoCircle
+                            size={12}
+                            className="text-muted-foreground cursor-help"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Cannot be modified after task has run
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </p>
                   <Select
                     value={task?.model ?? "sonnet"}
@@ -835,6 +797,7 @@ export function TaskDetailModal({
                       const model = CLAUDE_MODELS.find((m) => m === val);
                       if (model) updateTask({ id: taskId, model });
                     }}
+                    disabled={status !== "todo"}
                   >
                     <SelectTrigger className="h-8 text-sm">
                       <SelectValue />
@@ -848,33 +811,33 @@ export function TaskDetailModal({
                     </SelectContent>
                   </Select>
                 </div>
-                {!task?.projectId && status === "todo" && (
+                {!task?.projectId && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                       <IconGitBranch size={12} />
                       Base Branch
+                      {status !== "todo" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <IconInfoCircle
+                              size={12}
+                              className="text-muted-foreground cursor-help"
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Cannot be modified after task has run
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </p>
                     <BranchSelect
                       value={baseBranch}
-                      onValueChange={setBaseBranch}
+                      onValueChange={(val) => {
+                        setBaseBranch(val);
+                        updateTask({ id: taskId, baseBranch: val });
+                      }}
+                      disabled={status !== "todo"}
                     />
-                  </div>
-                )}
-                {latestPrUrl && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                      <IconGitPullRequest size={12} />
-                      Pull Request
-                    </p>
-                    <a
-                      href={latestPrUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-primary hover:underline"
-                    >
-                      <IconGitPullRequest size={14} />
-                      View PR
-                    </a>
                   </div>
                 )}
               </div>
@@ -977,6 +940,18 @@ export function TaskDetailModal({
               )}
             </Tooltip>
             <div className="flex items-center gap-2">
+              {latestPrUrl && (
+                <Button asChild variant="outline">
+                  <a
+                    href={latestPrUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconGitPullRequest size={18} />
+                    View PR
+                  </a>
+                </Button>
+              )}
               {!requestChangesPanel &&
                 status !== "todo" &&
                 status !== "in_progress" && (
@@ -988,7 +963,7 @@ export function TaskDetailModal({
                     Request Changes
                   </Button>
                 )}
-              {status === "todo" ? (
+              {status === "todo" && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
@@ -1019,19 +994,7 @@ export function TaskDetailModal({
                     </TooltipContent>
                   )}
                 </Tooltip>
-              ) : latestPrUrl &&
-                (status === "code_review" || status === "done") ? (
-                <Button asChild>
-                  <a
-                    href={latestPrUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconGitPullRequest size={18} />
-                    Open PR
-                  </a>
-                </Button>
-              ) : null}
+              )}
             </div>
           </DialogFooter>
         </DialogContent>

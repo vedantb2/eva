@@ -115,6 +115,7 @@ const schema = defineSchema({
     createdBy: v.optional(v.id("users")),
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
+    baseBranch: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
     scheduledRetryAt: v.optional(v.number()),
   })

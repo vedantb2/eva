@@ -40,6 +40,7 @@ const agentTaskValidator = v.object({
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(claudeModelValidator),
+  baseBranch: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
 });
 
@@ -182,6 +183,7 @@ export const update = mutation({
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.id("users")),
     model: v.optional(claudeModelValidator),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -207,6 +209,7 @@ export const update = mutation({
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
     if (args.model !== undefined) updates.model = args.model;
+    if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       const currentUserId = await getCurrentUserId(ctx);

@@ -1,4 +1,10 @@
-import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  QueryCtx,
+  MutationCtx,
+  internalQuery,
+} from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { themeValidator } from "./validators";
@@ -95,6 +101,30 @@ async function runMigration(
     migrationStatus: "started",
   });
 }
+
+export const getUserByClerkId = internalQuery({
+  args: { clerkId: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      clerkId: v.optional(v.string()),
+      email: v.optional(v.string()),
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      fullName: v.optional(v.string()),
+      isAdmin: v.optional(v.boolean()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    return user ?? null;
+  },
+});
 
 export const me = query({
   args: {},

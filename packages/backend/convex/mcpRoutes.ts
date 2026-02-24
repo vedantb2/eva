@@ -20,13 +20,32 @@ export const getDecryptedRepoEnvVars = internalAction({
     if (!isRepoId(args.repoId)) {
       return [];
     }
-    const vars: Array<{ key: string; value: string }> = await ctx.runQuery(
+
+    const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
+      repoId: args.repoId,
+    });
+
+    const teamEnvVars: Record<string, string> = {};
+    if (teamId) {
+      const vars = await ctx.runQuery(internal.teamEnvVars.getForSandbox, {
+        teamId,
+      });
+      for (const v of vars) {
+        teamEnvVars[v.key] = decryptValue(v.value);
+      }
+    }
+
+    const repoVars: Array<{ key: string; value: string }> = await ctx.runQuery(
       internal.repoEnvVars.getForSandbox,
       { repoId: args.repoId },
     );
-    return vars.map((entry) => ({
-      key: entry.key,
-      value: decryptValue(entry.value),
-    }));
+
+    const repoEnvVars: Record<string, string> = {};
+    for (const entry of repoVars) {
+      repoEnvVars[entry.key] = decryptValue(entry.value);
+    }
+
+    const merged = { ...teamEnvVars, ...repoEnvVars };
+    return Object.entries(merged).map(([key, value]) => ({ key, value }));
   },
 });

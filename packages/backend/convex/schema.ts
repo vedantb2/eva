@@ -17,10 +17,10 @@ import {
   queryConfirmationStatusValidator,
   claudeModelValidator,
   errorTypeValidator,
-  systemEnvVarCategoryValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  teamMemberRoleValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -148,7 +148,11 @@ const schema = defineSchema({
     name: v.string(),
     installationId: v.number(),
     connected: v.optional(v.boolean()),
-  }).index("by_owner_name", ["owner", "name"]),
+    connectedBy: v.optional(v.id("users")),
+    teamId: v.optional(v.id("teams")),
+  })
+    .index("by_owner_name", ["owner", "name"])
+    .index("by_team", ["teamId"]),
 
   subtasks: defineTable({
     parentTaskId: v.id("agentTasks"),
@@ -391,21 +395,6 @@ const schema = defineSchema({
     vars: v.array(v.object({ key: v.string(), value: v.string() })),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
-  systemEnvVars: defineTable({
-    key: v.string(),
-    value: v.string(),
-    category: systemEnvVarCategoryValidator,
-    description: v.optional(v.string()),
-    updatedAt: v.number(),
-  })
-    .index("by_key", ["key"])
-    .index("by_category", ["category"]),
-  aiAccountStatus: defineTable({
-    accountId: v.id("systemEnvVars"),
-    isLimited: v.boolean(),
-    limitResetAt: v.optional(v.number()),
-    updatedAt: v.number(),
-  }).index("by_account", ["accountId"]),
   extensionReleases: defineTable({
     version: v.string(),
     crxStorageId: v.id("_storage"),
@@ -439,6 +428,26 @@ const schema = defineSchema({
   })
     .index("by_repoSnapshotId", ["repoSnapshotId"])
     .index("by_status", ["status"]),
+  teams: defineTable({
+    name: v.string(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    isPersonal: v.optional(v.boolean()),
+  }).index("by_created_by", ["createdBy"]),
+  teamMembers: defineTable({
+    teamId: v.id("teams"),
+    userId: v.id("users"),
+    role: teamMemberRoleValidator,
+    joinedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_user", ["userId"])
+    .index("by_team_and_user", ["teamId", "userId"]),
+  teamEnvVars: defineTable({
+    teamId: v.id("teams"),
+    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    updatedAt: v.number(),
+  }).index("by_team", ["teamId"]),
 });
 
 export default schema;

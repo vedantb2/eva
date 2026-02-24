@@ -188,6 +188,19 @@ export const syncRepos = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const clerkUserId = identity.subject;
+    const user = await ctx.runQuery(internal.auth.getUserByClerkId, {
+      clerkId: clerkUserId,
+    });
+    if (!user) throw new Error("User not found");
+
+    const personalTeamId = await ctx.runMutation(
+      internal.teams.getOrCreatePersonal,
+      {
+        userId: user._id,
+      },
+    );
+
     const appOctokit = getAppOctokit();
     const installations = await appOctokit.rest.apps.listInstallations();
 
@@ -204,6 +217,7 @@ export const syncRepos = action({
           owner: repo.owner.login,
           name: repo.name,
           installationId: installation.id,
+          teamId: personalTeamId,
         });
         connectedIds.push(id);
         totalAdded++;

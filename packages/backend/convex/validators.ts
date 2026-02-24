@@ -105,11 +105,6 @@ export const queryConfirmationStatusValidator = v.union(
   v.literal("cancelled"),
 );
 
-export const systemEnvVarCategoryValidator = v.union(
-  v.literal("claude_oauth"),
-  v.literal("infrastructure"),
-);
-
 export const snapshotScheduleValidator = v.union(
   v.literal("daily"),
   v.literal("every_3_days"),
@@ -126,4 +121,9 @@ export const snapshotBuildStatusValidator = v.union(
 export const snapshotBuildTriggerValidator = v.union(
   v.literal("cron"),
   v.literal("manual"),
+);
+
+export const teamMemberRoleValidator = v.union(
+  v.literal("owner"),
+  v.literal("member"),
 );

@@ -11,7 +11,7 @@ import { useThemeContext } from "@/lib/contexts/ThemeContext";
 
 export function TopNavBar() {
   const pathname = usePathname();
-  const { theme, toggleTheme } = useThemeContext();
+  const { theme, toggleTheme, mounted } = useThemeContext();
 
   const isTeamsRoute = pathname.startsWith("/teams");
   const isReposRoute = pathname === "/" || pathname === "/setup";
@@ -77,13 +77,21 @@ export function TopNavBar() {
             onClick={toggleTheme}
             className="motion-press h-9 w-9 hover:scale-[1.03] active:scale-[0.97]"
             title={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              mounted
+                ? theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+                : "Toggle theme"
             }
           >
-            {theme === "dark" ? (
-              <IconSun size={18} className="text-muted-foreground" />
+            {mounted ? (
+              theme === "dark" ? (
+                <IconSun size={18} className="text-muted-foreground" />
+              ) : (
+                <IconMoon size={18} className="text-muted-foreground" />
+              )
             ) : (
-              <IconMoon size={18} className="text-muted-foreground" />
+              <div className="h-[18px] w-[18px]" />
             )}
           </Button>
 

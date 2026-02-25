@@ -10,7 +10,7 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface SessionDetailClientProps {
   sessionId: string;
@@ -44,8 +44,11 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     setIsSandboxToggling(true);
     try {
       if (action === "start") {
-        const { githubToken } = await getWorkflowTokens(installationId);
-        await startSandboxMutation({ sessionId: typedSessionId, githubToken });
+        await getConvexToken();
+        await startSandboxMutation({
+          sessionId: typedSessionId,
+          installationId,
+        });
       } else {
         await stopSandboxMutation({ sessionId: typedSessionId });
       }

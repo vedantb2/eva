@@ -5,7 +5,7 @@ import { useQueryState } from "nuqs";
 import { testingTabParser, branchParser } from "@/lib/search-params";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import {
@@ -316,14 +316,12 @@ export default function TestingArenaDocPage({
     if (!doc) return;
     setIsRunning(true);
     try {
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        repo.installationId,
-      );
+      const { convexToken } = await getConvexToken();
       await startEvaluation({
         docId: doc._id,
         repoId: repo._id,
         convexToken,
-        githubToken,
+        installationId: repo.installationId,
         branchName: branch !== "main" ? branch : undefined,
       });
     } finally {

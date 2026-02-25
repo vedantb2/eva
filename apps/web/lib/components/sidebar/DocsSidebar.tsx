@@ -29,7 +29,7 @@ import {
 } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -109,9 +109,13 @@ export function DocsSidebar({
       const id = await createDoc({ repoId, title, content: prdContent });
       router.push(`/${repoSlug}/docs/${id}`);
       onNavigate?.();
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
-      await startPrdParse({ docId: id, prdContent, convexToken, githubToken });
+      const { convexToken } = await getConvexToken();
+      await startPrdParse({
+        docId: id,
+        prdContent,
+        convexToken,
+        installationId,
+      });
     } catch (error) {
       console.error("PRD upload failed", error);
     } finally {

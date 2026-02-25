@@ -31,7 +31,7 @@ import {
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -133,9 +133,7 @@ export function QuickTasksListView({
     try {
       for (const task of ownedTodoTasks) {
         const result = await startExecution({ id: task._id });
-        const { githubToken, convexToken } = await getWorkflowTokens(
-          result.installationId,
-        );
+        const { convexToken } = await getConvexToken();
         await triggerExecution({
           runId: result.runId,
           taskId: result.taskId,
@@ -146,7 +144,6 @@ export function QuickTasksListView({
           isFirstTaskOnBranch: result.isFirstTaskOnBranch,
           model: result.model,
           convexToken,
-          githubToken,
         });
       }
     } catch (err) {

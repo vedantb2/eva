@@ -1,5 +1,26 @@
 # Changelog
 
+## Move GitHub Token Generation Server-Side — 2026-02-25
+
+- **Why**: GitHub App installation tokens have a 1-hour TTL. Previously, tokens were generated in the frontend via `getWorkflowTokens()`, passed through Convex mutations, workflow args, and into daytona sandbox as env vars. By the time Claude CLI tried to `git push`, tokens could be expired (especially for long-running tasks). Additionally, tokens passed through the frontend created unnecessary security exposure. Moving token generation server-side eliminates TTL races and improves security by keeping tokens internal to backend infrastructure.
+
+- **Changes**:
+  1. **New centralized auth module**: Created `packages/backend/convex/githubAuth.ts` with shared functions: `normalizePemKey()`, `getGitHubCredentials()`, `getInstallationToken()`, `getInstallationOctokit()`
+  2. **Backend auth consolidation**: Updated `github.ts` and `snapshotActions.ts` to import shared auth functions, eliminating ~150 lines of duplicated key normalization and credential management code
+  3. **Fresh token generation at use time**: Modified internal helpers in `daytona.ts` to accept `installationId` instead of `githubToken`:
+     - `createSandbox()` now generates fresh token internally and sets `INSTALLATION_ID` env var for callback refresh
+     - `syncRepo()`, `cloneAndSetupRepo()` generate fresh tokens for git operations
+  4. **Callback script token refresh**: Updated `buildCallbackScript()` to refresh `GITHUB_TOKEN` env var before spawning Claude CLI by calling `github:getInstallationTokenAction` via Convex HTTP API
+  5. **Workflow migrations**: Updated all 11 workflow files (task, session, design, build, research query, test gen, summarize, project interview, evaluation, doc PRD, doc interview) to accept `installationId` instead of `githubToken` in workflow args
+  6. **Frontend simplification**: Renamed `getWorkflowTokens()` → `getConvexToken()` in server action; removed GitHub token generation entirely. Updated 15 components across pages and lib to pass `installationId` from repo data instead of requesting tokens
+
+- **Impact**:
+  - **Eliminates TTL races**: Tokens are generated immediately before use, preventing expiration during long task execution
+  - **Security**: Tokens no longer pass through frontend; kept internal to backend infrastructure
+  - **Audit trail**: `INSTALLATION_ID` env var in sandbox enables callback script to refresh tokens autonomously
+  - **Code consolidation**: Removed 150+ lines of duplicated auth code; single source of truth in `githubAuth.ts`
+  - **No breaking changes**: All mutations and workflows still work end-to-end; token management is now transparent to callers
+
 ## Persist Agent Run Activity Logs — 2026-02-25
 
 - **Why**: During task execution, detailed streaming activity (file reads, edits, bash commands, thinking steps) was shown via `streamingActivity` table. On completion, the streaming row was deleted and the `activityLog` string (passed through the workflow event) was silently dropped — never saved. Result: after success/error, users only saw a status badge + PR link. All step-by-step detail was lost, making it impossible to audit what the agent did after the run completed.

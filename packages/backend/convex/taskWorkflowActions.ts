@@ -2,11 +2,11 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-import { Octokit } from "octokit";
+import { getInstallationOctokit } from "./githubAuth";
 
 export const createPullRequest = internalAction({
   args: {
-    githubToken: v.string(),
+    installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
@@ -15,8 +15,8 @@ export const createPullRequest = internalAction({
   },
   returns: v.union(v.string(), v.null()),
   handler: async (_ctx, args) => {
-    const octokit = new Octokit({ auth: args.githubToken });
     try {
+      const octokit = await getInstallationOctokit(args.installationId);
       const pr = await octokit.rest.pulls.create({
         owner: args.repoOwner,
         repo: args.repoName,

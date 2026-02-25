@@ -128,7 +128,7 @@ export const projectInterviewWorkflow = workflow.define({
     ),
     rejectionReason: v.optional(v.string()),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch project + repo data
@@ -154,7 +154,7 @@ export const projectInterviewWorkflow = workflow.define({
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.projectId,
       existingSandboxId: projectData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: projectData.repoOwner,
       repoName: projectData.repoName,
       prompt: fullPrompt,
@@ -333,7 +333,7 @@ export const startInterview = authMutation({
     ),
     rejectionReason: v.optional(v.string()),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -349,7 +349,7 @@ export const startInterview = authMutation({
         previousAnswers: args.previousAnswers,
         rejectionReason: args.rejectionReason,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 
@@ -371,7 +371,7 @@ export const projectSpecWorkflow = workflow.define({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     const projectData = await step.runQuery(
@@ -402,7 +402,7 @@ Output ONLY valid JSON.`;
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.projectId,
       existingSandboxId: projectData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: projectData.repoOwner,
       repoName: projectData.repoName,
       prompt,
@@ -519,7 +519,7 @@ export const startSpec = authMutation({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -534,7 +534,7 @@ export const startSpec = authMutation({
         featureDescription: args.featureDescription,
         previousAnswers: args.previousAnswers,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

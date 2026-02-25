@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import {
   ActivitySteps,
   Button,
@@ -183,12 +183,11 @@ function DocEditor({ doc }: { doc: Doc }) {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
     try {
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
+      const { convexToken } = await getConvexToken();
       await startTestGenMutation({
         docId: doc._id,
         convexToken,
-        githubToken,
+        installationId,
       });
     } finally {
       setIsTriggeringTestGen(false);

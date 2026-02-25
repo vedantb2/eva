@@ -110,7 +110,6 @@ export const taskExecutionWorkflow = workflow.define({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
     convexToken: v.string(),
-    githubToken: v.string(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Update run to "running"
@@ -133,7 +132,7 @@ export const taskExecutionWorkflow = workflow.define({
       {
         entityId: String(args.taskId),
         existingSandboxId: data.projectSandboxId,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
@@ -166,7 +165,7 @@ export const taskExecutionWorkflow = workflow.define({
       prUrl = await step.runAction(
         internal.taskWorkflowActions.createPullRequest,
         {
-          githubToken: args.githubToken,
+          installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
           branchName: data.branchName,
@@ -620,7 +619,6 @@ export const triggerExecution = authMutation({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
     convexToken: v.string(),
-    githubToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -641,7 +639,6 @@ export const triggerExecution = authMutation({
         isFirstTaskOnBranch: args.isFirstTaskOnBranch,
         model: args.model,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
       },
     );
 

@@ -7,7 +7,7 @@ import { api } from "@conductor/backend";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;
@@ -74,15 +74,14 @@ export function ProjectTabs({
       await updateProject({ id: projectId, phase: "draft" });
       await addMessageDb({ id: projectId, role: "user", content: reason });
 
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
+      const { convexToken } = await getConvexToken();
       await startProjectInterview({
         projectId,
         featureDescription: rawInput,
         previousAnswers: answersFromHistory,
         rejectionReason: reason,
         convexToken,
-        githubToken,
+        installationId,
       });
 
       setPendingSpec(null);

@@ -104,7 +104,7 @@ export const docInterviewWorkflow = workflow.define({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch doc + repo data, build question prompt
@@ -128,7 +128,7 @@ export const docInterviewWorkflow = workflow.define({
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.docId,
       existingSandboxId: docData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: fullPrompt,
@@ -332,7 +332,7 @@ export const startInterview = authMutation({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -347,7 +347,7 @@ export const startInterview = authMutation({
         docTitle: args.docTitle,
         previousAnswers: args.previousAnswers,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 
@@ -370,7 +370,7 @@ export const docGenerateWorkflow = workflow.define({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     const docData = await step.runQuery(
@@ -400,7 +400,7 @@ Output ONLY valid JSON.`;
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.docId,
       existingSandboxId: docData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt,
@@ -527,7 +527,7 @@ export const startGenerate = authMutation({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -542,7 +542,7 @@ export const startGenerate = authMutation({
         docTitle: args.docTitle,
         previousAnswers: args.previousAnswers,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

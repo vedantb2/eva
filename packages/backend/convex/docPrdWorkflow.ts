@@ -84,7 +84,7 @@ export const docPrdWorkflow = workflow.define({
     docId: v.id("docs"),
     prdContent: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch doc + repo data, build prompt
@@ -97,7 +97,7 @@ export const docPrdWorkflow = workflow.define({
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.docId,
       existingSandboxId: docData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: docData.prompt,
@@ -249,7 +249,7 @@ export const startPrdParse = authMutation({
     docId: v.id("docs"),
     prdContent: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -263,7 +263,7 @@ export const startPrdParse = authMutation({
         docId: args.docId,
         prdContent: args.prdContent,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

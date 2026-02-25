@@ -67,7 +67,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -167,9 +167,7 @@ export function ChatPanel({
       sendModel: ClaudeModel,
       sendResponseLength: ResponseLength,
     ) => {
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        repo.installationId,
-      );
+      const { convexToken } = await getConvexToken();
       await startExecution({
         sessionId: typedSessionId,
         message,
@@ -177,7 +175,7 @@ export function ChatPanel({
         model: sendModel,
         responseLength: sendResponseLength,
         convexToken,
-        githubToken,
+        installationId: repo.installationId,
       });
     },
     [repo.installationId, startExecution, typedSessionId],
@@ -198,13 +196,11 @@ export function ChatPanel({
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        repo.installationId,
-      );
+      const { convexToken } = await getConvexToken();
       await startSummarize({
         sessionId: typedSessionId,
         convexToken,
-        githubToken,
+        installationId: repo.installationId,
       });
     } finally {
       setIsSummarizing(false);
@@ -218,7 +214,7 @@ export function ChatPanel({
     try {
       await createPr({ sessionId: typedSessionId });
       try {
-        const { convexToken } = await getWorkflowTokens(repo.installationId);
+        const { convexToken } = await getConvexToken();
         await startAuditMutation({
           sessionId: typedSessionId,
           convexToken,

@@ -186,7 +186,7 @@ export const sessionExecuteWorkflow = workflow.define({
     model: v.string(),
     responseLength: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Add empty assistant placeholder (user message already added by frontend)
@@ -210,7 +210,7 @@ export const sessionExecuteWorkflow = workflow.define({
       {
         entityId: args.sessionId,
         existingSandboxId: data.sandboxId,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
@@ -516,7 +516,7 @@ export const startExecute = authMutation({
     model: v.string(),
     responseLength: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -543,7 +543,7 @@ export const startExecute = authMutation({
         model: args.model,
         responseLength: args.responseLength,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

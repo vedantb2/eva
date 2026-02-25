@@ -19,7 +19,7 @@ import {
 import { IconFileText } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -65,14 +65,13 @@ export function TestingArenaSidebar({
     setShowTestAllModal(false);
     setIsTestingAll(true);
     try {
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
+      const { convexToken } = await getConvexToken();
       for (const doc of docs) {
         await startEvaluation({
           docId: doc._id,
           repoId,
           convexToken,
-          githubToken,
+          installationId,
           branchName: branch !== "main" ? branch : undefined,
         });
       }

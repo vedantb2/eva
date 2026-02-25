@@ -160,7 +160,6 @@ export const designSessionWorkflow = workflow.define({
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
     convexToken: v.string(),
-    githubToken: v.string(),
   },
   handler: async (step, args): Promise<void> => {
     const sessionData = await step.runQuery(

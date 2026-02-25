@@ -175,7 +175,7 @@ export const updateSandbox = internalMutation({
 export const startSandbox = authMutation({
   args: {
     id: v.id("designSessions"),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -187,7 +187,7 @@ export const startSandbox = authMutation({
     await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
@@ -267,7 +267,6 @@ export const executeMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
-    githubToken: v.string(),
     convexToken: v.string(),
   },
   returns: v.null(),
@@ -304,7 +303,6 @@ export const executeMessage = authMutation({
         message: args.message,
         personaId: args.personaId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
       },
     );
 

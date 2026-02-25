@@ -64,7 +64,7 @@ export const testGenWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch doc data, check if already completed
@@ -83,7 +83,7 @@ export const testGenWorkflow = workflow.define({
     // Uses branch, Write/Edit/Bash tools, and git push
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.docId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: docData.prompt,
@@ -329,7 +329,7 @@ export const startTestGen = authMutation({
   args: {
     docId: v.id("docs"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -342,7 +342,7 @@ export const startTestGen = authMutation({
       {
         docId: args.docId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

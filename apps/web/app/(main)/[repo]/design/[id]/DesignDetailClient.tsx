@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
-import { getWorkflowTokens } from "../../actions";
+import { getConvexToken } from "../../actions";
 import dayjs from "@conductor/shared/dates";
 
 type DesignSession = NonNullable<
@@ -171,8 +171,11 @@ export function DesignDetailClient({
   const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
     try {
-      const { githubToken } = await getWorkflowTokens(repo.installationId);
-      await startSandboxMutation({ id: typedId, githubToken });
+      await getConvexToken();
+      await startSandboxMutation({
+        id: typedId,
+        installationId: repo.installationId,
+      });
     } catch {
       setIsSandboxStarting(false);
     }
@@ -187,15 +190,12 @@ export function DesignDetailClient({
     if (!text.trim() || !true || !sandboxRunning) return;
     setIsSending(true);
     try {
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        repo.installationId,
-      );
+      const { convexToken } = await getConvexToken();
 
       await executeMessage({
         id: typedId,
         message: text.trim(),
         personaId: selectedPersonaId,
-        githubToken,
         convexToken,
       });
     } catch {

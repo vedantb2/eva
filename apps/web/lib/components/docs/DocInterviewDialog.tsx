@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import {
   ActivitySteps,
   Button,
@@ -114,15 +114,14 @@ export function DocInterviewDialog({
         } else if (parsed.ready === true) {
           // Interview is complete — trigger the generate phase
           setIsLoading(true);
-          getWorkflowTokens(installationId).then(
-            ({ githubToken, convexToken }) =>
-              startDocGenerate({
-                docId: doc._id,
-                docTitle: doc.title,
-                previousAnswers: answers,
-                convexToken,
-                githubToken,
-              }),
+          getConvexToken().then(({ convexToken }) =>
+            startDocGenerate({
+              docId: doc._id,
+              docTitle: doc.title,
+              previousAnswers: answers,
+              convexToken,
+              installationId,
+            }),
           );
         }
       } catch {
@@ -154,14 +153,13 @@ export function DocInterviewDialog({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
+      const { convexToken } = await getConvexToken();
       await startDocInterview({
         docId: doc._id,
         docTitle: doc.title,
         previousAnswers: currentAnswers,
         convexToken,
-        githubToken,
+        installationId,
       });
     },
     [doc._id, doc.title, installationId, startDocInterview],

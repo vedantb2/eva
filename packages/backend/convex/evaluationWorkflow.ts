@@ -26,7 +26,7 @@ export const evaluationWorkflow = workflow.define({
     reportId: v.id("evaluationReports"),
     docId: v.id("docs"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
     branchName: v.optional(v.string()),
   },
   handler: async (step, args): Promise<void> => {
@@ -44,7 +44,7 @@ export const evaluationWorkflow = workflow.define({
     // Step 3: Setup sandbox + fire two-phase Claude CLI
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: String(args.reportId),
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: docData.prompt,
@@ -257,7 +257,7 @@ export const startEvaluation = authMutation({
     docId: v.id("docs"),
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
     branchName: v.optional(v.string()),
   },
   returns: v.id("evaluationReports"),
@@ -279,7 +279,7 @@ export const startEvaluation = authMutation({
         reportId,
         docId: args.docId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
         branchName: args.branchName,
       },
     );

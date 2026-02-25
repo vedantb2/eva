@@ -24,7 +24,7 @@ export const summarizeSessionWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch session data and build prompt
@@ -37,7 +37,7 @@ export const summarizeSessionWorkflow = workflow.define({
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.sessionId,
       existingSandboxId: sessionData.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: sessionData.repoOwner,
       repoName: sessionData.repoName,
       prompt: sessionData.prompt,
@@ -183,7 +183,7 @@ export const startSummarize = authMutation({
   args: {
     sessionId: v.id("sessions"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -197,7 +197,7 @@ export const startSummarize = authMutation({
       {
         sessionId: args.sessionId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

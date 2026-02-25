@@ -5,7 +5,7 @@ import { ActivitySteps, Button, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
@@ -124,14 +124,13 @@ export function ProjectChatTab({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      const { githubToken, convexToken } =
-        await getWorkflowTokens(installationId);
+      const { convexToken } = await getConvexToken();
       await startProjectInterview({
         projectId: projectId as Id<"projects">,
         featureDescription: rawInput,
         previousAnswers: currentAnswers,
         convexToken,
-        githubToken,
+        installationId,
       });
     },
     [projectId, repoId, installationId, rawInput, startProjectInterview],

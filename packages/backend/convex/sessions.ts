@@ -363,7 +363,7 @@ export const updateLastMessage = authMutation({
 export const startSandbox = authMutation({
   args: {
     sessionId: v.id("sessions"),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -375,7 +375,7 @@ export const startSandbox = authMutation({
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,

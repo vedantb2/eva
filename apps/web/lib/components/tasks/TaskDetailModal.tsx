@@ -62,7 +62,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import dayjs from "@conductor/shared/dates";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
@@ -155,9 +155,7 @@ export function TaskDetailModal({
     setIsStarting(true);
     try {
       const result = await startExecution({ id: taskId });
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        result.installationId,
-      );
+      const { convexToken } = await getConvexToken();
       await triggerExecution({
         runId: result.runId,
         taskId: result.taskId,
@@ -169,7 +167,6 @@ export function TaskDetailModal({
         isFirstTaskOnBranch: result.isFirstTaskOnBranch,
         model: result.model,
         convexToken,
-        githubToken,
       });
     } catch (err) {
       console.error("Failed to start execution:", err);

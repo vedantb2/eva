@@ -6,46 +6,12 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
-
-function normalizePemKey(raw: string): string {
-  const cleaned = raw.replace(/\\n/g, "\n").replace(/\\+$/gm, "").trim();
-  if (cleaned.includes("\n")) return cleaned;
-
-  const base64 = cleaned
-    .replace(/-----BEGIN [A-Z ]+-----/, "")
-    .replace(/-----END [A-Z ]+-----/, "")
-    .replace(/\s/g, "");
-
-  const isRsa = cleaned.includes("RSA PRIVATE KEY");
-  const header = isRsa
-    ? "-----BEGIN RSA PRIVATE KEY-----"
-    : "-----BEGIN PRIVATE KEY-----";
-  const footer = isRsa
-    ? "-----END RSA PRIVATE KEY-----"
-    : "-----END PRIVATE KEY-----";
-  const lines: string[] = [header];
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64));
-  }
-  lines.push(footer);
-  return lines.join("\n");
-}
-
-function getGitHubCredentials() {
-  const appId = process.env.GITHUB_APP_ID;
-  const rawKey = process.env.GITHUB_PRIVATE_KEY;
-  const clientId = process.env.GITHUB_CLIENT_ID;
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-  if (!appId || !rawKey) {
-    throw new Error("GitHub App credentials not configured");
-  }
-  return {
-    appId,
-    privateKey: normalizePemKey(rawKey),
-    clientId: clientId ?? "",
-    clientSecret: clientSecret ?? "",
-  };
-}
+import {
+  normalizePemKey,
+  getGitHubCredentials,
+  getInstallationOctokit,
+  getInstallationToken,
+} from "./githubAuth";
 
 function getAppOctokit(): Octokit {
   const creds = getGitHubCredentials();
@@ -53,18 +19,6 @@ function getAppOctokit(): Octokit {
     authStrategy: createAppAuth,
     auth: creds,
   });
-}
-
-async function getInstallationOctokit(
-  installationId: number,
-): Promise<Octokit> {
-  const creds = getGitHubCredentials();
-  const auth = createAppAuth(creds);
-  const installationAuth = await auth({
-    type: "installation",
-    installationId,
-  });
-  return new Octokit({ auth: installationAuth.token });
 }
 
 export const getInstallationTokenAction = action({
@@ -75,13 +29,8 @@ export const getInstallationTokenAction = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const creds = getGitHubCredentials();
-    const auth = createAppAuth(creds);
-    const installationAuth = await auth({
-      type: "installation",
-      installationId: args.installationId,
-    });
-    return { token: installationAuth.token };
+    const token = await getInstallationToken(args.installationId);
+    return { token };
   },
 });
 

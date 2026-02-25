@@ -28,7 +28,7 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -160,12 +160,11 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <Button
               disabled={false}
               onClick={async () => {
-                const { githubToken, convexToken } =
-                  await getWorkflowTokens(installationId);
+                const { convexToken } = await getConvexToken();
                 await startBuild({
                   projectId: typedProjectId,
                   convexToken,
-                  githubToken,
+                  installationId: repo.installationId,
                 });
                 setIsBuildModalOpen(false);
               }}

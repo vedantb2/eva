@@ -11,7 +11,7 @@ export const buildProjectWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Fetch all "todo" tasks for the project, sorted by taskNumber
@@ -36,7 +36,7 @@ export const buildProjectWorkflow = workflow.define({
         taskId: task._id,
         projectId: args.projectId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       });
 
       // Wait for the task workflow to send completion event
@@ -86,7 +86,7 @@ export const startTaskForBuild = internalMutation({
     taskId: v.id("agentTasks"),
     projectId: v.id("projects"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -150,14 +150,13 @@ export const startTaskForBuild = internalMutation({
         runId,
         taskId: args.taskId,
         repoId: task.repoId,
-        installationId: repo.installationId,
+        installationId: args.installationId,
         projectId: args.projectId,
         branchName: project.branchName,
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
         model: task.model,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
       },
     );
 
@@ -190,7 +189,7 @@ export const startBuild = authMutation({
   args: {
     projectId: v.id("projects"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -207,7 +206,7 @@ export const startBuild = authMutation({
       {
         projectId: args.projectId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

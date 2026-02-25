@@ -18,7 +18,7 @@ import {
 import { useMutation } from "convex/react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getWorkflowTokens } from "@/app/(main)/[repo]/actions";
+import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import {
   Button,
@@ -95,16 +95,14 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     if (!text.trim() || isSending) return;
     setIsSending(true);
     try {
-      const { githubToken, convexToken } = await getWorkflowTokens(
-        repo.installationId,
-      );
+      const { convexToken } = await getConvexToken();
       await startGenerate({
         queryId: typedQueryId,
         question: text.trim(),
         repoId: repo._id,
         model,
         convexToken,
-        githubToken,
+        installationId: repo.installationId,
       });
     } finally {
       setIsSending(false);
@@ -116,9 +114,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     queryCode: string,
     question: string,
   ) => {
-    const { githubToken, convexToken } = await getWorkflowTokens(
-      repo.installationId,
-    );
+    const { convexToken } = await getConvexToken();
     await startConfirm({
       queryId: typedQueryId,
       queryCode,
@@ -126,7 +122,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
       question,
       repoId: repo._id,
       convexToken,
-      githubToken,
+      installationId: repo.installationId,
     });
   };
 

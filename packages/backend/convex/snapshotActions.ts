@@ -5,7 +5,7 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Daytona } from "@daytonaio/sdk";
 import { resolveEnvVars } from "./envVarResolver";
-import { createAppAuth } from "@octokit/auth-app";
+import { getInstallationToken } from "./githubAuth";
 
 const POLL_INTERVAL_MS = 30000;
 const MAX_POLLS = 40;
@@ -30,52 +30,6 @@ function githubFetch(
     },
     body: options?.body,
   });
-}
-
-function normalizePemKey(raw: string): string {
-  const cleaned = raw.replace(/\\n/g, "\n").replace(/\\+$/gm, "").trim();
-  if (cleaned.includes("\n")) return cleaned;
-
-  const base64 = cleaned
-    .replace(/-----BEGIN [A-Z ]+-----/, "")
-    .replace(/-----END [A-Z ]+-----/, "")
-    .replace(/\s/g, "");
-
-  const isRsa = cleaned.includes("RSA PRIVATE KEY");
-  const header = isRsa
-    ? "-----BEGIN RSA PRIVATE KEY-----"
-    : "-----BEGIN PRIVATE KEY-----";
-  const footer = isRsa
-    ? "-----END RSA PRIVATE KEY-----"
-    : "-----END PRIVATE KEY-----";
-  const lines: string[] = [header];
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64));
-  }
-  lines.push(footer);
-  return lines.join("\n");
-}
-
-function getGitHubCredentials() {
-  const appId = process.env.GITHUB_APP_ID;
-  const rawKey = process.env.GITHUB_PRIVATE_KEY;
-  if (!appId || !rawKey) {
-    throw new Error("GitHub App credentials not configured");
-  }
-  return {
-    appId,
-    privateKey: normalizePemKey(rawKey),
-  };
-}
-
-async function getInstallationToken(installationId: number): Promise<string> {
-  const creds = getGitHubCredentials();
-  const auth = createAppAuth(creds);
-  const installationAuth = await auth({
-    type: "installation",
-    installationId,
-  });
-  return installationAuth.token;
 }
 
 export const rebuildSnapshot = internalAction({

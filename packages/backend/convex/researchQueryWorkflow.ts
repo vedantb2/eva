@@ -120,7 +120,7 @@ export const generateQueryWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
     model: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Add user message + empty assistant message
@@ -140,7 +140,7 @@ export const generateQueryWorkflow = workflow.define({
       internal.daytona.setupAndExecute,
       {
         entityId: String(args.queryId),
-        githubToken: args.githubToken,
+        installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
@@ -176,7 +176,7 @@ export const confirmQueryWorkflow = workflow.define({
     question: v.string(),
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Mark message as confirmed, clear content
@@ -201,7 +201,7 @@ export const confirmQueryWorkflow = workflow.define({
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: String(args.queryId),
       existingSandboxId: data.sandboxId,
-      githubToken: args.githubToken,
+      installationId: args.installationId,
       repoOwner: data.repoOwner,
       repoName: data.repoName,
       prompt: data.prompt,
@@ -464,7 +464,7 @@ export const startGenerate = authMutation({
     repoId: v.id("githubRepos"),
     model: v.string(),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -480,7 +480,7 @@ export const startGenerate = authMutation({
         repoId: args.repoId,
         model: args.model,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 
@@ -503,7 +503,7 @@ export const startConfirm = authMutation({
     question: v.string(),
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
-    githubToken: v.string(),
+    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -520,7 +520,7 @@ export const startConfirm = authMutation({
         question: args.question,
         repoId: args.repoId,
         convexToken: args.convexToken,
-        githubToken: args.githubToken,
+        installationId: args.installationId,
       },
     );
 

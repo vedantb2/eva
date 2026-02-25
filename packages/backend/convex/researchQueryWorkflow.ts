@@ -197,7 +197,7 @@ export const confirmQueryWorkflow = workflow.define({
       },
     );
 
-    // Step 3: Reuse existing sandbox + fire Claude CLI (with CONVEX_DEPLOY_KEY)
+    // Step 3: Reuse existing sandbox + fire Claude CLI
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: String(args.queryId),
       existingSandboxId: data.sandboxId,
@@ -210,7 +210,6 @@ export const confirmQueryWorkflow = workflow.define({
       entityIdField: "queryId",
       model: "sonnet",
       allowedTools: "Bash",
-      extraEnvVarNames: ["CONVEX_DEPLOY_KEY"],
       repoId: args.repoId,
     });
 

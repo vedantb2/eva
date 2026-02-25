@@ -154,12 +154,13 @@ export function DesignDetailClient({
       const data = await getPreviewUrl({
         sandboxId: session.sandboxId,
         port: 3000,
+        repoId: session.repoId,
       });
       setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);
     }
-  }, [session?.sandboxId, getPreviewUrl]);
+  }, [session?.sandboxId, getPreviewUrl, session?.repoId]);
 
   useEffect(() => {
     fetchPreviewUrl();

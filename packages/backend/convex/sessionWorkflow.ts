@@ -246,6 +246,7 @@ export const sessionExecuteWorkflow = workflow.define({
         sandboxId,
         command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
         timeoutSeconds: 30,
+        repoId: data.repoId,
       });
       const diffs = parseDiffOutput(diffRaw);
       if (diffs.length > 0) {
@@ -258,6 +259,7 @@ export const sessionExecuteWorkflow = workflow.define({
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
+        repoId: data.repoId,
       });
       if (planRaw.trim()) {
         planContent = planRaw.trim();

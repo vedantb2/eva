@@ -17,12 +17,14 @@ interface EditorPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   tabSwitcher: ReactNode;
+  repoId: string;
 }
 
 export function EditorPanel({
   sessionId,
   sandboxId,
   isActive,
+  repoId,
   tabSwitcher,
 }: EditorPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function EditorPanel({
           sandboxId,
           port: 8080,
           checkReady: true,
+          repoId,
         });
         if (data.ready) {
           setUrl(data.url);
@@ -65,7 +68,7 @@ export function EditorPanel({
     };
 
     check();
-  }, [sandboxId, isActive, getPreviewUrl]);
+  }, [sandboxId, isActive, getPreviewUrl, repoId]);
 
   useEffect(() => {
     if (isActive && sandboxId) {

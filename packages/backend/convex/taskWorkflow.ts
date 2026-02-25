@@ -196,6 +196,7 @@ export const taskExecutionWorkflow = workflow.define({
             sandboxId,
             command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
             timeoutSeconds: 30,
+            repoId: args.repoId,
           },
         );
 
@@ -214,6 +215,7 @@ export const taskExecutionWorkflow = workflow.define({
             prompt: buildAuditPrompt(diffRaw),
             taskId: String(args.taskId),
             convexToken: args.convexToken,
+            repoId: args.repoId,
           });
 
           // Wait for the sandbox to call back with audit results

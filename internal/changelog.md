@@ -1,5 +1,39 @@
 # Changelog
 
+## BYOK: Move DAYTONA_API_KEY and CONVEX_DEPLOY_KEY to User Env Vars — 2026-02-25
+
+- **Why**: Platform was using its own `DAYTONA_API_KEY` and `CONVEX_DEPLOY_KEY` from process.env for all users, creating a single point of failure and preventing users from bringing their own infrastructure keys. Users should control their own Daytona and Convex deployment credentials via team/repo environment variables (BYOK - Bring Your Own Key). Platform infrastructure keys (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL) remain as platform env vars since they connect sandboxes back to the platform.
+
+- **Changes**:
+  1. **CONVEX_DEPLOY_KEY → BYOK (trivial)**:
+     - Removed `extraEnvVarNames: ["CONVEX_DEPLOY_KEY"]` from `researchQueryWorkflow.ts:213`
+     - Removed entire `extraEnvVarNames` mechanism from `daytona.ts` (parameter + loop that read from platform process.env)
+     - User now sets `CONVEX_DEPLOY_KEY` in team/repo env vars, flows through via `mergedEnvVars` spread
+
+  2. **DAYTONA_API_KEY → BYOK (medium)**:
+     - Changed `getDaytona()` → `getDaytona(apiKey: string)` in both `daytona.ts` and `snapshotActions.ts`
+     - Added `resolveDaytonaApiKey(ctx, repoId)` helper in `daytona.ts` to fetch/decrypt key from team/repo env vars (throws if missing)
+     - Strip `DAYTONA_API_KEY` from `mergedEnvVars` before injecting into sandbox (sandbox doesn't need it)
+     - Updated all Daytona action call sites (15 functions across 11 files) to resolve and pass API key:
+       - **Already had repoId**: `setupAndExecute`, `startSessionSandbox`, `startDesignSandbox`
+       - **Added repoId param**: `runSandboxCommand`, `getPreviewUrl`, `launchOnExistingSandbox`, `launchAudit`, `deleteSandbox`, `deleteDaytonaSnapshot`
+       - **Internal repoId lookup**: `runSessionAudit` (queries session to get repoId)
+     - Updated workflow callers (7 files): `sessionWorkflow.ts`, `taskWorkflow.ts`, `designWorkflow.ts`, `designSessions.ts`, `sessions.ts`, `projects.ts`, `repoSnapshots.ts`
+     - Updated frontend callers (3 files): `DesignDetailClient.tsx`, `EditorPanel.tsx`, `SandboxPanel.tsx` (pass repoId to `getPreviewUrl` action)
+
+  3. **SetupBanner enhancements**:
+     - Check both team AND repo env vars (not just team)
+     - Check for all required keys: `CLAUDE_CODE_OAUTH_TOKEN`, `DAYTONA_API_KEY`, `CONVEX_DEPLOY_KEY`
+     - List ALL missing keys in modal (not just one)
+     - Renamed dialog title: "Setup Required" (was "OAuth Setup Required")
+
+- **Impact**:
+  - **BYOK enforcement**: Users must provide their own Daytona API key and Convex deploy key via team/repo env vars
+  - **Better security**: Keys are per-team/repo instead of shared across all users
+  - **Clear errors**: Missing keys throw descriptive errors instead of silently failing
+  - **No platform key exposure**: Sandbox env vars no longer include DAYTONA_API_KEY (stripped before injection)
+  - **Frontend type safety**: All `getPreviewUrl` calls include required `repoId` parameter
+
 ## Add Public Landing Page and Move Dashboard to /home — 2026-02-25
 
 - **Why**: The root route (`/`) was directly showing the authenticated repos dashboard, requiring users to be signed in before seeing any content. This creates a poor first-time user experience and prevents unauthenticated users from learning about the platform before signing up.

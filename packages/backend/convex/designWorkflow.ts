@@ -195,6 +195,7 @@ export const designSessionWorkflow = workflow.define({
         model: "opus",
         allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
+        repoId: sessionData.repoId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );

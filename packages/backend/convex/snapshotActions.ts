@@ -17,8 +17,8 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function getDaytona(): Daytona {
-  return new Daytona({ apiKey: requireEnv("DAYTONA_API_KEY") });
+function getDaytona(apiKey: string): Daytona {
+  return new Daytona({ apiKey });
 }
 
 function githubFetch(
@@ -342,10 +342,40 @@ export const pollWorkflowRun = internalAction({
 });
 
 export const deleteDaytonaSnapshot = internalAction({
-  args: { snapshotName: v.string() },
+  args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
-  handler: async (_ctx, args) => {
-    const daytona = getDaytona();
+  handler: async (ctx, args) => {
+    const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
+      repoId: args.repoId,
+    });
+
+    if (!teamId) {
+      throw new Error("Team not found for repo");
+    }
+
+    const teamVars = await ctx.runQuery(internal.teamEnvVars.getForSandbox, {
+      teamId,
+    });
+    const repoVars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
+      repoId: args.repoId,
+    });
+
+    const allVars = [...teamVars, ...repoVars];
+    let daytonaApiKey = "";
+    for (const v of allVars) {
+      if (v.key === "DAYTONA_API_KEY") {
+        daytonaApiKey = decryptValue(v.value);
+        break;
+      }
+    }
+
+    if (!daytonaApiKey) {
+      throw new Error(
+        "DAYTONA_API_KEY not found in team or repo environment variables",
+      );
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
     try {
       const snapshot = await daytona.snapshot.get(args.snapshotName);
       await daytona.snapshot.delete(snapshot);

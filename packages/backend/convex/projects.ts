@@ -594,6 +594,7 @@ export const clearProjectSandbox = authMutation({
     if (project.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: project.sandboxId,
+        repoId: project.repoId,
       });
     }
     await ctx.db.patch(args.id, {

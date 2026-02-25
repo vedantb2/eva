@@ -209,7 +209,7 @@ export const deleteRepoSnapshot = authMutation({
     await ctx.scheduler.runAfter(
       0,
       internal.snapshotActions.deleteDaytonaSnapshot,
-      { snapshotName: config.snapshotName },
+      { snapshotName: config.snapshotName, repoId: config.repoId },
     );
 
     await ctx.db.delete(args.repoSnapshotId);

@@ -394,6 +394,7 @@ export const stopSandbox = authMutation({
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: session.sandboxId,
+        repoId: session.repoId,
       });
     }
     await ctx.db.patch(args.sessionId, {

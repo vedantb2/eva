@@ -35,6 +35,7 @@ interface SandboxPanelProps {
   fileDiffs: Session["fileDiffs"];
   chatVisible?: boolean;
   onToggleChat?: () => void;
+  repoId: string;
 }
 
 export function SandboxPanel({
@@ -44,6 +45,7 @@ export function SandboxPanel({
   fileDiffs,
   chatVisible,
   onToggleChat,
+  repoId,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [showConsole, setShowConsole] = useState(true);
@@ -74,6 +76,7 @@ export function SandboxPanel({
         sandboxId,
         port: 3000,
         checkReady: true,
+        repoId,
       });
       if (data.ready) {
         setPreviewInfo(data);
@@ -88,7 +91,7 @@ export function SandboxPanel({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl, stopPolling]);
+  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
@@ -185,6 +188,7 @@ export function SandboxPanel({
             sandboxId={sandboxId}
             isActive={isActive}
             tabSwitcher={tabSwitcher}
+            repoId={repoId}
           />
         </div>
       </div>

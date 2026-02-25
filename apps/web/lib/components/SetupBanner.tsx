@@ -15,6 +15,12 @@ import {
 import { IconAlertTriangle } from "@tabler/icons-react";
 import Link from "next/link";
 
+const REQUIRED_KEYS = [
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "DAYTONA_API_KEY",
+  "CONVEX_DEPLOY_KEY",
+];
+
 export function SetupBanner() {
   const { repo } = useRepo();
   const [dismissed, setDismissed] = useState(false);
@@ -29,19 +35,21 @@ export function SetupBanner() {
     repo.teamId ? { teamId: repo.teamId } : "skip",
   );
 
+  const repoEnvVars = useQuery(api.repoEnvVars.list, { repoId: repo._id });
+
   if (!repo.teamId || !team) {
     return null;
   }
 
-  if (teamEnvVars === undefined) {
+  if (teamEnvVars === undefined || repoEnvVars === undefined) {
     return null;
   }
 
-  const hasOAuthToken = teamEnvVars.some(
-    (v) => v.key === "CLAUDE_CODE_OAUTH_TOKEN",
-  );
+  const allEnvVars = [...teamEnvVars, ...repoEnvVars];
+  const presentKeys = new Set(allEnvVars.map((v) => v.key));
+  const missingKeys = REQUIRED_KEYS.filter((key) => !presentKeys.has(key));
 
-  if (hasOAuthToken || dismissed) {
+  if (missingKeys.length === 0 || dismissed) {
     return null;
   }
 
@@ -56,21 +64,28 @@ export function SetupBanner() {
                 className="text-yellow-600 dark:text-yellow-500"
               />
             </div>
-            <DialogTitle>OAuth Setup Required</DialogTitle>
+            <DialogTitle>Setup Required</DialogTitle>
           </div>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            To use sandboxes and AI features, you need to configure your Claude
-            Code OAuth token in your team's environment variables.
+            To use sandboxes and AI features, you need to configure the
+            following environment variables in your team or repo settings.
           </p>
           <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Required Variable:
+              Missing Variables:
             </p>
-            <code className="rounded bg-background px-2 py-1 font-mono text-sm">
-              CLAUDE_CODE_OAUTH_TOKEN
-            </code>
+            <div className="flex flex-col gap-1">
+              {missingKeys.map((key) => (
+                <code
+                  key={key}
+                  className="rounded bg-background px-2 py-1 font-mono text-sm"
+                >
+                  {key}
+                </code>
+              ))}
+            </div>
           </div>
         </div>
         <DialogFooter>

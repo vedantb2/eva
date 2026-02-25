@@ -114,6 +114,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           fileDiffs={session.fileDiffs}
           chatVisible={!chatCollapsed}
           onToggleChat={handleChatToggle}
+          repoId={session.repoId}
         />
       </Panel>
     </Group>

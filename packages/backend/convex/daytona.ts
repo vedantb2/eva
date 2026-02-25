@@ -18,8 +18,8 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function getDaytona(): Daytona {
-  return new Daytona({ apiKey: requireEnv("DAYTONA_API_KEY") });
+function getDaytona(apiKey: string): Daytona {
+  return new Daytona({ apiKey });
 }
 
 const REQUIRED_INFRA_KEYS = [
@@ -58,6 +58,32 @@ async function resolveTeamEnvVars(
   }
 
   return teamEnvVars;
+}
+
+async function resolveDaytonaApiKey(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: string,
+): Promise<string> {
+  const teamEnvVars = await resolveTeamEnvVars(ctx, repoId);
+
+  const repoVars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
+    repoId,
+  });
+  const repoEnvVars: Record<string, string> = {};
+  for (const v of repoVars) {
+    repoEnvVars[v.key] = decryptValue(v.value);
+  }
+
+  const mergedEnvVars = { ...teamEnvVars, ...repoEnvVars };
+  const apiKey = mergedEnvVars.DAYTONA_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
+    );
+  }
+
+  return apiKey;
 }
 
 async function createSandbox(
@@ -467,10 +493,12 @@ export const runSandboxCommand = internalAction({
     sandboxId: v.string(),
     command: v.string(),
     timeoutSeconds: v.optional(v.number()),
+    repoId: v.id("githubRepos"),
   },
   returns: v.string(),
-  handler: async (_ctx, args) => {
-    const daytona = getDaytona();
+  handler: async (ctx, args) => {
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
     const resp = await sandbox.process.executeCommand(
       args.command,
@@ -487,6 +515,7 @@ export const getPreviewUrl = action({
     sandboxId: v.string(),
     port: v.number(),
     checkReady: v.optional(v.boolean()),
+    repoId: v.id("githubRepos"),
   },
   returns: v.object({
     url: v.string(),
@@ -499,7 +528,8 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
-    const daytona = getDaytona();
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
     const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 3600);
 
@@ -544,12 +574,16 @@ export const setupAndExecute = internalAction({
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
-    extraEnvVarNames: v.optional(v.array(v.string())),
     repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
-    const daytona = getDaytona();
+    if (!args.repoId) {
+      throw new Error("repoId is required for setupAndExecute");
+    }
+
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     const infraEnvVars = resolveInfraEnvVars();
 
     const teamEnvVars: Record<string, string> = {};
@@ -567,6 +601,7 @@ export const setupAndExecute = internalAction({
     }
 
     const mergedEnvVars = { ...teamEnvVars, ...repoEnvVars };
+    delete mergedEnvVars.DAYTONA_API_KEY;
 
     let repoSnapshotName: string | undefined;
     if (args.repoId) {
@@ -617,12 +652,6 @@ export const setupAndExecute = internalAction({
       await setupBranch(sandbox, args.branchName);
     }
 
-    const extraEnvVars: Record<string, string> = { ...mergedEnvVars };
-    for (const name of args.extraEnvVarNames ?? []) {
-      const val = process.env[name];
-      if (val) extraEnvVars[name] = val;
-    }
-
     await launchScript(
       sandbox,
       args.prompt,
@@ -634,7 +663,7 @@ export const setupAndExecute = internalAction({
         model: args.model,
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
-        extraEnvVars,
+        extraEnvVars: mergedEnvVars,
       },
     );
 
@@ -657,10 +686,12 @@ export const launchOnExistingSandbox = internalAction({
     model: v.optional(v.string()),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
+    repoId: v.id("githubRepos"),
   },
   returns: v.null(),
-  handler: async (_ctx, args) => {
-    const daytona = getDaytona();
+  handler: async (ctx, args) => {
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
 
     await launchScript(
@@ -692,10 +723,12 @@ export const launchAudit = internalAction({
     prompt: v.string(),
     taskId: v.string(),
     convexToken: v.string(),
+    repoId: v.id("githubRepos"),
   },
   returns: v.null(),
-  handler: async (_ctx, args) => {
-    const daytona = getDaytona();
+  handler: async (ctx, args) => {
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
 
     await launchScript(
@@ -744,7 +777,15 @@ export const runSessionAudit = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const daytona = getDaytona();
+      const session = await ctx.runQuery(internal.sessions.get, {
+        sessionId: args.sessionId,
+      });
+      if (!session) {
+        throw new Error("Session not found");
+      }
+
+      const daytonaApiKey = await resolveDaytonaApiKey(ctx, session.repoId);
+      const daytona = getDaytona(daytonaApiKey);
       const sandbox = await daytona.get(args.sandboxId);
 
       const result = await sandbox.process.executeCommand(
@@ -783,10 +824,11 @@ export const runSessionAudit = internalAction({
 });
 
 export const deleteSandbox = internalAction({
-  args: { sandboxId: v.string() },
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
-  handler: async (_ctx, args) => {
-    const daytona = getDaytona();
+  handler: async (ctx, args) => {
+    const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
     try {
       const sandbox = await daytona.get(args.sandboxId);
       await sandbox.delete();
@@ -810,7 +852,12 @@ export const startSessionSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const daytona = getDaytona();
+      if (!args.repoId) {
+        throw new Error("repoId is required for startSessionSandbox");
+      }
+
+      const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+      const daytona = getDaytona(daytonaApiKey);
       const infraEnvVars = resolveInfraEnvVars();
 
       const teamEnvVars: Record<string, string> = {};
@@ -828,6 +875,7 @@ export const startSessionSandbox = internalAction({
       }
 
       const mergedEnvVars = { ...teamEnvVars, ...repoEnvVars };
+      delete mergedEnvVars.DAYTONA_API_KEY;
 
       let repoSnapshotName: string | undefined;
       if (args.repoId) {
@@ -931,7 +979,12 @@ export const startDesignSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const daytona = getDaytona();
+      if (!args.repoId) {
+        throw new Error("repoId is required for startDesignSandbox");
+      }
+
+      const daytonaApiKey = await resolveDaytonaApiKey(ctx, args.repoId);
+      const daytona = getDaytona(daytonaApiKey);
       const infraEnvVars = resolveInfraEnvVars();
 
       const teamEnvVars: Record<string, string> = {};
@@ -949,6 +1002,7 @@ export const startDesignSandbox = internalAction({
       }
 
       const mergedEnvVars = { ...teamEnvVars, ...repoEnvVars };
+      delete mergedEnvVars.DAYTONA_API_KEY;
 
       let repoSnapshotName: string | undefined;
       if (args.repoId) {

@@ -17,7 +17,10 @@ import {
   TooltipContent,
 } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { QuickTaskModal } from "@/lib/components/quick-tasks/QuickTaskModal";
+import {
+  QuickTaskModal,
+  ImportLinearModal,
+} from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
@@ -30,12 +33,14 @@ import {
   IconFolders,
   IconLayoutKanban,
   IconList,
+  IconFileImport,
 } from "@tabler/icons-react";
 
 export function QuickTasksClient() {
   const { repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<Id<"agentTasks">>>(
     new Set(),
@@ -179,6 +184,15 @@ export function QuickTasksClient() {
             </AnimatePresence>
             <Button
               size="sm"
+              variant="secondary"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => setIsImporting(true)}
+            >
+              <IconFileImport size={16} />
+              Import from Linear
+            </Button>
+            <Button
+              size="sm"
               className="motion-press hover:scale-[1.01] active:scale-[0.99]"
               onClick={() => setIsCreating(true)}
             >
@@ -261,6 +275,10 @@ export function QuickTasksClient() {
       <QuickTaskModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
+      />
+      <ImportLinearModal
+        isOpen={isImporting}
+        onClose={() => setIsImporting(false)}
       />
       <GroupTasksModal
         isOpen={isGroupModalOpen}

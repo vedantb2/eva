@@ -521,6 +521,85 @@ export const createQuickTask = authMutation({
   },
 });
 
+export const createQuickTasksBatch = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    tasks: v.array(
+      v.object({
+        title: v.string(),
+        description: v.optional(v.string()),
+      }),
+    ),
+    baseBranch: v.string(),
+  },
+  returns: v.array(v.id("agentTasks")),
+  handler: async (ctx, args) => {
+    let board = await ctx.db
+      .query("boards")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+    if (!board) {
+      const boardId = await ctx.db.insert("boards", {
+        name: "Quick Tasks",
+        ownerId: ctx.userId,
+        repoId: args.repoId,
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("columns", {
+        boardId,
+        name: "Backlog",
+        order: 0,
+        isRunColumn: false,
+      });
+      board = await ctx.db.get(boardId);
+    }
+    if (!board) {
+      throw new Error("Failed to create board");
+    }
+    let column = await ctx.db
+      .query("columns")
+      .withIndex("by_board", (q) => q.eq("boardId", board._id))
+      .first();
+    if (!column) {
+      const columnId = await ctx.db.insert("columns", {
+        boardId: board._id,
+        name: "Backlog",
+        order: 0,
+        isRunColumn: false,
+      });
+      column = await ctx.db.get(columnId);
+    }
+    if (!column) {
+      throw new Error("Failed to create column");
+    }
+    const existingTasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_column", (q) => q.eq("columnId", column._id))
+      .collect();
+    let maxOrder = existingTasks.reduce((max, t) => Math.max(max, t.order), -1);
+    const now = Date.now();
+    const taskIds: Id<"agentTasks">[] = [];
+    for (const task of args.tasks) {
+      maxOrder += 1;
+      const taskId = await ctx.db.insert("agentTasks", {
+        boardId: board._id,
+        columnId: column._id,
+        title: task.title,
+        description: task.description,
+        repoId: args.repoId,
+        status: "todo",
+        order: maxOrder,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: ctx.userId,
+        baseBranch: args.baseBranch,
+      });
+      taskIds.push(taskId);
+    }
+    return taskIds;
+  },
+});
+
 export const startExecution = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.object({

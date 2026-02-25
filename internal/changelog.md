@@ -1,5 +1,41 @@
 # Changelog
 
+## Import from Linear to Quick Tasks — 2026-02-25
+
+- **Why**: Quick tasks could only be created one-at-a-time through manual UI input. Teams managing backlogs in Linear needed a way to bulk-import issues as quick tasks without copy-pasting each title/description individually. Bulk import enables fast bootstrapping of conductor task boards from existing Linear workflows.
+
+- **Changes**:
+  1. **New Convex Node.js action** (`packages/backend/convex/linearActions.ts`):
+     - `fetchIssues` action accepts repo ID and array of Linear identifiers (e.g., `TEAM-123`)
+     - Resolves `LINEAR_API_KEY` from team/repo env vars via `resolveEnvVars()`
+     - Batches all issue fetches into single Linear GraphQL request using aliased queries (`issue0: issue(id: "TEAM-1") { ... }`)
+     - Returns array of `{ identifier, title, description }` with runtime type checks (no `as` casts)
+     - Silently skips not-found issues (Linear API returns `null` for inaccessible/deleted issues)
+     - Uses manual `ctx.auth.getUserIdentity()` auth (authAction doesn't work with `"use node"` directive)
+  2. **Batch mutation** (`packages/backend/convex/agentTasks.ts`):
+     - Added `createQuickTasksBatch` mutation accepting `{ repoId, tasks: Array<{ title, description? }>, baseBranch }`
+     - Reuses board/column auto-creation logic from `createQuickTask`
+     - Creates all tasks in single transaction with atomic ordering (single mutation = no N round-trips)
+     - Returns array of task IDs
+  3. **Import modal** (`apps/web/lib/components/quick-tasks/ImportLinearModal.tsx`):
+     - Textarea accepts Linear URLs (`https://linear.app/team/issue/TEAM-123/...`) or raw identifiers (`TEAM-123`)
+     - `parseLinearIdentifiers()` helper extracts identifiers via regex, deduplicates via Set
+     - Live count shown below textarea: "3 issues detected: TEAM-1, TEAM-2, TEAM-3"
+     - BranchSelect for shared base branch (single branch for all imports)
+     - Task titles prefixed with identifier for traceability: `"TEAM-123: Issue Title"`
+     - Error handling: inline red box with descriptive message (missing API key, no issues found, Linear API failure)
+     - Submit button dynamically shows count: "Import 3 Issues"
+  4. **UI wiring** (`apps/web/app/(main)/[repo]/quick-tasks/QuickTasksClient.tsx`):
+     - Added "Import from Linear" button (secondary variant, `IconFileImport` icon) before "New Task" button
+     - Added `isImporting` state and `<ImportLinearModal>` render
+
+- **Impact**:
+  - **UX**: Teams can paste 10+ Linear URLs and bulk-create tasks in seconds vs. manual entry
+  - **Traceability**: Task titles include Linear identifier for easy cross-reference
+  - **Performance**: Single GraphQL request + single Convex mutation (not N\*2 round-trips)
+  - **Error tolerance**: Silently skips not-found/inaccessible issues instead of failing entire import
+  - **Security**: LINEAR_API_KEY stored in team/repo env vars (not hardcoded)
+
 ## Move GitHub Token Generation Server-Side — 2026-02-25
 
 - **Why**: GitHub App installation tokens have a 1-hour TTL. Previously, tokens were generated in the frontend via `getWorkflowTokens()`, passed through Convex mutations, workflow args, and into daytona sandbox as env vars. By the time Claude CLI tried to `git push`, tokens could be expired (especially for long-running tasks). Additionally, tokens passed through the frontend created unnecessary security exposure. Moving token generation server-side eliminates TTL races and improves security by keeping tokens internal to backend infrastructure.

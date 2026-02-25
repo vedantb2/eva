@@ -30,6 +30,7 @@ import type * as evaluationWorkflow from "../evaluationWorkflow.js";
 import type * as extensionReleases from "../extensionReleases.js";
 import type * as functions from "../functions.js";
 import type * as github from "../github.js";
+import type * as githubAuth from "../githubAuth.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as http from "../http.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   extensionReleases: typeof extensionReleases;
   functions: typeof functions;
   github: typeof github;
+  githubAuth: typeof githubAuth;
   githubRepos: typeof githubRepos;
   http: typeof http;
   mcpRoutes: typeof mcpRoutes;

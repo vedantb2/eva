@@ -55,6 +55,17 @@ export const getRepoSnapshotName = internalQuery({
       .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return null;
+
+    const latestBuild = await ctx.db
+      .query("snapshotBuilds")
+      .withIndex("by_repoSnapshotId", (q) => q.eq("repoSnapshotId", doc._id))
+      .order("desc")
+      .first();
+
+    if (!latestBuild || latestBuild.status !== "success") {
+      return null;
+    }
+
     return { snapshotName: doc.snapshotName };
   },
 });

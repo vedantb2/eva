@@ -27,6 +27,20 @@ export function normalizePemKey(raw: string): string {
   return lines.join("\n");
 }
 
+export function buildGitHubRepoUrl(
+  owner: string,
+  repo: string,
+  token: string,
+): string {
+  return `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
+}
+
+export function buildGitHubExtraHeader(token: string): string {
+  return `AUTHORIZATION: basic ${Buffer.from(
+    `x-access-token:${token}`,
+  ).toString("base64")}`;
+}
+
 export function getGitHubCredentials() {
   const appId = process.env.GITHUB_APP_ID;
   const rawKey = process.env.GITHUB_PRIVATE_KEY;

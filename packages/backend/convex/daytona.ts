@@ -8,7 +8,11 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { resolveDaytonaApiKey } from "./envVarResolver";
-import { getInstallationToken } from "./githubAuth";
+import {
+  buildGitHubExtraHeader,
+  buildGitHubRepoUrl,
+  getInstallationToken,
+} from "./githubAuth";
 
 const WORKSPACE_DIR = "/workspace/repo";
 const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
@@ -27,6 +31,14 @@ async function exec(
     undefined,
     timeout,
   );
+  if (resp.exitCode !== 0) {
+    const output = resp.result?.trim();
+    throw new Error(
+      output
+        ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
+        : `Sandbox command failed with exit code ${resp.exitCode}`,
+    );
+  }
   return resp.result;
 }
 
@@ -126,14 +138,10 @@ async function syncRepo(
   owner: string,
   name: string,
 ): Promise<void> {
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && git remote set-url origin ${repoUrl}`,
-    10,
-  );
-  await exec(sandbox, `cd ${WORKSPACE_DIR} && git pull`, 60);
+  await fetchOrigin(sandbox, installationId, owner, name, undefined, {
+    prune: true,
+    timeoutSeconds: 60,
+  });
 }
 
 async function cloneAndSetupRepo(
@@ -143,10 +151,10 @@ async function cloneAndSetupRepo(
   name: string,
 ): Promise<void> {
   const githubToken = await getInstallationToken(installationId);
-  const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
+  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
   await exec(
     sandbox,
-    `rm -rf ${WORKSPACE_DIR} && git clone ${repoUrl} ${WORKSPACE_DIR}`,
+    `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
     120,
   );
   const lockFile = (
@@ -241,6 +249,53 @@ async function getOrCreateSandbox(
   return { sandbox, isNew: true };
 }
 
+async function configureGitHubOrigin(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+): Promise<{ authHeader: string }> {
+  const githubToken = await getInstallationToken(installationId);
+  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+  const authHeader = buildGitHubExtraHeader(githubToken);
+
+  await exec(
+    sandbox,
+    [
+      `cd ${WORKSPACE_DIR}`,
+      // Snapshots/reused sandboxes can carry stale GitHub auth headers.
+      "git config --unset-all http.https://github.com/.extraheader >/dev/null 2>&1 || true",
+      `git remote set-url origin ${quote([repoUrl])}`,
+    ].join(" && "),
+    20,
+  );
+
+  return { authHeader };
+}
+
+async function fetchOrigin(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+  ref?: string,
+  opts?: { prune?: boolean; timeoutSeconds?: number },
+): Promise<void> {
+  const { authHeader } = await configureGitHubOrigin(
+    sandbox,
+    installationId,
+    owner,
+    name,
+  );
+  const pruneArg = opts?.prune === false ? "" : " --prune";
+  const refArg = ref ? ` ${quote([ref])}` : "";
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git -c http.https://github.com/.extraheader=${quote([authHeader])} fetch${pruneArg} origin${refArg}`,
+    opts?.timeoutSeconds ?? 60,
+  );
+}
+
 /**
  * Sets up a git branch in the sandbox — creates it or checks it out if it exists.
  * Stashes dirty state first to prevent checkout failures, then verifies the switch.
@@ -249,10 +304,11 @@ async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
 ): Promise<void> {
+  const quotedBranch = quote([branchName]);
   // Stash any dirty state from previous executions, then checkout
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${branchName}`,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${quotedBranch}`,
     10,
   );
   // Verify the branch was actually switched
@@ -267,7 +323,7 @@ async function setupBranch(
   // Push branch to remote so it exists before Claude starts — makes subsequent pushes fast
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git push -u origin ${branchName} 2>/dev/null || true`,
+    `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
     30,
   );
 }
@@ -686,9 +742,17 @@ export const setupAndExecute = internalAction({
         ));
 
     if (args.baseBranch) {
+      await fetchOrigin(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.baseBranch,
+        { prune: false, timeoutSeconds: 30 },
+      );
       await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git fetch origin ${args.baseBranch} && git checkout ${args.baseBranch} && git pull origin ${args.baseBranch}`,
+        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git reset --hard ${quote([`origin/${args.baseBranch}`])}`,
         30,
       );
     }
@@ -939,15 +1003,31 @@ export const startSessionSandbox = internalAction({
       );
       const sandbox = prepared.sandbox;
       if (prepared.usedSnapshot) {
+        await fetchOrigin(
+          sandbox,
+          args.installationId,
+          args.repoOwner,
+          args.repoName,
+          args.branchName,
+          { prune: false, timeoutSeconds: 30 },
+        );
         await exec(
           sandbox,
-          `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${args.branchName} && pnpm install`,
+          `cd ${WORKSPACE_DIR} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
           120,
         );
       } else {
+        await fetchOrigin(
+          sandbox,
+          args.installationId,
+          args.repoOwner,
+          args.repoName,
+          args.branchName,
+          { prune: false, timeoutSeconds: 30 },
+        );
         await exec(
           sandbox,
-          `cd ${WORKSPACE_DIR} && git fetch origin && git checkout ${args.branchName}`,
+          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
           30,
         );
       }

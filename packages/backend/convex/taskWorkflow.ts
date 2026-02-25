@@ -145,7 +145,9 @@ export const taskExecutionWorkflow = workflow.define({
         baseBranch: args.baseBranch,
         repoId: args.repoId,
       },
-      { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      // setupAndExecute creates a new sandbox for standalone tasks.
+      // Retrying this step can create duplicate sandboxes for one run.
+      { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
     );
 
     // Step 4: Update project sandbox if applicable
@@ -228,6 +230,22 @@ export const taskExecutionWorkflow = workflow.define({
               ? undefined
               : (auditResult.error ?? "Audit failed"),
           });
+
+          if (prUrl) {
+            await step.runAction(
+              internal.taskWorkflowActions.appendAuditToPullRequest,
+              {
+                installationId: args.installationId,
+                repoOwner: data.repoOwner,
+                repoName: data.repoName,
+                branchName: data.branchName,
+                auditResult: auditResult.result,
+                auditError: auditResult.success
+                  ? null
+                  : (auditResult.error ?? "Audit failed"),
+              },
+            );
+          }
         }
       } catch (err) {
         // Audit is non-fatal — log but don't fail the workflow

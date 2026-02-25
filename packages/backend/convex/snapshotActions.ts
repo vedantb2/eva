@@ -4,18 +4,12 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Daytona } from "@daytonaio/sdk";
-import { decryptValue } from "./encryption";
+import { resolveEnvVars } from "./envVarResolver";
 
 const POLL_INTERVAL_MS = 30000;
 const MAX_POLLS = 40;
 const MAX_FIND_ATTEMPTS = 5;
 const GITHUB_API = "https://api.github.com";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env var: ${name}`);
-  return value;
-}
 
 function getDaytona(apiKey: string): Daytona {
   return new Daytona({ apiKey });
@@ -37,13 +31,8 @@ function githubFetch(
   });
 }
 
-function getGithubPat(repoVars: Array<{ key: string; value: string }>): string {
-  for (const entry of repoVars) {
-    if (entry.key === "SNAPSHOT_GITHUB_PAT") {
-      return decryptValue(entry.value);
-    }
-  }
-  return "";
+function getGithubPat(envVars: Record<string, string>): string {
+  return envVars.SNAPSHOT_GITHUB_PAT ?? "";
 }
 
 export const rebuildSnapshot = internalAction({
@@ -80,10 +69,8 @@ export const rebuildSnapshot = internalAction({
       return null;
     }
 
-    const repoVars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
-      repoId: config.repoId,
-    });
-    const githubPat = getGithubPat(repoVars);
+    const envVars = await resolveEnvVars(ctx, config.repoId);
+    const githubPat = getGithubPat(envVars);
 
     if (!githubPat) {
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
@@ -91,7 +78,7 @@ export const rebuildSnapshot = internalAction({
         status: "error",
         logs: "",
         error:
-          "SNAPSHOT_GITHUB_PAT not found in repo env vars. Add it in Admin > Env Variables.",
+          "SNAPSHOT_GITHUB_PAT not found in team or repo env vars. Add it in Admin > Env Variables.",
       });
       return null;
     }
@@ -174,10 +161,8 @@ export const pollWorkflowRun = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const repoVars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
-      repoId: args.repoId,
-    });
-    const githubPat = getGithubPat(repoVars);
+    const envVars = await resolveEnvVars(ctx, args.repoId);
+    const githubPat = getGithubPat(envVars);
 
     if (!githubPat) {
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
@@ -345,29 +330,8 @@ export const deleteDaytonaSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
-      repoId: args.repoId,
-    });
-
-    if (!teamId) {
-      throw new Error("Team not found for repo");
-    }
-
-    const teamVars = await ctx.runQuery(internal.teamEnvVars.getForSandbox, {
-      teamId,
-    });
-    const repoVars = await ctx.runQuery(internal.repoEnvVars.getForSandbox, {
-      repoId: args.repoId,
-    });
-
-    const allVars = [...teamVars, ...repoVars];
-    let daytonaApiKey = "";
-    for (const v of allVars) {
-      if (v.key === "DAYTONA_API_KEY") {
-        daytonaApiKey = decryptValue(v.value);
-        break;
-      }
-    }
+    const envVars = await resolveEnvVars(ctx, args.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
 
     if (!daytonaApiKey) {
       throw new Error(

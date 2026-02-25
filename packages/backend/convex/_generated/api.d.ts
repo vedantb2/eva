@@ -24,6 +24,7 @@ import type * as docInterviewWorkflow from "../docInterviewWorkflow.js";
 import type * as docPrdWorkflow from "../docPrdWorkflow.js";
 import type * as docs from "../docs.js";
 import type * as encryption from "../encryption.js";
+import type * as envVarResolver from "../envVarResolver.js";
 import type * as evaluationReports from "../evaluationReports.js";
 import type * as evaluationWorkflow from "../evaluationWorkflow.js";
 import type * as extensionReleases from "../extensionReleases.js";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   docPrdWorkflow: typeof docPrdWorkflow;
   docs: typeof docs;
   encryption: typeof encryption;
+  envVarResolver: typeof envVarResolver;
   evaluationReports: typeof evaluationReports;
   evaluationWorkflow: typeof evaluationWorkflow;
   extensionReleases: typeof extensionReleases;

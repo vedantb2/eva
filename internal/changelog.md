@@ -1,5 +1,35 @@
 # Changelog
 
+## Consolidate Env Var Resolution into Shared Helper — 2026-02-25
+
+- **Why**: After BYOK implementation, env var resolution (team + repo → decrypt → merge) was duplicated across `daytona.ts`, `snapshotActions.ts`, and `mcpRoutes.ts` with subtle bugs and inefficiencies. Each copy had different issues: `snapshotActions.ts:rebuildSnapshot` only checked repo env vars (skipped team entirely), `snapshotActions.ts:deleteDaytonaSnapshot` had flipped precedence (team overrode repo instead of repo overriding team), and sandbox operations in `daytona.ts` resolved env vars twice (4 queries instead of 2). Consolidating into a shared helper eliminates duplication, fixes bugs, and improves performance.
+
+- **Changes**:
+  1. **New shared helpers in `envVarResolver.ts`**:
+     - `resolveEnvVars(ctx, repoId)`: Generic helper that fetches team + repo env vars, decrypts, and merges with correct precedence (repo overrides team)
+     - `resolveDaytonaApiKey(ctx, repoId)`: Daytona-specific helper that calls `resolveEnvVars`, extracts and validates `DAYTONA_API_KEY` (throws if missing), returns both API key and sandbox env vars (with key stripped)
+
+  2. **Updated `daytona.ts`**:
+     - Removed `resolveTeamEnvVars` and `resolveDaytonaApiKey` functions (replaced by shared helpers)
+     - Updated 9 functions to use `resolveDaytonaApiKey`: `runSandboxCommand`, `getPreviewUrl`, `setupAndExecute`, `launchOnExistingSandbox`, `launchAudit`, `runSessionAudit`, `deleteSandbox`, `startSessionSandbox`, `startDesignSandbox`
+     - Eliminated double-resolution in sandbox operations (4 queries → 2)
+
+  3. **Updated `snapshotActions.ts`**:
+     - Removed `requireEnv` function (no longer used)
+     - Updated `getGithubPat` to take decrypted merged vars instead of raw encrypted array
+     - Fixed `rebuildSnapshot` and `pollWorkflowRun` to check both team AND repo env vars for `SNAPSHOT_GITHUB_PAT` (was only checking repo before)
+     - Fixed `deleteDaytonaSnapshot` to use correct precedence (repo overrides team, was flipped before)
+
+  4. **Updated `mcpRoutes.ts`**:
+     - Simplified `getDecryptedRepoEnvVars` to use `resolveEnvVars` (reduced from ~30 lines to ~5 lines)
+
+- **Impact**:
+  - **DRY**: Single source of truth for env var resolution eliminates 9 duplicate error-handling blocks
+  - **Performance**: Sandbox operations now make 2 queries instead of 4 (eliminated double-resolution)
+  - **Bug fixes**: Snapshot operations now correctly check team-level env vars (fixes "env var not defined" when `SNAPSHOT_GITHUB_PAT` is set at team level)
+  - **Consistency**: All env var resolution follows same precedence rules (repo overrides team)
+  - **Maintainability**: Future changes to env var resolution only need to touch one file
+
 ## BYOK: Move DAYTONA_API_KEY and CONVEX_DEPLOY_KEY to User Env Vars — 2026-02-25
 
 - **Why**: Platform was using its own `DAYTONA_API_KEY` and `CONVEX_DEPLOY_KEY` from process.env for all users, creating a single point of failure and preventing users from bringing their own infrastructure keys. Users should control their own Daytona and Convex deployment credentials via team/repo environment variables (BYOK - Bring Your Own Key). Platform infrastructure keys (CLERK_SECRET_KEY, NEXT_PUBLIC_CONVEX_URL) remain as platform env vars since they connect sandboxes back to the platform.

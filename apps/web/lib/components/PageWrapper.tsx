@@ -28,9 +28,7 @@ export function PageWrapper({
   const router = useRouter();
 
   return (
-    <div
-      className={`${fillHeight ? "h-full min-h-0" : ""} flex-1 overflow-hidden animate-in fade-in duration-300`}
-    >
+    <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="motion-base relative border-b border-border/70 bg-card/65 px-3 py-3  sm:px-4">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">

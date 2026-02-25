@@ -2,12 +2,9 @@
 model: haiku
 ---
 
-Stage all files relevant to changes made in this conversation.
+Stage files relevant to changes made in this session.
 
-Steps:
-
-1. Run `git status -u` to see all modified, deleted, and untracked files
-2. Identify which files are related to the work done in this conversation — exclude files that were already dirty before the conversation started or are unrelated
-3. Stage them with `git add` using specific file paths (never use `git add -A` or `git add .`)
-4. Run `git status` to confirm what was staged
-5. Print a summary of what was staged and why
+1. Run `git status -u`
+2. Identify session-related files, excluding pre-existing dirty files
+3. Stage with `git add` using specific paths (never `git add -A` or `.`)
+4. Print summary of staged files and reason

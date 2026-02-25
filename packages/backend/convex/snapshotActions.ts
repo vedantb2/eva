@@ -92,7 +92,7 @@ export const rebuildSnapshot = internalAction({
         {
           method: "POST",
           body: JSON.stringify({
-            ref: "main",
+            ref: config.workflowRef ?? "main",
             inputs: {
               snapshot_name: config.snapshotName,
               custom_commands: JSON.stringify(config.customSetupCommands),
@@ -106,13 +106,16 @@ export const rebuildSnapshot = internalAction({
         const body = await resp.text();
         const workflowInputError =
           resp.status === 422 && body.includes("Unexpected inputs provided");
+        const notFoundError = resp.status === 404;
         await ctx.runMutation(internal.repoSnapshots.completeBuild, {
           buildId: args.buildId,
           status: "error",
           logs: "",
           error: workflowInputError
             ? "GitHub workflow dispatch failed: rebuild-snapshot.yml in the target repo does not define workflow_dispatch inputs. Add snapshot_name/custom_commands/custom_env_vars inputs and push that file to the repo default branch."
-            : `GitHub workflow dispatch failed (${resp.status}): ${body}`,
+            : notFoundError
+              ? `GitHub workflow dispatch failed (404): rebuild-snapshot.yml not found on branch "${config.workflowRef ?? "main"}". Verify the workflow file exists on the target branch (check Workflow Branch field in config).`
+              : `GitHub workflow dispatch failed (${resp.status}): ${body}`,
         });
         return null;
       }

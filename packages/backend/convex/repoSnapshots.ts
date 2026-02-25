@@ -30,6 +30,7 @@ export const getRepoSnapshot = authQuery({
       snapshotName: v.string(),
       schedule: snapshotScheduleValidator,
       cronJobId: v.optional(v.string()),
+      workflowRef: v.optional(v.string()),
       customSetupCommands: v.array(v.string()),
       customEnvVars: v.array(v.object({ key: v.string(), value: v.string() })),
       createdAt: v.number(),
@@ -112,6 +113,7 @@ export const saveRepoSnapshot = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     schedule: snapshotScheduleValidator,
+    workflowRef: v.optional(v.string()),
     customSetupCommands: v.array(v.string()),
     customEnvVars: v.array(v.object({ key: v.string(), value: v.string() })),
   },
@@ -154,6 +156,7 @@ export const saveRepoSnapshot = authMutation({
       await ctx.db.patch(existing._id, {
         schedule: args.schedule,
         cronJobId,
+        workflowRef: args.workflowRef,
         customSetupCommands: args.customSetupCommands,
         customEnvVars: args.customEnvVars,
         updatedAt: Date.now(),
@@ -166,6 +169,7 @@ export const saveRepoSnapshot = authMutation({
       repoId: args.repoId,
       snapshotName,
       schedule: args.schedule,
+      workflowRef: args.workflowRef,
       customSetupCommands: args.customSetupCommands,
       customEnvVars: args.customEnvVars,
       createdAt: now,
@@ -364,6 +368,7 @@ export const getRepoSnapshotInternal = internalQuery({
     v.object({
       repoId: v.id("githubRepos"),
       snapshotName: v.string(),
+      workflowRef: v.optional(v.string()),
       customSetupCommands: v.array(v.string()),
       customEnvVars: v.array(v.object({ key: v.string(), value: v.string() })),
     }),
@@ -375,6 +380,7 @@ export const getRepoSnapshotInternal = internalQuery({
     return {
       repoId: doc.repoId,
       snapshotName: doc.snapshotName,
+      workflowRef: doc.workflowRef,
       customSetupCommands: doc.customSetupCommands,
       customEnvVars: doc.customEnvVars,
     };

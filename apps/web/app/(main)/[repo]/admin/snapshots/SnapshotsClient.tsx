@@ -51,6 +51,7 @@ export function SnapshotsClient() {
   const startBuild = useMutation(api.repoSnapshots.startBuild);
 
   const [schedule, setSchedule] = useState<Schedule>("daily");
+  const [workflowRef, setWorkflowRef] = useState("main");
   const [commandsText, setCommandsText] = useState("");
   const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>(
     [],
@@ -66,12 +67,14 @@ export function SnapshotsClient() {
 
     if (snapshot) {
       setSchedule(snapshot.schedule);
+      setWorkflowRef(snapshot.workflowRef ?? "main");
       setCommandsText(snapshot.customSetupCommands.join("\n"));
       setEnvVars(snapshot.customEnvVars);
       return;
     }
 
     setSchedule("daily");
+    setWorkflowRef("main");
     setCommandsText("");
     setEnvVars([]);
   }, [snapshot?._id, snapshot?.updatedAt, snapshot === null]);
@@ -86,6 +89,7 @@ export function SnapshotsClient() {
       await saveRepoSnapshot({
         repoId,
         schedule,
+        workflowRef: workflowRef.trim() || undefined,
         customSetupCommands: commands,
         customEnvVars: envVars,
       });
@@ -98,6 +102,7 @@ export function SnapshotsClient() {
     if (!snapshot) return;
     await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
     setSchedule("daily");
+    setWorkflowRef("main");
     setCommandsText("");
     setEnvVars([]);
   };
@@ -182,6 +187,22 @@ export function SnapshotsClient() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Workflow Branch
+              </label>
+              <Input
+                value={workflowRef}
+                onChange={(e) => setWorkflowRef(e.target.value)}
+                placeholder="main"
+                className="h-8 text-xs"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Branch or ref where <code>rebuild-snapshot.yml</code> exists.
+                Defaults to <code>main</code> if empty.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Custom Setup Commands (one per line)
               </label>
               <Textarea
@@ -255,9 +276,9 @@ export function SnapshotsClient() {
           <div className="flex items-center justify-between pt-2 border-t border-border/40">
             <p className="text-[11px] text-muted-foreground">
               Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
-              workflow + <code className="font-mono">DAYTONA_API_KEY</code>{" "}
-              secret in repo, and{" "}
-              <code className="font-mono">SNAPSHOT_GITHUB_PAT</code> in Env
+              workflow on target branch +{" "}
+              <code className="font-mono">DAYTONA_API_KEY</code> secret in repo,
+              and <code className="font-mono">SNAPSHOT_GITHUB_PAT</code> in Env
               Variables.
             </p>
             <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -278,6 +299,12 @@ export function SnapshotsClient() {
               <div>
                 <span className="text-muted-foreground">Schedule</span>
                 <p className="mt-0.5">{SCHEDULE_LABELS[snapshot.schedule]}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Workflow Branch</span>
+                <p className="font-mono mt-0.5">
+                  {snapshot.workflowRef ?? "main"}
+                </p>
               </div>
               {lastBuild && (
                 <>

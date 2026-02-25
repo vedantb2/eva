@@ -406,6 +406,7 @@ const schema = defineSchema({
     snapshotName: v.string(),
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
+    workflowRef: v.optional(v.string()),
     customSetupCommands: v.array(v.string()),
     customEnvVars: v.array(
       v.object({

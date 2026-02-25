@@ -393,12 +393,17 @@ export const getRepo = internalQuery({
     v.object({
       owner: v.string(),
       name: v.string(),
+      installationId: v.number(),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repoId);
     if (!repo) return null;
-    return { owner: repo.owner, name: repo.name };
+    return {
+      owner: repo.owner,
+      name: repo.name,
+      installationId: repo.installationId,
+    };
   },
 });

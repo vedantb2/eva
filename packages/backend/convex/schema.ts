@@ -141,6 +141,7 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
+    activityLog: v.optional(v.string()),
   }).index("by_task", ["taskId"]),
 
   githubRepos: defineTable({

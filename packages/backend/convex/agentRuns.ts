@@ -21,6 +21,7 @@ const agentRunValidator = v.object({
   resultSummary: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   error: v.optional(v.string()),
+  activityLog: v.optional(v.string()),
 });
 
 export const get = authQuery({
@@ -211,6 +212,7 @@ export const complete = authMutation({
     resultSummary: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     error: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -236,6 +238,7 @@ export const complete = authMutation({
       resultSummary: args.resultSummary,
       prUrl: args.prUrl,
       error: args.error,
+      activityLog: args.activityLog,
     });
     await ctx.db.patch(task._id, {
       status: args.success ? "business_review" : "todo",

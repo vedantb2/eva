@@ -185,6 +185,7 @@ export const taskExecutionWorkflow = workflow.define({
       error: result.error,
       prUrl,
       hasSubtasks: data.hasSubtasks,
+      activityLog: result.activityLog,
     });
 
     // Step 8: Run audit (non-fatal, fire-and-forget via Daytona)
@@ -340,6 +341,7 @@ export const completeRun = internalMutation({
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
     hasSubtasks: v.boolean(),
+    activityLog: v.union(v.string(), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -356,6 +358,7 @@ export const completeRun = internalMutation({
         : undefined,
       prUrl: args.prUrl ?? undefined,
       error: args.success ? undefined : (args.error ?? "Unknown error"),
+      activityLog: args.activityLog ?? undefined,
     });
 
     // Update task status

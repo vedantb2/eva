@@ -1,5 +1,24 @@
 # Changelog
 
+## Persist Agent Run Activity Logs — 2026-02-25
+
+- **Why**: During task execution, detailed streaming activity (file reads, edits, bash commands, thinking steps) was shown via `streamingActivity` table. On completion, the streaming row was deleted and the `activityLog` string (passed through the workflow event) was silently dropped — never saved. Result: after success/error, users only saw a status badge + PR link. All step-by-step detail was lost, making it impossible to audit what the agent did after the run completed.
+
+- **Changes**:
+  1. **Schema**: Added `activityLog: v.optional(v.string())` to `agentRuns` table in `schema.ts` to persist the activity log after completion
+  2. **Validator**: Added `activityLog: v.optional(v.string())` to `agentRunValidator` in `agentRuns.ts` so queries return the persisted field
+  3. **Workflow**: Updated `completeRun` mutation in `taskWorkflow.ts` to:
+     - Accept `activityLog: v.union(v.string(), v.null())` in args
+     - Save `activityLog` when patching the run document
+     - Pass `result.activityLog` from workflow step 7 to `completeRun`
+  4. **Alternative path**: Updated `agentRuns.complete` mutation to accept and save `activityLog` for manual run completion
+  5. **Frontend**: Updated `TaskDetailModal.tsx` and `ProjectTaskDetailPanel.tsx` to render persisted activity log as static `ActivitySteps` component when run is completed/errored
+
+- **Impact**:
+  - **Auditability**: Full step-by-step activity logs are now preserved after run completion, enabling post-mortem debugging and compliance tracking
+  - **User experience**: Users can expand completed runs and see exactly what the agent did (file changes, commands run, thinking process)
+  - **No breaking changes**: New optional field, backward compatible with existing runs
+
 ## Consolidate Env Var Resolution into Shared Helper — 2026-02-25
 
 - **Why**: After BYOK implementation, env var resolution (team + repo → decrypt → merge) was duplicated across `daytona.ts`, `snapshotActions.ts`, and `mcpRoutes.ts` with subtle bugs and inefficiencies. Each copy had different issues: `snapshotActions.ts:rebuildSnapshot` only checked repo env vars (skipped team entirely), `snapshotActions.ts:deleteDaytonaSnapshot` had flipped precedence (team overrode repo instead of repo overriding team), and sandbox operations in `daytona.ts` resolved env vars twice (4 queries instead of 2). Consolidating into a shared helper eliminates duplication, fixes bugs, and improves performance.

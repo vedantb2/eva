@@ -188,6 +188,13 @@ export function ProjectTaskDetailPanel({
                               </Reasoning>
                             );
                           })()}
+                        {run.activityLog &&
+                          (() => {
+                            const steps = parseActivitySteps(run.activityLog);
+                            return steps ? (
+                              <ActivitySteps steps={steps} />
+                            ) : null;
+                          })()}
                         {run.resultSummary && (
                           <p className="text-sm text-muted-foreground">
                             {run.resultSummary}

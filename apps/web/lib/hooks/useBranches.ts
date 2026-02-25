@@ -13,9 +13,10 @@ export function useBranches(
   owner: string,
   repoName: string,
   installationId: number,
+  enabled: boolean = true,
 ) {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [isValidating, setIsValidating] = useState(false);
   const fetchBranches = useAction(api.github.listBranches);
 
@@ -33,9 +34,10 @@ export function useBranches(
   }, [fetchBranches, installationId, owner, repoName]);
 
   useEffect(() => {
+    if (!enabled) return;
     setIsLoading(true);
     load().finally(() => setIsLoading(false));
-  }, [load]);
+  }, [load, enabled]);
 
   const refresh = useCallback(async () => {
     setIsValidating(true);

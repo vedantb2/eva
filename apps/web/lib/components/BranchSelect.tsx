@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Popover,
   PopoverContent,
@@ -28,6 +28,7 @@ interface BranchSelectProps {
   onValueChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  placeholder?: string;
 }
 
 export function BranchSelect({
@@ -35,28 +36,49 @@ export function BranchSelect({
   onValueChange,
   className,
   disabled,
+  placeholder = "Select a branch",
 }: BranchSelectProps) {
   const { repo } = useRepo();
+  const [open, setOpen] = useState(false);
+  const [shouldFetch, setShouldFetch] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const { branches, isLoading } = useBranches(
     repo.owner,
     repo.name,
     repo.installationId,
+    shouldFetch,
   );
-  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 h-8 px-2 text-sm text-muted-foreground">
-        <IconLoader2 size={14} className="animate-spin" />
-        <span>Loading branches...</span>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (open && listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!isLoading && listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+  }, [searchValue]);
 
   return (
     <Popover
       open={disabled ? false : open}
-      onOpenChange={setOpen}
+      onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (newOpen) {
+          setShouldFetch(true);
+        } else {
+          setSearchValue("");
+        }
+      }}
       modal={false}
     >
       <PopoverTrigger asChild>
@@ -72,41 +94,60 @@ export function BranchSelect({
               size={14}
               className="text-muted-foreground shrink-0"
             />
-            <span className="truncate">{value}</span>
+            <span className={cn("truncate", !value && "text-muted-foreground")}>
+              {value || placeholder}
+            </span>
           </div>
           <IconChevronDown size={14} className="ml-2 opacity-60 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search branches..." />
+          <CommandInput
+            placeholder="Search branches..."
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
           <CommandList
+            ref={listRef}
             className="max-h-[300px]"
             onWheel={(e) => e.stopPropagation()}
           >
-            <CommandEmpty>No branch found.</CommandEmpty>
-            <CommandGroup>
-              {branches.map((branch) => (
-                <CommandItem
-                  key={branch.name}
-                  value={branch.name}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue);
-                    setOpen(false);
-                  }}
-                >
-                  <IconGitBranch size={14} className="text-muted-foreground" />
-                  {branch.name}
-                  <IconCheck
-                    size={14}
-                    className={cn(
-                      "ml-auto",
-                      value === branch.name ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                <IconLoader2 size={14} className="animate-spin" />
+                <span>Loading branches...</span>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No branch found.</CommandEmpty>
+                <CommandGroup>
+                  {branches.map((branch) => (
+                    <CommandItem
+                      key={branch.name}
+                      value={branch.name}
+                      onSelect={(currentValue) => {
+                        onValueChange(currentValue);
+                        setOpen(false);
+                      }}
+                    >
+                      <IconGitBranch
+                        size={14}
+                        className="text-muted-foreground"
+                      />
+                      {branch.name}
+                      <IconCheck
+                        size={14}
+                        className={cn(
+                          "ml-auto",
+                          value === branch.name ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

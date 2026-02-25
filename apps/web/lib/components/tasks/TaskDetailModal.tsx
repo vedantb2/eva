@@ -143,7 +143,8 @@ export function TaskDetailModal({
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const status = task?.status;
-  const showProofSection = status !== "todo" && status !== "in_progress";
+  const showProofSection =
+    status !== undefined && status !== "todo" && status !== "in_progress";
   const projectOptions = projects ?? [];
   const hasSelectedProject =
     task?.projectId !== undefined &&
@@ -277,7 +278,7 @@ export function TaskDetailModal({
                               : ""}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
                           {mainDesc}
                         </p>
                         {elementDetails && (
@@ -828,14 +829,23 @@ export function TaskDetailModal({
                         </Tooltip>
                       )}
                     </p>
-                    <BranchSelect
-                      value={baseBranch}
-                      onValueChange={(val) => {
-                        setBaseBranch(val);
-                        updateTask({ id: taskId, baseBranch: val });
-                      }}
-                      disabled={status !== "todo"}
-                    />
+                    {status === "todo" ? (
+                      <BranchSelect
+                        value={baseBranch}
+                        onValueChange={(val) => {
+                          setBaseBranch(val);
+                          updateTask({ id: taskId, baseBranch: val });
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
+                        <IconGitBranch
+                          size={14}
+                          className="text-muted-foreground"
+                        />
+                        <span className="text-foreground">{baseBranch}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

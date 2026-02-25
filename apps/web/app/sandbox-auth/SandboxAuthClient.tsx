@@ -19,43 +19,43 @@ function setAttemptCookie() {
 }
 
 export function SandboxAuthClient({ ticket }: { ticket: string | null }) {
-  const { signIn, isLoaded } = useSignIn();
-  const clerk = useClerk();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const hasRun = useRef(false);
+  // const { signIn, isLoaded } = useSignIn();
+  // const clerk = useClerk();
+  // const router = useRouter();
+  // const searchParams = useSearchParams();
+  // const hasRun = useRef(false);
 
-  const redirectTarget = useMemo(
-    () => sanitizeRedirect(searchParams.get("redirect")),
-    [searchParams],
-  );
+  // const redirectTarget = useMemo(
+  //   () => sanitizeRedirect(searchParams.get("redirect")),
+  //   [searchParams],
+  // );
 
-  useEffect(() => {
-    if (hasRun.current || !isLoaded) return;
-    hasRun.current = true;
+  // useEffect(() => {
+  //   if (hasRun.current || !isLoaded) return;
+  //   hasRun.current = true;
 
-    const run = async () => {
-      try {
-        if (ticket && signIn) {
-          const result = await signIn.create({
-            strategy: "ticket",
-            ticket,
-          });
-          if (result.status === "complete" && result.createdSessionId) {
-            await clerk.setActive({ session: result.createdSessionId });
-          }
-        }
-      } catch (error) {
-        console.error("Sandbox auth exchange failed:", error);
-      } finally {
-        setAttemptCookie();
-        router.replace(redirectTarget);
-      }
-    };
+  //   const run = async () => {
+  //     try {
+  //       if (ticket && signIn) {
+  //         const result = await signIn.create({
+  //           strategy: "ticket",
+  //           ticket,
+  //         });
+  //         if (result.status === "complete" && result.createdSessionId) {
+  //           await clerk.setActive({ session: result.createdSessionId });
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Sandbox auth exchange failed:", error);
+  //     } finally {
+  //       setAttemptCookie();
+  //       router.replace(redirectTarget);
+  //     }
+  //   };
 
-    void run();
-  }, [isLoaded, signIn, ticket, clerk, router, redirectTarget]);
-
+  //   void run();
+  // }, [isLoaded, signIn, ticket, clerk, router, redirectTarget]);
+  return null;
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="ui-surface-strong w-full max-w-sm px-5 py-6 text-center">

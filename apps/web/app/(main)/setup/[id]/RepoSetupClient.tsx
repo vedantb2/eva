@@ -73,7 +73,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
     }
 
     setSyncing(false);
-    router.push("/");
+    router.push("/home");
   };
 
   if (loading || syncing) {
@@ -94,7 +94,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
       <Container>
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-destructive mb-4">{error}</p>
-          <Button variant="secondary" onClick={() => router.push("/")}>
+          <Button variant="secondary" onClick={() => router.push("/home")}>
             Back to Repositories
           </Button>
         </div>
@@ -166,7 +166,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
           >
             Add All & Continue
           </Button>
-          <Button variant="secondary" onClick={() => router.push("/")}>
+          <Button variant="secondary" onClick={() => router.push("/home")}>
             Done
           </Button>
         </div>

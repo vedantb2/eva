@@ -1,5 +1,26 @@
 # Changelog
 
+## Add Public Landing Page and Move Dashboard to /home — 2026-02-25
+
+- **Why**: The root route (`/`) was directly showing the authenticated repos dashboard, requiring users to be signed in before seeing any content. This creates a poor first-time user experience and prevents unauthenticated users from learning about the platform before signing up.
+
+- **Changes**:
+  1. **Route restructure**: Moved repos dashboard from `/` to `/home` (moved `app/(main)/page.tsx` and `app/(main)/ReposClient.tsx` to `app/(main)/home/` directory)
+  2. **New landing page**: Created public landing page at `/` with Clerk sign-in/sign-up buttons for unauthenticated users, auto-redirects to `/home` when signed in
+  3. **Middleware update**: Added `/` to `isPublicRoute` matcher to allow unauthenticated access
+  4. **ClerkProvider redirects**: Updated `signInFallbackRedirectUrl` and `signUpFallbackRedirectUrl` from `/` to `/home`
+  5. **Internal navigation**: Updated all internal references from `/` to `/home` across:
+     - `app/(main)/layout.tsx` - TopNavBar display condition
+     - `lib/components/TopNavBar.tsx` - logo link and "Repositories" nav button
+     - `lib/components/Sidebar.tsx` - mobile and desktop logo links
+     - `app/(main)/setup/[id]/RepoSetupClient.tsx` - all redirect buttons after repo setup
+
+- **Impact**:
+  - **Better onboarding**: Unauthenticated users see a clean landing page with clear sign-in/sign-up options
+  - **Consistent navigation**: All "home" links now point to `/home` (repos dashboard)
+  - **Clean separation**: `/` is public, `/home` and repo routes require authentication
+  - **Zero breaking changes**: TypeScript compilation passes, existing functionality preserved
+
 ## Complete Auth Custom Functions Migration + Schema Migration — 2026-02-24
 
 - **Why**: Every query/mutation/action manually called `getCurrentUserId(ctx)` or `ctx.auth.getUserIdentity()` with 2-3 lines of boilerplate. ~110 functions used `getCurrentUserId`, ~45 used `getUserIdentity` directly. This created inconsistency, duplication, and weak auth gates (20+ mutations didn't actually enforce auth). Additionally, `boards.ownerId` and `taskComments.authorId` were `v.string()` storing Clerk subject IDs, inconsistent with the rest of the schema which uses `Id<"users">`.

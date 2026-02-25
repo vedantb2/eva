@@ -14,14 +14,14 @@ export function TopNavBar() {
   const { theme, toggleTheme, mounted } = useThemeContext();
 
   const isTeamsRoute = pathname.startsWith("/teams");
-  const isReposRoute = pathname === "/" || pathname === "/setup";
+  const isReposRoute = pathname === "/home" || pathname === "/setup";
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-6">
           <Link
-            href="/"
+            href="/home"
             className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5"
           >
             <Image
@@ -37,7 +37,7 @@ export function TopNavBar() {
           </Link>
 
           <nav className="flex items-center gap-2">
-            <Link href="/">
+            <Link href="/home">
               <Button
                 size="sm"
                 variant={isReposRoute ? "secondary" : "ghost"}

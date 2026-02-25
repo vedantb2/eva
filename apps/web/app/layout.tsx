@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
-import { ClientProvider } from "../lib/components/ClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -55,10 +54,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body suppressHydrationWarning className="font-sans text-foreground">
         <ClerkProvider
-          signInFallbackRedirectUrl="/"
-          signUpFallbackRedirectUrl="/"
+          signInFallbackRedirectUrl="/home"
+          signUpFallbackRedirectUrl="/home"
         >
-          <ClientProvider>{children}</ClientProvider>
+          {children}
         </ClerkProvider>
         <Analytics />
       </body>

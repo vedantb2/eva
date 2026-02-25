@@ -288,7 +288,7 @@ export function Sidebar() {
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         <Link
-          href="/"
+          href="/home"
           className="mx-auto flex items-center gap-2 rounded-lg border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
         >
           <Image
@@ -424,7 +424,7 @@ export function Sidebar() {
                     <>
                       {!collapsed && (
                         <Link
-                          href="/"
+                          href="/home"
                           className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <Image

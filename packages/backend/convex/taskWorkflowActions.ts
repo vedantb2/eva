@@ -20,7 +20,7 @@ export const createPullRequest = internalAction({
       const pr = await octokit.rest.pulls.create({
         owner: args.repoOwner,
         repo: args.repoName,
-        title: args.title,
+        title: `Eva: ${args.title}`,
         body: `## Task\n${args.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
         head: args.branchName,
         base: "main",

@@ -21,7 +21,7 @@ import {
   IconPlugConnectedX,
 } from "@tabler/icons-react";
 
-const GITHUB_APP_NAME = "v-conductor-dev";
+const GITHUB_APP_NAME = "vb-eva-dev";
 const WELCOME_DISMISSED_KEY = "eva-welcome-dismissed";
 
 const PLATFORM_SECTIONS = [

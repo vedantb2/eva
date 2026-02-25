@@ -16,6 +16,10 @@ import {
   SelectValue,
   Spinner,
   Textarea,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@conductor/ui";
 import {
   IconCamera,
@@ -149,254 +153,282 @@ export function SnapshotsClient() {
 
   return (
     <PageWrapper title="Snapshots">
-      <div className="space-y-6">
-        <div className="rounded-lg border border-border/70 p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Snapshot Configuration</h3>
-            {snapshot && (
-              <Button size="sm" variant="destructive" onClick={handleDelete}>
-                <IconTrash size={14} className="mr-1.5" />
-                Delete Config
-              </Button>
-            )}
-          </div>
+      <Tabs defaultValue="configuration" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="status">Status</TabsTrigger>
+          <TabsTrigger value="builds">Builds</TabsTrigger>
+        </TabsList>
 
-          <div className="grid gap-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Rebuild Schedule
-              </label>
-              <Select
-                value={schedule}
-                onValueChange={(val) => setSchedule(val as Schedule)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(
-                    Object.entries(SCHEDULE_LABELS) as Array<[Schedule, string]>
-                  ).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Workflow Branch
-              </label>
-              <Input
-                value={workflowRef}
-                onChange={(e) => setWorkflowRef(e.target.value)}
-                placeholder="main"
-                className="h-8 text-xs"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Branch or ref where <code>rebuild-snapshot.yml</code> exists.
-                Defaults to <code>main</code> if empty.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Custom Setup Commands (one per line)
-              </label>
-              <Textarea
-                value={commandsText}
-                onChange={(e) => setCommandsText(e.target.value)}
-                placeholder={'echo "Configuring workspace"\npnpm add -g eslint'}
-                className="font-mono text-xs"
-                rows={4}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Commands run during Docker build as the <code>eva</code> user.
-                Use user-level setup commands, not root-only package installs
-                like <code>apt-get</code>.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Custom Environment Variables (baked into snapshot)
-              </label>
-              {envVars.length > 0 && (
-                <div className="mb-2 space-y-1">
-                  {envVars.map((v, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="font-mono text-xs flex-1 truncate">
-                        {v.key}=*
-                      </span>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => removeEnvVar(i)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <IconX size={14} />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newEnvKey}
-                  onChange={(e) => setNewEnvKey(e.target.value)}
-                  placeholder="KEY"
-                  className="h-7 font-mono text-xs flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addEnvVar();
-                  }}
-                />
-                <Input
-                  value={newEnvValue}
-                  onChange={(e) => setNewEnvValue(e.target.value)}
-                  placeholder="value"
-                  className="h-7 font-mono text-xs flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addEnvVar();
-                  }}
-                />
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={addEnvVar}
-                  disabled={!newEnvKey.trim() || !newEnvValue.trim()}
-                >
-                  <IconPlus size={14} />
+        <TabsContent value="configuration" className="space-y-6">
+          <div className="rounded-lg border border-border/70 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Snapshot Configuration</h3>
+              {snapshot && (
+                <Button size="sm" variant="destructive" onClick={handleDelete}>
+                  <IconTrash size={14} className="mr-1.5" />
+                  Delete Config
                 </Button>
-              </div>
+              )}
             </div>
-          </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground">
-              Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
-              workflow on target branch +{" "}
-              <code className="font-mono">DAYTONA_API_KEY</code> secret in repo,
-              and <code className="font-mono">SNAPSHOT_GITHUB_PAT</code> in Env
-              Variables.
-            </p>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? <Spinner size="sm" className="mr-1.5" /> : null}
-              Save
-            </Button>
-          </div>
-        </div>
+            <div className="grid gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Rebuild Schedule
+                </label>
+                <Select
+                  value={schedule}
+                  onValueChange={(val) => setSchedule(val as Schedule)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.entries(SCHEDULE_LABELS) as Array<
+                        [Schedule, string]
+                      >
+                    ).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {snapshot && (
-          <div className="rounded-lg border border-border/70 p-4 space-y-3">
-            <h3 className="text-sm font-medium">Current Status</h3>
-            <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-muted-foreground">Snapshot Name</span>
-                <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Schedule</span>
-                <p className="mt-0.5">{SCHEDULE_LABELS[snapshot.schedule]}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Workflow Branch</span>
-                <p className="font-mono mt-0.5">
-                  {snapshot.workflowRef ?? "main"}
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Workflow Branch
+                </label>
+                <Input
+                  value={workflowRef}
+                  onChange={(e) => setWorkflowRef(e.target.value)}
+                  placeholder="main"
+                  className="h-8 text-xs"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Branch or ref where <code>rebuild-snapshot.yml</code> exists.
+                  Defaults to <code>main</code> if empty.
                 </p>
               </div>
-              {lastBuild && (
-                <>
-                  <div>
-                    <span className="text-muted-foreground">Last Build</span>
-                    <p className="mt-0.5">
-                      {new Date(lastBuild.startedAt).toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status</span>
-                    <p className="mt-0.5">
-                      <BuildStatusBadge status={lastBuild.status} />
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={handleRebuild}
-              disabled={building || isRunning}
-            >
-              {isRunning ? (
-                <Spinner size="sm" className="mr-1.5" />
-              ) : (
-                <IconPlayerPlay size={14} className="mr-1.5" />
-              )}
-              {isRunning ? "Building..." : "Rebuild Now"}
-            </Button>
-          </div>
-        )}
 
-        {snapshot && builds && builds.length > 0 && (
-          <div className="rounded-lg border border-border/70">
-            <div className="px-4 py-3 border-b border-border/60">
-              <h3 className="text-sm font-medium">Build History</h3>
-            </div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th className="px-4 py-2 font-medium w-8" />
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Duration</th>
-                  <th className="px-4 py-2 font-medium">Trigger</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {builds.map((build) => {
-                  const isExpanded = expandedBuild === build._id;
-                  const duration = build.completedAt
-                    ? formatDuration(build.completedAt - build.startedAt)
-                    : build.status === "running"
-                      ? "Running..."
-                      : "-";
-                  return (
-                    <BuildRow
-                      key={build._id}
-                      build={build}
-                      isExpanded={isExpanded}
-                      duration={duration}
-                      repoFullName={fullName}
-                      onToggle={() =>
-                        setExpandedBuild(isExpanded ? null : build._id)
-                      }
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Custom Setup Commands (one per line)
+                </label>
+                <Textarea
+                  value={commandsText}
+                  onChange={(e) => setCommandsText(e.target.value)}
+                  placeholder={
+                    'echo "Configuring workspace"\npnpm add -g eslint'
+                  }
+                  className="font-mono text-xs"
+                  rows={4}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Commands run during Docker build as the <code>eva</code> user.
+                  Use user-level setup commands, not root-only package installs
+                  like <code>apt-get</code>.
+                </p>
+              </div>
 
-        {snapshot && builds && builds.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <IconCamera size={48} className="mb-3 opacity-40" />
-            <p className="text-sm">
-              No builds yet. Click "Rebuild Now" to start.
-            </p>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Custom Environment Variables (baked into snapshot)
+                </label>
+                {envVars.length > 0 && (
+                  <div className="mb-2 space-y-1">
+                    {envVars.map((v, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="font-mono text-xs flex-1 truncate">
+                          {v.key}=*
+                        </span>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => removeEnvVar(i)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <IconX size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newEnvKey}
+                    onChange={(e) => setNewEnvKey(e.target.value)}
+                    placeholder="KEY"
+                    className="h-7 font-mono text-xs flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addEnvVar();
+                    }}
+                  />
+                  <Input
+                    value={newEnvValue}
+                    onChange={(e) => setNewEnvValue(e.target.value)}
+                    placeholder="value"
+                    className="h-7 font-mono text-xs flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addEnvVar();
+                    }}
+                  />
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={addEnvVar}
+                    disabled={!newEnvKey.trim() || !newEnvValue.trim()}
+                  >
+                    <IconPlus size={14} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/40">
+              <p className="text-[11px] text-muted-foreground">
+                Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
+                workflow on target branch +{" "}
+                <code className="font-mono">DAYTONA_API_KEY</code> secret in
+                repo, and <code className="font-mono">SNAPSHOT_GITHUB_PAT</code>{" "}
+                in Env Variables.
+              </p>
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? <Spinner size="sm" className="mr-1.5" /> : null}
+                Save
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="status" className="space-y-6">
+          {snapshot ? (
+            <div className="rounded-lg border border-border/70 p-4 space-y-3">
+              <h3 className="text-sm font-medium">Current Status</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Snapshot Name</span>
+                  <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Schedule</span>
+                  <p className="mt-0.5">{SCHEDULE_LABELS[snapshot.schedule]}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Workflow Branch</span>
+                  <p className="font-mono mt-0.5">
+                    {snapshot.workflowRef ?? "main"}
+                  </p>
+                </div>
+                {lastBuild && (
+                  <>
+                    <div>
+                      <span className="text-muted-foreground">Last Build</span>
+                      <p className="mt-0.5">
+                        {new Date(lastBuild.startedAt).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status</span>
+                      <p className="mt-0.5">
+                        <BuildStatusBadge status={lastBuild.status} />
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={handleRebuild}
+                disabled={building || isRunning}
+              >
+                {isRunning ? (
+                  <Spinner size="sm" className="mr-1.5" />
+                ) : (
+                  <IconPlayerPlay size={14} className="mr-1.5" />
+                )}
+                {isRunning ? "Building..." : "Rebuild Now"}
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/70 p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No snapshot configured yet. Configure one in the Configuration
+                tab.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="builds" className="space-y-6">
+          {snapshot && builds && builds.length > 0 ? (
+            <div className="rounded-lg border border-border/70">
+              <div className="px-4 py-3 border-b border-border/60">
+                <h3 className="text-sm font-medium">Build History</h3>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/60 text-left text-muted-foreground">
+                    <th className="px-4 py-2 font-medium w-8" />
+                    <th className="px-4 py-2 font-medium">Date</th>
+                    <th className="px-4 py-2 font-medium">Duration</th>
+                    <th className="px-4 py-2 font-medium">Trigger</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {builds.map((build) => {
+                    const isExpanded = expandedBuild === build._id;
+                    const duration = build.completedAt
+                      ? formatDuration(build.completedAt - build.startedAt)
+                      : build.status === "running"
+                        ? "Running..."
+                        : "-";
+                    return (
+                      <BuildRow
+                        key={build._id}
+                        build={build}
+                        isExpanded={isExpanded}
+                        duration={duration}
+                        repoFullName={fullName}
+                        onToggle={() =>
+                          setExpandedBuild(isExpanded ? null : build._id)
+                        }
+                      />
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : snapshot && builds && builds.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <IconCamera size={48} className="mb-3 opacity-40" />
+              <p className="text-sm">
+                No builds yet. Click "Rebuild Now" to start.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/70 p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No snapshot configured yet. Configure one in the Configuration
+                tab.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </PageWrapper>
   );
 }

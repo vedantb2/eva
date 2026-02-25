@@ -141,6 +141,7 @@ export function QuickTasksListView({
           installationId: result.installationId,
           projectId: result.projectId,
           branchName: result.branchName,
+          baseBranch: result.baseBranch,
           isFirstTaskOnBranch: result.isFirstTaskOnBranch,
           model: result.model,
           convexToken,

@@ -163,7 +163,7 @@ export function TaskDetailModal({
         installationId: result.installationId,
         projectId: result.projectId,
         branchName: result.branchName,
-        baseBranch: result.projectId ? undefined : baseBranch,
+        baseBranch: result.projectId ? undefined : result.baseBranch,
         isFirstTaskOnBranch: result.isFirstTaskOnBranch,
         model: result.model,
         convexToken,

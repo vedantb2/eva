@@ -530,6 +530,7 @@ export const startExecution = authMutation({
     installationId: v.number(),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
   }),
@@ -613,6 +614,7 @@ export const startExecution = authMutation({
       installationId: repo.installationId,
       projectId: task.projectId,
       branchName: project?.branchName,
+      baseBranch: task.baseBranch,
       isFirstTaskOnBranch,
       model: task.model,
     };

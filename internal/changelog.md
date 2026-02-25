@@ -1,5 +1,29 @@
 # Changelog
 
+## Stop Button + Inline Edit in TaskDetailModal — 2026-02-25
+
+- **Why**: Quick tasks had no way to stop execution once started (users had to wait for completion or failure), and title/description were read-only despite the update mutation already supporting both fields. This created frustration when tasks needed cancellation or quick edits during execution.
+
+- **Changes**:
+  1. **Backend** (`packages/backend/convex/taskWorkflow.ts`):
+     - Added `cancelExecution` authMutation following the design sessions pattern
+     - Verifies ownership via `board.ownerId === ctx.userId`
+     - Cancels active workflow with try/catch (workflow may already be done)
+     - Finds active run via `by_task` index, patches to error status with "Cancelled by user"
+     - Clears streaming activity for the task entity
+     - Resets task to `{ status: "todo", activeWorkflowId: undefined }`
+  2. **Frontend** (`apps/web/lib/components/tasks/TaskDetailModal.tsx`):
+     - Added `IconPlayerStop` import and `cancelExecution` mutation
+     - Added state: `isStopping`, `isEditingTitle`, `editTitle`, `isEditingDescription`, `editDescription`
+     - **Stop button**: Replaces "Run Eva" when `hasActiveRun` is true, red destructive variant, disabled when not owner or stopping
+     - **Title inline edit**: Click to edit (disabled when `hasActiveRun`), save on blur/Enter, cancel on Escape, any team member can edit
+     - **Description inline edit**: Click to edit (disabled when `hasActiveRun`), save on blur/Ctrl+Enter, cancel on Escape, includes "Click to add description..." placeholder when empty, any team member can edit, preserves full description including element details separator
+
+- **Impact**:
+  - Users can now immediately stop tasks that are stuck or running incorrectly without waiting
+  - Quick edits to title/description no longer require navigating away from the detail modal
+  - Both features respect task execution state (disabled when running) to prevent conflicts
+
 ## Simplify daytona.ts — 2026-02-25
 
 - **Why**: The 1137-line file had repeated patterns - verbose `executeCommand` calls used 20+ times, identical sandbox context resolution in 3 places, duplicated service-start commands. Reduced by 181 lines while improving readability and maintainability.

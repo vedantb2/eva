@@ -603,6 +603,60 @@ export const clearActiveWorkflow = internalMutation({
   },
 });
 
+export const cancelExecution = authMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    const board = await ctx.db.get(task.boardId);
+    if (!board) throw new Error("Board not found");
+    if (board.ownerId !== ctx.userId) throw new Error("Not authorized");
+
+    if (task.activeWorkflowId) {
+      try {
+        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+      } catch {
+        // Workflow may have already completed
+      }
+    }
+
+    const run = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "queued"),
+          q.eq(q.field("status"), "running"),
+        ),
+      )
+      .first();
+
+    if (run) {
+      await ctx.db.patch(run._id, {
+        status: "error",
+        error: "Cancelled by user",
+        finishedAt: Date.now(),
+      });
+    }
+
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .first();
+    if (streaming) await ctx.db.delete(streaming._id);
+
+    await ctx.db.patch(args.taskId, {
+      status: "todo",
+      activeWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 /**
  * Frontend trigger — starts the task execution workflow.
  * Called after agentTasks.startExecution which creates the run and returns metadata.

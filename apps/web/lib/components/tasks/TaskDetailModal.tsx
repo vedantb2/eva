@@ -57,6 +57,7 @@ import {
   IconTags,
   IconGitBranch,
   IconInfoCircle,
+  IconPlayerStop,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -104,6 +105,7 @@ export function TaskDetailModal({
   );
   const startExecution = useMutation(api.agentTasks.startExecution);
   const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
+  const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
@@ -114,11 +116,16 @@ export function TaskDetailModal({
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [requestChangesPanel, setRequestChangesPanel] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,6 +179,17 @@ export function TaskDetailModal({
       console.error("Failed to start execution:", err);
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleStopExecution = async () => {
+    setIsStopping(true);
+    try {
+      await cancelExecution({ taskId });
+    } catch (err) {
+      console.error("Failed to stop execution:", err);
+    } finally {
+      setIsStopping(false);
     }
   };
 
@@ -245,72 +263,164 @@ export function TaskDetailModal({
                     #{task.taskNumber}
                   </span>
                 )}
-                <span>{task?.title}</span>
+                {isEditingTitle ? (
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onBlur={() => {
+                      const trimmed = editTitle.trim();
+                      if (trimmed && trimmed !== task?.title) {
+                        updateTask({ id: taskId, title: trimmed });
+                      }
+                      setIsEditingTitle(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        setIsEditingTitle(false);
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1"
+                  />
+                ) : (
+                  <span
+                    onClick={() => {
+                      if (!hasActiveRun) {
+                        setEditTitle(task?.title ?? "");
+                        setIsEditingTitle(true);
+                      }
+                    }}
+                    className={
+                      hasActiveRun
+                        ? ""
+                        : "cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1"
+                    }
+                  >
+                    {task?.title}
+                  </span>
+                )}
               </div>
             </DialogTitle>
           </DialogHeader>
           <div className="pb-6">
             <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">
-                {task?.description &&
-                  (() => {
-                    const separatorIndex = task.description.indexOf("---");
-                    const mainDesc =
-                      separatorIndex !== -1
-                        ? task.description.slice(0, separatorIndex).trimEnd()
-                        : task.description;
-                    const elementDetails =
-                      separatorIndex !== -1
-                        ? task.description.slice(separatorIndex + 3).trimStart()
-                        : null;
-                    return (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-medium text-foreground">
-                            Description
-                          </h4>
-                          <span className="text-xs text-muted-foreground">
-                            {task?.createdAt
-                              ? dayjs(task.createdAt).format("MMM D, YYYY")
-                              : ""}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                          {mainDesc}
-                        </p>
-                        {elementDetails && (
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="mt-2 px-0"
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-foreground">
+                      Description
+                    </h4>
+                    <span className="text-xs text-muted-foreground">
+                      {task?.createdAt
+                        ? dayjs(task.createdAt).format("MMM D, YYYY")
+                        : ""}
+                    </span>
+                  </div>
+                  {isEditingDescription ? (
+                    <Textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      onBlur={() => {
+                        const trimmed = editDescription.trim();
+                        if (trimmed !== task?.description) {
+                          updateTask({ id: taskId, description: trimmed });
+                        }
+                        setIsEditingDescription(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && e.ctrlKey) {
+                          e.currentTarget.blur();
+                        } else if (e.key === "Escape") {
+                          setIsEditingDescription(false);
+                        }
+                      }}
+                      autoFocus
+                      rows={4}
+                      className="text-sm"
+                    />
+                  ) : task?.description ? (
+                    (() => {
+                      const separatorIndex = task.description.indexOf("---");
+                      const mainDesc =
+                        separatorIndex !== -1
+                          ? task.description.slice(0, separatorIndex).trimEnd()
+                          : task.description;
+                      const elementDetails =
+                        separatorIndex !== -1
+                          ? task.description
+                              .slice(separatorIndex + 3)
+                              .trimStart()
+                          : null;
+                      return (
+                        <>
+                          <p
+                            onClick={() => {
+                              if (!hasActiveRun) {
+                                setEditDescription(task.description ?? "");
+                                setIsEditingDescription(true);
+                              }
+                            }}
+                            className={`text-sm text-muted-foreground whitespace-pre-wrap break-words ${
+                              hasActiveRun
+                                ? ""
+                                : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
+                            }`}
                           >
-                            <AccordionItem value="element-details">
-                              <AccordionTrigger>
-                                <span className="text-xs text-muted-foreground">
-                                  Element Details
-                                </span>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <SyntaxHighlighter
-                                  language="css"
-                                  style={oneDark}
-                                  wrapLines
-                                  wrapLongLines
-                                  customStyle={{
-                                    fontSize: "0.75rem",
-                                    borderRadius: "0.5rem",
-                                    margin: 0,
-                                  }}
-                                >
-                                  {elementDetails}
-                                </SyntaxHighlighter>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        )}
-                      </div>
-                    );
-                  })()}
+                            {mainDesc}
+                          </p>
+                          {elementDetails && (
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="mt-2 px-0"
+                            >
+                              <AccordionItem value="element-details">
+                                <AccordionTrigger>
+                                  <span className="text-xs text-muted-foreground">
+                                    Element Details
+                                  </span>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <SyntaxHighlighter
+                                    language="css"
+                                    style={oneDark}
+                                    wrapLines
+                                    wrapLongLines
+                                    customStyle={{
+                                      fontSize: "0.75rem",
+                                      borderRadius: "0.5rem",
+                                      margin: 0,
+                                    }}
+                                  >
+                                    {elementDetails}
+                                  </SyntaxHighlighter>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <p
+                      onClick={() => {
+                        if (!hasActiveRun) {
+                          setEditDescription("");
+                          setIsEditingDescription(true);
+                        }
+                      }}
+                      className={`text-sm text-muted-foreground italic ${
+                        hasActiveRun
+                          ? ""
+                          : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
+                      }`}
+                    >
+                      Click to add description...
+                    </p>
+                  )}
+                </div>
 
                 {subtasks && subtasks.length > 0 && (
                   <div className="pt-4">
@@ -977,31 +1087,55 @@ export function TaskDetailModal({
                     Request Changes
                   </Button>
                 )}
-              {status === "todo" && (
+              {hasActiveRun ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
                       <Button
-                        onClick={handleStartExecution}
-                        disabled={
-                          isStarting || isBlocked || hasActiveRun || !isOwner
-                        }
+                        variant="destructive"
+                        onClick={handleStopExecution}
+                        disabled={isStopping || !isOwner}
                       >
-                        {isStarting ? (
+                        {isStopping ? (
                           <IconLoader2 size={18} className="animate-spin" />
                         ) : (
-                          <IconPlayerPlay size={18} />
+                          <IconPlayerStop size={18} />
                         )}
-                        {hasActiveRun ? "Running..." : "Run Eva"}
+                        Stop
                       </Button>
                     </div>
                   </TooltipTrigger>
                   {!isOwner && (
                     <TooltipContent>
-                      Only the task owner can run Eva
+                      Only the task owner can stop execution
                     </TooltipContent>
                   )}
                 </Tooltip>
+              ) : (
+                status === "todo" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button
+                          onClick={handleStartExecution}
+                          disabled={isStarting || isBlocked || !isOwner}
+                        >
+                          {isStarting ? (
+                            <IconLoader2 size={18} className="animate-spin" />
+                          ) : (
+                            <IconPlayerPlay size={18} />
+                          )}
+                          Run Eva
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {!isOwner && (
+                      <TooltipContent>
+                        Only the task owner can run Eva
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                )
               )}
             </div>
           </DialogFooter>

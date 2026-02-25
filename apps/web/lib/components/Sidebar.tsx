@@ -9,7 +9,6 @@ import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconBrain,
-  IconBrandGithub,
   IconChartBar,
   IconChecklist,
   IconChevronLeft,
@@ -25,7 +24,6 @@ import {
   IconMoon,
   IconPalette,
   IconPlus,
-  IconSelector,
   IconSettings,
   IconSun,
   IconTerminal2,
@@ -35,17 +33,8 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-  Spinner,
-  cn,
-} from "@conductor/ui";
-import { ActiveTasksAccordion } from "@/lib/components/sidebar/ActiveTasksAccordion";
+import { Button, Spinner, cn } from "@conductor/ui";
+import { ActiveTasksPopover } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { AdminSidebar } from "@/lib/components/sidebar/AdminSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
@@ -53,6 +42,7 @@ import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
+import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
@@ -508,48 +498,13 @@ export function Sidebar() {
               <div className="space-y-4">
                 {!isRepoRoute && !collapsed && repos && repos.length > 0 && (
                   <div className="space-y-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                        >
-                          <IconBrandGithub
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                          <span className="flex-1 truncate text-left text-sm font-medium">
-                            Select a repo
-                          </span>
-                          <IconSelector
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
-                        <DropdownMenuRadioGroup
-                          onValueChange={handleRepoSelect}
-                        >
-                          {repos.map((repoItem) => {
-                            const fullName = `${repoItem.owner}/${repoItem.name}`;
-                            return (
-                              <DropdownMenuRadioItem
-                                key={fullName}
-                                value={fullName}
-                              >
-                                <IconBrandGithub
-                                  size={16}
-                                  className="text-muted-foreground"
-                                />
-                                {fullName}
-                              </DropdownMenuRadioItem>
-                            );
-                          })}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RepoSelect
+                      repos={repos}
+                      value={null}
+                      onValueChange={handleRepoSelect}
+                      placeholder="Select a repo"
+                      className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                    />
                   </div>
                 )}
 
@@ -626,49 +581,12 @@ export function Sidebar() {
                         <div className="space-y-4">
                           {!collapsed && (
                             <div className="space-y-2">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                                  >
-                                    <IconBrandGithub
-                                      size={16}
-                                      className="text-muted-foreground"
-                                    />
-                                    <span className="flex-1 truncate text-left text-sm font-medium">
-                                      {repoFullName}
-                                    </span>
-                                    <IconSelector
-                                      size={16}
-                                      className="text-muted-foreground"
-                                    />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
-                                  <DropdownMenuRadioGroup
-                                    value={repoFullName}
-                                    onValueChange={handleRepoSelect}
-                                  >
-                                    {(repos ?? []).map((repoItem) => {
-                                      const fullName = `${repoItem.owner}/${repoItem.name}`;
-                                      return (
-                                        <DropdownMenuRadioItem
-                                          key={fullName}
-                                          value={fullName}
-                                        >
-                                          <IconBrandGithub
-                                            size={16}
-                                            className="text-muted-foreground"
-                                          />
-                                          {fullName}
-                                        </DropdownMenuRadioItem>
-                                      );
-                                    })}
-                                  </DropdownMenuRadioGroup>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <RepoSelect
+                                repos={repos ?? []}
+                                value={repoFullName}
+                                onValueChange={handleRepoSelect}
+                                className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                              />
                             </div>
                           )}
 
@@ -789,7 +707,7 @@ export function Sidebar() {
                           </div>
 
                           {!collapsed && repo && (
-                            <ActiveTasksAccordion
+                            <ActiveTasksPopover
                               repoId={repo._id}
                               repoSlug={repoSlug}
                             />

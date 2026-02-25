@@ -1,7 +1,9 @@
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
@@ -29,16 +31,34 @@ export function RepoSelector({
     );
   }
 
+  const reposByOwner = repos.reduce(
+    (acc, repo) => {
+      if (!acc[repo.owner]) {
+        acc[repo.owner] = [];
+      }
+      acc[repo.owner].push(repo);
+      return acc;
+    },
+    {} as Record<string, typeof repos>,
+  );
+
+  const sortedOwners = Object.keys(reposByOwner).sort();
+
   return (
     <Select value={selectedRepoId || ""} onValueChange={onRepoChange}>
       <SelectTrigger className="flex-1 min-w-[180px]">
         <SelectValue placeholder="Select repository..." />
       </SelectTrigger>
       <SelectContent>
-        {repos.map((repo) => (
-          <SelectItem key={repo._id} value={repo._id}>
-            {repo.owner}/{repo.name}
-          </SelectItem>
+        {sortedOwners.map((owner) => (
+          <SelectGroup key={owner}>
+            <SelectLabel>{owner}</SelectLabel>
+            {reposByOwner[owner].map((repo) => (
+              <SelectItem key={repo._id} value={repo._id}>
+                {repo.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         ))}
       </SelectContent>
     </Select>

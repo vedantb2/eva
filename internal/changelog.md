@@ -1,5 +1,20 @@
 # Changelog
 
+## Simplify daytona.ts — 2026-02-25
+
+- **Why**: The 1137-line file had repeated patterns - verbose `executeCommand` calls used 20+ times, identical sandbox context resolution in 3 places, duplicated service-start commands. Reduced by 181 lines while improving readability and maintainability.
+
+- **Changes**:
+  1. **Added `exec` helper** (line 19) - Wraps `sandbox.process.executeCommand` with simpler signature, returns result string directly instead of response object
+  2. **Added `resolveSandboxContext` helper** (line 47) - Combines API key resolution, Daytona client creation, infra env vars, and snapshot lookup. Replaced identical 12-line blocks in `setupAndExecute`, `startSessionSandbox`, and `startDesignSandbox`
+  3. **Added `startSessionServices` helper** (line 808) - Starts pnpm dev + code-server in one call. Deduplicates service-start commands in `startSessionSandbox` (reuse path + new sandbox path)
+  4. **Replaced all `executeCommand` calls with `exec`** - 20+ call sites simplified from 5-line verbose calls to 1-line `exec` calls
+  5. **Collapsed `setupAndExecute` ephemeral/non-ephemeral branches** - Both paths called similar functions with different args. Unified to conditional expression using `?:` operator
+  6. **Simplified `startDesignSandbox` if/else** - Pulled common `setupBranch` call outside the conditional, eliminated duplication
+  7. **Added proper TypeScript return types** - Added explicit return type annotation to `resolveSandboxContext` to satisfy strict type checking
+
+- **Result**: File reduced from 1137 to 956 lines (181 lines removed). No exported signatures changed. All type checks pass.
+
 ## Import from Linear to Quick Tasks — 2026-02-25
 
 - **Why**: Quick tasks could only be created one-at-a-time through manual UI input. Teams managing backlogs in Linear needed a way to bulk-import issues as quick tasks without copy-pasting each title/description individually. Bulk import enables fast bootstrapping of conductor task boards from existing Linear workflows.

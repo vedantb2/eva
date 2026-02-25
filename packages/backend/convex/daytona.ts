@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { DataModel } from "./_generated/dataModel";
+import type { DataModel, Id } from "./_generated/dataModel";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { resolveDaytonaApiKey } from "./envVarResolver";
@@ -15,6 +15,20 @@ const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
 const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 300;
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
+
+async function exec(
+  sandbox: Sandbox,
+  cmd: string,
+  timeout = 30,
+): Promise<string> {
+  const resp = await sandbox.process.executeCommand(
+    cmd,
+    "/",
+    undefined,
+    timeout,
+  );
+  return resp.result;
+}
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -39,6 +53,29 @@ function resolveInfraEnvVars(): Record<string, string> {
     if (val) infraEnvVars[key] = val;
   }
   return infraEnvVars;
+}
+
+async function resolveSandboxContext(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<{
+  daytona: Daytona;
+  sandboxEnvVars: Record<string, string>;
+  infraEnvVars: Record<string, string>;
+  snapshotName: string | undefined;
+}> {
+  const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+    ctx,
+    repoId,
+  );
+  const daytona = getDaytona(daytonaApiKey);
+  const infraEnvVars = resolveInfraEnvVars();
+  const repoSnapshot = await ctx.runQuery(
+    internal.repoSnapshots.getRepoSnapshotName,
+    { repoId },
+  );
+  const snapshotName = repoSnapshot?.snapshotName;
+  return { daytona, sandboxEnvVars, infraEnvVars, snapshotName };
 }
 
 function isSnapshotReadyTimeoutError(error: unknown): boolean {
@@ -75,10 +112,9 @@ async function createSandbox(
     },
     { timeout: timeoutSeconds },
   );
-  await sandbox.process.executeCommand(
-    'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
-    "/",
-    undefined,
+  await exec(
+    sandbox,
+    'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
     10,
   );
   return sandbox;
@@ -92,18 +128,12 @@ async function syncRepo(
 ): Promise<void> {
   const githubToken = await getInstallationToken(installationId);
   const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
-  await sandbox.process.executeCommand(
+  await exec(
+    sandbox,
     `cd ${WORKSPACE_DIR} && git remote set-url origin ${repoUrl}`,
-    "/",
-    undefined,
     10,
   );
-  await sandbox.process.executeCommand(
-    `cd ${WORKSPACE_DIR} && git pull`,
-    "/",
-    undefined,
-    60,
-  );
+  await exec(sandbox, `cd ${WORKSPACE_DIR} && git pull`, 60);
 }
 
 async function cloneAndSetupRepo(
@@ -114,46 +144,25 @@ async function cloneAndSetupRepo(
 ): Promise<void> {
   const githubToken = await getInstallationToken(installationId);
   const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
-  await sandbox.process.executeCommand(
+  await exec(
+    sandbox,
     `rm -rf ${WORKSPACE_DIR} && git clone ${repoUrl} ${WORKSPACE_DIR}`,
-    "/",
-    undefined,
     120,
   );
-  const lockCheck = await sandbox.process.executeCommand(
-    `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
-    "/",
-    undefined,
-    5,
-  );
-  const lockFile = (lockCheck.result ?? "").trim();
+  const lockFile = (
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
+      5,
+    )
+  ).trim();
   if (lockFile === "pnpm-lock.yaml") {
-    await sandbox.process.executeCommand(
-      `npm install -g pnpm`,
-      "/",
-      undefined,
-      30,
-    );
-    await sandbox.process.executeCommand(
-      `cd ${WORKSPACE_DIR} && pnpm install`,
-      "/",
-      undefined,
-      120,
-    );
+    await exec(sandbox, `npm install -g pnpm`, 30);
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
   } else if (lockFile === "yarn.lock") {
-    await sandbox.process.executeCommand(
-      `cd ${WORKSPACE_DIR} && yarn install`,
-      "/",
-      undefined,
-      120,
-    );
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && yarn install`, 120);
   } else {
-    await sandbox.process.executeCommand(
-      `cd ${WORKSPACE_DIR} && npm install`,
-      "/",
-      undefined,
-      120,
-    );
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && npm install`, 120);
   }
 }
 
@@ -213,7 +222,7 @@ async function getOrCreateSandbox(
   if (existingSandboxId) {
     try {
       const sandbox = await daytona.get(existingSandboxId);
-      await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+      await exec(sandbox, "echo 1", 5);
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, isNew: false };
     } catch {
@@ -241,30 +250,24 @@ async function setupBranch(
   branchName: string,
 ): Promise<void> {
   // Stash any dirty state from previous executions, then checkout
-  await sandbox.process.executeCommand(
+  await exec(
+    sandbox,
     `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${branchName}`,
-    "/",
-    undefined,
     10,
   );
   // Verify the branch was actually switched
-  const check = await sandbox.process.executeCommand(
-    `cd ${WORKSPACE_DIR} && git branch --show-current`,
-    "/",
-    undefined,
-    5,
-  );
-  const currentBranch = (check.result ?? "").trim();
+  const currentBranch = (
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && git branch --show-current`, 5)
+  ).trim();
   if (currentBranch !== branchName) {
     throw new Error(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
   // Push branch to remote so it exists before Claude starts — makes subsequent pushes fast
-  await sandbox.process.executeCommand(
+  await exec(
+    sandbox,
     `cd ${WORKSPACE_DIR} && git push -u origin ${branchName} 2>/dev/null || true`,
-    "/",
-    undefined,
     30,
   );
 }
@@ -581,13 +584,9 @@ export const runSandboxCommand = internalAction({
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
-    const resp = await sandbox.process.executeCommand(
-      args.command,
-      "/",
-      undefined,
-      args.timeoutSeconds ?? 30,
-    );
-    return (resp.result ?? "").trim();
+    return (
+      await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
+    ).trim();
   },
 });
 
@@ -617,13 +616,12 @@ export const getPreviewUrl = action({
     let ready = true;
     if (args.checkReady) {
       try {
-        const check = await sandbox.process.executeCommand(
+        const result = await exec(
+          sandbox,
           `curl -s -o /dev/null -w "%{http_code}" http://localhost:${args.port}`,
-          "/",
-          undefined,
           3,
         );
-        const code = parseInt(check.result?.trim() || "0", 10);
+        const code = parseInt(result.trim() || "0", 10);
         ready = code >= 200 && code < 500;
       } catch {
         ready = false;
@@ -663,56 +661,34 @@ export const setupAndExecute = internalAction({
       throw new Error("repoId is required for setupAndExecute");
     }
 
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-      ctx,
-      args.repoId,
-    );
-    const daytona = getDaytona(daytonaApiKey);
-    const infraEnvVars = resolveInfraEnvVars();
+    const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      await resolveSandboxContext(ctx, args.repoId);
 
-    let repoSnapshotName: string | undefined;
-    if (args.repoId) {
-      const repoSnapshot = await ctx.runQuery(
-        internal.repoSnapshots.getRepoSnapshotName,
-        { repoId: args.repoId },
-      );
-      if (repoSnapshot) {
-        repoSnapshotName = repoSnapshot.snapshotName;
-      }
-    }
-
-    let sandbox: Sandbox;
-
-    if (args.ephemeral) {
-      const prepared = await createSandboxAndPrepareRepo(
-        daytona,
-        args.installationId,
-        args.repoOwner,
-        args.repoName,
-        sandboxEnvVars,
-        infraEnvVars,
-        repoSnapshotName,
-      );
-      sandbox = prepared.sandbox;
-    } else {
-      const result = await getOrCreateSandbox(
-        daytona,
-        args.existingSandboxId,
-        args.installationId,
-        args.repoOwner,
-        args.repoName,
-        sandboxEnvVars,
-        infraEnvVars,
-        repoSnapshotName,
-      );
-      sandbox = result.sandbox;
-    }
+    const { sandbox } = await (args.ephemeral
+      ? createSandboxAndPrepareRepo(
+          daytona,
+          args.installationId,
+          args.repoOwner,
+          args.repoName,
+          sandboxEnvVars,
+          infraEnvVars,
+          snapshotName,
+        )
+      : getOrCreateSandbox(
+          daytona,
+          args.existingSandboxId,
+          args.installationId,
+          args.repoOwner,
+          args.repoName,
+          sandboxEnvVars,
+          infraEnvVars,
+          snapshotName,
+        ));
 
     if (args.baseBranch) {
-      await sandbox.process.executeCommand(
+      await exec(
+        sandbox,
         `cd ${WORKSPACE_DIR} && git fetch origin ${args.baseBranch} && git checkout ${args.baseBranch} && git pull origin ${args.baseBranch}`,
-        "/",
-        undefined,
         30,
       );
     }
@@ -857,13 +833,11 @@ export const runSessionAudit = internalAction({
       const daytona = getDaytona(daytonaApiKey);
       const sandbox = await daytona.get(args.sandboxId);
 
-      const result = await sandbox.process.executeCommand(
+      const diffRaw = await exec(
+        sandbox,
         `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-        "/",
-        undefined,
         30,
       );
-      const diffRaw = result.result;
 
       if (!diffRaw.trim()) {
         await ctx.runMutation(internal.sessionAudits.fail, {
@@ -908,6 +882,15 @@ export const deleteSandbox = internalAction({
   },
 });
 
+async function startSessionServices(sandbox: Sandbox): Promise<void> {
+  await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`, 10);
+  await exec(
+    sandbox,
+    `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+    10,
+  );
+}
+
 export const startSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
@@ -925,40 +908,14 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-        ctx,
-        args.repoId,
-      );
-      const daytona = getDaytona(daytonaApiKey);
-      const infraEnvVars = resolveInfraEnvVars();
-
-      let repoSnapshotName: string | undefined;
-      if (args.repoId) {
-        const repoSnapshot = await ctx.runQuery(
-          internal.repoSnapshots.getRepoSnapshotName,
-          { repoId: args.repoId },
-        );
-        if (repoSnapshot) {
-          repoSnapshotName = repoSnapshot.snapshotName;
-        }
-      }
+      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+        await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
-          await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
-          await sandbox.process.executeCommand(
-            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-            "/",
-            undefined,
-            10,
-          );
-          await sandbox.process.executeCommand(
-            `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
-            "/",
-            undefined,
-            10,
-          );
+          await exec(sandbox, "echo 1", 5);
+          await startSessionServices(sandbox);
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: args.existingSandboxId,
@@ -978,36 +935,23 @@ export const startSessionSandbox = internalAction({
         args.repoName,
         sandboxEnvVars,
         infraEnvVars,
-        repoSnapshotName,
+        snapshotName,
       );
       const sandbox = prepared.sandbox;
       if (prepared.usedSnapshot) {
-        await sandbox.process.executeCommand(
+        await exec(
+          sandbox,
           `cd ${WORKSPACE_DIR} && git fetch origin && git reset --hard origin/${args.branchName} && pnpm install`,
-          "/",
-          undefined,
           120,
         );
       } else {
-        await sandbox.process.executeCommand(
+        await exec(
+          sandbox,
           `cd ${WORKSPACE_DIR} && git fetch origin && git checkout ${args.branchName}`,
-          "/",
-          undefined,
           30,
         );
       }
-      await sandbox.process.executeCommand(
-        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-        "/",
-        undefined,
-        10,
-      );
-      await sandbox.process.executeCommand(
-        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
-        "/",
-        undefined,
-        10,
-      );
+      await startSessionServices(sandbox);
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
         sessionId: args.sessionId,
@@ -1043,28 +987,13 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-        ctx,
-        args.repoId,
-      );
-      const daytona = getDaytona(daytonaApiKey);
-      const infraEnvVars = resolveInfraEnvVars();
-
-      let repoSnapshotName: string | undefined;
-      if (args.repoId) {
-        const repoSnapshot = await ctx.runQuery(
-          internal.repoSnapshots.getRepoSnapshotName,
-          { repoId: args.repoId },
-        );
-        if (repoSnapshot) {
-          repoSnapshotName = repoSnapshot.snapshotName;
-        }
-      }
+      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+        await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
-          await sandbox.process.executeCommand("echo 1", "/", undefined, 5);
+          await exec(sandbox, "echo 1", 5);
           await syncRepo(
             sandbox,
             args.installationId,
@@ -1072,10 +1001,9 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          await sandbox.process.executeCommand(
+          await exec(
+            sandbox,
             `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-            "/",
-            undefined,
             10,
           );
           await ctx.runMutation(internal.designSessions.sandboxReady, {
@@ -1097,24 +1025,16 @@ export const startDesignSandbox = internalAction({
         args.repoName,
         sandboxEnvVars,
         infraEnvVars,
-        repoSnapshotName,
+        snapshotName,
       );
       const sandbox = prepared.sandbox;
+      await setupBranch(sandbox, args.branchName);
       if (prepared.usedSnapshot) {
-        await setupBranch(sandbox, args.branchName);
-        await sandbox.process.executeCommand(
-          `cd ${WORKSPACE_DIR} && pnpm install`,
-          "/",
-          undefined,
-          120,
-        );
-      } else {
-        await setupBranch(sandbox, args.branchName);
+        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }
-      await sandbox.process.executeCommand(
+      await exec(
+        sandbox,
         `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-        "/",
-        undefined,
         10,
       );
 

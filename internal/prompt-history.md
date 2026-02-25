@@ -1,3 +1,6 @@
+why is convex deploy key passed in there, shouldn't it be set in the repoenv/teamenv?
+same for daytona api key? the agent shouldn't use the convex env vars, it should use the ones the user has defined in the settings.
+
 [] add the screenshots, gifs
 
 [x] one thing, get rid of slug for the teams and instead just use the team.\_id for the url, why do we have a slug anyway?

@@ -42,7 +42,7 @@ export async function createSandbox(
     },
   );
   await sandbox.process.executeCommand(
-    'git config --global user.name "Eva Agent" && git config --global user.email "agent@Eva.dev"',
+    'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
     "/",
     undefined,
     10,

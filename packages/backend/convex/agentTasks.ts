@@ -456,7 +456,7 @@ export const createQuickTask = authMutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     description: v.optional(v.string()),
-    assignedTo: v.optional(v.id("users")),
+    baseBranch: v.string(),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -515,16 +515,8 @@ export const createQuickTask = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      assignedTo: args.assignedTo,
+      baseBranch: args.baseBranch,
     });
-    if (args.assignedTo && args.assignedTo !== ctx.userId) {
-      await createNotification(ctx, {
-        userId: args.assignedTo,
-        type: "task_assigned",
-        title: `You were assigned to "${args.title}"`,
-        repoId: args.repoId,
-      });
-    }
     return taskId;
   },
 });

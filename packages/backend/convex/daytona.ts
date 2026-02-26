@@ -15,8 +15,8 @@ import {
 } from "./githubAuth";
 
 const WORKSPACE_DIR = "/workspace/repo";
-const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
-const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 180;
+const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
+const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
 

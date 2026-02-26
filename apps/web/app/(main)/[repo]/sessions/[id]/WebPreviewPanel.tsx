@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import {
   Spinner,
@@ -49,6 +49,21 @@ interface WebPreviewPanelProps {
   onConsoleTabChange: (value: "console" | "terminal") => void;
   port: number;
   onPortChange: (port: number) => void;
+  isVnc: boolean;
+}
+
+function SyncPreviewUrl({ url }: { url: string | undefined }) {
+  const { setUrl } = useWebPreview();
+  const prevUrl = useRef(url);
+
+  useEffect(() => {
+    if (url && url !== prevUrl.current) {
+      prevUrl.current = url;
+      setUrl(url);
+    }
+  }, [url, setUrl]);
+
+  return null;
 }
 
 function NavigationButtons({
@@ -59,6 +74,7 @@ function NavigationButtons({
   tabSwitcher,
   port,
   onPortChange,
+  isVnc,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
@@ -67,6 +83,7 @@ function NavigationButtons({
   tabSwitcher?: ReactNode;
   port: number;
   onPortChange: (port: number) => void;
+  isVnc: boolean;
 }) {
   const { goBack, goForward, reload } = useWebPreview();
   const [inputValue, setInputValue] = useState(String(port));
@@ -101,17 +118,19 @@ function NavigationButtons({
           <IconRefresh className="w-3.5 h-3.5" />
         )}
       </WebPreviewNavigationButton>
-      <WebPreviewUrl readOnly className="h-8 text-xs max-w-64" />
-      <Input
-        className="h-8 w-16 text-xs text-center px-1"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-        }}
-        aria-label="Preview port"
-      />
+      <WebPreviewUrl className="h-8 text-xs flex-1 min-w-0" />
+      {!isVnc && (
+        <Input
+          className="h-8 w-16 text-xs text-center px-1"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+          }}
+          aria-label="Preview port"
+        />
+      )}
       {previewInfo && (
         <WebPreviewNavigationButton
           tooltip="Open in new tab"
@@ -151,6 +170,7 @@ export function WebPreviewPanel({
   onConsoleTabChange,
   port,
   onPortChange,
+  isVnc,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -178,6 +198,7 @@ export function WebPreviewPanel({
       defaultUrl={previewInfo?.url ?? ""}
       className="h-full rounded-none border-0"
     >
+      <SyncPreviewUrl url={previewInfo?.url} />
       <NavigationButtons
         previewInfo={previewInfo}
         isLoading={isLoading}
@@ -186,6 +207,7 @@ export function WebPreviewPanel({
         tabSwitcher={tabSwitcher}
         port={port}
         onPortChange={onPortChange}
+        isVnc={isVnc}
       />
       <Group orientation="vertical" className="flex-1 min-h-0">
         <Panel
@@ -195,7 +217,6 @@ export function WebPreviewPanel({
         >
           <WebPreviewBody
             key={iframeKey}
-            src={previewInfo?.url}
             loading={
               isLoading && !previewInfo ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">

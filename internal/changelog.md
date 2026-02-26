@@ -1,5 +1,170 @@
 # Changelog
 
+## VNC Desktop Preview for Sessions - 2026-02-26
+
+- **Why**: Session preview was limited to web app iframe (port 3001). Users need to see the full desktop environment running in the sandbox for visual debugging and broader app testing.
+
+- **Changes**:
+  1. **New `getVncPreviewUrl` action** (`packages/backend/convex/daytona.ts`):
+     - Starts VNC processes (Xvfb, xfce4, x11vnc, novnc) via Daytona's `computerUse.start()`
+     - Polls `computerUse.getStatus()` until ready (10 retries, 2s apart)
+     - Returns signed preview URL for port 6080 (noVNC)
+  2. **VNC-first fetch flow** (`apps/web/app/(main)/[repo]/sessions/[id]/SandboxPanel.tsx`):
+     - On mount/activation, tries VNC preview first
+     - Falls back to existing web preview (port-based) on VNC failure
+     - Tracks `isVnc` state to drive UI differences
+  3. **Port input hidden in VNC mode** (`apps/web/app/(main)/[repo]/sessions/[id]/WebPreviewPanel.tsx`):
+     - Port input irrelevant for VNC — hidden when VNC is active
+
+- **Impact**: Sessions now show a full desktop VNC stream by default, with automatic fallback to web preview if VNC is unavailable.
+
+## Add Preview Auth Handshake for Iframe Sessions - 2026-02-26
+
+- **Why**: Auth providers like WorkOS/AuthKit can block framed login pages, so session preview iframe gets stuck after redirect even when opening preview in a tab succeeds.
+
+- **Changes**:
+  1. **Auth-return refresh flow** (`apps/web/app/(main)/[repo]/sessions/[id]/WebPreviewPanel.tsx`):
+     - Updated preview external-open action to act as an auth step
+     - Added auth-pending UI state and overlay with manual retry
+     - Auto-refreshes iframe preview when user returns focus/visibility after authenticating in a new tab
+     - Added explicit `Authenticate` toolbar button so the auth flow is visible without relying on icon tooltip discovery
+  2. **Iframe capability flags** (`packages/ui/src/ai-elements/web-preview.tsx`):
+     - Added explicit iframe sandbox allowances for popup escape and storage access by user activation
+
+- **Impact**:
+  - Session preview now has a deterministic flow for auth-blocked iframe routes
+  - Users can authenticate in top-level context and immediately retry embedded preview without manual guesswork
+
+## Remove Server Env Injection From Session Sandboxes - 2026-02-26
+
+- **Why**: Session preview sandboxes were inheriting host-level auth env from Conductor (`process.env`), which forced Clerk/Convex auth into repos that use different auth stacks (for example WorkOS), causing token issuer/audience mismatches in preview.
+
+- **Changes**:
+  1. **Sandbox env source narrowed** (`packages/backend/convex/daytona.ts`):
+     - Removed infra env collection from `process.env` for sandbox creation
+     - Session/design/setup sandbox paths now pass only repo/team-resolved sandbox env vars
+  2. **No host auth override at create time** (`packages/backend/convex/daytona.ts`):
+     - Removed merged host infra vars from `daytona.create({ envVars })`
+
+- **Impact**:
+  - Sandbox runtime env now comes from repo/team configuration only
+  - Session preview no longer silently injects Clerk-specific values into non-Clerk codebases
+
+## Fix Sessions Terminal Retry Dead State + Explicit Auth Guard - 2026-02-26
+
+- **Why**: When terminal setup failed (for example with an unauthorized response), the retry UI rendered without the terminal mount node, so retry never re-initialized the terminal connection and appeared to do nothing.
+
+- **Changes**:
+  1. **Retry path fix in terminal panel** (`apps/web/app/(main)/[repo]/sessions/[id]/TerminalPanel.tsx`):
+     - Kept terminal mount container rendered even in error state
+     - Moved error display to an overlay so retries can re-run initialization
+     - Retry now clears local error state and increments the reconnect trigger
+     - Terminal URL fetch now explicitly uses `credentials: "include"` and `cache: "no-store"`
+  2. **Explicit token guard in terminal API** (`apps/web/app/api/sessions/terminal/route.ts`):
+     - Added early `401 Unauthorized` responses when Clerk cannot issue a Convex template token in both `GET` and `POST`
+
+- **Impact**:
+  - Retry button on the session terminal now actually attempts a fresh connection
+  - Terminal auth failures fail fast and consistently with a clear status instead of falling through to later Convex failures
+
+## Replace Repo Token Server Action with Shared Client Hook - 2026-02-26
+
+- **Why**: Token retrieval had split behavior (`ChatPanel` already used Clerk client auth while other pages still called a server action), which increased failure surface and duplicated auth patterns.
+
+- **Changes**:
+  1. **Added shared client token hook** (`apps/web/lib/hooks/useConvexToken.ts`):
+     - Centralized Clerk client token retrieval (`template: "convex"`) in a reusable hook for client components
+  2. **Migrated all repo UI token callsites** (`apps/web/app/(main)/[repo]/analyse/query/[id]/QueryDetailClient.tsx`, `apps/web/app/(main)/[repo]/design/[id]/DesignDetailClient.tsx`, `apps/web/app/(main)/[repo]/projects/[projectId]/ProjectDetailClient.tsx`, `apps/web/app/(main)/[repo]/testing-arena/[id]/page.tsx`, `apps/web/lib/components/docs/DocViewer.tsx`, `apps/web/lib/components/docs/DocInterviewDialog.tsx`, `apps/web/lib/components/projects/ProjectChatTab.tsx`, `apps/web/lib/components/projects/ProjectTabs.tsx`, `apps/web/lib/components/sidebar/DocsSidebar.tsx`, `apps/web/lib/components/sidebar/TestingArenaSidebar.tsx`, `apps/web/lib/components/tasks/TaskDetailModal.tsx`, `apps/web/lib/components/quick-tasks/QuickTasksKanbanBoard.tsx`, `apps/web/lib/components/quick-tasks/QuickTasksListView.tsx`):
+     - Replaced `getConvexToken` server-action import with `useConvexToken`
+     - Updated usage from object-return shape to direct token string
+  3. **Removed obsolete server action** (`apps/web/app/(main)/[repo]/actions.ts`):
+     - Deleted the old action now that all callers use the shared client hook
+
+- **Impact**:
+  - Repo-facing client flows now use one consistent token retrieval path
+  - Eliminates cross-boundary server-action dependency for token fetching in client components
+  - Reduces auth drift and maintenance overhead for future token-related changes
+
+## Fix Session Send No-Ops + Snapshot Selection Fallback - 2026-02-26
+
+- **Why**: Session messages could fail silently because token retrieval used a React hook in a plain async function, and snapshot usage could be skipped whenever the most recent snapshot build was non-success even if a prior successful build existed.
+
+- **Changes**:
+  1. **Server-safe Convex token retrieval** (`apps/web/app/(main)/[repo]/actions.ts`):
+     - Converted `getConvexToken` into a server action using Clerk server auth instead of calling `useAuth()` outside React render
+  2. **Session chat token retrieval stabilization** (`apps/web/app/(main)/[repo]/sessions/[id]/ChatPanel.tsx`):
+     - Sessions chat now requests Convex tokens directly via Clerk client auth (`useAuth`) to avoid server-action token fetch failures in message send flow
+  3. **Visible send failures in sessions chat** (`apps/web/app/(main)/[repo]/sessions/[id]/ChatPanel.tsx`):
+     - On send failure, append an assistant error message instead of silently swallowing the exception
+  4. **Use latest successful snapshot build** (`packages/backend/convex/repoSnapshots.ts`):
+     - Snapshot lookup now selects the newest successful build rather than requiring the absolute latest build to be successful
+  5. **Accurate sandbox startup messaging/state** (`packages/backend/convex/daytona.ts`, `packages/backend/convex/sessions.ts`):
+     - Session sandbox ready flow now records whether a new sandbox actually used a snapshot
+     - User-facing startup text now distinguishes snapshot start vs base image start
+     - Session status/branch/sandbox fields are consistently set active when sandbox readiness is reported
+  6. **Bound snapshot fallback action duration** (`packages/backend/convex/daytona.ts`):
+     - Reduced snapshot readiness wait timeout so snapshot-timeout fallback provisioning does not exceed Convex action max duration
+  7. **Remove duplicate streaming rendering in sessions UI** (`apps/web/app/(main)/[repo]/sessions/[id]/ChatPanel.tsx`):
+     - Summary accordion now shows streaming activity only for summary generation, while normal message execution streaming stays in the chat message bubble
+
+- **Impact**:
+  - Session sends in Ask/Execute/PRD modes now reliably trigger workflows instead of appearing as no-ops
+  - Snapshot-backed sandbox creation is used whenever any recent successful snapshot build exists
+  - Startup messaging now reflects actual sandbox source, reducing false “started from snapshot” signals
+  - Session execution no longer duplicates the same streaming steps in two UI regions
+
+## Improve Chrome Extension Watch Build Scope + Speed - 2026-02-26
+
+- **Why**: Extension watch mode emitted duplicate chunk-size warnings and rebuilt more than necessary, slowing local iteration.
+
+- **Changes**:
+  1. **Single warning threshold across both build passes** (`apps/chrome-extension/vite.config.ts`):
+     - Applied the same `chunkSizeWarningLimit` to the secondary content-script build to remove inconsistent duplicate warning thresholds
+  2. **Faster watch-time bundling** (`apps/chrome-extension/vite.config.ts`):
+     - Disabled minification and compressed-size reporting during `vite build --watch` for both main and content-script builds
+  3. **Tighter watch scope** (`apps/chrome-extension/vite.config.ts`):
+     - Added explicit watch include paths for extension sources and required workspace packages only
+     - Excluded `dist` from watch input
+  4. **Skip redundant content-script rebuilds** (`apps/chrome-extension/vite.config.ts`):
+     - Content script rebuild now runs only when content-relevant files change
+
+- **Impact**:
+  - Cleaner watch output (no mixed 3000 kB/500 kB warning thresholds)
+  - Faster incremental builds, especially when editing sidepanel/background-only code
+  - Fewer unnecessary rebuilds triggered by unrelated workspace changes
+
+## Fix Chrome Extension Prod Redirect + Message Dispatch Noise - 2026-02-26
+
+- **Why**: Production sidepanel auth used a malformed redirect URL (`//sidepanel.html`) and background forwarding emitted repeated `Receiving end does not exist` promise errors when no listener context was active.
+
+- **Changes**:
+  1. **Stable extension redirect URL** (`apps/chrome-extension/src/sidepanel/App.tsx`):
+     - Replaced `chrome.runtime.getURL(".") + "/sidepanel.html"` with `chrome.runtime.getURL("sidepanel.html")` for Clerk redirect props and sign-out URL
+  2. **Safe background message forwarding** (`apps/chrome-extension/src/background/index.ts`):
+     - Added guarded `sendToRuntime`/`sendToTab` helpers that swallow only the known no-receiver messaging error and keep other errors visible
+     - Routed panel-close, annotation sync, and toolbar forward messages through the guarded helpers
+  3. **Production Clerk host permission** (`apps/chrome-extension/manifest.json`):
+     - Added `https://clerk.vedantb.com/*` to `host_permissions` alongside existing dev Clerk host
+
+- **Impact**:
+  - Removes noisy uncaught messaging errors from background logs when receiver contexts are absent
+  - Ensures Clerk redirect URLs in extension context are correctly formed for production auth flows
+
+## Fix Chrome Extension Clerk Prod Login Header Conflict - 2026-02-26
+
+- **Why**: Clerk production auth requests from the extension could include native auth markers (`Authorization` and `_is_native`) alongside browser-origin context, causing Clerk to reject login requests with a header-mode security error.
+
+- **Changes**:
+  1. **Request sanitization for extension auth** (`apps/chrome-extension/src/sidepanel/App.tsx`):
+     - Added `ClerkRequestSanitizer` that registers a Clerk `__unstable__onBeforeRequest` hook once per app boot
+     - Forces browser-mode request shape by setting `credentials` to `include`, removing `_is_native` query param, and removing `Authorization` header
+  2. **Provider wiring** (`apps/chrome-extension/src/sidepanel/App.tsx`):
+     - Mounted `ClerkRequestSanitizer` inside `ClerkProvider` so all Clerk auth flows in sidepanel inherit sanitized request behavior
+
+- **Impact**:
+  - Production Clerk sign-in flow in the Chrome extension no longer sends conflicting auth header patterns
+  - Login requests align with browser-origin expectations for hosted sign-in pages
+
 ## Refine Quick Task Selection Action Bar Layout - 2026-02-25
 
 - **Why**: Selection controls were split between header and bottom action area, which made the flow feel disjointed while selecting tasks.

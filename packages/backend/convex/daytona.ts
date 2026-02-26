@@ -15,8 +15,8 @@ import {
 } from "./githubAuth";
 
 const WORKSPACE_DIR = "/workspace/repo";
-const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
-const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 180;
+const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
+const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
 
@@ -52,28 +52,12 @@ function getDaytona(apiKey: string): Daytona {
   return new Daytona({ apiKey });
 }
 
-const REQUIRED_INFRA_KEYS = [
-  "CLERK_SECRET_KEY",
-  "NEXT_PUBLIC_CONVEX_URL",
-  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-];
-
-function resolveInfraEnvVars(): Record<string, string> {
-  const infraEnvVars: Record<string, string> = {};
-  for (const key of REQUIRED_INFRA_KEYS) {
-    const val = process.env[key];
-    if (val) infraEnvVars[key] = val;
-  }
-  return infraEnvVars;
-}
-
 async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<{
   daytona: Daytona;
   sandboxEnvVars: Record<string, string>;
-  infraEnvVars: Record<string, string>;
   snapshotName: string | undefined;
 }> {
   const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
@@ -81,13 +65,12 @@ async function resolveSandboxContext(
     repoId,
   );
   const daytona = getDaytona(daytonaApiKey);
-  const infraEnvVars = resolveInfraEnvVars();
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
   const snapshotName = repoSnapshot?.snapshotName;
-  return { daytona, sandboxEnvVars, infraEnvVars, snapshotName };
+  return { daytona, sandboxEnvVars, snapshotName };
 }
 
 function isSnapshotReadyTimeoutError(error: unknown): boolean {
@@ -99,7 +82,6 @@ async function createSandbox(
   daytona: Daytona,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<Sandbox> {
   const timeoutSeconds = snapshotName
@@ -117,7 +99,6 @@ async function createSandbox(
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
-        ...infraEnvVars,
       },
       autoStopInterval: 10,
       autoDeleteInterval: 15,
@@ -192,7 +173,6 @@ async function createSandboxAndPrepareRepo(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   try {
@@ -200,7 +180,6 @@ async function createSandboxAndPrepareRepo(
       daytona,
       installationId,
       sandboxEnvVars,
-      infraEnvVars,
       snapshotName,
     );
     if (snapshotName) {
@@ -221,7 +200,6 @@ async function createSandboxAndPrepareRepo(
       daytona,
       installationId,
       sandboxEnvVars,
-      infraEnvVars,
       undefined,
     );
     await cloneAndSetupRepo(sandbox, installationId, owner, name);
@@ -236,7 +214,6 @@ async function getOrCreateSandbox(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
@@ -255,7 +232,6 @@ async function getOrCreateSandbox(
     owner,
     name,
     sandboxEnvVars,
-    infraEnvVars,
     snapshotName,
   );
   return { sandbox, isNew: true };
@@ -658,6 +634,148 @@ export const runSandboxCommand = internalAction({
   },
 });
 
+const VNC_PORT = 6080;
+const VNC_POLL_MAX_RETRIES = 10;
+const VNC_POLL_INTERVAL_MS = 2000;
+const VNC_SIGNED_URL_TTL_SECONDS = 3600;
+const VNC_START_TIMEOUT_SECONDS = 20;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isHttpReady(code: number): boolean {
+  return code >= 200 && code < 500;
+}
+
+async function isPortReady(sandbox: Sandbox, port: number): Promise<boolean> {
+  try {
+    const result = await exec(
+      sandbox,
+      `curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}`,
+      3,
+    );
+    const code = parseInt(result.trim() || "0", 10);
+    return isHttpReady(code);
+  } catch {
+    return false;
+  }
+}
+
+async function ensureComputerUseVnc(sandbox: Sandbox): Promise<boolean> {
+  try {
+    await sandbox.computerUse.start();
+  } catch {}
+
+  for (let i = 0; i < VNC_POLL_MAX_RETRIES; i++) {
+    try {
+      const status = await sandbox.computerUse.getStatus();
+      if (status.status === "running" || status.status === "active") {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+    await sleep(VNC_POLL_INTERVAL_MS);
+  }
+
+  return false;
+}
+
+async function ensureManualVnc(sandbox: Sandbox): Promise<boolean> {
+  const command = [
+    "set -e",
+    "if ! command -v Xvfb >/dev/null 2>&1; then exit 1; fi",
+    "if ! command -v x11vnc >/dev/null 2>&1; then exit 1; fi",
+    "if ! command -v websockify >/dev/null 2>&1; then exit 1; fi",
+    "if ! pgrep -f 'Xvfb :99' >/dev/null 2>&1; then nohup Xvfb :99 -screen 0 1280x720x24 -nolisten unix -listen tcp >/tmp/xvfb.log 2>&1 & fi",
+    "if ! pgrep -f 'x11vnc .*localhost:99' >/dev/null 2>&1; then nohup x11vnc -display localhost:99 -noshm -rfbport 5900 -forever -shared -nopw >/tmp/x11vnc.log 2>&1 & fi",
+    "if ! pgrep -f 'websockify .*6080' >/dev/null 2>&1; then nohup websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/novnc.log 2>&1 & fi",
+    "if command -v xfce4-session >/dev/null 2>&1 && ! pgrep -f xfce4-session >/dev/null 2>&1; then nohup dbus-launch --exit-with-session xfce4-session >/tmp/xfce4.log 2>&1 & fi",
+  ].join("; ");
+
+  try {
+    await exec(sandbox, command, VNC_START_TIMEOUT_SECONDS);
+  } catch {
+    return false;
+  }
+
+  for (let i = 0; i < VNC_POLL_MAX_RETRIES; i++) {
+    if (await isPortReady(sandbox, VNC_PORT)) {
+      return true;
+    }
+    await sleep(VNC_POLL_INTERVAL_MS);
+  }
+
+  return false;
+}
+
+async function launchBrowserInVnc(
+  sandbox: Sandbox,
+  appPort: number,
+): Promise<void> {
+  const command = [
+    "export DISPLAY=:99",
+    `if ! pgrep -f 'chromium.*localhost:${appPort}' >/dev/null 2>&1`,
+    `then nohup chromium --no-sandbox --disable-gpu --start-maximized http://localhost:${appPort} >/tmp/chromium.log 2>&1 &`,
+    "fi",
+  ].join("; ");
+  try {
+    await exec(sandbox, command, 5);
+  } catch {}
+}
+
+export const getVncPreviewUrl = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    port: v.optional(v.number()),
+  },
+  returns: v.object({
+    url: v.string(),
+    port: v.number(),
+    ready: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+    const notAvailable = { url: "", port: VNC_PORT, ready: false };
+
+    const computerUseReady = await ensureComputerUseVnc(sandbox);
+    const manualReady = computerUseReady
+      ? true
+      : await ensureManualVnc(sandbox);
+    if (!manualReady) {
+      return notAvailable;
+    }
+
+    if (!(await isPortReady(sandbox, VNC_PORT))) {
+      return notAvailable;
+    }
+
+    const appPort = args.port ?? 3001;
+    await launchBrowserInVnc(sandbox, appPort);
+
+    try {
+      const signedPreview = await sandbox.getSignedPreviewUrl(
+        VNC_PORT,
+        VNC_SIGNED_URL_TTL_SECONDS,
+      );
+      const vncUrl = new URL(signedPreview.url);
+      vncUrl.pathname = "/vnc_lite.html";
+      return { url: vncUrl.toString(), port: VNC_PORT, ready: true };
+    } catch {
+      return notAvailable;
+    }
+  },
+});
+
 export const getPreviewUrl = action({
   args: {
     sandboxId: v.string(),
@@ -690,7 +808,7 @@ export const getPreviewUrl = action({
           3,
         );
         const code = parseInt(result.trim() || "0", 10);
-        ready = code >= 200 && code < 500;
+        ready = isHttpReady(code);
       } catch {
         ready = false;
       }
@@ -729,7 +847,7 @@ export const setupAndExecute = internalAction({
       throw new Error("repoId is required for setupAndExecute");
     }
 
-    const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+    const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
 
     const { sandbox } = await (args.ephemeral
@@ -739,7 +857,6 @@ export const setupAndExecute = internalAction({
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          infraEnvVars,
           snapshotName,
         )
       : getOrCreateSandbox(
@@ -749,7 +866,6 @@ export const setupAndExecute = internalAction({
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          infraEnvVars,
           snapshotName,
         ));
 
@@ -1009,7 +1125,7 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
@@ -1042,7 +1158,6 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        infraEnvVars,
         snapshotName,
       );
       const sandbox = prepared.sandbox;
@@ -1112,7 +1227,7 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
@@ -1145,7 +1260,6 @@ export const startDesignSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        infraEnvVars,
         snapshotName,
       );
       const sandbox = prepared.sandbox;

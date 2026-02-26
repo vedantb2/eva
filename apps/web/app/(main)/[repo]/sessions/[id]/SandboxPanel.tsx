@@ -58,6 +58,8 @@ export function SandboxPanel({
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useState(3001);
+  const [isVnc, setIsVnc] = useState(false);
+  const getVncPreviewUrl = useAction(api.daytona.getVncPreviewUrl);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,11 +70,8 @@ export function SandboxPanel({
     }
   }, []);
 
-  const fetchPreview = useCallback(async () => {
+  const fetchWebPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
-    setIsLoading(true);
-    setError(null);
-    stopPolling();
     try {
       const data = await getPreviewUrl({
         sandboxId,
@@ -84,16 +83,45 @@ export function SandboxPanel({
         setPreviewInfo(data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
+        setIsVnc(false);
       } else {
         pollingRef.current = setTimeout(() => {
-          fetchPreview();
+          fetchWebPreview();
         }, 3000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, port]);
+  }, [sandboxId, isActive, getPreviewUrl, repoId, port]);
+
+  const fetchPreview = useCallback(async () => {
+    if (!sandboxId || !isActive) return;
+    setIsLoading(true);
+    setError(null);
+    stopPolling();
+    try {
+      const data = await getVncPreviewUrl({ sandboxId, repoId, port });
+      if (data.ready) {
+        setPreviewInfo(data);
+        setIframeKey((k) => k + 1);
+        setIsLoading(false);
+        setIsVnc(true);
+        return;
+      }
+    } catch {
+      // VNC call failed, fall back to web preview
+    }
+    setIsVnc(false);
+    await fetchWebPreview();
+  }, [
+    sandboxId,
+    isActive,
+    getVncPreviewUrl,
+    stopPolling,
+    repoId,
+    fetchWebPreview,
+  ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
@@ -183,6 +211,7 @@ export function SandboxPanel({
             onConsoleTabChange={setConsoleTab}
             port={port}
             onPortChange={setPort}
+            isVnc={isVnc}
           />
         </div>
         <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

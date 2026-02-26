@@ -53,17 +53,35 @@ async function fetchWsUrl(
   cols: number,
   rows: number,
 ): Promise<{ wsUrl: string; ptySessionId: string }> {
+  type TerminalWsResponse = { wsUrl: string; ptySessionId: string };
+  type TerminalErrorResponse = { error?: string };
   const params = new URLSearchParams({
     sessionId,
     cols: String(cols),
     rows: String(rows),
   });
-  const response = await fetch(`/api/sessions/terminal?${params}`);
-  const data = await response.json();
+  const response = await fetch(`/api/sessions/terminal?${params}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const data: TerminalWsResponse | TerminalErrorResponse =
+    await response.json();
   if (!response.ok) {
-    throw new Error(data.error || "Failed to get terminal URL");
+    const errorMessage =
+      "error" in data && typeof data.error === "string"
+        ? data.error
+        : "Failed to get terminal URL";
+    throw new Error(errorMessage);
   }
-  return data;
+  if (
+    !("wsUrl" in data) ||
+    !("ptySessionId" in data) ||
+    typeof data.wsUrl !== "string" ||
+    typeof data.ptySessionId !== "string"
+  ) {
+    throw new Error("Invalid terminal URL response");
+  }
+  return { wsUrl: data.wsUrl, ptySessionId: data.ptySessionId };
 }
 
 export function TerminalPanel({
@@ -213,7 +231,11 @@ export function TerminalPanel({
 
         terminal.loadAddon(fitAddon);
         terminal.loadAddon(webLinksAddon);
-        terminal.open(terminalRef.current!);
+        const terminalElement = terminalRef.current;
+        if (!terminalElement) {
+          throw new Error("Terminal container is unavailable");
+        }
+        terminal.open(terminalElement);
 
         setTimeout(() => fitAddon.fit(), 0);
 
@@ -253,6 +275,7 @@ export function TerminalPanel({
       }
       fetch("/api/sessions/terminal", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, action: "disconnect" }),
       }).catch(() => {});
@@ -277,6 +300,7 @@ export function TerminalPanel({
         const { cols, rows } = terminalInstanceRef.current;
         fetch("/api/sessions/terminal", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId, action: "resize", cols, rows }),
         }).catch(() => {});
@@ -299,27 +323,27 @@ export function TerminalPanel({
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-        <p className="text-sm text-destructive">{error}</p>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setRetryCount((c) => c + 1)}
-        >
-          <IconRefresh className="h-4 w-4" />
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="relative flex h-full flex-col bg-card">
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-card">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-card">
           <Spinner size="lg" />
+        </div>
+      )}
+      {error && !isLoading && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card text-muted-foreground">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setError(null);
+              setRetryCount((c) => c + 1);
+            }}
+          >
+            <IconRefresh className="h-4 w-4" />
+            Retry
+          </Button>
         </div>
       )}
       <div ref={terminalRef} className="min-h-0 flex-1" />

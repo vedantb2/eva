@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { authQuery } from "./functions";
 
 export const getTaskStats = authQuery({
@@ -29,9 +30,11 @@ export const getTaskStats = authQuery({
         .collect();
       tasks.push(...boardTasks);
     }
-    const filtered = args.startTime
-      ? tasks.filter((t) => t.createdAt >= args.startTime!)
-      : tasks;
+    const startTime = args.startTime;
+    const filtered =
+      startTime !== undefined
+        ? tasks.filter((t) => t.createdAt >= startTime)
+        : tasks;
     const byStatus = {
       todo: 0,
       in_progress: 0,
@@ -81,13 +84,15 @@ export const getRunStats = authQuery({
     for (const taskId of taskIds) {
       const runs = await ctx.db
         .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId as never))
+        .withIndex("by_task", (q) => q.eq("taskId", taskId as Id<"agentTasks">))
         .collect();
       allRuns.push(...runs);
     }
-    const filtered = args.startTime
-      ? allRuns.filter((r) => r.startedAt && r.startedAt >= args.startTime!)
-      : allRuns;
+    const startTime = args.startTime;
+    const filtered =
+      startTime !== undefined
+        ? allRuns.filter((r) => r.startedAt && r.startedAt >= startTime)
+        : allRuns;
     const byStatus = { queued: 0, running: 0, success: 0, error: 0 };
     let prsCreated = 0;
     for (const run of filtered) {
@@ -121,9 +126,11 @@ export const getSessionStats = authQuery({
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filtered = args.startTime
-      ? sessions.filter((s) => s._creationTime >= args.startTime!)
-      : sessions;
+    const startTime = args.startTime;
+    const filtered =
+      startTime !== undefined
+        ? sessions.filter((s) => s._creationTime >= startTime)
+        : sessions;
     const active = filtered.filter(
       (s) => s.status === "active" && !s.archived,
     ).length;
@@ -166,9 +173,11 @@ export const getProjectStats = authQuery({
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filtered = args.startTime
-      ? projects.filter((p) => p._creationTime >= args.startTime!)
-      : projects;
+    const startTime = args.startTime;
+    const filtered =
+      startTime !== undefined
+        ? projects.filter((p) => p._creationTime >= startTime)
+        : projects;
     const byPhase = { draft: 0, finalized: 0, active: 0, completed: 0 };
     for (const project of filtered) {
       byPhase[project.phase]++;
@@ -203,14 +212,16 @@ export const getImpactStats = authQuery({
     tasksCompleted: v.number(),
   }),
   handler: async (ctx, args) => {
+    const startTime = args.startTime;
     const prUrls = new Set<string>();
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filteredSessions = args.startTime
-      ? sessions.filter((s) => s._creationTime >= args.startTime!)
-      : sessions;
+    const filteredSessions =
+      startTime !== undefined
+        ? sessions.filter((s) => s._creationTime >= startTime)
+        : sessions;
     let sessionsWithPr = 0;
     for (const s of filteredSessions) {
       if (s.prUrl) {
@@ -228,9 +239,10 @@ export const getImpactStats = authQuery({
         .query("agentTasks")
         .withIndex("by_board", (q) => q.eq("boardId", board._id))
         .collect();
-      const filtered = args.startTime
-        ? tasks.filter((t) => t.updatedAt >= args.startTime!)
-        : tasks;
+      const filtered =
+        startTime !== undefined
+          ? tasks.filter((t) => t.updatedAt >= startTime)
+          : tasks;
       tasksCompleted += filtered.filter((t) => t.status === "done").length;
       for (const task of filtered) {
         const runs = await ctx.db
@@ -246,9 +258,10 @@ export const getImpactStats = authQuery({
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filteredProjects = args.startTime
-      ? projects.filter((p) => p._creationTime >= args.startTime!)
-      : projects;
+    const filteredProjects =
+      startTime !== undefined
+        ? projects.filter((p) => p._creationTime >= startTime)
+        : projects;
     for (const p of filteredProjects) {
       if (p.prUrl) prUrls.add(p.prUrl);
     }
@@ -276,20 +289,21 @@ export const getActiveUsers = authQuery({
   }),
   handler: async (ctx, args) => {
     const fiveMinAgo = Date.now() - 300_000;
-    const sessions = await ctx.db
+    const activeSessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo_and_status", (q) =>
         q.eq("repoId", args.repoId).eq("status", "active"),
       )
       .collect();
-    const activeUserIds = new Set<string>();
-    for (const session of sessions) {
-      if (
-        session.messages.some(
-          (m) => m.role === "user" && m.timestamp >= fiveMinAgo,
-        )
-      ) {
-        activeUserIds.add(session.userId);
+
+    const repoUserIds = new Set<Id<"users">>(
+      activeSessions.map((session) => session.userId),
+    );
+    const activeUserIds = new Set<Id<"users">>();
+    for (const userId of repoUserIds) {
+      const user = await ctx.db.get(userId);
+      if (user?.lastSeenAt !== undefined && user.lastSeenAt >= fiveMinAgo) {
+        activeUserIds.add(userId);
       }
     }
     return { count: activeUserIds.size };
@@ -306,8 +320,11 @@ export const getActivityTimeline = authQuery({
     v.object({
       date: v.number(),
       tasks: v.number(),
+      tasksCompleted: v.number(),
       runs: v.number(),
       sessions: v.number(),
+      sessionsWithPr: v.number(),
+      activeUsers: v.number(),
       prsShipped: v.number(),
     }),
   ),
@@ -315,10 +332,26 @@ export const getActivityTimeline = authQuery({
     const now = Date.now();
     const buckets: Record<
       number,
-      { tasks: number; runs: number; sessions: number; prsShipped: number }
+      {
+        tasks: number;
+        tasksCompleted: number;
+        runs: number;
+        sessions: number;
+        sessionsWithPr: number;
+        prsShipped: number;
+      }
     > = {};
+    const activeUsersByBucket: Record<number, Set<Id<"users">>> = {};
     for (let t = args.startTime; t <= now; t += args.bucketSizeMs) {
-      buckets[t] = { tasks: 0, runs: 0, sessions: 0, prsShipped: 0 };
+      buckets[t] = {
+        tasks: 0,
+        tasksCompleted: 0,
+        runs: 0,
+        sessions: 0,
+        sessionsWithPr: 0,
+        prsShipped: 0,
+      };
+      activeUsersByBucket[t] = new Set<Id<"users">>();
     }
     const getBucket = (timestamp: number) => {
       const bucketStart =
@@ -341,6 +374,10 @@ export const getActivityTimeline = authQuery({
           const bucket = getBucket(task.createdAt);
           if (buckets[bucket]) buckets[bucket].tasks++;
         }
+        if (task.status === "done" && task.updatedAt >= args.startTime) {
+          const bucket = getBucket(task.updatedAt);
+          if (buckets[bucket]) buckets[bucket].tasksCompleted++;
+        }
       }
       for (const task of tasks) {
         const runs = await ctx.db
@@ -362,17 +399,38 @@ export const getActivityTimeline = authQuery({
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+    const usersInActiveSessions = new Set<Id<"users">>();
     for (const session of sessions) {
       if (session._creationTime >= args.startTime) {
         const bucket = getBucket(session._creationTime);
         if (buckets[bucket]) {
           buckets[bucket].sessions++;
-          if (session.prUrl) buckets[bucket].prsShipped++;
+          if (session.prUrl) {
+            buckets[bucket].prsShipped++;
+            buckets[bucket].sessionsWithPr++;
+          }
+        }
+      }
+      if (session.status === "active") {
+        usersInActiveSessions.add(session.userId);
+      }
+    }
+    for (const userId of usersInActiveSessions) {
+      const user = await ctx.db.get(userId);
+      if (user?.lastSeenAt !== undefined && user.lastSeenAt >= args.startTime) {
+        const bucket = getBucket(user.lastSeenAt);
+        const users = activeUsersByBucket[bucket];
+        if (users) {
+          users.add(userId);
         }
       }
     }
     return Object.entries(buckets)
-      .map(([date, data]) => ({ date: Number(date), ...data }))
+      .map(([date, data]) => ({
+        date: Number(date),
+        ...data,
+        activeUsers: activeUsersByBucket[Number(date)]?.size ?? 0,
+      }))
       .sort((a, b) => a.date - b.date);
   },
 });
@@ -412,9 +470,11 @@ export const getLeaderboard = authQuery({
         .query("agentTasks")
         .withIndex("by_board", (q) => q.eq("boardId", board._id))
         .collect();
-      const filtered = args.startTime
-        ? tasks.filter((t) => t.updatedAt >= args.startTime!)
-        : tasks;
+      const startTime = args.startTime;
+      const filtered =
+        startTime !== undefined
+          ? tasks.filter((t) => t.updatedAt >= startTime)
+          : tasks;
       userStats[board.ownerId].tasksCompleted += filtered.filter(
         (t) => t.status === "done",
       ).length;
@@ -423,9 +483,11 @@ export const getLeaderboard = authQuery({
           .query("agentRuns")
           .withIndex("by_task", (q) => q.eq("taskId", task._id))
           .collect();
-        const filteredRuns = args.startTime
-          ? runs.filter((r) => r.finishedAt && r.finishedAt >= args.startTime!)
-          : runs;
+        const startTime = args.startTime;
+        const filteredRuns =
+          startTime !== undefined
+            ? runs.filter((r) => r.finishedAt && r.finishedAt >= startTime)
+            : runs;
         userStats[board.ownerId].prsCreated += filteredRuns.filter(
           (r) => r.prUrl,
         ).length;
@@ -435,9 +497,11 @@ export const getLeaderboard = authQuery({
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filteredSessions = args.startTime
-      ? sessions.filter((s) => s._creationTime >= args.startTime!)
-      : sessions;
+    const startTime = args.startTime;
+    const filteredSessions =
+      startTime !== undefined
+        ? sessions.filter((s) => s._creationTime >= startTime)
+        : sessions;
     const userIdToClerkId: Record<string, string> = {};
     for (const session of filteredSessions) {
       if (!userIdToClerkId[session.userId]) {

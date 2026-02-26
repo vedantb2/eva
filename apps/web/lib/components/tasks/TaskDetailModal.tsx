@@ -62,6 +62,8 @@ import {
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import dayjs from "@conductor/shared/dates";
 import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -127,6 +129,7 @@ export function TaskDetailModal({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const descriptionEditorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,6 +160,33 @@ export function TaskDetailModal({
     task?.projectId !== undefined &&
     projectOptions.some((project) => project._id === task.projectId);
   const selectedProjectValue = task?.projectId ?? NO_PROJECT_VALUE;
+  const canEditTaskText = status === "todo" && !hasActiveRun;
+
+  useEffect(() => {
+    if (canEditTaskText) return;
+    setIsEditingTitle(false);
+    setIsEditingDescription(false);
+  }, [canEditTaskText]);
+
+  useEffect(() => {
+    if (!isEditingDescription) return;
+    const editor = descriptionEditorRef.current;
+    if (!editor || typeof window === "undefined") return;
+    editor.innerText = editDescription;
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [isEditingDescription]);
+
+  const beginDescriptionEdit = (value: string) => {
+    if (!canEditTaskText) return;
+    setEditDescription(value);
+    setIsEditingDescription(true);
+  };
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -269,7 +299,11 @@ export function TaskDetailModal({
                     onChange={(e) => setEditTitle(e.target.value)}
                     onBlur={() => {
                       const trimmed = editTitle.trim();
-                      if (trimmed && trimmed !== task?.title) {
+                      if (
+                        canEditTaskText &&
+                        trimmed &&
+                        trimmed !== task?.title
+                      ) {
                         updateTask({ id: taskId, title: trimmed });
                       }
                       setIsEditingTitle(false);
@@ -287,13 +321,18 @@ export function TaskDetailModal({
                 ) : (
                   <span
                     onClick={() => {
-                      if (!hasActiveRun) {
+                      if (canEditTaskText) {
                         setEditTitle(task?.title ?? "");
                         setIsEditingTitle(true);
                       }
                     }}
+                    title={
+                      canEditTaskText
+                        ? undefined
+                        : "Title can only be edited in To Do"
+                    }
                     className={
-                      hasActiveRun
+                      !canEditTaskText
                         ? ""
                         : "cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1"
                     }
@@ -319,12 +358,18 @@ export function TaskDetailModal({
                     </span>
                   </div>
                   {isEditingDescription ? (
-                    <Textarea
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
+                    <div
+                      ref={descriptionEditorRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={(event) =>
+                        setEditDescription(
+                          event.currentTarget.innerText.replace(/\r/g, ""),
+                        )
+                      }
                       onBlur={() => {
                         const trimmed = editDescription.trim();
-                        if (trimmed !== task?.description) {
+                        if (canEditTaskText && trimmed !== task?.description) {
                           updateTask({ id: taskId, description: trimmed });
                         }
                         setIsEditingDescription(false);
@@ -333,12 +378,11 @@ export function TaskDetailModal({
                         if (e.key === "Enter" && e.ctrlKey) {
                           e.currentTarget.blur();
                         } else if (e.key === "Escape") {
+                          setEditDescription(task?.description ?? "");
                           setIsEditingDescription(false);
                         }
                       }}
-                      autoFocus
-                      rows={4}
-                      className="text-sm"
+                      className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-6 text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
                     />
                   ) : task?.description ? (
                     (() => {
@@ -355,21 +399,31 @@ export function TaskDetailModal({
                           : null;
                       return (
                         <>
-                          <p
-                            onClick={() => {
-                              if (!hasActiveRun) {
-                                setEditDescription(task.description ?? "");
-                                setIsEditingDescription(true);
-                              }
-                            }}
-                            className={`text-sm text-muted-foreground whitespace-pre-wrap break-words ${
-                              hasActiveRun
+                          <div
+                            onClick={
+                              canEditTaskText
+                                ? () =>
+                                    beginDescriptionEdit(task.description ?? "")
+                                : undefined
+                            }
+                            title={
+                              canEditTaskText
+                                ? undefined
+                                : "Description can only be edited in To Do"
+                            }
+                            className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${
+                              !canEditTaskText
                                 ? ""
-                                : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
+                                : "cursor-pointer hover:bg-muted/50"
                             }`}
                           >
-                            {mainDesc}
-                          </p>
+                            <Streamdown
+                              plugins={{ code }}
+                              className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
+                            >
+                              {mainDesc}
+                            </Streamdown>
+                          </div>
                           {elementDetails && (
                             <Accordion
                               type="single"
@@ -406,13 +460,17 @@ export function TaskDetailModal({
                   ) : (
                     <p
                       onClick={() => {
-                        if (!hasActiveRun) {
-                          setEditDescription("");
-                          setIsEditingDescription(true);
+                        if (canEditTaskText) {
+                          beginDescriptionEdit("");
                         }
                       }}
+                      title={
+                        canEditTaskText
+                          ? undefined
+                          : "Description can only be edited in To Do"
+                      }
                       className={`text-sm text-muted-foreground italic ${
-                        hasActiveRun
+                        !canEditTaskText
                           ? ""
                           : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
                       }`}

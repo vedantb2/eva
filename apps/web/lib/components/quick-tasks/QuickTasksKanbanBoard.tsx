@@ -8,7 +8,6 @@ import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
-import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { getConvexToken } from "@/app/(main)/[repo]/actions";
@@ -21,6 +20,7 @@ interface QuickTasksKanbanBoardProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
+  onOpenTask: (id: Id<"agentTasks">) => void;
 }
 
 export function QuickTasksKanbanBoard({
@@ -28,15 +28,13 @@ export function QuickTasksKanbanBoard({
   isSelecting,
   selectedIds,
   onToggleSelect,
+  onOpenTask,
 }: QuickTasksKanbanBoardProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
-    null,
-  );
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -100,7 +98,7 @@ export function QuickTasksKanbanBoard({
           if (isSelecting) {
             onToggleSelect(task._id);
           } else {
-            setSelectedTaskId(task._id);
+            onOpenTask(task._id);
           }
         }}
         fillHeight
@@ -150,13 +148,6 @@ export function QuickTasksKanbanBoard({
         onConfirm={handleFixAll}
         isLoading={isFixingAll}
       />
-      {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={!!selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          taskId={selectedTaskId}
-        />
-      )}
     </>
   );
 }

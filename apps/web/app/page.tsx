@@ -5,9 +5,9 @@ import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@conductor/ui";
 
 export default async function LandingPage() {
-  const { userId } = await auth();
+  const { isAuthenticated } = await auth();
 
-  if (userId) {
+  if (isAuthenticated) {
     redirect("/home");
   }
 

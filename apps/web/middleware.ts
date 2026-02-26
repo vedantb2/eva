@@ -35,22 +35,6 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
     return new NextResponse(null, { status: 200, headers });
   }
 
-  // if (!isPublicRoute(req)) {
-  //   const { userId } = await auth();
-  //   if (!userId) {
-  //     const hasSandboxUser = Boolean(process.env.SANDBOX_CLERK_USER_ID);
-  //     const attempted = Boolean(req.cookies.get("sandbox_auth_attempted"));
-  //     if (hasSandboxUser && !attempted) {
-  //       const redirectTarget = `${req.nextUrl.pathname}${req.nextUrl.search}`;
-  //       const sandboxAuthUrl = req.nextUrl.clone();
-  //       sandboxAuthUrl.pathname = "/sandbox-auth";
-  //       sandboxAuthUrl.searchParams.set("redirect", redirectTarget);
-  //       return NextResponse.redirect(sandboxAuthUrl);
-  //     }
-  //     await auth.protect();
-  //   }
-  // }
-
   const response = NextResponse.next();
 
   if (isAllowedOrigin) {

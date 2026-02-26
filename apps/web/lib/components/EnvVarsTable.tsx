@@ -10,9 +10,11 @@ import {
   DialogFooter,
   Input,
   Spinner,
+  Textarea,
 } from "@conductor/ui";
 import {
   IconCheck,
+  IconClipboard,
   IconCopy,
   IconEye,
   IconEyeOff,
@@ -35,6 +37,32 @@ interface EnvVarsTableProps {
   onRemove?: (key: string) => Promise<void>;
   description: string;
   readOnly?: boolean;
+}
+
+function parseEnvVars(text: string): Array<{ key: string; value: string }> {
+  const result: Array<{ key: string; value: string }> = [];
+
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex < 1) continue;
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1);
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (key) result.push({ key, value });
+  }
+
+  return result;
 }
 
 export function EnvVarsTable({
@@ -60,6 +88,10 @@ export function EnvVarsTable({
   );
   const [revealingKey, setRevealingKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const [showBulkPaste, setShowBulkPaste] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const startAdd = () => {
     setAdding(true);
@@ -149,6 +181,30 @@ export function EnvVarsTable({
     setTimeout(() => setCopiedKey(null), 1500);
   };
 
+  const handleKeyInputPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (text.includes("\n")) {
+      e.preventDefault();
+      setBulkText(text);
+      setShowBulkPaste(true);
+      cancelAdd();
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!onUpsert) return;
+    const parsed = parseEnvVars(bulkText);
+    if (parsed.length === 0) return;
+    setBulkSaving(true);
+    for (const { key, value } of parsed) {
+      await onUpsert(key, value);
+    }
+    setBulkSaving(false);
+    setShowBulkPaste(false);
+    setBulkText("");
+  };
+
+  const parsedPreview = parseEnvVars(bulkText);
   const showTable = (vars && vars.length > 0) || adding;
 
   return (
@@ -156,10 +212,20 @@ export function EnvVarsTable({
       <div className="mb-4 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{description}</p>
         {!readOnly && (
-          <Button size="sm" onClick={startAdd} disabled={adding}>
-            <IconPlus size={16} className="mr-1.5" />
-            Add Variable
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowBulkPaste(true)}
+            >
+              <IconClipboard size={16} className="mr-1.5" />
+              Paste
+            </Button>
+            <Button size="sm" onClick={startAdd} disabled={adding}>
+              <IconPlus size={16} className="mr-1.5" />
+              Add Variable
+            </Button>
+          </div>
         )}
       </div>
       {vars === undefined ? (
@@ -188,6 +254,7 @@ export function EnvVarsTable({
                     <Input
                       value={keyInput}
                       onChange={(e) => setKeyInput(e.target.value)}
+                      onPaste={handleKeyInputPaste}
                       placeholder="e.g. API_KEY"
                       className="h-7 font-mono text-xs"
                       autoFocus
@@ -342,6 +409,66 @@ export function EnvVarsTable({
           </table>
         </div>
       )}
+
+      <Dialog
+        open={showBulkPaste}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowBulkPaste(false);
+            setBulkText("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Paste Environment Variables</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Paste your variables in{" "}
+              <span className="font-mono">KEY=VALUE</span> format, one per line.
+              Lines starting with <span className="font-mono">#</span> are
+              ignored.
+            </p>
+            <Textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"API_KEY=abc123\nDATABASE_URL=postgres://..."}
+              className="h-40 font-mono text-xs"
+              autoFocus
+            />
+            {parsedPreview.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {parsedPreview.length} variable
+                {parsedPreview.length !== 1 ? "s" : ""} detected
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowBulkPaste(false);
+                setBulkText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleBulkImport}
+              disabled={parsedPreview.length === 0 || bulkSaving}
+            >
+              {bulkSaving && <Spinner size="sm" className="mr-1.5" />}
+              Import{" "}
+              {parsedPreview.length > 0
+                ? `${parsedPreview.length} Variable${parsedPreview.length !== 1 ? "s" : ""}`
+                : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={deleteKey !== null}

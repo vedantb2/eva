@@ -22,13 +22,7 @@ export default clerkMiddleware(
       return redirectToSignIn();
     }
   },
-  {
-    clockSkewInMs: 60000,
-    authorizedParties: [
-      "http://localhost:3000",
-      "https://*.daytonaproxy01.net",
-    ],
-  },
+  { clockSkewInMs: 60000 },
 );
 
 export const config = {

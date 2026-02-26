@@ -1,5 +1,48 @@
 # Changelog
 
+## Add Clear Chat Button to Sessions and Design Pages - 2026-02-26
+
+- **Why**: Users needed a way to reset conversation history and remove generated designs to start fresh within a session without archiving it.
+
+- **Changes**:
+  1. **Session chat clearing** (`packages/backend/convex/sessions.ts`):
+     - Added `clearMessages` mutation to clear all messages, plan content, and summary from a session
+  2. **Design session clearing** (`packages/backend/convex/designSessions.ts`):
+     - Added `clearMessages` mutation to clear all messages and reset selected variation index for design sessions
+  3. **UI implementation**:
+     - Added clear chat button with trash icon in `ChatPanel.tsx` header (sessions page)
+     - Added clear chat button with trash icon in `DesignDetailClient.tsx` header (design page)
+     - Both include confirmation dialogs that warn about the action being irreversible
+
+- **Impact**:
+  - Users can now clear chat history mid-session without archiving
+  - Buttons are disabled when no messages exist
+  - Works consistently across both session and design workflows
+
+## Persist Session Claude Context Across Recreated Sandboxes - 2026-02-26
+
+- **Why**: Session conversations lost Claude’s local thread state whenever a sandbox was recreated, forcing fresh context and reducing continuity even when the app session itself was unchanged.
+
+- **Changes**:
+  1. **Deterministic session persistence identity** (`packages/backend/convex/daytona.ts`):
+     - Added deterministic session hashing helpers to derive a stable Daytona volume name and Claude `--session-id` per app session
+  2. **Daytona volume mount for Claude state** (`packages/backend/convex/daytona.ts`):
+     - Added session-scoped volume provisioning and mounted it at `/home/daytona/.claude`
+     - Threaded optional volume mounts through sandbox creation helpers and into `setupAndExecute`
+     - Applied the same session volume mount when `startSessionSandbox` creates a replacement sandbox
+  3. **Claude resume wiring + safe fallback** (`packages/backend/convex/daytona.ts`):
+     - Passed deterministic `CLAUDE_SESSION_ID` into callback runs so Claude resumes the same thread across sandbox lifecycles
+     - Added one retry without saved session ID when an attempt fails before any tool activity
+  4. **Session-only workflow integration**:
+     - `packages/backend/convex/sessionWorkflow.ts`: pass `sessionPersistenceId` into `setupAndExecute`
+     - `packages/backend/convex/summarizeWorkflow.ts`: pass `sessionPersistenceId` into `setupAndExecute`
+     - `packages/backend/convex/daytona.ts` (`runSessionAudit`): audits now use the same deterministic Claude session ID
+
+- **Impact**:
+  - `sessions/[id]` flows now preserve Claude conversational continuity across recreated sandboxes
+  - Ask/Plan/Execute/Summary/Audit runs within a session share the same persisted Claude thread identity
+  - Other workflow families remain unchanged
+
 ## Refine Quick Task Selection Action Bar Layout - 2026-02-25
 
 - **Why**: Selection controls were split between header and bottom action area, which made the flow feel disjointed while selecting tasks.

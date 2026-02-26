@@ -11,6 +11,11 @@ import Image from "next/image";
 import {
   Button,
   Spinner,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -37,6 +42,7 @@ import {
   IconDeviceMobile,
   IconPlayerPlay,
   IconPlayerStop,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
@@ -108,6 +114,7 @@ export function DesignDetailClient({
       },
     );
   });
+  const clearMessages = useMutation(api.designSessions.clearMessages);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
@@ -116,6 +123,7 @@ export function DesignDetailClient({
 
   const [isSending, setIsSending] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
+  const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
@@ -264,6 +272,16 @@ export function DesignDetailClient({
                 {isSandboxStarting ? "Starting..." : "Start sandbox"}
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1 text-destructive"
+              onClick={() => setShowClearChatModal(true)}
+              disabled={session.messages.length === 0}
+              title="Clear chat"
+            >
+              <IconTrash size={14} />
+            </Button>
             <ManagePersonasModal
               repoId={session.repoId}
               selectedPersonaId={selectedPersonaId}
@@ -494,6 +512,39 @@ export function DesignDetailClient({
           </div>
         )}
       </div>
+      <Dialog
+        open={showClearChatModal}
+        onOpenChange={(v) => {
+          if (!v) setShowClearChatModal(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear Chat</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to clear all messages? This will also remove
+            any generated designs. This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowClearChatModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                await clearMessages({ id: designSessionId });
+                setShowClearChatModal(false);
+              }}
+            >
+              Clear Chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

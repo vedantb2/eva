@@ -26,7 +26,7 @@ const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
   execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
 
-const WORKSPACE_DIR = "/workspace/repo";
+const WORKSPACE_CD_COMMAND = "(cd /workspace/repo 2>/dev/null || cd /tmp/repo)";
 
 // --- Prompt builders ---
 
@@ -205,25 +205,40 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     // Step 3: Setup sandbox + fire Claude CLI
-    const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
-      {
-        entityId: args.sessionId,
-        existingSandboxId: data.sandboxId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
-        prompt: data.prompt,
-        convexToken: args.convexToken,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        allowedTools: data.allowedTools,
-        branchName: data.branchName,
-        repoId: data.repoId,
-      },
-      { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-    );
+    let sandboxId = data.sandboxId;
+    try {
+      const setupResult = await step.runAction(
+        internal.daytona.setupAndExecute,
+        {
+          entityId: args.sessionId,
+          existingSandboxId: data.sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          prompt: data.prompt,
+          convexToken: args.convexToken,
+          completionMutation: "sessionWorkflow:handleCompletion",
+          entityIdField: "sessionId",
+          model: data.model,
+          allowedTools: data.allowedTools,
+          branchName: data.branchName,
+          repoId: data.repoId,
+        },
+        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      );
+      sandboxId = setupResult.sandboxId;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Sandbox startup failed";
+      await step.runMutation(internal.sessionWorkflow.saveResult, {
+        sessionId: args.sessionId,
+        success: false,
+        result: null,
+        error: errorMessage,
+        activityLog: null,
+      });
+      return;
+    }
 
     // Step 4: Persist sandbox ID if changed
     if (sandboxId !== data.sandboxId) {
@@ -244,7 +259,7 @@ export const sessionExecuteWorkflow = workflow.define({
     if (args.mode === "execute" && result.success && sandboxId) {
       const diffRaw = await step.runAction(internal.daytona.runSandboxCommand, {
         sandboxId,
-        command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
+        command: `${WORKSPACE_CD_COMMAND} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
         timeoutSeconds: 30,
         repoId: data.repoId,
       });
@@ -257,7 +272,7 @@ export const sessionExecuteWorkflow = workflow.define({
     if (args.mode === "plan" && result.success && sandboxId) {
       const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
         sandboxId,
-        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
+        command: `${WORKSPACE_CD_COMMAND} && cat plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
         repoId: data.repoId,
       });

@@ -34,21 +34,36 @@ export async function resolveEnvVars(
   return { ...teamEnvVars, ...repoEnvVars };
 }
 
-export async function resolveDaytonaApiKey(
+export async function resolveSandboxApiKey(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
-): Promise<{ daytonaApiKey: string; sandboxEnvVars: Record<string, string> }> {
+): Promise<{
+  sandboxApiKey: string;
+  sandboxProviderType: "e2b" | "daytona";
+  sandboxEnvVars: Record<string, string>;
+}> {
   const envVars = await resolveEnvVars(ctx, repoId);
-  const daytonaApiKey = envVars.DAYTONA_API_KEY;
 
-  if (!daytonaApiKey) {
+  const e2bKey = envVars.E2B_API_KEY;
+  const daytonaKey = envVars.DAYTONA_API_KEY;
+
+  let sandboxProviderType: "e2b" | "daytona";
+  let sandboxApiKey: string;
+  if (e2bKey) {
+    sandboxProviderType = "e2b";
+    sandboxApiKey = e2bKey;
+  } else if (daytonaKey) {
+    sandboxProviderType = "daytona";
+    sandboxApiKey = daytonaKey;
+  } else {
     throw new Error(
-      "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
+      "No sandbox API key found. Add E2B_API_KEY or DAYTONA_API_KEY to your team or repo env vars.",
     );
   }
 
   const sandboxEnvVars = { ...envVars };
+  delete sandboxEnvVars.E2B_API_KEY;
   delete sandboxEnvVars.DAYTONA_API_KEY;
 
-  return { daytonaApiKey, sandboxEnvVars };
+  return { sandboxApiKey, sandboxProviderType, sandboxEnvVars };
 }

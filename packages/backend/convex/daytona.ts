@@ -5,51 +5,51 @@ import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
-import { resolveDaytonaApiKey } from "./envVarResolver";
+import { resolveSandboxApiKey } from "./envVarResolver";
+import {
+  createSandboxProvider,
+  type SandboxHandle,
+  type SandboxProvider,
+} from "./sandboxProvider";
 import {
   buildGitHubExtraHeader,
   buildGitHubRepoUrl,
   getInstallationToken,
 } from "./githubAuth";
 
-const WORKSPACE_DIR = "/workspace/repo";
-const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
-const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 300;
+const PRIMARY_WORKSPACE_DIR = "/workspace/repo";
+const FALLBACK_WORKSPACE_DIR = "/tmp/repo";
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
+const CLONE_REPO_TIMEOUT_SECONDS = 300;
+const INSTALL_DEPENDENCIES_TIMEOUT_SECONDS = 900;
+
+function workspaceCdCommand(): string {
+  return `[ -d ${quote([PRIMARY_WORKSPACE_DIR])} ] && cd ${quote([PRIMARY_WORKSPACE_DIR])} || cd ${quote([FALLBACK_WORKSPACE_DIR])}`;
+}
 
 async function exec(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   cmd: string,
   timeout = 30,
 ): Promise<string> {
-  const resp = await sandbox.process.executeCommand(
-    cmd,
-    "/",
-    undefined,
-    timeout,
-  );
-  if (resp.exitCode !== 0) {
-    const output = resp.result?.trim();
+  const result = await sandbox.executeCommand(cmd, "/", timeout);
+  if (result.exitCode !== 0) {
+    const output = result.output?.trim();
     throw new Error(
       output
-        ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
-        : `Sandbox command failed with exit code ${resp.exitCode}`,
+        ? `Sandbox command failed (exit ${result.exitCode}): ${output}`
+        : `Sandbox command failed with exit code ${result.exitCode}`,
     );
   }
-  return resp.result;
+  return result.output;
 }
 
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
-}
-
-function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
 }
 
 const REQUIRED_INFRA_KEYS = [
@@ -71,23 +71,22 @@ async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<{
-  daytona: Daytona;
+  provider: SandboxProvider;
   sandboxEnvVars: Record<string, string>;
   infraEnvVars: Record<string, string>;
   snapshotName: string | undefined;
 }> {
-  const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-    ctx,
-    repoId,
-  );
-  const daytona = getDaytona(daytonaApiKey);
+  const { sandboxApiKey, sandboxProviderType, sandboxEnvVars } =
+    await resolveSandboxApiKey(ctx, repoId);
+  const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
   const infraEnvVars = resolveInfraEnvVars();
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
-  const snapshotName = repoSnapshot?.snapshotName;
-  return { daytona, sandboxEnvVars, infraEnvVars, snapshotName };
+  const snapshotName =
+    sandboxProviderType === "daytona" ? repoSnapshot?.snapshotName : undefined;
+  return { provider, sandboxEnvVars, infraEnvVars, snapshotName };
 }
 
 function isSnapshotReadyTimeoutError(error: unknown): boolean {
@@ -96,34 +95,24 @@ function isSnapshotReadyTimeoutError(error: unknown): boolean {
 }
 
 async function createSandbox(
-  daytona: Daytona,
+  provider: SandboxProvider,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
   infraEnvVars: Record<string, string>,
   snapshotName?: string,
-): Promise<Sandbox> {
-  const timeoutSeconds = snapshotName
-    ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
-    : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS;
-
+): Promise<SandboxHandle> {
   const githubToken = await getInstallationToken(installationId);
 
-  const sandbox = await daytona.create(
-    {
-      ...(snapshotName
-        ? { snapshot: snapshotName }
-        : { language: "typescript" }),
-      envVars: {
-        ...sandboxEnvVars,
-        GITHUB_TOKEN: githubToken,
-        INSTALLATION_ID: String(installationId),
-        ...infraEnvVars,
-      },
-      autoStopInterval: 10,
-      autoDeleteInterval: 15,
+  const sandbox = await provider.create({
+    template: snapshotName,
+    envVars: {
+      ...sandboxEnvVars,
+      GITHUB_TOKEN: githubToken,
+      INSTALLATION_ID: String(installationId),
+      ...infraEnvVars,
     },
-    { timeout: timeoutSeconds },
-  );
+    timeoutMinutes: 10,
+  });
   await exec(
     sandbox,
     'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
@@ -133,7 +122,7 @@ async function createSandbox(
 }
 
 async function syncRepo(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
   owner: string,
   name: string,
@@ -145,19 +134,19 @@ async function syncRepo(
 }
 
 async function checkoutSessionBranch(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
+    `${workspaceCdCommand()} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
     30,
   );
 }
 
 async function cloneAndSetupRepo(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
   owner: string,
   name: string,
@@ -166,38 +155,50 @@ async function cloneAndSetupRepo(
   const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
   await exec(
     sandbox,
-    `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    120,
+    `if mkdir -p /workspace 2>/dev/null; then TARGET=${quote([PRIMARY_WORKSPACE_DIR])}; else TARGET=${quote([FALLBACK_WORKSPACE_DIR])}; fi && mkdir -p ${quote([FALLBACK_WORKSPACE_DIR])} && rm -rf "$TARGET" && git clone ${quote([repoUrl])} "$TARGET"`,
+    CLONE_REPO_TIMEOUT_SECONDS,
   );
   const lockFile = (
     await exec(
       sandbox,
-      `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
+      `${workspaceCdCommand()} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
       5,
     )
   ).trim();
   if (lockFile === "pnpm-lock.yaml") {
-    await exec(sandbox, `npm install -g pnpm`, 30);
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
+    await exec(sandbox, `npm install -g pnpm`, 120);
+    await exec(
+      sandbox,
+      `${workspaceCdCommand()} && pnpm install`,
+      INSTALL_DEPENDENCIES_TIMEOUT_SECONDS,
+    );
   } else if (lockFile === "yarn.lock") {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && yarn install`, 120);
+    await exec(
+      sandbox,
+      `${workspaceCdCommand()} && yarn install`,
+      INSTALL_DEPENDENCIES_TIMEOUT_SECONDS,
+    );
   } else {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && npm install`, 120);
+    await exec(
+      sandbox,
+      `${workspaceCdCommand()} && npm install`,
+      INSTALL_DEPENDENCIES_TIMEOUT_SECONDS,
+    );
   }
 }
 
 async function createSandboxAndPrepareRepo(
-  daytona: Daytona,
+  provider: SandboxProvider,
   installationId: number,
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
   infraEnvVars: Record<string, string>,
   snapshotName?: string,
-): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
+): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
   try {
     const sandbox = await createSandbox(
-      daytona,
+      provider,
       installationId,
       sandboxEnvVars,
       infraEnvVars,
@@ -210,15 +211,22 @@ async function createSandboxAndPrepareRepo(
     await cloneAndSetupRepo(sandbox, installationId, owner, name);
     return { sandbox, usedSnapshot: false };
   } catch (error) {
-    if (!snapshotName || !isSnapshotReadyTimeoutError(error)) {
+    if (!snapshotName) {
       throw error;
     }
 
-    console.warn(
-      `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; falling back to language sandbox`,
-    );
+    if (isSnapshotReadyTimeoutError(error)) {
+      console.warn(
+        `[sandbox] Snapshot "${snapshotName}" not ready for ${owner}/${name}; falling back to language sandbox`,
+      );
+    } else {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[sandbox] Snapshot "${snapshotName}" failed for ${owner}/${name} (${reason}); falling back to language sandbox`,
+      );
+    }
     const sandbox = await createSandbox(
-      daytona,
+      provider,
       installationId,
       sandboxEnvVars,
       infraEnvVars,
@@ -230,7 +238,7 @@ async function createSandboxAndPrepareRepo(
 }
 
 async function getOrCreateSandbox(
-  daytona: Daytona,
+  provider: SandboxProvider,
   existingSandboxId: string | undefined,
   installationId: number,
   owner: string,
@@ -238,10 +246,10 @@ async function getOrCreateSandbox(
   sandboxEnvVars: Record<string, string>,
   infraEnvVars: Record<string, string>,
   snapshotName?: string,
-): Promise<{ sandbox: Sandbox; isNew: boolean }> {
+): Promise<{ sandbox: SandboxHandle; isNew: boolean }> {
   if (existingSandboxId) {
     try {
-      const sandbox = await daytona.get(existingSandboxId);
+      const sandbox = await provider.get(existingSandboxId);
       await exec(sandbox, "echo 1", 5);
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, isNew: false };
@@ -250,7 +258,7 @@ async function getOrCreateSandbox(
     }
   }
   const { sandbox } = await createSandboxAndPrepareRepo(
-    daytona,
+    provider,
     installationId,
     owner,
     name,
@@ -262,7 +270,7 @@ async function getOrCreateSandbox(
 }
 
 async function configureGitHubOrigin(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
   owner: string,
   name: string,
@@ -274,8 +282,7 @@ async function configureGitHubOrigin(
   await exec(
     sandbox,
     [
-      `cd ${WORKSPACE_DIR}`,
-      // Snapshots/reused sandboxes can carry stale GitHub auth headers.
+      workspaceCdCommand(),
       "git config --unset-all http.https://github.com/.extraheader >/dev/null 2>&1 || true",
       `git remote set-url origin ${quote([repoUrl])}`,
     ].join(" && "),
@@ -286,7 +293,7 @@ async function configureGitHubOrigin(
 }
 
 async function fetchOrigin(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
   owner: string,
   name: string,
@@ -303,60 +310,47 @@ async function fetchOrigin(
   const refArg = ref ? ` ${quote([ref])}` : "";
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git -c http.https://github.com/.extraheader=${quote([authHeader])} fetch${pruneArg} origin${refArg}`,
+    `${workspaceCdCommand()} && git -c http.https://github.com/.extraheader=${quote([authHeader])} fetch${pruneArg} origin${refArg}`,
     opts?.timeoutSeconds ?? 60,
   );
 }
 
-/**
- * Sets up a git branch in the sandbox — creates it or checks it out if it exists.
- * Stashes dirty state first to prevent checkout failures, then verifies the switch.
- */
 async function setupBranch(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
-  // Stash any dirty state from previous executions, then checkout
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${quotedBranch}`,
+    `${workspaceCdCommand()} && git stash --include-untracked 2>/dev/null; git checkout -B ${quotedBranch}`,
     10,
   );
-  // Verify the branch was actually switched
   const currentBranch = (
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && git branch --show-current`, 5)
+    await exec(
+      sandbox,
+      `${workspaceCdCommand()} && git branch --show-current`,
+      5,
+    )
   ).trim();
   if (currentBranch !== branchName) {
     throw new Error(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
-  // Push branch to remote so it exists before Claude starts — makes subsequent pushes fast
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
+    `${workspaceCdCommand()} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
     30,
   );
 }
 
-/**
- * Generic callback handler script that runs inside the Daytona sandbox.
- * Spawns Claude CLI, parses stream-json output, streams activity updates
- * via Convex HTTP API, and calls the specified completion mutation when done.
- *
- * @param completionMutation - The Convex mutation path to call on completion
- *   (e.g. "designWorkflow:handleCompletion", "summarizeWorkflow:handleCompletion")
- * @param entityIdField - The field name for the entity ID in the completion args
- *   (e.g. "designSessionId", "sessionId", "docId")
- */
 function buildCallbackScript(
   completionMutation: string,
   entityIdField: string,
 ): string {
   return `
 import { spawn } from "child_process";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -364,7 +358,7 @@ const ENTITY_ID = process.env.ENTITY_ID;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
-const WORK_DIR = "${WORKSPACE_DIR}";
+const WORK_DIR = existsSync("${PRIMARY_WORKSPACE_DIR}") ? "${PRIMARY_WORKSPACE_DIR}" : "${FALLBACK_WORKSPACE_DIR}";
 
 async function callMutation(path, args) {
   const res = await fetch(CONVEX_URL + "/api/mutation", {
@@ -581,12 +575,8 @@ child.on("error", async (err) => {
 `.trim();
 }
 
-/**
- * Uploads prompt + script to sandbox and fires the script via nohup.
- * Returns immediately — the script calls back to Convex when done.
- */
 async function launchScript(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   prompt: string,
   completionMutation: string,
   entityIdField: string,
@@ -599,20 +589,17 @@ async function launchScript(
     extraEnvVars?: Record<string, string>;
   } = {},
 ): Promise<void> {
-  // Upload the prompt
-  await sandbox.fs.uploadFile(
+  await sandbox.uploadFile(
     Buffer.from(prompt, "utf-8"),
     "/tmp/design-prompt.txt",
   );
 
-  // Upload the callback handler script
   const handlerScript = buildCallbackScript(completionMutation, entityIdField);
-  await sandbox.fs.uploadFile(
+  await sandbox.uploadFile(
     Buffer.from(handlerScript, "utf-8"),
     "/tmp/run-design.mjs",
   );
 
-  // Build env vars and fire
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
@@ -628,18 +615,13 @@ async function launchScript(
     }
   }
   const envVars = envParts.join(" ");
-  await sandbox.process.executeCommand(
+  await sandbox.executeCommand(
     `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
     "/",
-    undefined,
     10,
   );
 }
 
-/**
- * Runs a command on an existing sandbox and returns the output.
- * Used for post-completion operations like capturing git diffs or reading files.
- */
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),
@@ -649,9 +631,12 @@ export const runSandboxCommand = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
+    const sandbox = await provider.get(args.sandboxId);
     return (
       await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
     ).trim();
@@ -676,10 +661,13 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
-    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 3600);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
+    const sandbox = await provider.get(args.sandboxId);
+    const previewResult = await sandbox.getPreviewUrl(args.port, 3600);
 
     let ready = true;
     if (args.checkReady) {
@@ -696,14 +684,10 @@ export const getPreviewUrl = action({
       }
     }
 
-    return { url: signedPreview.url, port: args.port, ready };
+    return { url: previewResult.url, port: args.port, ready };
   },
 });
 
-/**
- * Generic sandbox setup + script launch action for all workflows.
- * Reuses or creates a sandbox, syncs repo, and fires the callback script.
- */
 export const setupAndExecute = internalAction({
   args: {
     entityId: v.string(),
@@ -729,12 +713,12 @@ export const setupAndExecute = internalAction({
       throw new Error("repoId is required for setupAndExecute");
     }
 
-    const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+    const { provider, sandboxEnvVars, infraEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
 
     const { sandbox } = await (args.ephemeral
       ? createSandboxAndPrepareRepo(
-          daytona,
+          provider,
           args.installationId,
           args.repoOwner,
           args.repoName,
@@ -743,7 +727,7 @@ export const setupAndExecute = internalAction({
           snapshotName,
         )
       : getOrCreateSandbox(
-          daytona,
+          provider,
           args.existingSandboxId,
           args.installationId,
           args.repoOwner,
@@ -764,7 +748,7 @@ export const setupAndExecute = internalAction({
       );
       await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git reset --hard ${quote([`origin/${args.baseBranch}`])}`,
+        `${workspaceCdCommand()} && git checkout ${quote([args.baseBranch])} && git reset --hard ${quote([`origin/${args.baseBranch}`])}`,
         30,
       );
     }
@@ -792,10 +776,6 @@ export const setupAndExecute = internalAction({
   },
 });
 
-/**
- * Launches the callback script on an already-running sandbox.
- * Used by design sessions where the sandbox is started separately.
- */
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -811,9 +791,12 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
+    const sandbox = await provider.get(args.sandboxId);
 
     await launchScript(
       sandbox,
@@ -833,11 +816,6 @@ export const launchOnExistingSandbox = internalAction({
   },
 });
 
-/**
- * Launches a code audit in an existing sandbox via nohup (fire-and-forget).
- * Reuses buildCallbackScript/launchScript — streaming activity updates are
- * harmlessly ignored since the task is already marked complete by this point.
- */
 export const launchAudit = internalAction({
   args: {
     sandboxId: v.string(),
@@ -848,9 +826,12 @@ export const launchAudit = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
+    const sandbox = await provider.get(args.sandboxId);
 
     await launchScript(
       sandbox,
@@ -905,13 +886,19 @@ export const runSessionAudit = internalAction({
         throw new Error("Session not found");
       }
 
-      const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
-      const daytona = getDaytona(daytonaApiKey);
-      const sandbox = await daytona.get(args.sandboxId);
+      const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+        ctx,
+        session.repoId,
+      );
+      const provider = createSandboxProvider(
+        sandboxProviderType,
+        sandboxApiKey,
+      );
+      const sandbox = await provider.get(args.sandboxId);
 
       const diffRaw = await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
+        `${workspaceCdCommand()} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
         30,
       );
 
@@ -946,10 +933,13 @@ export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
     try {
-      const sandbox = await daytona.get(args.sandboxId);
+      const sandbox = await provider.get(args.sandboxId);
       await sandbox.delete();
     } catch {
       // Sandbox may already be deleted or expired
@@ -969,14 +959,17 @@ export const toggleCodeServer = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { sandboxApiKey, sandboxProviderType } = await resolveSandboxApiKey(
+      ctx,
+      args.repoId,
+    );
+    const provider = createSandboxProvider(sandboxProviderType, sandboxApiKey);
+    const sandbox = await provider.get(args.sandboxId);
 
     if (args.action === "start") {
       await exec(
         sandbox,
-        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+        `WORK_DIR=$(if [ -d ${quote([PRIMARY_WORKSPACE_DIR])} ]; then echo ${quote([PRIMARY_WORKSPACE_DIR])}; else echo ${quote([FALLBACK_WORKSPACE_DIR])}; fi) && code-server --port 8080 --auth none --bind-addr 0.0.0.0 "$WORK_DIR" > /tmp/code-server.log 2>&1 &`,
         10,
       );
     } else {
@@ -987,8 +980,12 @@ export const toggleCodeServer = action({
   },
 });
 
-async function startSessionServices(sandbox: Sandbox): Promise<void> {
-  await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`, 10);
+async function startSessionServices(sandbox: SandboxHandle): Promise<void> {
+  await exec(
+    sandbox,
+    `${workspaceCdCommand()} && pnpm dev > /dev/null 2>&1 &`,
+    10,
+  );
 }
 
 export const startSessionSandbox = internalAction({
@@ -1008,12 +1005,12 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { provider, sandboxEnvVars, infraEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+          const sandbox = await provider.get(args.existingSandboxId);
           await exec(sandbox, "echo 1", 5);
           await syncRepo(
             sandbox,
@@ -1036,7 +1033,7 @@ export const startSessionSandbox = internalAction({
       }
 
       const prepared = await createSandboxAndPrepareRepo(
-        daytona,
+        provider,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -1056,8 +1053,8 @@ export const startSessionSandbox = internalAction({
         );
         await exec(
           sandbox,
-          `cd ${WORKSPACE_DIR} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
-          120,
+          `${workspaceCdCommand()} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
+          INSTALL_DEPENDENCIES_TIMEOUT_SECONDS,
         );
       } else {
         await fetchOrigin(
@@ -1070,7 +1067,7 @@ export const startSessionSandbox = internalAction({
         );
         await exec(
           sandbox,
-          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
+          `${workspaceCdCommand()} && git checkout ${quote([args.branchName])}`,
           30,
         );
       }
@@ -1110,12 +1107,12 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { provider, sandboxEnvVars, infraEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+          const sandbox = await provider.get(args.existingSandboxId);
           await exec(sandbox, "echo 1", 5);
           await syncRepo(
             sandbox,
@@ -1126,7 +1123,7 @@ export const startDesignSandbox = internalAction({
           await setupBranch(sandbox, args.branchName);
           await exec(
             sandbox,
-            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+            `${workspaceCdCommand()} && pnpm dev > /dev/null 2>&1 &`,
             10,
           );
           await ctx.runMutation(internal.designSessions.sandboxReady, {
@@ -1142,7 +1139,7 @@ export const startDesignSandbox = internalAction({
       }
 
       const prepared = await createSandboxAndPrepareRepo(
-        daytona,
+        provider,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -1153,11 +1150,15 @@ export const startDesignSandbox = internalAction({
       const sandbox = prepared.sandbox;
       await setupBranch(sandbox, args.branchName);
       if (prepared.usedSnapshot) {
-        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
+        await exec(
+          sandbox,
+          `${workspaceCdCommand()} && pnpm install`,
+          INSTALL_DEPENDENCIES_TIMEOUT_SECONDS,
+        );
       }
       await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
+        `${workspaceCdCommand()} && pnpm dev > /dev/null 2>&1 &`,
         10,
       );
 

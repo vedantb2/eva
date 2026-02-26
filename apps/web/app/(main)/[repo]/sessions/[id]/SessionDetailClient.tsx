@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import { useState } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
@@ -12,7 +11,7 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface SessionDetailClientProps {
-  sessionId: Id<"sessions">;
+  sessionId: string;
 }
 
 const CHAT_DEFAULT_SIZE = "30%";

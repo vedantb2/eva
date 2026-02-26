@@ -188,7 +188,15 @@ export function ChatPanel({
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
       await sendToApi(content, mode, model, responseLength);
-    } catch {
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send message.";
+      await addMessage({
+        id: typedSessionId,
+        role: "assistant",
+        content: `Error: ${errorMessage}`,
+        mode,
+      });
       setIsSending(false);
     }
   };

@@ -42,7 +42,7 @@ const auditCompleteEvent = defineEvent({
 
 // --- Prompt builder ---
 
-const WORKSPACE_DIR = "/workspace/repo";
+const WORKSPACE_CD_COMMAND = "(cd /workspace/repo 2>/dev/null || cd /tmp/repo)";
 
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
@@ -196,7 +196,7 @@ export const taskExecutionWorkflow = workflow.define({
           internal.daytona.runSandboxCommand,
           {
             sandboxId,
-            command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
+            command: `${WORKSPACE_CD_COMMAND} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
             timeoutSeconds: 30,
             repoId: args.repoId,
           },

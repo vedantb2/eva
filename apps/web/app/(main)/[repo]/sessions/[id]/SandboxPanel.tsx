@@ -57,6 +57,7 @@ export function SandboxPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const [port, setPort] = useState(3001);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -75,7 +76,7 @@ export function SandboxPanel({
     try {
       const data = await getPreviewUrl({
         sandboxId,
-        port: 3000,
+        port,
         checkReady: true,
         repoId,
       });
@@ -92,7 +93,7 @@ export function SandboxPanel({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId]);
+  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, port]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
@@ -180,6 +181,8 @@ export function SandboxPanel({
             showConsole={showConsole}
             consoleTab={consoleTab}
             onConsoleTabChange={setConsoleTab}
+            port={port}
+            onPortChange={setPort}
           />
         </div>
         <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

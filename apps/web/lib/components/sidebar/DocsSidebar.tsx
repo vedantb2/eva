@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
   SearchInput,
   Spinner,
+  Textarea,
   cn,
 } from "@conductor/ui";
 import {
@@ -61,6 +62,8 @@ export function DocsSidebar({
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [pastedPrdContent, setPastedPrdContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
@@ -96,17 +99,30 @@ export function DocsSidebar({
       reader.readAsText(file);
     });
 
-  const handleUploadSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
+  const getTitleFromContent = (content: string): string => {
+    const firstLine = content
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+
+    if (!firstLine) return "Uploaded PRD";
+
+    const normalized = firstLine.replace(/^#+\s*/, "");
+    return normalized.slice(0, 80) || "Uploaded PRD";
+  };
+
+  const createDocFromPrd = async ({
+    title,
+    prdContent,
+  }: {
+    title: string;
+    prdContent: string;
+  }) => {
     setIsUploading(true);
     try {
-      const prdContent = await readFileContent(file);
-      const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
       const id = await createDoc({ repoId, title, content: prdContent });
+      setIsUploadDialogOpen(false);
+      setPastedPrdContent("");
       router.push(`/${repoSlug}/docs/${id}`);
       onNavigate?.();
       const { convexToken } = await getConvexToken();
@@ -121,6 +137,31 @@ export function DocsSidebar({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleUploadSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const prdContent = await readFileContent(file);
+      const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
+      await createDocFromPrd({ title, prdContent });
+    } catch (error) {
+      console.error("PRD upload failed", error);
+    }
+  };
+
+  const handlePasteUpload = async () => {
+    const content = pastedPrdContent.trim();
+    if (!content) return;
+    const title = getTitleFromContent(content);
+    await createDocFromPrd({
+      title,
+      prdContent: content,
+    });
   };
 
   const handleDelete = async () => {
@@ -249,13 +290,74 @@ export function DocsSidebar({
           size="sm"
           variant="ghost"
           className="w-full justify-start gap-2 text-muted-foreground hover:text-sidebar-foreground"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setIsUploadDialogOpen(true)}
           disabled={isUploading}
         >
           {isUploading ? <Spinner size="sm" /> : <IconUpload size={14} />}
           Upload PRD
         </Button>
       </div>
+
+      <Dialog
+        open={isUploadDialogOpen}
+        onOpenChange={(open) => {
+          if (isUploading) return;
+          setIsUploadDialogOpen(open);
+          if (!open) {
+            setPastedPrdContent("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload PRD</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border/70 p-3">
+              <p className="text-sm font-medium">Upload a file</p>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Supported formats: .md, .txt
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? <Spinner size="sm" /> : <IconUpload size={14} />}
+                Click to upload
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Paste PRD content</label>
+              <Textarea
+                value={pastedPrdContent}
+                onChange={(event) => setPastedPrdContent(event.target.value)}
+                placeholder="Paste your PRD here..."
+                rows={8}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsUploadDialogOpen(false);
+                setPastedPrdContent("");
+              }}
+              disabled={isUploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePasteUpload}
+              disabled={isUploading || pastedPrdContent.trim().length === 0}
+            >
+              {isUploading && <Spinner size="sm" />}
+              Upload from paste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!docToDelete}

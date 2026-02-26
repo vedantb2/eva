@@ -22,7 +22,10 @@ export default clerkMiddleware(
       return redirectToSignIn();
     }
   },
-  { clockSkewInMs: 60000 }, // Allow 60 seconds of clock skew
+  {
+    clockSkewInMs: 60000,
+    authorizedParties: ["https://*.daytonaproxy01.net"],
+  },
 );
 
 export const config = {

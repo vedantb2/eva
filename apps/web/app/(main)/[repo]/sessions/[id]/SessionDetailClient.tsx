@@ -75,6 +75,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   }
 
   const isSandboxActive = session.status === "active";
+  const isSandboxStarting = session.status === "starting";
 
   return (
     <Group orientation="horizontal" className="h-full">
@@ -95,8 +96,9 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
           isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxToggling}
+          isSandboxToggling={isSandboxToggling || isSandboxStarting}
           onSandboxToggle={handleSandboxToggle}
+          isArchived={session.archived === true}
         />
       </Panel>
       <Separator

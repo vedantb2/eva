@@ -61,6 +61,23 @@ export const list = authQuery({
   },
 });
 
+export const listArchived = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(sessionValidator),
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return sessions
+      .filter((session) => session.archived === true)
+      .sort(
+        (a, b) =>
+          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+      );
+  },
+});
+
 export const get = authQuery({
   args: { id: v.id("sessions") },
   returns: v.union(sessionValidator, v.null()),
@@ -393,6 +410,10 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || "main";
+    await ctx.db.patch(args.sessionId, {
+      status: "starting",
+      updatedAt: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,
@@ -413,19 +434,21 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
+        sessionId: args.sessionId,
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });
     }
     await ctx.db.patch(args.sessionId, {
-      sandboxId: undefined,
+      sandboxId: session.sandboxId,
+      ptySessionId: undefined,
       status: "closed",
       messages: [
         ...session.messages,
         {
           role: "assistant" as const,
-          content: "Sandbox stopped. Start the sandbox to continue working.",
+          content: "Sandbox stopped. Start the sandbox to resume this session.",
           timestamp: Date.now(),
           userId: ctx.userId,
         },
@@ -448,6 +471,7 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    if (session.status === "closed") return null;
     const content = args.isNew
       ? args.usedSnapshot === true
         ? `Sandbox started from snapshot! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
@@ -490,6 +514,7 @@ export const sandboxError = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     await ctx.db.patch(args.sessionId, {
+      status: "closed",
       messages: [
         ...session.messages,
         {

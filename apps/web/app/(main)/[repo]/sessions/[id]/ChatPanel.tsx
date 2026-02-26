@@ -45,6 +45,7 @@ import {
   ActivitySteps,
 } from "@conductor/ui";
 import {
+  IconArchive,
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
@@ -96,6 +97,7 @@ interface ChatPanelProps {
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
+  isArchived?: boolean;
 }
 
 export function ChatPanel({
@@ -110,6 +112,7 @@ export function ChatPanel({
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
+  isArchived,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const { getToken } = useAuth();
@@ -311,81 +314,92 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-end p-3 animate-in fade-in duration-300">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-            onClick={() => setActiveTab("preview")}
-          >
-            <IconWorld size={14} />
-            View Preview
-          </Button>
-          {prUrl ? (
-            <Link href={prUrl} target="_blank">
-              <Badge
-                variant="outline"
-                className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
-              >
-                <IconGitPullRequest size={12} />
-                View PR
-              </Badge>
-            </Link>
-          ) : branchName ? (
+      {isArchived ? (
+        <div className="flex items-center gap-2 px-4 py-5 border-b border-border bg-muted/50 animate-in fade-in duration-300">
+          <IconArchive size={16} className="text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            This session is archived and read-only
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end p-3 animate-in fade-in duration-300">
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="secondary"
-              className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setShowReviewModal(true)}
+              className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => setActiveTab("preview")}
             >
-              <IconSend size={12} />
-              Send for Review
+              <IconWorld size={14} />
+              View Preview
             </Button>
-          ) : null}
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={() => setShowClearChatModal(true)}
-            disabled={messages.length === 0}
-            className="motion-press h-8 w-8 text-destructive hover:scale-[1.03] active:scale-[0.97]"
-            title="Clear chat"
-          >
-            <IconTrash className="w-4 h-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={() => setShowSummaryModal(true)}
-            disabled={
-              isSummarizing || !isSandboxActive || messages.length === 0
-            }
-            className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
-            title={hasSummary ? "Regenerate summary" : "Generate summary"}
-          >
-            {isSummarizing ? (
-              <Spinner size="sm" />
-            ) : (
-              <IconSparkles className="w-4 h-4" />
-            )}
-          </Button>
-          <Button
-            size="icon"
-            variant={isSandboxActive ? "destructive" : "secondary"}
-            onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-            disabled={isSandboxToggling}
-            className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
-          >
-            {isSandboxToggling ? (
-              <Spinner size="sm" />
-            ) : isSandboxActive ? (
-              <IconPlayerStop className="w-4 h-4" />
-            ) : (
-              <IconPlayerPlay className="w-4 h-4" />
-            )}
-          </Button>
+            {prUrl ? (
+              <Link href={prUrl} target="_blank">
+                <Badge
+                  variant="outline"
+                  className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
+                >
+                  <IconGitPullRequest size={12} />
+                  View PR
+                </Badge>
+              </Link>
+            ) : branchName ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
+                onClick={() => setShowReviewModal(true)}
+              >
+                <IconSend size={12} />
+                Send for Review
+              </Button>
+            ) : null}
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => setShowClearChatModal(true)}
+              disabled={messages.length === 0}
+              className="motion-press h-8 w-8 text-destructive hover:scale-[1.03] active:scale-[0.97]"
+              title="Clear chat"
+            >
+              <IconTrash className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => setShowSummaryModal(true)}
+              disabled={
+                isSummarizing || !isSandboxActive || messages.length === 0
+              }
+              className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
+              title={hasSummary ? "Regenerate summary" : "Generate summary"}
+            >
+              {isSummarizing ? (
+                <Spinner size="sm" />
+              ) : (
+                <IconSparkles className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant={isSandboxActive ? "destructive" : "secondary"}
+              onClick={() =>
+                onSandboxToggle(isSandboxActive ? "stop" : "start")
+              }
+              disabled={isSandboxToggling}
+              className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
+            >
+              {isSandboxToggling ? (
+                <Spinner size="sm" />
+              ) : isSandboxActive ? (
+                <IconPlayerStop className="w-4 h-4" />
+              ) : (
+                <IconPlayerPlay className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       <AnimatePresence>
         {(showSummaryStreaming || hasSummary) && (
           <motion.div
@@ -585,107 +599,109 @@ export function ChatPanel({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="px-3 pb-4 pt-3">
-        <AnimatePresence>
-          {mode === "plan" && planContent && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2 }}
+      {!isArchived && (
+        <div className="px-3 pb-4 pt-3">
+          <AnimatePresence>
+            {mode === "plan" && planContent && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Plan defaultOpen className="mb-2">
+                  <PlanHeader className="p-4">
+                    <PlanTitle>Product Requirements</PlanTitle>
+                    <PlanTrigger />
+                  </PlanHeader>
+                  <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {planContent}
+                    </MessageResponse>
+                  </PlanContent>
+                  <PlanFooter className="px-4 pb-4 pt-0 gap-2">
+                    <Button
+                      size="sm"
+                      className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={() => setMode("execute")}
+                    >
+                      <IconCode className="w-3.5 h-3.5" />
+                      Approve Plan
+                    </Button>
+                  </PlanFooter>
+                </Plan>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="relative pt-4">
+            <Tabs
+              value={mode}
+              onValueChange={(v) => {
+                setMode(v as "execute" | "ask" | "plan");
+              }}
+              className="absolute left-3 top-4 z-20 -translate-y-1/2"
             >
-              <Plan defaultOpen className="mb-2">
-                <PlanHeader className="p-4">
-                  <PlanTitle>Product Requirements</PlanTitle>
-                  <PlanTrigger />
-                </PlanHeader>
-                <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
-                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                    {planContent}
-                  </MessageResponse>
-                </PlanContent>
-                <PlanFooter className="px-4 pb-4 pt-0 gap-2">
-                  <Button
-                    size="sm"
-                    className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={() => setMode("execute")}
-                  >
-                    <IconCode className="w-3.5 h-3.5" />
-                    Approve Plan
-                  </Button>
-                </PlanFooter>
-              </Plan>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="relative pt-4">
-          <Tabs
-            value={mode}
-            onValueChange={(v) => {
-              setMode(v as "execute" | "ask" | "plan");
-            }}
-            className="absolute left-3 top-4 z-20 -translate-y-1/2"
-          >
-            <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
-              <TabsTrigger
-                value="execute"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconCode className="w-3 h-3" />
-                Execute
-              </TabsTrigger>
-              <TabsTrigger
-                value="ask"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconMessageCircle2 className="w-3 h-3" />
-                Ask
-              </TabsTrigger>
-              <TabsTrigger
-                value="plan"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconClipboardList className="w-3 h-3" />
-                PRD
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <PromptInput onSubmit={handlePromptSubmit}>
-            <PromptInputTextarea
-              className="pt-8"
-              placeholder={
-                !isSandboxActive
-                  ? "Start the sandbox to begin chatting..."
-                  : mode === "execute"
-                    ? "Describe the changes to make to Eva..."
-                    : mode === "ask"
-                      ? "Ask Eva a question about the codebase..."
-                      : "Describe the feature or product requirements to Eva..."
-              }
-              disabled={isInputDisabled}
-            />
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputSettings
-                  model={model}
-                  onModelChange={setModel}
-                  responseLength={responseLength}
-                  onResponseLengthChange={setResponseLength}
-                  disabled={isInputDisabled}
-                />
-              </PromptInputTools>
-              <div className="flex items-center gap-1">
-                <PromptInputSpeech disabled={isInputDisabled} />
-                <PromptInputSubmit
-                  status={submitStatus}
-                  onStop={handleCancel}
-                  disabled={isInputDisabled}
-                />
-              </div>
-            </PromptInputFooter>
-          </PromptInput>
+              <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+                <TabsTrigger
+                  value="execute"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  <IconCode className="w-3 h-3" />
+                  Execute
+                </TabsTrigger>
+                <TabsTrigger
+                  value="ask"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  <IconMessageCircle2 className="w-3 h-3" />
+                  Ask
+                </TabsTrigger>
+                <TabsTrigger
+                  value="plan"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  <IconClipboardList className="w-3 h-3" />
+                  PRD
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <PromptInput onSubmit={handlePromptSubmit}>
+              <PromptInputTextarea
+                className="pt-8"
+                placeholder={
+                  !isSandboxActive
+                    ? "Start the sandbox to begin chatting..."
+                    : mode === "execute"
+                      ? "Describe the changes to make to Eva..."
+                      : mode === "ask"
+                        ? "Ask Eva a question about the codebase..."
+                        : "Describe the feature or product requirements to Eva..."
+                }
+                disabled={isInputDisabled}
+              />
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputSettings
+                    model={model}
+                    onModelChange={setModel}
+                    responseLength={responseLength}
+                    onResponseLengthChange={setResponseLength}
+                    disabled={isInputDisabled}
+                  />
+                </PromptInputTools>
+                <div className="flex items-center gap-1">
+                  <PromptInputSpeech disabled={isInputDisabled} />
+                  <PromptInputSubmit
+                    status={submitStatus}
+                    onStop={handleCancel}
+                    disabled={isInputDisabled}
+                  />
+                </div>
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
         </div>
-      </div>
+      )}
       <Dialog
         open={showClearChatModal}
         onOpenChange={(v) => {

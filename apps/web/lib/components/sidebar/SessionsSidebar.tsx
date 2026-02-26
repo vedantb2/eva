@@ -27,6 +27,7 @@ import {
 } from "@conductor/ui";
 import {
   IconArchive,
+  IconChevronDown,
   IconDotsVertical,
   IconTerminal2,
 } from "@tabler/icons-react";
@@ -48,6 +49,7 @@ export function SessionsSidebar({
 }: SessionsSidebarProps) {
   const router = useRouter();
   const sessions = useQuery(api.sessions.list, { repoId });
+  const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
   const createSession = useMutation(api.sessions.create);
   const archiveSession = useMutation(api.sessions.archive);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
@@ -61,6 +63,7 @@ export function SessionsSidebar({
     title: string;
   } | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
   const baseUrl = `/${repoSlug}/sessions`;
@@ -77,6 +80,16 @@ export function SessionsSidebar({
         )
       : sessions;
   }, [sessions, searchQuery]);
+
+  const filteredArchivedSessions = useMemo(() => {
+    if (!archivedSessions) return [];
+    const query = searchQuery.toLowerCase().trim();
+    return query
+      ? archivedSessions.filter((session) =>
+          session.title.toLowerCase().includes(query),
+        )
+      : archivedSessions;
+  }, [archivedSessions, searchQuery]);
 
   useEffect(() => {
     if (createRequestId === undefined) return;
@@ -143,14 +156,17 @@ export function SessionsSidebar({
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : filteredSessions.length === 0 ? (
+        ) : filteredSessions.length === 0 &&
+          filteredArchivedSessions.length === 0 ? (
           <div className="p-4 text-center">
             <IconTerminal2
               size={28}
               className="mx-auto mb-2 text-muted-foreground"
             />
             <p className="text-sm text-muted-foreground">
-              {sessions.length === 0 ? "No sessions yet" : "No matches found"}
+              {sessions.length === 0 && (archivedSessions?.length ?? 0) === 0
+                ? "No sessions yet"
+                : "No matches found"}
             </p>
           </div>
         ) : (
@@ -243,6 +259,58 @@ export function SessionsSidebar({
                   </motion.div>
                 );
               })}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {filteredArchivedSessions.length > 0 && (
+          <div className="mt-2 border-t border-sidebar-border/50">
+            <button
+              onClick={() => setIsArchiveOpen((prev) => !prev)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-sidebar-foreground transition-colors"
+            >
+              <IconChevronDown
+                size={14}
+                className={cn(
+                  "transition-transform duration-200",
+                  !isArchiveOpen && "-rotate-90",
+                )}
+              />
+              <IconArchive size={14} />
+              Archived ({filteredArchivedSessions.length})
+            </button>
+            <AnimatePresence initial={false}>
+              {isArchiveOpen &&
+                filteredArchivedSessions.map((session) => {
+                  const isSelected = currentSessionId === session._id;
+                  return (
+                    <motion.div
+                      key={session._id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <Link
+                        href={`${baseUrl}/${session._id}`}
+                        onClick={onNavigate}
+                        className={cn(
+                          "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
+                          isSelected
+                            ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
+                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <h3 className="truncate text-sm">{session.title}</h3>
+                        <span className="text-xs text-muted-foreground/60">
+                          {dayjs(
+                            session.updatedAt ?? session._creationTime,
+                          ).fromNow()}
+                        </span>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
             </AnimatePresence>
           </div>
         )}

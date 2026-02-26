@@ -55,6 +55,23 @@ export const list = authQuery({
   },
 });
 
+export const listArchived = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(designSessionValidator),
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("designSessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return sessions
+      .filter((s) => s.archived === true)
+      .sort(
+        (a, b) =>
+          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+      );
+  },
+});
+
 export const get = authQuery({
   args: { id: v.id("designSessions") },
   returns: v.union(designSessionValidator, v.null()),
@@ -184,6 +201,10 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `design/${args.id}`;
+    await ctx.db.patch(args.id, {
+      status: "starting",
+      updatedAt: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
@@ -211,6 +232,7 @@ export const stopSandbox = authMutation({
     }
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
+      status: "closed",
       updatedAt: Date.now(),
     });
     return null;
@@ -228,6 +250,7 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
+    if (session.status === "closed") return null;
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
       branchName: args.branchName,
@@ -248,6 +271,7 @@ export const sandboxError = internalMutation({
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
     await ctx.db.patch(args.designSessionId, {
+      status: "closed",
       messages: [
         ...session.messages,
         {

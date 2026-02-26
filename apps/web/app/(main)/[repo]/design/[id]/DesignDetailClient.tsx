@@ -37,6 +37,7 @@ import {
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
+  IconArchive,
   IconCheck,
   IconDeviceDesktop,
   IconDeviceMobile,
@@ -140,6 +141,7 @@ export function DesignDetailClient({
   const isExecuting = isSending || lastAssistantHasNoContent;
 
   const sandboxRunning = !!session?.sandboxId;
+  const isServerStarting = session?.status === "starting";
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -238,6 +240,8 @@ export function DesignDetailClient({
     );
   }
 
+  const isArchived = session.archived === true;
+
   const submitStatus = isExecuting
     ? lastAssistantHasNoContent
       ? "streaming"
@@ -247,47 +251,59 @@ export function DesignDetailClient({
   return (
     <div className="flex h-full">
       <div className="flex flex-col w-2/5 min-w-[320px] border-r border-border">
+        {isArchived && (
+          <div className="flex items-center gap-2 px-4 py-5 border-b border-border bg-muted/50">
+            <IconArchive size={16} className="text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              This session is archived and read-only
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <h2 className="text-sm font-medium truncate">{session.title}</h2>
-          <div className="flex items-center gap-2">
-            {sandboxRunning ? (
+          {!isArchived && (
+            <div className="flex items-center gap-2">
+              {sandboxRunning ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1"
+                  onClick={handleStopSandbox}
+                >
+                  <IconPlayerStop size={14} />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1"
+                  onClick={handleStartSandbox}
+                  disabled={isSandboxStarting || isServerStarting}
+                >
+                  <IconPlayerPlay size={14} />
+                  {isSandboxStarting || isServerStarting
+                    ? "Starting..."
+                    : "Start sandbox"}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={handleStopSandbox}
+                className="h-7 text-xs gap-1 text-destructive"
+                onClick={() => setShowClearChatModal(true)}
+                disabled={session.messages.length === 0}
+                title="Clear chat"
               >
-                <IconPlayerStop size={14} />
-                Stop
+                <IconTrash size={14} />
               </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={handleStartSandbox}
-                disabled={isSandboxStarting}
-              >
-                <IconPlayerPlay size={14} />
-                {isSandboxStarting ? "Starting..." : "Start sandbox"}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs gap-1 text-destructive"
-              onClick={() => setShowClearChatModal(true)}
-              disabled={session.messages.length === 0}
-              title="Clear chat"
-            >
-              <IconTrash size={14} />
-            </Button>
-            <ManagePersonasModal
-              repoId={session.repoId}
-              selectedPersonaId={selectedPersonaId}
-              onClearPersona={() => setSelectedPersonaId(undefined)}
-            />
-          </div>
+              <ManagePersonasModal
+                repoId={session.repoId}
+                selectedPersonaId={selectedPersonaId}
+                onClearPersona={() => setSelectedPersonaId(undefined)}
+              />
+            </div>
+          )}
         </div>
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-4">
@@ -371,33 +387,37 @@ export function DesignDetailClient({
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <div className="px-3 pb-4 pt-3">
-          <PromptInput onSubmit={handlePromptSubmit}>
-            <PromptInputTextarea
-              placeholder={
-                !sandboxRunning
-                  ? "Start the sandbox to begin designing..."
-                  : "Describe the design you want..."
-              }
-              disabled={isExecuting || !sandboxRunning}
-            />
-            <PromptInputFooter>
-              <PersonaDropdown
-                repoId={session.repoId}
-                value={selectedPersonaId}
-                onChange={setSelectedPersonaId}
+        {!isArchived && (
+          <div className="px-3 pb-4 pt-3">
+            <PromptInput onSubmit={handlePromptSubmit}>
+              <PromptInputTextarea
+                placeholder={
+                  !sandboxRunning
+                    ? "Start the sandbox to begin designing..."
+                    : "Describe the design you want..."
+                }
+                disabled={isExecuting || !sandboxRunning}
               />
-              <div className="flex items-center gap-1">
-                <PromptInputSpeech disabled={isExecuting || !sandboxRunning} />
-                <PromptInputSubmit
-                  status={submitStatus}
-                  onStop={handleCancel}
-                  disabled={isExecuting || !sandboxRunning}
+              <PromptInputFooter>
+                <PersonaDropdown
+                  repoId={session.repoId}
+                  value={selectedPersonaId}
+                  onChange={setSelectedPersonaId}
                 />
-              </div>
-            </PromptInputFooter>
-          </PromptInput>
-        </div>
+                <div className="flex items-center gap-1">
+                  <PromptInputSpeech
+                    disabled={isExecuting || !sandboxRunning}
+                  />
+                  <PromptInputSubmit
+                    status={submitStatus}
+                    onStop={handleCancel}
+                    disabled={isExecuting || !sandboxRunning}
+                  />
+                </div>
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -464,18 +484,24 @@ export function DesignDetailClient({
                           <Spinner size="md" />
                         ) : (
                           <>
-                            <p className="text-sm mb-2">Sandbox not running</p>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={handleStartSandbox}
-                              disabled={isSandboxStarting}
-                            >
-                              <IconPlayerPlay size={14} />
-                              {isSandboxStarting
-                                ? "Starting..."
-                                : "Start sandbox"}
-                            </Button>
+                            <p className="text-sm mb-2">
+                              {isArchived
+                                ? "Sandbox not available for archived sessions"
+                                : "Sandbox not running"}
+                            </p>
+                            {!isArchived && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={handleStartSandbox}
+                                disabled={isSandboxStarting}
+                              >
+                                <IconPlayerPlay size={14} />
+                                {isSandboxStarting
+                                  ? "Starting..."
+                                  : "Start sandbox"}
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -485,18 +511,22 @@ export function DesignDetailClient({
               </TabsContent>
             ))}
             <div className="flex items-center justify-between gap-3 px-4 py-2 border-t border-border">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs gap-1 shrink-0"
-                onClick={() => handleSelectVariation(Number(activeTab))}
-                disabled={session.selectedVariationIndex === Number(activeTab)}
-              >
-                <IconCheck size={14} />
-                {session.selectedVariationIndex === Number(activeTab)
-                  ? "Selected"
-                  : "Use this design"}
-              </Button>
+              {!isArchived && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => handleSelectVariation(Number(activeTab))}
+                  disabled={
+                    session.selectedVariationIndex === Number(activeTab)
+                  }
+                >
+                  <IconCheck size={14} />
+                  {session.selectedVariationIndex === Number(activeTab)
+                    ? "Selected"
+                    : "Use this design"}
+                </Button>
+              )}
               <p className="text-xs text-muted-foreground truncate">
                 {latestVariations[Number(activeTab)]?.label}
               </p>

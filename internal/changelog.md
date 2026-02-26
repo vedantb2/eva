@@ -1,5 +1,54 @@
 # Changelog
 
+## Archived Sessions Visible in Sidebar - 2026-02-26
+
+- **Why**: Archived sessions disappeared completely from the UI with no way to view their history. Users need to reference past work without accidentally modifying it.
+
+- **Changes**:
+  1. **Backend**: Added `listArchived` queries to both `sessions.ts` and `designSessions.ts` to return only archived sessions for a repo.
+  2. **Sidebars**: Added collapsible "Archived" section to `SessionsSidebar` and `DesignSessionsSidebar` with a chevron toggle. Archived items show as dimmed links with no action dropdown. Search filters both active and archived sessions.
+  3. **Read-only mode**: When viewing an archived session, all action buttons (sandbox toggle, clear chat, send for review, summary, prompt input) are hidden. An "Archived" banner replaces the action bar. Design sessions also hide the "Use this design" button and sandbox start button.
+
+## Faster Sandbox Start Feedback in UI - 2026-02-26
+
+- **Why**: Clicking "Start" on a session showed the sandbox as started ~5 seconds late. Daytona had the sandbox running almost immediately, but the UI waited for git sync, branch checkout, and service startup to complete before updating the session status to "active".
+
+- **Changes**:
+  1. **Added `"starting"` session status** (`packages/backend/convex/validators.ts`):
+     - New intermediate status so the UI can show a spinner immediately on click
+  2. **Immediate status update in mutations** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/designSessions.ts`):
+     - `startSandbox` mutations now set status to `"starting"` before scheduling the Daytona action
+  3. **Early `sandboxReady` for existing sandboxes** (`packages/backend/convex/daytona.ts`):
+     - For reused sandboxes, `sandboxReady` is called right after health check passes, before git sync/checkout
+     - Git sync and branch checkout still happen, just after the UI is already updated
+  4. **Race condition guards** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/designSessions.ts`):
+     - `sandboxReady` now skips if session was stopped (`"closed"`) while start was in flight
+     - `sandboxError` now resets status back to `"closed"` so the session doesn't get stuck in `"starting"`
+  5. **UI updates** (`SessionDetailClient.tsx`, `DesignDetailClient.tsx`):
+     - Button shows spinner during `"starting"` state
+
+- **Impact**:
+  - Existing sandbox restarts appear instant in UI (health check takes <1s vs previous 5s+ wait)
+  - New sandbox creation shows a spinner immediately instead of a dead zone between click and response
+
+## Reuse Stopped Session Sandboxes on Restart - 2026-02-26
+
+- **Why**: Stopping a session sandbox always led to creation of a new sandbox on next start, which broke expected stop/resume behavior and made lifecycle feel unreliable.
+
+- **Changes**:
+  1. **Reconnect behavior now starts stopped sandboxes** (`packages/backend/convex/daytona.ts`):
+     - Added `ensureSandboxRunning(...)` that first probes sandbox health and starts the sandbox when needed
+     - Applied this to session reconnect paths so stopped sandboxes are resumed instead of treated as dead
+  2. **Session stop now stops instead of deletes** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/daytona.ts`):
+     - Session `stopSandbox` now schedules a sandbox stop action and preserves `sandboxId` on the session record
+     - `ptySessionId` is cleared on stop to avoid stale terminal handles
+  3. **Race guard for quick stop/start toggles** (`packages/backend/convex/daytona.ts`):
+     - Added session-status and sandbox-id validation in `internal.daytona.stopSandbox` so delayed stop jobs no-op if the session has already restarted
+
+- **Impact**:
+  - Stopping and restarting a session now reuses the same sandbox when available
+  - Session restarts are faster and do not unnecessarily create fresh sandboxes
+
 ## Add Clear Chat Button to Sessions and Design Pages - 2026-02-26
 
 - **Why**: Users needed a way to reset conversation history and remove generated designs to start fresh within a session without archiving it.

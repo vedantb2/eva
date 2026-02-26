@@ -12,7 +12,11 @@
     "tabs",
     "cookies"
   ],
-  "host_permissions": ["<all_urls>", "https://*.clerk.accounts.dev/*"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://*.clerk.accounts.dev/*",
+    "https://clerk.vedantb.com/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

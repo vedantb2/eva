@@ -194,16 +194,16 @@ async function createSandboxAndPrepareRepo(
     }
 
     console.warn(
-      `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; falling back to language sandbox`,
+      `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying with same snapshot`,
     );
     const sandbox = await createSandbox(
       daytona,
       installationId,
       sandboxEnvVars,
-      undefined,
+      snapshotName,
     );
-    await cloneAndSetupRepo(sandbox, installationId, owner, name);
-    return { sandbox, usedSnapshot: false };
+    await syncRepo(sandbox, installationId, owner, name);
+    return { sandbox, usedSnapshot: true };
   }
 }
 

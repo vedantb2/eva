@@ -55,6 +55,7 @@ import {
   IconSparkles,
   IconSend,
   IconCircleCheck,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -116,6 +117,7 @@ export function ChatPanel({
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [reviewStep, setReviewStep] = useState<
     "confirm" | "auditing" | "complete"
@@ -128,6 +130,7 @@ export function ChatPanel({
     useState<ResponseLength>("default");
   const typedSessionId = sessionId as Id<"sessions">;
 
+  const clearMessages = useMutation(api.sessions.clearMessages);
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
@@ -340,6 +343,16 @@ export function ChatPanel({
               Send for Review
             </Button>
           ) : null}
+          <Button
+            size="icon"
+            variant="secondary"
+            onClick={() => setShowClearChatModal(true)}
+            disabled={messages.length === 0}
+            className="motion-press h-8 w-8 text-destructive hover:scale-[1.03] active:scale-[0.97]"
+            title="Clear chat"
+          >
+            <IconTrash className="w-4 h-4" />
+          </Button>
           <Button
             size="icon"
             variant="secondary"
@@ -673,6 +686,39 @@ export function ChatPanel({
           </PromptInput>
         </div>
       </div>
+      <Dialog
+        open={showClearChatModal}
+        onOpenChange={(v) => {
+          if (!v) setShowClearChatModal(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear Chat</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to clear all messages? This will also remove
+            the session summary and plan. This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowClearChatModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                await clearMessages({ id: typedSessionId });
+                setShowClearChatModal(false);
+              }}
+            >
+              Clear Chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={showSummaryModal}
         onOpenChange={(v) => {

@@ -213,6 +213,27 @@ export const updateSandbox = authMutation({
   },
 });
 
+export const clearMessages = authMutation({
+  args: { id: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    if (session.userId !== ctx.userId) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      messages: [],
+      planContent: undefined,
+      summary: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 export const clearSandbox = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),

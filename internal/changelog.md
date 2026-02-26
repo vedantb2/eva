@@ -1,5 +1,57 @@
 # Changelog
 
+## Fix Session Stalls During E2B Sandbox Boot - 2026-02-26
+
+- **Why**: Session chats could appear frozen after sending a message when sandbox setup failed during provider migration (especially when a Daytona snapshot name was attempted on E2B). The workflow added an empty assistant message but did not always convert startup failures into a visible response.
+
+- **Changes**:
+  1. **Convex token retrieval fix** (`apps/web/app/(main)/[repo]/actions.ts`): Converted `getConvexToken` to a server action using Clerk server auth instead of calling `useAuth()` in a plain async function. This removes an invalid-hook-call failure that blocked workflow starts.
+  2. **Provider-aware snapshot selection** (`packages/backend/convex/daytona.ts`): Snapshot names from `repoSnapshots` are now only applied for Daytona providers, so E2B startup no longer tries to boot from Daytona snapshot identifiers.
+  3. **Snapshot fallback hardening** (`packages/backend/convex/daytona.ts`): If snapshot-based sandbox creation still fails for any reason, the backend now logs the failure reason and retries with a non-snapshot sandbox instead of only retrying for timeout-shaped errors.
+  4. **Workflow error surfacing** (`packages/backend/convex/sessionWorkflow.ts`): Setup failures from `setupAndExecute` are now caught and written into the pending assistant message via `saveResult`, preventing infinite "thinking" states.
+  5. **Type-safety cleanup** (`packages/backend/convex/envVarResolver.ts`): Removed type assertions from sandbox provider selection logic while keeping E2B-first key resolution behavior.
+  6. **Client send error visibility** (`apps/web/app/(main)/[repo]/sessions/[id]/ChatPanel.tsx`): Session send failures now append an assistant error message instead of silently resetting the send state.
+  7. **Workspace fallback for provider differences** (`packages/backend/convex/daytona.ts`): Sandbox repo setup now prefers `/workspace/repo` when writable and automatically falls back to `/tmp/repo` when `/workspace` is permission-restricted (E2B). All core git/dev/code-server commands now resolve workspace dynamically instead of assuming Daytona's directory layout.
+  8. **E2B command error passthrough** (`packages/backend/convex/providers/e2bSandboxProvider.ts`): `CommandExitError` now returns stderr/stdout through the provider result path so sandbox errors include actionable command output instead of only exit status.
+  9. **Workflow workspace compatibility** (`packages/backend/convex/sessionWorkflow.ts`, `packages/backend/convex/taskWorkflow.ts`): Post-run diff/plan commands now use the same `/workspace/repo` then `/tmp/repo` fallback so E2B runs don't lose file diffs or plan reads.
+  10. **Longer dependency install window** (`packages/backend/convex/daytona.ts`): Increased clone and dependency-install command timeouts (notably `pnpm install`) so first-run E2B sandboxes with large lockfiles don't abort with timeout-shaped `exit -1` failures.
+
+- **Architecture**: Startup resilience now sits at two layers: sandbox boot retries at provider setup time and explicit user-visible failure handling at workflow orchestration time.
+
+## Add E2B Sandbox Provider as Default - 2026-02-26
+
+- **Why**: Daytona sandboxes lack Docker support needed for running Convex locally (`npx convex dev --local`). E2B provides Docker-capable sandboxes with better isolation for concurrent tasks. Each task gets its own sandbox with its own local Convex instance, avoiding conflicts.
+
+- **Changes**:
+  1. **New `providers/e2bSandboxProvider.ts`**: Implements `SandboxHandle`/`SandboxProvider` using the `e2b` npm package. Maps `Sandbox.create`/`connect`/`commands.run`/`files.write`/`getHost`/`kill` to the abstract interface
+  2. **Updated `sandboxProvider.ts` factory**: Now supports `"e2b" | "daytona"` provider types via `SandboxProviderType`
+  3. **Updated `envVarResolver.ts`**: `resolveSandboxApiKey` now checks `E2B_API_KEY` first, falls back to `DAYTONA_API_KEY`, and returns the detected `sandboxProviderType`
+  4. **Updated all 7 action handlers in `daytona.ts`**: Now use the resolved provider type instead of hardcoded `"daytona"`
+  5. **Installed `e2b` package** in backend
+
+- **Architecture**: E2B is the default provider — set `E2B_API_KEY` in team/repo env vars. Daytona remains as fallback if only `DAYTONA_API_KEY` is present. Provider selection is automatic per-repo.
+
+## Abstract Sandbox Provider Behind Interface - 2026-02-26
+
+- **Why**: Conductor was tightly coupled to Daytona's SDK for all sandbox operations. To support repos requiring Docker (e.g., Convex local) or unrestricted networking, we need the ability to swap sandbox providers (E2B, etc.) per-repo without touching any consumer code.
+
+- **Changes**:
+  1. **New `sandboxProvider.ts`**: Defines `SandboxHandle`, `SandboxProvider`, `CreateSandboxConfig`, `CommandResult` interfaces and a `createSandboxProvider` factory
+  2. **New `providers/daytonaSandboxProvider.ts`**: Extracts all `@daytonaio/sdk` usage into `DaytonaSandboxHandle` and `DaytonaSandboxProvider` classes
+  3. **Refactored `daytona.ts`**: Replaced all direct SDK calls with interface methods. No export signature changes — all 11+ consumer files untouched
+  4. **Renamed `resolveDaytonaApiKey` → `resolveSandboxApiKey`** in `envVarResolver.ts`
+
+- **Architecture**: The Convex action layer (`internal.daytona.*`) is the abstraction boundary. Consumer files (workflows, sessions, frontend) are completely unaffected. Provider selection is per-repo via env vars (`DAYTONA_API_KEY` today, `E2B_API_KEY` later).
+
+## Code-Server On-Demand Start/Stop - 2026-02-26
+
+- **Why**: Code-server auto-started with every sandbox, consuming ~200-500MB RAM even when the editor tab was never used. On 4GB sandboxes this caused OOM kills.
+
+- **Changes**:
+  1. **Removed auto-start** from `startSessionServices()` in `daytona.ts`
+  2. **Added `toggleCodeServer` action** to start/stop code-server on demand
+  3. **Rewrote `EditorPanel.tsx`** with idle/starting/running/stopping/error state machine and explicit Start/Stop buttons
+
 ## Refine Quick Task Selection Action Bar Layout - 2026-02-25
 
 - **Why**: Selection controls were split between header and bottom action area, which made the flow feel disjointed while selecting tasks.

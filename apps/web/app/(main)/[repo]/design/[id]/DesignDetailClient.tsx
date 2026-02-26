@@ -74,7 +74,7 @@ const VARIATION_KEYS = ["a", "b", "c"] as const;
 export function DesignDetailClient({
   designSessionId,
 }: {
-  designSessionId: Id<"designSessions">;
+  designSessionId: string;
 }) {
   const session = useQuery(api.designSessions.get, { id: designSessionId });
   const streaming = useQuery(api.streaming.get, {

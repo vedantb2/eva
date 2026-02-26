@@ -23,6 +23,7 @@
     "convex": "^1.24.5",
     "convex-helpers": "^0.1.111",
     "convex-timeline": "^0.1.2",
+    "e2b": "^2.13.0",
     "octokit": "^5.0.5",
     "resend": "^4.6.0",
     "shell-quote": "^1.8.3"

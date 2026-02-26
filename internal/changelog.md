@@ -1,6 +1,148 @@
 # Changelog
 
-## Stop Button + Inline Edit in TaskDetailModal — 2026-02-25
+## Refine Quick Task Selection Action Bar Layout - 2026-02-25
+
+- **Why**: Selection controls were split between header and bottom action area, which made the flow feel disjointed while selecting tasks.
+
+- **Changes**:
+  1. **Unified bottom action controls** (`apps/web/app/(main)/[repo]/quick-tasks/QuickTasksClient.tsx`):
+     - Moved `Cancel` into the bottom action bar next to `Actions`
+     - Wrapped both buttons in a shared bordered/background container
+  2. **Dialog footer simplification** (`apps/web/app/(main)/[repo]/quick-tasks/QuickTasksClient.tsx`):
+     - Removed `Exit Selection` from the actions dialog footer
+
+- **Impact**:
+  - Selection actions are now grouped in one place at the bottom of the page
+  - The actions dialog focuses only on task actions, not selection-mode controls
+
+## Add Bottom Actions Dialog for Quick Task Selection - 2026-02-25
+
+- **Why**: Selection actions in Quick Tasks lived only in the top header, which is less ergonomic when users are actively selecting items in long lists/boards.
+
+- **Changes**:
+  1. **Bottom selection action trigger** (`apps/web/app/(main)/[repo]/quick-tasks/QuickTasksClient.tsx`):
+     - Added a bottom, floating `Actions` button that appears during select mode
+     - Button is disabled until at least one task is selected and shows selected count
+  2. **Dialog-based actions menu** (`apps/web/app/(main)/[repo]/quick-tasks/QuickTasksClient.tsx`):
+     - Added an actions dialog opened by the bottom button
+     - Moved grouping action into the dialog (`Group into Project`)
+     - Added explicit `Close` and `Exit Selection` actions
+
+- **Impact**:
+  - Selection workflows now have an action entrypoint near the bottom interaction area
+  - Grouping selected quick tasks is available from a dedicated actions menu dialog
+
+## Refresh Git Auth on Reused Session Sandboxes - 2026-02-25
+
+- **Why**: Session sandboxes that were reused from `existingSandboxId` skipped repo sync and credential refresh, so `origin` could still contain an expired GitHub App installation token and `git push` from the VS Code panel failed with authentication errors.
+
+- **Changes**:
+  1. **Session reconnect git refresh** (`packages/backend/convex/daytona.ts`):
+     - Reused-session path in `startSessionSandbox` now calls `syncRepo(...)` before starting services, which refreshes `origin` auth using a fresh installation token
+  2. **Branch consistency on reconnect** (`packages/backend/convex/daytona.ts`):
+     - Added `checkoutSessionBranch(...)` and invoked it in the reused-session path so the sandbox is on the expected session branch after reconnect
+
+- **Impact**:
+  - Reopening an existing session sandbox now refreshes GitHub auth before terminal/editor usage
+  - `git push` from the session IDE/terminal no longer depends on stale token state from older sandbox runs
+
+## Auto-scroll Activity Steps to Latest Entry - 2026-02-25
+
+- **Why**: The activity timeline could open at the top and force manual scrolling to see the newest events, which slows down monitoring during and after agent execution.
+
+- **Changes**:
+  1. **Bottom-on-open behavior** (`packages/ui/src/ai-elements/activity-steps.tsx`):
+     - Added a scroll container ref and effect that jumps to the latest step whenever the activity panel is opened
+  2. **Continuous follow behavior** (`packages/ui/src/ai-elements/activity-steps.tsx`):
+     - Reused the same effect to keep the viewport pinned to the bottom as step count increases
+
+- **Impact**:
+  - Opening Activity Steps now starts at the newest entries
+  - Live step updates stay visible without manual scroll intervention
+
+## Use users.lastSeenAt for Active User Metrics - 2026-02-25
+
+- **Why**: Active user counting was based on session message/activity timestamps, which can misrepresent online presence and diverge from the platform's explicit presence heartbeat model.
+
+- **Changes**:
+  1. **Active users source of truth** (`packages/backend/convex/analytics.ts`):
+     - Updated `getActiveUsers` to read `users.lastSeenAt` instead of session messages
+     - Scoped to users who currently have active sessions for the repo
+  2. **Timeline consistency** (`packages/backend/convex/analytics.ts`):
+     - Updated timeline `activeUsers` buckets to derive from `users.lastSeenAt` for users with active repo sessions
+
+- **Impact**:
+  - "Cookers Now" now reflects heartbeat-based online presence from the users table
+  - Repo card sparkline and headline metric use the same active-user definition
+
+## Fix Active Users Metric to Use Session Activity - 2026-02-25
+
+- **Why**: "Cookers Now" could show `0` even while users had open active sessions because the metric only counted user-authored chat messages within the last 5 minutes.
+
+- **Changes**:
+  1. **Active user calculation update** (`packages/backend/convex/analytics.ts`):
+     - `getActiveUsers` now uses last session activity timestamp (`updatedAt` with message-time fallback) instead of requiring a recent user-role message
+     - Keeps the 5-minute recency window while better matching real active usage
+
+- **Impact**:
+  - The metric now reflects users with recently active sessions, not just users who typed a message in that window
+
+## Add Sparkline Trends to Repo Home Stat Cards - 2026-02-25
+
+- **Why**: Point-in-time values on the repo home cards lacked context, making it hard to quickly see whether each metric was improving or flattening within the selected filter window.
+
+- **Changes**:
+  1. **Extended activity timeline payload** (`packages/backend/convex/analytics.ts`):
+     - Added per-bucket `tasksCompleted`, `sessionsWithPr`, and `activeUsers`
+     - Preserved existing fields while enriching timeline buckets for card-level trend rendering
+  2. **Repo home chart wiring** (`apps/web/app/(main)/[repo]/RepoHomeClient.tsx`):
+     - Added compact sparkline renderer and placed it on the right side of each stat card
+     - Added range-aware timeline window + bucket sizing from `statsRange`
+     - Mapped card trends to meaningful series:
+       - PRs Shipped -> `prsShipped`
+       - Cook Rate -> `sessionsWithPr / sessions`
+       - Cookers Now -> `activeUsers`
+       - Tasks Done -> `tasksCompleted`
+
+- **Impact**:
+  - Each card now shows quick visual momentum instead of only a static number
+  - Trend lines stay synchronized with the same dropdown filter used by the headline stats
+
+## Add Upload PRD Modal with Paste + File Options - 2026-02-25
+
+- **Why**: Uploading PRDs forced users straight into file picker flow, which blocked quick copy-paste workflows when requirements already exist as text.
+
+- **Changes**:
+  1. **Upload entrypoint changed** (`apps/web/lib/components/sidebar/DocsSidebar.tsx`):
+     - "Upload PRD" now opens a dialog instead of immediately triggering file selection
+  2. **Dual-input modal flow** (`apps/web/lib/components/sidebar/DocsSidebar.tsx`):
+     - Added file upload action inside the dialog (still supports `.md` and `.txt`)
+     - Added paste textarea with an explicit "Upload from paste" action
+  3. **Shared creation pipeline** (`apps/web/lib/components/sidebar/DocsSidebar.tsx`):
+     - Consolidated file and paste flows into one helper that creates the doc and starts PRD parsing
+
+- **Impact**:
+  - Users can upload via file or paste without leaving the same modal
+  - Existing backend PRD parse behavior remains consistent across both input paths
+
+## Add Time-Range Filters to Repo Home Stats - 2026-02-25
+
+- **Why**: Repo home stats were fixed to all-time numbers, which made it hard to inspect short-term performance changes or compare recent execution windows.
+
+- **Changes**:
+  1. **URL-backed filter state** (apps/web/lib/search-params.ts):
+     - Added repoStatsRangeParser with values: 1d, 3d, 1w, 1m, 3m, 6m, 1y, all
+     - Uses nuqs replace-history behavior to keep range changes shareable via URL
+  2. **Repo home filter UI + query wiring** (apps/web/app/(main)/[repo]/RepoHomeClient.tsx):
+     - Added top-right dropdown range control inside the Eva stats card header
+     - Added range-to-timestamp mapping using dayjs
+     - Passed computed startTime into api.analytics.getImpactStats
+
+- **Impact**:
+  - Users can now switch Eva metrics between short and long windows without leaving /[repo]
+  - Selected range persists in the URL (statsRange) for refresh/share consistency
+
+## Stop Button + Inline Edit in TaskDetailModal - 2026-02-25
 
 - **Why**: Quick tasks had no way to stop execution once started (users had to wait for completion or failure), and title/description were read-only despite the update mutation already supporting both fields. This created frustration when tasks needed cancellation or quick edits during execution.
 

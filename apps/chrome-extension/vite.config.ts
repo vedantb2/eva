@@ -1,9 +1,46 @@
-import { defineConfig, build as viteBuild } from "vite";
+import { defineConfig, build as viteBuild, normalizePath } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
+
+const isWatchMode = process.argv.includes("--watch");
+const extensionRoot = normalizePath(resolve(__dirname));
+const workspaceRoot = normalizePath(resolve(__dirname, "../.."));
+
+const watchInclude = [
+  `${extensionRoot}/src/**`,
+  `${extensionRoot}/public/**`,
+  `${extensionRoot}/sidepanel.html`,
+  `${extensionRoot}/manifest.json`,
+  `${extensionRoot}/tailwind.config.js`,
+  `${extensionRoot}/postcss.config.js`,
+  `${extensionRoot}/.env*`,
+  `${workspaceRoot}/packages/ui/src/**`,
+  `${workspaceRoot}/packages/shared/src/**`,
+  `${workspaceRoot}/packages/backend/index.ts`,
+  `${workspaceRoot}/packages/backend/convex/_generated/**`,
+  `${workspaceRoot}/packages/backend/convex/validators.ts`,
+];
+
+const watchExclude = [`${extensionRoot}/dist/**`];
+
+const contentScriptWatchRoots = [
+  `${extensionRoot}/src/content`,
+  `${extensionRoot}/src/shared`,
+  `${workspaceRoot}/packages/ui/src`,
+  `${workspaceRoot}/packages/shared/src`,
+];
+
+const contentScriptWatchFiles = [
+  `${extensionRoot}/tailwind.config.js`,
+  `${extensionRoot}/postcss.config.js`,
+];
+
+function isFileInDirectory(filePath: string, directoryPath: string) {
+  return filePath === directoryPath || filePath.startsWith(`${directoryPath}/`);
+}
 
 function copyStaticFiles() {
   return {
@@ -26,9 +63,37 @@ function copyStaticFiles() {
 }
 
 function buildContentScript() {
+  let shouldBuildContentScript = true;
+
   return {
     name: "build-content-script",
+    watchChange(id) {
+      if (!isWatchMode) {
+        return;
+      }
+
+      const filePath = normalizePath(id);
+
+      if (contentScriptWatchFiles.includes(filePath)) {
+        shouldBuildContentScript = true;
+        return;
+      }
+
+      const touchedContentSource = contentScriptWatchRoots.some((watchRoot) =>
+        isFileInDirectory(filePath, watchRoot),
+      );
+
+      if (touchedContentSource) {
+        shouldBuildContentScript = true;
+      }
+    },
     async closeBundle() {
+      if (isWatchMode && !shouldBuildContentScript) {
+        return;
+      }
+
+      shouldBuildContentScript = false;
+
       await viteBuild({
         configFile: false,
         root: resolve(__dirname),
@@ -47,7 +112,9 @@ function buildContentScript() {
         esbuild: { charset: "ascii" },
         logLevel: "warn",
         build: {
-          minify: "esbuild",
+          minify: isWatchMode ? false : "esbuild",
+          reportCompressedSize: !isWatchMode,
+          chunkSizeWarningLimit: 3000,
           write: true,
           outDir: resolve(__dirname, "dist"),
           emptyOutDir: false,
@@ -75,17 +142,16 @@ export default defineConfig({
     },
   },
   build: {
-    ...(process.argv.includes("--watch") && {
+    ...(isWatchMode && {
       watch: {
-        exclude: [
-          resolve(__dirname, "../web/**"),
-          resolve(__dirname, "../mobile/**"),
-          resolve(__dirname, "../teams-bot/**"),
-        ],
+        include: watchInclude,
+        exclude: watchExclude,
       },
     }),
     outDir: "dist",
     emptyOutDir: true,
+    minify: isWatchMode ? false : "esbuild",
+    reportCompressedSize: !isWatchMode,
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser } from "@/lib/search-params";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
@@ -35,7 +36,7 @@ interface SandboxPanelProps {
   fileDiffs: Session["fileDiffs"];
   chatVisible?: boolean;
   onToggleChat?: () => void;
-  repoId: string;
+  repoId: Id<"githubRepos">;
 }
 
 export function SandboxPanel({
@@ -130,7 +131,9 @@ export function SandboxPanel({
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          setActiveTab(v as "preview" | "diffs" | "editor");
+          if (v === "preview" || v === "diffs" || v === "editor") {
+            setActiveTab(v);
+          }
         }}
       >
         <TabsList className="gap-1">

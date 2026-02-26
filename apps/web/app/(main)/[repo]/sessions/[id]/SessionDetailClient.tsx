@@ -10,19 +10,17 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 interface SessionDetailClientProps {
-  sessionId: string;
+  sessionId: Id<"sessions">;
 }
 
 const CHAT_DEFAULT_SIZE = "30%";
 const CHAT_MIN_EXPANDED_WIDTH_PX = 400;
 
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
-  const typedSessionId = sessionId as Id<"sessions">;
   const { installationId } = useRepo();
-  const session = useQuery(api.sessions.get, { id: typedSessionId });
+  const session = useQuery(api.sessions.get, { id: sessionId });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
@@ -44,13 +42,12 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
     setIsSandboxToggling(true);
     try {
       if (action === "start") {
-        await getConvexToken();
         await startSandboxMutation({
-          sessionId: typedSessionId,
+          sessionId,
           installationId,
         });
       } else {
-        await stopSandboxMutation({ sessionId: typedSessionId });
+        await stopSandboxMutation({ sessionId });
       }
     } finally {
       setIsSandboxToggling(false);

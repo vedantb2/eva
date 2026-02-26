@@ -23,7 +23,7 @@ import {
   BrainIcon,
   WrenchIcon,
 } from "lucide-react";
-import { memo, useState, useEffect } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 
 export interface ActivityStep {
   type:
@@ -95,10 +95,18 @@ export interface ActivityStepsProps extends ComponentProps<"div"> {
 export const ActivitySteps = memo(
   ({ steps, isStreaming, className, ...props }: ActivityStepsProps) => {
     const [isOpen, setIsOpen] = useState(Boolean(isStreaming));
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
       setIsOpen(Boolean(isStreaming));
     }, [isStreaming]);
+
+    useEffect(() => {
+      if (!isOpen) return;
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      container.scrollTop = container.scrollHeight;
+    }, [isOpen, steps.length]);
 
     if (steps.length === 0) return null;
 
@@ -115,7 +123,10 @@ export const ActivitySteps = memo(
       >
         <ChainOfThoughtHeader>{headerLabel}</ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
-          <div className="space-y-1 max-h-64 overflow-y-auto scrollbar">
+          <div
+            ref={scrollContainerRef}
+            className="space-y-1 max-h-64 overflow-y-auto scrollbar"
+          >
             {steps.map((step, i) => (
               <ActivityStepItem
                 key={i}

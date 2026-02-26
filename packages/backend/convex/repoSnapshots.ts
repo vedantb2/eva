@@ -56,13 +56,14 @@ export const getRepoSnapshotName = internalQuery({
       .first();
     if (!doc) return null;
 
-    const latestBuild = await ctx.db
+    const latestSuccessfulBuild = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repoSnapshotId", (q) => q.eq("repoSnapshotId", doc._id))
       .order("desc")
+      .filter((q) => q.eq(q.field("status"), "success"))
       .first();
 
-    if (!latestBuild || latestBuild.status !== "success") {
+    if (!latestSuccessfulBuild) {
       return null;
     }
 

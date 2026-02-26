@@ -16,7 +16,7 @@ import {
 
 const WORKSPACE_DIR = "/workspace/repo";
 const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 120;
-const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 300;
+const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 180;
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
 
@@ -1081,6 +1081,7 @@ export const startSessionSandbox = internalAction({
         sandboxId: sandbox.id,
         branchName: args.branchName,
         isNew: true,
+        usedSnapshot: prepared.usedSnapshot,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";

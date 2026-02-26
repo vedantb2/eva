@@ -421,15 +421,26 @@ export const sandboxReady = internalMutation({
     sandboxId: v.string(),
     branchName: v.string(),
     isNew: v.boolean(),
+    usedSnapshot: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     const content = args.isNew
-      ? `Sandbox started from snapshot! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
+      ? args.usedSnapshot === true
+        ? `Sandbox started from snapshot! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
+        : args.usedSnapshot === false
+          ? `Sandbox started from base image. Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
+          : `Sandbox started! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
       : `Sandbox reconnected! Continuing work on branch \`${args.branchName}\`.`;
-    const patch: Record<string, unknown> = {
+    const patch: {
+      messages: typeof session.messages;
+      updatedAt: number;
+      sandboxId: string;
+      branchName: string;
+      status: "active";
+    } = {
       messages: [
         ...session.messages,
         {
@@ -439,12 +450,10 @@ export const sandboxReady = internalMutation({
         },
       ],
       updatedAt: Date.now(),
+      sandboxId: args.sandboxId,
+      branchName: args.branchName,
+      status: "active",
     };
-    if (args.isNew) {
-      patch.sandboxId = args.sandboxId;
-      patch.branchName = args.branchName;
-      patch.status = "active";
-    }
     await ctx.db.patch(args.sessionId, patch);
     return null;
   },

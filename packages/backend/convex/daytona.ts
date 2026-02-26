@@ -144,6 +144,18 @@ async function syncRepo(
   });
 }
 
+async function checkoutSessionBranch(
+  sandbox: Sandbox,
+  branchName: string,
+): Promise<void> {
+  const quotedBranch = quote([branchName]);
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
+    30,
+  );
+}
+
 async function cloneAndSetupRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -946,13 +958,37 @@ export const deleteSandbox = internalAction({
   },
 });
 
+export const toggleCodeServer = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    action: v.union(v.literal("start"), v.literal("stop")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    if (args.action === "start") {
+      await exec(
+        sandbox,
+        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+        10,
+      );
+    } else {
+      await exec(sandbox, "pkill -f code-server || true", 10);
+    }
+
+    return null;
+  },
+});
+
 async function startSessionServices(sandbox: Sandbox): Promise<void> {
   await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`, 10);
-  await exec(
-    sandbox,
-    `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
-    10,
-  );
 }
 
 export const startSessionSandbox = internalAction({
@@ -979,6 +1015,13 @@ export const startSessionSandbox = internalAction({
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
           await exec(sandbox, "echo 1", 5);
+          await syncRepo(
+            sandbox,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+          );
+          await checkoutSessionBranch(sandbox, args.branchName);
           await startSessionServices(sandbox);
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,

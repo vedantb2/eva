@@ -1,16 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Image from "next/image";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@conductor/ui";
 
-export default async function LandingPage() {
-  const { isAuthenticated } = await auth();
-
-  if (isAuthenticated) {
-    redirect("/home");
-  }
-
+export default function LandingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-8">

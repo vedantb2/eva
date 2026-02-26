@@ -30,7 +30,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -49,6 +49,7 @@ export function QuickTasksListView({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksListViewProps) {
+  const getConvexToken = useConvexToken();
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const startExecution = useMutation(api.agentTasks.startExecution);
@@ -131,7 +132,7 @@ export function QuickTasksListView({
     try {
       for (const task of ownedTodoTasks) {
         const result = await startExecution({ id: task._id });
-        const { convexToken } = await getConvexToken();
+        const convexToken = await getConvexToken();
         await triggerExecution({
           runId: result.runId,
           taskId: result.taskId,

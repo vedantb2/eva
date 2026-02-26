@@ -19,7 +19,7 @@ import {
 import { IconFileText } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -38,6 +38,7 @@ export function TestingArenaSidebar({
   onNavigate,
   createRequestId,
 }: TestingArenaSidebarProps) {
+  const getConvexToken = useConvexToken();
   const docs = useQuery(api.docs.list, { repoId });
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
 
@@ -65,7 +66,7 @@ export function TestingArenaSidebar({
     setShowTestAllModal(false);
     setIsTestingAll(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       for (const doc of docs) {
         await startEvaluation({
           docId: doc._id,

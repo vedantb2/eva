@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import {
   ActivitySteps,
   Button,
@@ -95,6 +95,7 @@ export function DocViewer({ doc }: { doc: Doc }) {
 
 function DocEditor({ doc }: { doc: Doc }) {
   const { installationId } = useRepo();
+  const getConvexToken = useConvexToken();
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
@@ -183,7 +184,7 @@ function DocEditor({ doc }: { doc: Doc }) {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startTestGenMutation({
         docId: doc._id,
         convexToken,

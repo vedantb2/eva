@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import {
   ActivitySteps,
   Button,
@@ -62,6 +62,7 @@ export function DocInterviewDialog({
   installationId,
   readOnly,
 }: DocInterviewDialogProps) {
+  const getConvexToken = useConvexToken();
   const addMessage = useMutation(api.docs.addInterviewMessage);
   const clearInterview = useMutation(api.docs.clearInterview);
   const startDocInterview = useMutation(
@@ -114,7 +115,7 @@ export function DocInterviewDialog({
         } else if (parsed.ready === true) {
           // Interview is complete — trigger the generate phase
           setIsLoading(true);
-          getConvexToken().then(({ convexToken }) =>
+          getConvexToken().then((convexToken) =>
             startDocGenerate({
               docId: doc._id,
               docTitle: doc.title,
@@ -153,7 +154,7 @@ export function DocInterviewDialog({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startDocInterview({
         docId: doc._id,
         docTitle: doc.title,

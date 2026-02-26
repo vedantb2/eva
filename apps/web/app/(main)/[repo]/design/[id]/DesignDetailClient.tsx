@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
-import { getConvexToken } from "../../actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import dayjs from "@conductor/shared/dates";
 
 type DesignSession = NonNullable<
@@ -85,6 +85,7 @@ export function DesignDetailClient({
     session ? { repoId: session.repoId } : "skip",
   );
   const { repo } = useRepo();
+  const getConvexToken = useConvexToken();
   const executeMessage = useMutation(
     api.designSessions.executeMessage,
   ).withOptimisticUpdate((localStore, args) => {
@@ -188,7 +189,7 @@ export function DesignDetailClient({
     if (!text.trim() || !sandboxRunning) return;
     setIsSending(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
 
       await executeMessage({
         id: designSessionId,

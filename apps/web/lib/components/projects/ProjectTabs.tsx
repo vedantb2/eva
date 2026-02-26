@@ -7,7 +7,7 @@ import { api } from "@conductor/backend";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;
@@ -32,6 +32,7 @@ export function ProjectTabs({
   repoId,
   installationId,
 }: ProjectTabsProps) {
+  const getConvexToken = useConvexToken();
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
   const updateProject = useMutation(api.projects.update);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
@@ -74,7 +75,7 @@ export function ProjectTabs({
       await updateProject({ id: projectId, phase: "draft" });
       await addMessageDb({ id: projectId, role: "user", content: reason });
 
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startProjectInterview({
         projectId,
         featureDescription: rawInput,

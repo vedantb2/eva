@@ -30,7 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -50,6 +50,7 @@ export function DocsSidebar({
   createRequestId,
 }: DocsSidebarProps) {
   const router = useRouter();
+  const getConvexToken = useConvexToken();
   const docs = useQuery(api.docs.list, { repoId });
   const createDoc = useMutation(api.docs.create);
   const removeDoc = useMutation(api.docs.remove);
@@ -125,7 +126,7 @@ export function DocsSidebar({
       setPastedPrdContent("");
       router.push(`/${repoSlug}/docs/${id}`);
       onNavigate?.();
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startPrdParse({
         docId: id,
         prdContent,

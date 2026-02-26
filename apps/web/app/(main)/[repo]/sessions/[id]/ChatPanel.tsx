@@ -67,11 +67,11 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
+import { useAuth } from "@clerk/nextjs";
 
 type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 type SessionMessage = Session["messages"][number];
@@ -111,6 +111,7 @@ export function ChatPanel({
   onSandboxToggle,
 }: ChatPanelProps) {
   const { repo } = useRepo();
+  const { getToken } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -167,7 +168,10 @@ export function ChatPanel({
       sendModel: ClaudeModel,
       sendResponseLength: ResponseLength,
     ) => {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getToken({ template: "convex" });
+      if (!convexToken) {
+        throw new Error("Not authenticated");
+      }
       await startExecution({
         sessionId: typedSessionId,
         message,
@@ -178,7 +182,7 @@ export function ChatPanel({
         installationId: repo.installationId,
       });
     },
-    [repo.installationId, startExecution, typedSessionId],
+    [getToken, repo.installationId, startExecution, typedSessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -188,7 +192,15 @@ export function ChatPanel({
     try {
       await addMessage({ id: typedSessionId, role: "user", content, mode });
       await sendToApi(content, mode, model, responseLength);
-    } catch {
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send message";
+      await addMessage({
+        id: typedSessionId,
+        role: "assistant",
+        content: `Error: ${errorMessage}`,
+        mode,
+      });
       setIsSending(false);
     }
   };
@@ -196,7 +208,10 @@ export function ChatPanel({
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getToken({ template: "convex" });
+      if (!convexToken) {
+        throw new Error("Not authenticated");
+      }
       await startSummarize({
         sessionId: typedSessionId,
         convexToken,
@@ -214,7 +229,10 @@ export function ChatPanel({
     try {
       await createPr({ sessionId: typedSessionId });
       try {
-        const { convexToken } = await getConvexToken();
+        const convexToken = await getToken({ template: "convex" });
+        if (!convexToken) {
+          throw new Error("Not authenticated");
+        }
         await startAuditMutation({
           sessionId: typedSessionId,
           convexToken,
@@ -284,6 +302,9 @@ export function ChatPanel({
 
   const filteredMessages = messages.filter((m) => m.mode !== "flag");
   const hasSummary = Boolean(summary && summary.length > 0);
+  const showSummaryStreaming = Boolean(
+    streamingActivity && !lastAssistantHasNoContent,
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -353,7 +374,7 @@ export function ChatPanel({
         </div>
       </div>
       <AnimatePresence>
-        {(streamingActivity || (summary && summary.length > 0)) && (
+        {(showSummaryStreaming || hasSummary) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -363,7 +384,7 @@ export function ChatPanel({
             <Accordion
               type="single"
               collapsible
-              defaultValue={streamingActivity ? "summary" : undefined}
+              defaultValue={showSummaryStreaming ? "summary" : undefined}
               className="px-6 bg-secondary rounded-b-3xl"
             >
               <AccordionItem value="summary" className="border-b-0">
@@ -374,7 +395,7 @@ export function ChatPanel({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-2">
-                  {streamingActivity ? (
+                  {showSummaryStreaming ? (
                     (() => {
                       const summarySteps =
                         parseActivitySteps(streamingActivity);
@@ -387,9 +408,9 @@ export function ChatPanel({
                         </div>
                       );
                     })()
-                  ) : summary && summary.length > 0 ? (
+                  ) : hasSummary ? (
                     <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
-                      {summary.map((item, i) => (
+                      {summary?.map((item, i) => (
                         <li key={i}>{item}</li>
                       ))}
                     </ul>

@@ -5,7 +5,7 @@ import { useQueryState } from "nuqs";
 import { testingTabParser, branchParser } from "@/lib/search-params";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import {
@@ -297,6 +297,7 @@ export default function TestingArenaDocPage({
 }) {
   const { id } = use(params);
   const { repo } = useRepo();
+  const getConvexToken = useConvexToken();
   const doc = useQuery(api.docs.get, { id: id as Id<"docs"> });
   const reports = useQuery(
     api.evaluationReports.listByDoc,
@@ -316,7 +317,7 @@ export default function TestingArenaDocPage({
     if (!doc) return;
     setIsRunning(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startEvaluation({
         docId: doc._id,
         repoId: repo._id,

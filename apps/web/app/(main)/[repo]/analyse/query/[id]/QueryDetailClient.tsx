@@ -18,7 +18,7 @@ import {
 import { useMutation } from "convex/react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { getConvexToken } from "@/app/(main)/[repo]/actions";
+import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { UserInitials } from "@conductor/shared";
 import {
   Button,
@@ -73,6 +73,7 @@ interface QueryDetailClientProps {
 
 export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const { repo } = useRepo();
+  const getConvexToken = useConvexToken();
   const typedQueryId = queryId as Id<"researchQueries">;
   const query = useQuery(api.researchQueries.get, { id: typedQueryId });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
@@ -95,7 +96,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     if (!text.trim() || isSending) return;
     setIsSending(true);
     try {
-      const { convexToken } = await getConvexToken();
+      const convexToken = await getConvexToken();
       await startGenerate({
         queryId: typedQueryId,
         question: text.trim(),
@@ -114,7 +115,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     queryCode: string,
     question: string,
   ) => {
-    const { convexToken } = await getConvexToken();
+    const convexToken = await getConvexToken();
     await startConfirm({
       queryId: typedQueryId,
       queryCode,

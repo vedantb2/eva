@@ -38,6 +38,20 @@ export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
 
+const repoStatsRanges: ["1d", "3d", "1w", "1m", "3m", "6m", "1y", "all"] = [
+  "1d",
+  "3d",
+  "1w",
+  "1m",
+  "3m",
+  "6m",
+  "1y",
+  "all",
+];
+export const repoStatsRangeParser = parseAsStringLiteral(repoStatsRanges)
+  .withDefault("all")
+  .withOptions(searchOptions);
+
 const sandboxTabs = ["preview", "diffs", "editor"] as const;
 export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")

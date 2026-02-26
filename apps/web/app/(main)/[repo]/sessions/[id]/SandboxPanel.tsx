@@ -101,7 +101,7 @@ export function SandboxPanel({
     setError(null);
     stopPolling();
     try {
-      const data = await getVncPreviewUrl({ sandboxId, repoId });
+      const data = await getVncPreviewUrl({ sandboxId, repoId, port });
       if (data.ready) {
         setPreviewInfo(data);
         setIframeKey((k) => k + 1);
@@ -112,6 +112,7 @@ export function SandboxPanel({
     } catch {
       // VNC call failed, fall back to web preview
     }
+    setIsVnc(false);
     await fetchWebPreview();
   }, [
     sandboxId,

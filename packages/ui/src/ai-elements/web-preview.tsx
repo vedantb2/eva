@@ -218,6 +218,7 @@ export const WebPreviewBody = ({
       <iframe
         ref={iframeRef}
         className={cn("size-full", className)}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         src={(src ?? url) || undefined}
         title="Preview"
         {...props}

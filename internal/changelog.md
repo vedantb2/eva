@@ -1,5 +1,25 @@
 # Changelog
 
+## Make Session VNC Start Reliable on Custom Snapshots - 2026-02-26
+
+- **Why**: Session preview could stay on loading because Daytona `computerUse` was unavailable in some sandboxes, while VNC packages existed but were never started.
+
+- **Changes**:
+  1. **Robust VNC bootstrap path** (`packages/backend/convex/daytona.ts`):
+     - Kept Daytona `computerUse` startup as first attempt
+     - Added manual VNC startup fallback (`Xvfb` + `x11vnc` + `websockify`) when `computerUse` is not usable
+     - Manual fallback uses TCP display mode (`-nolisten unix`, `localhost:99`, `-noshm`) for compatibility with custom snapshots
+     - Added explicit port readiness checks before returning signed VNC URL
+  2. **Fallback mode state fix** (`apps/web/app/(main)/[repo]/sessions/[id]/SandboxPanel.tsx`):
+     - Clears VNC mode before web-preview fallback to prevent stale UI state while polling
+  3. **Iframe sandbox regression fix** (`packages/ui/src/ai-elements/web-preview.tsx`):
+     - Restored iframe sandbox attribute on shared web preview component
+
+- **Impact**:
+  - Sessions can still get a working VNC preview even when Daytona Computer Use APIs are unavailable
+  - Preview UI no longer appears stuck in VNC mode during fallback
+  - Shared iframe behavior returns to safer defaults
+
 ## VNC Desktop Preview for Sessions - 2026-02-26
 
 - **Why**: Session preview was limited to web app iframe (port 3001). Users need to see the full desktop environment running in the sandbox for visual debugging and broader app testing.

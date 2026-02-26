@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -30,7 +30,6 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
-import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { getConvexToken } from "@/app/(main)/[repo]/actions";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -40,6 +39,7 @@ interface QuickTasksListViewProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
+  onOpenTask: (id: Id<"agentTasks">) => void;
 }
 
 export function QuickTasksListView({
@@ -47,15 +47,13 @@ export function QuickTasksListView({
   isSelecting,
   selectedIds,
   onToggleSelect,
+  onOpenTask,
 }: QuickTasksListViewProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
 
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
-    null,
-  );
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Set<TaskStatus>>(
@@ -262,7 +260,7 @@ export function QuickTasksListView({
                               if (isSelecting) {
                                 onToggleSelect(task._id);
                               } else {
-                                setSelectedTaskId(task._id);
+                                onOpenTask(task._id);
                               }
                             }}
                             isSelecting={isSelecting}
@@ -287,13 +285,6 @@ export function QuickTasksListView({
         onConfirm={handleFixAll}
         isLoading={isFixingAll}
       />
-      {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={!!selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          taskId={selectedTaskId}
-        />
-      )}
     </>
   );
 }

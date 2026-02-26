@@ -52,28 +52,12 @@ function getDaytona(apiKey: string): Daytona {
   return new Daytona({ apiKey });
 }
 
-const REQUIRED_INFRA_KEYS = [
-  "CLERK_SECRET_KEY",
-  "NEXT_PUBLIC_CONVEX_URL",
-  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-];
-
-function resolveInfraEnvVars(): Record<string, string> {
-  const infraEnvVars: Record<string, string> = {};
-  for (const key of REQUIRED_INFRA_KEYS) {
-    const val = process.env[key];
-    if (val) infraEnvVars[key] = val;
-  }
-  return infraEnvVars;
-}
-
 async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<{
   daytona: Daytona;
   sandboxEnvVars: Record<string, string>;
-  infraEnvVars: Record<string, string>;
   snapshotName: string | undefined;
 }> {
   const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
@@ -81,13 +65,12 @@ async function resolveSandboxContext(
     repoId,
   );
   const daytona = getDaytona(daytonaApiKey);
-  const infraEnvVars = resolveInfraEnvVars();
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
   const snapshotName = repoSnapshot?.snapshotName;
-  return { daytona, sandboxEnvVars, infraEnvVars, snapshotName };
+  return { daytona, sandboxEnvVars, snapshotName };
 }
 
 function isSnapshotReadyTimeoutError(error: unknown): boolean {
@@ -99,7 +82,6 @@ async function createSandbox(
   daytona: Daytona,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<Sandbox> {
   const timeoutSeconds = snapshotName
@@ -117,7 +99,6 @@ async function createSandbox(
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
-        ...infraEnvVars,
       },
       autoStopInterval: 10,
       autoDeleteInterval: 15,
@@ -192,7 +173,6 @@ async function createSandboxAndPrepareRepo(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   try {
@@ -200,7 +180,6 @@ async function createSandboxAndPrepareRepo(
       daytona,
       installationId,
       sandboxEnvVars,
-      infraEnvVars,
       snapshotName,
     );
     if (snapshotName) {
@@ -221,7 +200,6 @@ async function createSandboxAndPrepareRepo(
       daytona,
       installationId,
       sandboxEnvVars,
-      infraEnvVars,
       undefined,
     );
     await cloneAndSetupRepo(sandbox, installationId, owner, name);
@@ -236,7 +214,6 @@ async function getOrCreateSandbox(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  infraEnvVars: Record<string, string>,
   snapshotName?: string,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
@@ -255,7 +232,6 @@ async function getOrCreateSandbox(
     owner,
     name,
     sandboxEnvVars,
-    infraEnvVars,
     snapshotName,
   );
   return { sandbox, isNew: true };
@@ -729,7 +705,7 @@ export const setupAndExecute = internalAction({
       throw new Error("repoId is required for setupAndExecute");
     }
 
-    const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+    const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
 
     const { sandbox } = await (args.ephemeral
@@ -739,7 +715,6 @@ export const setupAndExecute = internalAction({
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          infraEnvVars,
           snapshotName,
         )
       : getOrCreateSandbox(
@@ -749,7 +724,6 @@ export const setupAndExecute = internalAction({
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          infraEnvVars,
           snapshotName,
         ));
 
@@ -1009,7 +983,7 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
@@ -1042,7 +1016,6 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        infraEnvVars,
         snapshotName,
       );
       const sandbox = prepared.sandbox;
@@ -1112,7 +1085,7 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { daytona, sandboxEnvVars, infraEnvVars, snapshotName } =
+      const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
@@ -1145,7 +1118,6 @@ export const startDesignSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        infraEnvVars,
         snapshotName,
       );
       const sandbox = prepared.sandbox;

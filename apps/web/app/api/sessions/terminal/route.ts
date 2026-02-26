@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
   }
 
   const clerkToken = await getToken({ template: "convex" });
-  const convex = createConvex(clerkToken ?? undefined);
+  if (!clerkToken) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const convex = createConvex(clerkToken);
 
   const searchParams = request.nextUrl.searchParams;
   const sessionId = searchParams.get("sessionId");
@@ -94,7 +97,10 @@ export async function POST(request: NextRequest) {
   }
 
   const clerkToken = await getToken({ template: "convex" });
-  const convex = createConvex(clerkToken ?? undefined);
+  if (!clerkToken) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const convex = createConvex(clerkToken);
 
   const body = await request.json();
   const { sessionId, cols, rows, action } = body;

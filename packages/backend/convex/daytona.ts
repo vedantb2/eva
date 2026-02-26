@@ -988,7 +988,8 @@ export const toggleCodeServer = action({
 });
 
 async function startSessionServices(sandbox: Sandbox): Promise<void> {
-  await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`, 10);
+  console.log("hi");
+  // await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm eproc:dev > /dev/null 2>&1 &`, 10);
 }
 
 export const startSessionSandbox = internalAction({
@@ -1125,11 +1126,7 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          await exec(
-            sandbox,
-            `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-            10,
-          );
+          await startSessionServices(sandbox);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
             sandboxId: args.existingSandboxId,
@@ -1156,11 +1153,7 @@ export const startDesignSandbox = internalAction({
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }
-      await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && pnpm dev > /dev/null 2>&1 &`,
-        10,
-      );
+      await startSessionServices(sandbox);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,

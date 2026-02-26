@@ -24,7 +24,10 @@ export default clerkMiddleware(
   },
   {
     clockSkewInMs: 60000,
-    authorizedParties: ["https://*.daytonaproxy01.net"],
+    authorizedParties: [
+      "http://localhost:3000",
+      "https://*.daytonaproxy01.net",
+    ],
   },
 );
 

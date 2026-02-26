@@ -74,10 +74,9 @@ const VARIATION_KEYS = ["a", "b", "c"] as const;
 export function DesignDetailClient({
   designSessionId,
 }: {
-  designSessionId: string;
+  designSessionId: Id<"designSessions">;
 }) {
-  const typedId = designSessionId as Id<"designSessions">;
-  const session = useQuery(api.designSessions.get, { id: typedId });
+  const session = useQuery(api.designSessions.get, { id: designSessionId });
   const streaming = useQuery(api.streaming.get, {
     entityId: designSessionId,
   });
@@ -171,9 +170,8 @@ export function DesignDetailClient({
   const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
     try {
-      await getConvexToken();
       await startSandboxMutation({
-        id: typedId,
+        id: designSessionId,
         installationId: repo.installationId,
       });
     } catch {
@@ -182,18 +180,18 @@ export function DesignDetailClient({
   };
 
   const handleStopSandbox = async () => {
-    await stopSandboxMutation({ id: typedId });
+    await stopSandboxMutation({ id: designSessionId });
     setPreviewUrl(null);
   };
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || !true || !sandboxRunning) return;
+    if (!text.trim() || !sandboxRunning) return;
     setIsSending(true);
     try {
       const { convexToken } = await getConvexToken();
 
       await executeMessage({
-        id: typedId,
+        id: designSessionId,
         message: text.trim(),
         personaId: selectedPersonaId,
         convexToken,
@@ -204,11 +202,11 @@ export function DesignDetailClient({
   };
 
   const handleCancel = async () => {
-    await cancelExecution({ id: typedId });
+    await cancelExecution({ id: designSessionId });
   };
 
   const handleSelectVariation = async (index: number) => {
-    await selectVariation({ id: typedId, variationIndex: index });
+    await selectVariation({ id: designSessionId, variationIndex: index });
   };
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
@@ -259,7 +257,7 @@ export function DesignDetailClient({
                 variant="ghost"
                 className="h-7 text-xs gap-1"
                 onClick={handleStartSandbox}
-                disabled={isSandboxStarting || !true}
+                disabled={isSandboxStarting}
               >
                 <IconPlayerPlay size={14} />
                 {isSandboxStarting ? "Starting..." : "Start sandbox"}
@@ -362,7 +360,7 @@ export function DesignDetailClient({
                   ? "Start the sandbox to begin designing..."
                   : "Describe the design you want..."
               }
-              disabled={isExecuting || !true || !sandboxRunning}
+              disabled={isExecuting || !sandboxRunning}
             />
             <PromptInputFooter>
               <PersonaDropdown
@@ -371,13 +369,11 @@ export function DesignDetailClient({
                 onChange={setSelectedPersonaId}
               />
               <div className="flex items-center gap-1">
-                <PromptInputSpeech
-                  disabled={isExecuting || !true || !sandboxRunning}
-                />
+                <PromptInputSpeech disabled={isExecuting || !sandboxRunning} />
                 <PromptInputSubmit
                   status={submitStatus}
                   onStop={handleCancel}
-                  disabled={isExecuting || !true || !sandboxRunning}
+                  disabled={isExecuting || !sandboxRunning}
                 />
               </div>
             </PromptInputFooter>
@@ -389,15 +385,21 @@ export function DesignDetailClient({
         {latestVariations.length > 0 ? (
           <Tabs
             value={activeTab}
-            onValueChange={(v) => setDesignParams({ tab: v })}
+            onValueChange={(v) => {
+              if (v === "0" || v === "1" || v === "2") {
+                setDesignParams({ tab: v });
+              }
+            }}
             className="flex flex-col h-full"
           >
             <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
               <Tabs
                 value={viewMode}
-                onValueChange={(v) =>
-                  setDesignParams({ view: v as "desktop" | "mobile" })
-                }
+                onValueChange={(v) => {
+                  if (v === "desktop" || v === "mobile") {
+                    setDesignParams({ view: v });
+                  }
+                }}
               >
                 <TabsList className="h-8">
                   <TabsTrigger value="desktop" className="text-xs px-2">

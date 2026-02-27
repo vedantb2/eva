@@ -34,21 +34,21 @@ export async function resolveEnvVars(
   return { ...teamEnvVars, ...repoEnvVars };
 }
 
-export async function resolveDaytonaApiKey(
+export async function resolveE2bApiKey(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
-): Promise<{ daytonaApiKey: string; sandboxEnvVars: Record<string, string> }> {
+): Promise<{ e2bApiKey: string; sandboxEnvVars: Record<string, string> }> {
   const envVars = await resolveEnvVars(ctx, repoId);
-  const daytonaApiKey = envVars.DAYTONA_API_KEY;
+  const e2bApiKey = envVars.E2B_API_KEY;
 
-  if (!daytonaApiKey) {
+  if (!e2bApiKey) {
     throw new Error(
-      "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
+      "E2B_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
     );
   }
 
   const sandboxEnvVars = { ...envVars };
-  delete sandboxEnvVars.DAYTONA_API_KEY;
+  delete sandboxEnvVars.E2B_API_KEY;
 
-  return { daytonaApiKey, sandboxEnvVars };
+  return { e2bApiKey, sandboxEnvVars };
 }

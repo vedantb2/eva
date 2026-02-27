@@ -183,7 +183,7 @@ export const designSessionWorkflow = workflow.define({
     }
 
     await step.runAction(
-      internal.daytona.launchOnExistingSandbox,
+      internal.sandbox.launchOnExistingSandbox,
       {
         sandboxId: sessionData.sandboxId,
         entityId: args.designSessionId,

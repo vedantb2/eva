@@ -81,7 +81,7 @@ export const testGenWorkflow = workflow.define({
 
     // Step 3: Setup ephemeral sandbox + fire test gen script
     // Uses branch, Write/Edit/Bash tools, and git push
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.docId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,

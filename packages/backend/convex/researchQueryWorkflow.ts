@@ -137,7 +137,7 @@ export const generateQueryWorkflow = workflow.define({
 
     // Step 3: Setup sandbox + fire Claude CLI
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.sandbox.setupAndExecute,
       {
         entityId: String(args.queryId),
         installationId: args.installationId,
@@ -198,7 +198,7 @@ export const confirmQueryWorkflow = workflow.define({
     );
 
     // Step 3: Reuse existing sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: String(args.queryId),
       existingSandboxId: data.sandboxId,
       installationId: args.installationId,

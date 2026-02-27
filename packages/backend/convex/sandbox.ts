@@ -1,14 +1,13 @@
 "use node";
 
-import { createHash } from "crypto";
 import { v } from "convex/values";
 import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
+import { Sandbox } from "@e2b/desktop";
 import { quote } from "shell-quote";
-import { resolveDaytonaApiKey } from "./envVarResolver";
+import { resolveE2bApiKey } from "./envVarResolver";
 import {
   buildGitHubExtraHeader,
   buildGitHubRepoUrl,
@@ -16,46 +15,42 @@ import {
 } from "./githubAuth";
 
 const WORKSPACE_DIR = "/workspace/repo";
-const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
-const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
-const SNAPSHOT_READY_TIMEOUT_ERROR =
+const DEFAULT_TIMEOUT_SECONDS = 60;
+const TEMPLATE_TIMEOUT_SECONDS = 30;
+const TEMPLATE_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
-const CLAUDE_VOLUME_MOUNT_PATH = "/home/daytona/.claude";
-const VOLUME_READY_TIMEOUT_MS = 45_000;
-const VOLUME_READY_POLL_INTERVAL_MS = 1_000;
 
 async function exec(
   sandbox: Sandbox,
   cmd: string,
-  timeout = 30,
+  timeoutMs = 30_000,
 ): Promise<string> {
-  const resp = await sandbox.process.executeCommand(
-    cmd,
-    "/",
-    undefined,
-    timeout,
-  );
+  const resp = await sandbox.commands.run(cmd, {
+    timeoutMs,
+  });
   if (resp.exitCode !== 0) {
-    const output = resp.result?.trim();
+    const output = (resp.stderr || resp.stdout).trim();
     throw new Error(
       output
         ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
         : `Sandbox command failed with exit code ${resp.exitCode}`,
     );
   }
-  return resp.result;
+  return resp.stdout;
 }
 
 async function ensureSandboxRunning(
-  sandbox: Sandbox,
-  timeoutSeconds = DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
-): Promise<void> {
+  sandboxId: string,
+  apiKey: string,
+): Promise<Sandbox> {
   try {
-    await exec(sandbox, "echo 1", 5);
-    return;
+    const sandbox = await Sandbox.connect(sandboxId, { apiKey });
+    await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
+    return sandbox;
   } catch {
-    await sandbox.start(timeoutSeconds);
-    await exec(sandbox, "echo 1", 5);
+    const sandbox = await Sandbox.resume(sandboxId, { apiKey });
+    await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
+    return sandbox;
   }
 }
 
@@ -65,128 +60,49 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function sessionHash(sessionId: Id<"sessions">): string {
-  return createHash("sha256").update(String(sessionId)).digest("hex");
-}
-
-function sessionVolumeName(sessionId: Id<"sessions">): string {
-  return `claude-session-${sessionHash(sessionId).slice(0, 40)}`;
-}
-
-function sessionClaudeUuid(sessionId: Id<"sessions">): string {
-  const hex = sessionHash(sessionId).slice(0, 32).split("");
-  hex[12] = "4";
-  const variantNibble = (parseInt(hex[16], 16) & 0x3) | 0x8;
-  hex[16] = variantNibble.toString(16);
-  return [
-    hex.slice(0, 8).join(""),
-    hex.slice(8, 12).join(""),
-    hex.slice(12, 16).join(""),
-    hex.slice(16, 20).join(""),
-    hex.slice(20, 32).join(""),
-  ].join("-");
-}
-
-async function ensureSessionClaudeVolume(
-  daytona: Daytona,
-  sessionId: Id<"sessions">,
-): Promise<VolumeMount[]> {
-  const volumeName = sessionVolumeName(sessionId);
-  const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
-
-  let volume = await daytona.volume.get(volumeName, true);
-  while (volume.state !== "ready") {
-    if (
-      volume.state === "error" ||
-      volume.state === "deleted" ||
-      volume.state === "deleting" ||
-      volume.state === "pending_delete"
-    ) {
-      throw new Error(
-        `Volume '${volumeName}' is in an invalid state. Current state: ${volume.state}`,
-      );
-    }
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `Volume '${volumeName}' did not become ready within ${VOLUME_READY_TIMEOUT_MS}ms. Current state: ${volume.state}`,
-      );
-    }
-    await sleep(VOLUME_READY_POLL_INTERVAL_MS);
-    volume = await daytona.volume.get(volumeName);
-  }
-
-  return [{ volumeId: volume.id, mountPath: CLAUDE_VOLUME_MOUNT_PATH }];
-}
-
 async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<{
-  daytona: Daytona;
+  apiKey: string;
   sandboxEnvVars: Record<string, string>;
-  snapshotName: string | undefined;
+  templateName: string | undefined;
 }> {
-  const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-    ctx,
-    repoId,
-  );
-  const daytona = getDaytona(daytonaApiKey);
+  const { e2bApiKey, sandboxEnvVars } = await resolveE2bApiKey(ctx, repoId);
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
-  const snapshotName = repoSnapshot?.snapshotName;
-  return { daytona, sandboxEnvVars, snapshotName };
+  const templateName = repoSnapshot?.snapshotName;
+  return { apiKey: e2bApiKey, sandboxEnvVars, templateName };
 }
 
-function isSnapshotReadyTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes(SNAPSHOT_READY_TIMEOUT_ERROR);
+function isTemplateReadyTimeoutError(error: Error): boolean {
+  return error.message.includes(TEMPLATE_READY_TIMEOUT_ERROR);
 }
 
 async function createSandbox(
-  daytona: Daytona,
+  apiKey: string,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
-  snapshotName?: string,
-  volumes?: VolumeMount[],
+  templateName?: string,
 ): Promise<Sandbox> {
-  const timeoutSeconds = snapshotName
-    ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
-    : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS;
-
   const githubToken = await getInstallationToken(installationId);
 
-  const sandbox = await daytona.create(
-    {
-      ...(snapshotName
-        ? { snapshot: snapshotName }
-        : { language: "typescript" }),
-      ...(volumes ? { volumes } : {}),
-      envVars: {
-        ...sandboxEnvVars,
-        GITHUB_TOKEN: githubToken,
-        INSTALLATION_ID: String(installationId),
-      },
-      autoStopInterval: 10,
-      autoDeleteInterval: 15,
+  const sandbox = await Sandbox.create(templateName ?? "desktop", {
+    apiKey,
+    envs: {
+      ...sandboxEnvVars,
+      GITHUB_TOKEN: githubToken,
+      INSTALLATION_ID: String(installationId),
     },
-    { timeout: timeoutSeconds },
-  );
+    timeout: templateName ? TEMPLATE_TIMEOUT_SECONDS : DEFAULT_TIMEOUT_SECONDS,
+    resolution: [1920, 1080],
+  });
   await exec(
     sandbox,
     'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
-    10,
+    10_000,
   );
   return sandbox;
 }
@@ -199,7 +115,7 @@ async function syncRepo(
 ): Promise<void> {
   await fetchOrigin(sandbox, installationId, owner, name, undefined, {
     prune: true,
-    timeoutSeconds: 60,
+    timeoutMs: 60_000,
   });
 }
 
@@ -211,7 +127,7 @@ async function checkoutSessionBranch(
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
-    30,
+    30_000,
   );
 }
 
@@ -226,82 +142,81 @@ async function cloneAndSetupRepo(
   await exec(
     sandbox,
     `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    120,
+    120_000,
   );
   const lockFile = (
     await exec(
       sandbox,
       `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
-      5,
+      5_000,
     )
   ).trim();
   if (lockFile === "pnpm-lock.yaml") {
-    await exec(sandbox, `npm install -g pnpm`, 30);
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
+    await exec(sandbox, `npm install -g pnpm`, 30_000);
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120_000);
   } else if (lockFile === "yarn.lock") {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && yarn install`, 120);
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && yarn install`, 120_000);
   } else {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && npm install`, 120);
+    await exec(sandbox, `cd ${WORKSPACE_DIR} && npm install`, 120_000);
   }
 }
 
 async function createSandboxAndPrepareRepo(
-  daytona: Daytona,
+  apiKey: string,
   installationId: number,
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  snapshotName?: string,
-  volumes?: VolumeMount[],
-): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
+  templateName?: string,
+): Promise<{ sandbox: Sandbox; usedTemplate: boolean }> {
   try {
     const sandbox = await createSandbox(
-      daytona,
+      apiKey,
       installationId,
       sandboxEnvVars,
-      snapshotName,
-      volumes,
+      templateName,
     );
-    if (snapshotName) {
+    if (templateName) {
       await syncRepo(sandbox, installationId, owner, name);
-      return { sandbox, usedSnapshot: true };
+      return { sandbox, usedTemplate: true };
     }
     await cloneAndSetupRepo(sandbox, installationId, owner, name);
-    return { sandbox, usedSnapshot: false };
+    return { sandbox, usedTemplate: false };
   } catch (error) {
-    if (!snapshotName || !isSnapshotReadyTimeoutError(error)) {
+    if (
+      !templateName ||
+      !(error instanceof Error) ||
+      !isTemplateReadyTimeoutError(error)
+    ) {
       throw error;
     }
 
     console.warn(
-      `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying with same snapshot`,
+      `[sandbox] Template "${templateName}" not ready after ${TEMPLATE_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying`,
     );
     const sandbox = await createSandbox(
-      daytona,
+      apiKey,
       installationId,
       sandboxEnvVars,
-      snapshotName,
-      volumes,
+      templateName,
     );
     await syncRepo(sandbox, installationId, owner, name);
-    return { sandbox, usedSnapshot: true };
+    return { sandbox, usedTemplate: true };
   }
 }
 
 async function getOrCreateSandbox(
-  daytona: Daytona,
+  apiKey: string,
   existingSandboxId: string | undefined,
   installationId: number,
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
-  snapshotName?: string,
-  volumes?: VolumeMount[],
+  templateName?: string,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
-      const sandbox = await daytona.get(existingSandboxId);
-      await ensureSandboxRunning(sandbox);
+      const sandbox = await ensureSandboxRunning(existingSandboxId, apiKey);
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, isNew: false };
     } catch {
@@ -309,13 +224,12 @@ async function getOrCreateSandbox(
     }
   }
   const { sandbox } = await createSandboxAndPrepareRepo(
-    daytona,
+    apiKey,
     installationId,
     owner,
     name,
     sandboxEnvVars,
-    snapshotName,
-    volumes,
+    templateName,
   );
   return { sandbox, isNew: true };
 }
@@ -334,11 +248,10 @@ async function configureGitHubOrigin(
     sandbox,
     [
       `cd ${WORKSPACE_DIR}`,
-      // Snapshots/reused sandboxes can carry stale GitHub auth headers.
       "git config --unset-all http.https://github.com/.extraheader >/dev/null 2>&1 || true",
       `git remote set-url origin ${quote([repoUrl])}`,
     ].join(" && "),
-    20,
+    20_000,
   );
 
   return { authHeader };
@@ -350,7 +263,7 @@ async function fetchOrigin(
   owner: string,
   name: string,
   ref?: string,
-  opts?: { prune?: boolean; timeoutSeconds?: number },
+  opts?: { prune?: boolean; timeoutMs?: number },
 ): Promise<void> {
   const { authHeader } = await configureGitHubOrigin(
     sandbox,
@@ -363,52 +276,39 @@ async function fetchOrigin(
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git -c http.https://github.com/.extraheader=${quote([authHeader])} fetch${pruneArg} origin${refArg}`,
-    opts?.timeoutSeconds ?? 60,
+    opts?.timeoutMs ?? 60_000,
   );
 }
 
-/**
- * Sets up a git branch in the sandbox — creates it or checks it out if it exists.
- * Stashes dirty state first to prevent checkout failures, then verifies the switch.
- */
 async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
-  // Stash any dirty state from previous executions, then checkout
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${quotedBranch}`,
-    10,
+    10_000,
   );
-  // Verify the branch was actually switched
   const currentBranch = (
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && git branch --show-current`, 5)
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git branch --show-current`,
+      5_000,
+    )
   ).trim();
   if (currentBranch !== branchName) {
     throw new Error(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
-  // Push branch to remote so it exists before Claude starts — makes subsequent pushes fast
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
-    30,
+    30_000,
   );
 }
 
-/**
- * Generic callback handler script that runs inside the Daytona sandbox.
- * Spawns Claude CLI, parses stream-json output, streams activity updates
- * via Convex HTTP API, and calls the specified completion mutation when done.
- *
- * @param completionMutation - The Convex mutation path to call on completion
- *   (e.g. "designWorkflow:handleCompletion", "summarizeWorkflow:handleCompletion")
- * @param entityIdField - The field name for the entity ID in the completion args
- *   (e.g. "designSessionId", "sessionId", "docId")
- */
 function buildCallbackScript(
   completionMutation: string,
   entityIdField: string,
@@ -490,7 +390,6 @@ function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
 
-    // tool_result events mark the previous tool step as complete
     if (event.type === "tool_result") {
       markLastComplete();
       return true;
@@ -549,7 +448,6 @@ async function flushStreaming() {
   }
 }
 
-// Send initial step immediately so frontend sees progress right away
 accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
 callMutation("streaming:set", {
   entityId: ENTITY_ID,
@@ -558,7 +456,6 @@ callMutation("streaming:set", {
 
 const interval = setInterval(flushStreaming, 500);
 
-// Refresh GITHUB_TOKEN right before spawning Claude
 const INSTALLATION_ID = process.env.INSTALLATION_ID;
 if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
@@ -700,10 +597,6 @@ try {
 `.trim();
 }
 
-/**
- * Uploads prompt + script to sandbox and fires the script via nohup.
- * Returns immediately — the script calls back to Convex when done.
- */
 async function launchScript(
   sandbox: Sandbox,
   prompt: string,
@@ -719,20 +612,11 @@ async function launchScript(
     claudeSessionId?: string;
   } = {},
 ): Promise<void> {
-  // Upload the prompt
-  await sandbox.fs.uploadFile(
-    Buffer.from(prompt, "utf-8"),
-    "/tmp/design-prompt.txt",
-  );
+  await sandbox.files.write("/tmp/design-prompt.txt", prompt);
 
-  // Upload the callback handler script
   const handlerScript = buildCallbackScript(completionMutation, entityIdField);
-  await sandbox.fs.uploadFile(
-    Buffer.from(handlerScript, "utf-8"),
-    "/tmp/run-design.mjs",
-  );
+  await sandbox.files.write("/tmp/run-design.mjs", handlerScript);
 
-  // Build env vars and fire
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
@@ -751,18 +635,12 @@ async function launchScript(
     }
   }
   const envVars = envParts.join(" ");
-  await sandbox.process.executeCommand(
+  await sandbox.commands.run(
     `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
-    "/",
-    undefined,
-    10,
+    { timeoutMs: 10_000 },
   );
 }
 
-/**
- * Runs a command on an existing sandbox and returns the output.
- * Used for post-completion operations like capturing git diffs or reading files.
- */
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),
@@ -772,26 +650,23 @@ export const runSandboxCommand = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
+    const sandbox = await Sandbox.connect(args.sandboxId, {
+      apiKey: e2bApiKey,
+    });
     return (
-      await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
+      await exec(sandbox, args.command, (args.timeoutSeconds ?? 30) * 1000)
     ).trim();
   },
 });
 
-export const getPreviewUrl = action({
+export const getDesktopStreamUrl = action({
   args: {
     sandboxId: v.string(),
-    port: v.number(),
-    checkReady: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
   },
   returns: v.object({
     url: v.string(),
-    port: v.number(),
-    ready: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -799,34 +674,43 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
-    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 3600);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
+    const sandbox = await Sandbox.connect(args.sandboxId, {
+      apiKey: e2bApiKey,
+    });
+    await sandbox.stream.start();
+    const streamUrl = sandbox.stream.getUrl();
 
-    let ready = true;
-    if (args.checkReady) {
-      try {
-        const result = await exec(
-          sandbox,
-          `curl -s -o /dev/null -w "%{http_code}" http://localhost:${args.port}`,
-          3,
-        );
-        const code = parseInt(result.trim() || "0", 10);
-        ready = code >= 200 && code < 500;
-      } catch {
-        ready = false;
-      }
-    }
-
-    return { url: signedPreview.url, port: args.port, ready };
+    return { url: streamUrl };
   },
 });
 
-/**
- * Generic sandbox setup + script launch action for all workflows.
- * Reuses or creates a sandbox, syncs repo, and fires the callback script.
- */
+export const getServiceUrl = action({
+  args: {
+    sandboxId: v.string(),
+    port: v.number(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    url: v.string(),
+    port: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
+    const sandbox = await Sandbox.connect(args.sandboxId, {
+      apiKey: e2bApiKey,
+    });
+    const hostUrl = sandbox.getHost(args.port);
+
+    return { url: `https://${hostUrl}`, port: args.port };
+  },
+});
+
 export const setupAndExecute = internalAction({
   args: {
     entityId: v.string(),
@@ -845,7 +729,6 @@ export const setupAndExecute = internalAction({
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.optional(v.id("githubRepos")),
-    sessionPersistenceId: v.optional(v.id("sessions")),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -853,34 +736,26 @@ export const setupAndExecute = internalAction({
       throw new Error("repoId is required for setupAndExecute");
     }
 
-    const { daytona, sandboxEnvVars, snapshotName } =
+    const { apiKey, sandboxEnvVars, templateName } =
       await resolveSandboxContext(ctx, args.repoId);
-    const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
-      : undefined;
-    const claudeSessionId = args.sessionPersistenceId
-      ? sessionClaudeUuid(args.sessionPersistenceId)
-      : undefined;
 
     const { sandbox } = await (args.ephemeral
       ? createSandboxAndPrepareRepo(
-          daytona,
+          apiKey,
           args.installationId,
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          snapshotName,
-          sessionVolumeMounts,
+          templateName,
         )
       : getOrCreateSandbox(
-          daytona,
+          apiKey,
           args.existingSandboxId,
           args.installationId,
           args.repoOwner,
           args.repoName,
           sandboxEnvVars,
-          snapshotName,
-          sessionVolumeMounts,
+          templateName,
         ));
 
     if (args.baseBranch) {
@@ -890,12 +765,12 @@ export const setupAndExecute = internalAction({
         args.repoOwner,
         args.repoName,
         args.baseBranch,
-        { prune: false, timeoutSeconds: 30 },
+        { prune: false, timeoutMs: 30_000 },
       );
       await exec(
         sandbox,
         `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git reset --hard ${quote([`origin/${args.baseBranch}`])}`,
-        30,
+        30_000,
       );
     }
 
@@ -915,18 +790,13 @@ export const setupAndExecute = internalAction({
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
         extraEnvVars: sandboxEnvVars,
-        claudeSessionId,
       },
     );
 
-    return { sandboxId: sandbox.id };
+    return { sandboxId: sandbox.sandboxId };
   },
 });
 
-/**
- * Launches the callback script on an already-running sandbox.
- * Used by design sessions where the sandbox is started separately.
- */
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -942,9 +812,10 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
+    const sandbox = await Sandbox.connect(args.sandboxId, {
+      apiKey: e2bApiKey,
+    });
 
     await launchScript(
       sandbox,
@@ -964,11 +835,6 @@ export const launchOnExistingSandbox = internalAction({
   },
 });
 
-/**
- * Launches a code audit in an existing sandbox via nohup (fire-and-forget).
- * Reuses buildCallbackScript/launchScript — streaming activity updates are
- * harmlessly ignored since the task is already marked complete by this point.
- */
 export const launchAudit = internalAction({
   args: {
     sandboxId: v.string(),
@@ -979,9 +845,10 @@ export const launchAudit = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
+    const sandbox = await Sandbox.connect(args.sandboxId, {
+      apiKey: e2bApiKey,
+    });
 
     await launchScript(
       sandbox,
@@ -1036,14 +903,15 @@ export const runSessionAudit = internalAction({
         throw new Error("Session not found");
       }
 
-      const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
-      const daytona = getDaytona(daytonaApiKey);
-      const sandbox = await daytona.get(args.sandboxId);
+      const { e2bApiKey } = await resolveE2bApiKey(ctx, session.repoId);
+      const sandbox = await Sandbox.connect(args.sandboxId, {
+        apiKey: e2bApiKey,
+      });
 
       const diffRaw = await exec(
         sandbox,
         `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-        30,
+        30_000,
       );
 
       if (!diffRaw.trim()) {
@@ -1061,10 +929,7 @@ export const runSessionAudit = internalAction({
         "sessionId",
         args.convexToken,
         String(args.sessionId),
-        {
-          model: "haiku",
-          claudeSessionId: sessionClaudeUuid(args.sessionId),
-        },
+        { model: "haiku" },
       );
     } catch (err) {
       await ctx.runMutation(internal.sessionAudits.fail, {
@@ -1076,15 +941,16 @@ export const runSessionAudit = internalAction({
   },
 });
 
-export const deleteSandbox = internalAction({
+export const killSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
     try {
-      const sandbox = await daytona.get(args.sandboxId);
-      await sandbox.delete();
+      const sandbox = await Sandbox.connect(args.sandboxId, {
+        apiKey: e2bApiKey,
+      });
+      await sandbox.kill();
     } catch {
       // Sandbox may already be deleted or expired
     }
@@ -1092,7 +958,7 @@ export const deleteSandbox = internalAction({
   },
 });
 
-export const stopSandbox = internalAction({
+export const pauseSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
@@ -1110,48 +976,19 @@ export const stopSandbox = internalAction({
       return null;
     }
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
     try {
-      const sandbox = await daytona.get(args.sandboxId);
-      await sandbox.stop();
+      const sandbox = await Sandbox.connect(args.sandboxId, {
+        apiKey: e2bApiKey,
+      });
+      await sandbox.pause();
     } catch {}
     return null;
   },
 });
 
-export const toggleCodeServer = action({
-  args: {
-    sandboxId: v.string(),
-    repoId: v.id("githubRepos"),
-    action: v.union(v.literal("start"), v.literal("stop")),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
-
-    if (args.action === "start") {
-      await exec(
-        sandbox,
-        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
-        10,
-      );
-    } else {
-      await exec(sandbox, "pkill -f code-server || true", 10);
-    }
-
-    return null;
-  },
-});
-
-async function startSessionServices(sandbox: Sandbox): Promise<void> {
-  console.log("hi");
-  // await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm eproc:dev > /dev/null 2>&1 &`, 10);
+async function startDesktopStream(sandbox: Sandbox): Promise<void> {
+  await sandbox.stream.start();
 }
 
 export const startSessionSandbox = internalAction({
@@ -1171,13 +1008,16 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { daytona, sandboxEnvVars, snapshotName } =
+      const { apiKey, sandboxEnvVars, templateName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await daytona.get(args.existingSandboxId);
-          await ensureSandboxRunning(sandbox);
+          const sandbox = await ensureSandboxRunning(
+            args.existingSandboxId,
+            apiKey,
+          );
+          await startDesktopStream(sandbox);
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: args.existingSandboxId,
@@ -1191,7 +1031,6 @@ export const startSessionSandbox = internalAction({
             args.repoName,
           );
           await checkoutSessionBranch(sandbox, args.branchName);
-          await startSessionServices(sandbox);
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new
@@ -1199,28 +1038,27 @@ export const startSessionSandbox = internalAction({
       }
 
       const prepared = await createSandboxAndPrepareRepo(
-        daytona,
+        apiKey,
         args.installationId,
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        snapshotName,
-        await ensureSessionClaudeVolume(daytona, args.sessionId),
+        templateName,
       );
       const sandbox = prepared.sandbox;
-      if (prepared.usedSnapshot) {
+      if (prepared.usedTemplate) {
         await fetchOrigin(
           sandbox,
           args.installationId,
           args.repoOwner,
           args.repoName,
           args.branchName,
-          { prune: false, timeoutSeconds: 30 },
+          { prune: false, timeoutMs: 30_000 },
         );
         await exec(
           sandbox,
           `cd ${WORKSPACE_DIR} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
-          120,
+          120_000,
         );
       } else {
         await fetchOrigin(
@@ -1229,22 +1067,22 @@ export const startSessionSandbox = internalAction({
           args.repoOwner,
           args.repoName,
           args.branchName,
-          { prune: false, timeoutSeconds: 30 },
+          { prune: false, timeoutMs: 30_000 },
         );
         await exec(
           sandbox,
           `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
-          30,
+          30_000,
         );
       }
-      await startSessionServices(sandbox);
+      await startDesktopStream(sandbox);
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
         sessionId: args.sessionId,
-        sandboxId: sandbox.id,
+        sandboxId: sandbox.sandboxId,
         branchName: args.branchName,
         isNew: true,
-        usedSnapshot: prepared.usedSnapshot,
+        usedSnapshot: prepared.usedTemplate,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -1274,13 +1112,16 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { daytona, sandboxEnvVars, snapshotName } =
+      const { apiKey, sandboxEnvVars, templateName } =
         await resolveSandboxContext(ctx, args.repoId);
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await daytona.get(args.existingSandboxId);
-          await exec(sandbox, "echo 1", 5);
+          const sandbox = await ensureSandboxRunning(
+            args.existingSandboxId,
+            apiKey,
+          );
+          await startDesktopStream(sandbox);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
             sandboxId: args.existingSandboxId,
@@ -1294,7 +1135,6 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          await startSessionServices(sandbox);
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new
@@ -1302,23 +1142,23 @@ export const startDesignSandbox = internalAction({
       }
 
       const prepared = await createSandboxAndPrepareRepo(
-        daytona,
+        apiKey,
         args.installationId,
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        snapshotName,
+        templateName,
       );
       const sandbox = prepared.sandbox;
       await setupBranch(sandbox, args.branchName);
-      if (prepared.usedSnapshot) {
-        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
+      if (prepared.usedTemplate) {
+        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120_000);
       }
-      await startSessionServices(sandbox);
+      await startDesktopStream(sandbox);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
-        sandboxId: sandbox.id,
+        sandboxId: sandbox.sandboxId,
         branchName: args.branchName,
         isNew: true,
       });

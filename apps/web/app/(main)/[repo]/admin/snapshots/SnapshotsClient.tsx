@@ -290,11 +290,9 @@ export function SnapshotsClient() {
 
             <div className="flex items-center justify-between pt-2 border-t border-border/40">
               <p className="text-[11px] text-muted-foreground">
-                Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
+                Requires <code className="font-mono">rebuild-template.yml</code>{" "}
                 workflow on target branch +{" "}
-                <code className="font-mono">DAYTONA_API_KEY</code> secret in
-                repo, and <code className="font-mono">SNAPSHOT_GITHUB_PAT</code>{" "}
-                in Env Variables.
+                <code className="font-mono">E2B_API_KEY</code> secret in repo.
               </p>
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Spinner size="sm" className="mr-1.5" /> : null}

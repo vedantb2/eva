@@ -1,38 +1,42 @@
-import { Daytona, Sandbox } from "@daytonaio/sdk";
+import { Sandbox } from "@e2b/desktop";
 import { createAppAuth } from "@octokit/auth-app";
 import { quote } from "shell-quote";
 
-const daytona = new Daytona();
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
 
 export async function getGitHubToken(installationId: number): Promise<string> {
   const auth = createAppAuth({
-    appId: process.env.GITHUB_APP_ID!,
-    privateKey: process.env.GITHUB_PRIVATE_KEY!,
-    clientId: process.env.GITHUB_CLIENT_ID!,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    appId: requireEnv("GITHUB_APP_ID"),
+    privateKey: requireEnv("GITHUB_PRIVATE_KEY"),
+    clientId: requireEnv("GITHUB_CLIENT_ID"),
+    clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
   });
   const { token } = await auth({ type: "installation", installationId });
   return token;
 }
 
 export async function createBotSandbox(githubToken: string): Promise<Sandbox> {
-  return daytona.create({
-    envVars: {
+  return Sandbox.create("desktop", {
+    envs: {
       GITHUB_TOKEN: githubToken,
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN!,
+      CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
     },
-    autoStopInterval: 60,
+    timeout: 3600,
   });
 }
 
 export async function getSandbox(sandboxId: string): Promise<Sandbox> {
-  return daytona.get(sandboxId);
+  return Sandbox.connect(sandboxId);
 }
 
 export async function isSandboxAlive(sandboxId: string): Promise<boolean> {
   try {
-    const sandbox = await daytona.get(sandboxId);
-    await sandbox.process.executeCommand("echo 'alive'", "/", undefined, 5);
+    const sandbox = await Sandbox.connect(sandboxId);
+    await sandbox.commands.run("echo 'alive'", { timeoutMs: 5_000 });
     return true;
   } catch {
     return false;
@@ -40,12 +44,9 @@ export async function isSandboxAlive(sandboxId: string): Promise<boolean> {
 }
 
 export async function installClaudeCode(sandbox: Sandbox): Promise<void> {
-  await sandbox.process.executeCommand(
-    "npm install -g @anthropic-ai/claude-code",
-    "/",
-    undefined,
-    120,
-  );
+  await sandbox.commands.run("npm install -g @anthropic-ai/claude-code", {
+    timeoutMs: 120_000,
+  });
 }
 
 export async function cloneRepo(
@@ -55,14 +56,12 @@ export async function cloneRepo(
   name: string,
 ): Promise<void> {
   const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${name}.git`;
-  const result = await sandbox.process.executeCommand(
+  const result = await sandbox.commands.run(
     `git clone ${repoUrl} ~/workspace`,
-    "/",
-    undefined,
-    120,
+    { timeoutMs: 120_000 },
   );
   if (result.exitCode !== 0) {
-    const sanitized = (result.result || "").replace(
+    const sanitized = (result.stderr || result.stdout || "").replace(
       new RegExp(githubToken, "g"),
       "[REDACTED]",
     );
@@ -98,22 +97,19 @@ export async function runClaudeCLI(
   const toolsArg =
     allowedTools.length > 0 ? `--allowedTools "${allowedTools.join(",")}"` : "";
 
-  const cmdResult = await sandbox.process.executeCommand(
+  const cmdResult = await sandbox.commands.run(
     `cd ~/workspace && echo ${escapedPrompt} | npx @anthropic-ai/claude-code -p --dangerously-skip-permissions --model ${model} ${toolsArg} --output-format json`,
-    "/",
-    undefined,
-    timeout,
+    { timeoutMs: timeout * 1000 },
   );
 
-  return parseClaudeOutput(cmdResult.result || "");
+  return parseClaudeOutput(cmdResult.stdout || "");
 }
 
 function parseClaudeOutput(output: string): ClaudeCLIResult {
   try {
     const json = JSON.parse(output.trim());
-    const messages: Array<Record<string, unknown>> = Array.isArray(json)
-      ? json
-      : [json];
+    const messages: Array<Record<string, string | number | boolean>> =
+      Array.isArray(json) ? json : [json];
     const resultMsg = messages.find((m) => m.type === "result");
 
     if (resultMsg) {

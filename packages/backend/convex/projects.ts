@@ -592,7 +592,7 @@ export const clearProjectSandbox = authMutation({
       throw new Error("Project not found");
     }
     if (project.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandbox, {
         sandboxId: project.sandboxId,
         repoId: project.repoId,
       });

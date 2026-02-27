@@ -1,5 +1,21 @@
 # Changelog
 
+## Migrate Daytona to E2B Desktop — 2026-02-27
+
+- **Why**: Daytona sandboxes had slow startup, network restrictions, and iframe-based previews that blocked auth. E2B Desktop gives ~150ms sandbox startup (Firecracker microVMs), unrestricted networking, and WebRTC desktop streaming (replaces iframe preview). Users now see a full desktop with Chrome, terminal, and VS Code inside the sandbox.
+
+- **Changes**:
+  1. **Backend core rewrite**: Renamed `daytona.ts` → `sandbox.ts`, rewrote all SDK calls from `@daytonaio/sdk` to `@e2b/desktop`. Key API changes: `Daytona.create()` → `Sandbox.create()`, `daytona.get()` → `Sandbox.connect()`, `sandbox.process.executeCommand()` → `sandbox.commands.run()`, `sandbox.fs.uploadFile()` → `sandbox.files.write()`, `sandbox.stop()` → `sandbox.pause()`, `sandbox.start()` → `Sandbox.resume()`, `sandbox.delete()` → `sandbox.kill()`.
+  2. **Desktop stream replaces iframe preview**: New `getDesktopStreamUrl` action (replaces `getPreviewUrl`). Also added `getServiceUrl` for direct port access. Removed `toggleCodeServer` — VS Code runs inside the desktop.
+  3. **Pause/resume replaces volumes**: Removed volume management (`ensureSessionClaudeVolume`, `sessionVolumeName`, `sessionClaudeUuid`). Full sandbox state preserved via E2B pause/resume (30-day retention).
+  4. **Removed terminal infrastructure**: Deleted `TerminalPanel.tsx`, `EditorPanel.tsx`, `WebPreviewPanel.tsx`, and `apps/web/app/api/sessions/terminal/route.ts`. Terminal and editor are now inside the desktop stream.
+  5. **New DesktopStreamPanel**: Replaces the old 3-tab system (Preview/Diffs/Editor) with 2 tabs (Desktop/Diffs).
+  6. **Updated all callers**: 14 backend workflow files updated from `internal.daytona.*` to `internal.sandbox.*`. Renamed `deleteSandbox` → `killSandbox`, `stopSandbox` → `pauseSandbox`.
+  7. **Env var rename**: `DAYTONA_API_KEY` → `E2B_API_KEY` throughout (envVarResolver, SetupBanner, .env.example, server.ts).
+  8. **Template builds**: `snapshotActions.ts` rewritten — `deleteDaytonaSnapshot` → `deleteE2bTemplate` (uses E2B REST API). GitHub workflow renamed `rebuild-snapshot.yml` → `rebuild-template.yml` with E2B CLI.
+  9. **Teams bot**: Rewrote `sandbox.ts` for E2B Desktop SDK.
+  10. **Removed xterm dependencies**: `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links` removed from web package.json.
+
 ## Hold task in in_progress until audit completes - 2026-02-27
 
 - **Why**: Tasks were moving to `business_review` immediately after Claude CLI succeeded, before the post-execution audit finished. This meant reviewers could start reviewing code that hadn't been audited yet.

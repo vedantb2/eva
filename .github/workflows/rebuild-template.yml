@@ -1,10 +1,10 @@
-name: Rebuild Daytona Snapshot
+name: Rebuild E2B Template
 
 on:
   workflow_dispatch:
     inputs:
-      snapshot_name:
-        description: "Daytona snapshot name"
+      template_name:
+        description: "E2B template name"
         required: true
       custom_commands:
         description: "JSON array of custom setup commands"
@@ -16,24 +16,34 @@ on:
         default: "[]"
 
 jobs:
-  rebuild-snapshot:
+  rebuild-template:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install E2B CLI
+        run: npm install -g @e2b/cli
+
+      - name: Authenticate E2B CLI
+        run: e2b auth login --api-key ${{ secrets.E2B_API_KEY }}
 
       - name: Generate Dockerfile
         env:
           CUSTOM_ENV_VARS: ${{ inputs.custom_env_vars }}
           CUSTOM_COMMANDS: ${{ inputs.custom_commands }}
         run: |
-          cat > Dockerfile.snapshot <<'BASEEOF'
+          cat > Dockerfile.template <<'BASEEOF'
           FROM node:20-bullseye
 
           RUN apt-get update && apt-get install -y git curl
           RUN corepack enable
           RUN npm install -g @anthropic-ai/claude-code agent-browser convex
           RUN npx playwright install-deps chromium
-          RUN curl -fsSL https://code-server.dev/install.sh | sh
 
           RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
           USER eva
@@ -53,39 +63,17 @@ jobs:
           COPY --chown=eva:eva . /workspace/repo
           BASEEOF
 
-          printf '%s' "$CUSTOM_ENV_VARS" | jq -r '.[] | "ENV \(.key)=\(.value | @json)"' >> Dockerfile.snapshot
+          printf '%s' "$CUSTOM_ENV_VARS" | jq -r '.[] | "ENV \(.key)=\(.value | @json)"' >> Dockerfile.template
 
-          printf '%s' "$CUSTOM_COMMANDS" | jq -r '.[] | "RUN \(.)"' >> Dockerfile.snapshot
+          printf '%s' "$CUSTOM_COMMANDS" | jq -r '.[] | "RUN \(.)"' >> Dockerfile.template
 
-          cat >> Dockerfile.snapshot <<'TAILEOF'
+          cat >> Dockerfile.template <<'TAILEOF'
           WORKDIR /workspace/repo/apps/web
           RUN pnpm install
           TAILEOF
 
           echo "=== Generated Dockerfile ==="
-          cat Dockerfile.snapshot
+          cat Dockerfile.template
 
-      - name: Install Daytona CLI
-        run: |
-          curl -sfL -o /usr/local/bin/daytona https://github.com/daytonaio/daytona/releases/download/v0.138.0/daytona-linux-amd64
-          chmod +x /usr/local/bin/daytona
-          daytona version
-
-      - name: Authenticate Daytona CLI
-        run: daytona login --api-key ${{ secrets.DAYTONA_API_KEY }}
-
-      - name: Build Docker image
-        run: docker build --platform linux/amd64 -f Dockerfile.snapshot -t ${{ inputs.snapshot_name }}:build .
-
-      - name: Delete existing snapshot
-        run: |
-          SNAPSHOT_ID=$(daytona snapshot list --format json | jq -r --arg name "${{ inputs.snapshot_name }}" '.[] | select(.name == $name) | .id // empty')
-          if [ -n "$SNAPSHOT_ID" ]; then
-            echo "Deleting snapshot: $SNAPSHOT_ID"
-            daytona snapshot delete "$SNAPSHOT_ID"
-          else
-            echo "No existing snapshot found"
-          fi
-
-      - name: Push snapshot to Daytona
-        run: daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 2 --memory 4 --disk 8
+      - name: Build E2B template
+        run: e2b template build -d Dockerfile.template --name ${{ inputs.template_name }}

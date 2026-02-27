@@ -125,7 +125,7 @@ export const docInterviewWorkflow = workflow.define({
     const fullPrompt = `${INTERVIEW_PROMPT} ${questionPrompt}`;
 
     // Step 3: Setup sandbox + fire Claude CLI for the question
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.docId,
       existingSandboxId: docData.sandboxId,
       installationId: args.installationId,
@@ -397,7 +397,7 @@ Generate a product description, acceptance criteria, and user journeys for this 
 
 Output ONLY valid JSON.`;
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.docId,
       existingSandboxId: docData.sandboxId,
       installationId: args.installationId,

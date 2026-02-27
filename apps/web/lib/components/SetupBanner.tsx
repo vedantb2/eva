@@ -17,7 +17,7 @@ import Link from "next/link";
 
 const REQUIRED_KEYS = [
   "CLAUDE_CODE_OAUTH_TOKEN",
-  "DAYTONA_API_KEY",
+  "E2B_API_KEY",
   "CONVEX_DEPLOY_KEY",
 ];
 

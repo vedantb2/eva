@@ -128,7 +128,7 @@ export const taskExecutionWorkflow = workflow.define({
 
     // Step 3: Setup sandbox + launch Claude CLI
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.sandbox.setupAndExecute,
       {
         entityId: String(args.taskId),
         existingSandboxId: data.projectSandboxId,
@@ -183,7 +183,7 @@ export const taskExecutionWorkflow = workflow.define({
     if (result.success && sandboxId) {
       try {
         const diffRaw = await step.runAction(
-          internal.daytona.runSandboxCommand,
+          internal.sandbox.runSandboxCommand,
           {
             sandboxId,
             command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
@@ -201,7 +201,7 @@ export const taskExecutionWorkflow = workflow.define({
             },
           );
 
-          await step.runAction(internal.daytona.launchAudit, {
+          await step.runAction(internal.sandbox.launchAudit, {
             sandboxId,
             prompt: buildAuditPrompt(diffRaw),
             taskId: String(args.taskId),
@@ -254,7 +254,7 @@ export const taskExecutionWorkflow = workflow.define({
 
     // Cleanup: Delete sandbox for ephemeral (standalone) tasks
     if (!args.projectId && sandboxId) {
-      await step.runAction(internal.daytona.deleteSandbox, {
+      await step.runAction(internal.sandbox.killSandbox, {
         sandboxId,
         repoId: args.repoId,
       });
@@ -587,7 +587,7 @@ export const handleCompletion = authMutation({
 
 /**
  * Sandbox audit callback — routes audit completion event to the waiting workflow.
- * Called by the nohup audit script in Daytona when Claude CLI haiku finishes.
+ * Called by the nohup audit script in the sandbox when Claude CLI haiku finishes.
  */
 export const handleAuditCompletion = mutation({
   args: {

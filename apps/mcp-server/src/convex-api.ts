@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-let cachedDeployKey: string | null = null;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedDeployKey: { value: string; expiresAt: number } | null = null;
 
 function getMcpSecret(): string {
   const secret = process.env.MCP_JWT_SECRET;
@@ -17,7 +19,9 @@ function toSiteUrl(convexUrl: string): string {
 }
 
 export async function getDeployKey(convexUrl: string): Promise<string> {
-  if (cachedDeployKey) return cachedDeployKey;
+  if (cachedDeployKey && cachedDeployKey.expiresAt > Date.now()) {
+    return cachedDeployKey.value;
+  }
   const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/bootstrap`, {
     headers: { Authorization: `MCPBootstrap ${getMcpSecret()}` },
   });
@@ -28,8 +32,11 @@ export async function getDeployKey(convexUrl: string): Promise<string> {
     );
   }
   const body = bootstrapResponseSchema.parse(await response.json());
-  cachedDeployKey = body.deployKey;
-  return cachedDeployKey;
+  cachedDeployKey = {
+    value: body.deployKey,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  };
+  return body.deployKey;
 }
 
 const bootstrapResponseSchema = z.object({ deployKey: z.string() });
@@ -269,10 +276,13 @@ async function getRepoEnvVars(
   return z.array(z.object({ key: z.string(), value: z.string() })).parse(json);
 }
 
-const repoCredentialsCache = new Map<
-  string,
-  { convexUrl: string; deployKey: string }
->();
+interface CachedRepoCreds {
+  convexUrl: string;
+  deployKey: string;
+  expiresAt: number;
+}
+
+const repoCredentialsCache = new Map<string, CachedRepoCreds>();
 
 export async function getRepoConvexCredentials(
   conductorUrl: string,
@@ -280,7 +290,9 @@ export async function getRepoConvexCredentials(
   repoId: string,
 ): Promise<{ convexUrl: string; deployKey: string } | null> {
   const cached = repoCredentialsCache.get(repoId);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { convexUrl: cached.convexUrl, deployKey: cached.deployKey };
+  }
 
   const vars = await getRepoEnvVars(conductorUrl, conductorDeployKey, repoId);
   const urlEntry = vars.find(
@@ -295,7 +307,8 @@ export async function getRepoConvexCredentials(
   const creds = {
     convexUrl: urlEntry.value.replace(/\/$/, ""),
     deployKey: keyEntry.value,
+    expiresAt: Date.now() + CACHE_TTL_MS,
   };
   repoCredentialsCache.set(repoId, creds);
-  return creds;
+  return { convexUrl: creds.convexUrl, deployKey: creds.deployKey };
 }

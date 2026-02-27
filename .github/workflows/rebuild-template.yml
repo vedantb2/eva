@@ -29,9 +29,6 @@ jobs:
       - name: Install E2B CLI
         run: npm install -g @e2b/cli
 
-      - name: Authenticate E2B CLI
-        run: e2b auth login --api-key ${{ secrets.E2B_API_KEY }}
-
       - name: Generate Dockerfile
         env:
           CUSTOM_ENV_VARS: ${{ inputs.custom_env_vars }}
@@ -76,4 +73,6 @@ jobs:
           cat Dockerfile.template
 
       - name: Build E2B template
+        env:
+          E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
         run: e2b template build -d Dockerfile.template --name ${{ inputs.template_name }}

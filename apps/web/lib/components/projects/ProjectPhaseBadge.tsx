@@ -8,11 +8,11 @@ import {
   IconCircleCheck,
 } from "@tabler/icons-react";
 
-export type ProjectPhase = "draft" | "finalized" | "active" | "completed";
+export type ProjectPhase = "draft" | "finalised" | "active" | "completed";
 
 export const PROJECT_PHASES: ProjectPhase[] = [
   "draft",
-  "finalized",
+  "finalised",
   "active",
   "completed",
 ];
@@ -34,11 +34,11 @@ export const phaseConfig: Record<
     label: "Draft",
     icon: IconNotes,
   },
-  finalized: {
+  finalised: {
     bg: "bg-accent",
     bar: "bg-primary",
     text: "text-primary",
-    label: "Finalized",
+    label: "Finalised",
     icon: IconCheck,
   },
   active: {

@@ -25,7 +25,7 @@ interface Project {
   branchName?: string;
   prUrl?: string;
   sandboxId?: string;
-  phase: "draft" | "finalized" | "active" | "completed";
+  phase: "draft" | "finalised" | "active" | "completed";
   rawInput: string;
   generatedSpec?: string;
   conversationHistory: Array<{

@@ -67,7 +67,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   }
 
   const isDraftOrFinalized =
-    project.phase === "draft" || project.phase === "finalized";
+    project.phase === "draft" || project.phase === "finalised";
 
   return (
     <PageWrapper

@@ -436,8 +436,8 @@ export const startDevelopment = mutation({
     if (!project) {
       throw new Error("Project not found");
     }
-    if (project.phase !== "finalized") {
-      throw new Error("Project must be finalized before starting development");
+    if (project.phase !== "finalised") {
+      throw new Error("Project must be finalised before starting development");
     }
     if (!project.generatedSpec) {
       throw new Error("Project has no generated spec");

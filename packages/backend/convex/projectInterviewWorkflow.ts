@@ -493,7 +493,7 @@ export const saveSpecResult = internalMutation({
         await ctx.db.patch(args.projectId, {
           conversationHistory: messages,
           generatedSpec: specJson,
-          phase: "finalized",
+          phase: "finalised",
           activeWorkflowId: undefined,
           lastSandboxActivity: Date.now(),
         });

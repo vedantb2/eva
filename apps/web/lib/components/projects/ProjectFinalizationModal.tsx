@@ -51,7 +51,7 @@ export function ProjectFinalizationModal({
       await updateProject({
         id: projectId,
         generatedSpec: spec,
-        phase: "finalized",
+        phase: "finalised",
       });
       onClose();
     } finally {
@@ -65,7 +65,7 @@ export function ProjectFinalizationModal({
       await updateProject({
         id: projectId,
         generatedSpec: spec,
-        phase: "finalized",
+        phase: "finalised",
       });
       await startDevelopment({ projectId });
       router.push(`/${repoSlug}/projects/${projectId}`);

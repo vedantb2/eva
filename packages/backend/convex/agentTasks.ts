@@ -391,7 +391,7 @@ export const updateStatus = mutation({
             await ctx.db.patch(task.projectId, { phase: "completed" });
           }
         } else {
-          if (project.phase === "finalized") {
+          if (project.phase === "finalised") {
             await ctx.db.patch(task.projectId, { phase: "active" });
           }
         }

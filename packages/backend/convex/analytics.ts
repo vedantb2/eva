@@ -179,7 +179,7 @@ export const getProjectStats = query({
     total: v.number(),
     byPhase: v.object({
       draft: v.number(),
-      finalized: v.number(),
+      finalised: v.number(),
       active: v.number(),
       completed: v.number(),
     }),
@@ -197,7 +197,7 @@ export const getProjectStats = query({
     if (!userId) {
       return {
         total: 0,
-        byPhase: { draft: 0, finalized: 0, active: 0, completed: 0 },
+        byPhase: { draft: 0, finalised: 0, active: 0, completed: 0 },
         topProjects: [],
       };
     }
@@ -208,7 +208,7 @@ export const getProjectStats = query({
     const filtered = args.startTime
       ? projects.filter((p) => p._creationTime >= args.startTime!)
       : projects;
-    const byPhase = { draft: 0, finalized: 0, active: 0, completed: 0 };
+    const byPhase = { draft: 0, finalised: 0, active: 0, completed: 0 };
     for (const project of filtered) {
       byPhase[project.phase]++;
     }

@@ -37,7 +37,7 @@ export const sessionStatusValidator = v.union(
 
 export const phaseValidator = v.union(
   v.literal("draft"),
-  v.literal("finalized"),
+  v.literal("finalised"),
   v.literal("active"),
   v.literal("completed"),
 );

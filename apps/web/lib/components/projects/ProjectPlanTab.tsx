@@ -58,7 +58,7 @@ export function ProjectPlanTab({
         await updateProject({
           id: projectId,
           generatedSpec,
-          phase: "finalized",
+          phase: "finalised",
         });
       }
       await startDevelopment({ projectId });

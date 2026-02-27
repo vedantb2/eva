@@ -415,7 +415,6 @@ function buildCallbackScript(
 ): string {
   return `
 import { spawn } from "child_process";
-import { readFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -440,8 +439,6 @@ async function callMutation(path, args) {
   }
   return res.json();
 }
-
-const prompt = readFileSync("/tmp/design-prompt.txt", "utf8");
 
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
@@ -577,10 +574,9 @@ if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   } catch {}
 }
 
-const escapedPrompt = JSON.stringify(prompt);
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
-const baseCmd = "echo " + escapedPrompt + " | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
+const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
 
 function hasToolActivity() {
   return accumulatedSteps.some((step) =>
@@ -682,7 +678,7 @@ try {
       ${entityIdField}: ENTITY_ID,
       success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
       result: finalResultEvent?.result ?? rawOutput,
-      error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode : null),
+      error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode + (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "") : null),
       activityLog,
     });
   } catch (e) {

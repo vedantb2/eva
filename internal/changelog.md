@@ -1,5 +1,13 @@
 # Changelog
 
+## Fix Claude CLI prompt piping causing exit code 1 - 2026-02-27
+
+- **Why**: Quick tasks (and all sandbox-based Claude executions) were failing with "Claude CLI exited with code 1" because the prompt was piped via `echo` + `JSON.stringify`, which: (1) turned real newlines into literal `\n` characters so Claude received an unreadable single-line prompt, (2) left `$` and backticks unescaped so bash shell expansion could mangle or break the command.
+
+- **Changes**:
+  1. **Prompt piping** (`daytona.ts`): Replaced `echo <JSON.stringify(prompt)> | npx ...` with `cat /tmp/design-prompt.txt | npx ...` — the prompt file is already uploaded with correct formatting, so just pipe it directly
+  2. **Error diagnostics** (`daytona.ts`): Appended `stderrOutput` (last 500 chars) to the error message on CLI failure — previously stderr was captured but silently discarded, making failures impossible to diagnose
+
 ## Fix PR base branch + sandbox git repo fallback - 2026-02-27
 
 - **Why**: PRs were always opened against `main` regardless of the base branch selected in the task modal. Additionally, sandboxes created from snapshots that lacked a git repo would crash instead of recovering.

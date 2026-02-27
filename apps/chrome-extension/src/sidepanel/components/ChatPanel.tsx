@@ -98,7 +98,6 @@ export function ChatPanel({
   );
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
-  const getInstallationToken = useAction(api.github.getInstallationTokenAction);
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const selectedRepo = useQuery(
     api.githubRepos.get,
@@ -253,9 +252,6 @@ Please review all components and files used on this page before implementing the
         if (!convexToken) throw new Error("Not authenticated");
 
         if (!selectedRepo) throw new Error("Repository not found");
-        const { token: githubToken } = await getInstallationToken({
-          installationId: selectedRepo.installationId,
-        });
 
         await startExecution({
           sessionId: sessionId as Id<"sessions">,
@@ -264,7 +260,7 @@ Please review all components and files used on this page before implementing the
           model,
           responseLength,
           convexToken,
-          githubToken,
+          installationId: selectedRepo.installationId,
         });
       } catch (error) {
         await appendMessage({

@@ -179,19 +179,7 @@ export const taskExecutionWorkflow = workflow.define({
       );
     }
 
-    // Step 7: Complete the run
-    await step.runMutation(internal.taskWorkflow.completeRun, {
-      runId: args.runId,
-      taskId: args.taskId,
-      projectId: args.projectId,
-      success: result.success,
-      error: result.error,
-      prUrl,
-      hasSubtasks: data.hasSubtasks,
-      activityLog: result.activityLog,
-    });
-
-    // Step 8: Run audit (non-fatal, fire-and-forget via Daytona)
+    // Step 7: Run audit before completing (non-fatal)
     if (result.success && sandboxId) {
       try {
         const diffRaw = await step.runAction(
@@ -213,7 +201,6 @@ export const taskExecutionWorkflow = workflow.define({
             },
           );
 
-          // Launch audit in sandbox via nohup — calls back to handleAuditCompletion
           await step.runAction(internal.daytona.launchAudit, {
             sandboxId,
             prompt: buildAuditPrompt(diffRaw),
@@ -222,7 +209,6 @@ export const taskExecutionWorkflow = workflow.define({
             repoId: args.repoId,
           });
 
-          // Wait for the sandbox to call back with audit results
           const auditResult = await step.awaitEvent(auditCompleteEvent);
 
           await step.runMutation(internal.taskWorkflow.saveAuditResult, {
@@ -250,10 +236,21 @@ export const taskExecutionWorkflow = workflow.define({
           }
         }
       } catch (err) {
-        // Audit is non-fatal — log but don't fail the workflow
         console.error("Audit step failed:", err);
       }
     }
+
+    // Step 8: Complete the run (after audit so task stays in_progress until audit finishes)
+    await step.runMutation(internal.taskWorkflow.completeRun, {
+      runId: args.runId,
+      taskId: args.taskId,
+      projectId: args.projectId,
+      success: result.success,
+      error: result.error,
+      prUrl,
+      hasSubtasks: data.hasSubtasks,
+      activityLog: result.activityLog,
+    });
 
     // Cleanup: Delete sandbox for ephemeral (standalone) tasks
     if (!args.projectId && sandboxId) {

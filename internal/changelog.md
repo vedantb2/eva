@@ -1,5 +1,12 @@
 # Changelog
 
+## Hold task in in_progress until audit completes - 2026-02-27
+
+- **Why**: Tasks were moving to `business_review` immediately after Claude CLI succeeded, before the post-execution audit finished. This meant reviewers could start reviewing code that hadn't been audited yet.
+
+- **Changes**:
+  1. **Workflow reorder** (`taskWorkflow.ts`): Swapped Steps 7 and 8 — audit now runs before `completeRun`. Task stays in `in_progress` while the audit runs, and only moves to `business_review` (or back to `todo` on failure) after the audit finishes. Audit remains non-fatal (wrapped in try/catch), so if it fails the task still completes normally.
+
 ## Fix Claude CLI prompt piping causing exit code 1 - 2026-02-27
 
 - **Why**: Quick tasks (and all sandbox-based Claude executions) were failing with "Claude CLI exited with code 1" because the prompt was piped via `echo` + `JSON.stringify`, which: (1) turned real newlines into literal `\n` characters so Claude received an unreadable single-line prompt, (2) left `$` and backticks unescaped so bash shell expansion could mangle or break the command.

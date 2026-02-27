@@ -1,11 +1,12 @@
 "use node";
 
+import { createHash } from "crypto";
 import { v } from "convex/values";
 import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { Daytona, type Sandbox } from "@daytonaio/sdk";
+import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { resolveDaytonaApiKey } from "./envVarResolver";
 import {
@@ -19,6 +20,9 @@ const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
+const CLAUDE_VOLUME_MOUNT_PATH = "/home/daytona/.claude";
+const VOLUME_READY_TIMEOUT_MS = 45_000;
+const VOLUME_READY_POLL_INTERVAL_MS = 1_000;
 
 async function exec(
   sandbox: Sandbox,
@@ -42,6 +46,19 @@ async function exec(
   return resp.result;
 }
 
+async function ensureSandboxRunning(
+  sandbox: Sandbox,
+  timeoutSeconds = DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
+): Promise<void> {
+  try {
+    await exec(sandbox, "echo 1", 5);
+    return;
+  } catch {
+    await sandbox.start(timeoutSeconds);
+    await exec(sandbox, "echo 1", 5);
+  }
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
@@ -50,6 +67,65 @@ function requireEnv(name: string): string {
 
 function getDaytona(apiKey: string): Daytona {
   return new Daytona({ apiKey });
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function sessionHash(sessionId: Id<"sessions">): string {
+  return createHash("sha256").update(String(sessionId)).digest("hex");
+}
+
+function sessionVolumeName(sessionId: Id<"sessions">): string {
+  return `claude-session-${sessionHash(sessionId).slice(0, 40)}`;
+}
+
+function sessionClaudeUuid(sessionId: Id<"sessions">): string {
+  const hex = sessionHash(sessionId).slice(0, 32).split("");
+  hex[12] = "4";
+  const variantNibble = (parseInt(hex[16], 16) & 0x3) | 0x8;
+  hex[16] = variantNibble.toString(16);
+  return [
+    hex.slice(0, 8).join(""),
+    hex.slice(8, 12).join(""),
+    hex.slice(12, 16).join(""),
+    hex.slice(16, 20).join(""),
+    hex.slice(20, 32).join(""),
+  ].join("-");
+}
+
+async function ensureSessionClaudeVolume(
+  daytona: Daytona,
+  sessionId: Id<"sessions">,
+): Promise<VolumeMount[]> {
+  const volumeName = sessionVolumeName(sessionId);
+  const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
+
+  let volume = await daytona.volume.get(volumeName, true);
+  while (volume.state !== "ready") {
+    if (
+      volume.state === "error" ||
+      volume.state === "deleted" ||
+      volume.state === "deleting" ||
+      volume.state === "pending_delete"
+    ) {
+      throw new Error(
+        `Volume '${volumeName}' is in an invalid state. Current state: ${volume.state}`,
+      );
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Volume '${volumeName}' did not become ready within ${VOLUME_READY_TIMEOUT_MS}ms. Current state: ${volume.state}`,
+      );
+    }
+    await sleep(VOLUME_READY_POLL_INTERVAL_MS);
+    volume = await daytona.volume.get(volumeName);
+  }
+
+  return [{ volumeId: volume.id, mountPath: CLAUDE_VOLUME_MOUNT_PATH }];
 }
 
 async function resolveSandboxContext(
@@ -83,6 +159,7 @@ async function createSandbox(
   installationId: number,
   sandboxEnvVars: Record<string, string>,
   snapshotName?: string,
+  volumes?: VolumeMount[],
 ): Promise<Sandbox> {
   const timeoutSeconds = snapshotName
     ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
@@ -95,6 +172,7 @@ async function createSandbox(
       ...(snapshotName
         ? { snapshot: snapshotName }
         : { language: "typescript" }),
+      ...(volumes ? { volumes } : {}),
       envVars: {
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
@@ -174,6 +252,7 @@ async function createSandboxAndPrepareRepo(
   name: string,
   sandboxEnvVars: Record<string, string>,
   snapshotName?: string,
+  volumes?: VolumeMount[],
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   try {
     const sandbox = await createSandbox(
@@ -181,6 +260,7 @@ async function createSandboxAndPrepareRepo(
       installationId,
       sandboxEnvVars,
       snapshotName,
+      volumes,
     );
     if (snapshotName) {
       await syncRepo(sandbox, installationId, owner, name);
@@ -201,6 +281,7 @@ async function createSandboxAndPrepareRepo(
       installationId,
       sandboxEnvVars,
       snapshotName,
+      volumes,
     );
     await syncRepo(sandbox, installationId, owner, name);
     return { sandbox, usedSnapshot: true };
@@ -215,11 +296,12 @@ async function getOrCreateSandbox(
   name: string,
   sandboxEnvVars: Record<string, string>,
   snapshotName?: string,
+  volumes?: VolumeMount[],
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
       const sandbox = await daytona.get(existingSandboxId);
-      await exec(sandbox, "echo 1", 5);
+      await ensureSandboxRunning(sandbox);
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, isNew: false };
     } catch {
@@ -233,6 +315,7 @@ async function getOrCreateSandbox(
     name,
     sandboxEnvVars,
     snapshotName,
+    volumes,
   );
   return { sandbox, isNew: true };
 }
@@ -497,26 +580,23 @@ if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
 const escapedPrompt = JSON.stringify(prompt);
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
-const cmd = "echo " + escapedPrompt + " | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
+const baseCmd = "echo " + escapedPrompt + " | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
 
-const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
-  env: { ...process.env },
-  stdio: ["pipe", "pipe", "pipe"],
-});
+function hasToolActivity() {
+  return accumulatedSteps.some((step) =>
+    step.type === "read" ||
+    step.type === "search_files" ||
+    step.type === "search_code" ||
+    step.type === "write" ||
+    step.type === "edit" ||
+    step.type === "bash" ||
+    step.type === "tool",
+  );
+}
 
-let stderrOutput = "";
-child.stdout.on("data", (chunk) => { rawOutput += chunk.toString(); });
-child.stderr.on("data", (chunk) => { stderrOutput += chunk.toString(); });
-
-child.on("close", async (code) => {
-  clearInterval(interval);
-  await flushStreaming();
-
-  for (const step of accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(accumulatedSteps);
-
+function extractResultEvent(output) {
   let resultEvent = null;
-  for (const line of rawOutput.split("\\n")) {
+  for (const line of output.split("\\n")) {
     const clean = line.trim();
     if (!clean) continue;
     try {
@@ -527,33 +607,100 @@ child.on("close", async (code) => {
       }
     } catch {}
   }
+  return resultEvent;
+}
+
+let stderrOutput = "";
+
+async function runClaudeAttempt(includeSessionId) {
+  const sessionArg =
+    includeSessionId && process.env.CLAUDE_SESSION_ID
+      ? " --session-id " + JSON.stringify(process.env.CLAUDE_SESSION_ID)
+      : "";
+  const cmd = baseCmd + sessionArg;
+  return await new Promise((resolve, reject) => {
+    const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
+      env: { ...process.env },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let attemptOutput = "";
+
+    child.stdout.on("data", (chunk) => {
+      const text = chunk.toString();
+      attemptOutput += text;
+      rawOutput += text;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrOutput += chunk.toString();
+    });
+    child.on("close", (code) => {
+      resolve({ code: code ?? 1, output: attemptOutput });
+    });
+    child.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+try {
+  const firstAttempt = await runClaudeAttempt(true);
+  await flushStreaming();
+
+  let finalCode = firstAttempt.code;
+  let finalResultEvent = extractResultEvent(firstAttempt.output);
+  const shouldRetryWithoutSession =
+    Boolean(process.env.CLAUDE_SESSION_ID) &&
+    (firstAttempt.code !== 0 || Boolean(finalResultEvent?.isError)) &&
+    !hasToolActivity();
+
+  if (shouldRetryWithoutSession) {
+    markLastComplete();
+    accumulatedSteps.push({
+      type: "thinking",
+      label: "Retrying without saved session...",
+      status: "active",
+    });
+    callMutation("streaming:set", {
+      entityId: ENTITY_ID,
+      currentActivity: JSON.stringify(accumulatedSteps.slice(-30)),
+    }).catch(() => {});
+
+    const secondAttempt = await runClaudeAttempt(false);
+    await flushStreaming();
+    finalCode = secondAttempt.code;
+    finalResultEvent = extractResultEvent(secondAttempt.output);
+  }
+
+  clearInterval(interval);
+  await flushStreaming();
+
+  for (const step of accumulatedSteps) step.status = "complete";
+  const activityLog = JSON.stringify(accumulatedSteps);
 
   try {
     await callMutation("${completionMutation}", {
       ${entityIdField}: ENTITY_ID,
-      success: resultEvent ? !resultEvent.isError : code === 0,
-      result: resultEvent?.result ?? rawOutput,
-      error: resultEvent?.isError ? resultEvent.result : (code !== 0 ? "Claude CLI exited with code " + code : null),
+      success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
+      result: finalResultEvent?.result ?? rawOutput,
+      error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode : null),
       activityLog,
     });
   } catch (e) {
     console.error("Failed to send completion:", e);
     process.exit(1);
   }
-});
-
-child.on("error", async (err) => {
+} catch (err) {
   clearInterval(interval);
   try {
     await callMutation("${completionMutation}", {
       ${entityIdField}: ENTITY_ID,
       success: false,
       result: null,
-      error: err.message,
+      error: err instanceof Error ? err.message : "Failed to run Claude CLI",
       activityLog: "[]",
     });
   } catch {}
-});
+}
 `.trim();
 }
 
@@ -573,6 +720,7 @@ async function launchScript(
     allowedTools?: string;
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
+    claudeSessionId?: string;
   } = {},
 ): Promise<void> {
   // Upload the prompt
@@ -598,6 +746,9 @@ async function launchScript(
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
   ];
+  if (opts.claudeSessionId) {
+    envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
+  }
   if (opts.extraEnvVars) {
     for (const [key, val] of Object.entries(opts.extraEnvVars)) {
       envParts.push(`${key}=${quote([val])}`);
@@ -698,6 +849,7 @@ export const setupAndExecute = internalAction({
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.optional(v.id("githubRepos")),
+    sessionPersistenceId: v.optional(v.id("sessions")),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -707,6 +859,12 @@ export const setupAndExecute = internalAction({
 
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    const sessionVolumeMounts = args.sessionPersistenceId
+      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      : undefined;
+    const claudeSessionId = args.sessionPersistenceId
+      ? sessionClaudeUuid(args.sessionPersistenceId)
+      : undefined;
 
     const { sandbox } = await (args.ephemeral
       ? createSandboxAndPrepareRepo(
@@ -716,6 +874,7 @@ export const setupAndExecute = internalAction({
           args.repoName,
           sandboxEnvVars,
           snapshotName,
+          sessionVolumeMounts,
         )
       : getOrCreateSandbox(
           daytona,
@@ -725,6 +884,7 @@ export const setupAndExecute = internalAction({
           args.repoName,
           sandboxEnvVars,
           snapshotName,
+          sessionVolumeMounts,
         ));
 
     if (args.baseBranch) {
@@ -759,6 +919,7 @@ export const setupAndExecute = internalAction({
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
         extraEnvVars: sandboxEnvVars,
+        claudeSessionId,
       },
     );
 
@@ -904,7 +1065,10 @@ export const runSessionAudit = internalAction({
         "sessionId",
         args.convexToken,
         String(args.sessionId),
-        { model: "haiku" },
+        {
+          model: "haiku",
+          claudeSessionId: sessionClaudeUuid(args.sessionId),
+        },
       );
     } catch (err) {
       await ctx.runMutation(internal.sessionAudits.fail, {
@@ -928,6 +1092,34 @@ export const deleteSandbox = internalAction({
     } catch {
       // Sandbox may already be deleted or expired
     }
+    return null;
+  },
+});
+
+export const stopSandbox = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session) {
+      return null;
+    }
+    if (session.status !== "closed" || session.sandboxId !== args.sandboxId) {
+      return null;
+    }
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    try {
+      const sandbox = await daytona.get(args.sandboxId);
+      await sandbox.stop();
+    } catch {}
     return null;
   },
 });
@@ -989,7 +1181,13 @@ export const startSessionSandbox = internalAction({
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
-          await exec(sandbox, "echo 1", 5);
+          await ensureSandboxRunning(sandbox);
+          await ctx.runMutation(internal.sessions.sandboxReady, {
+            sessionId: args.sessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+          });
           await syncRepo(
             sandbox,
             args.installationId,
@@ -998,12 +1196,6 @@ export const startSessionSandbox = internalAction({
           );
           await checkoutSessionBranch(sandbox, args.branchName);
           await startSessionServices(sandbox);
-          await ctx.runMutation(internal.sessions.sandboxReady, {
-            sessionId: args.sessionId,
-            sandboxId: args.existingSandboxId,
-            branchName: args.branchName,
-            isNew: false,
-          });
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new
@@ -1017,6 +1209,7 @@ export const startSessionSandbox = internalAction({
         args.repoName,
         sandboxEnvVars,
         snapshotName,
+        await ensureSessionClaudeVolume(daytona, args.sessionId),
       );
       const sandbox = prepared.sandbox;
       if (prepared.usedSnapshot) {
@@ -1092,6 +1285,12 @@ export const startDesignSandbox = internalAction({
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
           await exec(sandbox, "echo 1", 5);
+          await ctx.runMutation(internal.designSessions.sandboxReady, {
+            designSessionId: args.designSessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+          });
           await syncRepo(
             sandbox,
             args.installationId,
@@ -1100,12 +1299,6 @@ export const startDesignSandbox = internalAction({
           );
           await setupBranch(sandbox, args.branchName);
           await startSessionServices(sandbox);
-          await ctx.runMutation(internal.designSessions.sandboxReady, {
-            designSessionId: args.designSessionId,
-            sandboxId: args.existingSandboxId,
-            branchName: args.branchName,
-            isNew: false,
-          });
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new

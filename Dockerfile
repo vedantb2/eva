@@ -22,6 +22,8 @@ USER eva
 
 # Install Playwright Chromium browser binary as non-root user
 RUN npx playwright install chromium
+# Ensure agent-browser has its own Chromium reference (uses Playwright's binary)
+RUN agent-browser install
 WORKDIR /workspace
 
 # Pre-install Claude Code plugins for design skills

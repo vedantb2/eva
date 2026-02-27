@@ -1,3 +1,14 @@
+[] add the screenshots, gifs
+[] base branch isnt working when making pr
+[] improve notifications like linear
+[] add labels to github pr issues
+claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
+
+[x] get sessions working
+[x] save chat history somehow
+[x] filesystem volume to save session
+[x] move snapshot build to the platform
+
 why is convex deploy key passed in there, shouldn't it be set in the repoenv/teamenv?
 same for daytona api key? the agent shouldn't use the convex env vars, it should use the ones the user has defined in the settings.
 

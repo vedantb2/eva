@@ -13,7 +13,6 @@ import {
   WebPreview,
   WebPreviewNavigation,
   WebPreviewNavigationButton,
-  WebPreviewUrl,
   WebPreviewBody,
   useWebPreview,
 } from "@conductor/ui";
@@ -51,6 +50,26 @@ interface WebPreviewPanelProps {
   onPortChange: (port: number) => void;
 }
 
+function getPathFromUrl(fullUrl: string): string {
+  try {
+    const parsed = new URL(fullUrl);
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return "/";
+  }
+}
+
+function buildUrlWithPath(baseUrl: string, path: string): string {
+  try {
+    const parsed = new URL(baseUrl);
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    parsed.pathname = normalizedPath;
+    return parsed.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
 function NavigationButtons({
   previewInfo,
   isLoading,
@@ -68,16 +87,30 @@ function NavigationButtons({
   port: number;
   onPortChange: (port: number) => void;
 }) {
-  const { goBack, goForward, reload } = useWebPreview();
-  const [inputValue, setInputValue] = useState(String(port));
+  const { iframeRef, goBack, goForward, reload } = useWebPreview();
+  const [portInput, setPortInput] = useState(String(port));
+  const [pathInput, setPathInput] = useState("/");
+  const [prevPreviewUrl, setPrevPreviewUrl] = useState(previewInfo?.url);
 
-  function commit() {
-    const parsed = parseInt(inputValue, 10);
+  if (previewInfo?.url !== prevPreviewUrl) {
+    setPrevPreviewUrl(previewInfo?.url);
+    setPathInput(getPathFromUrl(previewInfo?.url ?? "/"));
+  }
+
+  function commitPort() {
+    const parsed = parseInt(portInput, 10);
     if (!isNaN(parsed) && parsed > 0 && parsed <= 65535) {
       onPortChange(parsed);
     } else {
-      setInputValue(String(port));
+      setPortInput(String(port));
     }
+  }
+
+  function commitPath() {
+    const baseUrl = previewInfo?.url;
+    if (!baseUrl || !iframeRef.current) return;
+    const newUrl = buildUrlWithPath(baseUrl, pathInput);
+    iframeRef.current.src = newUrl;
   }
 
   return (
@@ -101,14 +134,24 @@ function NavigationButtons({
           <IconRefresh className="w-3.5 h-3.5" />
         )}
       </WebPreviewNavigationButton>
-      <WebPreviewUrl readOnly className="h-8 text-xs max-w-64" />
+      <Input
+        className="h-8 flex-1 text-xs max-w-64"
+        value={pathInput}
+        onChange={(e) => setPathInput(e.target.value)}
+        onBlur={commitPath}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitPath();
+        }}
+        placeholder="/"
+        aria-label="Preview path"
+      />
       <Input
         className="h-8 w-16 text-xs text-center px-1"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={commit}
+        value={portInput}
+        onChange={(e) => setPortInput(e.target.value)}
+        onBlur={commitPort}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
+          if (e.key === "Enter") commitPort();
         }}
         aria-label="Preview port"
       />

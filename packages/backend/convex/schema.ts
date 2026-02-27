@@ -174,6 +174,7 @@ const schema = defineSchema({
     storageId: v.id("_storage"),
     fileName: v.string(),
     fileType: v.string(),
+    runId: v.optional(v.id("agentRuns")),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 

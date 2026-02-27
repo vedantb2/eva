@@ -143,6 +143,7 @@ export const taskExecutionWorkflow = workflow.define({
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         branchName: data.branchName,
         baseBranch: args.baseBranch,
+        ephemeral: !args.projectId,
         repoId: args.repoId,
       },
       // setupAndExecute creates a new sandbox for standalone tasks.
@@ -171,6 +172,7 @@ export const taskExecutionWorkflow = workflow.define({
           repoOwner: data.repoOwner,
           repoName: data.repoName,
           branchName: data.branchName,
+          baseBranch: args.baseBranch,
           title: data.taskTitle,
           description: data.taskDescription,
         },
@@ -251,6 +253,14 @@ export const taskExecutionWorkflow = workflow.define({
         // Audit is non-fatal — log but don't fail the workflow
         console.error("Audit step failed:", err);
       }
+    }
+
+    // Cleanup: Delete sandbox for ephemeral (standalone) tasks
+    if (!args.projectId && sandboxId) {
+      await step.runAction(internal.daytona.deleteSandbox, {
+        sandboxId,
+        repoId: args.repoId,
+      });
     }
 
     // Final step: Always clear activeWorkflowId on the task

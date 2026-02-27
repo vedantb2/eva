@@ -456,7 +456,7 @@ export const createQuickTask = authMutation({
     repoId: v.id("githubRepos"),
     title: v.string(),
     description: v.optional(v.string()),
-    baseBranch: v.string(),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -515,7 +515,7 @@ export const createQuickTask = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      baseBranch: args.baseBranch,
+      baseBranch: args.baseBranch ?? "staging",
     });
     return taskId;
   },
@@ -530,7 +530,7 @@ export const createQuickTasksBatch = authMutation({
         description: v.optional(v.string()),
       }),
     ),
-    baseBranch: v.string(),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.array(v.id("agentTasks")),
   handler: async (ctx, args) => {
@@ -592,7 +592,7 @@ export const createQuickTasksBatch = authMutation({
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
-        baseBranch: args.baseBranch,
+        baseBranch: args.baseBranch ?? "staging",
       });
       taskIds.push(taskId);
     }

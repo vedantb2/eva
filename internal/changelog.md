@@ -1,5 +1,87 @@
 # Changelog
 
+## Fix PR base branch + sandbox git repo fallback - 2026-02-27
+
+- **Why**: PRs were always opened against `main` regardless of the base branch selected in the task modal. Additionally, sandboxes created from snapshots that lacked a git repo would crash instead of recovering.
+
+- **Changes**:
+  1. **PR base branch** (`taskWorkflowActions.ts`): `createPullRequest` now accepts a `baseBranch` arg and uses it instead of hardcoded `"main"`
+  2. **Workflow passthrough** (`taskWorkflow.ts`): Passes `args.baseBranch` to `createPullRequest`
+  3. **Sandbox git fallback** (`daytona.ts`): When `syncRepo` fails with "not a git repository" (snapshot missing `.git`), uses new `initGitInPlace` to `git init && fetch && reset --hard && clean -fd` — preserves snapshot's pre-installed `node_modules` instead of nuking everything with a full clone
+  4. **Ephemeral sandbox cleanup** (`taskWorkflow.ts`): Standalone (non-project) tasks now pass `ephemeral: true` and explicitly delete their sandbox after workflow completion instead of relying on Daytona auto-delete
+  5. **Session sandbox deletion** (`sessions.ts`): Stopping a session now fully deletes the sandbox via `deleteSandbox` instead of just stopping it (matching design sessions and projects behavior)
+
+## Full Walkthrough Evidence Capture (Screenshots + Video) - 2026-02-27
+
+- **Why**: Static screenshots alone don't show the full context of UI state before/after a fix. Video recordings provide a richer walkthrough that makes it easier for reviewers to verify the fix actually works, especially for interactive flows (animations, transitions, hover states).
+
+- **Changes**:
+  1. **Dockerfile**: Added `agent-browser install` to ensure Chromium binary is available (previously only Playwright's Chromium was installed, agent-browser might not find it)
+  2. **Task prompt** (`taskWorkflow.ts`): Rewrote evidence section to capture both full-page screenshots (`--full`) and WebM video recordings (`record start/stop`) for before/after walkthroughs
+  3. **Evidence collection** (`daytona.ts`): Added video (.webm) targets alongside screenshot (.png) targets. Each stage (before_fix/after_fix) now collects both formats
+  4. **Proof dedup** (`taskProof.ts`): Updated deduplication to also check `fileType`, so a screenshot and video for the same stage coexist without one deleting the other
+  5. **UI labels** (`TaskDetailModal.tsx`): Video proofs now show "Before Walkthrough" / "After Walkthrough" labels distinct from screenshot labels
+
+- **Impact**: Task evidence now includes video walkthroughs alongside screenshots, giving reviewers a complete picture of before/after state
+
+## Improve Screenshot Evidence Diagnostics - 2026-02-27
+
+- **Why**: When screenshots weren't captured, users had no visible explanation why. Warnings were buried in run logs that users rarely expanded, making it frustrating when proof of completion was missing.
+
+- **Changes**:
+  1. **Enhanced evidence collection diagnostics** (`packages/backend/convex/daytona.ts:830-898`):
+     - After checking for missing screenshot files, parse the activity log to detect if agent-browser commands were attempted
+     - Provide contextual diagnostic messages:
+       - No agent-browser commands found → "Agent did not attempt to capture screenshots (likely backend-only changes or could not infer the route to test)"
+       - Agent-browser commands found but files missing → "Agent attempted to capture screenshots but files were not created (check run logs for dev server or agent-browser errors)"
+       - Activity log unavailable → "Could not determine why screenshots are missing (activity log unavailable)"
+  2. **Prominent warning display in UI** (`apps/web/lib/components/tasks/TaskDetailModal.tsx:155-165, 698-717`):
+     - Extract evidence warnings from latest successful run's logs
+     - Display warnings prominently in Proof of Completion section with warning icon and styled box
+     - Users no longer need to dig through run logs to understand why screenshots are missing
+
+- **Impact**:
+  - Users immediately see why screenshots weren't captured without expanding logs
+  - Clear distinction between "agent chose not to capture" vs "agent tried but failed"
+  - Better debugging experience for screenshot capture issues
+
+## Fix Task Evidence Streaming Break and Screenshot Prompt - 2026-02-27
+
+- **Why**: Adding `Skill` to `allowedTools` broke Claude CLI streaming (no stdout/activity logs), and the prompt incorrectly instructed Claude to use the `Skill` tool for screenshots instead of direct Bash commands to invoke `agent-browser`, which doesn't exist in the target repo's sandbox. Additionally, the prompt said "Do NOT run dev commands" but screenshots require starting a dev server.
+
+- **Changes**:
+  1. **Removed `Skill` from `allowedTools`** (`packages/backend/convex/taskWorkflow.ts:177`):
+     - `Skill` is not a valid CLI tool argument and was causing streaming to fail
+     - `agent-browser` is installed globally in Docker image and can be invoked directly via Bash
+  2. **Rewrote screenshot section in task prompt** (`packages/backend/convex/taskWorkflow.ts:61-107`):
+     - Replaced `Skill` tool references with direct Bash command instructions: `agent-browser open/screenshot/close`
+     - Added detailed before/after workflow with dev server lifecycle (start in background, wait, capture, kill)
+     - Changed contradictory rule from "Do NOT run dev commands" to "You MAY run the dev server ONLY for screenshot capture (kill it after)"
+     - Made screenshots truly optional with clear skip conditions (backend-only changes, route inference failure, dev server failure)
+
+- **Impact**:
+  - Task execution streaming will now work correctly in real-time
+  - Screenshots can actually be captured when UI changes are made
+  - Claude agent won't get confused by contradictory instructions
+
+## Automated Before/After Task Evidence Capture - 2026-02-27
+
+- **Why**: Task outcomes lacked consistent visual proof tied to the specific run, which made business/code review slower and less trustworthy when validating UI bug fixes.
+
+- **Changes**:
+  1. **Task workflow evidence contract**:
+     - Updated task implementation prompt to require `agent-browser` before/after screenshots with deterministic run-scoped paths.
+     - Enabled `Skill` in allowed tools for task execution runs.
+  2. **Non-blocking evidence collection**:
+     - Added a Daytona internal action that reads expected screenshot files from sandbox, stores them in Convex Storage, and records warnings/missing stages without failing execution.
+     - Wired this into task execution workflow so evidence capture runs before completion and writes warning logs on partial/missing capture.
+  3. **Proof metadata + dedupe**:
+     - Extended `taskProof` schema with optional `runId`, `evidenceStage`, and `source` fields.
+     - Added internal automated-proof mutation with dedupe per `taskId + runId + evidenceStage`.
+     - Kept manual proof uploads intact and explicitly tagged as manual.
+  4. **Task detail evidence UX**:
+     - Updated proof rendering in `TaskDetailModal` to show stage badges (`Before Fix`, `After Fix`, `Manual`) and run timestamp labels while preserving full history.
+
 ## Archived Sessions Visible in Sidebar - 2026-02-26
 
 - **Why**: Archived sessions disappeared completely from the UI with no way to view their history. Users need to reference past work without accidentally modifying it.

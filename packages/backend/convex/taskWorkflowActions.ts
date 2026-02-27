@@ -104,6 +104,7 @@ export const createPullRequest = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    baseBranch: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
   },
@@ -117,7 +118,7 @@ export const createPullRequest = internalAction({
         title: `Eva: ${args.title}`,
         body: `## Task\n${args.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
         head: args.branchName,
-        base: "main",
+        base: args.baseBranch ?? "staging",
       });
       return pr.data.html_url;
     } catch (error) {

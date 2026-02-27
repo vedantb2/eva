@@ -57,6 +57,7 @@ import {
   IconSend,
   IconCircleCheck,
   IconTrash,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -84,6 +85,55 @@ const REVIEW_AUDITS = [
   "Code testing audit",
   "Code review audit",
 ];
+
+function SystemAlertMessage({ message }: { message: SessionMessage }) {
+  const [showError, setShowError] = useState(false);
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="flex items-center gap-3 py-1"
+      >
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+          {message.content}
+        </span>
+        {message.errorDetail && (
+          <button
+            onClick={() => setShowError(true)}
+            className="text-xs font-medium text-destructive hover:underline whitespace-nowrap"
+          >
+            View error
+          </button>
+        )}
+        <div className="h-px flex-1 bg-border" />
+      </motion.div>
+      {message.errorDetail && (
+        <Dialog open={showError} onOpenChange={setShowError}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <IconAlertTriangle size={16} className="text-destructive" />
+                Sandbox Error
+              </DialogTitle>
+            </DialogHeader>
+            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-lg p-4 max-h-64 overflow-y-auto">
+              {message.errorDetail}
+            </pre>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setShowError(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
 
 interface ChatPanelProps {
   sessionId: string;
@@ -459,142 +509,151 @@ export function ChatPanel({
               }
             />
           ) : (
-            filteredMessages.map((message, index) => (
-              <motion.div
-                key={`${message.timestamp ?? index}-${message.role}-${index}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <AIMessage from={message.role}>
-                  {message.role === "assistant" && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full overflow-hidden">
-                        <Image
-                          src="/icon.png"
-                          alt="Assistant"
-                          width={28}
-                          height={28}
-                        />
+            filteredMessages.map((message, index) =>
+              message.isSystemAlert ? (
+                <SystemAlertMessage
+                  key={`${message.timestamp ?? index}-system-${index}`}
+                  message={message}
+                />
+              ) : (
+                <motion.div
+                  key={`${message.timestamp ?? index}-${message.role}-${index}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <AIMessage from={message.role}>
+                    {message.role === "assistant" && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full overflow-hidden">
+                          <Image
+                            src="/icon.png"
+                            alt="Assistant"
+                            width={28}
+                            height={28}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Eva
+                        </span>
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Eva
-                      </span>
-                    </div>
-                  )}
-                  <MessageContent
-                    className={
-                      message.role === "user"
-                        ? "rounded-xl bg-secondary text-foreground px-4 py-3"
-                        : "px-1 py-2"
-                    }
-                  >
-                    {message.role === "assistant" && !message.content ? (
-                      (() => {
-                        const steps = parseActivitySteps(streamingActivity);
-                        return steps ? (
-                          <ActivitySteps steps={steps} isStreaming />
-                        ) : (
-                          <Reasoning isStreaming defaultOpen>
-                            <ReasoningTrigger
-                              getThinkingMessage={(streaming) =>
-                                streaming ? "Working..." : "Processing complete"
-                              }
-                            />
-                            <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                              <pre className="whitespace-pre-wrap font-mono text-xs">
-                                {streamingActivity || "Starting..."}
-                              </pre>
-                            </CollapsibleContent>
-                          </Reasoning>
-                        );
-                      })()
-                    ) : (
-                      <>
-                        {message.role === "assistant" ? (
-                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                            {message.content}
-                          </MessageResponse>
-                        ) : (
-                          <>
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {message.content}
-                            </p>
-                            <div className="flex items-center justify-between gap-3">
-                              {message.mode && (
-                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                  {message.mode === "execute" && (
-                                    <>
-                                      <IconCode className="w-2.5 h-2.5" />{" "}
-                                      Execute
-                                    </>
-                                  )}
-                                  {message.mode === "ask" && (
-                                    <>
-                                      <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
-                                      Ask
-                                    </>
-                                  )}
-                                  {message.mode === "plan" && (
-                                    <>
-                                      <IconClipboardList className="w-2.5 h-2.5" />{" "}
-                                      PRD
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                              {message.timestamp && (
-                                <span className="text-[11px] text-muted-foreground/60">
-                                  {dayjs(message.timestamp).format("h:mm A")}
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        )}
-                        {message.role === "assistant" &&
-                          message.activityLog &&
-                          (() => {
-                            const steps = parseActivitySteps(
-                              message.activityLog,
-                            );
-                            return steps ? (
-                              <ActivitySteps steps={steps} />
-                            ) : (
-                              <Reasoning defaultOpen={false}>
-                                <ReasoningTrigger
-                                  getThinkingMessage={() => "View logs"}
-                                />
-                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                  <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                    {message.activityLog}
-                                  </pre>
-                                </CollapsibleContent>
-                              </Reasoning>
-                            );
-                          })()}
-                      </>
                     )}
-                  </MessageContent>
-                  {message.role === "user" && (
-                    <div className="mt-0.5 ml-auto">
-                      {message.userId ? (
-                        <UserInitials
-                          userId={message.userId}
-                          hideLastSeen
-                          size="md"
-                        />
+                    <MessageContent
+                      className={
+                        message.role === "user"
+                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                          : "px-1 py-2"
+                      }
+                    >
+                      {message.role === "assistant" && !message.content ? (
+                        (() => {
+                          const steps = parseActivitySteps(streamingActivity);
+                          return steps ? (
+                            <ActivitySteps steps={steps} isStreaming />
+                          ) : (
+                            <Reasoning isStreaming defaultOpen>
+                              <ReasoningTrigger
+                                getThinkingMessage={(streaming) =>
+                                  streaming
+                                    ? "Working..."
+                                    : "Processing complete"
+                                }
+                              />
+                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                <pre className="whitespace-pre-wrap font-mono text-xs">
+                                  {streamingActivity || "Starting..."}
+                                </pre>
+                              </CollapsibleContent>
+                            </Reasoning>
+                          );
+                        })()
                       ) : (
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                            U
-                          </AvatarFallback>
-                        </Avatar>
+                        <>
+                          {message.role === "assistant" ? (
+                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                              {message.content}
+                            </MessageResponse>
+                          ) : (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {message.content}
+                              </p>
+                              <div className="flex items-center justify-between gap-3">
+                                {message.mode && (
+                                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                                    {message.mode === "execute" && (
+                                      <>
+                                        <IconCode className="w-2.5 h-2.5" />{" "}
+                                        Execute
+                                      </>
+                                    )}
+                                    {message.mode === "ask" && (
+                                      <>
+                                        <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
+                                        Ask
+                                      </>
+                                    )}
+                                    {message.mode === "plan" && (
+                                      <>
+                                        <IconClipboardList className="w-2.5 h-2.5" />{" "}
+                                        PRD
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                                {message.timestamp && (
+                                  <span className="text-[11px] text-muted-foreground/60">
+                                    {dayjs(message.timestamp).format("h:mm A")}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {message.role === "assistant" &&
+                            message.activityLog &&
+                            (() => {
+                              const steps = parseActivitySteps(
+                                message.activityLog,
+                              );
+                              return steps ? (
+                                <ActivitySteps steps={steps} />
+                              ) : (
+                                <Reasoning defaultOpen={false}>
+                                  <ReasoningTrigger
+                                    getThinkingMessage={() => "View logs"}
+                                  />
+                                  <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                    <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                      {message.activityLog}
+                                    </pre>
+                                  </CollapsibleContent>
+                                </Reasoning>
+                              );
+                            })()}
+                        </>
                       )}
-                    </div>
-                  )}
-                </AIMessage>
-              </motion.div>
-            ))
+                    </MessageContent>
+                    {message.role === "user" && (
+                      <div className="mt-0.5 ml-auto">
+                        {message.userId ? (
+                          <UserInitials
+                            userId={message.userId}
+                            hideLastSeen
+                            size="md"
+                          />
+                        ) : (
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                              U
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    )}
+                  </AIMessage>
+                </motion.div>
+              ),
+            )
           )}
         </ConversationContent>
         <ConversationScrollButton />

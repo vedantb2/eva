@@ -221,6 +221,7 @@ export const sessionExecuteWorkflow = workflow.define({
         allowedTools: data.allowedTools,
         branchName: data.branchName,
         repoId: data.repoId,
+        sessionPersistenceId: args.sessionId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );

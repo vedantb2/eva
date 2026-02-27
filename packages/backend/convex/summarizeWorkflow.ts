@@ -47,6 +47,7 @@ export const summarizeSessionWorkflow = workflow.define({
       model: "haiku",
       allowedTools: "",
       repoId: sessionData.repoId,
+      sessionPersistenceId: args.sessionId,
     });
 
     // Step 3: Wait for callback from sandbox

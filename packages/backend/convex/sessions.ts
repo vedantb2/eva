@@ -15,6 +15,8 @@ const messageValidator = v.object({
   mode: v.optional(sessionModeValidator),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
+  isSystemAlert: v.optional(v.boolean()),
+  errorDetail: v.optional(v.string()),
 });
 
 const fileDiffValidator = v.object({
@@ -410,10 +412,6 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || "main";
-    await ctx.db.patch(args.sessionId, {
-      status: "starting",
-      updatedAt: Date.now(),
-    });
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,
@@ -448,9 +446,10 @@ export const stopSandbox = authMutation({
         ...session.messages,
         {
           role: "assistant" as const,
-          content: "Sandbox stopped. Start the sandbox to resume this session.",
+          content: "Sandbox stopped",
           timestamp: Date.now(),
           userId: ctx.userId,
+          isSystemAlert: true,
         },
       ],
       updatedAt: Date.now(),
@@ -471,14 +470,7 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.status === "closed") return null;
-    const content = args.isNew
-      ? args.usedSnapshot === true
-        ? `Sandbox started from snapshot! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
-        : args.usedSnapshot === false
-          ? `Sandbox started from base image. Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
-          : `Sandbox started! Ready on branch \`${args.branchName}\`. Dev server is starting automatically.`
-      : `Sandbox reconnected! Continuing work on branch \`${args.branchName}\`.`;
+    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
     const patch: {
       messages: typeof session.messages;
       updatedAt: number;
@@ -492,6 +484,7 @@ export const sandboxReady = internalMutation({
           role: "assistant" as const,
           content,
           timestamp: Date.now(),
+          isSystemAlert: true,
         },
       ],
       updatedAt: Date.now(),
@@ -519,8 +512,10 @@ export const sandboxError = internalMutation({
         ...session.messages,
         {
           role: "assistant" as const,
-          content: `Failed to start sandbox: ${args.error}`,
+          content: "Failed to start sandbox",
           timestamp: Date.now(),
+          isSystemAlert: true,
+          errorDetail: args.error,
         },
       ],
       updatedAt: Date.now(),

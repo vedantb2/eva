@@ -141,7 +141,6 @@ export function DesignDetailClient({
   const isExecuting = isSending || lastAssistantHasNoContent;
 
   const sandboxRunning = !!session?.sandboxId;
-  const isServerStarting = session?.status === "starting";
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -279,12 +278,10 @@ export function DesignDetailClient({
                   variant="ghost"
                   className="h-7 text-xs gap-1"
                   onClick={handleStartSandbox}
-                  disabled={isSandboxStarting || isServerStarting}
+                  disabled={isSandboxStarting}
                 >
                   <IconPlayerPlay size={14} />
-                  {isSandboxStarting || isServerStarting
-                    ? "Starting..."
-                    : "Start sandbox"}
+                  {isSandboxStarting ? "Starting..." : "Start sandbox"}
                 </Button>
               )}
               <Button

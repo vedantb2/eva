@@ -9,27 +9,20 @@
   2. **Sidebars**: Added collapsible "Archived" section to `SessionsSidebar` and `DesignSessionsSidebar` with a chevron toggle. Archived items show as dimmed links with no action dropdown. Search filters both active and archived sessions.
   3. **Read-only mode**: When viewing an archived session, all action buttons (sandbox toggle, clear chat, send for review, summary, prompt input) are hidden. An "Archived" banner replaces the action bar. Design sessions also hide the "Use this design" button and sandbox start button.
 
-## Faster Sandbox Start Feedback in UI - 2026-02-26
+## Faster Sandbox Start for Existing Sandboxes - 2026-02-26
 
 - **Why**: Clicking "Start" on a session showed the sandbox as started ~5 seconds late. Daytona had the sandbox running almost immediately, but the UI waited for git sync, branch checkout, and service startup to complete before updating the session status to "active".
 
 - **Changes**:
-  1. **Added `"starting"` session status** (`packages/backend/convex/validators.ts`):
-     - New intermediate status so the UI can show a spinner immediately on click
-  2. **Immediate status update in mutations** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/designSessions.ts`):
-     - `startSandbox` mutations now set status to `"starting"` before scheduling the Daytona action
-  3. **Early `sandboxReady` for existing sandboxes** (`packages/backend/convex/daytona.ts`):
+  1. **Early `sandboxReady` for existing sandboxes** (`packages/backend/convex/daytona.ts`):
      - For reused sandboxes, `sandboxReady` is called right after health check passes, before git sync/checkout
      - Git sync and branch checkout still happen, just after the UI is already updated
-  4. **Race condition guards** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/designSessions.ts`):
+  2. **Race condition guards** (`packages/backend/convex/sessions.ts`, `packages/backend/convex/designSessions.ts`):
      - `sandboxReady` now skips if session was stopped (`"closed"`) while start was in flight
-     - `sandboxError` now resets status back to `"closed"` so the session doesn't get stuck in `"starting"`
-  5. **UI updates** (`SessionDetailClient.tsx`, `DesignDetailClient.tsx`):
-     - Button shows spinner during `"starting"` state
+     - `sandboxError` now resets status back to `"closed"` on failure
 
 - **Impact**:
-  - Existing sandbox restarts appear instant in UI (health check takes <1s vs previous 5s+ wait)
-  - New sandbox creation shows a spinner immediately instead of a dead zone between click and response
+  - Existing sandbox restarts appear active in UI as soon as health check passes (~1s) vs previous 5s+ wait
 
 ## Reuse Stopped Session Sandboxes on Restart - 2026-02-26
 

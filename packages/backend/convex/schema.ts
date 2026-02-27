@@ -204,6 +204,8 @@ const schema = defineSchema({
         mode: v.optional(sessionModeValidator),
         activityLog: v.optional(v.string()),
         userId: v.optional(v.id("users")),
+        isSystemAlert: v.optional(v.boolean()),
+        errorDetail: v.optional(v.string()),
       }),
     ),
     fileDiffs: v.optional(

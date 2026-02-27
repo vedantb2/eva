@@ -201,10 +201,6 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `design/${args.id}`;
-    await ctx.db.patch(args.id, {
-      status: "starting",
-      updatedAt: Date.now(),
-    });
     await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
@@ -250,7 +246,6 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
-    if (session.status === "closed") return null;
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
       branchName: args.branchName,

@@ -151,7 +151,7 @@ export const projectInterviewWorkflow = workflow.define({
     const fullPrompt = `${SYSTEM_PROMPT} ${questionPrompt}`;
 
     // Step 3: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.projectId,
       existingSandboxId: projectData.sandboxId,
       installationId: args.installationId,
@@ -399,7 +399,7 @@ Generate an implementation spec with 2-5 tasks. Each task should represent a com
 
 Output ONLY valid JSON.`;
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.projectId,
       existingSandboxId: projectData.sandboxId,
       installationId: args.installationId,

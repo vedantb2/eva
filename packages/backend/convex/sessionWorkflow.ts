@@ -206,7 +206,7 @@ export const sessionExecuteWorkflow = workflow.define({
 
     // Step 3: Setup sandbox + fire Claude CLI
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.sandbox.setupAndExecute,
       {
         entityId: args.sessionId,
         existingSandboxId: data.sandboxId,
@@ -221,7 +221,6 @@ export const sessionExecuteWorkflow = workflow.define({
         allowedTools: data.allowedTools,
         branchName: data.branchName,
         repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
@@ -243,7 +242,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let planContent: string | undefined;
 
     if (args.mode === "execute" && result.success && sandboxId) {
-      const diffRaw = await step.runAction(internal.daytona.runSandboxCommand, {
+      const diffRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
         timeoutSeconds: 30,
@@ -256,7 +255,7 @@ export const sessionExecuteWorkflow = workflow.define({
     }
 
     if (args.mode === "plan" && result.success && sandboxId) {
-      const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
+      const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,

@@ -42,7 +42,7 @@ export const evaluationWorkflow = workflow.define({
     );
 
     // Step 3: Setup sandbox + fire two-phase Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: String(args.reportId),
       installationId: args.installationId,
       repoOwner: docData.repoOwner,

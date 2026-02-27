@@ -3,7 +3,6 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Daytona } from "@daytonaio/sdk";
 import { resolveEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 
@@ -11,10 +10,7 @@ const POLL_INTERVAL_MS = 30000;
 const MAX_POLLS = 40;
 const MAX_FIND_ATTEMPTS = 5;
 const GITHUB_API = "https://api.github.com";
-
-function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
-}
+const E2B_API = "https://api.e2b.dev";
 
 function githubFetch(
   path: string,
@@ -84,14 +80,14 @@ export const rebuildSnapshot = internalAction({
 
     try {
       const resp = await githubFetch(
-        `/repos/${repo.owner}/${repo.name}/actions/workflows/rebuild-snapshot.yml/dispatches`,
+        `/repos/${repo.owner}/${repo.name}/actions/workflows/rebuild-template.yml/dispatches`,
         token,
         {
           method: "POST",
           body: JSON.stringify({
             ref: config.workflowRef ?? "main",
             inputs: {
-              snapshot_name: config.snapshotName,
+              template_name: config.snapshotName,
               custom_commands: JSON.stringify(config.customSetupCommands),
               custom_env_vars: JSON.stringify(config.customEnvVars),
             },
@@ -112,9 +108,9 @@ export const rebuildSnapshot = internalAction({
           status: "error",
           logs: "",
           error: workflowInputError
-            ? "GitHub workflow dispatch failed: rebuild-snapshot.yml in the target repo does not define workflow_dispatch inputs. Add snapshot_name/custom_commands/custom_env_vars inputs and push that file to the repo default branch."
+            ? "GitHub workflow dispatch failed: rebuild-template.yml in the target repo does not define workflow_dispatch inputs. Add template_name/custom_commands/custom_env_vars inputs and push that file to the repo default branch."
             : notFoundError
-              ? `GitHub workflow dispatch failed (404): rebuild-snapshot.yml not found on branch "${config.workflowRef ?? "main"}". Verify the workflow file exists on the target branch (check Workflow Branch field in config).`
+              ? `GitHub workflow dispatch failed (404): rebuild-template.yml not found on branch "${config.workflowRef ?? "main"}". Verify the workflow file exists on the target branch (check Workflow Branch field in config).`
               : permissionError
                 ? "GitHub workflow dispatch failed (403): The GitHub App does not have 'actions:write' permission. Go to GitHub App settings → Permissions & events → Repository permissions → Actions → Read and write, then save and accept the new permissions on all installations."
                 : `GitHub workflow dispatch failed (${resp.status}): ${body}`,
@@ -185,7 +181,7 @@ export const pollWorkflowRun = internalAction({
 
       if (runId === undefined) {
         const resp = await githubFetch(
-          `/repos/${args.repoOwner}/${args.repoName}/actions/workflows/rebuild-snapshot.yml/runs?created=>${args.dispatchedAt}&per_page=5`,
+          `/repos/${args.repoOwner}/${args.repoName}/actions/workflows/rebuild-template.yml/runs?created=>${args.dispatchedAt}&per_page=5`,
           token,
         );
 
@@ -215,7 +211,7 @@ export const pollWorkflowRun = internalAction({
               status: "error",
               logs: `[Poll ${args.attempt}] Could not find GitHub Actions workflow run.\n`,
               error:
-                "GitHub Actions workflow run not found. Ensure rebuild-snapshot.yml exists in the repo and the GitHub App has actions:write permission.",
+                "GitHub Actions workflow run not found. Ensure rebuild-template.yml exists in the repo and the GitHub App has actions:write permission.",
             });
             return null;
           }
@@ -279,7 +275,7 @@ export const pollWorkflowRun = internalAction({
           status: "error",
           logs: `[Poll ${args.attempt}] Max poll attempts reached.\n`,
           error:
-            "Snapshot build did not complete within polling window (~20 minutes)",
+            "Template build did not complete within polling window (~20 minutes)",
         });
         return null;
       }
@@ -332,25 +328,31 @@ export const pollWorkflowRun = internalAction({
   },
 });
 
-export const deleteDaytonaSnapshot = internalAction({
+export const deleteE2bTemplate = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const envVars = await resolveEnvVars(ctx, args.repoId);
-    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    const e2bApiKey = envVars.E2B_API_KEY;
 
-    if (!daytonaApiKey) {
+    if (!e2bApiKey) {
       throw new Error(
-        "DAYTONA_API_KEY not found in team or repo environment variables",
+        "E2B_API_KEY not found in team or repo environment variables",
       );
     }
 
-    const daytona = getDaytona(daytonaApiKey);
     try {
-      const snapshot = await daytona.snapshot.get(args.snapshotName);
-      await daytona.snapshot.delete(snapshot);
+      const resp = await fetch(`${E2B_API}/templates/${args.snapshotName}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${e2bApiKey}`,
+        },
+      });
+      if (!resp.ok && resp.status !== 404) {
+        throw new Error(`Failed to delete E2B template: ${resp.status}`);
+      }
     } catch {
-      // Snapshot may not exist
+      // Template may not exist
     }
     return null;
   },

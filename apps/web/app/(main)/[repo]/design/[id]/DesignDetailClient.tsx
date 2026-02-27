@@ -76,8 +76,6 @@ function parseActivitySteps(raw: string | undefined): ActivityStep[] {
   }
 }
 
-const VARIATION_KEYS = ["a", "b", "c"] as const;
-
 export function DesignDetailClient({
   designSessionId,
 }: {
@@ -120,12 +118,12 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getDesktopStreamUrl = useAction(api.sandbox.getDesktopStreamUrl);
 
   const [isSending, setIsSending] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [showClearChatModal, setShowClearChatModal] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
   const [{ tab, view }, setDesignParams] = useQueryStates({
@@ -154,26 +152,25 @@ export function DesignDetailClient({
     }
   }, [isSandboxStarting, session?.sandboxId]);
 
-  const fetchPreviewUrl = useCallback(async () => {
+  const fetchStreamUrl = useCallback(async () => {
     if (!session?.sandboxId) {
-      setPreviewUrl(null);
+      setStreamUrl(null);
       return;
     }
     try {
-      const data = await getPreviewUrl({
+      const data = await getDesktopStreamUrl({
         sandboxId: session.sandboxId,
-        port: 3000,
         repoId: session.repoId,
       });
-      setPreviewUrl(data.url);
+      setStreamUrl(data.url);
     } catch {
-      setPreviewUrl(null);
+      setStreamUrl(null);
     }
-  }, [session?.sandboxId, getPreviewUrl, session?.repoId]);
+  }, [session?.sandboxId, getDesktopStreamUrl, session?.repoId]);
 
   useEffect(() => {
-    fetchPreviewUrl();
-  }, [fetchPreviewUrl]);
+    fetchStreamUrl();
+  }, [fetchStreamUrl]);
 
   const latestVariations = getLatestVariations(session?.messages ?? []);
 
@@ -191,7 +188,7 @@ export function DesignDetailClient({
 
   const handleStopSandbox = async () => {
     await stopSandboxMutation({ id: designSessionId });
-    setPreviewUrl(null);
+    setStreamUrl(null);
   };
 
   const handleSend = async (text: string) => {
@@ -468,11 +465,12 @@ export function DesignDetailClient({
                 <div
                   className={`transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
                 >
-                  {previewUrl ? (
+                  {streamUrl ? (
                     <iframe
-                      src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
+                      src={streamUrl}
                       className="w-full h-full border-0"
                       title={variation.label}
+                      allow="clipboard-read; clipboard-write"
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">

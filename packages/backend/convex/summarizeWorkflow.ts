@@ -34,7 +34,7 @@ export const summarizeSessionWorkflow = workflow.define({
     );
 
     // Step 2: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    await step.runAction(internal.sandbox.setupAndExecute, {
       entityId: args.sessionId,
       existingSandboxId: sessionData.sandboxId,
       installationId: args.installationId,
@@ -47,7 +47,6 @@ export const summarizeSessionWorkflow = workflow.define({
       model: "haiku",
       allowedTools: "",
       repoId: sessionData.repoId,
-      sessionPersistenceId: args.sessionId,
     });
 
     // Step 3: Wait for callback from sandbox

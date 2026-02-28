@@ -139,37 +139,6 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 - The GITHUB_TOKEN environment variable is set for git operations${getResponseLengthInstruction(responseLength)}`;
 }
 
-// --- Diff parsing ---
-
-function parseDiffOutput(raw: string): Array<{
-  file: string;
-  status: string;
-  diff: string;
-}> {
-  if (!raw.trim()) return [];
-
-  const chunks = raw.split(/(?=^diff --git )/m).filter(Boolean);
-  const MAX_TOTAL = 50_000;
-  let totalSize = 0;
-  const diffs: Array<{ file: string; status: string; diff: string }> = [];
-
-  for (const chunk of chunks) {
-    const fileMatch = chunk.match(/^diff --git a\/.+ b\/(.+)$/m);
-    if (!fileMatch) continue;
-
-    const file = fileMatch[1];
-    let status = "modified";
-    if (chunk.includes("--- /dev/null")) status = "added";
-    else if (chunk.includes("+++ /dev/null")) status = "deleted";
-
-    if (totalSize + chunk.length > MAX_TOTAL) break;
-    totalSize += chunk.length;
-    diffs.push({ file, status, diff: chunk });
-  }
-
-  return diffs;
-}
-
 // --- Workflow ---
 
 const sessionModeArgValidator = v.union(
@@ -239,21 +208,7 @@ export const sessionExecuteWorkflow = workflow.define({
     const result = await step.awaitEvent(sessionCompleteEvent);
 
     // Step 6: Post-completion mode-specific operations
-    let fileDiffs: string | undefined;
     let planContent: string | undefined;
-
-    if (args.mode === "execute" && result.success && sandboxId) {
-      const diffRaw = await step.runAction(internal.daytona.runSandboxCommand, {
-        sandboxId,
-        command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-        timeoutSeconds: 30,
-        repoId: data.repoId,
-      });
-      const diffs = parseDiffOutput(diffRaw);
-      if (diffs.length > 0) {
-        fileDiffs = JSON.stringify(diffs);
-      }
-    }
 
     if (args.mode === "plan" && result.success && sandboxId) {
       const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
@@ -274,7 +229,6 @@ export const sessionExecuteWorkflow = workflow.define({
       result: result.result,
       error: result.error,
       activityLog: result.activityLog,
-      fileDiffs,
       planContent,
     });
   },
@@ -416,7 +370,6 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
-    fileDiffs: v.optional(v.string()),
     planContent: v.optional(v.string()),
   },
   returns: v.null(),
@@ -450,19 +403,12 @@ export const saveResult = internalMutation({
       messages: typeof messages;
       activeWorkflowId?: string;
       updatedAt: number;
-      fileDiffs?: Array<{ file: string; status: string; diff: string }>;
       planContent?: string;
     } = {
       messages,
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     };
-
-    if (args.fileDiffs) {
-      const parsed: Array<{ file: string; status: string; diff: string }> =
-        JSON.parse(args.fileDiffs);
-      patch.fileDiffs = parsed;
-    }
 
     if (args.planContent) {
       patch.planContent = args.planContent;

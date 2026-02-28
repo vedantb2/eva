@@ -209,15 +209,6 @@ const schema = defineSchema({
         errorDetail: v.optional(v.string()),
       }),
     ),
-    fileDiffs: v.optional(
-      v.array(
-        v.object({
-          file: v.string(),
-          status: v.string(),
-          diff: v.string(),
-        }),
-      ),
-    ),
     planContent: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
   })

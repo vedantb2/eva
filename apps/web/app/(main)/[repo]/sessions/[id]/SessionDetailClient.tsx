@@ -112,7 +112,6 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           sessionId={sessionId}
           sandboxId={session.sandboxId}
           isActive={isSandboxActive}
-          fileDiffs={session.fileDiffs}
           chatVisible={!chatCollapsed}
           onToggleChat={handleChatToggle}
           repoId={session.repoId}

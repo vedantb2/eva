@@ -9,19 +9,14 @@ import { sandboxTabParser } from "@/lib/search-params";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
 import {
   IconWorld,
-  IconGitBranch,
   IconCode,
   IconTerminal2,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
-import type { FunctionReturnType } from "convex/server";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
-import { DiffPanel } from "./DiffPanel";
 import { EditorPanel } from "./EditorPanel";
-
-type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
 
 interface PreviewInfo {
   url: string;
@@ -32,7 +27,6 @@ interface SandboxPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
-  fileDiffs: Session["fileDiffs"];
   chatVisible?: boolean;
   onToggleChat?: () => void;
   repoId: Id<"githubRepos">;
@@ -42,7 +36,6 @@ export function SandboxPanel({
   sessionId,
   sandboxId,
   isActive,
-  fileDiffs,
   chatVisible,
   onToggleChat,
   repoId,
@@ -127,12 +120,7 @@ export function SandboxPanel({
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          if (
-            v === "preview" ||
-            v === "editor" ||
-            v === "diffs" ||
-            v === "terminal"
-          ) {
+          if (v === "preview" || v === "editor" || v === "terminal") {
             setActiveTab(v);
           }
         }}
@@ -143,9 +131,6 @@ export function SandboxPanel({
           </TabsTrigger>
           <TabsTrigger value="editor">
             <IconCode className="w-4 h-4" />
-          </TabsTrigger>
-          <TabsTrigger value="diffs">
-            <IconGitBranch className="w-4 h-4" />
           </TabsTrigger>
           <TabsTrigger value="terminal">
             <IconTerminal2 className="w-4 h-4" />
@@ -180,9 +165,6 @@ export function SandboxPanel({
             tabSwitcher={tabSwitcher}
             repoId={repoId}
           />
-        </div>
-        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-          <DiffPanel fileDiffs={fileDiffs} tabSwitcher={tabSwitcher} />
         </div>
         <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
           <div className="h-full flex flex-col">

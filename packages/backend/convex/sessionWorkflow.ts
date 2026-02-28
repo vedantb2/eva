@@ -495,6 +495,13 @@ export const cancelExecution = authMutation({
       await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);
     }
 
+    if (session.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      });
+    }
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))

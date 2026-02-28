@@ -324,7 +324,7 @@ export function ChatPanel({
     await cancelExecutionMutation({ sessionId });
   };
 
-  const isInputDisabled = !isSandboxActive || isSending || isExecuting;
+  const isInputDisabled = !isSandboxActive || isSending;
   const submitStatus = isExecuting
     ? lastAssistantHasNoContent
       ? "streaming"

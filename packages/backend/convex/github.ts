@@ -122,7 +122,7 @@ export const createSessionPr = action({
       title: session.title,
       body: `Session: ${session.title}\n\n---\n*Created by Eva AI Agent*`,
       head: session.branchName,
-      base: "main",
+      base: "staging",
     });
 
     await ctx.runMutation(internal.sessions.setPrUrl, {

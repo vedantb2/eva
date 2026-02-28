@@ -894,7 +894,7 @@ export const setupAndExecute = internalAction({
       );
       await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git reset --hard ${quote([`origin/${args.baseBranch}`])}`,
+        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
         30,
       );
     }
@@ -1208,35 +1208,19 @@ export const startSessionSandbox = internalAction({
         await ensureSessionClaudeVolume(daytona, args.sessionId),
       );
       const sandbox = prepared.sandbox;
-      if (prepared.usedSnapshot) {
-        await fetchOrigin(
-          sandbox,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          args.branchName,
-          { prune: false, timeoutSeconds: 30 },
-        );
-        await exec(
-          sandbox,
-          `cd ${WORKSPACE_DIR} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
-          120,
-        );
-      } else {
-        await fetchOrigin(
-          sandbox,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          args.branchName,
-          { prune: false, timeoutSeconds: 30 },
-        );
-        await exec(
-          sandbox,
-          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
-          30,
-        );
-      }
+      await fetchOrigin(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        { prune: false, timeoutSeconds: 30 },
+      );
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} && git pull --ff-only origin ${quote([args.branchName])}`,
+        30,
+      );
       await startSessionServices(sandbox);
 
       await ctx.runMutation(internal.sessions.sandboxReady, {

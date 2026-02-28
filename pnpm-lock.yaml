@@ -463,9 +463,6 @@ importers:
 
   apps/teams-bot:
     dependencies:
-      '@e2b/desktop':
-        specifier: ^2.0.1
-        version: 2.2.2
       '@microsoft/agents-hosting':
         specifier: ^0.2.0
         version: 0.2.14
@@ -478,6 +475,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
+      e2b:
+        specifier: ^2.13.0
+        version: 2.13.0
       express:
         specifier: ^5.1.0
         version: 5.2.1
@@ -798,6 +798,9 @@ importers:
       convex-timeline:
         specifier: ^0.1.2
         version: 0.1.2(convex@1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1))
+      e2b:
+        specifier: ^2.13.0
+        version: 2.13.0
       octokit:
         specifier: ^5.0.5
         version: 5.0.5

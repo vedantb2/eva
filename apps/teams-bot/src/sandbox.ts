@@ -1,4 +1,4 @@
-import { Sandbox } from "@e2b/desktop";
+import { Sandbox } from "e2b";
 import { createAppAuth } from "@octokit/auth-app";
 import { quote } from "shell-quote";
 
@@ -25,7 +25,7 @@ export async function createBotSandbox(githubToken: string): Promise<Sandbox> {
       GITHUB_TOKEN: githubToken,
       CLAUDE_CODE_OAUTH_TOKEN: requireEnv("CLAUDE_CODE_OAUTH_TOKEN"),
     },
-    timeout: 3600,
+    timeoutMs: 3_600_000,
   });
 }
 

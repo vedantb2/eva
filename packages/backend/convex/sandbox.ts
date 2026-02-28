@@ -5,7 +5,8 @@ import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { Sandbox } from "@e2b/desktop";
+import { Sandbox as DesktopSandbox } from "@e2b/desktop";
+import { Sandbox as BaseSandbox } from "e2b";
 import { quote } from "shell-quote";
 import { resolveE2bApiKey } from "./envVarResolver";
 import {
@@ -15,13 +16,12 @@ import {
 } from "./githubAuth";
 
 const WORKSPACE_DIR = "/workspace/repo";
-const DEFAULT_TIMEOUT_SECONDS = 60;
-const TEMPLATE_TIMEOUT_SECONDS = 30;
+const SANDBOX_LIFETIME_SECONDS = 3600;
 const TEMPLATE_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
 
 async function exec(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   cmd: string,
   timeoutMs = 30_000,
 ): Promise<string> {
@@ -42,16 +42,19 @@ async function exec(
 async function ensureSandboxRunning(
   sandboxId: string,
   apiKey: string,
-): Promise<Sandbox> {
-  try {
-    const sandbox = await Sandbox.connect(sandboxId, { apiKey });
-    await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
-    return sandbox;
-  } catch {
-    const sandbox = await Sandbox.resume(sandboxId, { apiKey });
-    await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
-    return sandbox;
-  }
+): Promise<BaseSandbox> {
+  const sandbox = await BaseSandbox.connect(sandboxId, { apiKey });
+  await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
+  return sandbox;
+}
+
+async function ensureDesktopSandboxRunning(
+  sandboxId: string,
+  apiKey: string,
+): Promise<DesktopSandbox> {
+  const sandbox = await DesktopSandbox.connect(sandboxId, { apiKey });
+  await sandbox.commands.run("echo 1", { timeoutMs: 5_000 });
+  return sandbox;
 }
 
 function requireEnv(name: string): string {
@@ -81,22 +84,21 @@ function isTemplateReadyTimeoutError(error: Error): boolean {
   return error.message.includes(TEMPLATE_READY_TIMEOUT_ERROR);
 }
 
-async function createSandbox(
+async function createDesktopSandbox(
   apiKey: string,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
-  templateName?: string,
-): Promise<Sandbox> {
+): Promise<DesktopSandbox> {
   const githubToken = await getInstallationToken(installationId);
 
-  const sandbox = await Sandbox.create(templateName ?? "desktop", {
+  const sandbox = await DesktopSandbox.create("desktop", {
     apiKey,
     envs: {
       ...sandboxEnvVars,
       GITHUB_TOKEN: githubToken,
       INSTALLATION_ID: String(installationId),
     },
-    timeout: templateName ? TEMPLATE_TIMEOUT_SECONDS : DEFAULT_TIMEOUT_SECONDS,
+    timeoutMs: SANDBOX_LIFETIME_SECONDS * 1000,
     resolution: [1920, 1080],
   });
   await exec(
@@ -107,8 +109,36 @@ async function createSandbox(
   return sandbox;
 }
 
+async function createCliSandbox(
+  apiKey: string,
+  installationId: number,
+  sandboxEnvVars: Record<string, string>,
+  templateName?: string,
+): Promise<BaseSandbox> {
+  const githubToken = await getInstallationToken(installationId);
+
+  const opts = {
+    apiKey,
+    envs: {
+      ...sandboxEnvVars,
+      GITHUB_TOKEN: githubToken,
+      INSTALLATION_ID: String(installationId),
+    },
+    timeoutMs: SANDBOX_LIFETIME_SECONDS * 1000,
+  };
+  const sandbox = templateName
+    ? await BaseSandbox.create(templateName, opts)
+    : await BaseSandbox.create(opts);
+  await exec(
+    sandbox,
+    'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+    10_000,
+  );
+  return sandbox;
+}
+
 async function syncRepo(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   installationId: number,
   owner: string,
   name: string,
@@ -120,7 +150,7 @@ async function syncRepo(
 }
 
 async function checkoutSessionBranch(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
@@ -132,7 +162,7 @@ async function checkoutSessionBranch(
 }
 
 async function cloneAndSetupRepo(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   installationId: number,
   owner: string,
   name: string,
@@ -161,16 +191,32 @@ async function cloneAndSetupRepo(
   }
 }
 
-async function createSandboxAndPrepareRepo(
+async function createDesktopSandboxAndPrepareRepo(
+  apiKey: string,
+  installationId: number,
+  owner: string,
+  name: string,
+  sandboxEnvVars: Record<string, string>,
+): Promise<DesktopSandbox> {
+  const sandbox = await createDesktopSandbox(
+    apiKey,
+    installationId,
+    sandboxEnvVars,
+  );
+  await cloneAndSetupRepo(sandbox, installationId, owner, name);
+  return sandbox;
+}
+
+async function createCliSandboxAndPrepareRepo(
   apiKey: string,
   installationId: number,
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
   templateName?: string,
-): Promise<{ sandbox: Sandbox; usedTemplate: boolean }> {
+): Promise<{ sandbox: BaseSandbox; usedTemplate: boolean }> {
   try {
-    const sandbox = await createSandbox(
+    const sandbox = await createCliSandbox(
       apiKey,
       installationId,
       sandboxEnvVars,
@@ -192,9 +238,9 @@ async function createSandboxAndPrepareRepo(
     }
 
     console.warn(
-      `[sandbox] Template "${templateName}" not ready after ${TEMPLATE_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying`,
+      `[sandbox] Template "${templateName}" failed for ${owner}/${name}; retrying`,
     );
-    const sandbox = await createSandbox(
+    const sandbox = await createCliSandbox(
       apiKey,
       installationId,
       sandboxEnvVars,
@@ -205,7 +251,7 @@ async function createSandboxAndPrepareRepo(
   }
 }
 
-async function getOrCreateSandbox(
+async function getOrCreateCliSandbox(
   apiKey: string,
   existingSandboxId: string | undefined,
   installationId: number,
@@ -213,7 +259,7 @@ async function getOrCreateSandbox(
   name: string,
   sandboxEnvVars: Record<string, string>,
   templateName?: string,
-): Promise<{ sandbox: Sandbox; isNew: boolean }> {
+): Promise<{ sandbox: BaseSandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
       const sandbox = await ensureSandboxRunning(existingSandboxId, apiKey);
@@ -223,7 +269,7 @@ async function getOrCreateSandbox(
       // Sandbox was deleted/expired or sync failed, fall through to create a new one
     }
   }
-  const { sandbox } = await createSandboxAndPrepareRepo(
+  const { sandbox } = await createCliSandboxAndPrepareRepo(
     apiKey,
     installationId,
     owner,
@@ -235,7 +281,7 @@ async function getOrCreateSandbox(
 }
 
 async function configureGitHubOrigin(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   installationId: number,
   owner: string,
   name: string,
@@ -258,7 +304,7 @@ async function configureGitHubOrigin(
 }
 
 async function fetchOrigin(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   installationId: number,
   owner: string,
   name: string,
@@ -281,7 +327,7 @@ async function fetchOrigin(
 }
 
 async function setupBranch(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
@@ -598,7 +644,7 @@ try {
 }
 
 async function launchScript(
-  sandbox: Sandbox,
+  sandbox: BaseSandbox,
   prompt: string,
   completionMutation: string,
   entityIdField: string,
@@ -651,7 +697,7 @@ export const runSandboxCommand = internalAction({
   returns: v.string(),
   handler: async (ctx, args) => {
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
-    const sandbox = await Sandbox.connect(args.sandboxId, {
+    const sandbox = await BaseSandbox.connect(args.sandboxId, {
       apiKey: e2bApiKey,
     });
     return (
@@ -675,11 +721,12 @@ export const getDesktopStreamUrl = action({
     }
 
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
-    const sandbox = await Sandbox.connect(args.sandboxId, {
+    const sandbox = await DesktopSandbox.connect(args.sandboxId, {
       apiKey: e2bApiKey,
     });
-    await sandbox.stream.start();
-    const streamUrl = sandbox.stream.getUrl();
+    await sandbox.stream.start({ requireAuth: true });
+    const authKey = sandbox.stream.getAuthKey();
+    const streamUrl = sandbox.stream.getUrl({ authKey });
 
     return { url: streamUrl };
   },
@@ -702,7 +749,7 @@ export const getServiceUrl = action({
     }
 
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
-    const sandbox = await Sandbox.connect(args.sandboxId, {
+    const sandbox = await BaseSandbox.connect(args.sandboxId, {
       apiKey: e2bApiKey,
     });
     const hostUrl = sandbox.getHost(args.port);
@@ -740,7 +787,7 @@ export const setupAndExecute = internalAction({
       await resolveSandboxContext(ctx, args.repoId);
 
     const { sandbox } = await (args.ephemeral
-      ? createSandboxAndPrepareRepo(
+      ? createCliSandboxAndPrepareRepo(
           apiKey,
           args.installationId,
           args.repoOwner,
@@ -748,7 +795,7 @@ export const setupAndExecute = internalAction({
           sandboxEnvVars,
           templateName,
         )
-      : getOrCreateSandbox(
+      : getOrCreateCliSandbox(
           apiKey,
           args.existingSandboxId,
           args.installationId,
@@ -813,7 +860,7 @@ export const launchOnExistingSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
-    const sandbox = await Sandbox.connect(args.sandboxId, {
+    const sandbox = await BaseSandbox.connect(args.sandboxId, {
       apiKey: e2bApiKey,
     });
 
@@ -846,7 +893,7 @@ export const launchAudit = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
-    const sandbox = await Sandbox.connect(args.sandboxId, {
+    const sandbox = await BaseSandbox.connect(args.sandboxId, {
       apiKey: e2bApiKey,
     });
 
@@ -904,7 +951,7 @@ export const runSessionAudit = internalAction({
       }
 
       const { e2bApiKey } = await resolveE2bApiKey(ctx, session.repoId);
-      const sandbox = await Sandbox.connect(args.sandboxId, {
+      const sandbox = await BaseSandbox.connect(args.sandboxId, {
         apiKey: e2bApiKey,
       });
 
@@ -947,7 +994,7 @@ export const killSandbox = internalAction({
   handler: async (ctx, args) => {
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
     try {
-      const sandbox = await Sandbox.connect(args.sandboxId, {
+      const sandbox = await BaseSandbox.connect(args.sandboxId, {
         apiKey: e2bApiKey,
       });
       await sandbox.kill();
@@ -978,17 +1025,17 @@ export const pauseSandbox = internalAction({
 
     const { e2bApiKey } = await resolveE2bApiKey(ctx, args.repoId);
     try {
-      const sandbox = await Sandbox.connect(args.sandboxId, {
+      const sandbox = await BaseSandbox.connect(args.sandboxId, {
         apiKey: e2bApiKey,
       });
-      await sandbox.pause();
+      await sandbox.betaPause();
     } catch {}
     return null;
   },
 });
 
-async function startDesktopStream(sandbox: Sandbox): Promise<void> {
-  await sandbox.stream.start();
+async function startDesktopStream(sandbox: DesktopSandbox): Promise<void> {
+  await sandbox.stream.start({ requireAuth: true });
 }
 
 export const startSessionSandbox = internalAction({
@@ -1008,12 +1055,14 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
-      const { apiKey, sandboxEnvVars, templateName } =
-        await resolveSandboxContext(ctx, args.repoId);
+      const { apiKey, sandboxEnvVars } = await resolveSandboxContext(
+        ctx,
+        args.repoId,
+      );
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await ensureSandboxRunning(
+          const sandbox = await ensureDesktopSandboxRunning(
             args.existingSandboxId,
             apiKey,
           );
@@ -1037,44 +1086,26 @@ export const startSessionSandbox = internalAction({
         }
       }
 
-      const prepared = await createSandboxAndPrepareRepo(
+      const sandbox = await createDesktopSandboxAndPrepareRepo(
         apiKey,
         args.installationId,
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        templateName,
       );
-      const sandbox = prepared.sandbox;
-      if (prepared.usedTemplate) {
-        await fetchOrigin(
-          sandbox,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          args.branchName,
-          { prune: false, timeoutMs: 30_000 },
-        );
-        await exec(
-          sandbox,
-          `cd ${WORKSPACE_DIR} && git reset --hard ${quote([`origin/${args.branchName}`])} && pnpm install`,
-          120_000,
-        );
-      } else {
-        await fetchOrigin(
-          sandbox,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          args.branchName,
-          { prune: false, timeoutMs: 30_000 },
-        );
-        await exec(
-          sandbox,
-          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
-          30_000,
-        );
-      }
+      await fetchOrigin(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        { prune: false, timeoutMs: 30_000 },
+      );
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
+        30_000,
+      );
       await startDesktopStream(sandbox);
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
@@ -1082,7 +1113,7 @@ export const startSessionSandbox = internalAction({
         sandboxId: sandbox.sandboxId,
         branchName: args.branchName,
         isNew: true,
-        usedSnapshot: prepared.usedTemplate,
+        usedSnapshot: false,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -1112,12 +1143,14 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
-      const { apiKey, sandboxEnvVars, templateName } =
-        await resolveSandboxContext(ctx, args.repoId);
+      const { apiKey, sandboxEnvVars } = await resolveSandboxContext(
+        ctx,
+        args.repoId,
+      );
 
       if (args.existingSandboxId) {
         try {
-          const sandbox = await ensureSandboxRunning(
+          const sandbox = await ensureDesktopSandboxRunning(
             args.existingSandboxId,
             apiKey,
           );
@@ -1141,19 +1174,14 @@ export const startDesignSandbox = internalAction({
         }
       }
 
-      const prepared = await createSandboxAndPrepareRepo(
+      const sandbox = await createDesktopSandboxAndPrepareRepo(
         apiKey,
         args.installationId,
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
-        templateName,
       );
-      const sandbox = prepared.sandbox;
       await setupBranch(sandbox, args.branchName);
-      if (prepared.usedTemplate) {
-        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120_000);
-      }
       await startDesktopStream(sandbox);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {

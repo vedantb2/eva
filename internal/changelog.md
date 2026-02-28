@@ -1,5 +1,17 @@
 # Changelog
 
+## Fix E2B migration runtime bugs — 2026-02-28
+
+- **Why**: The Daytona → E2B migration was structurally complete but had critical runtime bugs causing `SandboxError: 2: [unknown] terminated` during sandbox creation. Root cause: `@e2b/desktop`'s `Sandbox.create()` starts an xfce4 desktop session, but custom templates (built from `node:20-bullseye`) don't have xfce4/X11/VNC installed. Additionally, `Sandbox.resume()` and `sandbox.pause()` don't exist in the E2B SDK, and the desktop stream had no authentication.
+
+- **Changes**:
+  1. **Split sandbox types**: Introduced `DesktopSandbox` (from `@e2b/desktop`) for sessions/design that need desktop view, and `BaseSandbox` (from `e2b`) for tasks/workflows that only run CLI. This prevents xfce4 from being started on templates that don't support it.
+  2. **Fix `Sandbox.resume()` → removed**: E2B SDK has no `resume()` method. `Sandbox.connect()` auto-resumes paused sandboxes. Removed the broken catch/resume fallback in `ensureSandboxRunning`.
+  3. **Fix `sandbox.pause()` → `sandbox.betaPause()`**: The correct E2B SDK method name.
+  4. **Fix desktop stream authentication**: Added `requireAuth: true` to `stream.start()` and included `authKey` in `stream.getUrl()` so stream URLs are authenticated.
+  5. **Fix `timeout` → `timeoutMs`**: SDK property is `timeoutMs` (milliseconds), not `timeout` (seconds).
+  6. **Teams bot**: Switched from `@e2b/desktop` to base `e2b` package (bot doesn't need desktop). Fixed `sandbox.id` → `sandbox.sandboxId`.
+
 ## Migrate Daytona to E2B Desktop — 2026-02-27
 
 - **Why**: Daytona sandboxes had slow startup, network restrictions, and iframe-based previews that blocked auth. E2B Desktop gives ~150ms sandbox startup (Firecracker microVMs), unrestricted networking, and WebRTC desktop streaming (replaces iframe preview). Users now see a full desktop with Chrome, terminal, and VS Code inside the sandbox.

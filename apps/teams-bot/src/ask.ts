@@ -44,7 +44,7 @@ export async function askQuestion(
     repo.owner,
     repo.name,
   );
-  sandboxIds.set(conversationId, sandbox.id);
+  sandboxIds.set(conversationId, sandbox.sandboxId);
 
   const recentHistory = getHistory(conversationId)
     .slice(-10)

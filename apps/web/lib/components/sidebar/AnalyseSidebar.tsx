@@ -220,17 +220,7 @@ export function AnalyseSidebar({
                           </div>
                           <div className="mt-2 flex items-center">
                             <div className="flex -space-x-1">
-                              {[
-                                ...new Set(
-                                  query.messages.map(
-                                    (message) => message.userId,
-                                  ),
-                                ),
-                              ]
-                                .filter(Boolean)
-                                .map((id) => (
-                                  <UserInitials key={id} userId={id!} />
-                                ))}
+                              <UserInitials userId={query.userId} />
                             </div>
                             <span className="ml-auto text-xs text-muted-foreground">
                               {dayjs(query.updatedAt).fromNow()}

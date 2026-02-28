@@ -158,13 +158,11 @@ export const sessionExecuteWorkflow = workflow.define({
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Add empty assistant placeholder (user message already added by frontend)
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
       sessionId: args.sessionId,
       mode: args.mode,
     });
 
-    // Step 2: Fetch session/repo data and build prompt
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
       sessionId: args.sessionId,
       message: args.message,
@@ -173,7 +171,6 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    // Step 3: Setup sandbox + fire Claude CLI
     const { sandboxId } = await step.runAction(
       internal.daytona.setupAndExecute,
       {
@@ -195,7 +192,6 @@ export const sessionExecuteWorkflow = workflow.define({
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
 
-    // Step 4: Persist sandbox ID if changed
     if (sandboxId !== data.sandboxId) {
       await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
         sessionId: args.sessionId,
@@ -204,10 +200,8 @@ export const sessionExecuteWorkflow = workflow.define({
       });
     }
 
-    // Step 5: Wait for sandbox callback
     const result = await step.awaitEvent(sessionCompleteEvent);
 
-    // Step 6: Post-completion mode-specific operations
     let planContent: string | undefined;
 
     if (args.mode === "plan" && result.success && sandboxId) {
@@ -222,7 +216,6 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
-    // Step 7: Save result
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
       success: result.success,
@@ -246,19 +239,15 @@ export const addAssistantPlaceholder = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
 
-    await ctx.db.patch(args.sessionId, {
-      messages: [
-        ...session.messages,
-        {
-          role: "assistant" as const,
-          content: "",
-          timestamp: Date.now(),
-          mode: args.mode,
-          activityLog: "",
-        },
-      ],
-      updatedAt: Date.now(),
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      mode: args.mode,
+      activityLog: "",
     });
+    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -293,8 +282,12 @@ export const getSessionData = internalQuery({
         ? undefined
         : session.branchName || `session/${args.sessionId}`;
 
-    // Build conversation history (last 10 messages of same mode)
-    const conversationHistory = session.messages
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .collect();
+
+    const conversationHistory = messages
       .filter((m) => m.mode === args.mode)
       .slice(-10)
       .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
@@ -374,55 +367,45 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return null;
-
-    // Update last assistant message with result
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .first();
     if (!last) return null;
 
-    if (args.success) {
-      last.content = args.result || "I couldn't process your message.";
-    } else {
-      last.content = `Error: ${args.error || "Unknown error during execution."}`;
-    }
+    const patch: { content: string; activityLog?: string } = {
+      content: args.success
+        ? args.result || "I couldn't process your message."
+        : `Error: ${args.error || "Unknown error during execution."}`,
+    };
     if (args.activityLog) {
-      last.activityLog = args.activityLog;
+      patch.activityLog = args.activityLog;
     }
+    await ctx.db.patch(last._id, patch);
 
-    // Build patch
-    const patch: {
-      messages: typeof messages;
+    const sessionPatch: {
       activeWorkflowId?: string;
       updatedAt: number;
       planContent?: string;
     } = {
-      messages,
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     };
-
     if (args.planContent) {
-      patch.planContent = args.planContent;
+      sessionPatch.planContent = args.planContent;
     }
-
-    await ctx.db.patch(args.sessionId, patch);
+    await ctx.db.patch(args.sessionId, sessionPatch);
     return null;
   },
 });
 
-/**
- * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
- * Routes the completion event to the waiting workflow.
- */
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -452,9 +435,6 @@ export const handleCompletion = authMutation({
   },
 });
 
-/**
- * Frontend trigger — starts the session execution workflow.
- */
 export const startExecute = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -471,7 +451,6 @@ export const startExecute = authMutation({
     if (!session) throw new Error("Session not found");
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
-    // Only allow ask, plan, execute modes
     if (
       args.mode !== "ask" &&
       args.mode !== "plan" &&
@@ -502,9 +481,6 @@ export const startExecute = authMutation({
   },
 });
 
-/**
- * Cancel an active session workflow.
- */
 export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -519,14 +495,17 @@ export const cancelExecution = authMutation({
       await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);
     }
 
-    // Update last message with cancelled notice
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .first();
     if (last && last.role === "assistant" && !last.content) {
-      last.content = "Execution cancelled by user.";
+      await ctx.db.patch(last._id, {
+        content: "Execution cancelled by user.",
+      });
     }
 
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
@@ -534,7 +513,6 @@ export const cancelExecution = authMutation({
     if (streaming) await ctx.db.delete(streaming._id);
 
     await ctx.db.patch(args.sessionId, {
-      messages,
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });

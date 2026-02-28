@@ -123,19 +123,16 @@ export const generateQueryWorkflow = workflow.define({
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Add user message + empty assistant message
     await step.runMutation(internal.researchQueryWorkflow.addMessages, {
       queryId: args.queryId,
       question: args.question,
     });
 
-    // Step 2: Get repo info and build prompt
     const data = await step.runQuery(
       internal.researchQueryWorkflow.getGenerateData,
       { repoId: args.repoId, question: args.question },
     );
 
-    // Step 3: Setup sandbox + fire Claude CLI
     const { sandboxId } = await step.runAction(
       internal.daytona.setupAndExecute,
       {
@@ -153,10 +150,8 @@ export const generateQueryWorkflow = workflow.define({
       },
     );
 
-    // Step 4: Wait for sandbox callback
     const result = await step.awaitEvent(queryCompleteEvent);
 
-    // Step 5: Save result + sandbox ID for reuse
     await step.runMutation(internal.researchQueryWorkflow.saveGenerateResult, {
       queryId: args.queryId,
       sandboxId,
@@ -172,21 +167,19 @@ export const confirmQueryWorkflow = workflow.define({
   args: {
     queryId: v.id("researchQueries"),
     queryCode: v.string(),
-    messageIndex: v.number(),
+    messageId: v.id("messages"),
     question: v.string(),
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Mark message as confirmed, clear content
     await step.runMutation(internal.researchQueryWorkflow.markConfirmed, {
       queryId: args.queryId,
-      messageIndex: args.messageIndex,
+      messageId: args.messageId,
       queryCode: args.queryCode,
     });
 
-    // Step 2: Get repo info, build analyse prompt, and get existing sandbox ID
     const data = await step.runQuery(
       internal.researchQueryWorkflow.getConfirmData,
       {
@@ -197,7 +190,6 @@ export const confirmQueryWorkflow = workflow.define({
       },
     );
 
-    // Step 3: Reuse existing sandbox + fire Claude CLI
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: String(args.queryId),
       existingSandboxId: data.sandboxId,
@@ -213,13 +205,11 @@ export const confirmQueryWorkflow = workflow.define({
       repoId: args.repoId,
     });
 
-    // Step 4: Wait for sandbox callback
     const result = await step.awaitEvent(queryCompleteEvent);
 
-    // Step 5: Save result
     await step.runMutation(internal.researchQueryWorkflow.saveConfirmResult, {
       queryId: args.queryId,
-      messageIndex: args.messageIndex,
+      messageId: args.messageId,
       success: result.success,
       result: result.result,
       error: result.error,
@@ -240,23 +230,20 @@ export const addMessages = internalMutation({
     const rq = await ctx.db.get(args.queryId);
     if (!rq) throw new Error("Research query not found");
     const now = Date.now();
-    await ctx.db.patch(args.queryId, {
-      messages: [
-        ...rq.messages,
-        {
-          role: "user" as const,
-          content: args.question,
-          timestamp: now,
-          userId: rq.userId,
-        },
-        {
-          role: "assistant" as const,
-          content: "",
-          timestamp: now,
-        },
-      ],
-      updatedAt: now,
+    await ctx.db.insert("messages", {
+      parentId: args.queryId,
+      role: "user",
+      content: args.question,
+      timestamp: now,
+      userId: rq.userId,
     });
+    await ctx.db.insert("messages", {
+      parentId: args.queryId,
+      role: "assistant",
+      content: "",
+      timestamp: now,
+    });
+    await ctx.db.patch(args.queryId, { updatedAt: now });
     return null;
   },
 });
@@ -316,20 +303,17 @@ export const getConfirmData = internalQuery({
 export const markConfirmed = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
-    messageIndex: v.number(),
+    messageId: v.id("messages"),
     queryCode: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const rq = await ctx.db.get(args.queryId);
-    if (!rq) throw new Error("Research query not found");
-    const messages = [...rq.messages];
-    const msg = messages[args.messageIndex];
-    if (!msg) return null;
-    msg.status = "confirmed";
-    msg.queryCode = args.queryCode;
-    msg.content = "";
-    await ctx.db.patch(args.queryId, { messages, updatedAt: Date.now() });
+    await ctx.db.patch(args.messageId, {
+      status: "confirmed",
+      queryCode: args.queryCode,
+      content: "",
+    });
+    await ctx.db.patch(args.queryId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -345,31 +329,42 @@ export const saveGenerateResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
 
-    const rq = await ctx.db.get(args.queryId);
-    if (!rq) return null;
-    const messages = [...rq.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.queryId))
+      .order("desc")
+      .first();
     if (!last) return null;
 
     if (args.success && args.result) {
       const queryCode = stripCodeFences(args.result);
-      last.content = queryCode;
-      last.queryCode = queryCode;
-      last.status = "pending";
+      const patch: {
+        content: string;
+        queryCode: string;
+        status: "pending";
+        activityLog?: string;
+      } = {
+        content: queryCode,
+        queryCode,
+        status: "pending",
+      };
+      if (args.activityLog) patch.activityLog = args.activityLog;
+      await ctx.db.patch(last._id, patch);
     } else {
-      last.content = `Error generating query: ${args.error || "Unknown error"}`;
+      const patch: { content: string; activityLog?: string } = {
+        content: `Error generating query: ${args.error || "Unknown error"}`,
+      };
+      if (args.activityLog) patch.activityLog = args.activityLog;
+      await ctx.db.patch(last._id, patch);
     }
-    if (args.activityLog) last.activityLog = args.activityLog;
 
     await ctx.db.patch(args.queryId, {
-      messages,
       updatedAt: Date.now(),
       activeWorkflowId: undefined,
       sandboxId: args.sandboxId,
@@ -381,7 +376,7 @@ export const saveGenerateResult = internalMutation({
 export const saveConfirmResult = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
-    messageIndex: v.number(),
+    messageId: v.id("messages"),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -389,30 +384,27 @@ export const saveConfirmResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
 
-    const rq = await ctx.db.get(args.queryId);
-    if (!rq) return null;
-    const messages = [...rq.messages];
-    const msg = messages[args.messageIndex];
-    if (!msg) return null;
-
-    if (args.success && args.result) {
-      msg.content = args.result;
-      msg.status = "confirmed";
-    } else {
-      msg.content = `Error executing query: ${args.error || "Unknown error"}`;
-      msg.status = "confirmed";
-    }
-    if (args.activityLog) msg.activityLog = args.activityLog;
+    const patch: {
+      content: string;
+      status: "confirmed";
+      activityLog?: string;
+    } = {
+      content:
+        args.success && args.result
+          ? args.result
+          : `Error executing query: ${args.error || "Unknown error"}`,
+      status: "confirmed",
+    };
+    if (args.activityLog) patch.activityLog = args.activityLog;
+    await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.queryId, {
-      messages,
       updatedAt: Date.now(),
       activeWorkflowId: undefined,
     });
@@ -422,10 +414,6 @@ export const saveConfirmResult = internalMutation({
 
 // --- Public mutations ---
 
-/**
- * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
- * Routes completion event to the active workflow.
- */
 export const handleCompletion = authMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -454,9 +442,6 @@ export const handleCompletion = authMutation({
   },
 });
 
-/**
- * Start the generate query workflow from the frontend.
- */
 export const startGenerate = authMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -492,14 +477,11 @@ export const startGenerate = authMutation({
   },
 });
 
-/**
- * Start the confirm/execute query workflow from the frontend.
- */
 export const startConfirm = authMutation({
   args: {
     queryId: v.id("researchQueries"),
     queryCode: v.string(),
-    messageIndex: v.number(),
+    messageId: v.id("messages"),
     question: v.string(),
     repoId: v.id("githubRepos"),
     convexToken: v.string(),
@@ -516,7 +498,7 @@ export const startConfirm = authMutation({
       {
         queryId: args.queryId,
         queryCode: args.queryCode,
-        messageIndex: args.messageIndex,
+        messageId: args.messageId,
         question: args.question,
         repoId: args.repoId,
         convexToken: args.convexToken,

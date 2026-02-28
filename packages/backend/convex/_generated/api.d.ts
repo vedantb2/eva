@@ -35,6 +35,7 @@ import type * as githubRepos from "../githubRepos.js";
 import type * as http from "../http.js";
 import type * as linearActions from "../linearActions.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
+import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
@@ -104,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   linearActions: typeof linearActions;
   mcpRoutes: typeof mcpRoutes;
+  messages: typeof messages;
   migrations: typeof migrations;
   notifications: typeof notifications;
   presence: typeof presence;

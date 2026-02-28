@@ -66,6 +66,11 @@ import {
   ActivitySteps,
 } from "@conductor/ui";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import type { FunctionReturnType } from "convex/server";
+
+type QueryMessage = NonNullable<
+  FunctionReturnType<typeof api.messages.listByParent>
+>[number];
 
 interface QueryDetailClientProps {
   queryId: string;
@@ -75,7 +80,12 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const { repo } = useRepo();
   const getConvexToken = useConvexToken();
   const typedQueryId = queryId as Id<"researchQueries">;
-  const query = useQuery(api.researchQueries.get, { id: typedQueryId });
+  const researchQuery = useQuery(api.researchQueries.get, {
+    id: typedQueryId,
+  });
+  const messages = useQuery(api.messages.listByParent, {
+    parentId: typedQueryId,
+  });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
   const savedQueries = useQuery(api.savedQueries.list, { repoId: repo._id });
   const createSavedQuery = useMutation(api.savedQueries.create);
@@ -91,6 +101,8 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   );
   const startGenerate = useMutation(api.researchQueryWorkflow.startGenerate);
   const startConfirm = useMutation(api.researchQueryWorkflow.startConfirm);
+
+  const messagesList = messages ?? [];
 
   const handleSend = async (text: string) => {
     if (!text.trim() || isSending) return;
@@ -111,7 +123,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   };
 
   const handleConfirm = async (
-    messageIndex: number,
+    messageId: Id<"messages">,
     queryCode: string,
     question: string,
   ) => {
@@ -119,7 +131,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     await startConfirm({
       queryId: typedQueryId,
       queryCode,
-      messageIndex,
+      messageId,
       question,
       repoId: repo._id,
       convexToken,
@@ -127,10 +139,10 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     });
   };
 
-  const handleCancel = async (messageIndex: number) => {
+  const handleCancel = async (messageId: Id<"messages">) => {
     await updateMessageStatus({
       id: typedQueryId,
-      messageIndex,
+      messageId,
       status: "cancelled",
     });
   };
@@ -151,7 +163,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     await removeSavedQuery({ id: savedQueryId });
   };
 
-  if (query === undefined) {
+  if (researchQuery === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <Spinner size="lg" />
@@ -159,7 +171,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     );
   }
 
-  if (query === null) {
+  if (researchQuery === null) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">
@@ -173,22 +185,30 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     await handleSend(text);
   };
 
+  const getPreviousUserContent = (
+    msgs: QueryMessage[],
+    currentIndex: number,
+  ): string => {
+    const prev = currentIndex > 0 ? msgs[currentIndex - 1] : undefined;
+    return prev?.content ?? researchQuery.title;
+  };
+
   return (
     <div className="flex h-full">
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <div className="p-4">
           <h1 className="text-lg font-semibold text-foreground">
-            {query.title}
+            {researchQuery.title}
           </h1>
         </div>
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-6 justify-end">
-            {query.messages.length === 0 ? (
+            {messagesList.length === 0 ? (
               <ConversationEmptyState title="No messages yet. Start the conversation!" />
             ) : (
-              query.messages.map((message, index) => (
+              messagesList.map((message, index) => (
                 <motion.div
-                  key={`${index}-${message.role}`}
+                  key={message._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
@@ -261,17 +281,19 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                             <ConfirmationActions>
                               <ConfirmationAction
                                 variant="outline"
-                                onClick={() => handleCancel(index)}
+                                onClick={() => handleCancel(message._id)}
                               >
                                 <IconX size={14} />
                                 Cancel
                               </ConfirmationAction>
                               <ConfirmationAction
                                 onClick={() => {
-                                  const userMsg =
-                                    query.messages[index - 1]?.content ?? "";
-                                  handleConfirm(
+                                  const userMsg = getPreviousUserContent(
+                                    messagesList,
                                     index,
+                                  );
+                                  handleConfirm(
+                                    message._id,
                                     message.content,
                                     userMsg,
                                   );
@@ -353,8 +375,10 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                                         variant="outline"
                                         onClick={() => {
                                           const userMsg =
-                                            query.messages[index - 1]
-                                              ?.content ?? query.title;
+                                            getPreviousUserContent(
+                                              messagesList,
+                                              index,
+                                            );
                                           handleSaveQuery(
                                             message.queryCode ?? "",
                                             userMsg,

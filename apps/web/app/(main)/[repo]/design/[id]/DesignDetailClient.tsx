@@ -50,10 +50,9 @@ import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import dayjs from "@conductor/shared/dates";
 
-type DesignSession = NonNullable<
-  FunctionReturnType<typeof api.designSessions.get>
->;
-type DesignMessage = DesignSession["messages"][number];
+type DesignMessage = NonNullable<
+  FunctionReturnType<typeof api.messages.listByParent>
+>[number];
 type Variation = NonNullable<DesignMessage["variations"]>[number];
 
 const STARTING_STEPS: ActivityStep[] = [
@@ -84,6 +83,9 @@ export function DesignDetailClient({
   designSessionId: Id<"designSessions">;
 }) {
   const session = useQuery(api.designSessions.get, { id: designSessionId });
+  const messages = useQuery(api.messages.listByParent, {
+    parentId: designSessionId,
+  });
   const streaming = useQuery(api.streaming.get, {
     entityId: designSessionId,
   });
@@ -93,28 +95,7 @@ export function DesignDetailClient({
   );
   const { repo } = useRepo();
   const getConvexToken = useConvexToken();
-  const executeMessage = useMutation(
-    api.designSessions.executeMessage,
-  ).withOptimisticUpdate((localStore, args) => {
-    const s = localStore.getQuery(api.designSessions.get, { id: args.id });
-    if (!s) return;
-    localStore.setQuery(
-      api.designSessions.get,
-      { id: args.id },
-      {
-        ...s,
-        messages: [
-          ...s.messages,
-          {
-            role: "user",
-            content: args.message,
-            timestamp: Date.now(),
-            personaId: args.personaId,
-          },
-        ],
-      },
-    );
-  });
+  const executeMessage = useMutation(api.designSessions.executeMessage);
   const clearMessages = useMutation(api.designSessions.clearMessages);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const selectVariation = useMutation(api.designSessions.selectVariation);
@@ -135,7 +116,8 @@ export function DesignDetailClient({
   const activeTab = tab;
   const viewMode = view;
 
-  const lastMessage = session?.messages[session.messages.length - 1];
+  const messagesList = messages ?? [];
+  const lastMessage = messagesList[messagesList.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
   const isExecuting = isSending || lastAssistantHasNoContent;
@@ -175,7 +157,7 @@ export function DesignDetailClient({
     fetchPreviewUrl();
   }, [fetchPreviewUrl]);
 
-  const latestVariations = getLatestVariations(session?.messages ?? []);
+  const latestVariations = getLatestVariations(messagesList);
 
   const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
@@ -289,7 +271,7 @@ export function DesignDetailClient({
                 variant="ghost"
                 className="h-7 text-xs gap-1 text-destructive"
                 onClick={() => setShowClearChatModal(true)}
-                disabled={session.messages.length === 0}
+                disabled={messagesList.length === 0}
                 title="Clear chat"
               >
                 <IconTrash size={14} />
@@ -304,7 +286,7 @@ export function DesignDetailClient({
         </div>
         <Conversation className="flex-1">
           <ConversationContent className="gap-4 p-4">
-            {session.messages.length === 0 ? (
+            {messagesList.length === 0 ? (
               <ConversationEmptyState
                 title={
                   sandboxRunning
@@ -313,8 +295,8 @@ export function DesignDetailClient({
                 }
               />
             ) : (
-              session.messages.map((message, index) => (
-                <AIMessage key={index} from={message.role}>
+              messagesList.map((message) => (
+                <AIMessage key={message._id} from={message.role}>
                   {message.role === "assistant" && (
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full overflow-hidden">

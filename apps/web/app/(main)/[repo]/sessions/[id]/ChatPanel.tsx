@@ -76,8 +76,9 @@ import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 import { useAuth } from "@clerk/nextjs";
 
-type Session = NonNullable<FunctionReturnType<typeof api.sessions.get>>;
-type SessionMessage = Session["messages"][number];
+type SessionMessage = NonNullable<
+  FunctionReturnType<typeof api.messages.listByParent>
+>[number];
 type SessionMode = NonNullable<SessionMessage["mode"]>;
 
 const REVIEW_AUDITS = [
@@ -136,7 +137,7 @@ function SystemAlertMessage({ message }: { message: SessionMessage }) {
 }
 
 interface ChatPanelProps {
-  sessionId: string;
+  sessionId: Id<"sessions">;
   title: string;
   branchName?: string;
   prUrl?: string;
@@ -181,40 +182,18 @@ export function ChatPanel({
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
-  const typedSessionId = sessionId as Id<"sessions">;
 
   const clearMessages = useMutation(api.sessions.clearMessages);
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
-  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
-    (localStore, args) => {
-      const session = localStore.getQuery(api.sessions.get, { id: args.id });
-      if (!session) return;
-      localStore.setQuery(
-        api.sessions.get,
-        { id: args.id },
-        {
-          ...session,
-          messages: [
-            ...session.messages,
-            {
-              role: args.role,
-              content: args.content,
-              timestamp: Date.now(),
-              mode: args.mode,
-            },
-          ],
-        },
-      );
-    },
-  );
+  const addMessage = useMutation(api.sessions.addMessage);
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const createPr = useAction(api.github.createSessionPr);
   const startAuditMutation = useMutation(api.sessionAudits.startAudit);
   const sessionAudit = useQuery(
     api.sessionAudits.getBySession,
-    reviewStep === "auditing" ? { sessionId: typedSessionId } : "skip",
+    reviewStep === "auditing" ? { sessionId } : "skip",
   );
 
   const sendToApi = useCallback(
@@ -229,7 +208,7 @@ export function ChatPanel({
         throw new Error("Not authenticated");
       }
       await startExecution({
-        sessionId: typedSessionId,
+        sessionId,
         message,
         mode: sendMode,
         model: sendModel,
@@ -238,7 +217,7 @@ export function ChatPanel({
         installationId: repo.installationId,
       });
     },
-    [getToken, repo.installationId, startExecution, typedSessionId],
+    [getToken, repo.installationId, startExecution, sessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -246,13 +225,13 @@ export function ChatPanel({
     const content = text.trim();
     setIsSending(true);
     try {
-      await addMessage({ id: typedSessionId, role: "user", content, mode });
+      await addMessage({ id: sessionId, role: "user", content, mode });
       await sendToApi(content, mode, model, responseLength);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to send message";
       await addMessage({
-        id: typedSessionId,
+        id: sessionId,
         role: "assistant",
         content: `Error: ${errorMessage}`,
         mode,
@@ -269,7 +248,7 @@ export function ChatPanel({
         throw new Error("Not authenticated");
       }
       await startSummarize({
-        sessionId: typedSessionId,
+        sessionId,
         convexToken,
         installationId: repo.installationId,
       });
@@ -283,14 +262,14 @@ export function ChatPanel({
     setCompletedAudits(0);
     setIsCreatingPr(true);
     try {
-      await createPr({ sessionId: typedSessionId });
+      await createPr({ sessionId });
       try {
         const convexToken = await getToken({ template: "convex" });
         if (!convexToken) {
           throw new Error("Not authenticated");
         }
         await startAuditMutation({
-          sessionId: typedSessionId,
+          sessionId,
           convexToken,
         });
       } catch {
@@ -342,7 +321,7 @@ export function ChatPanel({
   );
 
   const handleCancel = async () => {
-    await cancelExecutionMutation({ sessionId: typedSessionId });
+    await cancelExecutionMutation({ sessionId });
   };
 
   const isInputDisabled = !isSandboxActive || isSending || isExecuting;
@@ -509,15 +488,12 @@ export function ChatPanel({
               }
             />
           ) : (
-            filteredMessages.map((message, index) =>
+            filteredMessages.map((message) =>
               message.isSystemAlert ? (
-                <SystemAlertMessage
-                  key={`${message.timestamp ?? index}-system-${index}`}
-                  message={message}
-                />
+                <SystemAlertMessage key={message._id} message={message} />
               ) : (
                 <motion.div
-                  key={`${message.timestamp ?? index}-${message.role}-${index}`}
+                  key={message._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
@@ -785,7 +761,7 @@ export function ChatPanel({
             <Button
               variant="destructive"
               onClick={async () => {
-                await clearMessages({ id: typedSessionId });
+                await clearMessages({ id: sessionId });
                 setShowClearChatModal(false);
               }}
             >

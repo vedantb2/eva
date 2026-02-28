@@ -136,9 +136,14 @@ export const getSessionStats = authQuery({
     ).length;
     const messagesByMode = { execute: 0, ask: 0, plan: 0, flag: 0 };
     for (const session of filtered) {
-      for (const msg of session.messages) {
-        if (msg.mode && msg.mode in messagesByMode) {
-          messagesByMode[msg.mode]++;
+      const msgs = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+        .collect();
+      for (const msg of msgs) {
+        const mode = msg.mode;
+        if (mode && mode in messagesByMode) {
+          messagesByMode[mode]++;
         }
       }
     }

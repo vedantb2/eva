@@ -3,24 +3,12 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { roleValidator, sessionStatusValidator } from "./validators";
+import {
+  roleValidator,
+  sessionStatusValidator,
+  variationValidator,
+} from "./validators";
 import { authQuery, authMutation } from "./functions";
-
-const variationValidator = v.object({
-  label: v.string(),
-  route: v.optional(v.string()),
-  filePath: v.optional(v.string()),
-});
-
-const messageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  timestamp: v.number(),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-  personaId: v.optional(v.id("designPersonas")),
-  variations: v.optional(v.array(variationValidator)),
-});
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -35,7 +23,6 @@ const designSessionValidator = v.object({
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
-  messages: v.array(messageValidator),
 });
 
 export const list = authQuery({
@@ -92,7 +79,6 @@ export const create = authMutation({
       userId: ctx.userId,
       title: args.title,
       status: "active",
-      messages: [],
       updatedAt: Date.now(),
     });
   },
@@ -111,21 +97,17 @@ export const addMessage = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...session.messages,
-        {
-          role: args.role,
-          content: args.content,
-          timestamp: Date.now(),
-          activityLog: args.activityLog,
-          userId: ctx.userId,
-          personaId: args.personaId,
-          variations: args.variations,
-        },
-      ],
-      updatedAt: Date.now(),
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: args.role,
+      content: args.content,
+      timestamp: Date.now(),
+      activityLog: args.activityLog,
+      userId: ctx.userId,
+      personaId: args.personaId,
+      variations: args.variations,
     });
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -141,13 +123,22 @@ export const updateLastMessage = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .order("desc")
+      .first();
     if (!last) return null;
-    if (args.content !== undefined) last.content = args.content;
-    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
-    if (args.variations !== undefined) last.variations = args.variations;
-    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    const patch: {
+      content?: string;
+      activityLog?: string;
+      variations?: Array<{ label: string; route?: string; filePath?: string }>;
+    } = {};
+    if (args.content !== undefined) patch.content = args.content;
+    if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
+    if (args.variations !== undefined) patch.variations = args.variations;
+    await ctx.db.patch(last._id, patch);
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -265,16 +256,14 @@ export const sandboxError = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
+    await ctx.db.insert("messages", {
+      parentId: args.designSessionId,
+      role: "assistant",
+      content: `Failed to start sandbox: ${args.error}`,
+      timestamp: Date.now(),
+    });
     await ctx.db.patch(args.designSessionId, {
       status: "closed",
-      messages: [
-        ...session.messages,
-        {
-          role: "assistant" as const,
-          content: `Failed to start sandbox: ${args.error}`,
-          timestamp: Date.now(),
-        },
-      ],
       updatedAt: Date.now(),
     });
     return null;
@@ -294,25 +283,22 @@ export const executeMessage = authMutation({
     if (!session) throw new Error("Design session not found");
 
     const now = Date.now();
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...session.messages,
-        {
-          role: "user" as const,
-          content: args.message,
-          timestamp: now,
-          userId: ctx.userId,
-          personaId: args.personaId,
-        },
-        {
-          role: "assistant" as const,
-          content: "",
-          timestamp: now,
-          activityLog: "",
-        },
-      ],
-      updatedAt: now,
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: "user",
+      content: args.message,
+      timestamp: now,
+      userId: ctx.userId,
+      personaId: args.personaId,
     });
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: "assistant",
+      content: "",
+      timestamp: now,
+      activityLog: "",
+    });
+    await ctx.db.patch(args.id, { updatedAt: now });
 
     const workflowId = await workflow.start(
       ctx,
@@ -348,10 +334,15 @@ export const cancelExecution = authMutation({
       }
     }
 
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .order("desc")
+      .first();
     if (last && last.role === "assistant" && !last.content) {
-      last.content = "Design generation cancelled.";
+      await ctx.db.patch(last._id, {
+        content: "Design generation cancelled.",
+      });
     }
 
     const streaming = await ctx.db
@@ -361,7 +352,6 @@ export const cancelExecution = authMutation({
     if (streaming) await ctx.db.delete(streaming._id);
 
     await ctx.db.patch(args.id, {
-      messages,
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
@@ -376,8 +366,14 @@ export const clearMessages = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
     await ctx.db.patch(args.id, {
-      messages: [],
       selectedVariationIndex: undefined,
       updatedAt: Date.now(),
     });

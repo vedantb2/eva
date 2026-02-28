@@ -2,22 +2,7 @@ import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
-import {
-  roleValidator,
-  sessionModeValidator,
-  sessionStatusValidator,
-} from "./validators";
-
-const messageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  timestamp: v.number(),
-  mode: v.optional(sessionModeValidator),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-  isSystemAlert: v.optional(v.boolean()),
-  errorDetail: v.optional(v.string()),
-});
+import { roleValidator, sessionStatusValidator } from "./validators";
 
 const sessionValidator = v.object({
   _id: v.id("sessions"),
@@ -34,7 +19,6 @@ const sessionValidator = v.object({
   archived: v.optional(v.boolean()),
   summary: v.optional(v.array(v.string())),
   createdBy: v.optional(v.id("users")),
-  messages: v.array(messageValidator),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
 });
@@ -93,7 +77,6 @@ export const create = authMutation({
       userId: ctx.userId,
       title: args.title,
       status: "active",
-      messages: [],
       createdBy: ctx.userId,
       updatedAt: Date.now(),
     });
@@ -105,7 +88,14 @@ export const addMessage = authMutation({
     id: v.id("sessions"),
     role: roleValidator,
     content: v.string(),
-    mode: v.optional(sessionModeValidator),
+    mode: v.optional(
+      v.union(
+        v.literal("execute"),
+        v.literal("ask"),
+        v.literal("plan"),
+        v.literal("flag"),
+      ),
+    ),
     activityLog: v.optional(v.string()),
   },
   returns: v.null(),
@@ -114,20 +104,16 @@ export const addMessage = authMutation({
     if (!session) {
       throw new Error("Session not found");
     }
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...session.messages,
-        {
-          role: args.role,
-          content: args.content,
-          timestamp: Date.now(),
-          mode: args.mode,
-          activityLog: args.activityLog,
-          userId: ctx.userId,
-        },
-      ],
-      updatedAt: Date.now(),
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: args.role,
+      content: args.content,
+      timestamp: Date.now(),
+      mode: args.mode,
+      activityLog: args.activityLog,
+      userId: ctx.userId,
     });
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -236,8 +222,14 @@ export const clearMessages = authMutation({
     if (session.userId !== ctx.userId) {
       throw new Error("Not authorized");
     }
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
     await ctx.db.patch(args.id, {
-      messages: [],
       planContent: undefined,
       summary: undefined,
       updatedAt: Date.now(),
@@ -316,10 +308,14 @@ export const getOrCreateExtensionSession = mutation({
       .first();
 
     if (existingSession) {
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", existingSession._id))
+        .collect();
       return {
         id: existingSession._id,
         repoId: existingSession.repoId,
-        messages: existingSession.messages.map((m) => ({
+        messages: messages.map((m) => ({
           role: m.role,
           content: m.content,
         })),
@@ -331,7 +327,6 @@ export const getOrCreateExtensionSession = mutation({
       userId: user._id,
       title: "Extension Session",
       status: "active",
-      messages: [],
       updatedAt: Date.now(),
     });
 
@@ -367,12 +362,17 @@ export const updateLastMessage = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Session not found");
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .order("desc")
+      .first();
     if (!last) return null;
-    if (args.content !== undefined) last.content = args.content;
-    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
-    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    const patch: { content?: string; activityLog?: string } = {};
+    if (args.content !== undefined) patch.content = args.content;
+    if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
+    await ctx.db.patch(last._id, patch);
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -415,20 +415,18 @@ export const stopSandbox = authMutation({
         repoId: session.repoId,
       });
     }
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "Sandbox stopped",
+      timestamp: Date.now(),
+      userId: ctx.userId,
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.sessionId, {
       sandboxId: session.sandboxId,
       ptySessionId: undefined,
       status: "closed",
-      messages: [
-        ...session.messages,
-        {
-          role: "assistant" as const,
-          content: "Sandbox stopped",
-          timestamp: Date.now(),
-          userId: ctx.userId,
-          isSystemAlert: true,
-        },
-      ],
       updatedAt: Date.now(),
     });
     return null;
@@ -448,28 +446,19 @@ export const sandboxReady = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
-    const patch: {
-      messages: typeof session.messages;
-      updatedAt: number;
-      sandboxId: string;
-      branchName: string;
-      status: "active";
-    } = {
-      messages: [
-        ...session.messages,
-        {
-          role: "assistant" as const,
-          content,
-          timestamp: Date.now(),
-          isSystemAlert: true,
-        },
-      ],
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content,
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
+    await ctx.db.patch(args.sessionId, {
       updatedAt: Date.now(),
       sandboxId: args.sandboxId,
       branchName: args.branchName,
       status: "active",
-    };
-    await ctx.db.patch(args.sessionId, patch);
+    });
     return null;
   },
 });
@@ -483,18 +472,16 @@ export const sandboxError = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "Failed to start sandbox",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
     await ctx.db.patch(args.sessionId, {
       status: "closed",
-      messages: [
-        ...session.messages,
-        {
-          role: "assistant" as const,
-          content: "Failed to start sandbox",
-          timestamp: Date.now(),
-          isSystemAlert: true,
-          errorDetail: args.error,
-        },
-      ],
       updatedAt: Date.now(),
     });
     return null;

@@ -1,5 +1,17 @@
 # Changelog
 
+## Extract messages into dedicated table - 2026-02-28
+
+- **Why**: Messages were embedded as arrays inside `sessions`, `designSessions`, and `researchQueries` documents. Every read/write of a session fetched/rewrote the entire message array. As conversations grew, this caused large document sizes approaching the 1MB Convex limit, full array rewrites on every single message, and listing sessions in sidebars loaded all messages for all sessions wastefully.
+
+- **Changes**:
+  1. **New `messages` table** (`schema.ts`): Dedicated table with `parentId` (union of session/designSession/researchQuery IDs) and `by_parent` index. All message-specific fields (`mode`, `variations`, `queryCode`, `status`, etc.) live here.
+  2. **New `messages.ts`**: Central CRUD hub with `listByParent`, `add`, `addInternal`, `updateLast`, `updateLastInternal`, `patchMessage`, `clearByParent`, `clearByParentInternal`.
+  3. **Backend migration**: All mutation/query/workflow files (`sessions.ts`, `designSessions.ts`, `researchQueries.ts`, `sessionWorkflow.ts`, `designWorkflow.ts`, `summarizeWorkflow.ts`, `researchQueryWorkflow.ts`, `analytics.ts`) now read/write via the `messages` table.
+  4. **Frontend migration**: All detail pages (`SessionDetailClient`, `DesignDetailClient`, `QueryDetailClient`, chrome extension `ChatPanel`) use separate `useQuery(api.messages.listByParent)` calls. Sidebars no longer load messages.
+  5. **Data migration**: Ran paginated migration to copy all embedded messages into the new table, then cleanup migration to unset the old `messages` field from all documents, then removed the field from the schema.
+  6. **Research queries**: `updateMessageStatus` now takes `messageId: Id<"messages">` instead of an array index, enabling direct patching.
+
 ## Hold task in in_progress until audit completes - 2026-02-27
 
 - **Why**: Tasks were moving to `business_review` immediately after Claude CLI succeeded, before the post-execution audit finished. This meant reviewers could start reviewing code that hadn't been audited yet.

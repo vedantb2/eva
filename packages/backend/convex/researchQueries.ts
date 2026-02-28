@@ -3,23 +3,12 @@ import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import { roleValidator, queryConfirmationStatusValidator } from "./validators";
 
-const messageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  timestamp: v.number(),
-  userId: v.optional(v.id("users")),
-  queryCode: v.optional(v.string()),
-  status: v.optional(queryConfirmationStatusValidator),
-  activityLog: v.optional(v.string()),
-});
-
 const researchQueryValidator = v.object({
   _id: v.id("researchQueries"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
-  messages: v.array(messageValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
@@ -59,7 +48,6 @@ export const create = authMutation({
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
-      messages: [],
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
@@ -77,24 +65,20 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.id);
-    if (!query) {
+    const rq = await ctx.db.get(args.id);
+    if (!rq) {
       throw new Error("Query not found");
     }
-    await ctx.db.patch(args.id, {
-      messages: [
-        ...query.messages,
-        {
-          role: args.role,
-          content: args.content,
-          timestamp: Date.now(),
-          userId: ctx.userId,
-          queryCode: args.queryCode,
-          status: args.status,
-        },
-      ],
-      updatedAt: Date.now(),
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: args.role,
+      content: args.content,
+      timestamp: Date.now(),
+      userId: ctx.userId,
+      queryCode: args.queryCode,
+      status: args.status,
     });
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -107,14 +91,20 @@ export const updateLastMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.id);
-    if (!query) throw new Error("Query not found");
-    const messages = [...query.messages];
-    const last = messages[messages.length - 1];
+    const rq = await ctx.db.get(args.id);
+    if (!rq) throw new Error("Query not found");
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .order("desc")
+      .first();
     if (!last) return null;
-    last.content = args.content;
-    if (args.queryCode !== undefined) last.queryCode = args.queryCode;
-    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    const patch: { content: string; queryCode?: string } = {
+      content: args.content,
+    };
+    if (args.queryCode !== undefined) patch.queryCode = args.queryCode;
+    await ctx.db.patch(last._id, patch);
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -122,22 +112,22 @@ export const updateLastMessage = authMutation({
 export const updateMessageStatus = authMutation({
   args: {
     id: v.id("researchQueries"),
-    messageIndex: v.number(),
+    messageId: v.id("messages"),
     status: queryConfirmationStatusValidator,
     content: v.optional(v.string()),
     queryCode: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.id);
-    if (!query) throw new Error("Query not found");
-    const messages = [...query.messages];
-    const msg = messages[args.messageIndex];
-    if (!msg) return null;
-    msg.status = args.status;
-    if (args.content !== undefined) msg.content = args.content;
-    if (args.queryCode !== undefined) msg.queryCode = args.queryCode;
-    await ctx.db.patch(args.id, { messages, updatedAt: Date.now() });
+    const patch: {
+      status: "pending" | "confirmed" | "cancelled";
+      content?: string;
+      queryCode?: string;
+    } = { status: args.status };
+    if (args.content !== undefined) patch.content = args.content;
+    if (args.queryCode !== undefined) patch.queryCode = args.queryCode;
+    await ctx.db.patch(args.messageId, patch);
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -149,8 +139,8 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.id);
-    if (!query) {
+    const rq = await ctx.db.get(args.id);
+    if (!rq) {
       throw new Error("Query not found");
     }
     const updates: { title?: string; updatedAt: number } = {
@@ -166,12 +156,19 @@ export const remove = authMutation({
   args: { id: v.id("researchQueries") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.id);
-    if (!query) {
+    const rq = await ctx.db.get(args.id);
+    if (!rq) {
       throw new Error("Query not found");
     }
-    if (query.userId !== ctx.userId) {
+    if (rq.userId !== ctx.userId) {
       throw new Error("Not authorized");
+    }
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
     }
     await ctx.db.delete(args.id);
     return null;
@@ -215,7 +212,7 @@ export const getSchemaInfo = query({
         },
         {
           name: "sessions",
-          fields: ["title", "status", "messages", "archived"],
+          fields: ["title", "status", "archived"],
           description: "Chat sessions with the AI assistant",
         },
         {

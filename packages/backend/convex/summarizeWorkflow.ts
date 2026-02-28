@@ -27,13 +27,11 @@ export const summarizeSessionWorkflow = workflow.define({
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Fetch session data and build prompt
     const sessionData = await step.runQuery(
       internal.summarizeWorkflow.getSessionData,
       { sessionId: args.sessionId },
     );
 
-    // Step 2: Setup sandbox + fire Claude CLI
     await step.runAction(internal.daytona.setupAndExecute, {
       entityId: args.sessionId,
       existingSandboxId: sessionData.sandboxId,
@@ -50,10 +48,8 @@ export const summarizeSessionWorkflow = workflow.define({
       sessionPersistenceId: args.sessionId,
     });
 
-    // Step 3: Wait for callback from sandbox
     const result = await step.awaitEvent(summarizeCompleteEvent);
 
-    // Step 4: Save results
     await step.runMutation(internal.summarizeWorkflow.saveResult, {
       sessionId: args.sessionId,
       success: result.success,
@@ -81,7 +77,12 @@ export const getSessionData = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const conversation = session.messages
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .collect();
+
+    const conversation = messages
       .filter((m) => m.mode !== "flag")
       .map((m) => m.content)
       .join("\n\n");
@@ -112,15 +113,11 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
-
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return null;
 
     let summary: string[] = ["No summary available"];
 
@@ -145,9 +142,6 @@ export const saveResult = internalMutation({
   },
 });
 
-/**
- * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
- */
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -177,9 +171,6 @@ export const handleCompletion = authMutation({
   },
 });
 
-/**
- * Public mutation to start the summarize workflow from the frontend.
- */
 export const startSummarize = authMutation({
   args: {
     sessionId: v.id("sessions"),

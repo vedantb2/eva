@@ -21,6 +21,9 @@ const CHAT_MIN_EXPANDED_WIDTH_PX = 400;
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const { installationId } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
+  const messages = useQuery(api.messages.listByParent, {
+    parentId: sessionId,
+  });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
@@ -91,7 +94,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           branchName={session.branchName}
           prUrl={session.prUrl}
           summary={session.summary}
-          messages={session.messages}
+          messages={messages ?? []}
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
           isSandboxActive={isSandboxActive}

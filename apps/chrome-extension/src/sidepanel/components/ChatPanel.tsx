@@ -51,8 +51,13 @@ import {
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 
-type SessionMessage = {
+type SessionMessage = NonNullable<
+  FunctionReturnType<typeof api.messages.listByParent>
+>[number];
+
+type EphemeralMessage = {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
@@ -85,9 +90,9 @@ export function ChatPanel({
   creatorInitials,
 }: ChatPanelProps) {
   const { getToken } = useAuth();
-  const [ephemeralMessages, setEphemeralMessages] = useState<SessionMessage[]>(
-    [],
-  );
+  const [ephemeralMessages, setEphemeralMessages] = useState<
+    EphemeralMessage[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("ask");
   const [model, setModel] = useState<ClaudeModel>("sonnet");
@@ -103,32 +108,16 @@ export function ChatPanel({
     api.githubRepos.get,
     selectedRepoId ? { id: selectedRepoId as Id<"githubRepos"> } : "skip",
   );
-  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
-    (localStore, args) => {
-      const session = localStore.getQuery(api.sessions.get, { id: args.id });
-      if (!session) return;
-      localStore.setQuery(
-        api.sessions.get,
-        { id: args.id },
-        {
-          ...session,
-          messages: [
-            ...session.messages,
-            {
-              role: args.role,
-              content: args.content,
-              timestamp: Date.now(),
-              mode: args.mode,
-            },
-          ],
-        },
-      );
-    },
-  );
+  const addMessage = useMutation(api.sessions.addMessage);
 
   const currentSession = useQuery(
     api.sessions.get,
     sessionId ? { id: sessionId as Id<"sessions"> } : "skip",
+  );
+
+  const sessionMessages = useQuery(
+    api.messages.listByParent,
+    sessionId ? { parentId: sessionId as Id<"sessions"> } : "skip",
   );
 
   const streaming = useQuery(
@@ -138,8 +127,8 @@ export function ChatPanel({
   const streamingActivity = streaming?.currentActivity;
 
   const isLoadingSession = sessionId !== null && currentSession === undefined;
-  const messages =
-    currentSession?.messages ?? (sessionId ? [] : ephemeralMessages);
+  const messages: Array<SessionMessage | EphemeralMessage> =
+    sessionMessages ?? (sessionId ? [] : ephemeralMessages);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -152,7 +141,7 @@ export function ChatPanel({
   }, [messages, isLoading]);
 
   const appendMessage = useCallback(
-    async (msg: SessionMessage) => {
+    async (msg: EphemeralMessage) => {
       if (sessionId) {
         await addMessage({
           id: sessionId as Id<"sessions">,
@@ -391,9 +380,11 @@ Please review all components and files used on this page before implementing the
               const isFlagResponse =
                 message.role === "assistant" && prev?.mode === "flag";
 
+              const key = "_id" in message ? message._id : `ephemeral-${index}`;
+
               return (
                 <AIMessage
-                  key={index}
+                  key={key}
                   from={message.role}
                   className={
                     message.role === "assistant" ? "max-w-full" : undefined

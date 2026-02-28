@@ -21,6 +21,7 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   teamMemberRoleValidator,
+  variationValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -184,6 +185,25 @@ const schema = defineSchema({
   })
     .index("by_task", ["taskId"])
     .index("by_dependency", ["dependsOnId"]),
+  messages: defineTable({
+    role: roleValidator,
+    content: v.string(),
+    timestamp: v.number(),
+    activityLog: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    parentId: v.union(
+      v.id("sessions"),
+      v.id("designSessions"),
+      v.id("researchQueries"),
+    ),
+    mode: v.optional(sessionModeValidator),
+    isSystemAlert: v.optional(v.boolean()),
+    errorDetail: v.optional(v.string()),
+    personaId: v.optional(v.id("designPersonas")),
+    variations: v.optional(v.array(variationValidator)),
+    queryCode: v.optional(v.string()),
+    status: v.optional(queryConfirmationStatusValidator),
+  }).index("by_parent", ["parentId"]),
   sessions: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
@@ -197,18 +217,6 @@ const schema = defineSchema({
     archived: v.optional(v.boolean()),
     summary: v.optional(v.array(v.string())),
     createdBy: v.optional(v.id("users")),
-    messages: v.array(
-      v.object({
-        role: roleValidator,
-        content: v.string(),
-        timestamp: v.number(),
-        mode: v.optional(sessionModeValidator),
-        activityLog: v.optional(v.string()),
-        userId: v.optional(v.id("users")),
-        isSystemAlert: v.optional(v.boolean()),
-        errorDetail: v.optional(v.string()),
-      }),
-    ),
     planContent: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
   })
@@ -247,17 +255,6 @@ const schema = defineSchema({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
     title: v.string(),
-    messages: v.array(
-      v.object({
-        role: roleValidator,
-        content: v.string(),
-        timestamp: v.number(),
-        userId: v.optional(v.id("users")),
-        queryCode: v.optional(v.string()),
-        status: v.optional(queryConfirmationStatusValidator),
-        activityLog: v.optional(v.string()),
-      }),
-    ),
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
@@ -328,25 +325,6 @@ const schema = defineSchema({
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
-    messages: v.array(
-      v.object({
-        role: roleValidator,
-        content: v.string(),
-        timestamp: v.number(),
-        activityLog: v.optional(v.string()),
-        userId: v.optional(v.id("users")),
-        personaId: v.optional(v.id("designPersonas")),
-        variations: v.optional(
-          v.array(
-            v.object({
-              label: v.string(),
-              route: v.optional(v.string()),
-              filePath: v.optional(v.string()),
-            }),
-          ),
-        ),
-      }),
-    ),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),

@@ -127,3 +127,9 @@ export const teamMemberRoleValidator = v.union(
   v.literal("owner"),
   v.literal("member"),
 );
+
+export const variationValidator = v.object({
+  label: v.string(),
+  route: v.optional(v.string()),
+  filePath: v.optional(v.string()),
+});

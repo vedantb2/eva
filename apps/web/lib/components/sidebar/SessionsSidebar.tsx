@@ -239,15 +239,7 @@ export function SessionsSidebar({
                       </div>
                       <div className="mt-2 flex items-center">
                         <div className="flex -space-x-1">
-                          {[
-                            ...new Set(
-                              session.messages.map((message) => message.userId),
-                            ),
-                          ]
-                            .filter(Boolean)
-                            .map((id) => (
-                              <UserInitials key={id} userId={id!} />
-                            ))}
+                          <UserInitials userId={session.userId} />
                         </div>
                         <span className="ml-auto text-xs text-muted-foreground">
                           {dayjs(

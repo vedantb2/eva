@@ -242,9 +242,14 @@ export const getSessionDataAndPrompt = internalQuery({
       }
     }
 
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.designSessionId))
+      .collect();
+
     let selectedBase: { label: string; filePath: string } | null = null;
     if (session.selectedVariationIndex !== undefined) {
-      const lastAssistant = [...session.messages]
+      const lastAssistant = [...messages]
         .reverse()
         .find((m) => m.role === "assistant" && m.variations?.length);
       if (lastAssistant?.variations) {
@@ -259,7 +264,7 @@ export const getSessionDataAndPrompt = internalQuery({
       }
     }
 
-    const conversationHistory = session.messages
+    const conversationHistory = messages
       .filter((m) => m.content)
       .map((m) => ({ role: m.role, content: m.content }));
 
@@ -300,11 +305,11 @@ export const saveResult = internalMutation({
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
 
-    const session = await ctx.db.get(args.designSessionId);
-    if (!session) return null;
-
-    const messages = [...session.messages];
-    const last = messages[messages.length - 1];
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.designSessionId))
+      .order("desc")
+      .first();
     if (!last) return null;
 
     if (args.success && args.result) {
@@ -319,25 +324,29 @@ export const saveResult = internalMutation({
             code?: string;
           }>;
         } = JSON.parse(jsonStr);
-        last.content = parsed.summary || "Here are 3 design variations:";
-        last.activityLog = args.activityLog || undefined;
-        last.variations = parsed.variations?.map((variation) => ({
-          label: variation.label,
-          route: variation.route,
-          filePath: variation.filePath,
-          code: variation.code,
-        }));
+        await ctx.db.patch(last._id, {
+          content: parsed.summary || "Here are 3 design variations:",
+          activityLog: args.activityLog || undefined,
+          variations: parsed.variations?.map((variation) => ({
+            label: variation.label,
+            route: variation.route,
+            filePath: variation.filePath,
+          })),
+        });
       } else {
-        last.content = args.result || "Failed to generate designs.";
-        last.activityLog = args.activityLog || undefined;
+        await ctx.db.patch(last._id, {
+          content: args.result || "Failed to generate designs.",
+          activityLog: args.activityLog || undefined,
+        });
       }
     } else {
-      last.content = `Error: ${args.error || "Unknown error during design generation."}`;
-      last.activityLog = args.activityLog || undefined;
+      await ctx.db.patch(last._id, {
+        content: `Error: ${args.error || "Unknown error during design generation."}`,
+        activityLog: args.activityLog || undefined,
+      });
     }
 
     await ctx.db.patch(args.designSessionId, {
-      messages,
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });

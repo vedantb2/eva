@@ -52,7 +52,7 @@ export const repoStatsRangeParser = parseAsStringLiteral(repoStatsRanges)
   .withDefault("all")
   .withOptions(searchOptions);
 
-const sandboxTabs = ["preview", "diffs", "editor"] as const;
+const sandboxTabs = ["preview", "editor", "diffs", "terminal"] as const;
 export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);

@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useCallback, useRef, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type ReactNode,
+} from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
-import {
-  IconCode,
-  IconRefresh,
-  IconPlayerPlay,
-  IconPlayerStop,
-} from "@tabler/icons-react";
+import { IconCode, IconRefresh } from "@tabler/icons-react";
 
-type EditorState = "idle" | "starting" | "running" | "stopping" | "error";
+type EditorState = "idle" | "starting" | "running" | "error";
 
 interface EditorPanelProps {
   sessionId: string;
@@ -56,12 +57,14 @@ export function EditorPanel({
         if (data.ready) {
           setUrl(data.url);
           setEditorState("running");
+
           return;
         }
         attempts.current += 1;
         if (attempts.current >= 20) {
           setError("Editor failed to start. Check sandbox logs.");
           setEditorState("error");
+
           return;
         }
         pollTimer.current = setTimeout(check, 3000);
@@ -74,7 +77,7 @@ export function EditorPanel({
     check();
   }, [sandboxId, isActive, getPreviewUrl, repoId]);
 
-  const handleStart = useCallback(async () => {
+  const startEditor = useCallback(async () => {
     if (!sandboxId) return;
     setEditorState("starting");
     setError(null);
@@ -89,19 +92,12 @@ export function EditorPanel({
     }
   }, [sandboxId, repoId, toggleCodeServer, pollForReady, stopPolling]);
 
-  const handleStop = useCallback(async () => {
-    if (!sandboxId) return;
-    setEditorState("stopping");
-    stopPolling();
-    try {
-      await toggleCodeServer({ sandboxId, repoId, action: "stop" });
-    } catch {
-      // Best-effort stop
+  useEffect(() => {
+    if (isActive && sandboxId && editorState === "idle") {
+      startEditor();
     }
-    setUrl(null);
-    setError(null);
-    setEditorState("idle");
-  }, [sandboxId, repoId, toggleCodeServer, stopPolling]);
+    return stopPolling;
+  }, [isActive, sandboxId, editorState, startEditor, stopPolling]);
 
   if (!isActive || !sandboxId) {
     return (
@@ -119,49 +115,18 @@ export function EditorPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-1 border-b p-2">
-        {tabSwitcher}
-        <div className="ml-auto">
-          {editorState === "running" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleStop}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <IconPlayerStop className="w-4 h-4 mr-1" />
-              Stop Editor
-            </Button>
-          )}
-        </div>
-      </div>
+      <div className="flex items-center gap-1 border-b p-2">{tabSwitcher}</div>
       <div className="flex-1 min-h-0 relative">
-        {editorState === "idle" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <IconCode className="w-12 h-12 text-muted-foreground opacity-50" />
-            <p className="text-sm text-muted-foreground">
-              Editor is not running
-            </p>
-            <Button size="sm" onClick={handleStart}>
-              <IconPlayerPlay className="w-4 h-4 mr-1" />
-              Start Editor
-            </Button>
-          </div>
-        )}
-        {(editorState === "starting" || editorState === "stopping") && (
+        {editorState === "starting" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">
             <Spinner size="lg" />
-            <p className="text-sm text-muted-foreground">
-              {editorState === "starting"
-                ? "Starting editor..."
-                : "Stopping editor..."}
-            </p>
+            <p className="text-sm text-muted-foreground">Starting editor...</p>
           </div>
         )}
         {editorState === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
             <p className="text-sm text-destructive">{error}</p>
-            <Button size="sm" variant="secondary" onClick={handleStart}>
+            <Button size="sm" variant="secondary" onClick={startEditor}>
               <IconRefresh className="w-4 h-4 mr-1" />
               Retry
             </Button>

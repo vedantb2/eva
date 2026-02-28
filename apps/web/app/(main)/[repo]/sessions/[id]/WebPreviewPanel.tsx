@@ -1,15 +1,10 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
 import {
   Spinner,
   Button,
   Input,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   WebPreview,
   WebPreviewNavigation,
   WebPreviewNavigationButton,
@@ -19,13 +14,10 @@ import {
 import {
   IconArrowLeft,
   IconArrowRight,
-  IconBug,
   IconRefresh,
-  IconTerminal2,
   IconWorld,
   IconExternalLink,
   IconMaximize,
-  IconGripHorizontal,
 } from "@tabler/icons-react";
 
 interface PreviewInfo {
@@ -41,11 +33,7 @@ interface WebPreviewPanelProps {
   error: string | null;
   iframeKey: number;
   onRefresh: () => void;
-  terminal?: ReactNode;
   tabSwitcher?: ReactNode;
-  showConsole: boolean;
-  consoleTab: "console" | "terminal";
-  onConsoleTabChange: (value: "console" | "terminal") => void;
   port: number;
   onPortChange: (port: number) => void;
 }
@@ -187,11 +175,7 @@ export function WebPreviewPanel({
   error,
   iframeKey,
   onRefresh,
-  terminal,
   tabSwitcher,
-  showConsole,
-  consoleTab,
-  onConsoleTabChange,
   port,
   onPortChange,
 }: WebPreviewPanelProps) {
@@ -230,90 +214,25 @@ export function WebPreviewPanel({
         port={port}
         onPortChange={onPortChange}
       />
-      <Group orientation="vertical" className="flex-1 min-h-0">
-        <Panel
-          id="web-preview"
-          defaultSize={showConsole ? 70 : 100}
-          minSize={20}
-        >
-          <WebPreviewBody
-            key={iframeKey}
-            src={previewInfo?.url}
-            loading={
-              isLoading && !previewInfo ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-                  <Spinner size="lg" />
-                </div>
-              ) : error ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <p className="text-sm text-destructive">{error}</p>
-                  <Button size="sm" variant="secondary" onClick={onRefresh}>
-                    <IconRefresh className="w-4 h-4" />
-                    Retry
-                  </Button>
-                </div>
-              ) : undefined
-            }
-          />
-        </Panel>
-        {showConsole && (
-          <>
-            <Separator className="h-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors">
-              <div className="flex items-center justify-center h-3 -my-1.5 relative z-10">
-                <IconGripHorizontal className="w-4 h-4 text-muted-foreground/50" />
-              </div>
-            </Separator>
-            <Panel id="web-console" defaultSize={30} minSize={10} maxSize={400}>
-              <Tabs
-                value={consoleTab}
-                onValueChange={(value) => {
-                  if (value === "console" || value === "terminal") {
-                    onConsoleTabChange(value);
-                  }
-                }}
-                className="h-full flex flex-col bg-muted/50 text-sm"
-              >
-                <TabsList className="h-9 w-full justify-start rounded-none border-b border-border/70 bg-transparent px-2 flex-shrink-0">
-                  <TabsTrigger
-                    value="console"
-                    className="gap-1.5 rounded-none px-3 text-xs"
-                  >
-                    <IconBug className="h-3.5 w-3.5" />
-                    Console
-                  </TabsTrigger>
-                  {terminal ? (
-                    <TabsTrigger
-                      value="terminal"
-                      className="gap-1.5 rounded-none px-3 text-xs"
-                    >
-                      <IconTerminal2 className="h-3.5 w-3.5" />
-                      Terminal
-                    </TabsTrigger>
-                  ) : null}
-                </TabsList>
-                <TabsContent
-                  forceMount
-                  value="console"
-                  className="mt-0 flex-1 min-h-0 overflow-y-auto scrollbar px-4 py-3 font-mono data-[state=inactive]:hidden"
-                >
-                  <p className="text-xs text-muted-foreground">
-                    No console output
-                  </p>
-                </TabsContent>
-                {terminal ? (
-                  <TabsContent
-                    forceMount
-                    value="terminal"
-                    className="mt-0 flex-1 min-h-0 overflow-hidden data-[state=inactive]:hidden"
-                  >
-                    {terminal}
-                  </TabsContent>
-                ) : null}
-              </Tabs>
-            </Panel>
-          </>
-        )}
-      </Group>
+      <WebPreviewBody
+        key={iframeKey}
+        src={previewInfo?.url}
+        loading={
+          isLoading && !previewInfo ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+              <Spinner size="lg" />
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button size="sm" variant="secondary" onClick={onRefresh}>
+                <IconRefresh className="w-4 h-4" />
+                Retry
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
     </WebPreview>
   );
 }

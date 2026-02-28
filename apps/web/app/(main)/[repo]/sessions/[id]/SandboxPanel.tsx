@@ -11,8 +11,7 @@ import {
   IconWorld,
   IconGitBranch,
   IconCode,
-  IconLayoutBottombar,
-  IconLayoutBottombarCollapse,
+  IconTerminal2,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
@@ -49,10 +48,6 @@ export function SandboxPanel({
   repoId,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
-  const [showConsole, setShowConsole] = useState(true);
-  const [consoleTab, setConsoleTab] = useState<"console" | "terminal">(
-    "terminal",
-  );
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +127,12 @@ export function SandboxPanel({
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          if (v === "preview" || v === "diffs" || v === "editor") {
+          if (
+            v === "preview" ||
+            v === "editor" ||
+            v === "diffs" ||
+            v === "terminal"
+          ) {
             setActiveTab(v);
           }
         }}
@@ -141,26 +141,17 @@ export function SandboxPanel({
           <TabsTrigger value="preview">
             <IconWorld className="w-4 h-4" />
           </TabsTrigger>
-          <TabsTrigger value="diffs">
-            <IconGitBranch className="w-4 h-4" />
-          </TabsTrigger>
           <TabsTrigger value="editor">
             <IconCode className="w-4 h-4" />
           </TabsTrigger>
+          <TabsTrigger value="diffs">
+            <IconGitBranch className="w-4 h-4" />
+          </TabsTrigger>
+          <TabsTrigger value="terminal">
+            <IconTerminal2 className="w-4 h-4" />
+          </TabsTrigger>
         </TabsList>
       </Tabs>
-      <Button
-        size="icon"
-        variant={showConsole ? "default" : "secondary"}
-        className="size-10"
-        onClick={() => setShowConsole((current) => !current)}
-      >
-        {showConsole ? (
-          <IconLayoutBottombar className="size-4" />
-        ) : (
-          <IconLayoutBottombarCollapse className="size-4" />
-        )}
-      </Button>
     </div>
   );
 
@@ -176,17 +167,10 @@ export function SandboxPanel({
             error={error}
             iframeKey={iframeKey}
             onRefresh={fetchPreview}
-            terminal={terminal}
             tabSwitcher={tabSwitcher}
-            showConsole={showConsole}
-            consoleTab={consoleTab}
-            onConsoleTabChange={setConsoleTab}
             port={port}
             onPortChange={setPort}
           />
-        </div>
-        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-          <DiffPanel fileDiffs={fileDiffs} tabSwitcher={tabSwitcher} />
         </div>
         <div className={activeTab === "editor" ? "h-full" : "hidden"}>
           <EditorPanel
@@ -196,6 +180,17 @@ export function SandboxPanel({
             tabSwitcher={tabSwitcher}
             repoId={repoId}
           />
+        </div>
+        <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
+          <DiffPanel fileDiffs={fileDiffs} tabSwitcher={tabSwitcher} />
+        </div>
+        <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
+          <div className="h-full flex flex-col">
+            <div className="flex items-center gap-1 border-b p-2">
+              {tabSwitcher}
+            </div>
+            <div className="flex-1 min-h-0">{terminal}</div>
+          </div>
         </div>
       </div>
     </div>

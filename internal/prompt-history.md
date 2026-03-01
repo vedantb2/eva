@@ -16,6 +16,9 @@
 [] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 
+[x] speed up video
+[x] fix stop btn colour
+[x] improve msg in chat
 [x] base branch isnt working when making pr
 [x] get sessions working
 [x] save chat history somehow

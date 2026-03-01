@@ -556,7 +556,7 @@ async function flushStreaming() {
     if (parseStreamEvent(clean)) hasNew = true;
   }
   if (hasNew) {
-    const stepsToSend = accumulatedSteps.slice(-30);
+    const stepsToSend = accumulatedSteps.slice(-100);
     try {
       await callMutation("streaming:set", {
         entityId: ENTITY_ID,
@@ -684,7 +684,7 @@ try {
     });
     callMutation("streaming:set", {
       entityId: ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps.slice(-30)),
+      currentActivity: JSON.stringify(accumulatedSteps.slice(-100)),
     }).catch(() => {});
 
     const secondAttempt = await runClaudeAttempt(false);

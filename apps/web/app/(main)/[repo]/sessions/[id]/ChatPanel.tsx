@@ -58,7 +58,7 @@ import {
   IconAlertTriangle,
   IconExternalLink,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
@@ -136,15 +136,51 @@ function SystemAlertMessage({ message }: { message: SessionMessage }) {
   );
 }
 
+const VIDEO_SPEEDS = [1, 2, 3, 5] as const;
+
 function VideoPreview({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [speed, setSpeed] = useState<(typeof VIDEO_SPEEDS)[number]>(3);
+
+  const applySpeed = (rate: (typeof VIDEO_SPEEDS)[number]) => {
+    setSpeed(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
+  };
+
   return (
-    <video
-      src={url}
-      controls
-      playsInline
-      preload="metadata"
-      className="mt-2 rounded-lg border max-w-lg"
-    />
+    <div className="mt-2 space-y-1.5">
+      <video
+        ref={videoRef}
+        src={url}
+        controls
+        playsInline
+        preload="metadata"
+        className="rounded-lg border max-w-lg"
+        onLoadedMetadata={() => {
+          if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+          }
+        }}
+      />
+      <div className="flex items-center gap-1">
+        {VIDEO_SPEEDS.map((rate) => (
+          <button
+            key={rate}
+            type="button"
+            onClick={() => applySpeed(rate)}
+            className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+              speed === rate
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {rate}x
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -234,7 +270,15 @@ export function ChatPanel({
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
 
-  const evaIcon = <Image src="/icon.png" alt="Eva" width={16} height={16} />;
+  const evaIcon = (
+    <Image
+      src="/icon.png"
+      alt="Eva"
+      width={20}
+      height={20}
+      className="rounded-full"
+    />
+  );
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
@@ -444,7 +488,7 @@ export function ChatPanel({
         variant={isSandboxActive ? "destructive" : "secondary"}
         onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
         disabled={isSandboxToggling}
-        className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
+        className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
       >
         {isSandboxToggling ? (
           <Spinner size="sm" />
@@ -763,6 +807,7 @@ export function ChatPanel({
                   <PromptInputSpeech disabled={isInputDisabled} />
                   <PromptInputSubmit
                     status={submitStatus}
+                    variant={submitStatus ? "destructive" : "default"}
                     onStop={handleCancel}
                     disabled={isInputDisabled}
                   />

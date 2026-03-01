@@ -1,5 +1,14 @@
 # Changelog
 
+## Session Chat UX Fixes - 2026-03-01
+
+- **Why**: Video recordings played at 1x (too slow to review), the stop button in the prompt input appeared teal instead of red, agent responses included unwanted meta-commentary (file paths, commit status), and streaming activity steps were capped at 30 making it look like steps were missing.
+- **Changes**:
+  1. **Video playback speed** (`ChatPanel.tsx`): `VideoPreview` now defaults to 3x playback via `useRef` + `onLoadedMetadata`. Speed selector buttons (1x/2x/3x/5x) below the video.
+  2. **Stop button colour** (`ChatPanel.tsx`): `PromptInputSubmit` now passes `variant="destructive"` when executing, making the stop button red.
+  3. **Cleaner agent response** (`sessionWorkflow.ts`): Execute prompt instruction updated to only describe actions/outcomes. Added rule to suppress recording/screenshot file paths, commit status, and process meta-commentary.
+  4. **Streaming step cap** (`daytona.ts`): Increased `.slice(-30)` to `.slice(-100)` in both `flushStreaming` and retry path so streaming UI shows up to 100 steps instead of 30.
+
 ## Agent Screenshot & Video Upload to Convex Storage - 2026-03-01
 
 - **Why**: The Claude CLI running inside the Daytona sandbox takes screenshots and records videos (via `agent-browser`) but had no way to persist or display them. Media needs to be stored in Convex file storage and rendered inline in the session chat so users can see agent activity. Additionally, media files were being accidentally committed to git because the prompt always forced commits. Intermediate screenshots during video recording should be discarded, not uploaded.

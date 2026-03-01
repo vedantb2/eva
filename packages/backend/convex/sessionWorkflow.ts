@@ -127,9 +127,10 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 3. Make the requested changes using Edit or Write tools
 4. Only if you made code changes, commit and push:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
-5. Respond with a summary of what you did
+5. Respond with a concise summary of what you did. Only describe the actions taken and their outcomes.
 
 ## Rules:
+- In your response, do NOT mention recording/screenshot file paths, commit status, or meta-commentary about the process itself
 - You MUST commit and push ONLY to the branch "${branchName}" — NEVER push to main
 - Do NOT checkout main or any other branch
 - Do NOT create PRs - just commit and push

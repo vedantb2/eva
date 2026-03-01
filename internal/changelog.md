@@ -15,8 +15,9 @@
 - **Changes**:
   1. **Backend action** (`daytona.ts`): New `toggleDesktopServer` action using Daytona SDK's `sandbox.computerUse.start()`/`stop()`.
   2. **Search params** (`search-params.ts`): Added `"desktop"` to `sandboxTabs` union.
-  3. **DesktopPanel component** (new file): Follows `EditorPanel` pattern — on-demand VNC start, polls port 6080 for noVNC readiness, sessionStorage caching, fullscreen + open-in-new-tab buttons. Max 40 poll attempts (2 min) since VNC startup can be slower.
+  3. **DesktopPanel component** (new file): Follows `EditorPanel` pattern — on-demand VNC start, polls port 6080 for noVNC readiness, sessionStorage caching, fullscreen + open-in-new-tab buttons. Max 40 poll attempts (2 min) since VNC startup can be slower. Uses `appendNoVncParams` helper to safely append query params to signed URLs.
   4. **SandboxPanel wiring**: New desktop tab trigger with `IconDeviceDesktop`, conditionally rendered `DesktopPanel`.
+  5. **Snapshot workflow** (`rebuild-snapshot.yml`): Added VNC packages (xvfb, xfce4, x11vnc, novnc, dbus-x11, X11 libs) and Google Chrome to the Dockerfile so new snapshots include desktop environment support.
 
 ## Persist preview & editor state across page refresh - 2026-03-01
 

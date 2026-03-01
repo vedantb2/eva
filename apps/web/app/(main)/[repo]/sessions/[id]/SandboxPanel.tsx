@@ -11,12 +11,14 @@ import {
   IconWorld,
   IconCode,
   IconTerminal2,
+  IconDeviceDesktop,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { EditorPanel } from "./EditorPanel";
+import { DesktopPanel } from "./DesktopPanel";
 
 interface PreviewInfo {
   url: string;
@@ -161,7 +163,12 @@ export function SandboxPanel({
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          if (v === "preview" || v === "editor" || v === "terminal") {
+          if (
+            v === "preview" ||
+            v === "editor" ||
+            v === "terminal" ||
+            v === "desktop"
+          ) {
             setActiveTab(v);
           }
         }}
@@ -169,6 +176,9 @@ export function SandboxPanel({
         <TabsList className="gap-1">
           <TabsTrigger value="preview">
             <IconWorld className="w-4 h-4" />
+          </TabsTrigger>
+          <TabsTrigger value="desktop">
+            <IconDeviceDesktop className="w-4 h-4" />
           </TabsTrigger>
           <TabsTrigger value="editor">
             <IconCode className="w-4 h-4" />
@@ -214,6 +224,15 @@ export function SandboxPanel({
             </div>
             <div className="flex-1 min-h-0">{terminal}</div>
           </div>
+        </div>
+        <div className={activeTab === "desktop" ? "h-full" : "hidden"}>
+          <DesktopPanel
+            sessionId={sessionId}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            tabSwitcher={tabSwitcher}
+            repoId={repoId}
+          />
         </div>
       </div>
     </div>

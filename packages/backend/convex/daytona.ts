@@ -802,8 +802,8 @@ export const getPreviewUrl = action({
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
-    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 2592000);
-
+    // max expiry length allowed is 24 hours
+    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 86400);
     let ready = true;
     if (args.checkReady) {
       try {
@@ -1166,6 +1166,31 @@ export const toggleCodeServer = action({
       );
     } else {
       await exec(sandbox, "pkill -f code-server || true", 10);
+    }
+
+    return null;
+  },
+});
+
+export const toggleDesktopServer = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    action: v.union(v.literal("start"), v.literal("stop")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    if (args.action === "start") {
+      await sandbox.computerUse.start();
+    } else {
+      await sandbox.computerUse.stop();
     }
 
     return null;

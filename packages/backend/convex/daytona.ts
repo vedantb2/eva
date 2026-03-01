@@ -1161,7 +1161,7 @@ export const toggleCodeServer = action({
     if (args.action === "start") {
       await exec(
         sandbox,
-        `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+        `pgrep -f 'code-server.*8080' > /dev/null 2>&1 || code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
         10,
       );
     } else {

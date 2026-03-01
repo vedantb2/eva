@@ -1,5 +1,23 @@
 # Changelog
 
+## Agent Browser Auth via Clerk Sign-In Tokens - 2026-03-01
+
+- **Why**: Browser automation agents need to authenticate as a real user but can't navigate Clerk's interactive sign-in UI. A secret-protected API endpoint generates a one-time Clerk sign-in token and redirects to a callback page that establishes a real session programmatically.
+- **Changes**:
+  1. **Env vars** (`env/server.ts`): Added optional `AGENT_AUTH_SECRET` and `AGENT_CLERK_USER_ID`.
+  2. **API route** (`app/api/auth/agent-login/route.ts`): Dev-only GET endpoint that validates a shared secret, creates a Clerk sign-in token, and 302 redirects to the callback.
+  3. **Callback page** (`app/agent-callback/page.tsx`): Client component that consumes the ticket via `signIn.create({ strategy: "ticket" })`, establishes the session, and redirects to `/home`.
+  4. **Middleware** (`middleware.ts`): Added `/agent-callback(.*)` to public routes.
+
+## Add VNC Desktop Tab to Sessions - 2026-03-01
+
+- **Why**: Users need to interact with a graphical desktop environment (and Chrome browser) running inside the Daytona sandbox for visual testing and UI automation. Daytona's SDK provides built-in VNC support via `computerUse.start()` which starts Xvfb + xfce4 + x11vnc + noVNC.
+- **Changes**:
+  1. **Backend action** (`daytona.ts`): New `toggleDesktopServer` action using Daytona SDK's `sandbox.computerUse.start()`/`stop()`.
+  2. **Search params** (`search-params.ts`): Added `"desktop"` to `sandboxTabs` union.
+  3. **DesktopPanel component** (new file): Follows `EditorPanel` pattern — on-demand VNC start, polls port 6080 for noVNC readiness, sessionStorage caching, fullscreen + open-in-new-tab buttons. Max 40 poll attempts (2 min) since VNC startup can be slower.
+  4. **SandboxPanel wiring**: New desktop tab trigger with `IconDeviceDesktop`, conditionally rendered `DesktopPanel`.
+
 ## Persist preview & editor state across page refresh - 2026-03-01
 
 - **Why**: Page refresh caused 9-30s loading delays as preview/editor URLs were re-polled, and code-server was restarted, killing previous terminal sessions and dev servers. Users had to manually restart dev servers on different ports.

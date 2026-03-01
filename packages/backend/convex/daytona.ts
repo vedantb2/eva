@@ -802,7 +802,7 @@ export const getPreviewUrl = action({
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
-    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 3600);
+    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 2592000);
 
     let ready = true;
     if (args.checkReady) {

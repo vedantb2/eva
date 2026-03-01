@@ -1,4 +1,9 @@
-import { parseAsString, parseAsStringLiteral, parseAsArrayOf } from "nuqs";
+import {
+  parseAsString,
+  parseAsStringLiteral,
+  parseAsArrayOf,
+  parseAsInteger,
+} from "nuqs";
 
 const searchOptions = { history: "replace" as const };
 const tabOptions = { history: "push" as const };
@@ -90,6 +95,10 @@ const quickTaskViews = ["kanban", "list"] as const;
 export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
+
+export const previewPortParser = parseAsInteger
+  .withDefault(3001)
+  .withOptions(searchOptions);
 
 export const branchParser = parseAsString
   .withDefault("main")

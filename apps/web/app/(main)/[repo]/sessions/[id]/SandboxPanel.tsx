@@ -5,7 +5,7 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
-import { sandboxTabParser } from "@/lib/search-params";
+import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
 import {
   IconWorld,
@@ -21,6 +21,30 @@ import { EditorPanel } from "./EditorPanel";
 interface PreviewInfo {
   url: string;
   port: number;
+}
+
+function getCachedPreview(sessionId: string, port: number): PreviewInfo | null {
+  try {
+    const raw = sessionStorage.getItem(
+      `conductor:preview:${sessionId}:${port}`,
+    );
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return { url: parsed.url, port: parsed.port };
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPreview(sessionId: string, info: PreviewInfo) {
+  sessionStorage.setItem(
+    `conductor:preview:${sessionId}:${info.port}`,
+    JSON.stringify({ url: info.url, port: info.port }),
+  );
+}
+
+function clearCachedPreview(sessionId: string, port: number) {
+  sessionStorage.removeItem(`conductor:preview:${sessionId}:${port}`);
 }
 
 interface SandboxPanelProps {
@@ -45,7 +69,7 @@ export function SandboxPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
-  const [port, setPort] = useState(3001);
+  const [port, setPort] = useQueryState("port", previewPortParser);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -70,6 +94,7 @@ export function SandboxPanel({
       });
       if (data.ready) {
         setPreviewInfo(data);
+        setCachedPreview(sessionId, data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
       } else {
@@ -81,14 +106,30 @@ export function SandboxPanel({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, port]);
+  }, [
+    sandboxId,
+    isActive,
+    getPreviewUrl,
+    stopPolling,
+    repoId,
+    port,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
+      const cached = getCachedPreview(sessionId, port);
+      if (cached) {
+        setPreviewInfo(cached);
+        return;
+      }
       fetchPreview();
     }
+    if (!isActive) {
+      clearCachedPreview(sessionId, port);
+    }
     return stopPolling;
-  }, [isActive, sandboxId, fetchPreview, stopPolling]);
+  }, [isActive, sandboxId, fetchPreview, stopPolling, sessionId, port]);
 
   const terminal = useMemo(
     () => (

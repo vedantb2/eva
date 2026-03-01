@@ -12,8 +12,29 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
-
 type EditorState = "idle" | "starting" | "running" | "error";
+
+function getCachedEditor(sessionId: string): string | null {
+  try {
+    const raw = sessionStorage.getItem(`conductor:editor:${sessionId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed.url;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedEditor(sessionId: string, url: string) {
+  sessionStorage.setItem(
+    `conductor:editor:${sessionId}`,
+    JSON.stringify({ url }),
+  );
+}
+
+function clearCachedEditor(sessionId: string) {
+  sessionStorage.removeItem(`conductor:editor:${sessionId}`);
+}
 
 interface EditorPanelProps {
   sessionId: string;
@@ -24,6 +45,7 @@ interface EditorPanelProps {
 }
 
 export function EditorPanel({
+  sessionId,
   sandboxId,
   isActive,
   repoId,
@@ -57,7 +79,7 @@ export function EditorPanel({
         if (data.ready) {
           setUrl(data.url);
           setEditorState("running");
-
+          setCachedEditor(sessionId, data.url);
           return;
         }
         attempts.current += 1;
@@ -75,7 +97,7 @@ export function EditorPanel({
     };
 
     check();
-  }, [sandboxId, isActive, getPreviewUrl, repoId]);
+  }, [sandboxId, isActive, getPreviewUrl, repoId, sessionId]);
 
   const startEditor = useCallback(async () => {
     if (!sandboxId) return;
@@ -84,20 +106,49 @@ export function EditorPanel({
     setUrl(null);
     stopPolling();
     try {
+      const existing = await getPreviewUrl({
+        sandboxId,
+        port: 8080,
+        checkReady: true,
+        repoId,
+      });
+      if (existing.ready) {
+        setUrl(existing.url);
+        setEditorState("running");
+        setCachedEditor(sessionId, existing.url);
+        return;
+      }
       await toggleCodeServer({ sandboxId, repoId, action: "start" });
       await pollForReady();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start editor");
       setEditorState("error");
     }
-  }, [sandboxId, repoId, toggleCodeServer, pollForReady, stopPolling]);
+  }, [
+    sandboxId,
+    repoId,
+    toggleCodeServer,
+    pollForReady,
+    stopPolling,
+    getPreviewUrl,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (isActive && sandboxId && editorState === "idle") {
+      const cached = getCachedEditor(sessionId);
+      if (cached) {
+        setUrl(cached);
+        setEditorState("running");
+        return;
+      }
       startEditor();
     }
+    if (!isActive) {
+      clearCachedEditor(sessionId);
+    }
     return stopPolling;
-  }, [isActive, sandboxId, editorState, startEditor, stopPolling]);
+  }, [isActive, sandboxId, editorState, startEditor, stopPolling, sessionId]);
 
   if (!isActive || !sandboxId) {
     return (

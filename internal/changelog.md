@@ -1,5 +1,16 @@
 # Changelog
 
+## Persist preview & editor state across page refresh - 2026-03-01
+
+- **Why**: Page refresh caused 9-30s loading delays as preview/editor URLs were re-polled, and code-server was restarted, killing previous terminal sessions and dev servers. Users had to manually restart dev servers on different ports.
+- **Changes**:
+  1. **Preview URL caching** (`SandboxPanel.tsx`): sessionStorage cache keyed by `{sessionId}:{port}`. On mount, use cached URL if present, skip polling entirely. Clear on sandbox inactive.
+  2. **Editor URL caching & reuse** (`EditorPanel.tsx`): sessionStorage cache keyed by `{sessionId}`. `startEditor` checks if port 8080 is already responding before calling `toggleCodeServer`, avoiding unnecessary restarts.
+  3. **Idempotent code-server start** (`daytona.ts`): Backend `toggleCodeServer` now guards start with `pgrep -f 'code-server.*8080'` — only starts if not already running. Existing terminals and dev servers survive.
+  4. **Preview port persistence** (`search-params.ts`, `SandboxPanel.tsx`): Port stored in URL via nuqs (`?port=3000`) instead of useState, so custom ports survive refresh.
+  5. **Extended signed URL expiry** (`daytona.ts`): Bumped from 3600s (1 hour) to 2592000s (30 days). Cache invalidated only when sandbox inactive (the only scenario where URLs stop working anyway).
+- **Reason for change**: Improve UX by eliminating unnecessary loading/restart cycles on page refresh while maintaining clean session lifecycle.
+
 ## Extract messages into dedicated table - 2026-02-28
 
 - **Why**: Messages were embedded as arrays inside `sessions`, `designSessions`, and `researchQueries` documents. Every read/write of a session fetched/rewrote the entire message array. As conversations grew, this caused large document sizes approaching the 1MB Convex limit, full array rewrites on every single message, and listing sessions in sidebars loaded all messages for all sessions wastefully.

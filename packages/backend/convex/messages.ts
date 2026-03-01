@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import {
   roleValidator,
@@ -162,6 +163,8 @@ export const updateLastInternal = internalMutation({
     variations: v.optional(v.array(variationValidator)),
     queryCode: v.optional(v.string()),
     status: v.optional(queryConfirmationStatusValidator),
+    imageStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -182,12 +185,18 @@ export const updateLastInternal = internalMutation({
       }>;
       queryCode?: string;
       status?: "pending" | "confirmed" | "cancelled";
+      imageStorageId?: Id<"_storage">;
+      videoStorageId?: Id<"_storage">;
     } = {};
     if (args.content !== undefined) patch.content = args.content;
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     if (args.variations !== undefined) patch.variations = args.variations;
     if (args.queryCode !== undefined) patch.queryCode = args.queryCode;
     if (args.status !== undefined) patch.status = args.status;
+    if (args.imageStorageId !== undefined)
+      patch.imageStorageId = args.imageStorageId;
+    if (args.videoStorageId !== undefined)
+      patch.videoStorageId = args.videoStorageId;
 
     await ctx.db.patch(last._id, patch);
     return null;

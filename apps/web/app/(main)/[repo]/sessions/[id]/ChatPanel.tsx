@@ -143,7 +143,7 @@ function VideoPreview({ url }: { url: string }) {
       controls
       playsInline
       preload="metadata"
-      className="mt-2 rounded-lg border"
+      className="mt-2 rounded-lg border max-w-lg"
     />
   );
 }
@@ -161,7 +161,7 @@ function ScreenshotPreview({ url }: { url: string }) {
         <img
           src={url}
           alt="Screenshot"
-          className="rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+          className="rounded-lg max-w-lg border cursor-pointer hover:opacity-90 transition-opacity"
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -233,6 +233,8 @@ export function ChatPanel({
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
+
+  const evaIcon = <Image src="/icon.png" alt="Eva" width={16} height={16} />;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
@@ -531,21 +533,6 @@ export function ChatPanel({
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <AIMessage from={message.role}>
-                    {message.role === "assistant" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full overflow-hidden">
-                          <Image
-                            src="/icon.png"
-                            alt="Assistant"
-                            width={28}
-                            height={28}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Eva
-                        </span>
-                      </div>
-                    )}
                     <MessageContent
                       className={
                         message.role === "user"
@@ -557,7 +544,12 @@ export function ChatPanel({
                         (() => {
                           const steps = parseActivitySteps(streamingActivity);
                           return steps ? (
-                            <ActivitySteps steps={steps} isStreaming />
+                            <ActivitySteps
+                              steps={steps}
+                              isStreaming
+                              name="Eva"
+                              icon={evaIcon}
+                            />
                           ) : (
                             <Reasoning isStreaming defaultOpen>
                               <ReasoningTrigger
@@ -579,6 +571,30 @@ export function ChatPanel({
                         <>
                           {message.role === "assistant" ? (
                             <>
+                              {message.activityLog &&
+                                (() => {
+                                  const steps = parseActivitySteps(
+                                    message.activityLog,
+                                  );
+                                  return steps ? (
+                                    <ActivitySteps
+                                      steps={steps}
+                                      name="Eva"
+                                      icon={evaIcon}
+                                    />
+                                  ) : (
+                                    <Reasoning defaultOpen={false}>
+                                      <ReasoningTrigger
+                                        getThinkingMessage={() => "View logs"}
+                                      />
+                                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                        <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                          {message.activityLog}
+                                        </pre>
+                                      </CollapsibleContent>
+                                    </Reasoning>
+                                  );
+                                })()}
                               <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                                 {message.content}
                               </MessageResponse>
@@ -625,27 +641,6 @@ export function ChatPanel({
                               </div>
                             </>
                           )}
-                          {message.role === "assistant" &&
-                            message.activityLog &&
-                            (() => {
-                              const steps = parseActivitySteps(
-                                message.activityLog,
-                              );
-                              return steps ? (
-                                <ActivitySteps steps={steps} />
-                              ) : (
-                                <Reasoning defaultOpen={false}>
-                                  <ReasoningTrigger
-                                    getThinkingMessage={() => "View logs"}
-                                  />
-                                  <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                    <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                      {message.activityLog}
-                                    </pre>
-                                  </CollapsibleContent>
-                                </Reasoning>
-                              );
-                            })()}
                         </>
                       )}
                     </MessageContent>

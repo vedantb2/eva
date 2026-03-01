@@ -699,10 +699,10 @@ try {
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
 
-  // Scan for media files and upload to Convex
-  // Upload videos from recordings/ first; if any video was uploaded, skip screenshots
-  // (screenshots taken during recording are intermediate frames, not standalone captures)
-  let hasVideo = false;
+  // Scan for media files, upload to Convex storage, attach to the existing message
+  // If a video exists, skip screenshots (they're intermediate frames during recording)
+  let videoStorageId = null;
+  let imageStorageId = null;
   const recDir = WORK_DIR + "/recordings";
   if (existsSync(recDir)) {
     for (const file of readdirSync(recDir)) {
@@ -718,26 +718,40 @@ try {
           body: fileData,
         });
         const uploadJson = await uploadRes.json();
-        await callMutation("screenshots:saveVideoMessage", { sessionId: ENTITY_ID, storageId: uploadJson.storageId });
-        hasVideo = true;
+        videoStorageId = uploadJson.storageId;
       } catch {}
       try { unlinkSync(fp); } catch {}
     }
   }
-  const ssDir = WORK_DIR + "/screenshots";
-  if (existsSync(ssDir)) {
-    for (const file of readdirSync(ssDir)) {
-      if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
-      const fp = ssDir + "/" + file;
-      if (!hasVideo) {
+  if (!videoStorageId) {
+    const ssDir = WORK_DIR + "/screenshots";
+    if (existsSync(ssDir)) {
+      for (const file of readdirSync(ssDir)) {
+        if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+        const fp = ssDir + "/" + file;
         try {
-          const data = readFileSync(fp);
-          const b64 = data.toString("base64");
-          await callAction("screenshots:upload", { sessionId: ENTITY_ID, imageBase64: b64 });
+          const urlRes = await callMutation("screenshots:generateUploadUrl", {});
+          const uploadUrl = urlRes.value;
+          const fileData = readFileSync(fp);
+          const uploadRes = await fetch(uploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": "image/png" },
+            body: fileData,
+          });
+          const uploadJson = await uploadRes.json();
+          imageStorageId = uploadJson.storageId;
         } catch {}
+        try { unlinkSync(fp); } catch {}
       }
-      try { unlinkSync(fp); } catch {}
     }
+  }
+  if (videoStorageId || imageStorageId) {
+    try {
+      const mediaArgs = { parentId: ENTITY_ID };
+      if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
+      if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
+      await callAction("screenshots:attachMedia", mediaArgs);
+    } catch {}
   }
 
   try {

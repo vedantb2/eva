@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import {
   ChainOfThought,
   ChainOfThoughtStep,
@@ -90,10 +90,19 @@ ActivityStepItem.displayName = "ActivityStepItem";
 export interface ActivityStepsProps extends ComponentProps<"div"> {
   steps: ActivityStep[];
   isStreaming?: boolean;
+  name?: string;
+  icon?: ReactNode;
 }
 
 export const ActivitySteps = memo(
-  ({ steps, isStreaming, className, ...props }: ActivityStepsProps) => {
+  ({
+    steps,
+    isStreaming,
+    name,
+    icon,
+    className,
+    ...props
+  }: ActivityStepsProps) => {
     const [isOpen, setIsOpen] = useState(Boolean(isStreaming));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -110,9 +119,14 @@ export const ActivitySteps = memo(
 
     if (steps.length === 0) return null;
 
+    const stepsText = `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;
     const headerLabel = isStreaming
-      ? `Working... (${steps.length} ${steps.length === 1 ? "step" : "steps"})`
-      : `${steps.length} ${steps.length === 1 ? "step" : "steps"} completed`;
+      ? name
+        ? `${name} is working... (${stepsText})`
+        : `Working... (${stepsText})`
+      : name
+        ? `${name} completed ${stepsText}`
+        : `${stepsText} completed`;
 
     return (
       <ChainOfThought
@@ -121,7 +135,7 @@ export const ActivitySteps = memo(
         className={cn("text-sm", className)}
         {...props}
       >
-        <ChainOfThoughtHeader>{headerLabel}</ChainOfThoughtHeader>
+        <ChainOfThoughtHeader icon={icon}>{headerLabel}</ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
           <div
             ref={scrollContainerRef}

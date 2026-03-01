@@ -16,7 +16,7 @@ interface SessionDetailClientProps {
 }
 
 const CHAT_DEFAULT_SIZE = "30%";
-const CHAT_MIN_EXPANDED_WIDTH_PX = 400;
+const CHAT_MIN_EXPANDED_WIDTH_PX = 450;
 
 export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
   const { installationId } = useRepo();

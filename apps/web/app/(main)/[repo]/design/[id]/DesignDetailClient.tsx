@@ -37,7 +37,6 @@ import {
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
-  IconArchive,
   IconCheck,
   IconDeviceDesktop,
   IconDeviceMobile,
@@ -46,6 +45,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import dayjs from "@conductor/shared/dates";
@@ -232,18 +232,11 @@ export function DesignDetailClient({
   return (
     <div className="flex h-full">
       <div className="flex flex-col w-2/5 min-w-[320px] border-r border-border">
-        {isArchived && (
-          <div className="flex items-center gap-2 px-4 py-5 border-b border-border bg-muted/50">
-            <IconArchive size={16} className="text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              This session is archived and read-only
-            </span>
-          </div>
-        )}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <h2 className="text-sm font-medium truncate">{session.title}</h2>
-          {!isArchived && (
-            <div className="flex items-center gap-2">
+        <ChatPageWrapper
+          title={session.title}
+          isArchived={isArchived}
+          headerRight={
+            <>
               {sandboxRunning ? (
                 <Button
                   size="sm"
@@ -281,122 +274,123 @@ export function DesignDetailClient({
                 selectedPersonaId={selectedPersonaId}
                 onClearPersona={() => setSelectedPersonaId(undefined)}
               />
+            </>
+          }
+        >
+          <Conversation className="flex-1">
+            <ConversationContent className="gap-4 p-4">
+              {messagesList.length === 0 ? (
+                <ConversationEmptyState
+                  title={
+                    sandboxRunning
+                      ? "Describe the UI you want to design"
+                      : "Start the sandbox to begin designing"
+                  }
+                />
+              ) : (
+                messagesList.map((message) => (
+                  <AIMessage key={message._id} from={message.role}>
+                    {message.role === "assistant" && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full overflow-hidden">
+                          <Image
+                            src="/icon.png"
+                            alt="Assistant"
+                            width={28}
+                            height={28}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Eva
+                        </span>
+                      </div>
+                    )}
+                    <MessageContent
+                      className={
+                        message.role === "user"
+                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                          : "px-1 py-2"
+                      }
+                    >
+                      {message.role === "assistant" && !message.content ? (
+                        <ActivitySteps
+                          steps={parseActivitySteps(streaming?.currentActivity)}
+                          isStreaming
+                        />
+                      ) : (
+                        <>
+                          {message.role === "assistant" ? (
+                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                              {message.content}
+                            </MessageResponse>
+                          ) : (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {message.content}
+                              </p>
+                              <div className="flex items-center justify-between gap-3">
+                                {message.personaId && (
+                                  <span className="text-[11px] text-muted-foreground/60">
+                                    {personas?.find(
+                                      (p) => p._id === message.personaId,
+                                    )?.name ?? "Persona"}
+                                  </span>
+                                )}
+                                {message.timestamp && (
+                                  <span className="text-[11px] text-muted-foreground/60">
+                                    {dayjs(message.timestamp).format("h:mm A")}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {message.role === "assistant" &&
+                            message.activityLog && (
+                              <ActivitySteps
+                                steps={parseActivitySteps(message.activityLog)}
+                              />
+                            )}
+                        </>
+                      )}
+                    </MessageContent>
+                  </AIMessage>
+                ))
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+          {!isArchived && (
+            <div className="px-3 pb-4 pt-3">
+              <PromptInput onSubmit={handlePromptSubmit}>
+                <PromptInputTextarea
+                  placeholder={
+                    !sandboxRunning
+                      ? "Start the sandbox to begin designing..."
+                      : "Describe the design you want..."
+                  }
+                  disabled={isExecuting || !sandboxRunning}
+                />
+                <PromptInputFooter>
+                  <PersonaDropdown
+                    repoId={session.repoId}
+                    value={selectedPersonaId}
+                    onChange={setSelectedPersonaId}
+                  />
+                  <div className="flex items-center gap-1">
+                    <PromptInputSpeech
+                      disabled={isExecuting || !sandboxRunning}
+                    />
+                    <PromptInputSubmit
+                      status={submitStatus}
+                      onStop={handleCancel}
+                      disabled={isExecuting || !sandboxRunning}
+                    />
+                  </div>
+                </PromptInputFooter>
+              </PromptInput>
             </div>
           )}
-        </div>
-        <Conversation className="flex-1">
-          <ConversationContent className="gap-4 p-4">
-            {messagesList.length === 0 ? (
-              <ConversationEmptyState
-                title={
-                  sandboxRunning
-                    ? "Describe the UI you want to design"
-                    : "Start the sandbox to begin designing"
-                }
-              />
-            ) : (
-              messagesList.map((message) => (
-                <AIMessage key={message._id} from={message.role}>
-                  {message.role === "assistant" && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full overflow-hidden">
-                        <Image
-                          src="/icon.png"
-                          alt="Assistant"
-                          width={28}
-                          height={28}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Eva
-                      </span>
-                    </div>
-                  )}
-                  <MessageContent
-                    className={
-                      message.role === "user"
-                        ? "rounded-xl bg-secondary text-foreground px-4 py-3"
-                        : "px-1 py-2"
-                    }
-                  >
-                    {message.role === "assistant" && !message.content ? (
-                      <ActivitySteps
-                        steps={parseActivitySteps(streaming?.currentActivity)}
-                        isStreaming
-                      />
-                    ) : (
-                      <>
-                        {message.role === "assistant" ? (
-                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                            {message.content}
-                          </MessageResponse>
-                        ) : (
-                          <>
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {message.content}
-                            </p>
-                            <div className="flex items-center justify-between gap-3">
-                              {message.personaId && (
-                                <span className="text-[11px] text-muted-foreground/60">
-                                  {personas?.find(
-                                    (p) => p._id === message.personaId,
-                                  )?.name ?? "Persona"}
-                                </span>
-                              )}
-                              {message.timestamp && (
-                                <span className="text-[11px] text-muted-foreground/60">
-                                  {dayjs(message.timestamp).format("h:mm A")}
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        )}
-                        {message.role === "assistant" &&
-                          message.activityLog && (
-                            <ActivitySteps
-                              steps={parseActivitySteps(message.activityLog)}
-                            />
-                          )}
-                      </>
-                    )}
-                  </MessageContent>
-                </AIMessage>
-              ))
-            )}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-        {!isArchived && (
-          <div className="px-3 pb-4 pt-3">
-            <PromptInput onSubmit={handlePromptSubmit}>
-              <PromptInputTextarea
-                placeholder={
-                  !sandboxRunning
-                    ? "Start the sandbox to begin designing..."
-                    : "Describe the design you want..."
-                }
-                disabled={isExecuting || !sandboxRunning}
-              />
-              <PromptInputFooter>
-                <PersonaDropdown
-                  repoId={session.repoId}
-                  value={selectedPersonaId}
-                  onChange={setSelectedPersonaId}
-                />
-                <div className="flex items-center gap-1">
-                  <PromptInputSpeech
-                    disabled={isExecuting || !sandboxRunning}
-                  />
-                  <PromptInputSubmit
-                    status={submitStatus}
-                    onStop={handleCancel}
-                    disabled={isExecuting || !sandboxRunning}
-                  />
-                </div>
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
-        )}
+        </ChatPageWrapper>
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">

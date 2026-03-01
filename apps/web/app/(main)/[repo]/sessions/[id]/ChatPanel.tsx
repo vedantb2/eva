@@ -45,7 +45,6 @@ import {
   ActivitySteps,
 } from "@conductor/ui";
 import {
-  IconArchive,
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
@@ -75,6 +74,7 @@ import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 import { useAuth } from "@clerk/nextjs";
+import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -341,94 +341,86 @@ export function ChatPanel({
     streamingActivity && !lastAssistantHasNoContent,
   );
 
+  const headerActions = (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
+        onClick={() => setActiveTab("preview")}
+      >
+        <IconWorld size={14} />
+        View Preview
+      </Button>
+      {prUrl ? (
+        <Link href={prUrl} target="_blank">
+          <Badge
+            variant="outline"
+            className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
+          >
+            <IconGitPullRequest size={12} />
+            View PR
+          </Badge>
+        </Link>
+      ) : branchName ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
+          onClick={() => setShowReviewModal(true)}
+        >
+          <IconSend size={12} />
+          Send for Review
+        </Button>
+      ) : null}
+      <Button
+        size="icon"
+        variant="secondary"
+        onClick={() => setShowClearChatModal(true)}
+        disabled={messages.length === 0}
+        className="motion-press h-8 w-8 text-destructive hover:scale-[1.03] active:scale-[0.97]"
+        title="Clear chat"
+      >
+        <IconTrash className="w-4 h-4" />
+      </Button>
+      <Button
+        size="icon"
+        variant="secondary"
+        onClick={() => setShowSummaryModal(true)}
+        disabled={isSummarizing || !isSandboxActive || messages.length === 0}
+        className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
+        title={hasSummary ? "Regenerate summary" : "Generate summary"}
+      >
+        {isSummarizing ? (
+          <Spinner size="sm" />
+        ) : (
+          <IconSparkles className="w-4 h-4" />
+        )}
+      </Button>
+      <Button
+        size="icon"
+        variant={isSandboxActive ? "destructive" : "secondary"}
+        onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+        disabled={isSandboxToggling}
+        className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
+      >
+        {isSandboxToggling ? (
+          <Spinner size="sm" />
+        ) : isSandboxActive ? (
+          <IconPlayerStop className="w-4 h-4" />
+        ) : (
+          <IconPlayerPlay className="w-4 h-4" />
+        )}
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {isArchived ? (
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-border bg-muted/50 animate-in fade-in duration-300">
-          <IconArchive size={16} className="text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            This session is archived and read-only
-          </span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-end p-3 animate-in fade-in duration-300">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setActiveTab("preview")}
-            >
-              <IconWorld size={14} />
-              View Preview
-            </Button>
-            {prUrl ? (
-              <Link href={prUrl} target="_blank">
-                <Badge
-                  variant="outline"
-                  className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
-                >
-                  <IconGitPullRequest size={12} />
-                  View PR
-                </Badge>
-              </Link>
-            ) : branchName ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
-                onClick={() => setShowReviewModal(true)}
-              >
-                <IconSend size={12} />
-                Send for Review
-              </Button>
-            ) : null}
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={() => setShowClearChatModal(true)}
-              disabled={messages.length === 0}
-              className="motion-press h-8 w-8 text-destructive hover:scale-[1.03] active:scale-[0.97]"
-              title="Clear chat"
-            >
-              <IconTrash className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={() => setShowSummaryModal(true)}
-              disabled={
-                isSummarizing || !isSandboxActive || messages.length === 0
-              }
-              className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
-              title={hasSummary ? "Regenerate summary" : "Generate summary"}
-            >
-              {isSummarizing ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconSparkles className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant={isSandboxActive ? "destructive" : "secondary"}
-              onClick={() =>
-                onSandboxToggle(isSandboxActive ? "stop" : "start")
-              }
-              disabled={isSandboxToggling}
-              className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${!isSandboxActive ? "text-success" : ""}`}
-            >
-              {isSandboxToggling ? (
-                <Spinner size="sm" />
-              ) : isSandboxActive ? (
-                <IconPlayerStop className="w-4 h-4" />
-              ) : (
-                <IconPlayerPlay className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
+    <ChatPageWrapper
+      title={title}
+      isArchived={isArchived}
+      headerRight={headerActions}
+    >
       <AnimatePresence>
         {(showSummaryStreaming || hasSummary) && (
           <motion.div
@@ -676,7 +668,7 @@ export function ChatPanel({
               }}
               className="absolute left-3 top-4 z-20 -translate-y-1/2"
             >
-              <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+              <TabsList className="h-8 rounded-full  p-0.5 shadow-sm">
                 <TabsTrigger
                   value="execute"
                   className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
@@ -950,6 +942,6 @@ export function ChatPanel({
           </AnimatePresence>
         </DialogContent>
       </Dialog>
-    </div>
+    </ChatPageWrapper>
   );
 }

@@ -318,11 +318,11 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-80 lg:w-20" : "w-80",
+          collapsed ? "w-64 lg:w-20" : "w-64",
         )}
       >
-        <div className="h-full p-2 lg:p-3 lg:pr-2">
-          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-sidebar-border/60 bg-sidebar shadow-sm lg:bg-sidebar/92 ">
+        <div className="h-full">
+          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border/60 bg-sidebar lg:bg-sidebar/92">
             <div
               className={cn(
                 "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",

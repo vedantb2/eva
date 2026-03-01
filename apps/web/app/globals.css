@@ -18,14 +18,14 @@
     --card-foreground: 24 28 31;
     --popover: 255 255 255;
     --popover-foreground: 24 28 31;
-    --primary: 16 145 130;
+    --primary: 13 132 120;
     --primary-foreground: 255 255 255;
-    --secondary: 233 239 238;
+    --secondary: 255 255 255;
     --secondary-foreground: 35 47 45;
     --muted: 239 244 243;
     --muted-foreground: 102 112 118;
     --accent: 224 240 236;
-    --accent-foreground: 12 105 95;
+    --accent-foreground: 10 90 81;
     --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
     --success: 22 163 74;
@@ -34,8 +34,8 @@
     --warning-foreground: 255 255 255;
     --border: 199 209 207;
     --input: 199 209 207;
-    --ring: 16 145 130;
-    --chart-1: 16 145 130;
+    --ring: 13 132 120;
+    --chart-1: 13 132 120;
     --chart-2: 20 184 166;
     --chart-3: 217 119 6;
     --chart-4: 225 29 72;
@@ -60,12 +60,12 @@
     --status-done-bar: 74 222 128;
     --sidebar: 247 250 249;
     --sidebar-foreground: 24 28 31;
-    --sidebar-primary: 13 132 122;
+    --sidebar-primary: 13 132 120;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 241 246 245;
-    --sidebar-accent-foreground: 13 112 101;
+    --sidebar-accent: 255 255 255;
+    --sidebar-accent-foreground: 10 90 81;
     --sidebar-border: 214 223 221;
-    --sidebar-ring: 16 145 130;
+    --sidebar-ring: 13 132 120;
     --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
     --radius: 0.5rem;
@@ -254,10 +254,10 @@
 
 @layer components {
   .ui-surface {
-    @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm;
+    @apply rounded-lg border border-border/65 bg-card/80 shadow-sm;
   }
   .ui-surface-strong {
-    @apply rounded-2xl border border-border/80 bg-card/95 shadow-md;
+    @apply rounded-lg border border-border/80 bg-card/95 shadow-md;
   }
   .ui-surface-interactive {
     @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;

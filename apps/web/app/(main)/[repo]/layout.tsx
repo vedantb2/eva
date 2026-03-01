@@ -11,9 +11,9 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   return (
     <div
-      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-80"}`}
+      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}
     >
-      <div className="relative flex h-full flex-col overflow-hidden bg-background/85 lg:m-3 lg:ml-0 lg:rounded-2xl lg:border lg:border-border/55 lg:bg-card/80 lg:shadow-sm lg:">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"

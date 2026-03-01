@@ -95,4 +95,4 @@ jobs:
           fi
 
       - name: Push snapshot to Daytona
-        run: daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 2 --memory 4 --disk 8
+        run: daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 4 --memory 8 --disk 10

@@ -125,9 +125,9 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 1. Read the CLAUDE.md file if it exists to understand the codebase
 2. Use Glob and Read tools to explore and find relevant files
 3. Make the requested changes using Edit or Write tools
-4. Commit your changes with: git add -A && git commit -m "task: ${commitMessage}"
-5. Push the changes with: git push -u origin ${branchName}
-6. Respond with a summary of what you did
+4. Only if you made code changes, commit and push:
+   git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
+5. Respond with a summary of what you did
 
 ## Rules:
 - You MUST commit and push ONLY to the branch "${branchName}" — NEVER push to main
@@ -136,7 +136,9 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 - Do NOT run build, lint, test, or dev commands
 - Make minimal, focused changes
 - Use the repository's lockfile to determine the correct package manager
-- The GITHUB_TOKEN environment variable is set for git operations${getResponseLengthInstruction(responseLength)}`;
+- The GITHUB_TOKEN environment variable is set for git operations
+- Do NOT commit or push if no source code changes were made (e.g. only screenshots/recordings were taken)
+- NEVER commit image or video files — they need to be uploaded to storage separately${getResponseLengthInstruction(responseLength)}`;
 }
 
 // --- Workflow ---

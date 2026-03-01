@@ -1,14 +1,15 @@
 # Changelog
 
-## Agent Screenshot Upload to Convex Storage - 2026-03-01
+## Agent Screenshot & Video Upload to Convex Storage - 2026-03-01
 
-- **Why**: The Claude CLI running inside the Daytona sandbox takes screenshots (e.g., of the VNC desktop) but had no way to persist or display them. Screenshots need to be stored in Convex file storage and rendered inline in the session chat so users can see what the agent saw.
+- **Why**: The Claude CLI running inside the Daytona sandbox takes screenshots and records videos (via `agent-browser`) but had no way to persist or display them. Media needs to be stored in Convex file storage and rendered inline in the session chat so users can see agent activity. Additionally, media files were being accidentally committed to git because the prompt always forced commits. Intermediate screenshots during video recording should be discarded, not uploaded.
 - **Changes**:
-  1. **Schema** (`schema.ts`): Added optional `imageStorageId` field to messages table.
-  2. **Messages** (`messages.ts`): Added `imageStorageId` + computed `imageUrl` to message validator. `listByParent`/`listByParentInternal` resolve `imageStorageId` → URL via `ctx.storage.getUrl`. `addInternal` accepts optional `imageStorageId`.
-  3. **Screenshots action** (`screenshots.ts`): New `upload` internalAction — decodes base64 → stores blob in Convex storage → creates message with `imageStorageId`. Called from sandbox via `POST /api/action` with deploy key.
-  4. **Callback script** (`daytona.ts`): Added `callAction` helper and automatic screenshot detection in `parseStreamEvent`. When a `tool_result` contains base64 image data, it auto-uploads via `screenshots:upload` — no prompt changes needed.
-  5. **ChatPanel** (`ChatPanel.tsx`): Renders clickable screenshot image below assistant message content when `imageUrl` is present.
+  1. **Schema** (`schema.ts`): Added optional `imageStorageId` and `videoStorageId` fields to messages table.
+  2. **Messages** (`messages.ts`): Added `imageStorageId`, `imageUrl`, `videoStorageId`, `videoUrl` to validator. `listByParent`/`listByParentInternal` resolve storage IDs → URLs. `addInternal` accepts optional image/video IDs.
+  3. **Screenshots action** (`screenshots.ts`): New public `upload` action for base64 images, `generateUploadUrl` mutation, and `saveVideoMessage` mutation for video metadata (supports large files via upload URL flow instead of base64).
+  4. **Callback script** (`daytona.ts`): Post-execution directory scan of `screenshots/` and `recordings/` folders after Claude finishes. Uploads all videos, then skips uploading screenshots if any video exists (prevents intermediate frames from polluting chat). Auto-deletes media files after upload.
+  5. **Execute prompt** (`sessionWorkflow.ts`): Changed `git add` to use pathspec exclusions (`:!*.png/:!*.webm/:!recordings/:!screenshots/`), and made commit conditional (`git diff --cached --quiet || git commit`) — prevents commits when no code changes exist and prevents media files from being tracked.
+  6. **ChatPanel** (`ChatPanel.tsx`): New `ScreenshotPreview` and `VideoPreview` components with dialog lightbox — click to maximize, "Open in new tab" button, fullscreen display.
 
 ## Agent Browser Auth via Clerk Sign-In Tokens - 2026-03-01
 

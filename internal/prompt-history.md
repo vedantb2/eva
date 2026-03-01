@@ -1,6 +1,7 @@
-[] add back novnc
-[] add file storage to convex and showing ss in chat
+[x] add back novnc
+[x] add file storage to convex and showing ss in chat
 [x] add fake auth in conductor
+[] change branch selector to app selector (ie web/eprocurement)
 [] add checkpoint in messages so you can rewind
 [] add num of design options in design input
 [] add figma auth in designs
@@ -11,7 +12,8 @@
 [] add labels to github pr issues
 [] add vercel deployment status tracking
 [] add human readable id's for the sessions etc
-[] change branch selector to app selector (ie web/eprocurement)
+[] need a way to effectively rollback changes in a file post commit, like undo,
+[] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 
 [x] base branch isnt working when making pr

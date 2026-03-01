@@ -415,7 +415,7 @@ function buildCallbackScript(
 ): string {
   return `
 import { spawn } from "child_process";
-import { readFileSync } from "fs";
+import { readFileSync, unlinkSync, readdirSync, existsSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -510,19 +510,6 @@ function parseStreamEvent(line) {
     // tool_result events mark the previous tool step as complete
     if (event.type === "tool_result") {
       markLastComplete();
-      try {
-        const content = event.content;
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block.type === "image" && block.source?.type === "base64" && block.source?.data) {
-              callAction("screenshots:upload", {
-                sessionId: ENTITY_ID,
-                imageBase64: block.source.data,
-              }).catch(() => {});
-            }
-          }
-        }
-      } catch {}
       return true;
     }
 
@@ -534,19 +521,6 @@ function parseStreamEvent(line) {
         accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
         lastStepType = "tool";
         added = true;
-        if (block.name === "Read" && block.input?.file_path) {
-          const fp = String(block.input.file_path);
-          if (/\\.(png|jpg|jpeg|gif|webp)$/i.test(fp)) {
-            try {
-              const imgData = readFileSync(fp);
-              const b64 = imgData.toString("base64");
-              callAction("screenshots:upload", {
-                sessionId: ENTITY_ID,
-                imageBase64: b64,
-              }).catch(() => {});
-            } catch {}
-          }
-        }
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
         const preview = String(block.thinking).split("\\n")[0].slice(0, 120);
@@ -715,6 +689,47 @@ try {
 
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
+
+  // Scan for media files and upload to Convex
+  // Upload videos from recordings/ first; if any video was uploaded, skip screenshots
+  // (screenshots taken during recording are intermediate frames, not standalone captures)
+  let hasVideo = false;
+  const recDir = WORK_DIR + "/recordings";
+  if (existsSync(recDir)) {
+    for (const file of readdirSync(recDir)) {
+      if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
+      const fp = recDir + "/" + file;
+      try {
+        const urlRes = await callMutation("screenshots:generateUploadUrl", {});
+        const uploadUrl = urlRes.value;
+        const fileData = readFileSync(fp);
+        const uploadRes = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.endsWith(".mp4") ? "video/mp4" : "video/webm" },
+          body: fileData,
+        });
+        const uploadJson = await uploadRes.json();
+        await callMutation("screenshots:saveVideoMessage", { sessionId: ENTITY_ID, storageId: uploadJson.storageId });
+        hasVideo = true;
+      } catch {}
+      try { unlinkSync(fp); } catch {}
+    }
+  }
+  const ssDir = WORK_DIR + "/screenshots";
+  if (existsSync(ssDir)) {
+    for (const file of readdirSync(ssDir)) {
+      if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+      const fp = ssDir + "/" + file;
+      if (!hasVideo) {
+        try {
+          const data = readFileSync(fp);
+          const b64 = data.toString("base64");
+          await callAction("screenshots:upload", { sessionId: ENTITY_ID, imageBase64: b64 });
+        } catch {}
+      }
+      try { unlinkSync(fp); } catch {}
+    }
+  }
 
   try {
     await callMutation("${completionMutation}", {

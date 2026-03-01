@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 export const upload = action({
@@ -25,6 +25,32 @@ export const upload = action({
       imageStorageId: storageId,
     });
 
+    return null;
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveVideoMessage = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    storageId: v.id("_storage"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "Agent recorded a video",
+      timestamp: Date.now(),
+      videoStorageId: args.storageId,
+    });
     return null;
   },
 });

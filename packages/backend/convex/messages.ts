@@ -32,6 +32,8 @@ const messageValidator = v.object({
   status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   imageUrl: v.optional(v.union(v.string(), v.null())),
+  videoStorageId: v.optional(v.id("_storage")),
+  videoUrl: v.optional(v.union(v.string(), v.null())),
 });
 
 export const listByParent = authQuery({
@@ -47,6 +49,9 @@ export const listByParent = authQuery({
         ...m,
         imageUrl: m.imageStorageId
           ? await ctx.storage.getUrl(m.imageStorageId)
+          : undefined,
+        videoUrl: m.videoStorageId
+          ? await ctx.storage.getUrl(m.videoStorageId)
           : undefined,
       })),
     );
@@ -66,6 +71,9 @@ export const listByParentInternal = internalQuery({
         ...m,
         imageUrl: m.imageStorageId
           ? await ctx.storage.getUrl(m.imageStorageId)
+          : undefined,
+        videoUrl: m.videoStorageId
+          ? await ctx.storage.getUrl(m.videoStorageId)
           : undefined,
       })),
     );
@@ -122,6 +130,7 @@ export const addInternal = internalMutation({
     queryCode: v.optional(v.string()),
     status: v.optional(queryConfirmationStatusValidator),
     imageStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -140,6 +149,7 @@ export const addInternal = internalMutation({
       queryCode: args.queryCode,
       status: args.status,
       imageStorageId: args.imageStorageId,
+      videoStorageId: args.videoStorageId,
     });
   },
 });

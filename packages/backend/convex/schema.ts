@@ -204,6 +204,7 @@ const schema = defineSchema({
     queryCode: v.optional(v.string()),
     status: v.optional(queryConfirmationStatusValidator),
     imageStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
   }).index("by_parent", ["parentId"]),
   sessions: defineTable({
     repoId: v.id("githubRepos"),

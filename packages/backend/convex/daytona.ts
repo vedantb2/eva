@@ -415,7 +415,7 @@ function buildCallbackScript(
 ): string {
   return `
 import { spawn } from "child_process";
-import { readFileSync, unlinkSync, readdirSync, existsSync } from "fs";
+import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -574,6 +574,15 @@ callMutation("streaming:set", {
 }).catch(() => {});
 
 const interval = setInterval(flushStreaming, 500);
+
+// Clear stale media from previous executions so only current run's media gets uploaded
+for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
+  if (existsSync(d)) {
+    for (const f of readdirSync(d)) { try { unlinkSync(d + "/" + f); } catch {} }
+  } else {
+    try { mkdirSync(d, { recursive: true }); } catch {}
+  }
+}
 
 // Refresh GITHUB_TOKEN right before spawning Claude
 const INSTALLATION_ID = process.env.INSTALLATION_ID;

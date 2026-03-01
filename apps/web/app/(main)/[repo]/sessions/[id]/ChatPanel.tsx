@@ -137,45 +137,14 @@ function SystemAlertMessage({ message }: { message: SessionMessage }) {
 }
 
 function VideoPreview({ url }: { url: string }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="block mt-2"
-      >
-        <video
-          src={url}
-          className="max-w-sm rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-          muted
-          playsInline
-          preload="metadata"
-        />
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="absolute top-2 right-10 z-10">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <IconExternalLink size={14} />
-              Open in new tab
-            </a>
-          </DialogHeader>
-          <video
-            src={url}
-            controls
-            autoPlay
-            className="w-full h-full object-contain"
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+    <video
+      src={url}
+      controls
+      playsInline
+      preload="metadata"
+      className="mt-2 rounded-lg border"
+    />
   );
 }
 
@@ -192,7 +161,7 @@ function ScreenshotPreview({ url }: { url: string }) {
         <img
           src={url}
           alt="Screenshot"
-          className="max-w-sm rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+          className="rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>

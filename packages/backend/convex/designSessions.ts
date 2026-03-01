@@ -359,28 +359,6 @@ export const cancelExecution = authMutation({
   },
 });
 
-export const clearMessages = authMutation({
-  args: { id: v.id("designSessions") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) throw new Error("Design session not found");
-    if (session.userId !== ctx.userId) throw new Error("Not authorized");
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
-      .collect();
-    for (const msg of messages) {
-      await ctx.db.delete(msg._id);
-    }
-    await ctx.db.patch(args.id, {
-      selectedVariationIndex: undefined,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 export const archive = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),

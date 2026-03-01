@@ -415,6 +415,7 @@ function buildCallbackScript(
 ): string {
   return `
 import { spawn } from "child_process";
+import { readFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -436,6 +437,22 @@ async function callMutation(path, args) {
   if (!res.ok) {
     const text = await res.text();
     throw new Error("Convex mutation " + path + " failed: " + res.status + " " + text);
+  }
+  return res.json();
+}
+
+async function callAction(path, args) {
+  const res = await fetch(CONVEX_URL + "/api/action", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + CONVEX_TOKEN,
+    },
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("Convex action " + path + " failed: " + res.status + " " + text);
   }
   return res.json();
 }
@@ -493,6 +510,19 @@ function parseStreamEvent(line) {
     // tool_result events mark the previous tool step as complete
     if (event.type === "tool_result") {
       markLastComplete();
+      try {
+        const content = event.content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === "image" && block.source?.type === "base64" && block.source?.data) {
+              callAction("screenshots:upload", {
+                sessionId: ENTITY_ID,
+                imageBase64: block.source.data,
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch {}
       return true;
     }
 
@@ -504,6 +534,19 @@ function parseStreamEvent(line) {
         accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
         lastStepType = "tool";
         added = true;
+        if (block.name === "Read" && block.input?.file_path) {
+          const fp = String(block.input.file_path);
+          if (/\\.(png|jpg|jpeg|gif|webp)$/i.test(fp)) {
+            try {
+              const imgData = readFileSync(fp);
+              const b64 = imgData.toString("base64");
+              callAction("screenshots:upload", {
+                sessionId: ENTITY_ID,
+                imageBase64: b64,
+              }).catch(() => {});
+            } catch {}
+          }
+        }
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
         const preview = String(block.thinking).split("\\n")[0].slice(0, 120);

@@ -49,6 +49,7 @@ import type * as researchQueries from "../researchQueries.js";
 import type * as researchQueryWorkflow from "../researchQueryWorkflow.js";
 import type * as routines from "../routines.js";
 import type * as savedQueries from "../savedQueries.js";
+import type * as screenshots from "../screenshots.js";
 import type * as sessionAudits from "../sessionAudits.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
 import type * as sessions from "../sessions.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   researchQueryWorkflow: typeof researchQueryWorkflow;
   routines: typeof routines;
   savedQueries: typeof savedQueries;
+  screenshots: typeof screenshots;
   sessionAudits: typeof sessionAudits;
   sessionWorkflow: typeof sessionWorkflow;
   sessions: typeof sessions;

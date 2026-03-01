@@ -1,5 +1,15 @@
 # Changelog
 
+## Agent Screenshot Upload to Convex Storage - 2026-03-01
+
+- **Why**: The Claude CLI running inside the Daytona sandbox takes screenshots (e.g., of the VNC desktop) but had no way to persist or display them. Screenshots need to be stored in Convex file storage and rendered inline in the session chat so users can see what the agent saw.
+- **Changes**:
+  1. **Schema** (`schema.ts`): Added optional `imageStorageId` field to messages table.
+  2. **Messages** (`messages.ts`): Added `imageStorageId` + computed `imageUrl` to message validator. `listByParent`/`listByParentInternal` resolve `imageStorageId` → URL via `ctx.storage.getUrl`. `addInternal` accepts optional `imageStorageId`.
+  3. **Screenshots action** (`screenshots.ts`): New `upload` internalAction — decodes base64 → stores blob in Convex storage → creates message with `imageStorageId`. Called from sandbox via `POST /api/action` with deploy key.
+  4. **Callback script** (`daytona.ts`): Added `callAction` helper and automatic screenshot detection in `parseStreamEvent`. When a `tool_result` contains base64 image data, it auto-uploads via `screenshots:upload` — no prompt changes needed.
+  5. **ChatPanel** (`ChatPanel.tsx`): Renders clickable screenshot image below assistant message content when `imageUrl` is present.
+
 ## Agent Browser Auth via Clerk Sign-In Tokens - 2026-03-01
 
 - **Why**: Browser automation agents need to authenticate as a real user but can't navigate Clerk's interactive sign-in UI. A secret-protected API endpoint generates a one-time Clerk sign-in token and redirects to a callback page that establishes a real session programmatically.

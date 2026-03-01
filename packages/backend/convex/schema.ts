@@ -203,6 +203,7 @@ const schema = defineSchema({
     variations: v.optional(v.array(variationValidator)),
     queryCode: v.optional(v.string()),
     status: v.optional(queryConfirmationStatusValidator),
+    imageStorageId: v.optional(v.id("_storage")),
   }).index("by_parent", ["parentId"]),
   sessions: defineTable({
     repoId: v.id("githubRepos"),

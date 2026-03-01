@@ -56,6 +56,7 @@ import {
   IconSend,
   IconCircleCheck,
   IconAlertTriangle,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -131,6 +132,46 @@ function SystemAlertMessage({ message }: { message: SessionMessage }) {
           </DialogContent>
         </Dialog>
       )}
+    </>
+  );
+}
+
+function ScreenshotPreview({ url }: { url: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block mt-2"
+      >
+        <img
+          src={url}
+          alt="Screenshot"
+          className="max-w-sm rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+        />
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="absolute top-2 right-10 z-10">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <IconExternalLink size={14} />
+              Open in new tab
+            </a>
+          </DialogHeader>
+          <img
+            src={url}
+            alt="Screenshot"
+            className="w-full h-full object-contain"
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -525,9 +566,14 @@ export function ChatPanel({
                       ) : (
                         <>
                           {message.role === "assistant" ? (
-                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                              {message.content}
-                            </MessageResponse>
+                            <>
+                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                {message.content}
+                              </MessageResponse>
+                              {message.imageUrl && (
+                                <ScreenshotPreview url={message.imageUrl} />
+                              )}
+                            </>
                           ) : (
                             <>
                               <p className="text-sm whitespace-pre-wrap break-words">

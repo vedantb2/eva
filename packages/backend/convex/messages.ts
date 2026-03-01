@@ -30,16 +30,26 @@ const messageValidator = v.object({
   variations: v.optional(v.array(variationValidator)),
   queryCode: v.optional(v.string()),
   status: v.optional(queryConfirmationStatusValidator),
+  imageStorageId: v.optional(v.id("_storage")),
+  imageUrl: v.optional(v.union(v.string(), v.null())),
 });
 
 export const listByParent = authQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(messageValidator),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const messages = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
       .collect();
+    return Promise.all(
+      messages.map(async (m) => ({
+        ...m,
+        imageUrl: m.imageStorageId
+          ? await ctx.storage.getUrl(m.imageStorageId)
+          : undefined,
+      })),
+    );
   },
 });
 
@@ -47,10 +57,18 @@ export const listByParentInternal = internalQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(messageValidator),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const messages = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
       .collect();
+    return Promise.all(
+      messages.map(async (m) => ({
+        ...m,
+        imageUrl: m.imageStorageId
+          ? await ctx.storage.getUrl(m.imageStorageId)
+          : undefined,
+      })),
+    );
   },
 });
 
@@ -103,6 +121,7 @@ export const addInternal = internalMutation({
     variations: v.optional(v.array(variationValidator)),
     queryCode: v.optional(v.string()),
     status: v.optional(queryConfirmationStatusValidator),
+    imageStorageId: v.optional(v.id("_storage")),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -120,6 +139,7 @@ export const addInternal = internalMutation({
       variations: args.variations,
       queryCode: args.queryCode,
       status: args.status,
+      imageStorageId: args.imageStorageId,
     });
   },
 });

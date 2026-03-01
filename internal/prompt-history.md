@@ -1,9 +1,20 @@
-[] add the screenshots, gifs
-[] base branch isnt working when making pr
+[] add back novnc
+[] add file storage to convex and showing ss in chat
+[x] add fake auth in conductor
+[] add checkpoint in messages so you can rewind
+[] add num of design options in design input
+[] add figma auth in designs
+[] figure out chrome distribution policy
+[] make app more interactive, so user icon on active page
+[] add the screenshots / videos to quick tasks
 [] improve notifications like linear
 [] add labels to github pr issues
+[] add vercel deployment status tracking
+[] add human readable id's for the sessions etc
+[] change branch selector to app selector (ie web/eprocurement)
 claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 
+[x] base branch isnt working when making pr
 [x] get sessions working
 [x] save chat history somehow
 [x] filesystem volume to save session

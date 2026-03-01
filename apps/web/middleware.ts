@@ -13,6 +13,19 @@ export default clerkMiddleware(
   async (auth, req) => {
     const { userId, redirectToSignIn } = await auth();
 
+    if (
+      req.nextUrl.pathname === "/" &&
+      !userId &&
+      req.nextUrl.searchParams.has("agent")
+    ) {
+      const secret = process.env.AGENT_AUTH_SECRET;
+      if (secret) {
+        const loginUrl = new URL("/api/auth/agent-login", req.url);
+        loginUrl.searchParams.set("secret", secret);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
     // Redirect authenticated users from landing page to home
     if (req.nextUrl.pathname === "/" && userId) {
       return NextResponse.redirect(new URL("/home", req.url));

@@ -56,7 +56,6 @@ import {
   IconSend,
   IconCircleCheck,
   IconAlertTriangle,
-  IconExternalLink,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -68,6 +67,7 @@ import Image from "next/image";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
@@ -132,94 +132,6 @@ function SystemAlertMessage({ message }: { message: SessionMessage }) {
           </DialogContent>
         </Dialog>
       )}
-    </>
-  );
-}
-
-const VIDEO_SPEEDS = [1, 2, 3, 5] as const;
-
-function VideoPreview({ url }: { url: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [speed, setSpeed] = useState<(typeof VIDEO_SPEEDS)[number]>(3);
-
-  const applySpeed = (rate: (typeof VIDEO_SPEEDS)[number]) => {
-    setSpeed(rate);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = rate;
-    }
-  };
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <video
-        ref={videoRef}
-        src={url}
-        controls
-        playsInline
-        preload="metadata"
-        className="rounded-lg border max-w-lg"
-        onLoadedMetadata={() => {
-          if (videoRef.current) {
-            videoRef.current.playbackRate = speed;
-          }
-        }}
-      />
-      <div className="flex items-center gap-1">
-        {VIDEO_SPEEDS.map((rate) => (
-          <button
-            key={rate}
-            type="button"
-            onClick={() => applySpeed(rate)}
-            className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
-              speed === rate
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {rate}x
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ScreenshotPreview({ url }: { url: string }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="block mt-2"
-      >
-        <img
-          src={url}
-          alt="Screenshot"
-          className="rounded-lg max-w-lg border cursor-pointer hover:opacity-90 transition-opacity"
-        />
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="absolute top-2 right-10 z-10">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <IconExternalLink size={14} />
-              Open in new tab
-            </a>
-          </DialogHeader>
-          <img
-            src={url}
-            alt="Screenshot"
-            className="w-full h-full object-contain"
-          />
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

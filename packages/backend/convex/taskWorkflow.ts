@@ -64,12 +64,22 @@ ${subtasksList}
 1. Read CLAUDE.md to understand the codebase
 2. Implement the changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A && git commit -m "feat(task-${task.taskNumber || 1}): ${task.title}"
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "feat(task-${task.taskNumber || 1}): ${task.title}"
 5. Run: git push -u origin ${branchName}
+
+## Proof of Completion (REQUIRED):
+After committing and pushing, you MUST capture visual proof using the agent-browser skill:
+1. Start the dev server in background, wait for it to be ready
+2. Use agent-browser to take a screenshot (simple changes) or record a video (complex multi-step changes) — pick one, not both
+3. Save to screenshots/ or recordings/ in the repo root
+4. Kill the dev server
+If the dev server fails to start or the page shows an error (e.g. env var issues, build errors), screenshot the error state anyway and save it — the user needs to see what went wrong.
+If the task has no UI changes, skip this step.
+Do NOT mention proof capture in your response or commit message.
 
 ## Rules:
 - Do NOT create .md plan files
-- Do NOT run build, lint, test, or dev commands
+- Do NOT run build, lint, test, or dev commands EXCEPT starting a dev server for proof capture after committing
 - Use the lockfile to determine the package manager
 - GITHUB_TOKEN is already set for git push`;
 }

@@ -14,7 +14,6 @@ export const save = authMutation({
     taskId: v.id("agentTasks"),
     storageId: v.id("_storage"),
     fileName: v.string(),
-    fileType: v.string(),
   },
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
@@ -30,7 +29,29 @@ export const save = authMutation({
       taskId: args.taskId,
       storageId: args.storageId,
       fileName: args.fileName,
-      fileType: args.fileType,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const saveMessage = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    message: v.string(),
+  },
+  returns: v.id("taskProof"),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    const board = await ctx.db.get(task.boardId);
+    if (!board || board.ownerId !== ctx.userId) {
+      throw new Error("Task not found");
+    }
+    return await ctx.db.insert("taskProof", {
+      taskId: args.taskId,
+      message: args.message,
       createdAt: Date.now(),
     });
   },
@@ -43,11 +64,12 @@ export const listByTask = authQuery({
       _id: v.id("taskProof"),
       _creationTime: v.number(),
       taskId: v.id("agentTasks"),
-      storageId: v.id("_storage"),
-      fileName: v.string(),
-      fileType: v.string(),
+      storageId: v.optional(v.id("_storage")),
+      fileName: v.optional(v.string()),
+      message: v.optional(v.string()),
       createdAt: v.number(),
       url: v.union(v.string(), v.null()),
+      contentType: v.union(v.string(), v.null()),
     }),
   ),
   handler: async (ctx, args) => {
@@ -64,10 +86,17 @@ export const listByTask = authQuery({
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
     return Promise.all(
-      proofs.map(async (p) => ({
-        ...p,
-        url: await ctx.storage.getUrl(p.storageId),
-      })),
+      proofs.map(async (p) => {
+        if (!p.storageId) {
+          return { ...p, url: null, contentType: null };
+        }
+        const meta = await ctx.db.system.get("_storage", p.storageId);
+        return {
+          ...p,
+          url: await ctx.storage.getUrl(p.storageId),
+          contentType: meta?.contentType ?? null,
+        };
+      }),
     );
   },
 });
@@ -88,7 +117,9 @@ export const remove = authMutation({
     if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Proof not found");
     }
-    await ctx.storage.delete(proof.storageId);
+    if (proof.storageId) {
+      await ctx.storage.delete(proof.storageId);
+    }
     await ctx.db.delete(args.id);
     return null;
   },

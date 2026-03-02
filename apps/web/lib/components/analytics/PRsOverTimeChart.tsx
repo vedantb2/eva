@@ -10,7 +10,7 @@ import {
 } from "chart.js";
 import { Card, CardContent } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
-import { cssColor } from "@/lib/utils/cssColor";
+import { cssColor, cssRadius } from "@/lib/utils/cssColor";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -29,7 +29,7 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
         backgroundColor: cssColor("chart-1", 0.8),
         borderColor: cssColor("chart-1"),
         borderWidth: 1,
-        borderRadius: 4,
+        borderRadius: cssRadius(),
       },
     ],
   };

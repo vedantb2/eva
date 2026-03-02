@@ -446,7 +446,7 @@ export function TaskDetailModal({
                                     wrapLongLines
                                     customStyle={{
                                       fontSize: "0.75rem",
-                                      borderRadius: "0.5rem",
+                                      borderRadius: "var(--radius)",
                                       margin: 0,
                                     }}
                                   >

@@ -22,7 +22,7 @@ interface ProjectFinalizationModalProps {
   onClose: () => void;
   projectId: Id<"projects">;
   spec: string;
-  repoSlug: string;
+  basePath: string;
 }
 
 export function ProjectFinalizationModal({
@@ -30,7 +30,7 @@ export function ProjectFinalizationModal({
   onClose,
   projectId,
   spec,
-  repoSlug,
+  basePath,
 }: ProjectFinalizationModalProps) {
   const router = useRouter();
   const updateProject = useMutation(api.projects.update);
@@ -68,7 +68,7 @@ export function ProjectFinalizationModal({
         phase: "finalized",
       });
       await startDevelopment({ projectId });
-      router.push(`/${repoSlug}/projects/${projectId}`);
+      router.push(`${basePath}/projects/${projectId}`);
     } finally {
       setIsLoading(false);
     }

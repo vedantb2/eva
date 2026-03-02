@@ -9,6 +9,17 @@ const isPublicRoute = createRouteMatcher([
   "/agent-callback(.*)",
 ]);
 
+const KNOWN_SUB_PAGES = new Set([
+  "projects",
+  "design",
+  "docs",
+  "sessions",
+  "quick-tasks",
+  "analyse",
+  "admin",
+  "testing-arena",
+]);
+
 export default clerkMiddleware(
   async (auth, req) => {
     const { userId, redirectToSignIn } = await auth();
@@ -26,14 +37,26 @@ export default clerkMiddleware(
       }
     }
 
-    // Redirect authenticated users from landing page to home
     if (req.nextUrl.pathname === "/" && userId) {
       return NextResponse.redirect(new URL("/home", req.url));
     }
 
-    // Protect non-public routes
     if (!isPublicRoute(req) && !userId) {
       return redirectToSignIn();
+    }
+
+    const segments = req.nextUrl.pathname.split("/").filter(Boolean);
+    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
+      const rewriteUrl = req.nextUrl.clone();
+      rewriteUrl.pathname =
+        "/" +
+        segments[0] +
+        "/" +
+        segments[1] +
+        "--" +
+        segments[2] +
+        (segments.length > 3 ? "/" + segments.slice(3).join("/") : "");
+      return NextResponse.rewrite(rewriteUrl);
     }
   },
   { clockSkewInMs: 60000 },

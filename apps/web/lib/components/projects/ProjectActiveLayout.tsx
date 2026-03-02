@@ -40,7 +40,7 @@ interface Project {
 interface ProjectActiveLayoutProps {
   projectId: Id<"projects">;
   project: Project;
-  repoSlug: string;
+  basePath: string;
   generatedSpec?: string;
   conversationHistory: Array<{
     role: "user" | "assistant";
@@ -52,7 +52,7 @@ interface ProjectActiveLayoutProps {
 export function ProjectActiveLayout({
   projectId,
   project,
-  repoSlug,
+  basePath,
   generatedSpec,
   conversationHistory,
   prUrl,

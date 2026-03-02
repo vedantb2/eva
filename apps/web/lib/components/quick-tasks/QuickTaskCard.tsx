@@ -48,7 +48,7 @@ export function QuickTaskCard({
   isSelected,
   onToggleSelect,
 }: QuickTaskCardProps) {
-  const { fullName } = useRepo();
+  const { owner, name: repoName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
@@ -128,7 +128,7 @@ export function QuickTaskCard({
                       <DropdownMenuItem
                         onClick={() =>
                           window.open(
-                            `https://github.com/${fullName}/tree/${branchName}`,
+                            `https://github.com/${owner}/${repoName}/tree/${branchName}`,
                             "_blank",
                           )
                         }

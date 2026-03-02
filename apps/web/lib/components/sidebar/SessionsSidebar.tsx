@@ -34,7 +34,7 @@ import {
 
 interface SessionsSidebarProps {
   repoId: Id<"githubRepos">;
-  repoSlug: string;
+  basePath: string;
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
@@ -42,7 +42,7 @@ interface SessionsSidebarProps {
 
 export function SessionsSidebar({
   repoId,
-  repoSlug,
+  basePath,
   pathname,
   onNavigate,
   createRequestId,
@@ -66,7 +66,7 @@ export function SessionsSidebar({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
-  const baseUrl = `/${repoSlug}/sessions`;
+  const baseUrl = `${basePath}/sessions`;
   const currentSessionId = pathname.startsWith(`${baseUrl}/`)
     ? pathname.slice(baseUrl.length + 1).split("/")[0]
     : null;

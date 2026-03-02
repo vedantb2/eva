@@ -23,7 +23,7 @@ import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
-  repoSlug: string;
+  basePath: string;
   installationId: number;
   pathname: string;
   onNavigate?: () => void;
@@ -32,7 +32,7 @@ interface TestingArenaSidebarProps {
 
 export function TestingArenaSidebar({
   repoId,
-  repoSlug,
+  basePath,
   installationId,
   pathname,
   onNavigate,
@@ -117,7 +117,7 @@ export function TestingArenaSidebar({
         ) : (
           <div>
             {filteredDocs.map((doc) => {
-              const href = `/${repoSlug}/testing-arena/${doc._id}`;
+              const href = `${basePath}/testing-arena/${doc._id}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <Link

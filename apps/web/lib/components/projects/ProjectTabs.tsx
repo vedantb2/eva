@@ -16,7 +16,7 @@ interface ProjectTabsProps {
   generatedSpec: string | undefined;
   conversationHistory: ConversationMessage[];
   streamingActivity?: string;
-  repoSlug: string;
+  basePath: string;
   repoId: Id<"githubRepos">;
   installationId: number;
 }
@@ -28,7 +28,7 @@ export function ProjectTabs({
   generatedSpec,
   conversationHistory,
   streamingActivity,
-  repoSlug,
+  basePath,
   repoId,
   installationId,
 }: ProjectTabsProps) {
@@ -136,7 +136,7 @@ export function ProjectTabs({
           projectId={projectId}
           projectPhase={projectPhase}
           generatedSpec={specToShow}
-          repoSlug={repoSlug}
+          basePath={basePath}
           repoId={repoId}
           installationId={installationId}
           onRejectSpec={handleRejectSpec}

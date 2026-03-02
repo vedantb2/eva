@@ -21,7 +21,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 import {
   IconGitBranch,
   IconGitPullRequest,
@@ -35,7 +35,7 @@ interface ProjectDetailClientProps {
 }
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
-  const { fullName, repo, installationId, rootDirectory } = useRepo();
+  const { basePath, repo, installationId } = useRepo();
   const getConvexToken = useConvexToken();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
@@ -117,7 +117,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             streamingActivity={streaming?.currentActivity}
-            repoSlug={encodeRepoSlug(fullName, rootDirectory)}
+            basePath={basePath}
             repoId={repo._id}
             installationId={repo.installationId}
           />
@@ -125,7 +125,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           <ProjectActiveLayout
             projectId={typedProjectId}
             project={project}
-            repoSlug={encodeRepoSlug(fullName, rootDirectory)}
+            basePath={basePath}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             prUrl={project.prUrl}

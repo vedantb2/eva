@@ -15,21 +15,21 @@ import Link from "next/link";
 
 interface ActiveTasksAccordionProps {
   repoId?: Id<"githubRepos">;
-  repoSlug: string;
+  basePath: string;
 }
 
 export function ActiveTasksAccordion({
   repoId,
-  repoSlug,
+  basePath,
 }: ActiveTasksAccordionProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
   const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 
   const getTaskLink = (task: NonNullable<typeof allTasks>[number]) => {
     if (task.projectId) {
-      return `/${repoSlug}/projects/${task.projectId}`;
+      return `${basePath}/projects/${task.projectId}`;
     }
-    return `/${repoSlug}/quick-tasks`;
+    return `${basePath}/quick-tasks`;
   };
 
   if (tasks.length === 0) {

@@ -34,7 +34,7 @@ import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
-  repoSlug: string;
+  basePath: string;
   installationId: number;
   pathname: string;
   onNavigate?: () => void;
@@ -43,7 +43,7 @@ interface DocsSidebarProps {
 
 export function DocsSidebar({
   repoId,
-  repoSlug,
+  basePath,
   installationId,
   pathname,
   onNavigate,
@@ -74,11 +74,11 @@ export function DocsSidebar({
     lastCreateRequestIdRef.current = createRequestId;
     createDoc({ repoId, title: "Untitled", content: "" })
       .then((id) => {
-        router.push(`/${repoSlug}/docs/${id}`);
+        router.push(`${basePath}/docs/${id}`);
         onNavigate?.();
       })
       .catch(console.error);
-  }, [createRequestId, createDoc, repoId, repoSlug, onNavigate, router]);
+  }, [createRequestId, createDoc, repoId, basePath, onNavigate, router]);
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
@@ -124,7 +124,7 @@ export function DocsSidebar({
       const id = await createDoc({ repoId, title, content: prdContent });
       setIsUploadDialogOpen(false);
       setPastedPrdContent("");
-      router.push(`/${repoSlug}/docs/${id}`);
+      router.push(`${basePath}/docs/${id}`);
       onNavigate?.();
       const convexToken = await getConvexToken();
       await startPrdParse({
@@ -170,12 +170,12 @@ export function DocsSidebar({
     setIsDeleting(true);
     try {
       const isViewing = pathname.startsWith(
-        `/${repoSlug}/docs/${docToDelete.id}`,
+        `${basePath}/docs/${docToDelete.id}`,
       );
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
-        router.push(`/${repoSlug}/docs`);
+        router.push(`${basePath}/docs`);
         onNavigate?.();
       }
     } finally {
@@ -224,7 +224,7 @@ export function DocsSidebar({
         ) : (
           <div>
             {filteredDocs.map((doc) => {
-              const href = `/${repoSlug}/docs/${doc._id}`;
+              const href = `${basePath}/docs/${doc._id}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <div

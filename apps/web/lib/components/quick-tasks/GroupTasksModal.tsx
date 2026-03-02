@@ -6,7 +6,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ export function GroupTasksModal({
   selectedTaskIds,
   onSuccess,
 }: GroupTasksModalProps) {
-  const { repo, fullName, rootDirectory } = useRepo();
+  const { repo, basePath } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selectedProjectId, setSelectedProjectId] =
@@ -62,9 +62,7 @@ export function GroupTasksModal({
       setTitle("");
       onSuccess();
       onClose();
-      router.push(
-        `/${encodeRepoSlug(fullName, rootDirectory)}/projects/${projectId}`,
-      );
+      router.push(`${basePath}/projects/${projectId}`);
     } finally {
       setIsLoading(false);
     }

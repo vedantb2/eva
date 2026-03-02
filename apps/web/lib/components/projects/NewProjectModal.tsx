@@ -16,7 +16,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useRouter } from "next/navigation";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
 interface NewProjectModalProps {
@@ -25,7 +25,7 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
-  const { repo, fullName, rootDirectory } = useRepo();
+  const { repo, basePath } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -50,12 +50,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       setDescription("");
       setBaseBranch("main");
       onClose();
-      router.push(
-        "/" +
-          encodeRepoSlug(fullName, rootDirectory) +
-          "/projects/" +
-          projectId,
-      );
+      router.push(basePath + "/projects/" + projectId);
     } finally {
       setIsLoading(false);
     }

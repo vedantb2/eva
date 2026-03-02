@@ -29,7 +29,7 @@ export function SpotlightSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const router = useRouter();
-  const { repo, repoSlug } = useRepo();
+  const { repo, basePath } = useRepo();
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
@@ -88,7 +88,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Projects"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/projects`)}
+                onSelect={() => handleSelect(`${basePath}/projects`)}
               >
                 <IconLayoutKanban size={16} className="flex-shrink-0" />
                 <span className="flex-1">Projects</span>
@@ -97,7 +97,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Quick Tasks"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}
+                onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
               >
                 <IconChecklist size={16} className="flex-shrink-0" />
                 <span className="flex-1">Quick Tasks</span>
@@ -106,7 +106,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Sessions"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/sessions`)}
+                onSelect={() => handleSelect(`${basePath}/sessions`)}
               >
                 <IconTerminal2 size={16} className="flex-shrink-0" />
                 <span className="flex-1">Sessions</span>
@@ -115,7 +115,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Documents"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/docs`)}
+                onSelect={() => handleSelect(`${basePath}/docs`)}
               >
                 <IconFileText size={16} className="flex-shrink-0" />
                 <span className="flex-1">Documents</span>
@@ -124,7 +124,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Testing Arena"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/testing-arena`)}
+                onSelect={() => handleSelect(`${basePath}/testing-arena`)}
               >
                 <IconFlask size={16} className="flex-shrink-0" />
                 <span className="flex-1">Testing Arena</span>
@@ -133,7 +133,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Analyse"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/analyse`)}
+                onSelect={() => handleSelect(`${basePath}/analyse`)}
               >
                 <IconBrain size={16} className="flex-shrink-0" />
                 <span className="flex-1">Analyse</span>
@@ -142,7 +142,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Stats"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/stats`)}
+                onSelect={() => handleSelect(`${basePath}/stats`)}
               >
                 <IconChartBar size={16} className="flex-shrink-0" />
                 <span className="flex-1">Stats</span>
@@ -151,7 +151,7 @@ export function SpotlightSearch() {
               <Command.Item
                 value="Admin"
                 className={itemClass}
-                onSelect={() => handleSelect(`/${repoSlug}/admin`)}
+                onSelect={() => handleSelect(`${basePath}/admin`)}
               >
                 <IconShield size={16} className="flex-shrink-0" />
                 <span className="flex-1">Admin</span>
@@ -167,7 +167,7 @@ export function SpotlightSearch() {
                     value={`${p.title} ${p.description ?? ""}`}
                     className={itemClass}
                     onSelect={() =>
-                      handleSelect(`/${repoSlug}/projects/${p._id}`)
+                      handleSelect(`${basePath}/projects/${p._id}`)
                     }
                   >
                     <IconLayoutKanban size={16} className="flex-shrink-0" />
@@ -187,7 +187,7 @@ export function SpotlightSearch() {
                     key={t._id}
                     value={t.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/quick-tasks`)}
+                    onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
                   >
                     <IconChecklist size={16} className="flex-shrink-0" />
                     <span className="flex-1 truncate">{t.title}</span>
@@ -207,7 +207,7 @@ export function SpotlightSearch() {
                     value={s.title}
                     className={itemClass}
                     onSelect={() =>
-                      handleSelect(`/${repoSlug}/sessions/${s._id}`)
+                      handleSelect(`${basePath}/sessions/${s._id}`)
                     }
                   >
                     <IconTerminal2 size={16} className="flex-shrink-0" />
@@ -227,7 +227,7 @@ export function SpotlightSearch() {
                     key={d._id}
                     value={d.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`/${repoSlug}/docs/${d._id}`)}
+                    onSelect={() => handleSelect(`${basePath}/docs/${d._id}`)}
                   >
                     <IconFileText size={16} className="flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
@@ -245,7 +245,7 @@ export function SpotlightSearch() {
                     value={`test ${d.title}`}
                     className={itemClass}
                     onSelect={() =>
-                      handleSelect(`/${repoSlug}/testing-arena/${d._id}`)
+                      handleSelect(`${basePath}/testing-arena/${d._id}`)
                     }
                   >
                     <IconFlask size={16} className="flex-shrink-0" />
@@ -264,7 +264,7 @@ export function SpotlightSearch() {
                     value={rq.title}
                     className={itemClass}
                     onSelect={() =>
-                      handleSelect(`/${repoSlug}/analyse/query/${rq._id}`)
+                      handleSelect(`${basePath}/analyse/query/${rq._id}`)
                     }
                   >
                     <IconBrain size={16} className="flex-shrink-0" />

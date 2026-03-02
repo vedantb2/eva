@@ -32,13 +32,13 @@ export default function RepoLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ repo: string }>;
+  params: Promise<{ owner: string; repo: string }>;
 }) {
-  const { repo } = use(params);
+  const { owner, repo } = use(params);
 
   return (
     <SidebarProvider>
-      <RepoProvider repoSlug={repo}>
+      <RepoProvider owner={owner} repoParam={repo}>
         <Sidebar />
         <MainContent>{children}</MainContent>
         <SpotlightSearch />

@@ -19,7 +19,7 @@ interface ProjectPlanTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   generatedSpec: string | undefined;
-  repoSlug: string;
+  basePath: string;
   repoId: Id<"githubRepos">;
   installationId: number;
   onRejectSpec: (reason: string) => void;
@@ -29,7 +29,7 @@ export function ProjectPlanTab({
   projectId,
   projectPhase,
   generatedSpec,
-  repoSlug,
+  basePath,
   onRejectSpec,
 }: ProjectPlanTabProps) {
   const router = useRouter();
@@ -62,7 +62,7 @@ export function ProjectPlanTab({
         });
       }
       await startDevelopment({ projectId });
-      router.push(`/${repoSlug}/projects/${projectId}`);
+      router.push(`${basePath}/projects/${projectId}`);
     } finally {
       setIsLoading(false);
     }

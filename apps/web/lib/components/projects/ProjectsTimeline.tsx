@@ -10,7 +10,7 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 import {
   Button,
   Tooltip,
@@ -41,14 +41,12 @@ interface DragState {
 
 interface ProjectsTimelineProps {
   projects: Project[];
-  repoFullName: string;
-  rootDirectory?: string;
+  basePath: string;
 }
 
 export function ProjectsTimeline({
   projects,
-  repoFullName,
-  rootDirectory,
+  basePath,
 }: ProjectsTimelineProps) {
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
@@ -655,7 +653,7 @@ export function ProjectsTimeline({
               onClose={() => setSelectedProjectId(null)}
               projectId={selectedProjectId}
               createdAt={selectedProject._creationTime}
-              projectUrl={`/${encodeRepoSlug(repoFullName, rootDirectory)}/projects/${selectedProjectId}`}
+              projectUrl={`${basePath}/projects/${selectedProjectId}`}
             />
           ) : null;
         })()}

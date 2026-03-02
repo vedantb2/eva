@@ -44,7 +44,7 @@ const SCHEDULE_LABELS: Record<Schedule, string> = {
 };
 
 export function SnapshotsClient() {
-  const { repoId, fullName } = useRepo();
+  const { repoId, owner, name: repoName } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -402,7 +402,7 @@ export function SnapshotsClient() {
                         build={build}
                         isExpanded={isExpanded}
                         duration={duration}
-                        repoFullName={fullName}
+                        repoFullName={`${owner}/${repoName}`}
                         onToggle={() =>
                           setExpandedBuild(isExpanded ? null : build._id)
                         }

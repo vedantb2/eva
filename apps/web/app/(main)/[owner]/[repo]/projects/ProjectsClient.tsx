@@ -42,7 +42,7 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryStates } from "nuqs";
@@ -63,7 +63,7 @@ const SORT_FIELDS = [
 type SortField = (typeof SORT_FIELDS)[number]["key"];
 
 export function ProjectsClient() {
-  const { repo, fullName, rootDirectory } = useRepo();
+  const { repo, basePath, owner, name } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
@@ -330,9 +330,9 @@ export function ProjectsClient() {
                             description={project.description}
                             rawInput={project.rawInput}
                             branchName={project.branchName}
-                            repoFullName={fullName}
+                            repoFullName={`${owner}/${name}`}
                             createdAt={project._creationTime}
-                            projectUrl={`/${encodeRepoSlug(fullName, rootDirectory)}/projects/${project._id}`}
+                            projectUrl={`${basePath}/projects/${project._id}`}
                             accentColor={phaseConfig[phase].bar}
                             onDelete={() =>
                               setProjectToDelete({
@@ -356,8 +356,7 @@ export function ProjectsClient() {
                   >
                     <ProjectsTimeline
                       projects={filteredSorted}
-                      repoFullName={fullName}
-                      rootDirectory={rootDirectory}
+                      basePath={basePath}
                     />
                   </motion.div>
                 ) : (
@@ -372,8 +371,7 @@ export function ProjectsClient() {
                     <ProjectsListView
                       projectsByPhase={projectsByPhase}
                       visiblePhases={visiblePhases}
-                      repoFullName={fullName}
-                      rootDirectory={rootDirectory}
+                      basePath={basePath}
                       onDelete={(id, title) =>
                         setProjectToDelete({ id, title })
                       }

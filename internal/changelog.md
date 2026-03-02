@@ -1,5 +1,26 @@
 # Changelog
 
+## RepoSelect: hierarchical monorepo display + fixed spacing - 2026-03-02
+
+- **Why**: RepoSelect had flat monorepo app listings with radio button padding wasting space. Multiple apps under the same repo were harder to visually group.
+- **Changes**:
+  1. **Removed radio buttons**: Switched from `DropdownMenuRadioItem` (has `pl-9` padding) to `DropdownMenuItem` for cleaner left alignment.
+  2. **Hierarchical grouping**: Now groups by owner → repo → apps. Standalone repos show directly; monorepos show with the repo name as a sub-label and each app as a selectable item.
+  3. **Selected value display**: Shows `name/appName` for monorepo entries (e.g. `carepulse-ts/eprocurement`), just `name` for standalone.
+
+## Route restructure: `[repo]` → `[owner]/[repo]` - 2026-03-02
+
+- **Why**: URLs like `/evalucom-carepulse-ts~apps~eprocurement` were ugly and unreadable. Clean URLs like `/evalucom/carepulse-ts/eprocurement` are more intuitive and shareable.
+- **Solution**: Middleware rewrites 3-segment monorepo URLs (`/owner/repo/app/subpage`) to internal `--` encoding (`/owner/repo--app/subpage`), while `usePathname()` returns the clean original URL.
+- **Changes**:
+  1. **`middleware.ts`**: Added rewrite logic — if 3rd path segment is not a known sub-page (projects, sessions, etc.), rewrite URL with `--` separator.
+  2. **`repoUrl.ts`**: Replaced `encodeRepoSlug`/`decodeRepoSlug`/`buildRepoPath` with `repoHref(owner, name, rootDirectory?)` and `decodeRepoParam(repoParam)`.
+  3. **Route directory**: Moved `app/(main)/[repo]/` → `app/(main)/[owner]/[repo]/`. Layout now accepts `{ owner, repo }` params.
+  4. **`RepoContext.tsx`**: Now takes `owner` + `repoParam` props, exposes `basePath`, `owner`, `name` instead of `repoSlug`/`fullName`.
+  5. **`githubRepos.ts` (`getByOwnerAndName`)**: Changed `rootDirectory` arg to `appName` — matches by `rootDirectory.split("/").pop()`.
+  6. **`Sidebar.tsx`**: Extracts `repoBasePath` from pathname instead of decoding a single slug segment. Passes `basePath` to all child sidebars.
+  7. **All sidebars + consumer components**: Renamed `repoSlug` prop/usage to `basePath` throughout (~22 files).
+
 ## Monorepo Auto-Detection in Sync + Data Migration - 2026-03-02
 
 - **Why**: Monorepo sub-apps required manual addition from the admin page. Existing root repo entries had sessions, tasks, etc. that needed migrating to their sub-app entries. Going forward, `syncRepos` should automatically detect and create monorepo sub-app entries.

@@ -16,25 +16,24 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
-  repoFullName: string;
-  rootDirectory?: string;
+  basePath: string;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
 export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
-  repoFullName,
-  rootDirectory,
+  basePath,
   onDelete,
 }: ProjectsListViewProps) {
+  const { owner, name } = useRepo();
   const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
     // Default to only non-empty sections open; fall back to all if everything is empty.
     const nonEmpty = new Set(
@@ -102,9 +101,9 @@ export function ProjectsListView({
                         description={project.description}
                         rawInput={project.rawInput}
                         branchName={project.branchName}
-                        repoFullName={repoFullName}
+                        repoFullName={`${owner}/${name}`}
                         createdAt={project._creationTime}
-                        projectUrl={`/${encodeRepoSlug(repoFullName, rootDirectory)}/projects/${project._id}`}
+                        projectUrl={`${basePath}/projects/${project._id}`}
                         accentColor={phaseConfig[phase].bar}
                         onDelete={() => onDelete(project._id, project.title)}
                       />

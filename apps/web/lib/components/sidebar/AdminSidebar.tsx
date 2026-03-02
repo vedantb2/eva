@@ -5,17 +5,17 @@ import { IconKey, IconCamera, IconFolders } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
 interface AdminSidebarProps {
-  repoSlug: string;
+  basePath: string;
   pathname: string;
   onNavigate?: () => void;
 }
 
 export function AdminSidebar({
-  repoSlug,
+  basePath,
   pathname,
   onNavigate,
 }: AdminSidebarProps) {
-  const baseUrl = `/${repoSlug}/admin`;
+  const baseUrl = `${basePath}/admin`;
 
   const navigation = [
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },

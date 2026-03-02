@@ -79,7 +79,7 @@ export const getByOwnerAndName = query({
   args: {
     owner: v.string(),
     name: v.string(),
-    rootDirectory: v.optional(v.string()),
+    appName: v.optional(v.string()),
   },
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
@@ -95,11 +95,11 @@ export const getByOwnerAndName = query({
       )
       .collect();
 
-    const repo = candidates.find((r) => {
-      const repoRoot = r.rootDirectory ?? "";
-      const queryRoot = args.rootDirectory ?? "";
-      return repoRoot === queryRoot;
-    });
+    const repo = args.appName
+      ? candidates.find(
+          (r) => r.rootDirectory?.split("/").pop() === args.appName,
+        )
+      : candidates.find((r) => !r.rootDirectory);
 
     if (!repo) return null;
 

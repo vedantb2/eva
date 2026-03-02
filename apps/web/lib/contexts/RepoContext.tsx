@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { decodeRepoSlug } from "@/lib/utils/repoUrl";
+import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner } from "@conductor/ui";
 
@@ -14,8 +14,9 @@ type Repo = NonNullable<
 interface RepoContextType {
   repo: Repo;
   repoId: Repo["_id"];
-  repoSlug: string;
-  fullName: string;
+  basePath: string;
+  owner: string;
+  name: string;
   installationId: number;
   rootDirectory: string | undefined;
 }
@@ -24,30 +25,39 @@ const RepoContext = createContext<RepoContextType | undefined>(undefined);
 
 interface RepoProviderProps {
   children: React.ReactNode;
-  repoSlug: string;
+  owner: string;
+  repoParam: string;
 }
 
-export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
-  const { fullName, rootDirectory } = decodeRepoSlug(repoSlug);
-  const [owner, name] = fullName.split("/");
+export function RepoProvider({
+  children,
+  owner,
+  repoParam,
+}: RepoProviderProps) {
+  const { name, appName } = decodeRepoParam(repoParam);
 
   const repo = useQuery(api.githubRepos.getByOwnerAndName, {
     owner,
     name,
-    rootDirectory,
+    appName,
   });
+
+  const basePath = appName
+    ? `/${owner}/${name}/${appName}`
+    : `/${owner}/${name}`;
 
   const value = useMemo(() => {
     if (!repo) return undefined;
     return {
       repo,
       repoId: repo._id,
-      repoSlug,
-      fullName,
+      basePath,
+      owner,
+      name,
       installationId: repo.installationId,
-      rootDirectory,
+      rootDirectory: repo.rootDirectory,
     };
-  }, [repo, repoSlug, fullName, rootDirectory]);
+  }, [repo, basePath, owner, name]);
 
   if (repo === undefined) {
     return (
@@ -64,8 +74,8 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
           Repository not found
         </h1>
         <p className="text-muted-foreground">
-          The repository &quot;{fullName}&quot; does not exist or you don&apos;t
-          have access to it.
+          The repository &quot;{owner}/{name}&quot; does not exist or you
+          don&apos;t have access to it.
         </p>
       </div>
     );

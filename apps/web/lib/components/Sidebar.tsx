@@ -45,7 +45,16 @@ import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopove
 import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
-import { decodeRepoSlug } from "@/lib/utils/repoUrl";
+const KNOWN_SUB_PAGES = new Set([
+  "projects",
+  "design",
+  "docs",
+  "sessions",
+  "quick-tasks",
+  "analyse",
+  "admin",
+  "testing-arena",
+]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
@@ -66,16 +75,19 @@ type ContextSidebarMode =
   | "testing-arena";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
-  const segment = pathname.split("/")[2];
-  if (
-    segment === "design" ||
-    segment === "sessions" ||
-    segment === "analyse" ||
-    segment === "admin" ||
-    segment === "docs" ||
-    segment === "testing-arena"
-  ) {
-    return segment;
+  const segments = pathname.split("/").filter(Boolean);
+  for (let i = 2; i < segments.length; i++) {
+    const s = segments[i];
+    if (
+      s === "design" ||
+      s === "sessions" ||
+      s === "analyse" ||
+      s === "admin" ||
+      s === "docs" ||
+      s === "testing-arena"
+    ) {
+      return s;
+    }
   }
   return "main";
 }
@@ -97,26 +109,71 @@ export function Sidebar() {
 
   const repos = useQuery(api.githubRepos.list);
 
-  const repoSlug = useMemo(() => {
-    const match = pathname.match(/^\/([^/]+)/);
-    return match ? match[1] : null;
+  const { repoBasePath, owner, repoName, appName, isRepoRoute } = useMemo((): {
+    repoBasePath: string | null;
+    owner: string | null;
+    repoName: string | null;
+    appName: string | undefined;
+    isRepoRoute: boolean;
+  } => {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length < 2) {
+      return {
+        repoBasePath: null,
+        owner: null,
+        repoName: null,
+        appName: undefined,
+        isRepoRoute: false,
+      };
+    }
+    const o = segments[0];
+    const n = segments[1];
+    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
+      return {
+        repoBasePath: `/${o}/${n}/${segments[2]}`,
+        owner: o,
+        repoName: n,
+        appName: segments[2],
+        isRepoRoute: true,
+      };
+    }
+    const nonRepoRoutes = new Set([
+      "home",
+      "sign-in",
+      "sign-up",
+      "setup",
+      "teams",
+      "inbox",
+      "api",
+    ]);
+    if (nonRepoRoutes.has(segments[0])) {
+      return {
+        repoBasePath: null,
+        owner: null,
+        repoName: null,
+        appName: undefined,
+        isRepoRoute: false,
+      };
+    }
+    return {
+      repoBasePath: `/${o}/${n}`,
+      owner: o,
+      repoName: n,
+      appName: undefined,
+      isRepoRoute: true,
+    };
   }, [pathname]);
 
-  const decoded = repoSlug ? decodeRepoSlug(repoSlug) : null;
-  const repoFullName = decoded?.fullName ?? null;
-  const repoRootDirectory = decoded?.rootDirectory;
-  const isRepoRoute = Boolean(repoSlug && repoFullName?.includes("/"));
   const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
-  const [owner, name] = repoFullName ? repoFullName.split("/") : [null, null];
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
-    owner && name ? { owner, name, rootDirectory: repoRootDirectory } : "skip",
+    owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
 
   const repoNavigation = useMemo(
     () =>
-      isRepoRoute && repoSlug
+      isRepoRoute && repoBasePath
         ? [
             {
               label: "BUILD",
@@ -124,12 +181,12 @@ export function Sidebar() {
               items: [
                 {
                   name: "Projects",
-                  href: `/${repoSlug}/projects`,
+                  href: `${repoBasePath}/projects`,
                   icon: IconLayoutKanban,
                 },
                 {
                   name: "Design",
-                  href: `/${repoSlug}/design`,
+                  href: `${repoBasePath}/design`,
                   icon: IconPalette,
                 },
               ],
@@ -140,12 +197,12 @@ export function Sidebar() {
               items: [
                 {
                   name: "Quick Tasks",
-                  href: `/${repoSlug}/quick-tasks`,
+                  href: `${repoBasePath}/quick-tasks`,
                   icon: IconChecklist,
                 },
                 {
                   name: "Sessions",
-                  href: `/${repoSlug}/sessions`,
+                  href: `${repoBasePath}/sessions`,
                   icon: IconTerminal2,
                 },
               ],
@@ -156,12 +213,12 @@ export function Sidebar() {
               items: [
                 {
                   name: "Documents",
-                  href: `/${repoSlug}/docs`,
+                  href: `${repoBasePath}/docs`,
                   icon: IconFileText,
                 },
                 {
                   name: "Testing Arena",
-                  href: `/${repoSlug}/testing-arena`,
+                  href: `${repoBasePath}/testing-arena`,
                   icon: IconFlask,
                 },
               ],
@@ -172,7 +229,7 @@ export function Sidebar() {
               items: [
                 {
                   name: "Analyse",
-                  href: `/${repoSlug}/analyse`,
+                  href: `${repoBasePath}/analyse`,
                   icon: IconBrain,
                 },
               ],
@@ -183,26 +240,26 @@ export function Sidebar() {
               items: [
                 {
                   name: "Stats",
-                  href: `/${repoSlug}/admin/stats`,
+                  href: `${repoBasePath}/admin/stats`,
                   icon: IconChartBar,
                 },
                 {
                   name: "Settings",
-                  href: `/${repoSlug}/admin`,
+                  href: `${repoBasePath}/admin`,
                   icon: IconSettings,
                 },
               ],
             },
           ]
         : [],
-    [repoSlug, isRepoRoute],
+    [repoBasePath, isRepoRoute],
   );
 
   const { theme, toggleTheme } = useThemeContext();
 
-  const handleRepoSelect = (selectedSlug: string) => {
-    if (selectedSlug !== repoSlug) {
-      router.push(`/${selectedSlug}`);
+  const handleRepoSelect = (selectedHref: string) => {
+    if (selectedHref !== repoBasePath) {
+      router.push(selectedHref);
     }
   };
 
@@ -433,9 +490,9 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
-                        {isRepoRoute && repoSlug && !collapsed && (
+                        {isRepoRoute && repoBasePath && !collapsed && (
                           <Link
-                            href={`/${repoSlug}`}
+                            href={repoBasePath}
                             onClick={closeMobileSidebar}
                           >
                             <Button
@@ -447,7 +504,7 @@ export function Sidebar() {
                               <IconHome
                                 size={18}
                                 className={
-                                  pathname === `/${repoSlug}`
+                                  pathname === repoBasePath
                                     ? "text-sidebar-primary"
                                     : "text-muted-foreground"
                                 }
@@ -510,7 +567,7 @@ export function Sidebar() {
                   </div>
                 )}
 
-                {isRepoRoute && repoSlug && repoFullName && (
+                {isRepoRoute && repoBasePath && (
                   <AnimatePresence initial={false} mode="wait">
                     <motion.div
                       key={
@@ -526,7 +583,7 @@ export function Sidebar() {
                       {showContextSidebar ? (
                         collapsed ? null : contextSidebarMode === "admin" ? (
                           <AdminSidebar
-                            repoSlug={repoSlug}
+                            basePath={repoBasePath}
                             pathname={pathname}
                             onNavigate={closeMobileSidebar}
                           />
@@ -534,7 +591,7 @@ export function Sidebar() {
                           contextSidebarMode === "design" ? (
                             <DesignSessionsSidebar
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                               createRequestId={designCreateRequestId}
@@ -542,7 +599,7 @@ export function Sidebar() {
                           ) : contextSidebarMode === "sessions" ? (
                             <SessionsSidebar
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                               createRequestId={sessionsCreateRequestId}
@@ -550,7 +607,7 @@ export function Sidebar() {
                           ) : contextSidebarMode === "docs" ? (
                             <DocsSidebar
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
@@ -559,7 +616,7 @@ export function Sidebar() {
                           ) : contextSidebarMode === "testing-arena" ? (
                             <TestingArenaSidebar
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
@@ -568,7 +625,7 @@ export function Sidebar() {
                           ) : (
                             <AnalyseSidebar
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                               createRequestId={analyseCreateRequestId}
@@ -585,7 +642,7 @@ export function Sidebar() {
                             <div className="space-y-2">
                               <RepoSelect
                                 repos={repos ?? []}
-                                value={repoSlug}
+                                value={repoBasePath}
                                 onValueChange={handleRepoSelect}
                                 className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                               />
@@ -711,7 +768,7 @@ export function Sidebar() {
                           {!collapsed && repo && (
                             <ActiveTasksPopover
                               repoId={repo._id}
-                              repoSlug={repoSlug}
+                              basePath={repoBasePath}
                             />
                           )}
                         </div>

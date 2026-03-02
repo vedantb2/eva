@@ -35,7 +35,7 @@ import {
 
 interface AnalyseSidebarProps {
   repoId: Id<"githubRepos">;
-  repoSlug: string;
+  basePath: string;
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
@@ -43,7 +43,7 @@ interface AnalyseSidebarProps {
 
 export function AnalyseSidebar({
   repoId,
-  repoSlug,
+  basePath,
   pathname,
   onNavigate,
   createRequestId,
@@ -64,7 +64,7 @@ export function AnalyseSidebar({
   const [isDeleting, setIsDeleting] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
-  const baseUrl = `/${repoSlug}/analyse`;
+  const baseUrl = `${basePath}/analyse`;
   const currentQueryId = pathname.includes("/query/")
     ? pathname.split("/query/")[1]?.split("/")[0]
     : null;

@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { repoHref } from "@/lib/utils/repoUrl";
 import {
   Card,
   CardContent,
@@ -260,10 +260,7 @@ function RepoCard({
     >
       <div className="group/card relative">
         <Link
-          href={
-            "/" +
-            encodeRepoSlug(repo.owner + "/" + repo.name, repo.rootDirectory)
-          }
+          href={repoHref(repo.owner, repo.name, repo.rootDirectory)}
           className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
@@ -475,10 +472,7 @@ export function ReposClient() {
                                   index={index}
                                   onManageApps={() =>
                                     router.push(
-                                      "/" +
-                                        encodeRepoSlug(
-                                          repo.owner + "/" + repo.name,
-                                        ) +
+                                      repoHref(repo.owner, repo.name) +
                                         "/admin/monorepo",
                                     )
                                   }

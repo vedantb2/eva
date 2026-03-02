@@ -5,16 +5,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Button,
 } from "@conductor/ui";
 import { IconBrandGithub, IconSelector } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
-import { encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { repoHref } from "@/lib/utils/repoUrl";
 
 interface RepoSelectProps {
   repos: Doc<"githubRepos">[];
@@ -31,27 +30,37 @@ export function RepoSelect({
   placeholder = "Select a repo",
   className,
 }: RepoSelectProps) {
-  const reposByOwner = useMemo(() => {
-    const grouped = repos.reduce(
-      (acc, repo) => {
-        if (!acc[repo.owner]) {
-          acc[repo.owner] = [];
-        }
-        acc[repo.owner].push(repo);
-        return acc;
-      },
-      {} as Record<string, Doc<"githubRepos">[]>,
-    );
+  const groups = useMemo(() => {
+    const byOwner: Record<string, Record<string, Doc<"githubRepos">[]>> = {};
 
-    return Object.keys(grouped)
+    for (const repo of repos) {
+      if (!byOwner[repo.owner]) byOwner[repo.owner] = {};
+      if (!byOwner[repo.owner][repo.name]) byOwner[repo.owner][repo.name] = [];
+      byOwner[repo.owner][repo.name].push(repo);
+    }
+
+    return Object.keys(byOwner)
       .sort()
       .map((owner) => ({
         owner,
-        repos: grouped[owner].sort((a, b) => a.name.localeCompare(b.name)),
+        repoGroups: Object.keys(byOwner[owner])
+          .sort()
+          .map((name) => ({
+            name,
+            entries: byOwner[owner][name],
+          })),
       }));
   }, [repos]);
 
-  const displayValue = value || placeholder;
+  const selectedRepo = repos.find(
+    (r) => repoHref(r.owner, r.name, r.rootDirectory) === value,
+  );
+
+  const displayLabel = selectedRepo
+    ? selectedRepo.rootDirectory
+      ? selectedRepo.rootDirectory.split("/").pop()
+      : selectedRepo.name
+    : placeholder;
 
   return (
     <DropdownMenu>
@@ -59,43 +68,73 @@ export function RepoSelect({
         <Button size="sm" variant="outline" className={className}>
           <IconBrandGithub size={16} className="text-muted-foreground" />
           <span className="flex-1 truncate text-left text-sm font-medium">
-            {displayValue}
+            {displayLabel}
           </span>
           <IconSelector size={16} className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-72 overflow-auto scrollbar">
-        <DropdownMenuRadioGroup
-          value={value || ""}
-          onValueChange={onValueChange}
-        >
-          {reposByOwner.map((group, index) => (
-            <DropdownMenuGroup key={group.owner}>
-              {index > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel>{group.owner}</DropdownMenuLabel>
-              {group.repos.map((repo) => {
-                const fullName = `${repo.owner}/${repo.name}`;
-                const slug = encodeRepoSlug(fullName, repo.rootDirectory);
+        {groups.map((group, index) => (
+          <DropdownMenuGroup key={group.owner}>
+            {index > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel>{group.owner}</DropdownMenuLabel>
+            {group.repoGroups.map((rg) => {
+              const isMonorepo = rg.entries.some((r) => r.rootDirectory);
+
+              if (!isMonorepo) {
+                const repo = rg.entries[0];
+                const href = repoHref(
+                  repo.owner,
+                  repo.name,
+                  repo.rootDirectory,
+                );
                 return (
-                  <DropdownMenuRadioItem key={repo._id} value={slug}>
+                  <DropdownMenuItem
+                    key={repo._id}
+                    className={href === value ? "bg-accent/80" : ""}
+                    onSelect={() => onValueChange(href)}
+                  >
                     <IconBrandGithub
                       size={16}
                       className="text-muted-foreground"
                     />
-                    <span className="flex flex-col">
-                      <span>{repo.name}</span>
-                      {repo.rootDirectory && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {repo.rootDirectory}
-                        </span>
-                      )}
-                    </span>
-                  </DropdownMenuRadioItem>
+                    {repo.name}
+                  </DropdownMenuItem>
                 );
-              })}
-            </DropdownMenuGroup>
-          ))}
-        </DropdownMenuRadioGroup>
+              }
+
+              return (
+                <div key={rg.name}>
+                  <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground/70 pl-3">
+                    {rg.name}
+                  </DropdownMenuLabel>
+                  {rg.entries.map((repo) => {
+                    const href = repoHref(
+                      repo.owner,
+                      repo.name,
+                      repo.rootDirectory,
+                    );
+                    const appName =
+                      repo.rootDirectory?.split("/").pop() ?? repo.name;
+                    return (
+                      <DropdownMenuItem
+                        key={repo._id}
+                        className={href === value ? "bg-accent/80" : ""}
+                        onSelect={() => onValueChange(href)}
+                      >
+                        <IconBrandGithub
+                          size={16}
+                          className="text-muted-foreground"
+                        />
+                        {appName}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </DropdownMenuGroup>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

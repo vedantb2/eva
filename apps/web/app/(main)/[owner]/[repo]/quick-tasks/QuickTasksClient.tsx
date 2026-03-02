@@ -49,7 +49,7 @@ interface QuickTasksClientProps {
 }
 
 export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
-  const { repo, repoSlug } = useRepo();
+  const { repo, basePath } = useRepo();
   const pathname = usePathname();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
@@ -68,7 +68,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
     view: quickTaskViewParser,
   });
   const searchQuery = q;
-  const quickTasksPath = `/${repoSlug}/quick-tasks`;
+  const quickTasksPath = `${basePath}/quick-tasks`;
   const quickTaskPathPrefix = `${quickTasksPath}/`;
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];

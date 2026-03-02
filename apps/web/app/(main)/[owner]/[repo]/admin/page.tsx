@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 export default async function AdminPage({
   params,
 }: {
-  params: Promise<{ repo: string }>;
+  params: Promise<{ owner: string; repo: string }>;
 }) {
-  const { repo } = await params;
-  redirect(`/${repo}/admin/stats`);
+  const { owner, repo } = await params;
+  redirect(`/${owner}/${repo}/admin/stats`);
 }

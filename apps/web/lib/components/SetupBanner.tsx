@@ -15,10 +15,27 @@ import {
 import { IconAlertTriangle } from "@tabler/icons-react";
 import Link from "next/link";
 
-const REQUIRED_KEYS = [
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "DAYTONA_API_KEY",
-  "CONVEX_DEPLOY_KEY",
+const REQUIRED_KEYS: Array<{
+  key: string;
+  required: boolean;
+  description: string;
+}> = [
+  {
+    key: "CLAUDE_CODE_OAUTH_TOKEN",
+    required: true,
+    description: "OAuth token for Claude Code CLI authentication in sandboxes",
+  },
+  {
+    key: "DAYTONA_API_KEY",
+    required: true,
+    description: "API key for provisioning and managing Daytona sandboxes",
+  },
+  {
+    key: "CONVEX_DEPLOY_KEY",
+    required: false,
+    description:
+      "Deploy key for the sandbox to call back to Convex (required for task completion callbacks)",
+  },
 ];
 
 export function SetupBanner() {
@@ -47,9 +64,12 @@ export function SetupBanner() {
 
   const allEnvVars = [...teamEnvVars, ...repoEnvVars];
   const presentKeys = new Set(allEnvVars.map((v) => v.key));
-  const missingKeys = REQUIRED_KEYS.filter((key) => !presentKeys.has(key));
+  const missingEntries = REQUIRED_KEYS.filter(
+    (entry) => !presentKeys.has(entry.key),
+  );
+  const hasRequiredMissing = missingEntries.some((entry) => entry.required);
 
-  if (missingKeys.length === 0 || dismissed) {
+  if (!hasRequiredMissing || dismissed) {
     return null;
   }
 
@@ -76,14 +96,27 @@ export function SetupBanner() {
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>
-            <div className="flex flex-col gap-1">
-              {missingKeys.map((key) => (
-                <code
-                  key={key}
-                  className="rounded bg-background px-2 py-1 font-mono text-sm"
-                >
-                  {key}
-                </code>
+            <div className="flex flex-col gap-2">
+              {missingEntries.map((entry) => (
+                <div key={entry.key} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <code className="rounded bg-background px-2 py-1 font-mono text-sm">
+                      {entry.key}
+                    </code>
+                    {entry.required ? (
+                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">
+                        Required
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-medium text-yellow-600 dark:text-yellow-500">
+                        Optional
+                      </span>
+                    )}
+                  </div>
+                  <p className="pl-2 text-xs text-muted-foreground">
+                    {entry.description}
+                  </p>
+                </div>
               ))}
             </div>
           </div>

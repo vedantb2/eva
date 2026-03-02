@@ -8,7 +8,7 @@ import {
   AccentColor,
   RadiusSize,
 } from "@/lib/contexts/ThemeContext";
-import { cn } from "@conductor/ui";
+import { cn, Spinner } from "@conductor/ui";
 import {
   IconMoon,
   IconSun,
@@ -61,7 +61,13 @@ export function ThemeSettingsClient() {
   };
 
   if (!mounted) {
-    return <PageWrapper title="Theme" />;
+    return (
+      <PageWrapper title="Theme">
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="lg" />
+        </div>
+      </PageWrapper>
+    );
   }
 
   return (

@@ -11,14 +11,14 @@ import { Spinner } from "@conductor/ui";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
-interface SessionDetailClientProps {
-  sessionId: Id<"sessions">;
-}
-
 const CHAT_DEFAULT_SIZE = "30%";
 const CHAT_MIN_EXPANDED_WIDTH_PX = 450;
 
-export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
+export function SessionDetailClient({
+  sessionId,
+}: {
+  sessionId: Id<"sessions">;
+}) {
   const { installationId } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
   const messages = useQuery(api.messages.listByParent, {

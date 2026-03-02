@@ -56,6 +56,7 @@ interface SandboxPanelProps {
   chatVisible?: boolean;
   onToggleChat?: () => void;
   repoId: Id<"githubRepos">;
+  devPort?: number;
 }
 
 export function SandboxPanel({
@@ -65,6 +66,7 @@ export function SandboxPanel({
   chatVisible,
   onToggleChat,
   repoId,
+  devPort,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
@@ -72,6 +74,7 @@ export function SandboxPanel({
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useQueryState("port", previewPortParser);
+  const effectivePort = devPort ?? port;
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -90,7 +93,7 @@ export function SandboxPanel({
     try {
       const data = await getPreviewUrl({
         sandboxId,
-        port,
+        port: effectivePort,
         checkReady: true,
         repoId,
       });
@@ -114,13 +117,13 @@ export function SandboxPanel({
     getPreviewUrl,
     stopPolling,
     repoId,
-    port,
+    effectivePort,
     sessionId,
   ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
-      const cached = getCachedPreview(sessionId, port);
+      const cached = getCachedPreview(sessionId, effectivePort);
       if (cached) {
         setPreviewInfo(cached);
         return;
@@ -128,10 +131,17 @@ export function SandboxPanel({
       fetchPreview();
     }
     if (!isActive) {
-      clearCachedPreview(sessionId, port);
+      clearCachedPreview(sessionId, effectivePort);
     }
     return stopPolling;
-  }, [isActive, sandboxId, fetchPreview, stopPolling, sessionId, port]);
+  }, [
+    isActive,
+    sandboxId,
+    fetchPreview,
+    stopPolling,
+    sessionId,
+    effectivePort,
+  ]);
 
   const terminal = useMemo(
     () => (
@@ -204,7 +214,7 @@ export function SandboxPanel({
             iframeKey={iframeKey}
             onRefresh={fetchPreview}
             tabSwitcher={tabSwitcher}
-            port={port}
+            port={effectivePort}
             onPortChange={setPort}
           />
         </div>

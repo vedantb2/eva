@@ -1,5 +1,42 @@
 # Changelog
 
+## Monorepo Auto-Detection in Sync + Data Migration - 2026-03-02
+
+- **Why**: Monorepo sub-apps required manual addition from the admin page. Existing root repo entries had sessions, tasks, etc. that needed migrating to their sub-app entries. Going forward, `syncRepos` should automatically detect and create monorepo sub-app entries.
+- **Changes**:
+  1. **Data migration**: Ran temporary mutations to move all data (14 tables) from root entries to sub-app entries for `evalucom/carepulse-ts` → `apps/eprocurement`, `vedantb2/vmem` → `apps/web`, and `vedantb2/conductor` → `apps/web`.
+  2. **`github.ts` — `syncRepos`**: Now auto-detects monorepo apps for every repo on sync. Filters to `apps/` paths only, upserts sub-app entries with `rootDirectory`. Root entries are kept (not deleted) to avoid data loss.
+  3. **`github.ts` — `detectAppsForRepo` helper**: Extracted from `detectMonorepoApps` action so both the action (manual use) and `syncRepos` (automatic) share the same logic.
+  4. **`githubRepos.ts` — `syncConnectedStatus`**: Updated to mark sub-apps as connected when their ID is directly in `connectedIds` (not just via parent lookup).
+  5. **`githubRepos.ts` — `deleteInternal`**: New internal mutation available for manual cleanup of root entries when safe.
+- **Reason**: Eliminates manual monorepo setup. Sync now auto-creates sub-app entries under `apps/` while preserving root entries to prevent data orphaning.
+
+## Monorepo App Picker — Settings Page + Home Page Quick Action - 2026-03-01
+
+- **Why**: The monorepo detection backend (`detectMonorepoApps`) only worked from the setup page during initial GitHub App install, which auto-syncs and redirects before anyone can use it. Users needed a way to manage monorepo sub-apps after initial setup.
+- **Changes**:
+  1. **New admin page** (`/[repo]/admin/monorepo`): Server component + `MonorepoClient` — auto-detects workspace apps on mount via `detectMonorepoApps`, shows existing connected sub-apps, allows adding detected apps or custom root directories.
+  2. **AdminSidebar**: Added "Monorepo" nav item with `IconFolders`.
+  3. **ReposClient (home page)**: Added `...` dropdown menu on each repo card with "Manage apps" action that navigates to the monorepo admin page.
+- **Reason**: Exposes monorepo management from two accessible locations — the repo settings page (full management) and the home page (quick access) — instead of only during the one-time setup flow.
+
+## Monorepo Support — Root Directory per Repo Entry - 2026-03-01
+
+- **Why**: Monorepos (e.g. `apps/web` + `apps/eprocurement`) had no way to specify which sub-app to start, inject per-app env vars, or run independent sessions. Each sub-app needs its own sandbox/dev server/environment.
+- **Changes**:
+  1. **Schema** (`schema.ts`): Added `rootDirectory` to `githubRepos`, `devPort` to `sessions` and `designSessions`.
+  2. **githubRepos.ts**: Updated `create`, `getByOwnerAndName`, `upsert` to support `rootDirectory` — uniqueness is now `owner + name + rootDirectory`.
+  3. **github.ts**: New `detectMonorepoApps` action — uses GitHub Contents API to detect workspace globs (npm/pnpm), list sub-apps, check for dev scripts.
+  4. **daytona.ts**: Extracted `detectPackageManager` helper, added `detectDevPort` (parses dev script for port flags, falls back to framework defaults), implemented `startSessionServices` to start dev server in the correct root directory, returns detected port. Both `startSessionSandbox` and `startDesignSandbox` now fetch `rootDirectory` from repo and pass `devPort` to `sandboxReady`.
+  5. **sessions.ts / designSessions.ts**: `sandboxReady` mutations accept and persist `devPort`.
+  6. **repoUrl.ts**: Slug encoding now appends `~apps~web` for root directories (`/` → `~`). `decodeRepoSlug` returns `{ fullName, rootDirectory }`.
+  7. **RepoContext.tsx**: Passes `rootDirectory` to `getByOwnerAndName` query and exposes it in context.
+  8. **RepoSelect.tsx**: Uses encoded slug as value, shows `rootDirectory` below repo name.
+  9. **RepoSetupClient.tsx**: On "Add", calls `detectMonorepoApps` and shows expandable sub-app picker with checkboxes + custom path input.
+  10. **ReposClient.tsx**: Card shows app name from root dir path, subtitle shows `owner/repo → apps/web`.
+  11. **SandboxPanel.tsx / DesignDetailClient.tsx**: Uses `session.devPort` for preview port instead of hardcoded values.
+- **Reason**: Enables connecting the same GitHub repo multiple times with different root directories, each with independent env vars, sessions, and sandbox configs — similar to Vercel's "Root Directory" project setting.
+
 ## Session Chat UX Fixes - 2026-03-01
 
 - **Why**: Video recordings played at 1x (too slow to review), the stop button in the prompt input appeared teal instead of red, agent responses included unwanted meta-commentary (file paths, commit status), and streaming activity steps were capped at 30 making it look like steps were missing.

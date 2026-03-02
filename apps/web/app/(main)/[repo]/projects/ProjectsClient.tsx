@@ -63,7 +63,7 @@ const SORT_FIELDS = [
 type SortField = (typeof SORT_FIELDS)[number]["key"];
 
 export function ProjectsClient() {
-  const { repo, fullName } = useRepo();
+  const { repo, fullName, rootDirectory } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
@@ -332,7 +332,7 @@ export function ProjectsClient() {
                             branchName={project.branchName}
                             repoFullName={fullName}
                             createdAt={project._creationTime}
-                            projectUrl={`/${encodeRepoSlug(fullName)}/projects/${project._id}`}
+                            projectUrl={`/${encodeRepoSlug(fullName, rootDirectory)}/projects/${project._id}`}
                             accentColor={phaseConfig[phase].bar}
                             onDelete={() =>
                               setProjectToDelete({
@@ -357,6 +357,7 @@ export function ProjectsClient() {
                     <ProjectsTimeline
                       projects={filteredSorted}
                       repoFullName={fullName}
+                      rootDirectory={rootDirectory}
                     />
                   </motion.div>
                 ) : (
@@ -372,6 +373,7 @@ export function ProjectsClient() {
                       projectsByPhase={projectsByPhase}
                       visiblePhases={visiblePhases}
                       repoFullName={fullName}
+                      rootDirectory={rootDirectory}
                       onDelete={(id, title) =>
                         setProjectToDelete({ id, title })
                       }

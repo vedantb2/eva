@@ -35,7 +35,7 @@ interface ProjectDetailClientProps {
 }
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
-  const { fullName, repo, installationId } = useRepo();
+  const { fullName, repo, installationId, rootDirectory } = useRepo();
   const getConvexToken = useConvexToken();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
@@ -117,7 +117,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             streamingActivity={streaming?.currentActivity}
-            repoSlug={encodeRepoSlug(fullName)}
+            repoSlug={encodeRepoSlug(fullName, rootDirectory)}
             repoId={repo._id}
             installationId={repo.installationId}
           />
@@ -125,7 +125,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           <ProjectActiveLayout
             projectId={typedProjectId}
             project={project}
-            repoSlug={encodeRepoSlug(fullName)}
+            repoSlug={encodeRepoSlug(fullName, rootDirectory)}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             prUrl={project.prUrl}

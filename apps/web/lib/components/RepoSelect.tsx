@@ -14,6 +14,7 @@ import {
 } from "@conductor/ui";
 import { IconBrandGithub, IconSelector } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
+import { encodeRepoSlug } from "@/lib/utils/repoUrl";
 
 interface RepoSelectProps {
   repos: Doc<"githubRepos">[];
@@ -74,13 +75,21 @@ export function RepoSelect({
               <DropdownMenuLabel>{group.owner}</DropdownMenuLabel>
               {group.repos.map((repo) => {
                 const fullName = `${repo.owner}/${repo.name}`;
+                const slug = encodeRepoSlug(fullName, repo.rootDirectory);
                 return (
-                  <DropdownMenuRadioItem key={fullName} value={fullName}>
+                  <DropdownMenuRadioItem key={repo._id} value={slug}>
                     <IconBrandGithub
                       size={16}
                       className="text-muted-foreground"
                     />
-                    {repo.name}
+                    <span className="flex flex-col">
+                      <span>{repo.name}</span>
+                      {repo.rootDirectory && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {repo.rootDirectory}
+                        </span>
+                      )}
+                    </span>
                   </DropdownMenuRadioItem>
                 );
               })}

@@ -25,7 +25,7 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
-  const { repo, fullName } = useRepo();
+  const { repo, fullName, rootDirectory } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -50,7 +50,12 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       setDescription("");
       setBaseBranch("main");
       onClose();
-      router.push("/" + encodeRepoSlug(fullName) + "/projects/" + projectId);
+      router.push(
+        "/" +
+          encodeRepoSlug(fullName, rootDirectory) +
+          "/projects/" +
+          projectId,
+      );
     } finally {
       setIsLoading(false);
     }

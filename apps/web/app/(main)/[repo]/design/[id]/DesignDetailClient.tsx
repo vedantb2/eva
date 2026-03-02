@@ -136,7 +136,7 @@ export function DesignDetailClient({
     try {
       const data = await getPreviewUrl({
         sandboxId: session.sandboxId,
-        port: 3000,
+        port: session.devPort ?? 3000,
         repoId: session.repoId,
       });
       setPreviewUrl(data.url);

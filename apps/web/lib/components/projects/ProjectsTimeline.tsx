@@ -42,11 +42,13 @@ interface DragState {
 interface ProjectsTimelineProps {
   projects: Project[];
   repoFullName: string;
+  rootDirectory?: string;
 }
 
 export function ProjectsTimeline({
   projects,
   repoFullName,
+  rootDirectory,
 }: ProjectsTimelineProps) {
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
@@ -653,7 +655,7 @@ export function ProjectsTimeline({
               onClose={() => setSelectedProjectId(null)}
               projectId={selectedProjectId}
               createdAt={selectedProject._creationTime}
-              projectUrl={`/${encodeRepoSlug(repoFullName)}/projects/${selectedProjectId}`}
+              projectUrl={`/${encodeRepoSlug(repoFullName, rootDirectory)}/projects/${selectedProjectId}`}
             />
           ) : null;
         })()}

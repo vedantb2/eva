@@ -17,6 +17,7 @@ const githubRepoValidator = v.object({
   connected: v.optional(v.boolean()),
   connectedBy: v.optional(v.id("users")),
   teamId: v.optional(v.id("teams")),
+  rootDirectory: v.optional(v.string()),
 });
 
 export const list = query({
@@ -75,7 +76,11 @@ export const get = query({
 });
 
 export const getByOwnerAndName = query({
-  args: { owner: v.string(), name: v.string() },
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    rootDirectory: v.optional(v.string()),
+  },
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
@@ -83,12 +88,18 @@ export const getByOwnerAndName = query({
       return null;
     }
 
-    const repo = await ctx.db
+    const candidates = await ctx.db
       .query("githubRepos")
       .withIndex("by_owner_name", (q) =>
         q.eq("owner", args.owner).eq("name", args.name),
       )
-      .first();
+      .collect();
+
+    const repo = candidates.find((r) => {
+      const repoRoot = r.rootDirectory ?? "";
+      const queryRoot = args.rootDirectory ?? "";
+      return repoRoot === queryRoot;
+    });
 
     if (!repo) return null;
 
@@ -223,31 +234,50 @@ export const create = authMutation({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
+    rootDirectory: v.optional(v.string()),
+    teamId: v.optional(v.id("teams")),
   },
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
+    const candidates = await ctx.db
       .query("githubRepos")
       .withIndex("by_owner_name", (q) =>
         q.eq("owner", args.owner).eq("name", args.name),
       )
-      .first();
-    if (existing) {
+      .collect();
+
+    const rootDir = args.rootDirectory ?? "";
+    const duplicate = candidates.find(
+      (r) => (r.rootDirectory ?? "") === rootDir,
+    );
+    if (duplicate) {
       throw new Error("Repository already exists");
     }
 
-    const teams = await ctx.db
-      .query("teams")
-      .withIndex("by_created_by", (q) => q.eq("createdBy", ctx.userId))
-      .collect();
-    const personalTeam = teams.find((t) => t.isPersonal === true);
+    let teamId = args.teamId;
+    if (!teamId) {
+      const teams = await ctx.db
+        .query("teams")
+        .withIndex("by_created_by", (q) => q.eq("createdBy", ctx.userId))
+        .collect();
+      const personalTeam = teams.find((t) => t.isPersonal === true);
+      teamId = personalTeam?._id;
+    }
+
+    if (args.rootDirectory) {
+      const rootEntry = candidates.find((r) => !r.rootDirectory);
+      if (rootEntry) {
+        await ctx.db.delete(rootEntry._id);
+      }
+    }
 
     return await ctx.db.insert("githubRepos", {
       owner: args.owner,
       name: args.name,
       installationId: args.installationId,
       connectedBy: ctx.userId,
-      teamId: personalTeam?._id,
+      teamId,
+      rootDirectory: args.rootDirectory,
     });
   },
 });
@@ -271,15 +301,22 @@ export const upsert = internalMutation({
     name: v.string(),
     installationId: v.number(),
     teamId: v.optional(v.id("teams")),
+    rootDirectory: v.optional(v.string()),
   },
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
+    const candidates = await ctx.db
       .query("githubRepos")
       .withIndex("by_owner_name", (q) =>
         q.eq("owner", args.owner).eq("name", args.name),
       )
-      .first();
+      .collect();
+
+    const rootDir = args.rootDirectory ?? "";
+    const existing = candidates.find(
+      (r) => (r.rootDirectory ?? "") === rootDir,
+    );
+
     if (existing) {
       const updates: { connected: boolean; teamId?: typeof args.teamId } = {
         connected: true,
@@ -296,6 +333,7 @@ export const upsert = internalMutation({
       installationId: args.installationId,
       connected: true,
       teamId: args.teamId,
+      rootDirectory: args.rootDirectory,
     });
   },
 });
@@ -306,8 +344,18 @@ export const syncConnectedStatus = internalMutation({
   handler: async (ctx, args) => {
     const connectedSet = new Set(args.connectedIds);
     const all = await ctx.db.query("githubRepos").collect();
+
+    const connectedParents = new Set(
+      all
+        .filter((r) => connectedSet.has(r._id) && !r.rootDirectory)
+        .map((r) => `${r.owner}/${r.name}`),
+    );
+
     for (const repo of all) {
-      const shouldBeConnected = connectedSet.has(repo._id);
+      const shouldBeConnected =
+        connectedSet.has(repo._id) ||
+        (repo.rootDirectory !== undefined &&
+          connectedParents.has(`${repo.owner}/${repo.name}`));
       if (repo.connected !== shouldBeConnected) {
         await ctx.db.patch(repo._id, { connected: shouldBeConnected });
       }
@@ -321,5 +369,17 @@ export const getInternal = internalQuery({
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
+  },
+});
+
+export const deleteInternal = internalMutation({
+  args: { id: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.id);
+    if (repo) {
+      await ctx.db.delete(args.id);
+    }
+    return null;
   },
 });

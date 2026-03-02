@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconChartBar, IconKey, IconCamera } from "@tabler/icons-react";
+import { IconKey, IconCamera, IconFolders } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
 interface AdminSidebarProps {
@@ -20,6 +20,7 @@ export function AdminSidebar({
   const navigation = [
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
+    { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
   ];
 
   return (

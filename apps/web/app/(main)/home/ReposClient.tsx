@@ -1,13 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAction, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { api } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { encodeRepoSlug } from "@/lib/utils/repoUrl";
-import { Card, CardContent, Button, Spinner } from "@conductor/ui";
+import {
+  Card,
+  CardContent,
+  Button,
+  Spinner,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@conductor/ui";
 import {
   IconBrandGithub,
   IconPlus,
@@ -19,6 +30,8 @@ import {
   IconCode,
   IconFileText,
   IconPlugConnectedX,
+  IconDots,
+  IconFolders,
 } from "@tabler/icons-react";
 
 const GITHUB_APP_NAME = "vb-eva-dev";
@@ -223,7 +236,95 @@ function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
   );
 }
 
+type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
+
+function RepoCard({
+  repo,
+  index,
+  onManageApps,
+}: {
+  repo: Repo;
+  index: number;
+  onManageApps: () => void;
+}) {
+  return (
+    <motion.div
+      key={repo._id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{
+        duration: 0.2,
+        delay: Math.min(index * 0.03, 0.2),
+      }}
+    >
+      <div className="group/card relative">
+        <Link
+          href={
+            "/" +
+            encodeRepoSlug(repo.owner + "/" + repo.name, repo.rootDirectory)
+          }
+          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        >
+          <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-3 pr-10">
+              <IconBrandGithub
+                size={20}
+                className={
+                  repo.connected === false
+                    ? "text-destructive/60"
+                    : "text-muted-foreground"
+                }
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {repo.rootDirectory
+                    ? repo.rootDirectory.split("/").pop()
+                    : repo.name}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {repo.owner}/{repo.name}
+                </p>
+              </div>
+              {repo.connected === false && (
+                <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
+                  <IconPlugConnectedX size={11} />
+                  <span className="text-[11px] font-medium">Disconnected</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="motion-press rounded-full border border-transparent bg-background/45 text-muted-foreground opacity-0 transition-opacity hover:border-border/65 hover:bg-background/80 hover:text-foreground group-hover/card:opacity-100 data-[state=open]:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+              >
+                <IconDots size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onManageApps}>
+                <IconFolders size={16} />
+                Manage apps
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export function ReposClient() {
+  const router = useRouter();
   const repos = useQuery(api.githubRepos.list);
   const teams = useQuery(api.teams.list) ?? [];
   const syncRepos = useAction(api.github.syncRepos);
@@ -327,65 +428,71 @@ export function ReposClient() {
             )}
           </AnimatePresence>
           <div className="space-y-6">
-            {groupNames.map((groupName) => (
-              <div key={groupName}>
-                <h2 className="mb-3 text-sm font-semibold text-foreground">
-                  {groupName}
-                </h2>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  <AnimatePresence initial={false}>
-                    {groupedRepos[groupName].map((repo, index) => (
-                      <motion.div
-                        key={repo._id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{
-                          duration: 0.2,
-                          delay: Math.min(index * 0.03, 0.2),
-                        }}
-                      >
-                        <Link
-                          href={
-                            "/" + encodeRepoSlug(repo.owner + "/" + repo.name)
-                          }
-                          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                        >
-                          <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
-                            <CardContent className="flex items-center gap-3 p-3">
-                              <IconBrandGithub
-                                size={20}
-                                className={
-                                  repo.connected === false
-                                    ? "text-destructive/60"
-                                    : "text-muted-foreground"
-                                }
+            {groupNames.map((groupName) => {
+              const teamRepos = groupedRepos[groupName];
+              const byRepo = teamRepos.reduce<Record<string, typeof teamRepos>>(
+                (acc, repo) => {
+                  const key = `${repo.owner}/${repo.name}`;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(repo);
+                  return acc;
+                },
+                {},
+              );
+
+              const repoGroups = Object.entries(byRepo).sort(([a], [b]) =>
+                a.localeCompare(b),
+              );
+
+              return (
+                <div key={groupName}>
+                  <h2 className="mb-3 text-sm font-semibold text-foreground">
+                    {groupName}
+                  </h2>
+                  <div className="space-y-4">
+                    {repoGroups.map(([repoKey, items]) => {
+                      const isMonorepo =
+                        items.length > 1 || items.some((r) => r.rootDirectory);
+                      return (
+                        <div key={repoKey}>
+                          <div className="mb-2 flex items-center gap-2">
+                            {isMonorepo && (
+                              <IconFolders
+                                size={14}
+                                className="text-muted-foreground/60"
                               />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-foreground">
-                                  {repo.name}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                  {repo.owner}
-                                </p>
-                              </div>
-                              {repo.connected === false && (
-                                <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
-                                  <IconPlugConnectedX size={11} />
-                                  <span className="text-[11px] font-medium">
-                                    Disconnected
-                                  </span>
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </Link>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                            )}
+                            <h3 className="text-xs font-medium text-muted-foreground">
+                              {repoKey}
+                            </h3>
+                          </div>
+                          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                            <AnimatePresence initial={false}>
+                              {items.map((repo, index) => (
+                                <RepoCard
+                                  key={repo._id}
+                                  repo={repo}
+                                  index={index}
+                                  onManageApps={() =>
+                                    router.push(
+                                      "/" +
+                                        encodeRepoSlug(
+                                          repo.owner + "/" + repo.name,
+                                        ) +
+                                        "/admin/monorepo",
+                                    )
+                                  }
+                                />
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

@@ -17,6 +17,7 @@ interface RepoContextType {
   repoSlug: string;
   fullName: string;
   installationId: number;
+  rootDirectory: string | undefined;
 }
 
 const RepoContext = createContext<RepoContextType | undefined>(undefined);
@@ -27,10 +28,14 @@ interface RepoProviderProps {
 }
 
 export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
-  const fullName = decodeRepoSlug(repoSlug);
+  const { fullName, rootDirectory } = decodeRepoSlug(repoSlug);
   const [owner, name] = fullName.split("/");
 
-  const repo = useQuery(api.githubRepos.getByOwnerAndName, { owner, name });
+  const repo = useQuery(api.githubRepos.getByOwnerAndName, {
+    owner,
+    name,
+    rootDirectory,
+  });
 
   const value = useMemo(() => {
     if (!repo) return undefined;
@@ -40,8 +45,9 @@ export function RepoProvider({ children, repoSlug }: RepoProviderProps) {
       repoSlug,
       fullName,
       installationId: repo.installationId,
+      rootDirectory,
     };
-  }, [repo, repoSlug, fullName]);
+  }, [repo, repoSlug, fullName, rootDirectory]);
 
   if (repo === undefined) {
     return (

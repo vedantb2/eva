@@ -21,6 +21,7 @@ const sessionValidator = v.object({
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  devPort: v.optional(v.number()),
 });
 
 export const list = authQuery({
@@ -413,6 +414,7 @@ export const sandboxReady = internalMutation({
     branchName: v.string(),
     isNew: v.boolean(),
     usedSnapshot: v.optional(v.boolean()),
+    devPort: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -431,6 +433,7 @@ export const sandboxReady = internalMutation({
       sandboxId: args.sandboxId,
       branchName: args.branchName,
       status: "active",
+      devPort: args.devPort,
     });
     return null;
   },

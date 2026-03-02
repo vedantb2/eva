@@ -1278,9 +1278,74 @@ export const toggleDesktopServer = action({
   },
 });
 
-async function startSessionServices(sandbox: Sandbox): Promise<void> {
-  console.log("hi");
-  // await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm eproc:dev > /dev/null 2>&1 &`, 10);
+async function detectPackageManager(sandbox: Sandbox): Promise<string> {
+  const lockFile = (
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
+      5,
+    )
+  ).trim();
+  if (lockFile === "pnpm-lock.yaml") return "pnpm";
+  if (lockFile === "yarn.lock") return "yarn";
+  return "npm";
+}
+
+async function detectDevPort(
+  sandbox: Sandbox,
+  rootDir: string,
+): Promise<number> {
+  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  try {
+    const raw = await exec(
+      sandbox,
+      `cat ${dir}/package.json 2>/dev/null || echo "{}"`,
+      5,
+    );
+    const pkg: Record<string, unknown> = JSON.parse(raw);
+    const scripts =
+      pkg.scripts && typeof pkg.scripts === "object"
+        ? (pkg.scripts as Record<string, unknown>)
+        : {};
+    const devScript = typeof scripts.dev === "string" ? scripts.dev : "";
+
+    const portMatch = devScript.match(/(?:--port|--p|-p|PORT=)\s*(\d+)/);
+    if (portMatch && portMatch[1]) {
+      return parseInt(portMatch[1], 10);
+    }
+
+    const deps: Record<string, unknown> =
+      pkg.dependencies && typeof pkg.dependencies === "object"
+        ? (pkg.dependencies as Record<string, unknown>)
+        : {};
+    const devDeps: Record<string, unknown> =
+      pkg.devDependencies && typeof pkg.devDependencies === "object"
+        ? (pkg.devDependencies as Record<string, unknown>)
+        : {};
+    const allDeps = { ...deps, ...devDeps };
+    if ("next" in allDeps) return 3000;
+    if ("nuxt" in allDeps) return 3000;
+    if ("vite" in allDeps) return 5173;
+    if ("@angular/core" in allDeps) return 4200;
+  } catch {
+    // couldn't read package.json
+  }
+  return 3000;
+}
+
+async function startSessionServices(
+  sandbox: Sandbox,
+  rootDir: string,
+): Promise<number> {
+  const pm = await detectPackageManager(sandbox);
+  const port = await detectDevPort(sandbox, rootDir);
+  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  await exec(
+    sandbox,
+    `cd ${dir} && PORT=${port} ${pm} run dev > /tmp/devserver.log 2>&1 &`,
+    10,
+  );
+  return port;
 }
 
 export const startSessionSandbox = internalAction({
@@ -1300,6 +1365,11 @@ export const startSessionSandbox = internalAction({
         throw new Error("repoId is required for startSessionSandbox");
       }
 
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const rootDir = repo?.rootDirectory ?? "";
+
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
@@ -1307,12 +1377,6 @@ export const startSessionSandbox = internalAction({
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
           await ensureSandboxRunning(sandbox);
-          await ctx.runMutation(internal.sessions.sandboxReady, {
-            sessionId: args.sessionId,
-            sandboxId: args.existingSandboxId,
-            branchName: args.branchName,
-            isNew: false,
-          });
           await syncRepo(
             sandbox,
             args.installationId,
@@ -1320,7 +1384,14 @@ export const startSessionSandbox = internalAction({
             args.repoName,
           );
           await checkoutSessionBranch(sandbox, args.branchName);
-          await startSessionServices(sandbox);
+          const devPort = await startSessionServices(sandbox, rootDir);
+          await ctx.runMutation(internal.sessions.sandboxReady, {
+            sessionId: args.sessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+            devPort,
+          });
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new
@@ -1350,7 +1421,7 @@ export const startSessionSandbox = internalAction({
         `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} && git pull --ff-only origin ${quote([args.branchName])}`,
         30,
       );
-      await startSessionServices(sandbox);
+      const devPort = await startSessionServices(sandbox, rootDir);
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
         sessionId: args.sessionId,
@@ -1358,6 +1429,7 @@ export const startSessionSandbox = internalAction({
         branchName: args.branchName,
         isNew: true,
         usedSnapshot: prepared.usedSnapshot,
+        devPort,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -1387,6 +1459,11 @@ export const startDesignSandbox = internalAction({
         throw new Error("repoId is required for startDesignSandbox");
       }
 
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const rootDir = repo?.rootDirectory ?? "";
+
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
@@ -1394,12 +1471,6 @@ export const startDesignSandbox = internalAction({
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
           await exec(sandbox, "echo 1", 5);
-          await ctx.runMutation(internal.designSessions.sandboxReady, {
-            designSessionId: args.designSessionId,
-            sandboxId: args.existingSandboxId,
-            branchName: args.branchName,
-            isNew: false,
-          });
           await syncRepo(
             sandbox,
             args.installationId,
@@ -1407,7 +1478,14 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          await startSessionServices(sandbox);
+          const devPort = await startSessionServices(sandbox, rootDir);
+          await ctx.runMutation(internal.designSessions.sandboxReady, {
+            designSessionId: args.designSessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+            devPort,
+          });
           return null;
         } catch {
           // Sandbox dead or unresponsive, create new
@@ -1427,13 +1505,14 @@ export const startDesignSandbox = internalAction({
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }
-      await startSessionServices(sandbox);
+      const devPort = await startSessionServices(sandbox, rootDir);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
         sandboxId: sandbox.id,
         branchName: args.branchName,
         isNew: true,
+        devPort,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";

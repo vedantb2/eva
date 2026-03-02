@@ -45,7 +45,7 @@ import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopove
 import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
-import { decodeRepoSlug, encodeRepoSlug } from "@/lib/utils/repoUrl";
+import { decodeRepoSlug } from "@/lib/utils/repoUrl";
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
@@ -102,14 +102,16 @@ export function Sidebar() {
     return match ? match[1] : null;
   }, [pathname]);
 
-  const repoFullName = repoSlug ? decodeRepoSlug(repoSlug) : null;
+  const decoded = repoSlug ? decodeRepoSlug(repoSlug) : null;
+  const repoFullName = decoded?.fullName ?? null;
+  const repoRootDirectory = decoded?.rootDirectory;
   const isRepoRoute = Boolean(repoSlug && repoFullName?.includes("/"));
   const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
   const [owner, name] = repoFullName ? repoFullName.split("/") : [null, null];
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
-    owner && name ? { owner, name } : "skip",
+    owner && name ? { owner, name, rootDirectory: repoRootDirectory } : "skip",
   );
 
   const repoNavigation = useMemo(
@@ -198,9 +200,9 @@ export function Sidebar() {
 
   const { theme, toggleTheme } = useThemeContext();
 
-  const handleRepoSelect = (selectedFullName: string) => {
-    if (selectedFullName !== repoFullName) {
-      router.push(`/${encodeRepoSlug(selectedFullName)}`);
+  const handleRepoSelect = (selectedSlug: string) => {
+    if (selectedSlug !== repoSlug) {
+      router.push(`/${selectedSlug}`);
     }
   };
 
@@ -583,7 +585,7 @@ export function Sidebar() {
                             <div className="space-y-2">
                               <RepoSelect
                                 repos={repos ?? []}
-                                value={repoFullName}
+                                value={repoSlug}
                                 onValueChange={handleRepoSelect}
                                 className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                               />

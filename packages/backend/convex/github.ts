@@ -134,6 +134,146 @@ export const createSessionPr = action({
   },
 });
 
+async function detectAppsForRepo(
+  octokit: Octokit,
+  owner: string,
+  name: string,
+): Promise<Array<{ name: string; path: string; hasDevScript: boolean }>> {
+  const workspaceGlobs: string[] = [];
+
+  try {
+    const { data: pkgContent } = await octokit.rest.repos.getContent({
+      owner,
+      repo: name,
+      path: "package.json",
+    });
+    if ("content" in pkgContent) {
+      const decoded = Buffer.from(pkgContent.content, "base64").toString();
+      const pkg: Record<string, unknown> = JSON.parse(decoded);
+      if (Array.isArray(pkg.workspaces)) {
+        workspaceGlobs.push(
+          ...(pkg.workspaces as string[]).filter(
+            (w): w is string => typeof w === "string",
+          ),
+        );
+      } else if (
+        pkg.workspaces &&
+        typeof pkg.workspaces === "object" &&
+        "packages" in pkg.workspaces &&
+        Array.isArray((pkg.workspaces as Record<string, unknown>).packages)
+      ) {
+        workspaceGlobs.push(
+          ...(
+            (pkg.workspaces as Record<string, unknown>).packages as string[]
+          ).filter((w): w is string => typeof w === "string"),
+        );
+      }
+    }
+  } catch {
+    // no root package.json or no workspaces field
+  }
+
+  if (workspaceGlobs.length === 0) {
+    try {
+      const { data: pnpmContent } = await octokit.rest.repos.getContent({
+        owner,
+        repo: name,
+        path: "pnpm-workspace.yaml",
+      });
+      if ("content" in pnpmContent) {
+        const decoded = Buffer.from(pnpmContent.content, "base64").toString();
+        const lines = decoded.split("\n");
+        for (const line of lines) {
+          const match = line.match(/^\s*-\s+['"]?([^'"#\s]+)['"]?\s*$/);
+          if (match && match[1]) {
+            workspaceGlobs.push(match[1]);
+          }
+        }
+      }
+    } catch {
+      // no pnpm-workspace.yaml
+    }
+  }
+
+  if (workspaceGlobs.length === 0) {
+    return [];
+  }
+
+  const baseDirs = new Set<string>();
+  for (const glob of workspaceGlobs) {
+    const baseDir = glob.replace(/\/\*.*$/, "").replace(/\*.*$/, "");
+    if (baseDir) {
+      baseDirs.add(baseDir);
+    }
+  }
+
+  const apps: Array<{ name: string; path: string; hasDevScript: boolean }> = [];
+
+  for (const baseDir of baseDirs) {
+    try {
+      const { data: entries } = await octokit.rest.repos.getContent({
+        owner,
+        repo: name,
+        path: baseDir,
+      });
+
+      if (!Array.isArray(entries)) continue;
+
+      for (const entry of entries) {
+        if (entry.type !== "dir") continue;
+        const appPath = `${baseDir}/${entry.name}`;
+        let hasDevScript = false;
+        try {
+          const { data: appPkg } = await octokit.rest.repos.getContent({
+            owner,
+            repo: name,
+            path: `${appPath}/package.json`,
+          });
+          if ("content" in appPkg) {
+            const decoded = Buffer.from(appPkg.content, "base64").toString();
+            const pkg: Record<string, unknown> = JSON.parse(decoded);
+            const scripts =
+              pkg.scripts && typeof pkg.scripts === "object"
+                ? (pkg.scripts as Record<string, unknown>)
+                : {};
+            hasDevScript = typeof scripts.dev === "string";
+          }
+        } catch {
+          // no package.json in this app dir
+        }
+        apps.push({ name: entry.name, path: appPath, hasDevScript });
+      }
+    } catch {
+      // base dir doesn't exist
+    }
+  }
+
+  return apps;
+}
+
+export const detectMonorepoApps = action({
+  args: {
+    installationId: v.number(),
+    owner: v.string(),
+    name: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      name: v.string(),
+      path: v.string(),
+      hasDevScript: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const octokit = await getInstallationOctokit(args.installationId);
+    return detectAppsForRepo(octokit, args.owner, args.name);
+  },
+});
+
 export const syncRepos = action({
   args: {},
   returns: v.object({ success: v.boolean(), synced: v.number() }),
@@ -175,6 +315,29 @@ export const syncRepos = action({
           installationId: installation.id,
           teamId: personalTeamId,
         });
+
+        const apps = await detectAppsForRepo(
+          octokit,
+          repo.owner.login,
+          repo.name,
+        );
+        const appsUnderAppsDir = apps.filter((a) => a.path.startsWith("apps/"));
+
+        if (appsUnderAppsDir.length > 0) {
+          for (const app of appsUnderAppsDir) {
+            const subAppId = await ctx.runMutation(
+              internal.githubRepos.upsert,
+              {
+                owner: repo.owner.login,
+                name: repo.name,
+                installationId: installation.id,
+                teamId: personalTeamId,
+                rootDirectory: app.path,
+              },
+            );
+            connectedIds.push(subAppId);
+          }
+        }
         connectedIds.push(id);
         totalAdded++;
       }

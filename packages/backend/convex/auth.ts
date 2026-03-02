@@ -6,7 +6,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { themeValidator } from "./validators";
+import { themeValidator, roleUserValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
 export async function getCurrentUserId(
@@ -114,6 +114,10 @@ export const getUserByClerkId = internalQuery({
       lastName: v.optional(v.string()),
       fullName: v.optional(v.string()),
       isAdmin: v.optional(v.boolean()),
+      role: v.optional(roleUserValidator),
+      theme: v.optional(themeValidator),
+      toolbarVisible: v.optional(v.boolean()),
+      lastSeenAt: v.optional(v.number()),
     }),
     v.null(),
   ),

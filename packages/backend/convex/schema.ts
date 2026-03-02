@@ -152,6 +152,7 @@ const schema = defineSchema({
     connected: v.optional(v.boolean()),
     connectedBy: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
+    rootDirectory: v.optional(v.string()),
   })
     .index("by_owner_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
@@ -221,6 +222,7 @@ const schema = defineSchema({
     createdBy: v.optional(v.id("users")),
     planContent: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
+    devPort: v.optional(v.number()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -327,6 +329,7 @@ const schema = defineSchema({
     archived: v.optional(v.boolean()),
     selectedVariationIndex: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
+    devPort: v.optional(v.number()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),

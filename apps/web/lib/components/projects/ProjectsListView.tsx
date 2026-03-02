@@ -24,6 +24,7 @@ interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
   repoFullName: string;
+  rootDirectory?: string;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -31,6 +32,7 @@ export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
   repoFullName,
+  rootDirectory,
   onDelete,
 }: ProjectsListViewProps) {
   const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
@@ -102,7 +104,7 @@ export function ProjectsListView({
                         branchName={project.branchName}
                         repoFullName={repoFullName}
                         createdAt={project._creationTime}
-                        projectUrl={`/${encodeRepoSlug(repoFullName)}/projects/${project._id}`}
+                        projectUrl={`/${encodeRepoSlug(repoFullName, rootDirectory)}/projects/${project._id}`}
                         accentColor={phaseConfig[phase].bar}
                         onDelete={() => onDelete(project._id, project.title)}
                       />

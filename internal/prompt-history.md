@@ -1,18 +1,32 @@
+[] sessions etc not getting shared across team
+[] store collapse in localstorage
+[] session branch not creating during sessions
+[] schedule quick tasks to run later
+[] add posted via Assist, store the origin of msg send
+[] improve streaming log - add more detail
+[] add cmdk search modal
+[] explore just-bash use cases
+[] explore whether we even need to delete sandboxes for sessions
+
 [x] add back novnc
 [x] add file storage to convex and showing ss in chat
 [x] add fake auth in conductor
-[] change branch selector to app selector (ie web/eprocurement)
-[] add checkpoint in messages so you can rewind
-[] add num of design options in design input
-[] add figma auth in designs
-[] figure out chrome distribution policy
-[] make app more interactive, so user icon on active page
-[] add the screenshots / videos to quick tasks
-[] improve notifications like linear
-[] add labels to github pr issues
+[] improve extension toolbar
+[] add "View preview" button to quick tasks/sessions
 [] add vercel deployment status tracking
+[] change branch selector to app selector (ie web/eprocurement)
+[] add labels to github pr issues
 [] add human readable id's for the sessions etc
-[] need a way to effectively rollback changes in a file post commit, like undo,
+[] add num of design options in design input
+[] figure out chrome distribution policy
+[] add the screenshots / videos to quick tasks
+
+[] add checkpoint in messages so you can rewind
+[] add figma auth in designs
+[] make app more interactive, so user icon on active page
+[] improve notifications like linear
+[] add state/version history for designs and sessions
+[] need a way to effectively rollback changes in a file post git commit, like undo
 [] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 
@@ -25,22 +39,18 @@ claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 [x] filesystem volume to save session
 [x] move snapshot build to the platform
 
-why is convex deploy key passed in there, shouldn't it be set in the repoenv/teamenv?
-same for daytona api key? the agent shouldn't use the convex env vars, it should use the ones the user has defined in the settings.
-
-[] add the screenshots, gifs
-
+[x] why is convex deploy key passed in there, shouldn't it be set in the repoenv/teamenv?
+[x] same for daytona api key? the agent shouldn't use the convex env vars, it should use the ones the user has defined in the settings.
+[x] add the screenshots, gifs
 [x] one thing, get rid of slug for the teams and instead just use the team.\_id for the url, why do we have a slug anyway?
-
 [x] second thing, can you check if an env var exists for CLAUDE_CODE_OAUTH_TOKEN when entering a repo (based on the team) and if no I want it to show the setup banner still cos this is basically an env that's required to use the platform. I don't it as a hardcoded field, just a check and then the user needs to add it
-
 [x] few more things, the env vars in the admin page don't have the view button so I cant see them
 second thing is why do we have an isPersonal field for the teams? is this needed
 
-[]Make it general purpose ready
-[]Create snapshots based on repo
-[]Contact simran and aimilia for their thoughts
-[]unstash project timeline and fix it
+[x] Make it general purpose ready
+[x] Create snapshots based on repo
+[x] Contact simran and aimilia for their thoughts
+[x] unstash project timeline and fix it
 [x]fix type error in web, also move the view pr button in sessions id page to the header
 [x]store env variables per repo
 []install carepulse repo
@@ -50,15 +60,14 @@ second thing is why do we have an isPersonal field for the teams? is this needed
 []install figma, linear, clickup plugins + figure out how to auth through figma plugin
 []figure out how to detect claude session usage limit and auto switch/show limit/set schedule
 
-[]add "Upload PRD button" to docs page
+[x]add "Upload PRD button" to docs page
 []add generate tests to docs page or to testing arena I guess?
 []Add build project to docs page, add generate test project to testing arena
 
-[]after confirming send for dev review, it opens a multi step modal that shows auditing progress, then shows result in final step with just a banner saying this information has automatically been sent to the dev team.
+[x]after confirming send for dev review, it opens a multi step modal that shows auditing progress, then shows result in final step with just a banner saying this information has automatically been sent to the dev team.
 
 []figure out chrome extension distribution policy/updates
 []figure out recording user steps with record button in extension
-[]improve extension toolbar
 
 []refactor chrome extension, it should not use pseudoterminal, it should use real terminal, so cmd in windows and whatever in macos. pyt is too slow and unstable. I want speed. this app should be extremely fast and currently it is extremely slow. please fix.
 

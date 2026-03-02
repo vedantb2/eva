@@ -118,6 +118,7 @@ export function SessionDetailClient({ sessionId }: SessionDetailClientProps) {
           chatVisible={!chatCollapsed}
           onToggleChat={handleChatToggle}
           repoId={session.repoId}
+          devPort={session.devPort}
         />
       </Panel>
     </Group>

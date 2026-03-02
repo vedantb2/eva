@@ -23,6 +23,7 @@ const designSessionValidator = v.object({
   archived: v.optional(v.boolean()),
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
+  devPort: v.optional(v.number()),
 });
 
 export const list = authQuery({
@@ -232,6 +233,7 @@ export const sandboxReady = internalMutation({
     sandboxId: v.string(),
     branchName: v.string(),
     isNew: v.boolean(),
+    devPort: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -242,6 +244,7 @@ export const sandboxReady = internalMutation({
       branchName: args.branchName,
       status: "active",
       updatedAt: Date.now(),
+      devPort: args.devPort,
     });
     return null;
   },

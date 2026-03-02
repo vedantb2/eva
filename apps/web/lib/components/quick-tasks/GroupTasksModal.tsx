@@ -36,7 +36,7 @@ export function GroupTasksModal({
   selectedTaskIds,
   onSuccess,
 }: GroupTasksModalProps) {
-  const { repo, fullName } = useRepo();
+  const { repo, fullName, rootDirectory } = useRepo();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selectedProjectId, setSelectedProjectId] =
@@ -62,7 +62,9 @@ export function GroupTasksModal({
       setTitle("");
       onSuccess();
       onClose();
-      router.push(`/${encodeRepoSlug(fullName)}/projects/${projectId}`);
+      router.push(
+        `/${encodeRepoSlug(fullName, rootDirectory)}/projects/${projectId}`,
+      );
     } finally {
       setIsLoading(false);
     }

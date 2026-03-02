@@ -2,7 +2,12 @@
 
 import { useRef, useState } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
-import { Dialog, DialogContent, DialogHeader } from "@conductor/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@conductor/ui";
 
 const VIDEO_SPEEDS = [1, 2, 3, 5] as const;
 
@@ -66,6 +71,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Screenshot Preview</DialogTitle>
           <DialogHeader className="absolute top-2 right-10 z-10">
             <a
               href={url}

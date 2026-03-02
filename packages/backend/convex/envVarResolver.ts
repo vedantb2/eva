@@ -47,8 +47,5 @@ export async function resolveDaytonaApiKey(
     );
   }
 
-  const sandboxEnvVars = { ...envVars };
-  delete sandboxEnvVars.DAYTONA_API_KEY;
-
-  return { daytonaApiKey, sandboxEnvVars };
+  return { daytonaApiKey, sandboxEnvVars: envVars };
 }

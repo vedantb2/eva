@@ -1,5 +1,16 @@
 # Changelog
 
+## Proof of completion for quick tasks - 2026-03-02
+
+- **Why**: Quick tasks execute via the same sandbox callback as sessions, but media proof never gets saved. The callback calls `screenshots:attachMedia` which only accepts session-type IDs — for tasks it fails silently. The `taskProof` table and `TaskDetailModal` display already exist but nothing populates them.
+- **Changes**:
+  1. **`daytona.ts`**: Callback script branches media attachment by entity type. Tasks call `taskProof:save` with fileName; sessions keep existing `screenshots:attachMedia`. When no media found for tasks, saves a "No UI changes" message via `taskProof:saveMessage`.
+  2. **`taskWorkflow.ts`**: Added REQUIRED proof capture instructions to implementation prompt — agent must use agent-browser skill to screenshot/record after committing. Updated `git add` to exclude media files.
+  3. **`schema.ts` + `taskProof.ts`**: Made `storageId`/`fileName` optional, added `message` field for text-only proofs. Removed `fileType` — now inferred from `_storage` metadata via `ctx.db.system.get`. Added `saveMessage` mutation.
+  4. **`sessionWorkflow.ts`**: Added rule for sessions to use agent-browser when user asks for visual proof/screenshots.
+  5. **`MediaPreview.tsx`**: Extracted `ScreenshotPreview` and `VideoPreview` from ChatPanel into shared component. Both TaskDetailModal and ChatPanel now import from the same source.
+  6. **`TaskDetailModal.tsx`**: Proof section now single-column layout with proper preview components (click-to-expand screenshots, video with speed controls), supports text-only message proofs.
+
 ## Add GitHub labels to agent-created PRs - 2026-03-02
 
 - **Why**: No way to distinguish agent-created PRs from human PRs, or to tell which part of the platform (project, quick-task, session) created them.

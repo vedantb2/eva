@@ -16,7 +16,7 @@ const KNOWN_SUB_PAGES = new Set([
   "sessions",
   "quick-tasks",
   "analyse",
-  "admin",
+  "settings",
   "testing-arena",
 ]);
 

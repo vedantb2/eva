@@ -139,7 +139,8 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 - Use the repository's lockfile to determine the correct package manager
 - The GITHUB_TOKEN environment variable is set for git operations
 - Do NOT commit or push if no source code changes were made (e.g. only screenshots/recordings were taken)
-- NEVER commit image or video files — they need to be uploaded to storage separately${getResponseLengthInstruction(responseLength)}`;
+- NEVER commit image or video files — they need to be uploaded to storage separately
+- If the user asks for visual proof, screenshots, or anything requiring browser interaction, use the agent-browser skill. Save screenshots to screenshots/ and recordings to recordings/ in the repo root.${getResponseLengthInstruction(responseLength)}`;
 }
 
 // --- Workflow ---

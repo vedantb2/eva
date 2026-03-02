@@ -29,7 +29,8 @@ export default function MainLayout({
   const showTopNavBar =
     pathname === "/home" ||
     pathname.startsWith("/teams") ||
-    pathname.startsWith("/setup");
+    pathname.startsWith("/setup") ||
+    pathname.startsWith("/settings");
 
   return (
     <ClientProvider>

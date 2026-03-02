@@ -35,7 +35,7 @@ import {
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
 import { ActiveTasksPopover } from "@/lib/components/sidebar/ActiveTasksPopover";
-import { AdminSidebar } from "@/lib/components/sidebar/AdminSidebar";
+import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
@@ -52,7 +52,7 @@ const KNOWN_SUB_PAGES = new Set([
   "sessions",
   "quick-tasks",
   "analyse",
-  "admin",
+  "settings",
   "testing-arena",
 ]);
 
@@ -60,7 +60,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Design: "design",
   Sessions: "sessions",
   Analyse: "analyse",
-  Settings: "admin",
+  Settings: "settings",
   Documents: "docs",
   "Testing Arena": "testing-arena",
 } as const;
@@ -70,7 +70,7 @@ type ContextSidebarMode =
   | "design"
   | "sessions"
   | "analyse"
-  | "admin"
+  | "settings"
   | "docs"
   | "testing-arena";
 
@@ -82,7 +82,7 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
       s === "design" ||
       s === "sessions" ||
       s === "analyse" ||
-      s === "admin" ||
+      s === "settings" ||
       s === "docs" ||
       s === "testing-arena"
     ) {
@@ -145,6 +145,7 @@ export function Sidebar() {
       "teams",
       "inbox",
       "api",
+      "settings",
     ]);
     if (nonRepoRoutes.has(segments[0])) {
       return {
@@ -235,17 +236,17 @@ export function Sidebar() {
               ],
             },
             {
-              label: "ADMIN",
+              label: "SETTINGS",
               groupIcon: IconSettings,
               items: [
                 {
                   name: "Stats",
-                  href: `${repoBasePath}/admin/stats`,
+                  href: `${repoBasePath}/settings/stats`,
                   icon: IconChartBar,
                 },
                 {
                   name: "Settings",
-                  href: `${repoBasePath}/admin`,
+                  href: `${repoBasePath}/settings/theme`,
                   icon: IconSettings,
                 },
               ],
@@ -279,15 +280,15 @@ export function Sidebar() {
         ? "Sessions"
         : contextSidebarMode === "analyse"
           ? "Analyse"
-          : contextSidebarMode === "admin"
-            ? "Admin"
+          : contextSidebarMode === "settings"
+            ? "Settings"
             : contextSidebarMode === "docs"
               ? "Documents"
               : contextSidebarMode === "testing-arena"
                 ? "Testing Arena"
                 : "";
 
-  const showContextCreate = contextSidebarMode !== "admin";
+  const showContextCreate = contextSidebarMode !== "settings";
   const contextCreateButtonTitle =
     contextSidebarMode === "design"
       ? "New design session"
@@ -581,8 +582,8 @@ export function Sidebar() {
                       transition={{ duration: 0.2 }}
                     >
                       {showContextSidebar ? (
-                        collapsed ? null : contextSidebarMode === "admin" ? (
-                          <AdminSidebar
+                        collapsed ? null : contextSidebarMode === "settings" ? (
+                          <SettingsSidebar
                             basePath={repoBasePath}
                             pathname={pathname}
                             onNavigate={closeMobileSidebar}

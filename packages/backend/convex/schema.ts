@@ -22,6 +22,7 @@ import {
   snapshotBuildTriggerValidator,
   teamMemberRoleValidator,
   variationValidator,
+  customThemeValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -34,6 +35,7 @@ const schema = defineSchema({
     isAdmin: v.optional(v.boolean()),
     role: v.optional(roleUserValidator),
     theme: v.optional(themeValidator),
+    customTheme: v.optional(customThemeValidator),
     toolbarVisible: v.optional(v.boolean()),
     lastSeenAt: v.optional(v.number()),
   })
@@ -173,9 +175,9 @@ const schema = defineSchema({
 
   taskProof: defineTable({
     taskId: v.id("agentTasks"),
-    storageId: v.id("_storage"),
-    fileName: v.string(),
-    fileType: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    message: v.optional(v.string()),
     runId: v.optional(v.id("agentRuns")),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),

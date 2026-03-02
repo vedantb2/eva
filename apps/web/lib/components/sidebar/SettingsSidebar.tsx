@@ -1,26 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { IconKey, IconCamera, IconFolders } from "@tabler/icons-react";
+import {
+  IconKey,
+  IconCamera,
+  IconFolders,
+  IconPalette,
+} from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
-interface AdminSidebarProps {
+interface SettingsSidebarProps {
   basePath: string;
   pathname: string;
   onNavigate?: () => void;
 }
 
-export function AdminSidebar({
+export function SettingsSidebar({
   basePath,
   pathname,
   onNavigate,
-}: AdminSidebarProps) {
-  const baseUrl = `${basePath}/admin`;
+}: SettingsSidebarProps) {
+  const baseUrl = `${basePath}/settings`;
 
   const navigation = [
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
+    { name: "Theme", href: `${baseUrl}/theme`, icon: IconPalette },
   ];
 
   return (

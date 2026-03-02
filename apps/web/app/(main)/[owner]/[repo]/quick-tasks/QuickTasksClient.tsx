@@ -17,7 +17,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SearchInput,
+  Input,
   Spinner,
   Tooltip,
   TooltipTrigger,
@@ -51,6 +51,8 @@ import {
   IconUser,
   IconUserCheck,
   IconRefresh,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 
 type BulkAction =
@@ -82,11 +84,13 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [{ q, view }, setParams] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
   });
   const searchQuery = q;
+  const showSearch = isSearchOpen || !!searchQuery;
   const quickTasksPath = `${basePath}/quick-tasks`;
   const quickTaskPathPrefix = `${quickTasksPath}/`;
 
@@ -165,19 +169,77 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         title="Quick Tasks"
         fillHeight
         childPadding={false}
-        headerCenter={
-          hasQuickTasks ? (
-            <SearchInput
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(v) => setParams({ q: v || null })}
-              onClear={() => setParams({ q: null })}
-              className="animate-in fade-in duration-300"
-            />
-          ) : null
-        }
         headerRight={
           <div className="flex items-center gap-2">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {hasQuickTasks && showSearch ? (
+                <motion.div
+                  key="task-search-input"
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 176 }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="relative w-44">
+                    <IconSearch
+                      size={14}
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                      autoFocus
+                      placeholder="Search tasks..."
+                      value={searchQuery}
+                      onChange={(e) => setParams({ q: e.target.value || null })}
+                      onBlur={() => {
+                        if (!searchQuery) setIsSearchOpen(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setParams({ q: null });
+                          setIsSearchOpen(false);
+                        }
+                      }}
+                      className="h-8 pl-7 pr-7 text-sm"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParams({ q: null });
+                          setIsSearchOpen(false);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <IconX size={13} />
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ) : hasQuickTasks ? (
+                <motion.div
+                  key="task-search-icon"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
+                        onClick={() => setIsSearchOpen(true)}
+                      >
+                        <IconSearch size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Search tasks</TooltipContent>
+                  </Tooltip>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
             {hasQuickTasks && (
               <div className="flex items-center rounded-lg border border-border overflow-hidden">
                 <Tooltip>

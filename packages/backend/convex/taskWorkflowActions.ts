@@ -107,6 +107,7 @@ export const createPullRequest = internalAction({
     baseBranch: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
+    labels: v.array(v.string()),
   },
   returns: v.union(v.string(), v.null()),
   handler: async (_ctx, args) => {
@@ -120,6 +121,16 @@ export const createPullRequest = internalAction({
         head: args.branchName,
         base: args.baseBranch ?? "staging",
       });
+
+      if (args.labels.length > 0) {
+        await octokit.rest.issues.addLabels({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          issue_number: pr.data.number,
+          labels: args.labels,
+        });
+      }
+
       return pr.data.html_url;
     } catch (error) {
       console.error(

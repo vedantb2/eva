@@ -1,5 +1,14 @@
 # Changelog
 
+## Add GitHub labels to agent-created PRs - 2026-03-02
+
+- **Why**: No way to distinguish agent-created PRs from human PRs, or to tell which part of the platform (project, quick-task, session) created them.
+- **Changes**:
+  1. **`taskWorkflowActions.ts`**: Added `labels` arg to `createPullRequest`, calls `octokit.rest.issues.addLabels()` after PR creation.
+  2. **`taskWorkflow.ts`**: Passes `["eva", "project"]` or `["eva", "quick-task"]` based on whether task has a `projectId`.
+  3. **`github.ts`**: Added `["eva", "session"]` labels to `createSessionPr` after PR creation.
+- Labels auto-create in the repo if they don't exist yet.
+
 ## Team access control for all resources - 2026-03-02
 
 - **Why**: When a user was added to a team, they could only see repos but not any of the repo's resources (boards, tasks, runs, sessions, projects, docs, etc). Board access was gated by `board.ownerId === userId`, and many resources had no repo access verification at all — any authenticated user could theoretically query them.

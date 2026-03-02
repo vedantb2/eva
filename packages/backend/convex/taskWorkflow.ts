@@ -175,6 +175,7 @@ export const taskExecutionWorkflow = workflow.define({
           baseBranch: args.baseBranch,
           title: data.taskTitle,
           description: data.taskDescription,
+          labels: ["eva", args.projectId ? "project" : "quick-task"],
         },
       );
     }

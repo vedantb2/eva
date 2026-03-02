@@ -125,11 +125,15 @@ export const createSessionPr = action({
       base: "staging",
     });
 
+    const appLabel = repo.rootDirectory
+      ? repo.rootDirectory.split("/").pop()
+      : undefined;
+
     await octokit.rest.issues.addLabels({
       owner: repo.owner,
       repo: repo.name,
       issue_number: pr.data.number,
-      labels: ["eva", "session"],
+      labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
     });
 
     await ctx.runMutation(internal.sessions.setPrUrl, {

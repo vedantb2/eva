@@ -246,7 +246,7 @@ export function Sidebar() {
                 },
                 {
                   name: "Settings",
-                  href: `${repoBasePath}/admin`,
+                  href: `${repoBasePath}/admin/settings`,
                   icon: IconSettings,
                 },
               ],

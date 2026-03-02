@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { IconMoon, IconSettings, IconSun } from "@tabler/icons-react";
+import { IconMoon, IconSun } from "@tabler/icons-react";
 import { Button, cn } from "@conductor/ui";
 import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -15,7 +15,6 @@ export function TopNavBar() {
 
   const isTeamsRoute = pathname.startsWith("/teams");
   const isReposRoute = pathname === "/home" || pathname === "/setup";
-  const isSettingsRoute = pathname.startsWith("/settings");
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -64,21 +63,6 @@ export function TopNavBar() {
                 )}
               >
                 Teams
-              </Button>
-            </Link>
-            <Link href="/settings/theme">
-              <Button
-                size="sm"
-                variant={isSettingsRoute ? "secondary" : "ghost"}
-                className={cn(
-                  "h-9",
-                  isSettingsRoute
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <IconSettings size={15} />
-                Settings
               </Button>
             </Link>
           </nav>

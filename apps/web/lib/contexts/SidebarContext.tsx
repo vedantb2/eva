@@ -1,6 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useState } from "react";
+
+const COOKIE_NAME = "sidebar-collapsed";
+const ONE_YEAR = 60 * 60 * 24 * 365;
+
+function readCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie.includes(`${COOKIE_NAME}=true`);
+}
+
+function writeCookie(collapsed: boolean) {
+  document.cookie = `${COOKIE_NAME}=${collapsed}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`;
+}
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -10,7 +22,12 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsedState] = useState(readCookie);
+
+  const setCollapsed = useCallback((value: boolean) => {
+    setCollapsedState(value);
+    writeCookie(value);
+  }, []);
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>

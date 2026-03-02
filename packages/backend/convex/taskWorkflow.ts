@@ -49,6 +49,7 @@ function buildImplementationPrompt(
   subtasks: Array<{ title: string }>,
   branchName: string,
   isQuickTask: boolean,
+  baseBranch?: string,
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -58,6 +59,27 @@ function buildImplementationPrompt(
   const commitScope = isQuickTask
     ? "feat"
     : `feat(task-${task.taskNumber || 1})`;
+
+  const base = baseBranch ?? "staging";
+
+  const mergeStep = isQuickTask
+    ? `
+6. Sync with base branch before PR:
+   - Run: git fetch origin ${base}
+   - Run: git merge origin/${base} --no-edit
+   - If there are merge conflicts (check with \`git status\`):
+     a. Examine each conflicted file carefully — understand what each side changed and why
+     b. Resolve conflicts by keeping the correct changes:
+        - Keep YOUR implementation for files you modified for this task
+        - Keep BASE BRANCH changes for files unrelated to this task
+        - If both sides modified the same area, merge both changes together where possible
+     c. After resolving, run: git add -A
+     d. Commit with a message that explains each conflict decision:
+        Run: git commit -m "merge: sync with ${base}\\n\\nConflict resolutions:\\n- <file>: <reason why your/their changes were kept>"
+   - If no conflicts, the merge completes automatically — skip to step 7
+7. Run: git push -u origin ${branchName}`
+    : `
+6. Run: git push -u origin ${branchName}`;
 
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
@@ -70,7 +92,7 @@ ${subtasksList}
 2. Implement the changes by editing source code files
 3. Update CLAUDE.md if you made major changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
+5. Run: git push -u origin ${branchName}${mergeStep}
 
 ## Proof of Completion (REQUIRED):
 After committing and pushing, you MUST capture visual proof using the agent-browser skill:
@@ -139,6 +161,7 @@ export const taskExecutionWorkflow = workflow.define({
       repoId: args.repoId,
       projectId: args.projectId,
       branchName: args.branchName,
+      baseBranch: args.baseBranch,
     });
 
     // Step 3: Setup sandbox + launch Claude CLI
@@ -311,6 +334,7 @@ export const getTaskData = internalQuery({
     repoId: v.id("githubRepos"),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.object({
     prompt: v.string(),
@@ -352,6 +376,7 @@ export const getTaskData = internalQuery({
       sortedSubtasks,
       branchName,
       !args.projectId,
+      args.baseBranch,
     );
 
     const appLabel = repo.rootDirectory

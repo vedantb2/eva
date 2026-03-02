@@ -420,6 +420,7 @@ import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
+const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const ENTITY_TYPE = "${entityIdField}";
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
@@ -560,7 +561,7 @@ async function flushStreaming() {
     const stepsToSend = accumulatedSteps.slice(-100);
     try {
       await callMutation("streaming:set", {
-        entityId: ENTITY_ID,
+        entityId: STREAMING_ENTITY_ID,
         currentActivity: JSON.stringify(stepsToSend),
       });
     } catch {}
@@ -570,7 +571,7 @@ async function flushStreaming() {
 // Send initial step immediately so frontend sees progress right away
 accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
 callMutation("streaming:set", {
-  entityId: ENTITY_ID,
+  entityId: STREAMING_ENTITY_ID,
   currentActivity: JSON.stringify(accumulatedSteps),
 }).catch(() => {});
 
@@ -684,7 +685,7 @@ try {
       status: "active",
     });
     callMutation("streaming:set", {
-      entityId: ENTITY_ID,
+      entityId: STREAMING_ENTITY_ID,
       currentActivity: JSON.stringify(accumulatedSteps.slice(-100)),
     }).catch(() => {});
 
@@ -1091,7 +1092,10 @@ export const launchAudit = internalAction({
       "taskId",
       args.convexToken,
       args.taskId,
-      { model: "haiku" },
+      {
+        model: "haiku",
+        extraEnvVars: { STREAMING_ENTITY_ID: `audit-${args.taskId}` },
+      },
     );
 
     return null;

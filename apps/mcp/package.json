@@ -1,5 +1,5 @@
 {
-  "name": "conductor-mcp-server",
+  "name": "conductor-mcp",
   "private": true,
   "type": "module",
   "scripts": {

@@ -55,7 +55,7 @@ After deploying, verify the env vars are set on that specific deployment via `np
 ## Deploy to Railway
 
 1. Create a new Railway project, point it at this repo
-2. Set the root directory to `apps/mcp-server`
+2. Set the root directory to `apps/mcp`
 3. Set build command: `pnpm build`
 4. Set start command: `node dist/index.js`
 5. Add the MCP server env vars listed above (no deploy key needed here)
@@ -191,7 +191,7 @@ packages/backend/convex/
 ### MCP server structure
 
 ```
-apps/mcp-server/src/
+apps/mcp/src/
 ├── index.ts       # Express app, OAuth endpoints, JWT verification middleware
 ├── auth.ts        # OAuth 2.0 + PKCE flow, Clerk token verification, JWT signing
 ├── convex-api.ts  # Convex REST API wrappers, deploy key bootstrap, credential resolution

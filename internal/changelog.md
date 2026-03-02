@@ -1000,7 +1000,7 @@
 ## Remote Convex MCP Server — 2026-02-19
 
 - **Why**: The Analyse page wraps "Claude generates and runs Convex queries" but Claude natively handles this better via MCP connectors. A remote MCP server lets any user connect their Convex deployment to Claude and query data directly — no custom UI needed.
-- **Architecture**: Stateless Express server at `apps/mcp-server/` using `@modelcontextprotocol/sdk` with Streamable HTTP transport. OAuth 2.0 with PKCE flow stores Convex credentials (deployment URL + deploy key) in a signed JWT — no database needed.
+- **Architecture**: Stateless Express server at `apps/mcp/` using `@modelcontextprotocol/sdk` with Streamable HTTP transport. OAuth 2.0 with PKCE flow stores Convex credentials (deployment URL + deploy key) in a signed JWT — no database needed.
 - **5 MCP tools**: `list_tables` (schema discovery via `/api/shapes2` + `_system/frontend/getSchemas`), `query_table` (paginated reads via `_system/cli/tableData`), `get_document` (single doc by ID), `count_table` (document count), `run_query` (arbitrary read-only Convex query code via `/api/run_test_function`).
 - **`run_query` is the power tool**: Claude writes Convex server-side JS (joins, aggregations, filters) and executes it read-only. Replaces the entire Analyse page workflow.
 - **Replaces**: `apps/web/app/(main)/[repo]/analyse/` and related backend (`researchQueries.ts`, `researchQueryWorkflow.ts`, `savedQueries.ts`). Those can be deprecated once this ships.

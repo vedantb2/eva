@@ -1,5 +1,16 @@
 # Changelog
 
+## Remove custom setup commands and env vars from snapshots - 2026-03-02
+
+- **Why**: This platform only manages one repo's snapshots. Custom commands and env vars were designed for a multi-repo generic system. For a single repo, these belong directly in the workflow file, not managed dynamically from the platform. Runtime env vars are already handled by `resolveSandboxContext`.
+- **Changes**:
+  1. **Schema**: `customSetupCommands` and `customEnvVars` made optional (migration clears them).
+  2. **`repoSnapshots.ts`**: Removed from `saveRepoSnapshot` args, `getRepoSnapshot` return, `getRepoSnapshotInternal` return. Migration clears fields from existing docs.
+  3. **`snapshotActions.ts`**: Removed `custom_commands`/`custom_env_vars` from workflow dispatch inputs.
+  4. **`rebuild-snapshot.yml`**: Removed dynamic Dockerfile injection, merged into single heredoc.
+  5. **`SnapshotsClient.tsx`**: Removed custom commands textarea, env vars UI, and related state.
+  6. **Added AI prompt** at `internal/prompts/update-rebuild-snapshot-workflow.md` for updating the workflow in the target repo.
+
 ## Replace fixed snapshot schedule with cron input - 2026-03-02
 
 - **Why**: Fixed schedule presets (daily/every 3 days/weekly) were inflexible. Users should be able to specify any cron expression for snapshot rebuilds.

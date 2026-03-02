@@ -6,14 +6,6 @@ on:
       snapshot_name:
         description: "Daytona snapshot name"
         required: true
-      custom_commands:
-        description: "JSON array of custom setup commands"
-        required: false
-        default: "[]"
-      custom_env_vars:
-        description: "JSON array of {key,value} env var pairs"
-        required: false
-        default: "[]"
 
 jobs:
   rebuild-snapshot:
@@ -22,11 +14,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate Dockerfile
-        env:
-          CUSTOM_ENV_VARS: ${{ inputs.custom_env_vars }}
-          CUSTOM_COMMANDS: ${{ inputs.custom_commands }}
         run: |
-          cat > Dockerfile.snapshot <<'BASEEOF'
+          cat > Dockerfile.snapshot <<'EOF'
           FROM node:20-bookworm
 
           RUN apt-get update && apt-get install -y git curl
@@ -58,16 +47,9 @@ jobs:
           RUN mkdir -p $PNPM_HOME
 
           COPY --chown=eva:eva . /workspace/repo
-          BASEEOF
-
-          printf '%s' "$CUSTOM_ENV_VARS" | jq -r '.[] | "ENV \(.key)=\(.value | @json)"' >> Dockerfile.snapshot
-
-          printf '%s' "$CUSTOM_COMMANDS" | jq -r '.[] | "RUN \(.)"' >> Dockerfile.snapshot
-
-          cat >> Dockerfile.snapshot <<'TAILEOF'
           WORKDIR /workspace/repo
           RUN pnpm install
-          TAILEOF
+          EOF
 
           echo "=== Generated Dockerfile ==="
           cat Dockerfile.snapshot

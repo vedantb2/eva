@@ -10,7 +10,6 @@ import {
   Button,
   Input,
   Spinner,
-  Textarea,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -22,7 +21,6 @@ import { CronExpressionParser } from "cron-parser";
 import {
   IconCamera,
   IconPlayerPlay,
-  IconPlus,
   IconTrash,
   IconChevronDown,
   IconChevronRight,
@@ -77,12 +75,6 @@ export function SnapshotsClient() {
 
   const [schedule, setSchedule] = useState("manual");
   const [workflowRef, setWorkflowRef] = useState("main");
-  const [commandsText, setCommandsText] = useState("");
-  const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>(
-    [],
-  );
-  const [newEnvKey, setNewEnvKey] = useState("");
-  const [newEnvValue, setNewEnvValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [building, setBuilding] = useState(false);
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null);
@@ -93,30 +85,20 @@ export function SnapshotsClient() {
     if (snapshot) {
       setSchedule(snapshot.schedule);
       setWorkflowRef(snapshot.workflowRef ?? "main");
-      setCommandsText(snapshot.customSetupCommands.join("\n"));
-      setEnvVars(snapshot.customEnvVars);
       return;
     }
 
     setSchedule("manual");
     setWorkflowRef("main");
-    setCommandsText("");
-    setEnvVars([]);
   }, [snapshot?._id, snapshot?.updatedAt, snapshot === null]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const commands = commandsText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
       await saveRepoSnapshot({
         repoId,
         schedule,
         workflowRef: workflowRef.trim() || undefined,
-        customSetupCommands: commands,
-        customEnvVars: envVars,
       });
     } finally {
       setSaving(false);
@@ -128,8 +110,6 @@ export function SnapshotsClient() {
     await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
     setSchedule("manual");
     setWorkflowRef("main");
-    setCommandsText("");
-    setEnvVars([]);
   };
 
   const handleRebuild = async () => {
@@ -142,20 +122,6 @@ export function SnapshotsClient() {
     } finally {
       setBuilding(false);
     }
-  };
-
-  const addEnvVar = () => {
-    if (!newEnvKey.trim() || !newEnvValue.trim()) return;
-    setEnvVars((prev) => [
-      ...prev,
-      { key: newEnvKey.trim(), value: newEnvValue.trim() },
-    ]);
-    setNewEnvKey("");
-    setNewEnvValue("");
-  };
-
-  const removeEnvVar = (index: number) => {
-    setEnvVars((prev) => prev.filter((_, i) => i !== index));
   };
 
   const isRunning =
@@ -227,88 +193,14 @@ export function SnapshotsClient() {
                   Defaults to <code>main</code> if empty.
                 </p>
               </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Custom Setup Commands (one per line)
-                </label>
-                <Textarea
-                  value={commandsText}
-                  onChange={(e) => setCommandsText(e.target.value)}
-                  placeholder={
-                    'echo "Configuring workspace"\npnpm add -g eslint'
-                  }
-                  className="font-mono text-xs"
-                  rows={4}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Commands run during Docker build as the <code>eva</code> user.
-                  Use user-level setup commands, not root-only package installs
-                  like <code>apt-get</code>.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Custom Environment Variables (baked into snapshot)
-                </label>
-                {envVars.length > 0 && (
-                  <div className="mb-2 space-y-1">
-                    {envVars.map((v, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="font-mono text-xs flex-1 truncate">
-                          {v.key}=*
-                        </span>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => removeEnvVar(i)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <IconX size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newEnvKey}
-                    onChange={(e) => setNewEnvKey(e.target.value)}
-                    placeholder="KEY"
-                    className="h-7 font-mono text-xs flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addEnvVar();
-                    }}
-                  />
-                  <Input
-                    value={newEnvValue}
-                    onChange={(e) => setNewEnvValue(e.target.value)}
-                    placeholder="value"
-                    className="h-7 font-mono text-xs flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addEnvVar();
-                    }}
-                  />
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={addEnvVar}
-                    disabled={!newEnvKey.trim() || !newEnvValue.trim()}
-                  >
-                    <IconPlus size={14} />
-                  </Button>
-                </div>
-              </div>
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-border/40">
               <p className="text-[11px] text-muted-foreground">
                 Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
-                workflow on target branch +{" "}
-                <code className="font-mono">DAYTONA_API_KEY</code> secret in
-                repo, and <code className="font-mono">SNAPSHOT_GITHUB_PAT</code>{" "}
-                in Env Variables.
+                workflow on target branch and{" "}
+                <code className="font-mono">DAYTONA_API_KEY</code> secret in the
+                repo.
               </p>
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Spinner size="sm" className="mr-1.5" /> : null}

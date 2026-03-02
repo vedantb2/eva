@@ -387,12 +387,14 @@ const schema = defineSchema({
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
-    customSetupCommands: v.array(v.string()),
-    customEnvVars: v.array(
-      v.object({
-        key: v.string(),
-        value: v.string(),
-      }),
+    customSetupCommands: v.optional(v.array(v.string())),
+    customEnvVars: v.optional(
+      v.array(
+        v.object({
+          key: v.string(),
+          value: v.string(),
+        }),
+      ),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -473,7 +473,7 @@ export function ReposClient() {
                                   onManageApps={() =>
                                     router.push(
                                       repoHref(repo.owner, repo.name) +
-                                        "/admin/monorepo",
+                                        "/settings/monorepo",
                                     )
                                   }
                                 />

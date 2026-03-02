@@ -1,5 +1,12 @@
 # Changelog
 
+## Warm snapshot cache after rebuild - 2026-03-02
+
+- **Why**: Sandbox creation from a snapshot has a cold start (~30s). After a daily snapshot rebuild at 6am, the first sandbox creation at 9am hits this cold start. By warming Daytona's cache immediately after rebuild, subsequent creations are fast.
+- **Changes**:
+  1. **`repoSnapshots.ts`**: `completeBuild` now schedules `warmSnapshotCache` when a build succeeds.
+  2. **`daytona.ts`**: Added `warmSnapshotCache` internalAction — creates a sandbox from the snapshot then immediately deletes it. Best-effort, logs errors but never fails.
+
 ## Migrate Next.js API routes to Convex - 2026-03-02
 
 - **Why**: Extension update and terminal PTY routes were unnecessary Next.js middlemen — they just authenticated and forwarded to Convex. Moving them to Convex eliminates the hop, reduces latency, and removes the dependency on Next.js server for these flows.

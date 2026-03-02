@@ -865,6 +865,38 @@ async function launchScript(
  * Runs a command on an existing sandbox and returns the output.
  * Used for post-completion operations like capturing git diffs or reading files.
  */
+export const warmSnapshotCache = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const { daytona, sandboxEnvVars, snapshotName } =
+        await resolveSandboxContext(ctx, args.repoId);
+      if (!snapshotName) return null;
+      const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+        repoId: args.repoId,
+      });
+      if (!repo) return null;
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        sandboxEnvVars,
+        snapshotName,
+      );
+      await sandbox.delete();
+      console.log(
+        `[daytona] Warmed snapshot cache for ${repo.owner}/${repo.name}`,
+      );
+    } catch (err) {
+      console.error(
+        "[daytona] warmSnapshotCache failed (best-effort):",
+        err instanceof Error ? err.message : err,
+      );
+    }
+    return null;
+  },
+});
+
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),

@@ -340,6 +340,14 @@ export const completeBuild = internalMutation({
       error: args.error,
       completedAt: Date.now(),
     });
+    if (args.status === "success") {
+      const snapshot = await ctx.db.get(build.repoSnapshotId);
+      if (snapshot) {
+        await ctx.scheduler.runAfter(0, internal.daytona.warmSnapshotCache, {
+          repoId: snapshot.repoId,
+        });
+      }
+    }
     return null;
   },
 });

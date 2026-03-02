@@ -53,9 +53,9 @@ function getClerkSecretKey(): string {
 }
 
 function getConvexUrl(): string {
-  const convexUrl = process.env.CONDUCTOR_CONVEX_URL;
+  const convexUrl = process.env.CONVEX_CLOUD_URL;
   if (!convexUrl) {
-    throw new Error("CONDUCTOR_CONVEX_URL environment variable is required");
+    throw new Error("CONVEX_CLOUD_URL environment variable is required");
   }
   return convexUrl.replace(/\/$/, "");
 }

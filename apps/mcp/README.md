@@ -17,13 +17,13 @@ pnpm mcp:dev
 | `MCP_JWT_SECRET`        | Yes        | Secret key for signing MCP JWT tokens. Generate with `openssl rand -hex 32`                                                                                                            |
 | `CLERK_PUBLISHABLE_KEY` | Yes        | Clerk publishable key (same as web app's `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`)                                                                                                          |
 | `CLERK_SECRET_KEY`      | Yes        | Clerk secret key for server-side token verification (same as web app's `CLERK_SECRET_KEY`)                                                                                             |
-| `CONDUCTOR_CONVEX_URL`  | Yes        | Conductor Convex deployment URL — use the `.convex.cloud` URL (e.g. `https://your-project-123.convex.cloud`). HTTP action calls are automatically routed to `.convex.site` internally. |
+| `CONVEX_CLOUD_URL`      | Yes        | Conductor Convex deployment URL — use the `.convex.cloud` URL (e.g. `https://your-project-123.convex.cloud`). HTTP action calls are automatically routed to `.convex.site` internally. |
 | `BASE_URL`              | Production | Public URL of the server (e.g. `https://convex-mcp.up.railway.app`). Defaults to `http://localhost:PORT`                                                                               |
 | `PORT`                  | No         | Server port. Defaults to `3001`                                                                                                                                                        |
 
 ### Convex env vars (set via Convex dashboard or `npx convex env set`)
 
-The deploy key and JWT secret must be present in the **same Convex deployment** that `CONDUCTOR_CONVEX_URL` points to:
+The deploy key and JWT secret must be present in the **same Convex deployment** that `CONVEX_CLOUD_URL` points to:
 
 | Variable               | Description                                                                                     |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
@@ -31,7 +31,7 @@ The deploy key and JWT secret must be present in the **same Convex deployment** 
 | `MCP_JWT_SECRET`       | Same value as the MCP server's `MCP_JWT_SECRET`. Used to authenticate the bootstrap request.    |
 
 ```bash
-# Run from packages/backend, targeting the same deployment as CONDUCTOR_CONVEX_URL
+# Run from packages/backend, targeting the same deployment as CONVEX_CLOUD_URL
 npx convex env set CONDUCTOR_DEPLOY_KEY <your-admin-key>
 npx convex env set MCP_JWT_SECRET <your-mcp-jwt-secret>
 ```
@@ -140,7 +140,7 @@ To enable this, set those env vars for each repo in **Conductor > [Repo] > Setti
 
 - **"Method not supported in stateless mode"** when opening the /mcp URL in a browser — normal. The MCP endpoint only works with Claude's client (POST requests), not browser tabs.
 - **"Invalid or expired token"** — JWT expired (30 days) or `MCP_JWT_SECRET` was rotated. Remove and re-add the connector in Claude.
-- **"Failed to bootstrap deploy key: HTTP 404"** — the Convex backend hasn't been deployed yet, or `CONDUCTOR_CONVEX_URL` points to a different deployment than the one with `CONDUCTOR_DEPLOY_KEY` set. Run `npx convex deploy` from `packages/backend` and confirm env vars are set on that same deployment.
+- **"Failed to bootstrap deploy key: HTTP 404"** — the Convex backend hasn't been deployed yet, or `CONVEX_CLOUD_URL` points to a different deployment than the one with `CONDUCTOR_DEPLOY_KEY` set. Run `npx convex deploy` from `packages/backend` and confirm env vars are set on that same deployment.
 - **"Failed to bootstrap deploy key: HTTP 401"** — `MCP_JWT_SECRET` on the MCP server doesn't match the value set in Convex env vars. They must be identical.
 - **"Failed to bootstrap deploy key: HTTP 500"** — `CONDUCTOR_DEPLOY_KEY` is not set in Convex env vars. Run `npx convex env set CONDUCTOR_DEPLOY_KEY <key>`.
 - **Clerk sign-in not loading** — check that `CLERK_PUBLISHABLE_KEY` is set correctly on the MCP server.
@@ -155,7 +155,7 @@ Claude sends request → POST /mcp with Bearer JWT
               Server verifies JWT signature + expiry (MCP_JWT_SECRET)
                             ↓
               On first request: bootstraps Conductor deploy key
-              GET {CONDUCTOR_CONVEX_URL → .convex.site}/api/mcp/bootstrap
+              GET {CONVEX_CLOUD_URL → .convex.site}/api/mcp/bootstrap
               Auth: MCPBootstrap {MCP_JWT_SECRET}
                             ↓
               Creates per-request McpServer + StreamableHTTPServerTransport
@@ -176,7 +176,7 @@ Convex has two domains per deployment:
 - **`.convex.cloud`** — REST API for queries, mutations, actions (`/api/query`, `/api/run_test_function`, etc.)
 - **`.convex.site`** — HTTP actions defined in `http.ts` (`/api/mcp/bootstrap`, `/api/mcp/env-vars`)
 
-`CONDUCTOR_CONVEX_URL` should be the `.convex.cloud` URL. The MCP server automatically derives the `.convex.site` URL when calling the HTTP action endpoints.
+`CONVEX_CLOUD_URL` should be the `.convex.cloud` URL. The MCP server automatically derives the `.convex.site` URL when calling the HTTP action endpoints.
 
 ### Convex backend structure
 

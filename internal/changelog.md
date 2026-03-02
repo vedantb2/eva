@@ -904,7 +904,7 @@
 
 ## MCP Server: Convex HTTP Action Bug Fixes — 2026-02-22
 
-- **Why**: Two bugs prevented the MCP server from bootstrapping after deployment. First, the Convex bundler rejected `http.ts` because it statically imported `mcpRoutes.ts` → `encryption.ts` → `node:crypto`, and Convex's V8 HTTP router cannot have Node.js APIs in its import chain. Second, the bootstrap and env-vars endpoints were being called on the wrong domain — Convex HTTP actions are served at `.convex.site`, not `.convex.cloud`, but `CONDUCTOR_CONVEX_URL` uses `.convex.cloud`.
+- **Why**: Two bugs prevented the MCP server from bootstrapping after deployment. First, the Convex bundler rejected `http.ts` because it statically imported `mcpRoutes.ts` → `encryption.ts` → `node:crypto`, and Convex's V8 HTTP router cannot have Node.js APIs in its import chain. Second, the bootstrap and env-vars endpoints were being called on the wrong domain — Convex HTTP actions are served at `.convex.site`, not `.convex.cloud`, but `CONVEX_CLOUD_URL` uses `.convex.cloud`.
 - **`node:crypto` fix**: Restructured `http.ts` to define handlers inline with no static imports of node-specific code. The `/api/mcp/env-vars` handler now delegates env var decryption to `mcpRoutes.getDecryptedRepoEnvVars` (a Node.js `internalAction`) via `ctx.runAction` at runtime, keeping the V8 bundle free of `node:crypto`.
 - **`.convex.site` fix**: Added `toSiteUrl()` helper in `convex-api.ts` that derives the `.convex.site` domain from the `.convex.cloud` URL. Bootstrap and env-vars calls now use the site URL; all other Convex REST API calls (`/api/query`, `/api/run_test_function`) continue using `.convex.cloud`.
 - **Troubleshooting docs**: Updated README with specific error messages for 401/404/500 bootstrap failures, added the Convex deployment step to setup instructions, and documented the `.convex.cloud` vs `.convex.site` URL distinction.
@@ -964,7 +964,7 @@
 
 - **Why**: MCP server required users to manually enter a Convex deployment URL and deploy key during OAuth authorization. This was disconnected from the main app's auth — users already have Conductor accounts via Clerk, yet had to provide raw credentials for the MCP integration.
 - **Solution**: Replaced the manual credential form with Clerk's prebuilt sign-in widget on the OAuth authorize page. After sign-in, the server verifies the Clerk session token server-side (`@clerk/backend`), then issues MCP OAuth tokens containing the user's Clerk ID.
-- **Simplification**: MCP tools now use shared `CONDUCTOR_CONVEX_URL` + `CONDUCTOR_DEPLOY_KEY` env vars for all Convex API calls. JWTs are self-contained (no database lookup needed). Removed `tokenStore` in-memory cache, `persistToken`, and `mcpTokens` table dependency. The `mcpTokens` table is now dead code (cleanup in follow-up).
+- **Simplification**: MCP tools now use shared `CONVEX_CLOUD_URL` + `CONDUCTOR_DEPLOY_KEY` env vars for all Convex API calls. JWTs are self-contained (no database lookup needed). Removed `tokenStore` in-memory cache, `persistToken`, and `mcpTokens` table dependency. The `mcpTokens` table is now dead code (cleanup in follow-up).
 - **New env vars**: `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` required on the MCP server (same values as the web app).
 
 ## System Env Var Validation + Infrastructure Category Cleanup — 2026-02-20
@@ -978,7 +978,7 @@
 
 - **Why**: MCP server stored OAuth tokens (user Convex credentials) in in-memory Maps. Every Railway deploy/restart wiped all tokens, forcing users to re-authenticate by entering their Convex URL + deploy key again.
 - **Solution**: New `mcpTokens` Convex table stores token→credentials mapping with encrypted deploy keys (AES-256-GCM via existing `encryption.ts`). MCP server writes to Convex on token creation (fire-and-forget) and falls back to Convex on cache miss after restart.
-- **Architecture**: In-memory Map kept as hot cache for zero-latency reads. Convex actions (`mcpTokensActions.ts`) handle encryption/decryption server-side — MCP server only needs `CONDUCTOR_CONVEX_URL` + `CONDUCTOR_DEPLOY_KEY` env vars, not `ENCRYPTION_KEY`.
+- **Architecture**: In-memory Map kept as hot cache for zero-latency reads. Convex actions (`mcpTokensActions.ts`) handle encryption/decryption server-side — MCP server only needs `CONVEX_CLOUD_URL` + `CONDUCTOR_DEPLOY_KEY` env vars, not `ENCRYPTION_KEY`.
 - **Graceful degradation**: If Conductor env vars aren't set, server falls back to in-memory-only behavior (current behavior). No breaking changes.
 
 ## Chrome Extension Distribution Pipeline — 2026-02-19

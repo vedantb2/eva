@@ -65,7 +65,7 @@ jobs:
           printf '%s' "$CUSTOM_COMMANDS" | jq -r '.[] | "RUN \(.)"' >> Dockerfile.snapshot
 
           cat >> Dockerfile.snapshot <<'TAILEOF'
-          WORKDIR /workspace/repo/apps/web
+          WORKDIR /workspace/repo
           RUN pnpm install
           TAILEOF
 

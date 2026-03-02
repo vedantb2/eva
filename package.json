@@ -18,7 +18,7 @@
     "desktop:dev": "pnpm --filter conductor-desktop dev",
     "desktop:build": "pnpm --filter conductor-desktop build",
     "desktop:dist": "pnpm --filter conductor-desktop dist",
-    "mcp:dev": "pnpm --filter conductor-mcp-server dev",
+    "mcp:dev": "pnpm --filter conductor-mcp dev",
     "prepare": "husky"
   },
   "lint-staged": {

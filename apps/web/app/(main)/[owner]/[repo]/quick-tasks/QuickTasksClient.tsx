@@ -311,72 +311,126 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
           </div>
         }
       >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
-          <AnimatePresence mode="wait">
-            {tasks === undefined ? (
+        <div className="relative flex min-w-0 flex-1 min-h-0 overflow-hidden">
+          <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
+            <AnimatePresence mode="wait">
+              {tasks === undefined ? (
+                <motion.div
+                  key="quick-tasks-loading"
+                  className="flex flex-1 items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Spinner />
+                </motion.div>
+              ) : !hasQuickTasks ? (
+                <motion.div
+                  key="quick-tasks-empty"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <EmptyState
+                    icon={
+                      <IconChecklist
+                        size={24}
+                        className="text-muted-foreground"
+                      />
+                    }
+                    title="No quick tasks"
+                    description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+                    actionLabel="Create Quick Task"
+                    onAction={() => setIsCreating(true)}
+                  />
+                </motion.div>
+              ) : view === "kanban" ? (
+                <motion.div
+                  key="quick-tasks-board"
+                  className="flex min-w-0 flex-1 min-h-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <QuickTasksKanbanBoard
+                    repoId={repo._id}
+                    isSelecting={isSelecting}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onOpenTask={handleOpenTask}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="quick-tasks-list"
+                  className="flex min-w-0 flex-1 min-h-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <QuickTasksListView
+                    repoId={repo._id}
+                    isSelecting={isSelecting}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onOpenTask={handleOpenTask}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {hasQuickTasks && isSelecting && (
+                <motion.div
+                  key="quick-tasks-actions-bottom"
+                  className="absolute inset-x-2 bottom-2 z-20 flex justify-center"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 16 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg backdrop-blur">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={exitSelectMode}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="motion-press min-w-36 hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={() => setIsActionsDialogOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <IconBolt size={16} />
+                      Actions
+                      {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <AnimatePresence initial={false}>
+            {selectedTaskId && (
               <motion.div
-                key="quick-tasks-loading"
-                className="flex flex-1 items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                key="quick-task-detail-panel"
+                className="w-[520px] flex-shrink-0 overflow-hidden h-full"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.2 }}
               >
-                <Spinner />
-              </motion.div>
-            ) : !hasQuickTasks ? (
-              <motion.div
-                key="quick-tasks-empty"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <EmptyState
-                  icon={
-                    <IconChecklist
-                      size={24}
-                      className="text-muted-foreground"
-                    />
-                  }
-                  title="No quick tasks"
-                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-                  actionLabel="Create Quick Task"
-                  onAction={() => setIsCreating(true)}
-                />
-              </motion.div>
-            ) : view === "kanban" ? (
-              <motion.div
-                key="quick-tasks-board"
-                className="flex min-w-0 flex-1 min-h-0"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <QuickTasksKanbanBoard
-                  repoId={repo._id}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="quick-tasks-list"
-                className="flex min-w-0 flex-1 min-h-0"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <QuickTasksListView
-                  repoId={repo._id}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
+                <TaskDetailModal
+                  inline
+                  isOpen={true}
+                  onClose={handleTaskClose}
+                  taskId={selectedTaskId as Id<"agentTasks">}
                 />
               </motion.div>
             )}
@@ -542,13 +596,6 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={!!selectedTaskId}
-          onClose={handleTaskClose}
-          taskId={selectedTaskId as Id<"agentTasks">}
-        />
-      )}
     </>
   );
 }

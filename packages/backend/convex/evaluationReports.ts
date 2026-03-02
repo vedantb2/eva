@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { evaluationStatusValidator, evalResultValidator } from "./validators";
 
 const reportValidator = v.object({
@@ -20,6 +20,9 @@ export const listByDoc = authQuery({
   args: { docId: v.id("docs") },
   returns: v.array(reportValidator),
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
+      return [];
     const reports = await ctx.db
       .query("evaluationReports")
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
@@ -32,7 +35,10 @@ export const get = authQuery({
   args: { id: v.id("evaluationReports") },
   returns: v.union(reportValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const report = await ctx.db.get(args.id);
+    if (!report) return null;
+    if (!(await hasRepoAccess(ctx.db, report.repoId, ctx.userId))) return null;
+    return report;
   },
 });
 
@@ -43,6 +49,9 @@ export const create = authMutation({
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     const now = Date.now();
     return await ctx.db.insert("evaluationReports", {
       repoId: args.repoId,

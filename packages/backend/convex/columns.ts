@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasBoardAccess } from "./functions";
 
 const columnValidator = v.object({
   _id: v.id("columns"),
@@ -15,7 +15,7 @@ export const listByBoard = authQuery({
   returns: v.array(columnValidator),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return [];
     }
     const columns = await ctx.db
@@ -34,7 +34,7 @@ export const create = authMutation({
   returns: v.id("columns"),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Board not found");
     }
     const columns = await ctx.db
@@ -64,7 +64,7 @@ export const update = authMutation({
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Column not found");
     }
     if (args.isRunColumn === true) {
@@ -98,7 +98,7 @@ export const reorder = authMutation({
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Column not found");
     }
     const oldOrder = column.order;
@@ -135,7 +135,7 @@ export const remove = authMutation({
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Column not found");
     }
     const tasks = await ctx.db

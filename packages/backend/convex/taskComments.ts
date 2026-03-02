@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasBoardAccess } from "./functions";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
@@ -20,7 +20,7 @@ export const listByTask = authQuery({
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return [];
     }
     const comments = await ctx.db
@@ -43,7 +43,7 @@ export const create = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const commentId = await ctx.db.insert("taskComments", {
@@ -78,7 +78,7 @@ export const remove = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Comment not found");
     }
     await ctx.db.delete(args.id);

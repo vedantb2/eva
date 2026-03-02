@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { taskStatusValidator } from "./validators";
-import { authQuery, authMutation } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasRepoAccess,
+  hasBoardAccess,
+} from "./functions";
 
 const boardValidator = v.object({
   _id: v.id("boards"),
@@ -41,10 +46,40 @@ export const list = authQuery({
   args: {},
   returns: v.array(boardValidator),
   handler: async (ctx) => {
-    return await ctx.db
+    const ownedBoards = await ctx.db
       .query("boards")
       .withIndex("by_owner", (q) => q.eq("ownerId", ctx.userId))
       .collect();
+    const teamMemberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+    const teamIds = new Set(teamMemberships.map((m) => m.teamId));
+    if (teamIds.size === 0) return ownedBoards;
+    const allRepos = await ctx.db.query("githubRepos").collect();
+    const teamRepoIds = new Set(
+      allRepos
+        .filter(
+          (r) =>
+            r.teamId && teamIds.has(r.teamId) && r.connectedBy !== ctx.userId,
+        )
+        .map((r) => r._id),
+    );
+    if (teamRepoIds.size === 0) return ownedBoards;
+    const ownedBoardIds = new Set(ownedBoards.map((b) => b._id));
+    const teamBoards: typeof ownedBoards = [];
+    for (const repoId of teamRepoIds) {
+      const boards = await ctx.db
+        .query("boards")
+        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+        .collect();
+      for (const board of boards) {
+        if (!ownedBoardIds.has(board._id)) {
+          teamBoards.push(board);
+        }
+      }
+    }
+    return [...ownedBoards, ...teamBoards];
   },
 });
 
@@ -52,11 +87,11 @@ export const listByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(boardValidator),
   handler: async (ctx, args) => {
-    const boards = await ctx.db
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+    return await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return boards.filter((b) => b.ownerId === ctx.userId);
   },
 });
 
@@ -65,7 +100,7 @@ export const get = authQuery({
   returns: v.union(boardValidator, v.null()),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return null;
     }
     return board;
@@ -88,7 +123,7 @@ export const getWithColumns = authQuery({
   ),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return null;
     }
     const columns = await ctx.db
@@ -114,6 +149,12 @@ export const create = authMutation({
   args: { name: v.string(), repoId: v.optional(v.id("githubRepos")) },
   returns: v.id("boards"),
   handler: async (ctx, args) => {
+    if (
+      args.repoId &&
+      !(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))
+    ) {
+      throw new Error("Not authorized");
+    }
     const boardId = await ctx.db.insert("boards", {
       name: args.name,
       ownerId: ctx.userId,
@@ -145,7 +186,7 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Board not found");
     }
     await ctx.db.patch(args.id, { name: args.name });
@@ -158,7 +199,7 @@ export const remove = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.id);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Board not found");
     }
     const tasks = await ctx.db

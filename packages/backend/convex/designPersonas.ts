@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 
 const designPersonaValidator = v.object({
   _id: v.id("designPersonas"),
@@ -14,6 +14,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designPersonaValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     return await ctx.db
       .query("designPersonas")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -25,7 +26,10 @@ export const get = authQuery({
   args: { id: v.id("designPersonas") },
   returns: v.union(designPersonaValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const persona = await ctx.db.get(args.id);
+    if (!persona) return null;
+    if (!(await hasRepoAccess(ctx.db, persona.repoId, ctx.userId))) return null;
+    return persona;
   },
 });
 
@@ -37,6 +41,9 @@ export const create = authMutation({
   },
   returns: v.id("designPersonas"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     return await ctx.db.insert("designPersonas", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -56,7 +63,8 @@ export const update = authMutation({
   handler: async (ctx, args) => {
     const persona = await ctx.db.get(args.id);
     if (!persona) throw new Error("Persona not found");
-    if (persona.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, persona.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     await ctx.db.patch(args.id, { name: args.name, prompt: args.prompt });
     return null;
   },
@@ -68,7 +76,8 @@ export const remove = authMutation({
   handler: async (ctx, args) => {
     const persona = await ctx.db.get(args.id);
     if (!persona) throw new Error("Persona not found");
-    if (persona.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, persona.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     await ctx.db.delete(args.id);
     return null;
   },

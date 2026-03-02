@@ -1,5 +1,14 @@
 # Changelog
 
+## Team access control for all resources - 2026-03-02
+
+- **Why**: When a user was added to a team, they could only see repos but not any of the repo's resources (boards, tasks, runs, sessions, projects, docs, etc). Board access was gated by `board.ownerId === userId`, and many resources had no repo access verification at all — any authenticated user could theoretically query them.
+- **Changes**:
+  1. **`functions.ts`**: Added `hasRepoAccess(db, repoId, userId)` — checks `connectedBy` OR team membership. Added `hasBoardAccess(db, board, userId)` — checks `ownerId` OR repo access.
+  2. **Board-gated files** (`boards.ts`, `agentTasks.ts`, `columns.ts`, `subtasks.ts`, `agentRuns.ts`, `taskComments.ts`): Replaced all `board.ownerId !== ctx.userId` checks with `hasBoardAccess`. `boards.list` now returns owned + team repo boards. `boards.listByRepo` and `agentTasks.getAllTasks` now return ALL boards for accessible repos.
+  3. **Owner-only mutations** (`sessions.archive`, `projects.deleteCascade`, `designSessions.archive`, `designPersonas.update/remove`, `researchQueries.remove`, `savedQueries.update/remove`, `routines.update/remove`): Replaced `resource.userId !== ctx.userId` with `hasRepoAccess` check.
+  4. **Repo access verification** added to all `list`/`get` queries and `create` mutations across `sessions`, `projects`, `docs`, `designSessions`, `designPersonas`, `researchQueries`, `savedQueries`, `routines`, `evaluationReports`, and `analytics`.
+
 ## RepoSelect: hierarchical monorepo display + fixed spacing - 2026-03-02
 
 - **Why**: RepoSelect had flat monorepo app listings with radio button padding wasting space. Multiple apps under the same repo were harder to visually group.

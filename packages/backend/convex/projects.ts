@@ -2,7 +2,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { roleValidator, phaseValidator } from "./validators";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 
 const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -39,6 +39,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(projectValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -82,6 +83,7 @@ export const get = authQuery({
     if (!project) {
       return null;
     }
+    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) return null;
     if (project.phase === "active" || project.phase === "completed") {
       const tasks = await ctx.db
         .query("agentTasks")
@@ -116,6 +118,9 @@ export const create = authMutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     return await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -214,7 +219,7 @@ export const deleteCascade = authMutation({
     if (!project) {
       throw new Error("Project not found");
     }
-    if (project.userId !== ctx.userId) {
+    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
     const tasks = await ctx.db
@@ -276,6 +281,9 @@ export const getTaskCount = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      return 0;
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -295,6 +303,20 @@ export const getTaskProgress = authQuery({
     done: v.number(),
   }),
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (
+      !project ||
+      !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))
+    ) {
+      return {
+        total: 0,
+        todo: 0,
+        in_progress: 0,
+        business_review: 0,
+        code_review: 0,
+        done: 0,
+      };
+    }
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))

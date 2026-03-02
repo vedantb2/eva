@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { roleValidator, queryConfirmationStatusValidator } from "./validators";
 
 const researchQueryValidator = v.object({
@@ -20,6 +20,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(researchQueryValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const queries = await ctx.db
       .query("researchQueries")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -32,7 +33,10 @@ export const get = authQuery({
   args: { id: v.id("researchQueries") },
   returns: v.union(researchQueryValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const rq = await ctx.db.get(args.id);
+    if (!rq) return null;
+    if (!(await hasRepoAccess(ctx.db, rq.repoId, ctx.userId))) return null;
+    return rq;
   },
 });
 
@@ -43,6 +47,9 @@ export const create = authMutation({
   },
   returns: v.id("researchQueries"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     const now = Date.now();
     return await ctx.db.insert("researchQueries", {
       repoId: args.repoId,
@@ -160,7 +167,7 @@ export const remove = authMutation({
     if (!rq) {
       throw new Error("Query not found");
     }
-    if (rq.userId !== ctx.userId) {
+    if (!(await hasRepoAccess(ctx.db, rq.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
     const messages = await ctx.db

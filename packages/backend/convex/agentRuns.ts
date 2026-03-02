@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasBoardAccess } from "./functions";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -37,7 +37,7 @@ export const get = authQuery({
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return null;
     }
     return run;
@@ -66,7 +66,7 @@ export const getWithDetails = authQuery({
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return null;
     }
     return {
@@ -88,7 +88,7 @@ export const listByTask = authQuery({
       return [];
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return [];
     }
     const runs = await ctx.db
@@ -110,11 +110,14 @@ export const listAll = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    const boards = await ctx.db
-      .query("boards")
-      .withIndex("by_owner", (q) => q.eq("ownerId", ctx.userId))
-      .collect();
-    const boardMap = new Map(boards.map((b) => [b._id, b]));
+    const allBoards = await ctx.db.query("boards").collect();
+    const accessibleBoards = [];
+    for (const b of allBoards) {
+      if (await hasBoardAccess(ctx.db, b, ctx.userId)) {
+        accessibleBoards.push(b);
+      }
+    }
+    const boardMap = new Map(accessibleBoards.map((b) => [b._id, b]));
     const tasks = await ctx.db.query("agentTasks").collect();
     const userTasks = tasks.filter((t) => boardMap.has(t.boardId));
     const taskMap = new Map(userTasks.map((t) => [t._id, t]));
@@ -153,7 +156,7 @@ export const updateStatus = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {
@@ -187,7 +190,7 @@ export const appendLog = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {
@@ -225,7 +228,7 @@ export const complete = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Run not found");
     }
     if (run.status === "success" || run.status === "error") {

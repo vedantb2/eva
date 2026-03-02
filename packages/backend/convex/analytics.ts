@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { authQuery } from "./functions";
+import { authQuery, hasRepoAccess } from "./functions";
 
 export const getTaskStats = authQuery({
   args: {
@@ -18,6 +18,18 @@ export const getTaskStats = authQuery({
     }),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return {
+        total: 0,
+        byStatus: {
+          todo: 0,
+          in_progress: 0,
+          business_review: 0,
+          code_review: 0,
+          done: 0,
+        },
+      };
+    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -66,6 +78,14 @@ export const getRunStats = authQuery({
     prsCreated: v.number(),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return {
+        total: 0,
+        byStatus: { queued: 0, running: 0, success: 0, error: 0 },
+        successRate: 0,
+        prsCreated: 0,
+      };
+    }
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -122,6 +142,13 @@ export const getSessionStats = authQuery({
     }),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return {
+        total: 0,
+        active: 0,
+        messagesByMode: { execute: 0, ask: 0, plan: 0, flag: 0 },
+      };
+    }
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -174,6 +201,13 @@ export const getProjectStats = authQuery({
     ),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return {
+        total: 0,
+        byPhase: { draft: 0, finalized: 0, active: 0, completed: 0 },
+        topProjects: [],
+      };
+    }
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -217,6 +251,15 @@ export const getImpactStats = authQuery({
     tasksCompleted: v.number(),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return {
+        prsShipped: 0,
+        totalSessions: 0,
+        sessionsWithPr: 0,
+        shipRate: 0,
+        tasksCompleted: 0,
+      };
+    }
     const startTime = args.startTime;
     const prUrls = new Set<string>();
     const sessions = await ctx.db
@@ -293,6 +336,9 @@ export const getActiveUsers = authQuery({
     count: v.number(),
   }),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return { count: 0 };
+    }
     const fiveMinAgo = Date.now() - 300_000;
     const activeSessions = await ctx.db
       .query("sessions")
@@ -334,6 +380,7 @@ export const getActivityTimeline = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const now = Date.now();
     const buckets: Record<
       number,
@@ -455,6 +502,7 @@ export const getLeaderboard = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 
 const routineValidator = v.object({
   _id: v.id("routines"),
@@ -20,6 +20,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(routineValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     return await ctx.db
       .query("routines")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -31,7 +32,10 @@ export const get = authQuery({
   args: { id: v.id("routines") },
   returns: v.union(routineValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const routine = await ctx.db.get(args.id);
+    if (!routine) return null;
+    if (!(await hasRepoAccess(ctx.db, routine.repoId, ctx.userId))) return null;
+    return routine;
   },
 });
 
@@ -45,6 +49,9 @@ export const create = authMutation({
   },
   returns: v.id("routines"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     const now = Date.now();
     return await ctx.db.insert("routines", {
       repoId: args.repoId,
@@ -73,7 +80,8 @@ export const update = authMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Routine not found");
-    if (existing.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, existing.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     const updates: {
       title?: string;
       description?: string;
@@ -98,7 +106,8 @@ export const remove = authMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Routine not found");
-    if (existing.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, existing.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     await ctx.db.delete(args.id);
     return null;
   },

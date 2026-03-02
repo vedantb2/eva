@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasBoardAccess,
+  hasRepoAccess,
+} from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
   if (tags === undefined) {
@@ -48,7 +53,7 @@ export const listByBoard = authQuery({
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
     const board = await ctx.db.get(args.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return [];
     }
     return await ctx.db
@@ -67,7 +72,7 @@ export const listByColumn = authQuery({
       return [];
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return [];
     }
     const tasks = await ctx.db
@@ -98,7 +103,7 @@ export const get = authQuery({
       return null;
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       return null;
     }
     return task;
@@ -123,7 +128,7 @@ export const create = authMutation({
       throw new Error("Column not found");
     }
     const board = await ctx.db.get(column.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Column not found");
     }
     const tasks = await ctx.db
@@ -170,7 +175,7 @@ export const update = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
@@ -212,7 +217,7 @@ export const moveToColumn = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const targetColumn = await ctx.db.get(args.columnId);
@@ -265,7 +270,7 @@ export const updateOrder = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     await ctx.db.patch(args.id, {
@@ -288,7 +293,7 @@ export const updateStatus = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const workStatuses = [
@@ -368,11 +373,16 @@ export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const boards = await ctx.db.query("boards").collect();
-    const ownedBoards = boards.filter((b) => b.ownerId === ctx.userId);
+    const allBoards = await ctx.db.query("boards").collect();
+    const accessibleBoards = [];
+    for (const b of allBoards) {
+      if (await hasBoardAccess(ctx.db, b, ctx.userId)) {
+        accessibleBoards.push(b);
+      }
+    }
     const relevantBoards = args.repoId
-      ? ownedBoards.filter((b) => b.repoId === args.repoId)
-      : ownedBoards;
+      ? accessibleBoards.filter((b) => b.repoId === args.repoId)
+      : accessibleBoards;
     const activeTasks = [];
     for (const board of relevantBoards) {
       const tasks = await ctx.db
@@ -401,7 +411,7 @@ export const remove = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const runs = await ctx.db
@@ -434,13 +444,13 @@ export const getAllTasks = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const boards = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const ownedBoards = boards.filter((b) => b.ownerId === ctx.userId);
     const allTasks = [];
-    for (const board of ownedBoards) {
+    for (const board of boards) {
       const tasks = await ctx.db
         .query("agentTasks")
         .withIndex("by_board", (q) => q.eq("boardId", board._id))
@@ -619,7 +629,7 @@ export const startExecution = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     if (!task.repoId) {
@@ -788,7 +798,7 @@ export const deleteCascade = authMutation({
       throw new Error("Task not found");
     }
     const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
       throw new Error("Task not found");
     }
     const tasksToDelete: Id<"agentTasks">[] = [args.id];

@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { Timeline } from "convex-timeline";
 import { components } from "./_generated/api";
 import { evaluationStatusValidator, roleValidator } from "./validators";
@@ -50,6 +50,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(docValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     return await ctx.db
       .query("docs")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -61,7 +62,10 @@ export const get = authQuery({
   args: { id: v.id("docs") },
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const doc = await ctx.db.get(args.id);
+    if (!doc) return null;
+    if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) return null;
+    return doc;
   },
 });
 
@@ -78,6 +82,9 @@ export const create = authMutation({
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     const now = Date.now();
     return await ctx.db.insert("docs", {
       repoId: args.repoId,

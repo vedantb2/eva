@@ -8,7 +8,7 @@ import {
   sessionStatusValidator,
   variationValidator,
 } from "./validators";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -30,6 +30,7 @@ export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = await ctx.db
       .query("designSessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -47,6 +48,7 @@ export const listArchived = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = await ctx.db
       .query("designSessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
@@ -64,7 +66,10 @@ export const get = authQuery({
   args: { id: v.id("designSessions") },
   returns: v.union(designSessionValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const session = await ctx.db.get(args.id);
+    if (!session) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
+    return session;
   },
 });
 
@@ -75,6 +80,9 @@ export const create = authMutation({
   },
   returns: v.id("designSessions"),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     return await ctx.db.insert("designSessions", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -368,7 +376,8 @@ export const archive = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
-    if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     await ctx.db.patch(args.id, { archived: true });
     return null;
   },

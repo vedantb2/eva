@@ -31,6 +31,10 @@ import {
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
+import { DeleteTasksModal } from "@/lib/components/quick-tasks/DeleteTasksModal";
+import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
+import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
+import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
@@ -42,9 +46,23 @@ import {
   IconList,
   IconFileImport,
   IconBolt,
+  IconTrash,
+  IconTags,
+  IconUser,
+  IconUserCheck,
+  IconRefresh,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
+
+type BulkAction =
+  | "actions"
+  | "group"
+  | "delete"
+  | "addLabels"
+  | "assign"
+  | "assignMe"
+  | "changeStatus";
 
 interface QuickTasksClientProps {
   initialTaskId?: string;
@@ -63,8 +81,9 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const [selectedIds, setSelectedIds] = useState<Set<Id<"agentTasks">>>(
     new Set(),
   );
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [isActionsDialogOpen, setIsActionsDialogOpen] = useState(false);
+  const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
+    null,
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [{ q, view }, setParams] = useQueryStates({
     q: searchParser,
@@ -77,6 +96,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
+
+  const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
   useEffect(() => {
     setSelectedTaskId(initialTaskId ?? null);
@@ -115,7 +136,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const exitSelectMode = () => {
     setIsSelecting(false);
     setSelectedIds(new Set());
-    setIsActionsDialogOpen(false);
+    setActiveBulkAction(null);
   };
 
   const handleOpenTask = (taskId: string) => {
@@ -382,7 +403,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   <Button
                     size="sm"
                     className="motion-press min-w-36 hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={() => setIsActionsDialogOpen(true)}
+                    onClick={() => setActiveBulkAction("actions")}
                     disabled={selectedIds.size === 0}
                   >
                     <IconBolt size={16} />
@@ -404,12 +425,49 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         onClose={() => setIsImporting(false)}
       />
       <GroupTasksModal
-        isOpen={isGroupModalOpen}
-        onClose={() => setIsGroupModalOpen(false)}
+        isOpen={activeBulkAction === "group"}
+        onClose={() => setActiveBulkAction(null)}
         selectedTaskIds={selectedIds}
         onSuccess={exitSelectMode}
       />
-      <Dialog open={isActionsDialogOpen} onOpenChange={setIsActionsDialogOpen}>
+      <DeleteTasksModal
+        isOpen={activeBulkAction === "delete"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+      />
+      <AddLabelsModal
+        isOpen={activeBulkAction === "addLabels"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTasks={selectedTasks}
+        onSuccess={exitSelectMode}
+      />
+      <AssignTasksModal
+        isOpen={activeBulkAction === "assign"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+        mode="pick"
+      />
+      <AssignTasksModal
+        isOpen={activeBulkAction === "assignMe"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+        mode="me"
+      />
+      <ChangeStatusModal
+        isOpen={activeBulkAction === "changeStatus"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+      />
+      <Dialog
+        open={activeBulkAction === "actions"}
+        onOpenChange={(v) => {
+          if (!v) setActiveBulkAction(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Selected task actions</DialogTitle>
@@ -418,20 +476,66 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
               selected
             </DialogDescription>
           </DialogHeader>
-          <Button
-            onClick={() => {
-              setIsActionsDialogOpen(false);
-              setIsGroupModalOpen(true);
-            }}
-            disabled={selectedIds.size === 0}
-          >
-            <IconFolders size={16} />
-            Group into Project
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("group")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconFolders size={16} />
+              Group into Project
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("addLabels")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconTags size={16} />
+              Add Labels
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("assign")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconUser size={16} />
+              Assign to...
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("assignMe")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconUserCheck size={16} />
+              Assign to Me
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("changeStatus")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconRefresh size={16} />
+              Change Status
+            </Button>
+            <Button
+              variant="destructive"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("delete")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconTrash size={16} />
+              Delete All
+            </Button>
+          </div>
           <DialogFooter>
             <Button
               variant="secondary"
-              onClick={() => setIsActionsDialogOpen(false)}
+              onClick={() => setActiveBulkAction(null)}
             >
               Close
             </Button>

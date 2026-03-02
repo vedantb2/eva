@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button, Spinner } from "@conductor/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
+import { useAction } from "convex/react";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -48,24 +51,6 @@ function isControlMessage(
   return obj.type === "control";
 }
 
-async function fetchWsUrl(
-  sessionId: string,
-  cols: number,
-  rows: number,
-): Promise<{ wsUrl: string; ptySessionId: string }> {
-  const params = new URLSearchParams({
-    sessionId,
-    cols: String(cols),
-    rows: String(rows),
-  });
-  const response = await fetch(`/api/sessions/terminal?${params}`);
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to get terminal URL");
-  }
-  return data;
-}
-
 export function TerminalPanel({
   sessionId,
   sandboxId,
@@ -81,37 +66,38 @@ export function TerminalPanel({
   const intentionalCloseRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
 
-  useEffect(() => {
-    if (!isActive || !sandboxId || !terminalRef.current) {
-      return;
-    }
+  const connectPty = useAction(api.pty.connectPty);
+  const resizePtyAction = useAction(api.pty.resizePty);
+  const disconnectPtyAction = useAction(api.pty.disconnectPty);
 
-    let isMounted = true;
-    const decoder = new TextDecoder();
+  const typedSessionId = sessionId as Id<"sessions">;
 
-    const connectWebSocket = async (terminal: Terminal) => {
-      const { wsUrl } = await fetchWsUrl(
-        sessionId,
-        terminal.cols,
-        terminal.rows,
-      );
+  const resizePtyRef = useRef(resizePtyAction);
+  resizePtyRef.current = resizePtyAction;
+  const disconnectPtyRef = useRef(disconnectPtyAction);
+  disconnectPtyRef.current = disconnectPtyAction;
 
-      if (!isMounted) {
-        return;
-      }
+  const connectWebSocket = useCallback(
+    async (terminal: Terminal, mounted: { current: boolean }) => {
+      const { wsUrl } = await connectPty({
+        sessionId: typedSessionId,
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
+
+      if (!mounted.current) return;
 
       const ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
+      const decoder = new TextDecoder();
 
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
       };
 
       ws.onmessage = (event) => {
-        if (!terminalInstanceRef.current) {
-          return;
-        }
+        if (!terminalInstanceRef.current) return;
 
         if (typeof event.data === "string") {
           try {
@@ -144,7 +130,7 @@ export function TerminalPanel({
 
       ws.onclose = () => {
         if (
-          !isMounted ||
+          !mounted.current ||
           intentionalCloseRef.current ||
           reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
         ) {
@@ -159,8 +145,10 @@ export function TerminalPanel({
         }
 
         setTimeout(() => {
-          if (isMounted && terminalInstanceRef.current) {
-            connectWebSocket(terminalInstanceRef.current).catch(() => {});
+          if (mounted.current && terminalInstanceRef.current) {
+            connectWebSocket(terminalInstanceRef.current, mounted).catch(
+              () => {},
+            );
           }
         }, RECONNECT_DELAY_MS);
       };
@@ -170,7 +158,16 @@ export function TerminalPanel({
           ws.send(data);
         }
       });
-    };
+    },
+    [connectPty, typedSessionId],
+  );
+
+  useEffect(() => {
+    if (!isActive || !sandboxId || !terminalRef.current) {
+      return;
+    }
+
+    const mounted = { current: true };
 
     const initTerminal = async () => {
       setIsLoading(true);
@@ -222,9 +219,9 @@ export function TerminalPanel({
 
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
-        await connectWebSocket(terminal);
+        await connectWebSocket(terminal, mounted);
       } catch (err) {
-        if (isMounted) {
+        if (mounted.current) {
           setError(
             err instanceof Error
               ? err.message
@@ -232,7 +229,7 @@ export function TerminalPanel({
           );
         }
       } finally {
-        if (isMounted) {
+        if (mounted.current) {
           setIsLoading(false);
         }
       }
@@ -241,7 +238,7 @@ export function TerminalPanel({
     initTerminal();
 
     return () => {
-      isMounted = false;
+      mounted.current = false;
       intentionalCloseRef.current = true;
       if (wsRef.current) {
         wsRef.current.close();
@@ -251,13 +248,9 @@ export function TerminalPanel({
         terminalInstanceRef.current.dispose();
         terminalInstanceRef.current = null;
       }
-      fetch("/api/sessions/terminal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, action: "disconnect" }),
-      }).catch(() => {});
+      disconnectPtyRef.current({ sessionId: typedSessionId }).catch(() => {});
     };
-  }, [isActive, sandboxId, sessionId, retryCount]);
+  }, [isActive, sandboxId, typedSessionId, retryCount, connectWebSocket]);
 
   useEffect(() => {
     if (!terminalRef.current) {
@@ -275,16 +268,14 @@ export function TerminalPanel({
       if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
-        fetch("/api/sessions/terminal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, action: "resize", cols, rows }),
-        }).catch(() => {});
+        resizePtyRef
+          .current({ sessionId: typedSessionId, cols, rows })
+          .catch(() => {});
       }
     });
     observer.observe(terminalRef.current);
     return () => observer.disconnect();
-  }, [sessionId]);
+  }, [typedSessionId]);
 
   if (!isActive || !sandboxId) {
     return (

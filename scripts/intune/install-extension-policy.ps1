@@ -15,7 +15,7 @@
 
 param(
     [string]$ExtensionId = "YOUR_EXTENSION_ID_HERE",
-    [string]$UpdateUrl = "https://YOUR_APP_URL/api/updates/extension?file=updates.xml"
+    [string]$UpdateUrl = "https://YOUR_CONVEX_SITE_URL/api/updates/extension/updates.xml"
 )
 
 $ErrorActionPreference = "Stop"

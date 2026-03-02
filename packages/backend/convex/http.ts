@@ -73,4 +73,70 @@ http.route({
   }),
 });
 
+const EXTENSION_ID = process.env.EXTENSION_ID ?? "conductor-extension";
+
+http.route({
+  path: "/api/updates/extension/updates.xml",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const release = await ctx.runQuery(
+      internal.extensionReleases.getLatestInternal,
+      {},
+    );
+
+    if (!release) {
+      const xml = `<?xml version='1.0' encoding='UTF-8'?>
+<gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
+  <app appid='${EXTENSION_ID}'>
+    <updatecheck status='noupdate' />
+  </app>
+</gupdate>`;
+      return new Response(xml, {
+        headers: {
+          "Content-Type": "application/xml",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
+    const siteUrl = process.env.CONVEX_SITE_URL ?? "";
+    const crxUrl =
+      release.crxUrl ?? `${siteUrl}/api/updates/extension/conductor.crx`;
+
+    const xml = `<?xml version='1.0' encoding='UTF-8'?>
+<gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
+  <app appid='${EXTENSION_ID}'>
+    <updatecheck codebase='${crxUrl}' version='${release.version}' />
+  </app>
+</gupdate>`;
+
+    return new Response(xml, {
+      headers: {
+        "Content-Type": "application/xml",
+        "Cache-Control": "no-cache",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/api/updates/extension/conductor.crx",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const release = await ctx.runQuery(
+      internal.extensionReleases.getLatestInternal,
+      {},
+    );
+
+    if (!release?.crxUrl) {
+      return Response.json(
+        { error: "No extension release found. Run ext:release first." },
+        { status: 404 },
+      );
+    }
+
+    return Response.redirect(release.crxUrl, 302);
+  }),
+});
+
 export default http;

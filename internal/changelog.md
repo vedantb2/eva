@@ -1,5 +1,14 @@
 # Changelog
 
+## Migrate Next.js API routes to Convex - 2026-03-02
+
+- **Why**: Extension update and terminal PTY routes were unnecessary Next.js middlemen — they just authenticated and forwarded to Convex. Moving them to Convex eliminates the hop, reduces latency, and removes the dependency on Next.js server for these flows.
+- **Changes**:
+  1. **Extension updates → Convex HTTP routes**: Added `GET /api/updates/extension/updates.xml` and `GET /api/updates/extension/conductor.crx` to `http.ts`. Added `getLatestInternal` query to `extensionReleases.ts`. Deleted `apps/web/app/api/updates/extension/route.ts`.
+  2. **Terminal PTY → Convex actions**: Created `packages/backend/convex/pty.ts` with `connectPty`, `resizePty`, `disconnectPty` actions. Added `updatePtySessionInternal` mutation to `sessions.ts`. Updated `TerminalPanel.tsx` to use `useAction` instead of `fetch`. Deleted `apps/web/app/api/sessions/terminal/route.ts`.
+  3. **Cleanup**: Deleted `apps/web/lib/sandbox.ts` and `apps/web/lib/convex-auth.ts` (no other consumers). Updated Intune README, PowerShell script, and release script URL references.
+  4. **Agent login**: Kept in Next.js — dev-only, Clerk-coupled, no benefit from moving.
+
 ## Proof of completion for quick tasks - 2026-03-02
 
 - **Why**: Quick tasks execute via the same sandbox callback as sessions, but media proof never gets saved. The callback calls `screenshots:attachMedia` which only accepts session-type IDs — for tasks it fails silently. The `taskProof` table and `TaskDetailModal` display already exist but nothing populates them.

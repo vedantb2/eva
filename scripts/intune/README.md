@@ -4,7 +4,7 @@
 
 1. Extension is published via `pnpm ext:release` (uploads CRX to Convex storage)
 2. You have the 32-character Chrome extension ID (derived from the public key in manifest.json)
-3. Your web app is deployed (serves the update XML at `/api/updates/extension?file=updates.xml`)
+3. Convex is deployed (serves the update XML at `/api/updates/extension/updates.xml`)
 
 ## Option 1: Intune Settings Catalog (Recommended)
 
@@ -19,7 +19,7 @@
 {
   "YOUR_EXTENSION_ID": {
     "installation_mode": "normal_installed",
-    "update_url": "https://YOUR_APP_URL/api/updates/extension?file=updates.xml"
+    "update_url": "https://YOUR_CONVEX_SITE_URL/api/updates/extension/updates.xml"
   }
 }
 ```
@@ -36,7 +36,7 @@
    - **Name:** Chrome Extension Policy
    - **OMA-URI:** `./Device/Vendor/MSFT/Policy/Config/Chrome~Policy~googlechrome~Extensions/ExtensionSettings`
    - **Data type:** String
-   - **Value:** `{"YOUR_EXTENSION_ID":{"installation_mode":"normal_installed","update_url":"https://YOUR_APP_URL/api/updates/extension?file=updates.xml"}}`
+   - **Value:** `{"YOUR_EXTENSION_ID":{"installation_mode":"normal_installed","update_url":"https://YOUR_CONVEX_SITE_URL/api/updates/extension/updates.xml"}}`
 5. Assign to your target device group
 
 ## Option 3: Intune PowerShell Script

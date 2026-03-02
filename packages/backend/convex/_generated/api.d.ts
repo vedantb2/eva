@@ -42,6 +42,7 @@ import type * as presence from "../presence.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projects from "../projects.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
+import type * as pty from "../pty.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
@@ -113,6 +114,7 @@ declare const fullApi: ApiFromModules<{
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projects: typeof projects;
   prosemirrorSync: typeof prosemirrorSync;
+  pty: typeof pty;
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
   repoSnapshots: typeof repoSnapshots;

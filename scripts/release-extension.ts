@@ -80,7 +80,7 @@ async function main() {
   if (!ADMIN_KEY) fatal("EXTENSION_ADMIN_KEY env var required");
   if (!UPDATE_URL)
     fatal(
-      "EXTENSION_UPDATE_URL env var required (e.g. https://your-app.vercel.app/api/updates/extension?file=updates.xml)",
+      "EXTENSION_UPDATE_URL env var required (e.g. https://your-convex-site.convex.site/api/updates/extension/updates.xml)",
     );
 
   if (!existsSync(PEM_PATH)) {

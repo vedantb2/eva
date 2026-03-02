@@ -47,17 +47,7 @@ export const getRepoSnapshot = authQuery({
       .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return null;
-    return {
-      _id: doc._id,
-      _creationTime: doc._creationTime,
-      repoId: doc.repoId,
-      snapshotName: doc.snapshotName,
-      schedule: doc.schedule,
-      cronJobId: doc.cronJobId,
-      workflowRef: doc.workflowRef,
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
-    };
+    return doc;
   },
 });
 

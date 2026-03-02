@@ -145,6 +145,7 @@ export function Sidebar() {
       "teams",
       "inbox",
       "api",
+      "settings",
     ]);
     if (nonRepoRoutes.has(segments[0])) {
       return {

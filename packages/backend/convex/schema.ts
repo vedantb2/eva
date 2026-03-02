@@ -22,6 +22,7 @@ import {
   snapshotBuildTriggerValidator,
   teamMemberRoleValidator,
   variationValidator,
+  customThemeValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -34,6 +35,7 @@ const schema = defineSchema({
     isAdmin: v.optional(v.boolean()),
     role: v.optional(roleUserValidator),
     theme: v.optional(themeValidator),
+    customTheme: v.optional(customThemeValidator),
     toolbarVisible: v.optional(v.boolean()),
     lastSeenAt: v.optional(v.number()),
   })

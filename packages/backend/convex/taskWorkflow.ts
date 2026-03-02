@@ -190,7 +190,11 @@ export const taskExecutionWorkflow = workflow.define({
           baseBranch: args.baseBranch,
           title: data.taskTitle,
           description: data.taskDescription,
-          labels: ["eva", args.projectId ? "project" : "quick-task"],
+          labels: [
+            "eva",
+            args.projectId ? "project" : "quick-task",
+            ...(data.appLabel ? [data.appLabel] : []),
+          ],
         },
       );
     }
@@ -317,6 +321,7 @@ export const getTaskData = internalQuery({
     taskDescription: v.optional(v.string()),
     projectSandboxId: v.optional(v.string()),
     hasSubtasks: v.boolean(),
+    appLabel: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -349,6 +354,10 @@ export const getTaskData = internalQuery({
       !args.projectId,
     );
 
+    const appLabel = repo.rootDirectory
+      ? repo.rootDirectory.split("/").pop() || undefined
+      : undefined;
+
     return {
       prompt,
       repoOwner: repo.owner,
@@ -358,6 +367,7 @@ export const getTaskData = internalQuery({
       taskDescription: task.description,
       projectSandboxId,
       hasSubtasks: sortedSubtasks.length > 0,
+      appLabel,
     };
   },
 });

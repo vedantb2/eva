@@ -1,37 +1,16 @@
-"use client";
+import { Suspense } from "react";
+import { AgentCallback } from "./AgentCallback";
 
-import { useSignIn } from "@clerk/nextjs";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
-
-export default function AgentCallbackPage() {
-  const { signIn, setActive } = useSignIn();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const consumed = useRef(false);
-
-  useEffect(() => {
-    const ticket = searchParams.get("ticket");
-    if (!ticket || !signIn || consumed.current) return;
-    consumed.current = true;
-
-    signIn
-      .create({ strategy: "ticket", ticket })
-      .then((result) => {
-        if (result.createdSessionId) {
-          return setActive({ session: result.createdSessionId }).then(() => {
-            router.replace("/home");
-          });
-        }
-      })
-      .catch((err: Error) => {
-        console.error("Agent sign-in failed:", err);
-      });
-  }, [signIn, setActive, searchParams, router]);
-
+export default function Page() {
   return (
-    <div className="flex h-screen items-center justify-center">
-      <p className="text-muted-foreground">Signing in...</p>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <p className="text-muted-foreground">Signing in...</p>
+        </div>
+      }
+    >
+      <AgentCallback />
+    </Suspense>
   );
 }

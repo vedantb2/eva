@@ -21,8 +21,13 @@ import {
 type DesktopState = "idle" | "starting" | "running" | "error";
 
 function appendNoVncParams(baseUrl: string): string {
-  const separator = baseUrl.includes("?") ? "&" : "?";
-  return `${baseUrl}${separator}autoconnect=true&resize=scale&quality=4&compression=2`;
+  const url = new URL(baseUrl);
+  url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
+  url.searchParams.set("autoconnect", "true");
+  url.searchParams.set("resize", "scale");
+  url.searchParams.set("quality", "4");
+  url.searchParams.set("compression", "2");
+  return url.toString();
 }
 
 function getCachedDesktop(sessionId: string): string | null {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Fix four session/sandbox UX issues - 2026-03-02
+
+- **Summary streaming leak**: Summary section was showing streaming activity during the gap between user sending a message and the assistant placeholder appearing. Added `!isSending` guard.
+- **Activity steps capped at 100**: Callback script was slicing accumulated steps to last 100 before streaming. Removed the cap — each step is ~80 bytes so even 500 steps is well within Convex limits.
+- **VNC tab showing directory listing**: `appendNoVncParams` was appending query params to the root URL which serves a directory listing. Now injects `/vnc_lite.html` into the path.
+- **Monorepo sessions working in wrong app**: Session prompts didn't include the repo's `rootDirectory`. Now all three prompt builders append an instruction to work inside the configured app directory.
+
 ## Always use deploy key for sandbox callbacks - 2026-03-02
 
 - **Why**: Clerk JWTs expire in ~60s but sandbox tasks run for minutes. Three auth-required calls (`taskProof:save`, `taskProof:saveMessage`, `taskWorkflow:handleCompletion`) fail after JWT expiry. Previously only scheduled tasks used deploy key; now ALL sandboxes do.

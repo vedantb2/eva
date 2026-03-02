@@ -38,11 +38,17 @@ function getResponseLengthInstruction(responseLength: string): string {
   return "";
 }
 
+function buildRootDirectoryInstruction(rootDirectory: string): string {
+  if (!rootDirectory) return "";
+  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
+}
+
 function buildAskPrompt(
   repo: { owner: string; name: string },
   conversationHistory: string,
   message: string,
   responseLength: string,
+  rootDirectory: string,
 ): string {
   return `You are answering questions about a codebase for a non-technical user. This is READ-ONLY mode.
 
@@ -64,7 +70,7 @@ CRITICAL response rules:
 - Write for someone who does NOT know programming - avoid technical jargon
 - If you must mention a file, just say the filename without the full path
 - Be direct and answer the question simply
-- DO NOT modify any files${getResponseLengthInstruction(responseLength)}`;
+- DO NOT modify any files${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(
@@ -73,6 +79,7 @@ function buildPlanPrompt(
   existingPlan: string,
   message: string,
   responseLength: string,
+  rootDirectory: string,
 ): string {
   return `You are a product planning assistant helping define a PRD (Product Requirements Document) for a feature or change. You iteratively refine the plan based on user feedback until they approve it.
 
@@ -97,7 +104,7 @@ ${message}
 - You may ONLY write to plan.md — do NOT modify any other files
 - Keep your conversational response SHORT (1-2 sentences summarizing what changed in the plan)
 - Write for a non-technical audience — focus on WHAT to build and WHY, not HOW
-- Do NOT commit or push any changes${getResponseLengthInstruction(responseLength)}`;
+- Do NOT commit or push any changes${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildExecutePrompt(
@@ -106,6 +113,7 @@ function buildExecutePrompt(
   planContent: string,
   message: string,
   responseLength: string,
+  rootDirectory: string,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
@@ -140,7 +148,7 @@ IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this
 - The GITHUB_TOKEN environment variable is set for git operations
 - Do NOT commit or push if no source code changes were made (e.g. only screenshots/recordings were taken)
 - NEVER commit image or video files — they need to be uploaded to storage separately
-- If the user asks for visual proof, screenshots, or anything requiring browser interaction, use the agent-browser skill. Save screenshots to screenshots/ and recordings to recordings/ in the repo root.${getResponseLengthInstruction(responseLength)}`;
+- If the user asks for visual proof, screenshots, or anything requiring browser interaction, use the agent-browser skill. Save screenshots to screenshots/ and recordings to recordings/ in the repo root.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
@@ -281,6 +289,8 @@ export const getSessionData = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    const rootDirectory = repo.rootDirectory ?? "";
+
     const branchName =
       args.mode === "ask"
         ? undefined
@@ -304,6 +314,7 @@ export const getSessionData = internalQuery({
         conversationHistory,
         args.message,
         args.responseLength,
+        rootDirectory,
       );
     } else if (args.mode === "plan") {
       prompt = buildPlanPrompt(
@@ -312,6 +323,7 @@ export const getSessionData = internalQuery({
         session.planContent || "",
         args.message,
         args.responseLength,
+        rootDirectory,
       );
     } else {
       prompt = buildExecutePrompt(
@@ -320,6 +332,7 @@ export const getSessionData = internalQuery({
         session.planContent || "",
         args.message,
         args.responseLength,
+        rootDirectory,
       );
     }
 

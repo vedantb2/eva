@@ -346,7 +346,7 @@ export function ChatPanel({
   const filteredMessages = messages.filter((m) => m.mode !== "flag");
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(
-    streamingActivity && !lastAssistantHasNoContent,
+    streamingActivity && !lastAssistantHasNoContent && !isSending,
   );
 
   const headerActions = (

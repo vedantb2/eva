@@ -1099,16 +1099,12 @@ export function TaskDetailModal({
                   <Button
                     variant="destructive"
                     onClick={() => setShowDeleteConfirm(true)}
-                    disabled={!isOwner}
                   >
                     <IconTrash size={18} />
                     Delete
                   </Button>
                 </div>
               </TooltipTrigger>
-              {!isOwner && (
-                <TooltipContent>Only the task owner can delete</TooltipContent>
-              )}
             </Tooltip>
             <div className="flex items-center gap-2">
               {latestPrUrl && (

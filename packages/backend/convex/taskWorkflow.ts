@@ -48,11 +48,16 @@ function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
   branchName: string,
+  isQuickTask: boolean,
 ): string {
   const subtasksList =
     subtasks.length > 0
       ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
       : "";
+
+  const commitScope = isQuickTask
+    ? "feat"
+    : `feat(task-${task.taskNumber || 1})`;
 
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
@@ -64,12 +69,22 @@ ${subtasksList}
 1. Read CLAUDE.md to understand the codebase
 2. Implement the changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A && git commit -m "feat(task-${task.taskNumber || 1}): ${task.title}"
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
 5. Run: git push -u origin ${branchName}
+
+## Proof of Completion (REQUIRED):
+After committing and pushing, you MUST capture visual proof using the agent-browser skill:
+1. Start the dev server in background, wait for it to be ready
+2. Use agent-browser to take a screenshot (simple changes) or record a video (complex multi-step changes) — pick one, not both
+3. Save to screenshots/ or recordings/ in the repo root
+4. Kill the dev server
+If the dev server fails to start or the page shows an error (e.g. env var issues, build errors), screenshot the error state anyway and save it — the user needs to see what went wrong.
+If the task has no UI changes, skip this step.
+Do NOT mention proof capture in your response or commit message.
 
 ## Rules:
 - Do NOT create .md plan files
-- Do NOT run build, lint, test, or dev commands
+- Do NOT run build, lint, test, or dev commands EXCEPT starting a dev server for proof capture after committing
 - Use the lockfile to determine the package manager
 - GITHUB_TOKEN is already set for git push`;
 }
@@ -327,7 +342,12 @@ export const getTaskData = internalQuery({
     const branchName =
       args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
-    const prompt = buildImplementationPrompt(task, sortedSubtasks, branchName);
+    const prompt = buildImplementationPrompt(
+      task,
+      sortedSubtasks,
+      branchName,
+      !args.projectId,
+    );
 
     return {
       prompt,

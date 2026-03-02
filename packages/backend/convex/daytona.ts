@@ -420,6 +420,7 @@ import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
+const ENTITY_TYPE = "${entityIdField}";
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
@@ -699,26 +700,29 @@ try {
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
 
-  // Scan for media files, upload to Convex storage, attach to the existing message
+  // Scan for media files, upload to Convex storage, attach to entity
   // If a video exists, skip screenshots (they're intermediate frames during recording)
   let videoStorageId = null;
   let imageStorageId = null;
+  let lastFileName = null;
   const recDir = WORK_DIR + "/recordings";
   if (existsSync(recDir)) {
     for (const file of readdirSync(recDir)) {
       if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
       const fp = recDir + "/" + file;
+      const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
       try {
         const urlRes = await callMutation("screenshots:generateUploadUrl", {});
         const uploadUrl = urlRes.value;
         const fileData = readFileSync(fp);
         const uploadRes = await fetch(uploadUrl, {
           method: "POST",
-          headers: { "Content-Type": file.endsWith(".mp4") ? "video/mp4" : "video/webm" },
+          headers: { "Content-Type": mimeType },
           body: fileData,
         });
         const uploadJson = await uploadRes.json();
         videoStorageId = uploadJson.storageId;
+        lastFileName = file;
       } catch {}
       try { unlinkSync(fp); } catch {}
     }
@@ -729,17 +733,21 @@ try {
       for (const file of readdirSync(ssDir)) {
         if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
         const fp = ssDir + "/" + file;
+        const ext = file.split(".").pop().toLowerCase();
+        const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+        const mimeType = mimeMap[ext] || "image/png";
         try {
           const urlRes = await callMutation("screenshots:generateUploadUrl", {});
           const uploadUrl = urlRes.value;
           const fileData = readFileSync(fp);
           const uploadRes = await fetch(uploadUrl, {
             method: "POST",
-            headers: { "Content-Type": "image/png" },
+            headers: { "Content-Type": mimeType },
             body: fileData,
           });
           const uploadJson = await uploadRes.json();
           imageStorageId = uploadJson.storageId;
+          lastFileName = file;
         } catch {}
         try { unlinkSync(fp); } catch {}
       }
@@ -747,10 +755,22 @@ try {
   }
   if (videoStorageId || imageStorageId) {
     try {
-      const mediaArgs = { parentId: ENTITY_ID };
-      if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
-      if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
-      await callAction("screenshots:attachMedia", mediaArgs);
+      if (ENTITY_TYPE === "taskId") {
+        const storageId = videoStorageId || imageStorageId;
+        await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
+      } else {
+        const mediaArgs = { parentId: ENTITY_ID };
+        if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
+        if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
+        await callAction("screenshots:attachMedia", mediaArgs);
+      }
+    } catch {}
+  } else if (ENTITY_TYPE === "taskId") {
+    try {
+      await callMutation("taskProof:saveMessage", {
+        taskId: ENTITY_ID,
+        message: "No UI changes",
+      });
     } catch {}
   }
 

@@ -6,7 +6,11 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { themeValidator, roleUserValidator } from "./validators";
+import {
+  themeValidator,
+  roleUserValidator,
+  customThemeValidator,
+} from "./validators";
 import { authQuery, authMutation } from "./functions";
 
 export async function getCurrentUserId(
@@ -217,6 +221,24 @@ export const setTheme = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(ctx.userId, { theme: args.theme });
+    return null;
+  },
+});
+
+export const getCustomTheme = authQuery({
+  args: {},
+  returns: v.union(customThemeValidator, v.null()),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.customTheme ?? null;
+  },
+});
+
+export const setCustomTheme = authMutation({
+  args: { customTheme: customThemeValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, { customTheme: args.customTheme });
     return null;
   },
 });

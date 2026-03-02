@@ -133,3 +133,25 @@ export const variationValidator = v.object({
   route: v.optional(v.string()),
   filePath: v.optional(v.string()),
 });
+
+export const accentColorValidator = v.union(
+  v.literal("teal"),
+  v.literal("blue"),
+  v.literal("purple"),
+  v.literal("rose"),
+  v.literal("orange"),
+  v.literal("green"),
+);
+
+export const radiusValidator = v.union(
+  v.literal("none"),
+  v.literal("sm"),
+  v.literal("md"),
+  v.literal("lg"),
+  v.literal("xl"),
+);
+
+export const customThemeValidator = v.object({
+  accentColor: v.optional(accentColorValidator),
+  radius: v.optional(radiusValidator),
+});

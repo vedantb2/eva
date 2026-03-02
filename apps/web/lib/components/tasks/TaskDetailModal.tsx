@@ -68,6 +68,7 @@ import dayjs from "@conductor/shared/dates";
 import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -621,31 +622,20 @@ export function TaskDetailModal({
                     Proof of Completion
                   </h4>
                   {proofs && proofs.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-3">
                       {proofs.map((proof) => (
-                        <div
-                          key={proof._id}
-                          className="relative rounded-lg overflow-hidden bg-muted"
-                        >
-                          {proof.url && proof.fileType.startsWith("image/") && (
-                            <img
-                              src={proof.url}
-                              alt={proof.fileName}
-                              className="w-full h-32 object-cover"
-                            />
-                          )}
-                          {proof.url && proof.fileType.startsWith("video/") && (
-                            <video
-                              src={proof.url}
-                              controls
-                              className="w-full h-32 object-cover"
-                            />
-                          )}
-                          <div className="p-2">
-                            <span className="text-xs text-muted-foreground truncate">
-                              {proof.fileName}
-                            </span>
-                          </div>
+                        <div key={proof._id}>
+                          {proof.message ? (
+                            <p className="text-sm text-muted-foreground">
+                              {proof.message}
+                            </p>
+                          ) : proof.url &&
+                            proof.contentType?.startsWith("image/") ? (
+                            <ScreenshotPreview url={proof.url} />
+                          ) : proof.url &&
+                            proof.contentType?.startsWith("video/") ? (
+                            <VideoPreview url={proof.url} />
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -1088,16 +1078,12 @@ export function TaskDetailModal({
               <Button
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={!isOwner}
               >
                 <IconTrash size={18} />
                 Delete
               </Button>
             </div>
           </TooltipTrigger>
-          {!isOwner && (
-            <TooltipContent>Only the task owner can delete</TooltipContent>
-          )}
         </Tooltip>
         <div className="flex items-center gap-2">
           {latestPrUrl && (

@@ -149,12 +149,12 @@ export function SpotlightSearch() {
                 <span className="text-xs text-muted-foreground">Analytics</span>
               </Command.Item>
               <Command.Item
-                value="Admin"
+                value="Settings"
                 className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/admin`)}
+                onSelect={() => handleSelect(`${basePath}/settings`)}
               >
                 <IconShield size={16} className="flex-shrink-0" />
-                <span className="flex-1">Admin</span>
+                <span className="flex-1">Settings</span>
                 <span className="text-xs text-muted-foreground">Settings</span>
               </Command.Item>
             </Command.Group>

@@ -44,11 +44,17 @@ const auditCompleteEvent = defineEvent({
 
 const WORKSPACE_DIR = "/workspace/repo";
 
+function buildRootDirectoryInstruction(rootDirectory: string): string {
+  if (!rootDirectory) return "";
+  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
+}
+
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
   branchName: string,
   isQuickTask: boolean,
+  rootDirectory: string,
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -86,7 +92,7 @@ Do NOT mention proof capture in your response or commit message.
 - Do NOT create .md plan files
 - Do NOT run build, lint, test, or dev commands EXCEPT starting a dev server for proof capture after committing
 - Use the lockfile to determine the package manager
-- GITHUB_TOKEN is already set for git push`;
+- GITHUB_TOKEN is already set for git push${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildAuditPrompt(diff: string): string {
@@ -347,11 +353,14 @@ export const getTaskData = internalQuery({
     const branchName =
       args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
+    const rootDirectory = repo.rootDirectory ?? "";
+
     const prompt = buildImplementationPrompt(
       task,
       sortedSubtasks,
       branchName,
       !args.projectId,
+      rootDirectory,
     );
 
     const appLabel = repo.rootDirectory

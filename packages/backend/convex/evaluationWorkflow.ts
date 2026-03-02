@@ -100,6 +100,11 @@ export const getDocData = internalQuery({
     const repo = await ctx.db.get(doc.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    const rootDirectory = repo.rootDirectory ?? "";
+    const rootDirInstruction = rootDirectory
+      ? `\nIMPORTANT: Unless the user mentions otherwise, focus your evaluation on the app at "${rootDirectory}".`
+      : "";
+
     const requirements = doc.requirements ?? [];
 
     // Two-phase prompt: first explore the codebase, then generate evaluation JSON
@@ -134,7 +139,7 @@ Rules:
 
 Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON object.
 
-{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}`;
+{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}${rootDirInstruction}`;
 
     return {
       repoOwner: repo.owner,

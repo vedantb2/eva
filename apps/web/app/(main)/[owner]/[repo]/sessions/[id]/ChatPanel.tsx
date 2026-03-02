@@ -145,6 +145,7 @@ interface ChatPanelProps {
   messages: SessionMessage[];
   planContent?: string;
   streamingActivity?: string;
+  summaryStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
@@ -160,6 +161,7 @@ export function ChatPanel({
   messages,
   planContent,
   streamingActivity,
+  summaryStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
@@ -345,9 +347,7 @@ export function ChatPanel({
 
   const filteredMessages = messages.filter((m) => m.mode !== "flag");
   const hasSummary = Boolean(summary && summary.length > 0);
-  const showSummaryStreaming = Boolean(
-    streamingActivity && !lastAssistantHasNoContent && !isSending,
-  );
+  const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
   const headerActions = (
     <>
@@ -443,14 +443,17 @@ export function ChatPanel({
                 <AccordionContent className="pb-2">
                   {showSummaryStreaming ? (
                     (() => {
-                      const summarySteps =
-                        parseActivitySteps(streamingActivity);
+                      const summarySteps = parseActivitySteps(
+                        summaryStreamingActivity,
+                      );
                       return summarySteps ? (
                         <ActivitySteps steps={summarySteps} isStreaming />
                       ) : (
                         <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                           <Spinner size="sm" />
-                          <span className="truncate">{streamingActivity}</span>
+                          <span className="truncate">
+                            {summaryStreamingActivity}
+                          </span>
                         </div>
                       );
                     })()

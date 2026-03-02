@@ -25,6 +25,9 @@ export function SessionDetailClient({
     parentId: sessionId,
   });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
+  const summaryStreaming = useQuery(api.streaming.get, {
+    entityId: `summary:${sessionId}`,
+  });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
@@ -97,6 +100,7 @@ export function SessionDetailClient({
           messages={messages ?? []}
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
+          summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxToggling}
           onSandboxToggle={handleSandboxToggle}

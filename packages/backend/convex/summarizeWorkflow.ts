@@ -33,7 +33,7 @@ export const summarizeSessionWorkflow = workflow.define({
     );
 
     await step.runAction(internal.daytona.setupAndExecute, {
-      entityId: args.sessionId,
+      entityId: `summary:${args.sessionId}`,
       existingSandboxId: sessionData.sandboxId,
       installationId: args.installationId,
       repoOwner: sessionData.repoOwner,
@@ -115,7 +115,9 @@ export const saveResult = internalMutation({
   handler: async (ctx, args) => {
     const streaming = await ctx.db
       .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .withIndex("by_entity", (q) =>
+        q.eq("entityId", `summary:${args.sessionId}`),
+      )
       .first();
     if (streaming) await ctx.db.delete(streaming._id);
 

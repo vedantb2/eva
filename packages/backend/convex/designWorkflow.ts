@@ -42,12 +42,18 @@ Rules for each variation file:
 - After writing all files, commit with a descriptive message and push
 - Output ONLY the JSON, no other text`;
 
+function buildRootDirectoryInstruction(rootDirectory: string): string {
+  if (!rootDirectory) return "";
+  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
+}
+
 function buildDesignPrompt(
   repo: { owner: string; name: string },
   message: string,
   conversationHistory: Array<{ role: string; content: string }>,
   selectedBase: { label: string; filePath: string } | null,
   persona: { name: string; prompt: string } | null,
+  rootDirectory: string,
 ): string {
   const history = conversationHistory
     .filter((m) => m.content)
@@ -143,7 +149,7 @@ ${personaContext}
 ${message}
 
 ## Output
-After completing all steps above, output ONLY valid JSON matching the format described in your system prompt. No other text.`;
+After completing all steps above, output ONLY valid JSON matching the format described in your system prompt. No other text.${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function extractJsonFromText(text: string): string | null {
@@ -268,12 +274,15 @@ export const getSessionDataAndPrompt = internalQuery({
       .filter((m) => m.content)
       .map((m) => ({ role: m.role, content: m.content }));
 
+    const rootDirectory = repo.rootDirectory ?? "";
+
     const prompt = buildDesignPrompt(
       { owner: repo.owner, name: repo.name },
       args.message,
       conversationHistory,
       selectedBase,
       persona,
+      rootDirectory,
     );
 
     return {

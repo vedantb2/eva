@@ -21,6 +21,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@conductor/ui";
+import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconCamera,
   IconPlayerPlay,
@@ -202,14 +203,14 @@ export function SnapshotsClient() {
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Workflow Branch
                 </label>
-                <Input
+                <BranchSelect
                   value={workflowRef}
-                  onChange={(e) => setWorkflowRef(e.target.value)}
-                  placeholder="main"
+                  onValueChange={setWorkflowRef}
                   className="h-8 text-xs"
+                  placeholder="Select a branch"
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Branch or ref where <code>rebuild-snapshot.yml</code> exists.
+                  Branch where <code>rebuild-snapshot.yml</code> exists.
                   Defaults to <code>main</code> if empty.
                 </p>
               </div>

@@ -141,7 +141,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   return (
     <>
       <PageWrapper
-        title="Quick Tasks"
+        title="Issues"
         fillHeight
         childPadding={false}
         headerCenter={

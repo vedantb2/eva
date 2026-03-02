@@ -1,3 +1,4 @@
+[] verify task grouped into project create just 1 pr
 [x] sessions etc not getting shared across team
 [x] store collapse in localstorage
 [] auto open chrome in vnc

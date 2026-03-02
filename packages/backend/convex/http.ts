@@ -15,7 +15,7 @@ function verifyMcpBootstrapToken(request: Request): boolean {
 function verifyDeployKey(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
-  const expected = process.env.CONDUCTOR_DEPLOY_KEY;
+  const expected = process.env.EVA_DEPLOY_KEY;
   if (!expected) return false;
   return auth === `Convex ${expected}`;
 }
@@ -38,10 +38,10 @@ http.route({
     if (!verifyMcpBootstrapToken(request)) {
       return new Response("Unauthorized", { status: 401 });
     }
-    const deployKey = process.env.CONDUCTOR_DEPLOY_KEY;
+    const deployKey = process.env.EVA_DEPLOY_KEY;
     if (!deployKey) {
       return new Response(
-        "CONDUCTOR_DEPLOY_KEY is not configured in Convex env vars",
+        "EVA_DEPLOY_KEY is not configured in Convex env vars",
         { status: 500 },
       );
     }

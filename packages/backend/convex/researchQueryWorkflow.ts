@@ -77,7 +77,7 @@ QUERYEOF
 cat > /tmp/run.mjs << 'RUNEOF'
 import { readFileSync } from "fs";
 const code = readFileSync("/tmp/query.js", "utf8");
-const res = await fetch(process.env.NEXT_PUBLIC_CONVEX_URL + "/api/run_test_function", {
+const res = await fetch(process.env.CONVEX_CLOUD_URL + "/api/run_test_function", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ adminKey: process.env.CONVEX_DEPLOY_KEY, args: {}, bundle: { path: "testQuery.js", source: code }, format: "convex_encoded_json" }),

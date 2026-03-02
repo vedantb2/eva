@@ -48,11 +48,16 @@ function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
   branchName: string,
+  isQuickTask: boolean,
 ): string {
   const subtasksList =
     subtasks.length > 0
       ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
       : "";
+
+  const commitScope = isQuickTask
+    ? "feat"
+    : `feat(task-${task.taskNumber || 1})`;
 
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
@@ -64,7 +69,7 @@ ${subtasksList}
 1. Read CLAUDE.md to understand the codebase
 2. Implement the changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "feat(task-${task.taskNumber || 1}): ${task.title}"
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
 5. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
@@ -337,7 +342,12 @@ export const getTaskData = internalQuery({
     const branchName =
       args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
-    const prompt = buildImplementationPrompt(task, sortedSubtasks, branchName);
+    const prompt = buildImplementationPrompt(
+      task,
+      sortedSubtasks,
+      branchName,
+      !args.projectId,
+    );
 
     return {
       prompt,

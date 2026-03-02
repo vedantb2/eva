@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { Card, CardContent } from "@conductor/ui";
 import Link from "next/link";
@@ -21,7 +21,9 @@ export function TeamEnvVarsClient() {
     repo.teamId ? { teamId: repo.teamId } : "skip",
   );
 
+  const upsertTeamVar = useAction(api.teamEnvVarsActions.upsertVar);
   const revealTeamValue = useAction(api.teamEnvVarsActions.revealValue);
+  const removeTeamVar = useMutation(api.teamEnvVars.removeVar);
 
   if (!repo.teamId || !team) {
     return (
@@ -41,11 +43,18 @@ export function TeamEnvVarsClient() {
     <div className="space-y-4">
       <EnvVarsTable
         vars={teamEnvVars}
-        description="Environment variables inherited from the team this repository belongs to (read-only)"
-        readOnly
+        description="Team-level variables inherited by all repositories in this team."
+        onUpsert={async (key, value) => {
+          if (!repo.teamId) return;
+          await upsertTeamVar({ teamId: repo.teamId, key, value });
+        }}
         onReveal={async (key) => {
           if (!repo.teamId) return null;
           return await revealTeamValue({ teamId: repo.teamId, key });
+        }}
+        onRemove={async (key) => {
+          if (!repo.teamId) return;
+          await removeTeamVar({ teamId: repo.teamId, key });
         }}
       />
       <div className="flex items-center gap-2">
@@ -56,6 +65,7 @@ export function TeamEnvVarsClient() {
         <span className="text-muted-foreground">•</span>
         <Link
           href={`/teams/${team._id}`}
+          target="_blank"
           className="text-sm text-primary hover:underline"
         >
           Manage team variables →

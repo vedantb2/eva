@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useQueryState } from "nuqs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { envVarTabParser } from "@/lib/search-params";
 import { EnvVariablesClient } from "./EnvVariablesClient";
 import { TeamEnvVarsClient } from "./TeamEnvVarsClient";
 
 export function EnvVariablesPageClient() {
-  const [tab, setTab] = useState("repo");
+  const [tab, setTab] = useQueryState("tab", envVarTabParser);
 
   return (
     <PageWrapper title="Environment Variables">

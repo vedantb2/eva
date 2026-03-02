@@ -103,3 +103,13 @@ export const previewPortParser = parseAsInteger
 export const branchParser = parseAsString
   .withDefault("main")
   .withOptions(searchOptions);
+
+const envVarTabs = ["repo", "team"] as const;
+export const envVarTabParser = parseAsStringLiteral(envVarTabs)
+  .withDefault("repo")
+  .withOptions(tabOptions);
+
+const teamDetailTabs = ["members", "repos", "env"] as const;
+export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
+  .withDefault("members")
+  .withOptions(tabOptions);

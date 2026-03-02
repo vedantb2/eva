@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryState } from "nuqs";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
+import { teamDetailTabParser } from "@/lib/search-params";
 import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
@@ -58,7 +60,7 @@ export function TeamDetailClient({ teamId }: { teamId: string }) {
   const revealTeamValue = useAction(api.teamEnvVarsActions.revealValue);
   const removeTeamVar = useMutation(api.teamEnvVars.removeVar);
 
-  const [tab, setTab] = useState("members");
+  const [tab, setTab] = useQueryState("tab", teamDetailTabParser);
 
   const [memberDialog, setMemberDialog] = useState({
     open: false,
@@ -175,7 +177,12 @@ export function TeamDetailClient({ teamId }: { teamId: string }) {
 
   return (
     <PageWrapper title={team.name}>
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => {
+          if (v === "members" || v === "repos" || v === "env") setTab(v);
+        }}
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="repos">Repositories</TabsTrigger>
@@ -264,7 +271,7 @@ export function TeamDetailClient({ teamId }: { teamId: string }) {
                     <span className="rounded-full bg-secondary px-2 py-1 text-xs">
                       {member.role}
                     </span>
-                    {team.userRole === "owner" && (
+                    {team.userRole === "owner" && member.role !== "owner" && (
                       <Button
                         size="icon"
                         variant="ghost"

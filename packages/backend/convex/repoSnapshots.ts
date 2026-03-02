@@ -428,30 +428,3 @@ export const getRepo = internalQuery({
     };
   },
 });
-
-export const migrateSnapshots = internalMutation({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    const snapshots = await ctx.db.query("repoSnapshots").collect();
-    let migrated = 0;
-    for (const snapshot of snapshots) {
-      const updates: Record<string, undefined | string> = {};
-      const cronspec = LEGACY_SCHEDULE_TO_CRON[snapshot.schedule];
-      if (cronspec) {
-        updates.schedule = cronspec;
-      }
-      if (snapshot.customSetupCommands !== undefined) {
-        updates.customSetupCommands = undefined;
-      }
-      if (snapshot.customEnvVars !== undefined) {
-        updates.customEnvVars = undefined;
-      }
-      if (Object.keys(updates).length > 0) {
-        await ctx.db.patch(snapshot._id, updates);
-        migrated++;
-      }
-    }
-    return migrated;
-  },
-});

@@ -9,11 +9,6 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Spinner,
   Textarea,
   Tabs,
@@ -22,6 +17,8 @@ import {
   TabsContent,
 } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import cronstrue from "cronstrue";
+import { CronExpressionParser } from "cron-parser";
 import {
   IconCamera,
   IconPlayerPlay,
@@ -35,14 +32,37 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 
-type Schedule = "daily" | "every_3_days" | "weekly" | "manual";
+function describeCron(
+  expression: string,
+): { valid: true; text: string } | { valid: false; partial: boolean } {
+  const parts = expression.trim().split(/\s+/);
+  if (parts.length < 5) return { valid: false, partial: true };
+  try {
+    return {
+      valid: true,
+      text: cronstrue.toString(expression, { use24HourTimeFormat: false }),
+    };
+  } catch {
+    return { valid: false, partial: false };
+  }
+}
 
-const SCHEDULE_LABELS: Record<Schedule, string> = {
-  daily: "Daily",
-  every_3_days: "Every 3 Days",
-  weekly: "Weekly",
-  manual: "Manual Only",
-};
+function nextCronDate(expression: string): string | null {
+  try {
+    const iter = CronExpressionParser.parse(expression, { tz: "UTC" });
+    const next = iter.next().toDate();
+    return next.toLocaleString("en-GB", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
 
 export function SnapshotsClient() {
   const { repoId, owner, name: repoName } = useRepo();
@@ -55,7 +75,7 @@ export function SnapshotsClient() {
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
 
-  const [schedule, setSchedule] = useState<Schedule>("daily");
+  const [schedule, setSchedule] = useState("manual");
   const [workflowRef, setWorkflowRef] = useState("main");
   const [commandsText, setCommandsText] = useState("");
   const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>(
@@ -78,7 +98,7 @@ export function SnapshotsClient() {
       return;
     }
 
-    setSchedule("daily");
+    setSchedule("manual");
     setWorkflowRef("main");
     setCommandsText("");
     setEnvVars([]);
@@ -106,7 +126,7 @@ export function SnapshotsClient() {
   const handleDelete = async () => {
     if (!snapshot) return;
     await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
-    setSchedule("daily");
+    setSchedule("manual");
     setWorkflowRef("main");
     setCommandsText("");
     setEnvVars([]);
@@ -178,25 +198,18 @@ export function SnapshotsClient() {
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Rebuild Schedule
                 </label>
-                <Select
-                  value={schedule}
-                  onValueChange={(val) => setSchedule(val as Schedule)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.entries(SCHEDULE_LABELS) as Array<
-                        [Schedule, string]
-                      >
-                    ).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CronPreview schedule={schedule} />
+                <Input
+                  value={schedule === "manual" ? "" : schedule}
+                  onChange={(e) => setSchedule(e.target.value || "manual")}
+                  onBlur={() => setSchedule((prev) => prev.trim() || "manual")}
+                  placeholder="0 6 * * * (leave empty for manual)"
+                  className="h-8 font-mono text-xs text-center"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Cron expression in UTC. Leave empty for manual only.
+                </p>
+                <CronGuide />
               </div>
 
               <div>
@@ -316,7 +329,16 @@ export function SnapshotsClient() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Schedule</span>
-                  <p className="mt-0.5">{SCHEDULE_LABELS[snapshot.schedule]}</p>
+                  <p className="mt-0.5">
+                    {snapshot.schedule === "manual"
+                      ? "Manual"
+                      : (() => {
+                          const result = describeCron(snapshot.schedule);
+                          return result.valid
+                            ? `${result.text} (UTC)`
+                            : snapshot.schedule;
+                        })()}
+                  </p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Workflow Branch</span>
@@ -561,4 +583,76 @@ function formatDuration(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
+}
+
+function CronPreview({ schedule }: { schedule: string }) {
+  if (schedule === "manual") {
+    return (
+      <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+        <p className="text-sm text-muted-foreground">Manual only</p>
+      </div>
+    );
+  }
+
+  const result = describeCron(schedule);
+
+  if (!result.valid) {
+    return (
+      <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+        <p className="text-sm text-muted-foreground">
+          {result.partial
+            ? "Type a cron expression..."
+            : "Invalid cron expression"}
+        </p>
+      </div>
+    );
+  }
+
+  const next = nextCronDate(schedule);
+
+  return (
+    <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+      <p className="text-lg font-medium">{result.text}</p>
+      {next && (
+        <p className="text-[11px] text-muted-foreground">next at {next} UTC</p>
+      )}
+    </div>
+  );
+}
+
+function CronGuide() {
+  return (
+    <div className="mt-3 rounded-md border border-border/50 overflow-hidden">
+      <div className="bg-muted/30 px-3 py-1.5 border-b border-border/50">
+        <p className="text-[11px] font-medium text-muted-foreground">
+          Cron format reference
+        </p>
+      </div>
+      <div className="p-3 flex gap-6">
+        <pre className="font-mono text-[11px] text-muted-foreground leading-relaxed shrink-0">
+          {"┌─ minute (0-59)\n"}
+          {"│ ┌─ hour (0-23)\n"}
+          {"│ │ ┌─ day of month (1-31)\n"}
+          {"│ │ │ ┌─ month (1-12)\n"}
+          {"│ │ │ │ ┌─ day of week (0-6)\n"}
+          {"* * * * *"}
+        </pre>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] content-start">
+          {[
+            ["*", "any value"],
+            [",", "list separator"],
+            ["-", "range"],
+            ["/", "step values"],
+            ["0-6", "day of week range"],
+            ["SUN-SAT", "day names"],
+          ].map(([symbol, desc]) => (
+            <div key={symbol} className="contents">
+              <span className="font-mono text-foreground/70">{symbol}</span>
+              <span className="text-muted-foreground">{desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -105,12 +105,7 @@ export const queryConfirmationStatusValidator = v.union(
   v.literal("cancelled"),
 );
 
-export const snapshotScheduleValidator = v.union(
-  v.literal("daily"),
-  v.literal("every_3_days"),
-  v.literal("weekly"),
-  v.literal("manual"),
-);
+export const snapshotScheduleValidator = v.string();
 
 export const snapshotBuildStatusValidator = v.union(
   v.literal("running"),

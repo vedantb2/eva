@@ -65,6 +65,8 @@
     "convex": "^1.24.1",
     "convex-helpers": "^0.1.88",
     "convex-timeline": "^0.1.2",
+    "cron-parser": "^5.5.0",
+    "cronstrue": "^3.13.0",
     "dayjs": "^1.11.13",
     "facehash": "^0.0.7",
     "jspdf": "^3.0.0",

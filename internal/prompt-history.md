@@ -1,10 +1,10 @@
 [] verify task grouped into project create just 1 pr
 [x] sessions etc not getting shared across team
-[x] store collapse in localstorage
+[x] store collapse in cookies instead of localstorage (nextjs practice)
 [] auto open chrome in vnc
 [] see docs, use --continue
 [] add planning / think before execution
-[] add logs to see pricing
+[] add logs to see pricing per task execution
 
 [] session branch not creating during sessions
 [] add posted via Assist, store the origin of msg send

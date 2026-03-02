@@ -12,11 +12,16 @@ import { authQuery, authMutation } from "./functions";
 
 const crons = new Crons(components.crons);
 
-const SCHEDULE_INTERVALS: Record<string, number> = {
-  daily: 86400000,
-  every_3_days: 259200000,
-  weekly: 604800000,
+const LEGACY_SCHEDULE_TO_CRON: Record<string, string> = {
+  daily: "0 6 * * *",
+  every_3_days: "0 6 */3 * *",
+  weekly: "0 6 * * 1",
 };
+
+function resolveCronspec(schedule: string): string | null {
+  if (schedule === "manual") return null;
+  return LEGACY_SCHEDULE_TO_CRON[schedule] ?? schedule;
+}
 
 const STALE_BUILD_MS = 20 * 60 * 1000;
 
@@ -151,18 +156,16 @@ export const saveRepoSnapshot = authMutation({
       }
 
       let cronJobId: string | undefined;
-      if (args.schedule !== "manual") {
-        const ms = SCHEDULE_INTERVALS[args.schedule];
-        if (ms) {
-          const id = await crons.register(
-            ctx,
-            { kind: "interval", ms },
-            internal.repoSnapshots.triggerScheduledBuild,
-            { repoSnapshotId: existing._id },
-            cronName,
-          );
-          cronJobId = String(id);
-        }
+      const cronspec = resolveCronspec(args.schedule);
+      if (cronspec) {
+        const id = await crons.register(
+          ctx,
+          { kind: "cron", cronspec },
+          internal.repoSnapshots.triggerScheduledBuild,
+          { repoSnapshotId: existing._id },
+          cronName,
+        );
+        cronJobId = String(id);
       }
 
       await ctx.db.patch(existing._id, {
@@ -188,18 +191,16 @@ export const saveRepoSnapshot = authMutation({
       updatedAt: now,
     });
 
-    if (args.schedule !== "manual") {
-      const ms = SCHEDULE_INTERVALS[args.schedule];
-      if (ms) {
-        const cronId = await crons.register(
-          ctx,
-          { kind: "interval", ms },
-          internal.repoSnapshots.triggerScheduledBuild,
-          { repoSnapshotId: id },
-          cronName,
-        );
-        await ctx.db.patch(id, { cronJobId: String(cronId) });
-      }
+    const cronspec = resolveCronspec(args.schedule);
+    if (cronspec) {
+      const cronId = await crons.register(
+        ctx,
+        { kind: "cron", cronspec },
+        internal.repoSnapshots.triggerScheduledBuild,
+        { repoSnapshotId: id },
+        cronName,
+      );
+      await ctx.db.patch(id, { cronJobId: String(cronId) });
     }
 
     return id;
@@ -425,5 +426,22 @@ export const getRepo = internalQuery({
       name: repo.name,
       installationId: repo.installationId,
     };
+  },
+});
+
+export const migrateScheduleToCron = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const snapshots = await ctx.db.query("repoSnapshots").collect();
+    let migrated = 0;
+    for (const snapshot of snapshots) {
+      const cronspec = LEGACY_SCHEDULE_TO_CRON[snapshot.schedule];
+      if (cronspec) {
+        await ctx.db.patch(snapshot._id, { schedule: cronspec });
+        migrated++;
+      }
+    }
+    return migrated;
   },
 });

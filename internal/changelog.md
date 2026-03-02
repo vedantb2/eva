@@ -1,5 +1,13 @@
 # Changelog
 
+## Replace fixed snapshot schedule with cron input - 2026-03-02
+
+- **Why**: Fixed schedule presets (daily/every 3 days/weekly) were inflexible. Users should be able to specify any cron expression for snapshot rebuilds.
+- **Changes**:
+  1. **`validators.ts`**: `snapshotScheduleValidator` changed from union of literals to `v.string()` — accepts cron expressions or `"manual"`.
+  2. **`repoSnapshots.ts`**: Replaced interval-based cron registration with `{ kind: "cron", cronspec }`. Added `resolveCronspec()` helper that handles both new cron strings and legacy preset values. Added `migrateScheduleToCron` for existing data.
+  3. **`SnapshotsClient.tsx`**: Replaced Select dropdown with cron input field + preset buttons (Daily 6am, Every 3 days, Weekly Mon, Manual). Uses `cronstrue` to show human-readable translation below the input.
+
 ## Warm snapshot cache after rebuild - 2026-03-02
 
 - **Why**: Sandbox creation from a snapshot has a cold start (~30s). After a daily snapshot rebuild at 6am, the first sandbox creation at 9am hits this cold start. By warming Daytona's cache immediately after rebuild, subsequent creations are fast.

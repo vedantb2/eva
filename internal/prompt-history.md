@@ -1,19 +1,25 @@
 [x] sessions etc not getting shared across team
 [x] store collapse in localstorage
+[] auto open chrome in vnc
+[] see docs, use --continue
+[] add planning / think before execution
+[] add logs to see pricing
+
 [] session branch not creating during sessions
-[] schedule quick tasks to run later
 [] add posted via Assist, store the origin of msg send
 [] improve streaming log - add more detail
 [] improve cmdk search modal
 [x] explore just-bash use cases
-[] explore whether we even need to delete sandboxes for sessions
+[] explore whether we even need to delete sandboxes for sessions, can archive instead
+[] get eva to auto fix merge conflicts, too many
 
 [x] add back novnc
 [x] add file storage to convex and showing ss in chat
 [x] add fake auth in conductor
 [x] change repo selector to app selector (ie web/eprocurement)
-[] add labels to github pr issues
+[x] add labels to github pr issues
 [] add the screenshots / videos to quick tasks
+[] schedule quick tasks to run later
 [] add human readable id's for the sessions etc
 [] improve extension toolbar
 [] add "View preview" button to quick tasks/sessions

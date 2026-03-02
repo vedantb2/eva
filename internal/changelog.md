@@ -1,5 +1,25 @@
 # Changelog
 
+## Always use deploy key for sandbox callbacks - 2026-03-02
+
+- **Why**: Clerk JWTs expire in ~60s but sandbox tasks run for minutes. Three auth-required calls (`taskProof:save`, `taskProof:saveMessage`, `taskWorkflow:handleCompletion`) fail after JWT expiry. Previously only scheduled tasks used deploy key; now ALL sandboxes do.
+- **Changes**:
+  1. **`taskProof.ts`**: Added `saveInternal` and `saveMessageInternal` internalMutations — same logic as auth versions but without user ownership check (no user context in deploy key path).
+  2. **`http.ts`**: New `POST /api/sandbox/task-proof` route — dispatches to `saveInternal` or `saveMessageInternal` based on request body shape. Verified via `verifyDeployKey`.
+  3. **`taskWorkflow.ts`**: Fixed `handleScheduledCompletion` — changed `taskId` arg from `v.string()` to `v.id("agentTasks")` to remove `as Id<"agentTasks">` cast.
+  4. **`daytona.ts`**: Always passes deploy key (removed `convexToken === ""` condition). Replaced `callHttpCompletion` with generic `callHttpEndpoint(path, args)`. Proof save/message calls now route through `/api/sandbox/task-proof` when deploy key available, fall back to `callMutation` when not.
+
+## Task scheduling - 2026-03-02
+
+- **Why**: Users need to schedule tasks to run at a future date/time instead of only running immediately via "Run Eva". Scheduled tasks require auth-free sandbox callbacks since the Clerk token expires before the task fires.
+- **Changes**:
+  1. **Schema**: Added `scheduledAt` and `scheduledFunctionId` fields to `agentTasks`.
+  2. **`agentTasks.ts`**: Added `scheduleExecution`, `cancelScheduledExecution`, `updateScheduledExecution` mutations. Updated `startExecution`, `updateStatus`, `deleteCascade` to cancel schedules when appropriate.
+  3. **`taskWorkflow.ts`**: Added `executeScheduledTask` (internalMutation, triggered by scheduler) and `handleScheduledCompletion` (internalMutation, called by HTTP endpoint).
+  4. **`http.ts`**: New `POST /api/sandbox/task-completion` route — verifies deploy key and forwards to `handleScheduledCompletion`, bypassing Clerk auth.
+  5. **`daytona.ts`**: Callback script conditionally omits auth header and uses HTTP completion endpoint when deploy key is present. `setupAndExecute` auto-detects deploy key mode when `convexToken` is empty.
+  6. **Frontend**: New `SchedulePopover` component with calendar + time picker. Integrated into `TaskDetailModal` footer. Clock indicators on `QuickTaskCard` and `ProjectTaskCard`.
+
 ## Remove custom setup commands and env vars from snapshots - 2026-03-02
 
 - **Why**: This platform only manages one repo's snapshots. Custom commands and env vars were designed for a multi-repo generic system. For a single repo, these belong directly in the workflow file, not managed dynamically from the platform. Runtime env vars are already handled by `resolveSandboxContext`.

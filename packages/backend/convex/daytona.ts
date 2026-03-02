@@ -419,6 +419,8 @@ import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
+const DEPLOY_KEY = process.env.DEPLOY_KEY || "";
+const COMPLETION_HTTP_PATH = process.env.COMPLETION_HTTP_PATH || "";
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const ENTITY_TYPE = "${entityIdField}";
@@ -428,17 +430,32 @@ const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "${WORKSPACE_DIR}";
 
 async function callMutation(path, args) {
+  const headers = { "Content-Type": "application/json" };
+  if (CONVEX_TOKEN) headers["Authorization"] = "Bearer " + CONVEX_TOKEN;
   const res = await fetch(CONVEX_URL + "/api/mutation", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + CONVEX_TOKEN,
-    },
+    headers,
     body: JSON.stringify({ path, args, format: "json" }),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error("Convex mutation " + path + " failed: " + res.status + " " + text);
+  }
+  return res.json();
+}
+
+async function callHttpEndpoint(path, args) {
+  const res = await fetch(CONVEX_URL + path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Convex " + DEPLOY_KEY,
+    },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("HTTP " + path + " failed: " + res.status + " " + text);
   }
   return res.json();
 }
@@ -758,8 +775,12 @@ try {
     try {
       if (ENTITY_TYPE === "taskId") {
         const storageId = videoStorageId || imageStorageId;
-        await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
-      } else {
+        if (DEPLOY_KEY) {
+          await callHttpEndpoint("/api/sandbox/task-proof", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
+        } else if (CONVEX_TOKEN) {
+          await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
+        }
+      } else if (CONVEX_TOKEN) {
         const mediaArgs = { parentId: ENTITY_ID };
         if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
         if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
@@ -768,35 +789,46 @@ try {
     } catch {}
   } else if (ENTITY_TYPE === "taskId") {
     try {
-      await callMutation("taskProof:saveMessage", {
-        taskId: ENTITY_ID,
-        message: "No UI changes",
-      });
+      if (DEPLOY_KEY) {
+        await callHttpEndpoint("/api/sandbox/task-proof", { taskId: ENTITY_ID, message: "No UI changes" });
+      } else if (CONVEX_TOKEN) {
+        await callMutation("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" });
+      }
     } catch {}
   }
 
+  const completionArgs = {
+    ${entityIdField}: ENTITY_ID,
+    success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
+    result: finalResultEvent?.result ?? rawOutput,
+    error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode + (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "") : null),
+    activityLog,
+  };
   try {
-    await callMutation("${completionMutation}", {
-      ${entityIdField}: ENTITY_ID,
-      success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
-      result: finalResultEvent?.result ?? rawOutput,
-      error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode + (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "") : null),
-      activityLog,
-    });
+    if (COMPLETION_HTTP_PATH && DEPLOY_KEY) {
+      await callHttpEndpoint(COMPLETION_HTTP_PATH, completionArgs);
+    } else {
+      await callMutation("${completionMutation}", completionArgs);
+    }
   } catch (e) {
     console.error("Failed to send completion:", e);
     process.exit(1);
   }
 } catch (err) {
   clearInterval(interval);
+  const errorArgs = {
+    ${entityIdField}: ENTITY_ID,
+    success: false,
+    result: null,
+    error: err instanceof Error ? err.message : "Failed to run Claude CLI",
+    activityLog: "[]",
+  };
   try {
-    await callMutation("${completionMutation}", {
-      ${entityIdField}: ENTITY_ID,
-      success: false,
-      result: null,
-      error: err instanceof Error ? err.message : "Failed to run Claude CLI",
-      activityLog: "[]",
-    });
+    if (COMPLETION_HTTP_PATH && DEPLOY_KEY) {
+      await callHttpEndpoint(COMPLETION_HTTP_PATH, errorArgs);
+    } else {
+      await callMutation("${completionMutation}", errorArgs);
+    }
   } catch {}
 }
 `.trim();
@@ -819,6 +851,7 @@ async function launchScript(
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
+    deployKey?: string;
   } = {},
 ): Promise<void> {
   // Upload the prompt
@@ -846,6 +879,10 @@ async function launchScript(
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
+  }
+  if (opts.deployKey) {
+    envParts.push(`DEPLOY_KEY=${quote([opts.deployKey])}`);
+    envParts.push(`COMPLETION_HTTP_PATH=/api/sandbox/task-completion`);
   }
   if (opts.extraEnvVars) {
     for (const [key, val] of Object.entries(opts.extraEnvVars)) {
@@ -1037,6 +1074,8 @@ export const setupAndExecute = internalAction({
       await setupBranch(sandbox, args.branchName);
     }
 
+    const deployKey = process.env.EVA_DEPLOY_KEY;
+
     await launchScript(
       sandbox,
       args.prompt,
@@ -1050,6 +1089,7 @@ export const setupAndExecute = internalAction({
         systemPrompt: args.systemPrompt,
         extraEnvVars: sandboxEnvVars,
         claudeSessionId,
+        deployKey,
       },
     );
 

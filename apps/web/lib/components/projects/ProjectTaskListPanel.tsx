@@ -96,6 +96,7 @@ export function ProjectTaskListPanel({
                       description={task.description}
                       status={task.status}
                       createdBy={task.createdBy}
+                      scheduledAt={task.scheduledAt}
                       isSelected={selectedTaskId === task._id}
                       onClick={() => onSelectTask(task._id)}
                     />

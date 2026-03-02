@@ -6,13 +6,15 @@ import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { IconGitPullRequest } from "@tabler/icons-react";
+import { IconGitPullRequest, IconClock } from "@tabler/icons-react";
 import Link from "next/link";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import dayjs from "@conductor/shared/dates";
 
 interface ProjectTaskCardProps {
   id: Id<"agentTasks">;
@@ -21,6 +23,7 @@ interface ProjectTaskCardProps {
   description?: string;
   status: TaskStatus;
   createdBy?: Id<"users">;
+  scheduledAt?: number;
   isSelected?: boolean;
   onClick?: () => void;
 }
@@ -32,6 +35,7 @@ export function ProjectTaskCard({
   description,
   status,
   createdBy,
+  scheduledAt,
   isSelected,
   onClick,
 }: ProjectTaskCardProps) {
@@ -73,6 +77,18 @@ export function ProjectTaskCard({
                 <IconGitPullRequest size={14} className="text-success" />
               </Link>
             )}
+            {scheduledAt && status === "todo" ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center text-primary">
+                    <IconClock size={14} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
           </div>
         </div>

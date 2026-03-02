@@ -121,6 +121,8 @@ const schema = defineSchema({
     baseBranch: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
     scheduledRetryAt: v.optional(v.number()),
+    scheduledAt: v.optional(v.number()),
+    scheduledFunctionId: v.optional(v.string()),
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])

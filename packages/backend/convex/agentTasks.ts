@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { taskStatusValidator, claudeModelValidator } from "./validators";
 import { createNotification } from "./notifications";
 import {
@@ -46,6 +47,8 @@ const agentTaskValidator = v.object({
   model: v.optional(claudeModelValidator),
   baseBranch: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  scheduledAt: v.optional(v.number()),
+  scheduledFunctionId: v.optional(v.string()),
 });
 
 export const listByBoard = authQuery({
@@ -320,6 +323,19 @@ export const updateStatus = authMutation({
       status: args.status,
       updatedAt: Date.now(),
     });
+    if (args.status !== "todo" && task.scheduledFunctionId) {
+      try {
+        await ctx.scheduler.cancel(
+          task.scheduledFunctionId as Id<"_scheduled_functions">,
+        );
+      } catch {
+        // may have already fired
+      }
+      await ctx.db.patch(args.id, {
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+      });
+    }
     if (args.status === "done") {
       if (task.createdBy && task.createdBy !== ctx.userId) {
         await createNotification(ctx, {
@@ -639,6 +655,20 @@ export const startExecution = authMutation({
     if (!repo) {
       throw new Error("Repository not found");
     }
+    if (task.scheduledFunctionId) {
+      try {
+        await ctx.scheduler.cancel(
+          task.scheduledFunctionId as Id<"_scheduled_functions">,
+        );
+      } catch {
+        // may have already fired
+      }
+      await ctx.db.patch(args.id, {
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+      });
+    }
+
     const existingRuns = await ctx.db
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.id))
@@ -816,6 +846,16 @@ export const deleteCascade = authMutation({
     };
     await collectDependents(args.id);
     for (const taskId of tasksToDelete) {
+      const taskToDelete = await ctx.db.get(taskId);
+      if (taskToDelete?.scheduledFunctionId) {
+        try {
+          await ctx.scheduler.cancel(
+            taskToDelete.scheduledFunctionId as Id<"_scheduled_functions">,
+          );
+        } catch {
+          // may have already fired
+        }
+      }
       const runs = await ctx.db
         .query("agentRuns")
         .withIndex("by_task", (q) => q.eq("taskId", taskId))
@@ -839,6 +879,120 @@ export const deleteCascade = authMutation({
       }
       await ctx.db.delete(taskId);
     }
+    return null;
+  },
+});
+
+export const scheduleExecution = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    scheduledAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    const board = await ctx.db.get(task.boardId);
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    if (task.status !== "todo") {
+      throw new Error("Only todo tasks can be scheduled");
+    }
+    const existingRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.id))
+      .collect();
+    if (
+      existingRuns.some((r) => r.status === "queued" || r.status === "running")
+    ) {
+      throw new Error("Task already has an active execution");
+    }
+    if (args.scheduledAt <= Date.now()) {
+      throw new Error("Scheduled time must be in the future");
+    }
+
+    const functionId = await ctx.scheduler.runAt(
+      args.scheduledAt,
+      internal.taskWorkflow.executeScheduledTask,
+      { taskId: args.id },
+    );
+    await ctx.db.patch(args.id, {
+      scheduledAt: args.scheduledAt,
+      scheduledFunctionId: String(functionId),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const cancelScheduledExecution = authMutation({
+  args: { id: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    const board = await ctx.db.get(task.boardId);
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    if (!task.scheduledFunctionId) {
+      throw new Error("Task is not scheduled");
+    }
+
+    try {
+      await ctx.scheduler.cancel(
+        task.scheduledFunctionId as Id<"_scheduled_functions">,
+      );
+    } catch {
+      // may have already fired
+    }
+    await ctx.db.patch(args.id, {
+      scheduledAt: undefined,
+      scheduledFunctionId: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const updateScheduledExecution = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    scheduledAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+    const board = await ctx.db.get(task.boardId);
+    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    if (args.scheduledAt <= Date.now()) {
+      throw new Error("Scheduled time must be in the future");
+    }
+
+    if (task.scheduledFunctionId) {
+      try {
+        await ctx.scheduler.cancel(
+          task.scheduledFunctionId as Id<"_scheduled_functions">,
+        );
+      } catch {
+        // may have already fired
+      }
+    }
+
+    const functionId = await ctx.scheduler.runAt(
+      args.scheduledAt,
+      internal.taskWorkflow.executeScheduledTask,
+      { taskId: args.id },
+    );
+    await ctx.db.patch(args.id, {
+      scheduledAt: args.scheduledAt,
+      scheduledFunctionId: String(functionId),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

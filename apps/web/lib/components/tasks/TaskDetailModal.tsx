@@ -69,6 +69,7 @@ import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
+import { SchedulePopover } from "./SchedulePopover";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -1156,28 +1157,47 @@ export function TaskDetailModal({
                 </Tooltip>
               ) : (
                 status === "todo" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button
-                          onClick={handleStartExecution}
-                          disabled={isStarting || isBlocked || !isOwner}
-                        >
-                          {isStarting ? (
-                            <IconLoader2 size={18} className="animate-spin" />
-                          ) : (
-                            <IconPlayerPlay size={18} />
-                          )}
-                          Run Eva
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {!isOwner && (
-                      <TooltipContent>
-                        Only the task owner can run Eva
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
+                  <>
+                    <SchedulePopover
+                      taskId={taskId}
+                      scheduledAt={task?.scheduledAt}
+                      disabled={!isOwner || isBlocked}
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            onClick={handleStartExecution}
+                            disabled={
+                              isStarting ||
+                              isBlocked ||
+                              !isOwner ||
+                              task?.scheduledAt !== undefined
+                            }
+                          >
+                            {isStarting ? (
+                              <IconLoader2 size={18} className="animate-spin" />
+                            ) : (
+                              <IconPlayerPlay size={18} />
+                            )}
+                            Run Eva
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {task?.scheduledAt !== undefined ? (
+                        <TooltipContent>
+                          Task is scheduled — remove the schedule to run
+                          immediately
+                        </TooltipContent>
+                      ) : (
+                        !isOwner && (
+                          <TooltipContent>
+                            Only the task owner can run Eva
+                          </TooltipContent>
+                        )
+                      )}
+                    </Tooltip>
+                  </>
                 )
               )}
             </div>

@@ -16,6 +16,7 @@ import {
   IconGitBranch,
   IconGitPullRequest,
   IconDotsVertical,
+  IconClock,
 } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -24,6 +25,8 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import dayjs from "@conductor/shared/dates";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -31,6 +34,7 @@ interface QuickTaskCardProps {
   description?: string;
   status: TaskStatus;
   branchName?: string;
+  scheduledAt?: number;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -43,6 +47,7 @@ export function QuickTaskCard({
   description,
   status,
   branchName,
+  scheduledAt,
   onClick,
   isSelecting,
   isSelected,
@@ -104,6 +109,18 @@ export function QuickTaskCard({
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
+            {scheduledAt && status === "todo" ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center text-primary">
+                    <IconClock size={14} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             <SubtaskProgress taskId={id} />
             {showActions ? (
               <div

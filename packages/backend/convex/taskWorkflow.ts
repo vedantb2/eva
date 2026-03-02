@@ -647,6 +647,133 @@ export const handleAuditCompletion = mutation({
   },
 });
 
+export const handleScheduledCompletion = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !task.activeWorkflowId) return null;
+
+    await workflow.sendEvent(ctx, {
+      ...taskCompleteEvent,
+      workflowId: task.activeWorkflowId as WorkflowId,
+      value: {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+        activityLog: args.activityLog,
+      },
+    });
+
+    return null;
+  },
+});
+
+export const executeScheduledTask = internalMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.union(v.id("agentRuns"), v.null()),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || task.status !== "todo" || !task.repoId) {
+      if (task) {
+        await ctx.db.patch(args.taskId, {
+          scheduledAt: undefined,
+          scheduledFunctionId: undefined,
+        });
+      }
+      return null;
+    }
+
+    const existingRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    if (
+      existingRuns.some((r) => r.status === "queued" || r.status === "running")
+    ) {
+      await ctx.db.patch(args.taskId, {
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+      });
+      return null;
+    }
+
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) {
+      await ctx.db.patch(args.taskId, {
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+      });
+      return null;
+    }
+
+    let isFirstTaskOnBranch = true;
+    let project = null;
+    if (task.projectId) {
+      project = await ctx.db.get(task.projectId);
+      if (project) {
+        const projectTasks = await ctx.db
+          .query("agentTasks")
+          .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
+          .collect();
+        for (const pt of projectTasks) {
+          const runs = await ctx.db
+            .query("agentRuns")
+            .withIndex("by_task", (q) => q.eq("taskId", pt._id))
+            .collect();
+          if (runs.some((r) => r.status === "success")) {
+            isFirstTaskOnBranch = false;
+            break;
+          }
+        }
+      }
+    }
+
+    const runId = await ctx.db.insert("agentRuns", {
+      taskId: args.taskId,
+      status: "queued",
+      logs: [],
+      startedAt: Date.now(),
+    });
+
+    await ctx.db.patch(args.taskId, {
+      status: "in_progress",
+      scheduledAt: undefined,
+      scheduledFunctionId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.taskWorkflow.taskExecutionWorkflow,
+      {
+        runId,
+        taskId: args.taskId,
+        repoId: task.repoId,
+        installationId: repo.installationId,
+        projectId: task.projectId,
+        branchName: project?.branchName,
+        baseBranch: task.baseBranch,
+        isFirstTaskOnBranch,
+        model: task.model,
+        convexToken: "",
+      },
+    );
+
+    await ctx.db.patch(args.taskId, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    return runId;
+  },
+});
+
 export const clearActiveWorkflow = internalMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),

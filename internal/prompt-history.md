@@ -1,25 +1,25 @@
-[] sessions etc not getting shared across team
-[] store collapse in localstorage
+[x] sessions etc not getting shared across team
+[x] store collapse in localstorage
 [] session branch not creating during sessions
 [] schedule quick tasks to run later
 [] add posted via Assist, store the origin of msg send
 [] improve streaming log - add more detail
-[] add cmdk search modal
-[] explore just-bash use cases
+[] improve cmdk search modal
+[x] explore just-bash use cases
 [] explore whether we even need to delete sandboxes for sessions
 
 [x] add back novnc
 [x] add file storage to convex and showing ss in chat
 [x] add fake auth in conductor
+[x] change repo selector to app selector (ie web/eprocurement)
+[] add labels to github pr issues
+[] add the screenshots / videos to quick tasks
+[] add human readable id's for the sessions etc
 [] improve extension toolbar
 [] add "View preview" button to quick tasks/sessions
 [] add vercel deployment status tracking
-[] change branch selector to app selector (ie web/eprocurement)
-[] add labels to github pr issues
-[] add human readable id's for the sessions etc
 [] add num of design options in design input
 [] figure out chrome distribution policy
-[] add the screenshots / videos to quick tasks
 
 [] add checkpoint in messages so you can rewind
 [] add figma auth in designs

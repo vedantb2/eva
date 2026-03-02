@@ -46,7 +46,11 @@ export default clerkMiddleware(
     }
 
     const segments = req.nextUrl.pathname.split("/").filter(Boolean);
-    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
+    if (
+      segments.length >= 3 &&
+      segments[0] !== "api" &&
+      !KNOWN_SUB_PAGES.has(segments[2])
+    ) {
       const rewriteUrl = req.nextUrl.clone();
       rewriteUrl.pathname =
         "/" +

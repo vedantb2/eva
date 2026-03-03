@@ -5,8 +5,10 @@ import {
   useThemeContext,
   ACCENT_COLORS,
   RADIUS_VALUES,
+  FONT_FAMILIES,
   AccentColor,
   RadiusSize,
+  FontFamily,
 } from "@/lib/contexts/ThemeContext";
 import { cn, Spinner } from "@conductor/ui";
 import {
@@ -40,6 +42,7 @@ export function ThemeSettingsClient() {
 
   const accentColor = (customTheme.accentColor ?? "teal") as AccentColor;
   const radius = (customTheme.radius ?? "md") as RadiusSize;
+  const fontFamily = (customTheme.fontFamily ?? "inter") as FontFamily;
 
   const handleModeChange = (mode: "light" | "dark" | "system") => {
     if (mode === "system") {
@@ -58,6 +61,10 @@ export function ThemeSettingsClient() {
 
   const handleRadiusChange = (r: RadiusSize) => {
     setCustomTheme({ ...customTheme, radius: r });
+  };
+
+  const handleFontChange = (f: FontFamily) => {
+    setCustomTheme({ ...customTheme, fontFamily: f });
   };
 
   if (!mounted) {
@@ -220,6 +227,42 @@ export function ThemeSettingsClient() {
           </div>
         </section>
 
+        {/* Font */}
+        <section>
+          <SectionLabel>Font</SectionLabel>
+          <div className="flex flex-wrap gap-3">
+            {(
+              Object.entries(FONT_FAMILIES) as [
+                FontFamily,
+                (typeof FONT_FAMILIES)[FontFamily],
+              ][]
+            ).map(([key, font]) => {
+              const isActive = fontFamily === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleFontChange(key)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
+                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
+                  )}
+                >
+                  {isActive && (
+                    <IconCheck
+                      size={14}
+                      className="shrink-0 text-primary"
+                      strokeWidth={2.5}
+                    />
+                  )}
+                  <span style={{ fontFamily: font.stack }}>{font.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Preview */}
         <section>
           <SectionLabel>Preview</SectionLabel>
@@ -232,7 +275,7 @@ export function ThemeSettingsClient() {
               <p className="text-sm font-semibold text-foreground">
                 {ACCENT_COLORS[accentColor].label} &middot;{" "}
                 {RADIUS_OPTIONS.find((r) => r.value === radius)?.label} radius
-                &middot;{" "}
+                &middot; {FONT_FAMILIES[fontFamily].label} &middot;{" "}
                 {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)}{" "}
                 mode
               </p>

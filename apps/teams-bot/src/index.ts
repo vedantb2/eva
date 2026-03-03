@@ -48,7 +48,7 @@ class EvaBot extends ActivityHandler {
         if (!repo) {
           await context.sendActivity(
             MessageFactory.text(
-              `Repository ${parsed.owner}/${parsed.name} not found in Conductor.`,
+              `Repository ${parsed.owner}/${parsed.name} not found in Eva.`,
             ),
           );
           await next();

@@ -114,6 +114,23 @@ export const removeTeamSlugs = internalMutation({
   },
 });
 
+export const renameReposConductorToEva = internalMutation({
+  args: {},
+  returns: v.object({
+    updatedCount: v.number(),
+  }),
+  handler: async (ctx) => {
+    const allRepos = await ctx.db.query("githubRepos").collect();
+    const conductorRepos = allRepos.filter((repo) => repo.name === "conductor");
+
+    for (const repo of conductorRepos) {
+      await ctx.db.patch(repo._id, { name: "eva" });
+    }
+
+    return { updatedCount: conductorRepos.length };
+  },
+});
+
 export const migrateBoardsAndCommentsToUserIds = internalMutation({
   args: {},
   returns: v.object({

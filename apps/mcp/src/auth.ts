@@ -120,7 +120,7 @@ export function renderAuthPage(query: Record<string, string>): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in to Conductor</title>
+  <title>Sign in to Eva</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -139,8 +139,8 @@ export function renderAuthPage(query: Record<string, string>): string {
 </head>
 <body>
   <div class="container">
-    <h1>Sign in to Conductor</h1>
-    <p class="subtitle">Sign in with your Conductor account to connect Claude.</p>
+    <h1>Sign in to Eva</h1>
+    <p class="subtitle">Sign in with your Eva account to connect Claude.</p>
     <div id="sign-in-container">
       <p class="loading">Loading...</p>
     </div>

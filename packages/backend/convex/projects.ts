@@ -416,7 +416,7 @@ export const startDevelopment = authMutation({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 50);
-    const branchName = `conductor/${slugify(spec.title)}`;
+    const branchName = `eva/${slugify(spec.title)}`;
     let board = await ctx.db
       .query("boards")
       .withIndex("by_repo", (q) => q.eq("repoId", project.repoId))
@@ -549,7 +549,7 @@ export const createFromTasks = authMutation({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 50);
-    const branchName = `conductor/${slugify(args.title)}`;
+    const branchName = `eva/${slugify(args.title)}`;
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,

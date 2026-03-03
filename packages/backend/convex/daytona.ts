@@ -602,7 +602,9 @@ if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
 
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
-const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " --output-format stream-json";
+const settingsJson = '{"attribution":{"commit":"","pr":""}}';
+const settingsArg = "--settings " + JSON.stringify(settingsJson);
+const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " --output-format stream-json";
 
 function hasToolActivity() {
   return accumulatedSteps.some((step) =>

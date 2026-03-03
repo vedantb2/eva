@@ -460,8 +460,8 @@ async function callAction(path, args) {
 
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
-  if (parts.length <= 3) return parts.join("/");
-  return ".../" + parts.slice(-2).join("/");
+  if (parts.length <= 4) return parts.join("/");
+  return ".../" + parts.slice(-3).join("/");
 }
 
 function toolCallToStep(name, input) {
@@ -472,7 +472,7 @@ function toolCallToStep(name, input) {
     case "Grep": return { type: "search_code", label: "Searching code...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
     case "Write": return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
     case "Edit": return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
-    case "Bash": return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 80) : undefined, status: "active" };
+    case "Bash": return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 300) : undefined, status: "active" };
     case "Skill": return { type: "tool", label: "Using Skill...", detail: input.skill ? String(input.skill) : undefined, status: "active" };
     default: return { type: "tool", label: "Using " + name + "...", status: "active" };
   }
@@ -524,7 +524,7 @@ function parseStreamEvent(line) {
         added = true;
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
-        const preview = String(block.thinking).split("\\n")[0].slice(0, 120);
+        const preview = String(block.thinking).split("\\n")[0].slice(0, 500);
         accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: preview, status: "active" });
         lastStepType = "thinking";
         added = true;

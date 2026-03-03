@@ -65,13 +65,16 @@ export function QuickTaskCard({
   const statusMeta = statusConfig[status];
   const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
   const showActions = Boolean(branchName || latestPrUrl);
+  const isInProgress = status === "in_progress" && !hasError;
 
-  return (
+  const card = (
     <Card
-      className={`group relative overflow-hidden border border-border/70 bg-card/88 shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
+      className={`group relative overflow-hidden shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         hasError
-          ? "border-destructive/60 bg-destructive/5"
-          : "hover:border-primary/25 hover:bg-card"
+          ? "border border-destructive/60 bg-destructive/5"
+          : isInProgress
+            ? "border-transparent bg-card/95"
+            : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
@@ -189,4 +192,10 @@ export function QuickTaskCard({
       </CardContent>
     </Card>
   );
+
+  if (isInProgress) {
+    return <div className="qt-in-progress-border rounded-lg p-px">{card}</div>;
+  }
+
+  return card;
 }

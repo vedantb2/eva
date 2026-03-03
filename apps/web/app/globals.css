@@ -317,6 +317,30 @@
   }
 }
 
+/* Animated border for in-progress quick task cards */
+@property --qt-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes qt-border-spin {
+  to {
+    --qt-border-angle: 360deg;
+  }
+}
+
+.qt-in-progress-border {
+  --qt-border-angle: 0deg;
+  animation: qt-border-spin 2.5s linear infinite;
+  background-image: conic-gradient(
+    from var(--qt-border-angle),
+    transparent 0%,
+    rgb(var(--status-progress-bar) / 0.85) 12%,
+    transparent 25%
+  );
+}
+
 /* Temporarily disabled to allow full animations during development.
 @media (prefers-reduced-motion: reduce) {
   * {

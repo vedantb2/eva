@@ -10,6 +10,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
@@ -125,12 +128,16 @@ export function QuickTaskCard({
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
             {scheduledAt && status === "todo" ? (
-              <span className="flex items-center gap-0.5 text-primary">
-                <IconClock size={14} />
-                <span className="text-[10px] font-medium tabular-nums">
-                  {dayjs(scheduledAt).format("MMM D, h:mm A")}
-                </span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center text-primary">
+                    <IconClock size={14} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                </TooltipContent>
+              </Tooltip>
             ) : null}
             <SubtaskProgress taskId={id} />
             {showActions ? (

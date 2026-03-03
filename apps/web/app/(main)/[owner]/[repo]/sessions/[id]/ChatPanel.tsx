@@ -73,7 +73,6 @@ import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
-import { useAuth } from "@clerk/nextjs";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 
 type SessionMessage = NonNullable<
@@ -168,7 +167,6 @@ export function ChatPanel({
   isArchived,
 }: ChatPanelProps) {
   const { repo } = useRepo();
-  const { getToken } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -213,21 +211,16 @@ export function ChatPanel({
       sendModel: ClaudeModel,
       sendResponseLength: ResponseLength,
     ) => {
-      const convexToken = await getToken({ template: "convex" });
-      if (!convexToken) {
-        throw new Error("Not authenticated");
-      }
       await startExecution({
         sessionId,
         message,
         mode: sendMode,
         model: sendModel,
         responseLength: sendResponseLength,
-        convexToken,
         installationId: repo.installationId,
       });
     },
-    [getToken, repo.installationId, startExecution, sessionId],
+    [repo.installationId, startExecution, sessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -253,13 +246,8 @@ export function ChatPanel({
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      const convexToken = await getToken({ template: "convex" });
-      if (!convexToken) {
-        throw new Error("Not authenticated");
-      }
       await startSummarize({
         sessionId,
-        convexToken,
         installationId: repo.installationId,
       });
     } finally {
@@ -274,13 +262,8 @@ export function ChatPanel({
     try {
       await createPr({ sessionId });
       try {
-        const convexToken = await getToken({ template: "convex" });
-        if (!convexToken) {
-          throw new Error("Not authenticated");
-        }
         await startAuditMutation({
           sessionId,
-          convexToken,
         });
       } catch {
         setReviewStep("complete");

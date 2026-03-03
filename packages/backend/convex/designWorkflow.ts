@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -165,7 +165,7 @@ export const designSessionWorkflow = workflow.define({
     designSessionId: v.id("designSessions"),
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
-    convexToken: v.string(),
+    userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
     const sessionData = await step.runQuery(
@@ -194,7 +194,7 @@ export const designSessionWorkflow = workflow.define({
         sandboxId: sessionData.sandboxId,
         entityId: args.designSessionId,
         prompt: sessionData.prompt,
-        convexToken: args.convexToken,
+        userId: args.userId,
         completionMutation: "designWorkflow:handleCompletion",
         entityIdField: "designSessionId",
         model: "opus",

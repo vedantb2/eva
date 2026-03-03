@@ -106,6 +106,15 @@ async function runMigration(
   });
 }
 
+export const getUserClerkId = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    return user?.clerkId ?? null;
+  },
+});
+
 export const getUserByClerkId = internalQuery({
   args: { clerkId: v.string() },
   returns: v.union(

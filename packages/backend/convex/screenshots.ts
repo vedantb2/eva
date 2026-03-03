@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { action, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { authMutation, authAction } from "./functions";
 
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = authMutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
@@ -10,7 +10,7 @@ export const generateUploadUrl = mutation({
   },
 });
 
-export const attachMedia = action({
+export const attachMedia = authAction({
   args: {
     parentId: v.union(
       v.id("sessions"),

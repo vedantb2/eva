@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -166,7 +166,7 @@ export const sessionExecuteWorkflow = workflow.define({
     mode: sessionModeArgValidator,
     model: v.string(),
     responseLength: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -192,7 +192,7 @@ export const sessionExecuteWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
-        convexToken: args.convexToken,
+        userId: args.userId,
         completionMutation: "sessionWorkflow:handleCompletion",
         entityIdField: "sessionId",
         model: data.model,
@@ -459,7 +459,6 @@ export const startExecute = authMutation({
     mode: sessionModeValidator,
     model: v.string(),
     responseLength: v.string(),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -485,7 +484,7 @@ export const startExecute = authMutation({
         mode: args.mode,
         model: args.model,
         responseLength: args.responseLength,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

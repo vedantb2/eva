@@ -1,4 +1,4 @@
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
@@ -271,10 +271,9 @@ export const updatePtySessionInternal = internalMutation({
   },
 });
 
-export const getOrCreateExtensionSession = mutation({
+export const getOrCreateExtensionSession = authMutation({
   args: {
     repoId: v.id("githubRepos"),
-    clerkId: v.string(),
   },
   returns: v.object({
     id: v.string(),
@@ -287,21 +286,12 @@ export const getOrCreateExtensionSession = mutation({
     ),
   }),
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
     const existingSession = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .filter((q) =>
         q.and(
-          q.eq(q.field("userId"), user._id),
+          q.eq(q.field("userId"), ctx.userId),
           q.eq(q.field("title"), "Extension Session"),
           q.neq(q.field("archived"), true),
         ),
@@ -325,7 +315,7 @@ export const getOrCreateExtensionSession = mutation({
 
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
-      userId: user._id,
+      userId: ctx.userId,
       title: "Extension Session",
       status: "active",
       updatedAt: Date.now(),

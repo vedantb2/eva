@@ -1,5 +1,48 @@
 # Changelog
 
+## Remove deploy key from sandbox callback script - 2026-03-03
+
+- **Why**: With self-signed 24h JWTs working, the deploy key auth path in the sandbox callback script is redundant. The JWT path (`callMutation`) handles everything: streaming, task proof, completion. The deploy key was originally needed because Clerk JWTs expired mid-execution.
+- **Removed from callback script**: `DEPLOY_KEY`/`COMPLETION_HTTP_PATH` env vars, `callHttpEndpoint()` function, all deploy key branching logic.
+- **Removed from `launchScript`**: `deployKey` option and env var injection.
+- **Removed HTTP endpoints**: `/api/sandbox/task-completion` and `/api/sandbox/task-proof` from `http.ts` — only called by the callback script.
+- **Removed internal mutations**: `taskWorkflow:handleScheduledCompletion`, `taskProof:saveInternal`, `taskProof:saveMessageInternal` — only called by those HTTP endpoints.
+- **Note**: `EVA_DEPLOY_KEY` env var and `verifyDeployKey` in `http.ts` remain — still used by MCP routes.
+
+## Fix self-signed JWT validation via customJwt provider - 2026-03-03
+
+- **Why**: The `{ domain, applicationID }` auth config format uses OIDC discovery, which requires Convex to fetch `/.well-known/openid-configuration` from its own HTTP endpoint — a self-referential request that fails silently. Sandboxes could not authenticate JWT-based calls (`streaming:set`, etc.), causing zero streaming activity in the frontend.
+- **Fix**: Switched to `{ type: "customJwt", issuer, jwks, algorithm }` format with the JWKS embedded as a base64 data URI. This provides the public key directly in the config — no HTTP fetching needed.
+- **Key learning**: Convex `{ domain }` auth providers use OIDC discovery. Convex `{ type: "customJwt" }` providers accept `issuer` + `jwks` (URL or data URI) + `algorithm` directly. Use `customJwt` when you control the JWT signing and don't need full OIDC. The `jwks` field supports `data:application/json;base64,...` to avoid external HTTP calls entirely.
+- **Also added**: `/.well-known/openid-configuration` HTTP endpoint (still useful for debugging, not required for auth).
+
+## Self-signed sandbox JWTs (Phase 2) - 2026-03-02
+
+- **Why**: Frontend-generated Clerk JWTs (1h expiry) were threaded through workflows to sandbox env vars. Long sandbox tasks could fail when the JWT expired. Scheduled tasks had no JWT at all (`convexToken: ""`).
+- **Solution**: Backend now generates its own 24h JWTs signed with an EC P-256 key pair. Convex validates them via a `customJwt` auth provider with the public key embedded as a data URI.
+- **New file**: `sandboxJwt.ts` — `signSandboxToken` internalAction that mints a JWT with the user's `clerkId` as `sub`, our `CONVEX_SITE_URL` as issuer, and `"convex"` as audience.
+- **auth.config.ts**: Added `customJwt` provider with base64-encoded JWKS data URI so Convex validates both Clerk JWTs (frontend) and our self-signed JWTs (sandbox).
+- **http.ts**: Added `GET /.well-known/jwks.json` and `GET /.well-known/openid-configuration` routes (JWKS endpoint still useful, OIDC endpoint for debugging).
+- **daytona.ts**: All 4 sandbox-launching actions (`setupAndExecute`, `launchOnExistingSandbox`, `launchAudit`, `runSessionAudit`) now take `userId` instead of `convexToken`, and generate the JWT internally.
+- **All workflow files**: Changed `convexToken: v.string()` → `userId: v.id("users")` in workflow args. Public mutations no longer accept `convexToken` — they pass `ctx.userId` from the auth context.
+- **Frontend**: Deleted `useConvexToken.ts` hook. Removed `convexToken` from all 14 web mutation calls and 2 chrome extension mutation calls.
+- **Env vars required**: `SANDBOX_JWT_PRIVATE_KEY`, `SANDBOX_JWT_JWKS` (set on Convex dashboard before deploying).
+
+## Lock down public Convex functions (Phase 1) - 2026-03-02
+
+- **Why**: Many backend functions were plain `query`/`mutation`/`action` with no auth — anyone with the Convex URL could call them. This converts all public functions to `authQuery`/`authMutation`/`authAction` so the auth gate rejects unauthenticated requests.
+- **Converted to auth wrappers**:
+  - `streaming.ts`: `get` → authQuery, `set`/`clear` → authMutation
+  - `screenshots.ts`: `generateUploadUrl` → authMutation, `attachMedia` → authAction
+  - `githubRepos.ts`: `list`/`get`/`getByOwnerAndName`/`listByTeam` → authQuery, `assignToTeam`/`removeFromTeam` → authMutation. Removed manual `getCurrentUserId` calls in favor of `ctx.userId`.
+  - `users.ts`: `get` → authQuery
+  - `taskAudits.ts`: `getByTask` → authQuery
+  - `taskWorkflow.ts`: `handleAuditCompletion` → authMutation
+  - `presence.ts`: `list` → authQuery, `disconnect` → authMutation
+  - `sessions.ts`: `getOrCreateExtensionSession` → authMutation, removed `clerkId` arg (uses `ctx.userId`)
+- **Dead code deleted**: `taskAudits.create`/`complete`/`fail`, `notifications.create`, `researchQueries.getSchemaInfo`
+- **Intentionally kept public**: `extensionReleases` (extension auto-update + admin key), `auth` (bootstrapping)
+
 ## Fix session/sandbox UX issues + rootDirectory in all prompts - 2026-03-02
 
 - **Summary streaming fix**: Summary and message execution shared the same streaming entity ID, causing the summary section to show message streaming data. Split into separate entity IDs (`summary:${sessionId}` vs `sessionId`) with independent queries.

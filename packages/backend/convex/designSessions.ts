@@ -286,7 +286,6 @@ export const executeMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
-    convexToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -318,7 +317,7 @@ export const executeMessage = authMutation({
         designSessionId: args.id,
         message: args.message,
         personaId: args.personaId,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
       },
     );
 

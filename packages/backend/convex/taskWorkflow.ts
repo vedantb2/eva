@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -130,7 +130,7 @@ export const taskExecutionWorkflow = workflow.define({
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
-    convexToken: v.string(),
+    userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
     // Step 1: Update run to "running"
@@ -157,7 +157,7 @@ export const taskExecutionWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
-        convexToken: args.convexToken,
+        userId: args.userId,
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
         model: args.model ?? "sonnet",
@@ -231,7 +231,7 @@ export const taskExecutionWorkflow = workflow.define({
             sandboxId,
             prompt: buildAuditPrompt(diffRaw),
             taskId: String(args.taskId),
-            convexToken: args.convexToken,
+            userId: args.userId,
             repoId: args.repoId,
           });
 
@@ -629,7 +629,7 @@ export const handleCompletion = authMutation({
  * Sandbox audit callback — routes audit completion event to the waiting workflow.
  * Called by the nohup audit script in Daytona when Claude CLI haiku finishes.
  */
-export const handleAuditCompletion = mutation({
+export const handleAuditCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     success: v.boolean(),
@@ -649,34 +649,6 @@ export const handleAuditCompletion = mutation({
         success: args.success,
         result: args.result,
         error: args.error,
-      },
-    });
-
-    return null;
-  },
-});
-
-export const handleScheduledCompletion = internalMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task || !task.activeWorkflowId) return null;
-
-    await workflow.sendEvent(ctx, {
-      ...taskCompleteEvent,
-      workflowId: task.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
       },
     });
 
@@ -715,6 +687,15 @@ export const executeScheduledTask = internalMutation({
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) {
+      await ctx.db.patch(args.taskId, {
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+      });
+      return null;
+    }
+
+    const board = await ctx.db.get(task.boardId);
+    if (!board) {
       await ctx.db.patch(args.taskId, {
         scheduledAt: undefined,
         scheduledFunctionId: undefined,
@@ -771,7 +752,7 @@ export const executeScheduledTask = internalMutation({
         baseBranch: task.baseBranch,
         isFirstTaskOnBranch,
         model: task.model,
-        convexToken: "",
+        userId: board.ownerId,
       },
     );
 
@@ -864,7 +845,6 @@ export const triggerExecution = authMutation({
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
-    convexToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -884,7 +864,7 @@ export const triggerExecution = authMutation({
         baseBranch: args.baseBranch,
         isFirstTaskOnBranch: args.isFirstTaskOnBranch,
         model: args.model,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
       },
     );
 

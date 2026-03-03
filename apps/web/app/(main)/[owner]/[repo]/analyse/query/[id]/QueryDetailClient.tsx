@@ -18,7 +18,6 @@ import {
 import { useMutation } from "convex/react";
 import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { UserInitials } from "@conductor/shared";
 import {
   Button,
@@ -78,7 +77,6 @@ interface QueryDetailClientProps {
 
 export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const { repo } = useRepo();
-  const getConvexToken = useConvexToken();
   const typedQueryId = queryId as Id<"researchQueries">;
   const researchQuery = useQuery(api.researchQueries.get, {
     id: typedQueryId,
@@ -108,13 +106,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     if (!text.trim() || isSending) return;
     setIsSending(true);
     try {
-      const convexToken = await getConvexToken();
       await startGenerate({
         queryId: typedQueryId,
         question: text.trim(),
         repoId: repo._id,
         model,
-        convexToken,
         installationId: repo.installationId,
       });
     } finally {
@@ -127,14 +123,12 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     queryCode: string,
     question: string,
   ) => {
-    const convexToken = await getConvexToken();
     await startConfirm({
       queryId: typedQueryId,
       queryCode,
       messageId,
       question,
       repoId: repo._id,
-      convexToken,
       installationId: repo.installationId,
     });
   };

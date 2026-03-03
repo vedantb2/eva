@@ -1,7 +1,7 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authQuery, authMutation } from "./functions";
 
-export const get = query({
+export const get = authQuery({
   args: { entityId: v.string() },
   returns: v.union(v.object({ currentActivity: v.string() }), v.null()),
   handler: async (ctx, args) => {
@@ -14,7 +14,7 @@ export const get = query({
   },
 });
 
-export const set = mutation({
+export const set = authMutation({
   args: { entityId: v.string(), currentActivity: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -36,7 +36,7 @@ export const set = mutation({
   },
 });
 
-export const clear = mutation({
+export const clear = authMutation({
   args: { entityId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {

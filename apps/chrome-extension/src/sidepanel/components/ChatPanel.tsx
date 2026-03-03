@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@clerk/chrome-extension";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
@@ -89,7 +88,6 @@ export function ChatPanel({
   convexUserId,
   creatorInitials,
 }: ChatPanelProps) {
-  const { getToken } = useAuth();
   const [ephemeralMessages, setEphemeralMessages] = useState<
     EphemeralMessage[]
   >([]);
@@ -237,9 +235,6 @@ Please review all components and files used on this page before implementing the
           mode: "ask",
         });
 
-        const convexToken = await getToken({ template: "convex" });
-        if (!convexToken) throw new Error("Not authenticated");
-
         if (!selectedRepo) throw new Error("Repository not found");
 
         await startExecution({
@@ -248,7 +243,6 @@ Please review all components and files used on this page before implementing the
           mode: "ask",
           model,
           responseLength,
-          convexToken,
           installationId: selectedRepo.installationId,
         });
       } catch (error) {

@@ -10,7 +10,6 @@ import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
@@ -30,7 +29,6 @@ export function QuickTasksKanbanBoard({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksKanbanBoardProps) {
-  const getConvexToken = useConvexToken();
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -69,7 +67,6 @@ export function QuickTasksKanbanBoard({
     try {
       for (const task of ownedTodoTasks) {
         const result = await startExecution({ id: task._id });
-        const convexToken = await getConvexToken();
         await triggerExecution({
           runId: result.runId,
           taskId: result.taskId,
@@ -80,7 +77,6 @@ export function QuickTasksKanbanBoard({
           baseBranch: result.baseBranch,
           isFirstTaskOnBranch: result.isFirstTaskOnBranch,
           model: result.model,
-          convexToken,
         });
       }
     } catch (err) {

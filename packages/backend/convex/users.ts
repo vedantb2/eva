@@ -1,9 +1,8 @@
-import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("users") },
   returns: v.union(
     v.object({

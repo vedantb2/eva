@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
 
 export const generateUploadUrl = authMutation({
@@ -50,46 +49,6 @@ export const saveMessage = authMutation({
     if (!board || board.ownerId !== ctx.userId) {
       throw new Error("Task not found");
     }
-    return await ctx.db.insert("taskProof", {
-      taskId: args.taskId,
-      message: args.message,
-      createdAt: Date.now(),
-    });
-  },
-});
-
-export const saveInternal = internalMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    storageId: v.id("_storage"),
-    fileName: v.string(),
-  },
-  returns: v.id("taskProof"),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-    const board = await ctx.db.get(task.boardId);
-    if (!board) throw new Error("Board not found");
-    return await ctx.db.insert("taskProof", {
-      taskId: args.taskId,
-      storageId: args.storageId,
-      fileName: args.fileName,
-      createdAt: Date.now(),
-    });
-  },
-});
-
-export const saveMessageInternal = internalMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    message: v.string(),
-  },
-  returns: v.id("taskProof"),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-    const board = await ctx.db.get(task.boardId);
-    if (!board) throw new Error("Board not found");
     return await ctx.db.insert("taskProof", {
       taskId: args.taskId,
       message: args.message,

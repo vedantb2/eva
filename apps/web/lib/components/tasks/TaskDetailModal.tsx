@@ -65,7 +65,6 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import dayjs from "@conductor/shared/dates";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
@@ -84,7 +83,6 @@ export function TaskDetailModal({
   onClose,
   taskId,
 }: TaskDetailModalProps) {
-  const getConvexToken = useConvexToken();
   const task = useQuery(api.agentTasks.get, { id: taskId });
   const currentUserId = useQuery(api.auth.me);
   const isOwner = currentUserId === task?.createdBy;
@@ -195,7 +193,6 @@ export function TaskDetailModal({
     setIsStarting(true);
     try {
       const result = await startExecution({ id: taskId });
-      const convexToken = await getConvexToken();
       await triggerExecution({
         runId: result.runId,
         taskId: result.taskId,
@@ -206,7 +203,6 @@ export function TaskDetailModal({
         baseBranch: result.projectId ? undefined : result.baseBranch,
         isFirstTaskOnBranch: result.isFirstTaskOnBranch,
         model: result.model,
-        convexToken,
       });
     } catch (err) {
       console.error("Failed to start execution:", err);

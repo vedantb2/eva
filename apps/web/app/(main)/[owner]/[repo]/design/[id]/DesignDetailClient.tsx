@@ -41,7 +41,6 @@ import {
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import dayjs from "@conductor/shared/dates";
 
 type DesignMessage = NonNullable<
@@ -88,7 +87,6 @@ export function DesignDetailClient({
     session ? { repoId: session.repoId } : "skip",
   );
   const { repo } = useRepo();
-  const getConvexToken = useConvexToken();
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const selectVariation = useMutation(api.designSessions.selectVariation);
@@ -172,13 +170,10 @@ export function DesignDetailClient({
     if (!text.trim() || !sandboxRunning) return;
     setIsSending(true);
     try {
-      const convexToken = await getConvexToken();
-
       await executeMessage({
         id: designSessionId,
         message: text.trim(),
         personaId: selectedPersonaId,
-        convexToken,
       });
     } catch {
       setIsSending(false);

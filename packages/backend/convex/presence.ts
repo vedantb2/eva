@@ -1,8 +1,7 @@
-import { mutation, query } from "./_generated/server";
 import { components } from "./_generated/api";
 import { v } from "convex/values";
 import { Presence } from "@convex-dev/presence";
-import { authMutation } from "./functions";
+import { authQuery, authMutation } from "./functions";
 
 const presence = new Presence(components.presence);
 
@@ -37,14 +36,14 @@ export const heartbeat = authMutation({
   },
 });
 
-export const list = query({
+export const list = authQuery({
   args: { roomToken: v.string() },
   handler: async (ctx, { roomToken }) => {
     return await presence.list(ctx, roomToken);
   },
 });
 
-export const disconnect = mutation({
+export const disconnect = authMutation({
   args: { sessionToken: v.string() },
   handler: async (ctx, { sessionToken }) => {
     return await presence.disconnect(ctx, sessionToken);

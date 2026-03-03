@@ -1,12 +1,6 @@
-import {
-  internalMutation,
-  mutation,
-  query,
-  internalQuery,
-} from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserId } from "./auth";
-import { authMutation } from "./functions";
+import { authQuery, authMutation } from "./functions";
 
 const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),
@@ -20,18 +14,13 @@ const githubRepoValidator = v.object({
   rootDirectory: v.optional(v.string()),
 });
 
-export const list = query({
+export const list = authQuery({
   args: {},
   returns: v.array(githubRepoValidator),
   handler: async (ctx) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return [];
-    }
-
     const userTeamMemberships = await ctx.db
       .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
 
     const userTeamIds = new Set(userTeamMemberships.map((m) => m.teamId));
@@ -39,33 +28,28 @@ export const list = query({
     const allRepos = await ctx.db.query("githubRepos").collect();
 
     return allRepos.filter((repo) => {
-      if (repo.connectedBy === userId) return true;
+      if (repo.connectedBy === ctx.userId) return true;
       if (repo.teamId && userTeamIds.has(repo.teamId)) return true;
       return false;
     });
   },
 });
 
-export const get = query({
+export const get = authQuery({
   args: { id: v.id("githubRepos") },
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-
     const repo = await ctx.db.get(args.id);
     if (!repo) return null;
 
-    if (repo.connectedBy === userId) return repo;
+    if (repo.connectedBy === ctx.userId) return repo;
 
     const teamId = repo.teamId;
     if (teamId) {
       const membership = await ctx.db
         .query("teamMembers")
         .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", userId),
+          q.eq("teamId", teamId).eq("userId", ctx.userId),
         )
         .first();
       if (membership) return repo;
@@ -75,7 +59,7 @@ export const get = query({
   },
 });
 
-export const getByOwnerAndName = query({
+export const getByOwnerAndName = authQuery({
   args: {
     owner: v.string(),
     name: v.string(),
@@ -83,11 +67,6 @@ export const getByOwnerAndName = query({
   },
   returns: v.union(githubRepoValidator, v.null()),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-
     const candidates = await ctx.db
       .query("githubRepos")
       .withIndex("by_owner_name", (q) =>
@@ -103,14 +82,14 @@ export const getByOwnerAndName = query({
 
     if (!repo) return null;
 
-    if (repo.connectedBy === userId) return repo;
+    if (repo.connectedBy === ctx.userId) return repo;
 
     const teamId = repo.teamId;
     if (teamId) {
       const membership = await ctx.db
         .query("teamMembers")
         .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", userId),
+          q.eq("teamId", teamId).eq("userId", ctx.userId),
         )
         .first();
       if (membership) return repo;
@@ -134,17 +113,14 @@ export const getTeamIdForRepo = internalQuery({
   },
 });
 
-export const listByTeam = query({
+export const listByTeam = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(githubRepoValidator),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) return [];
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -159,20 +135,17 @@ export const listByTeam = query({
   },
 });
 
-export const assignToTeam = mutation({
+export const assignToTeam = authMutation({
   args: {
     teamId: v.id("teams"),
     repoId: v.id("githubRepos"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 
@@ -194,20 +167,17 @@ export const assignToTeam = mutation({
   },
 });
 
-export const removeFromTeam = mutation({
+export const removeFromTeam = authMutation({
   args: {
     teamId: v.id("teams"),
     repoId: v.id("githubRepos"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", userId),
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
       )
       .first();
 

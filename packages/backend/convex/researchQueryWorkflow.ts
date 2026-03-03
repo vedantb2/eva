@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -119,7 +119,7 @@ export const generateQueryWorkflow = workflow.define({
     question: v.string(),
     repoId: v.id("githubRepos"),
     model: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -141,7 +141,7 @@ export const generateQueryWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         prompt: data.prompt,
-        convexToken: args.convexToken,
+        userId: args.userId,
         completionMutation: "researchQueryWorkflow:handleCompletion",
         entityIdField: "queryId",
         model: args.model || "sonnet",
@@ -170,7 +170,7 @@ export const confirmQueryWorkflow = workflow.define({
     messageId: v.id("messages"),
     question: v.string(),
     repoId: v.id("githubRepos"),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -197,7 +197,7 @@ export const confirmQueryWorkflow = workflow.define({
       repoOwner: data.repoOwner,
       repoName: data.repoName,
       prompt: data.prompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "researchQueryWorkflow:handleCompletion",
       entityIdField: "queryId",
       model: "sonnet",
@@ -448,7 +448,6 @@ export const startGenerate = authMutation({
     question: v.string(),
     repoId: v.id("githubRepos"),
     model: v.string(),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -464,7 +463,7 @@ export const startGenerate = authMutation({
         question: args.question,
         repoId: args.repoId,
         model: args.model,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );
@@ -484,7 +483,6 @@ export const startConfirm = authMutation({
     messageId: v.id("messages"),
     question: v.string(),
     repoId: v.id("githubRepos"),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -501,7 +499,7 @@ export const startConfirm = authMutation({
         messageId: args.messageId,
         question: args.question,
         repoId: args.repoId,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

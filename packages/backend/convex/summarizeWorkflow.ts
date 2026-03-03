@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -23,7 +23,7 @@ const summarizeCompleteEvent = defineEvent({
 export const summarizeSessionWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -39,7 +39,7 @@ export const summarizeSessionWorkflow = workflow.define({
       repoOwner: sessionData.repoOwner,
       repoName: sessionData.repoName,
       prompt: sessionData.prompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "summarizeWorkflow:handleCompletion",
       entityIdField: "sessionId",
       model: "haiku",
@@ -176,7 +176,6 @@ export const handleCompletion = authMutation({
 export const startSummarize = authMutation({
   args: {
     sessionId: v.id("sessions"),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -190,7 +189,7 @@ export const startSummarize = authMutation({
       internal.summarizeWorkflow.summarizeSessionWorkflow,
       {
         sessionId: args.sessionId,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

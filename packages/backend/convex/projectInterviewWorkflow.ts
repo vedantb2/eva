@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -127,7 +127,7 @@ export const projectInterviewWorkflow = workflow.define({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     rejectionReason: v.optional(v.string()),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -158,7 +158,7 @@ export const projectInterviewWorkflow = workflow.define({
       repoOwner: projectData.repoOwner,
       repoName: projectData.repoName,
       prompt: fullPrompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleCompletion",
       entityIdField: "projectId",
       model: "sonnet",
@@ -332,7 +332,6 @@ export const startInterview = authMutation({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     rejectionReason: v.optional(v.string()),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -348,7 +347,7 @@ export const startInterview = authMutation({
         featureDescription: args.featureDescription,
         previousAnswers: args.previousAnswers,
         rejectionReason: args.rejectionReason,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );
@@ -370,7 +369,7 @@ export const projectSpecWorkflow = workflow.define({
     previousAnswers: v.array(
       v.object({ question: v.string(), answer: v.string() }),
     ),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -406,7 +405,7 @@ Output ONLY valid JSON.`;
       repoOwner: projectData.repoOwner,
       repoName: projectData.repoName,
       prompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleSpecCompletion",
       entityIdField: "projectId",
       model: "sonnet",
@@ -518,7 +517,6 @@ export const startSpec = authMutation({
     previousAnswers: v.array(
       v.object({ question: v.string(), answer: v.string() }),
     ),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -533,7 +531,7 @@ export const startSpec = authMutation({
         projectId: args.projectId,
         featureDescription: args.featureDescription,
         previousAnswers: args.previousAnswers,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

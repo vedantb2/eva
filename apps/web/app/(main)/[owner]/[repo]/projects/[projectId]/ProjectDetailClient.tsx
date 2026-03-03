@@ -28,7 +28,6 @@ import {
   IconHammer,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -36,7 +35,6 @@ interface ProjectDetailClientProps {
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { basePath, repo, installationId } = useRepo();
-  const getConvexToken = useConvexToken();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
@@ -161,10 +159,8 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <Button
               disabled={false}
               onClick={async () => {
-                const convexToken = await getConvexToken();
                 await startBuild({
                   projectId: typedProjectId,
-                  convexToken,
                   installationId: repo.installationId,
                 });
                 setIsBuildModalOpen(false);

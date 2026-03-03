@@ -1,4 +1,4 @@
-import { mutation, MutationCtx } from "./_generated/server";
+import { MutationCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { notificationTypeValidator } from "./validators";
@@ -113,29 +113,5 @@ export const markAllAsRead = authMutation({
       await ctx.db.patch(n._id, { read: true });
     }
     return null;
-  },
-});
-
-export const create = mutation({
-  args: {
-    userId: v.id("users"),
-    type: notificationTypeValidator,
-    title: v.string(),
-    message: v.optional(v.string()),
-    href: v.optional(v.string()),
-    repoId: v.optional(v.id("githubRepos")),
-  },
-  returns: v.id("notifications"),
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("notifications", {
-      userId: args.userId,
-      type: args.type,
-      title: args.title,
-      message: args.message,
-      href: args.href,
-      repoId: args.repoId,
-      read: false,
-      createdAt: Date.now(),
-    });
   },
 });

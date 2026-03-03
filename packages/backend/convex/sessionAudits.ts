@@ -34,7 +34,6 @@ export const getBySession = authQuery({
 export const startAudit = authMutation({
   args: {
     sessionId: v.id("sessions"),
-    convexToken: v.string(),
   },
   returns: v.id("sessionAudits"),
   handler: async (ctx, args) => {
@@ -55,7 +54,7 @@ export const startAudit = authMutation({
       sessionId: args.sessionId,
       sandboxId: session.sandboxId,
       auditId,
-      convexToken: args.convexToken,
+      userId: ctx.userId,
     });
 
     return auditId;

@@ -4,7 +4,6 @@ import {
   SignedIn,
   SignedOut,
   SignInButton,
-  useAuth,
   useUser,
 } from "@clerk/chrome-extension";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -71,7 +70,6 @@ const isAllowedUrl = (url: string) => {
 
 function AuthenticatedApp() {
   const { user } = useUser();
-  const { getToken } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const repos = useQuery(api.githubRepos.list) ?? [];
   const isLoadingRepos = repos === undefined;
@@ -113,18 +111,15 @@ function AuthenticatedApp() {
 
   const executeTaskWorkflow = useCallback(
     async (result: Awaited<ReturnType<typeof startExecution>>) => {
-      const convexToken = await getToken({ template: "convex" });
-      if (!convexToken) throw new Error("Not authenticated");
       const { token: githubToken } = await getInstallationToken({
         installationId: result.installationId,
       });
       await triggerExecution({
         ...result,
-        convexToken,
         githubToken,
       });
     },
-    [getToken, getInstallationToken, triggerExecution],
+    [getInstallationToken, triggerExecution],
   );
 
   const projects = useQuery(
@@ -432,7 +427,6 @@ function AuthenticatedApp() {
     if (selectedRepoId && user?.id) {
       getOrCreateExtensionSession({
         repoId: selectedRepoId as Id<"githubRepos">,
-        clerkId: user.id,
       }).then((result) => setCurrentSessionId(result.id));
     }
   }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);

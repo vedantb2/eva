@@ -5,7 +5,6 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import {
   ActivitySteps,
   Button,
@@ -62,7 +61,6 @@ export function DocInterviewDialog({
   installationId,
   readOnly,
 }: DocInterviewDialogProps) {
-  const getConvexToken = useConvexToken();
   const addMessage = useMutation(api.docs.addInterviewMessage);
   const clearInterview = useMutation(api.docs.clearInterview);
   const startDocInterview = useMutation(
@@ -113,17 +111,13 @@ export function DocInterviewDialog({
         if (parsed.description && parsed.requirements) {
           onOpenChange(false);
         } else if (parsed.ready === true) {
-          // Interview is complete — trigger the generate phase
           setIsLoading(true);
-          getConvexToken().then((convexToken) =>
-            startDocGenerate({
-              docId: doc._id,
-              docTitle: doc.title,
-              previousAnswers: answers,
-              convexToken,
-              installationId,
-            }),
-          );
+          startDocGenerate({
+            docId: doc._id,
+            docTitle: doc.title,
+            previousAnswers: answers,
+            installationId,
+          });
         }
       } catch {
         // not generated content
@@ -154,12 +148,10 @@ export function DocInterviewDialog({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      const convexToken = await getConvexToken();
       await startDocInterview({
         docId: doc._id,
         docTitle: doc.title,
         previousAnswers: currentAnswers,
-        convexToken,
         installationId,
       });
     },

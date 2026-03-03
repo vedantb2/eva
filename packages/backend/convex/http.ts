@@ -74,71 +74,42 @@ http.route({
 });
 
 http.route({
-  path: "/api/sandbox/task-completion",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    if (!verifyDeployKey(request)) {
-      return new Response("Unauthorized", { status: 401 });
+  path: "/.well-known/openid-configuration",
+  method: "GET",
+  handler: httpAction(async () => {
+    const siteUrl = process.env.CONVEX_SITE_URL;
+    if (!siteUrl) {
+      return new Response("CONVEX_SITE_URL not configured", { status: 500 });
     }
-
-    const body = await request.json();
-    if (typeof body !== "object" || body === null) {
-      return new Response("Invalid request body", { status: 400 });
-    }
-    if (typeof body.taskId !== "string") {
-      return new Response("taskId required", { status: 400 });
-    }
-
-    await ctx.runMutation(internal.taskWorkflow.handleScheduledCompletion, {
-      taskId: body.taskId,
-      success: typeof body.success === "boolean" ? body.success : false,
-      result: typeof body.result === "string" ? body.result : null,
-      error: typeof body.error === "string" ? body.error : null,
-      activityLog:
-        typeof body.activityLog === "string" ? body.activityLog : null,
-    });
-    return Response.json({ status: "ok" });
+    return new Response(
+      JSON.stringify({
+        issuer: siteUrl,
+        jwks_uri: `${siteUrl}/.well-known/jwks.json`,
+        id_token_signing_alg_values_supported: ["ES256"],
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=3600",
+        },
+      },
+    );
   }),
 });
 
 http.route({
-  path: "/api/sandbox/task-proof",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    if (!verifyDeployKey(request)) {
-      return new Response("Unauthorized", { status: 401 });
+  path: "/.well-known/jwks.json",
+  method: "GET",
+  handler: httpAction(async () => {
+    const jwks = process.env.SANDBOX_JWT_JWKS;
+    if (!jwks) {
+      return new Response("SANDBOX_JWT_JWKS not configured", { status: 500 });
     }
-
-    const body = await request.json();
-    if (typeof body !== "object" || body === null) {
-      return new Response("Invalid request body", { status: 400 });
-    }
-    if (typeof body.taskId !== "string") {
-      return new Response("taskId required", { status: 400 });
-    }
-
-    if (
-      typeof body.storageId === "string" &&
-      typeof body.fileName === "string"
-    ) {
-      await ctx.runMutation(internal.taskProof.saveInternal, {
-        taskId: body.taskId,
-        storageId: body.storageId,
-        fileName: body.fileName,
-      });
-      return Response.json({ status: "ok" });
-    }
-
-    if (typeof body.message === "string") {
-      await ctx.runMutation(internal.taskProof.saveMessageInternal, {
-        taskId: body.taskId,
-        message: body.message,
-      });
-      return Response.json({ status: "ok" });
-    }
-
-    return new Response("Must provide storageId+fileName or message", {
-      status: 400,
+    return new Response(jwks, {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600",
+      },
     });
   }),
 });

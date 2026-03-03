@@ -5,7 +5,6 @@ import { ActivitySteps, Button, Spinner } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useConvexToken } from "@/lib/hooks/useConvexToken";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
@@ -57,7 +56,6 @@ export function ProjectChatTab({
   repoId,
   installationId,
 }: ProjectChatTabProps) {
-  const getConvexToken = useConvexToken();
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const startProjectInterview = useMutation(
@@ -125,16 +123,14 @@ export function ProjectChatTab({
   const askQuestion = useCallback(
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
-      const convexToken = await getConvexToken();
       await startProjectInterview({
         projectId: projectId as Id<"projects">,
         featureDescription: rawInput,
         previousAnswers: currentAnswers,
-        convexToken,
         installationId,
       });
     },
-    [projectId, repoId, installationId, rawInput, startProjectInterview],
+    [projectId, installationId, rawInput, startProjectInterview],
   );
 
   const handleStartInterview = () => {

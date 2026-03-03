@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -83,7 +83,7 @@ export const docPrdWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
     prdContent: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -101,7 +101,7 @@ export const docPrdWorkflow = workflow.define({
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: docData.prompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "docPrdWorkflow:handleCompletion",
       entityIdField: "docId",
       model: "sonnet",
@@ -248,7 +248,6 @@ export const startPrdParse = authMutation({
   args: {
     docId: v.id("docs"),
     prdContent: v.string(),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -262,7 +261,7 @@ export const startPrdParse = authMutation({
       {
         docId: args.docId,
         prdContent: args.prdContent,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

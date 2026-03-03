@@ -419,8 +419,6 @@ import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
-const DEPLOY_KEY = process.env.DEPLOY_KEY || "";
-const COMPLETION_HTTP_PATH = process.env.COMPLETION_HTTP_PATH || "";
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const ENTITY_TYPE = "${entityIdField}";
@@ -440,22 +438,6 @@ async function callMutation(path, args) {
   if (!res.ok) {
     const text = await res.text();
     throw new Error("Convex mutation " + path + " failed: " + res.status + " " + text);
-  }
-  return res.json();
-}
-
-async function callHttpEndpoint(path, args) {
-  const res = await fetch(CONVEX_URL + path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Convex " + DEPLOY_KEY,
-    },
-    body: JSON.stringify(args),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error("HTTP " + path + " failed: " + res.status + " " + text);
   }
   return res.json();
 }
@@ -774,12 +756,8 @@ try {
     try {
       if (ENTITY_TYPE === "taskId") {
         const storageId = videoStorageId || imageStorageId;
-        if (DEPLOY_KEY) {
-          await callHttpEndpoint("/api/sandbox/task-proof", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
-        } else if (CONVEX_TOKEN) {
-          await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
-        }
-      } else if (CONVEX_TOKEN) {
+        await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
+      } else {
         const mediaArgs = { parentId: ENTITY_ID };
         if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
         if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
@@ -788,11 +766,7 @@ try {
     } catch {}
   } else if (ENTITY_TYPE === "taskId") {
     try {
-      if (DEPLOY_KEY) {
-        await callHttpEndpoint("/api/sandbox/task-proof", { taskId: ENTITY_ID, message: "No UI changes" });
-      } else if (CONVEX_TOKEN) {
-        await callMutation("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" });
-      }
+      await callMutation("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" });
     } catch {}
   }
 
@@ -804,11 +778,7 @@ try {
     activityLog,
   };
   try {
-    if (COMPLETION_HTTP_PATH && DEPLOY_KEY) {
-      await callHttpEndpoint(COMPLETION_HTTP_PATH, completionArgs);
-    } else {
-      await callMutation("${completionMutation}", completionArgs);
-    }
+    await callMutation("${completionMutation}", completionArgs);
   } catch (e) {
     console.error("Failed to send completion:", e);
     process.exit(1);
@@ -823,11 +793,7 @@ try {
     activityLog: "[]",
   };
   try {
-    if (COMPLETION_HTTP_PATH && DEPLOY_KEY) {
-      await callHttpEndpoint(COMPLETION_HTTP_PATH, errorArgs);
-    } else {
-      await callMutation("${completionMutation}", errorArgs);
-    }
+    await callMutation("${completionMutation}", errorArgs);
   } catch {}
 }
 `.trim();
@@ -850,7 +816,6 @@ async function launchScript(
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
-    deployKey?: string;
   } = {},
 ): Promise<void> {
   // Upload the prompt
@@ -878,10 +843,6 @@ async function launchScript(
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
-  }
-  if (opts.deployKey) {
-    envParts.push(`DEPLOY_KEY=${quote([opts.deployKey])}`);
-    envParts.push(`COMPLETION_HTTP_PATH=/api/sandbox/task-completion`);
   }
   if (opts.extraEnvVars) {
     for (const [key, val] of Object.entries(opts.extraEnvVars)) {
@@ -1005,7 +966,7 @@ export const setupAndExecute = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     prompt: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     completionMutation: v.string(),
     entityIdField: v.string(),
     model: v.optional(v.string()),
@@ -1073,14 +1034,17 @@ export const setupAndExecute = internalAction({
       await setupBranch(sandbox, args.branchName);
     }
 
-    const deployKey = process.env.EVA_DEPLOY_KEY;
+    const sandboxToken = await ctx.runAction(
+      internal.sandboxJwt.signSandboxToken,
+      { userId: args.userId },
+    );
 
     await launchScript(
       sandbox,
       args.prompt,
       args.completionMutation,
       args.entityIdField,
-      args.convexToken,
+      sandboxToken,
       args.entityId,
       {
         model: args.model,
@@ -1088,7 +1052,6 @@ export const setupAndExecute = internalAction({
         systemPrompt: args.systemPrompt,
         extraEnvVars: sandboxEnvVars,
         claudeSessionId,
-        deployKey,
       },
     );
 
@@ -1105,7 +1068,7 @@ export const launchOnExistingSandbox = internalAction({
     sandboxId: v.string(),
     entityId: v.string(),
     prompt: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     completionMutation: v.string(),
     entityIdField: v.string(),
     model: v.optional(v.string()),
@@ -1115,6 +1078,10 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const sandboxToken = await ctx.runAction(
+      internal.sandboxJwt.signSandboxToken,
+      { userId: args.userId },
+    );
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
@@ -1124,7 +1091,7 @@ export const launchOnExistingSandbox = internalAction({
       args.prompt,
       args.completionMutation,
       args.entityIdField,
-      args.convexToken,
+      sandboxToken,
       args.entityId,
       {
         model: args.model,
@@ -1147,11 +1114,15 @@ export const launchAudit = internalAction({
     sandboxId: v.string(),
     prompt: v.string(),
     taskId: v.string(),
-    convexToken: v.string(),
+    userId: v.id("users"),
     repoId: v.id("githubRepos"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const sandboxToken = await ctx.runAction(
+      internal.sandboxJwt.signSandboxToken,
+      { userId: args.userId },
+    );
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
@@ -1161,7 +1132,7 @@ export const launchAudit = internalAction({
       args.prompt,
       "taskWorkflow:handleAuditCompletion",
       "taskId",
-      args.convexToken,
+      sandboxToken,
       args.taskId,
       {
         model: "haiku",
@@ -1200,7 +1171,7 @@ export const runSessionAudit = internalAction({
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
     auditId: v.id("sessionAudits"),
-    convexToken: v.string(),
+    userId: v.id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1212,6 +1183,10 @@ export const runSessionAudit = internalAction({
         throw new Error("Session not found");
       }
 
+      const sandboxToken = await ctx.runAction(
+        internal.sandboxJwt.signSandboxToken,
+        { userId: args.userId },
+      );
       const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
       const daytona = getDaytona(daytonaApiKey);
       const sandbox = await daytona.get(args.sandboxId);
@@ -1235,7 +1210,7 @@ export const runSessionAudit = internalAction({
         buildSessionAuditPrompt(diffRaw),
         "sessionAudits:handleCompletion",
         "sessionId",
-        args.convexToken,
+        sandboxToken,
         String(args.sessionId),
         {
           model: "haiku",

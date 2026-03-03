@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
@@ -10,7 +10,7 @@ import { buildTaskDoneEvent } from "./taskWorkflow";
 export const buildProjectWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -35,7 +35,7 @@ export const buildProjectWorkflow = workflow.define({
       await step.runMutation(internal.buildWorkflow.startTaskForBuild, {
         taskId: task._id,
         projectId: args.projectId,
-        convexToken: args.convexToken,
+        userId: args.userId,
         installationId: args.installationId,
       });
 
@@ -85,7 +85,7 @@ export const startTaskForBuild = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     projectId: v.id("projects"),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -156,7 +156,7 @@ export const startTaskForBuild = internalMutation({
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
         model: task.model,
-        convexToken: args.convexToken,
+        userId: args.userId,
       },
     );
 
@@ -188,7 +188,6 @@ export const completeBuild = internalMutation({
 export const startBuild = authMutation({
   args: {
     projectId: v.id("projects"),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -205,7 +204,7 @@ export const startBuild = authMutation({
       internal.buildWorkflow.buildProjectWorkflow,
       {
         projectId: args.projectId,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

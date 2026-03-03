@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -63,7 +63,7 @@ function formatUserFlows(
 export const testGenWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
-    convexToken: v.string(),
+    userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
@@ -87,7 +87,7 @@ export const testGenWorkflow = workflow.define({
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       prompt: docData.prompt,
-      convexToken: args.convexToken,
+      userId: args.userId,
       completionMutation: "testGenWorkflow:handleCompletion",
       entityIdField: "docId",
       model: "sonnet",
@@ -328,7 +328,6 @@ export const handleCompletion = authMutation({
 export const startTestGen = authMutation({
   args: {
     docId: v.id("docs"),
-    convexToken: v.string(),
     installationId: v.number(),
   },
   returns: v.null(),
@@ -341,7 +340,7 @@ export const startTestGen = authMutation({
       internal.testGenWorkflow.testGenWorkflow,
       {
         docId: args.docId,
-        convexToken: args.convexToken,
+        userId: ctx.userId,
         installationId: args.installationId,
       },
     );

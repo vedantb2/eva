@@ -493,6 +493,12 @@ export function TaskDetailModal({
                     </h4>
                     <Accordion
                       type="multiple"
+                      defaultValue={runs
+                        .filter(
+                          (run) =>
+                            run.status === "running" || run.status === "queued",
+                        )
+                        .map((run) => run._id)}
                       className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2"
                     >
                       {runs.map((run) => (

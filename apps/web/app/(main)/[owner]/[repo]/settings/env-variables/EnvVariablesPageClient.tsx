@@ -12,7 +12,14 @@ export function EnvVariablesPageClient() {
 
   return (
     <PageWrapper title="Environment Variables">
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          if (value === "repo" || value === "team") {
+            setTab(value);
+          }
+        }}
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="repo">Repo</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>

@@ -157,6 +157,7 @@ const schema = defineSchema({
     connectedBy: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
+    defaultBaseBranch: v.optional(v.string()),
   })
     .index("by_owner_name", ["owner", "name"])
     .index("by_team", ["teamId"]),

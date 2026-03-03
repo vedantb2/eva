@@ -1,3 +1,4 @@
+.
 [] how to cancel task instead of kill claude code process
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
 [] verify task grouped into project create just 1 pr

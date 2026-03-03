@@ -58,6 +58,7 @@ import {
   IconGitBranch,
   IconInfoCircle,
   IconPlayerStop,
+  IconClock,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -342,6 +343,18 @@ export function TaskDetailModal({
               </div>
             </DialogTitle>
           </DialogHeader>
+          {task?.scheduledAt && (
+            <div className="flex items-center gap-1.5 px-1 -mt-1 mb-1">
+              <Badge
+                variant="outline"
+                className="gap-1 text-xs font-normal text-muted-foreground"
+              >
+                <IconClock size={11} />
+                {status === "todo" ? "Scheduled for" : "Was scheduled for"}{" "}
+                {dayjs(task.scheduledAt).format("MMM D, h:mm A")}
+              </Badge>
+            </div>
+          )}
           <div className="pb-6">
             <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
               <div className="space-y-6 overflow-y-auto scrollbar pr-2">

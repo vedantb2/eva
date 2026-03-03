@@ -1138,6 +1138,108 @@ export const launchOnExistingSandbox = internalAction({
 });
 
 /**
+ * Fetches the latest base branch and attempts to merge it into the current branch.
+ * Returns whether there are conflicts and which files are affected.
+ * On a clean merge, automatically pushes the updated branch.
+ */
+export const mergeBaseBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    hasConflicts: v.boolean(),
+    conflictFiles: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    // Fetch the latest base branch with auth
+    await fetchOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+      args.baseBranch,
+      { prune: false, timeoutSeconds: 30 },
+    );
+
+    // Try to merge the base branch into current branch
+    try {
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git merge ${quote([`origin/${args.baseBranch}`])} --no-edit`,
+        60,
+      );
+      // Clean merge — push the updated branch
+      await exec(sandbox, `cd ${WORKSPACE_DIR} && git push origin HEAD`, 30);
+      return { hasConflicts: false, conflictFiles: [] };
+    } catch {
+      // Check if this is a conflict situation
+      const conflictOutput = await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git diff --name-only --diff-filter=U 2>/dev/null || echo ""`,
+        10,
+      );
+      const conflictFiles = conflictOutput.trim().split("\n").filter(Boolean);
+
+      if (conflictFiles.length > 0) {
+        return { hasConflicts: true, conflictFiles };
+      }
+
+      // Not a conflict — abort any partial merge state and treat as non-fatal
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git merge --abort 2>/dev/null || true`,
+        10,
+      ).catch(() => {});
+      return { hasConflicts: false, conflictFiles: [] };
+    }
+  },
+});
+
+/**
+ * Launches Claude in the sandbox to resolve merge conflicts with explanations.
+ * Callbacks to taskWorkflow:handleMergeResolutionCompletion when done.
+ */
+export const launchMergeResolution = internalAction({
+  args: {
+    sandboxId: v.string(),
+    prompt: v.string(),
+    taskId: v.string(),
+    convexToken: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    await launchScript(
+      sandbox,
+      args.prompt,
+      "taskWorkflow:handleMergeResolutionCompletion",
+      "taskId",
+      args.convexToken,
+      args.taskId,
+      {
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+      },
+    );
+
+    return null;
+  },
+});
+
+/**
  * Launches a code audit in an existing sandbox via nohup (fire-and-forget).
  * Reuses buildCallbackScript/launchScript — streaming activity updates are
  * harmlessly ignored since the task is already marked complete by this point.

@@ -40,6 +40,15 @@ const auditCompleteEvent = defineEvent({
   }),
 });
 
+const mergeResolutionCompleteEvent = defineEvent({
+  name: "mergeResolutionComplete",
+  validator: v.object({
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+  }),
+});
+
 // --- Prompt builder ---
 
 const WORKSPACE_DIR = "/workspace/repo";
@@ -117,6 +126,29 @@ Return ONLY valid JSON in this exact format:
 ${diff.slice(0, 30000)}`;
 }
 
+function buildMergeResolutionPrompt(
+  baseBranch: string,
+  conflictFiles: string[],
+): string {
+  return `You are resolving git merge conflicts after merging the base branch "${baseBranch}" into the current working branch.
+
+The following files have merge conflicts that need to be resolved:
+${conflictFiles.map((f) => `- ${f}`).join("\n")}
+
+## Your task:
+1. Read each conflicted file and identify the conflict markers (<<<<<<< HEAD, =======, >>>>>>> origin/${baseBranch})
+2. For each conflict, decide which changes to keep:
+   - Keep the current branch changes (HEAD) if they represent the task implementation
+   - Keep the incoming base branch changes if they contain critical updates that should not be discarded
+   - When both sides have valid, non-overlapping changes, intelligently merge them together
+3. After resolving each conflict, document your decision (e.g., "kept HEAD version because it implements the task feature", "kept base branch version because it fixes a critical dependency")
+4. Stage all resolved files: git add <files>
+5. Complete the merge commit: git commit --no-edit
+6. Push the branch: git push origin HEAD
+
+Be systematic and document each conflict resolution decision clearly.`;
+}
+
 // --- Workflow ---
 
 export const taskExecutionWorkflow = workflow.define({
@@ -182,6 +214,45 @@ export const taskExecutionWorkflow = workflow.define({
 
     // Step 5: Wait for sandbox callback
     const result = await step.awaitEvent(taskCompleteEvent);
+
+    // Step 5.5: Merge base branch before creating PR (non-fatal)
+    if (
+      result.success &&
+      sandboxId &&
+      args.baseBranch &&
+      args.isFirstTaskOnBranch
+    ) {
+      try {
+        const mergeResult = await step.runAction(
+          internal.daytona.mergeBaseBranch,
+          {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            baseBranch: args.baseBranch,
+            repoId: args.repoId,
+          },
+        );
+
+        if (mergeResult.hasConflicts && mergeResult.conflictFiles.length > 0) {
+          await step.runAction(internal.daytona.launchMergeResolution, {
+            sandboxId,
+            prompt: buildMergeResolutionPrompt(
+              args.baseBranch,
+              mergeResult.conflictFiles,
+            ),
+            taskId: String(args.taskId),
+            convexToken: args.convexToken,
+            repoId: args.repoId,
+          });
+
+          await step.awaitEvent(mergeResolutionCompleteEvent);
+        }
+      } catch (err) {
+        console.error("Merge base branch step failed:", err);
+      }
+    }
 
     // Step 6: Create PR if first task on branch
     let prUrl: string | null = null;
@@ -644,6 +715,37 @@ export const handleAuditCompletion = mutation({
 
     await workflow.sendEvent(ctx, {
       ...auditCompleteEvent,
+      workflowId: task.activeWorkflowId as WorkflowId,
+      value: {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Sandbox callback — routes merge resolution completion event to the waiting workflow.
+ * Called by the nohup script in Daytona when Claude CLI finishes resolving conflicts.
+ */
+export const handleMergeResolutionCompletion = mutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task?.activeWorkflowId) return null;
+
+    await workflow.sendEvent(ctx, {
+      ...mergeResolutionCompleteEvent,
       workflowId: task.activeWorkflowId as WorkflowId,
       value: {
         success: args.success,

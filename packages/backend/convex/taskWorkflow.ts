@@ -205,7 +205,16 @@ export const taskExecutionWorkflow = workflow.define({
       );
     }
 
-    // Step 7: Run audit before completing (non-fatal)
+    await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
+      runId: args.runId,
+      taskId: args.taskId,
+      success: result.success,
+      error: result.error,
+      prUrl,
+      activityLog: result.activityLog,
+    });
+
+    // Step 7: Run audit before completing task status (non-fatal)
     if (result.success && sandboxId) {
       try {
         const diffRaw = await step.runAction(
@@ -396,6 +405,44 @@ export const updateProjectSandbox = internalMutation({
   },
 });
 
+export const finalizeRunStreamingPhase = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    taskId: v.id("agentTasks"),
+    success: v.boolean(),
+    error: v.union(v.string(), v.null()),
+    prUrl: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const run = await ctx.db.get(args.runId);
+    if (run && (run.status === "queued" || run.status === "running")) {
+      await ctx.db.patch(args.runId, {
+        status: args.success ? "success" : "error",
+        finishedAt: now,
+        resultSummary: args.success
+          ? args.prUrl
+            ? "Created project PR"
+            : "Pushed commit to project branch"
+          : undefined,
+        prUrl: args.prUrl ?? undefined,
+        error: args.success ? undefined : (args.error ?? "Unknown error"),
+        activityLog: args.activityLog ?? undefined,
+      });
+    }
+
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .first();
+    if (streaming) await ctx.db.delete(streaming._id);
+
+    return null;
+  },
+});
+
 export const completeRun = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -411,19 +458,21 @@ export const completeRun = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // Mark run as complete
-    await ctx.db.patch(args.runId, {
-      status: args.success ? "success" : "error",
-      finishedAt: now,
-      resultSummary: args.success
-        ? args.prUrl
-          ? "Created project PR"
-          : "Pushed commit to project branch"
-        : undefined,
-      prUrl: args.prUrl ?? undefined,
-      error: args.success ? undefined : (args.error ?? "Unknown error"),
-      activityLog: args.activityLog ?? undefined,
-    });
+    const run = await ctx.db.get(args.runId);
+    if (run && (run.status === "queued" || run.status === "running")) {
+      await ctx.db.patch(args.runId, {
+        status: args.success ? "success" : "error",
+        finishedAt: now,
+        resultSummary: args.success
+          ? args.prUrl
+            ? "Created project PR"
+            : "Pushed commit to project branch"
+          : undefined,
+        prUrl: args.prUrl ?? undefined,
+        error: args.success ? undefined : (args.error ?? "Unknown error"),
+        activityLog: args.activityLog ?? undefined,
+      });
+    }
 
     // Update task status
     const task = await ctx.db.get(args.taskId);

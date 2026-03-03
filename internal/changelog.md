@@ -1,5 +1,20 @@
 # Changelog
 
+## Split task run streaming from audit streaming - 2026-03-03
+
+- **Why**: Quick task execution UI could appear stuck at "Generating response..." because the run stayed `running` until audit finished. Users could not clearly see the main run had ended and audit had begun.
+- **Workflow change** (`taskWorkflow.ts`):
+  1. Added `finalizeRunStreamingPhase` internal mutation.
+  2. `taskExecutionWorkflow` now calls it immediately after the main Claude callback (and PR creation), before launching audit.
+  3. This mutation marks the run complete (`success`/`error`), persists `activityLog`, and clears the task streaming entity so run streaming closes promptly.
+- **Completion safety** (`taskWorkflow.ts`):
+  1. `completeRun` now only patches run status/details when the run is still `queued`/`running`.
+  2. This prevents the final task-completion step from overwriting an already-finalized run while still handling task status updates, notifications, subtasks, and project updates.
+- **Reason for change (architectural)**: Split lifecycle phases explicitly:
+  1. Phase A: agent run execution + stream finalization.
+  2. Phase B: post-execution audit streaming in its own section.
+     This keeps realtime UX accurate without coupling task completion state to audit runtime.
+
 ## Remove deploy key from sandbox callback script - 2026-03-03
 
 - **Why**: With self-signed 24h JWTs working, the deploy key auth path in the sandbox callback script is redundant. The JWT path (`callMutation`) handles everything: streaming, task proof, completion. The deploy key was originally needed because Clerk JWTs expired mid-execution.

@@ -55,6 +55,7 @@ function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
+  baseBranch: string,
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -77,6 +78,16 @@ ${subtasksList}
 3. Update CLAUDE.md if you made major changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
 5. Run: git push -u origin ${branchName}
+6. Pull latest changes from \`${baseBranch}\` and fix merge conflicts before the PR is created:
+   a. Run: git fetch origin ${baseBranch}
+   b. Run: git merge origin/${baseBranch} --no-edit
+   c. If there are merge conflicts, resolve them file by file:
+      - For each conflicting file, evaluate both sides of the conflict
+      - Keep your implementation changes where they represent the task's intent
+      - Accept base branch changes where they don't conflict with your implementation
+      - For each resolved conflict, briefly explain WHY you kept or removed each section (e.g. "kept our new API call, removed base's placeholder logic")
+      - After resolving all conflicts: git add -A && git commit -m "chore: merge ${baseBranch} and resolve conflicts"
+   d. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
 After committing and pushing, you MUST capture visual proof using the agent-browser skill:
@@ -361,6 +372,7 @@ export const getTaskData = internalQuery({
       branchName,
       !args.projectId,
       rootDirectory,
+      task.baseBranch ?? "main",
     );
 
     const appLabel = repo.rootDirectory

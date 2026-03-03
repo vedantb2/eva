@@ -17,12 +17,24 @@ export type AccentColor =
   | "purple"
   | "rose"
   | "orange"
-  | "green";
+  | "green"
+  | "amber"
+  | "cyan"
+  | "pink"
+  | "indigo"
+  | "red";
 export type RadiusSize = "none" | "sm" | "md" | "lg" | "xl";
+export type FontFamily =
+  | "inter"
+  | "roboto"
+  | "poppins"
+  | "dm-sans"
+  | "space-grotesk";
 
 export interface CustomTheme {
   accentColor?: AccentColor;
   radius?: RadiusSize;
+  fontFamily?: FontFamily;
 }
 
 interface ThemeContextType {
@@ -33,6 +45,39 @@ interface ThemeContextType {
   customTheme: CustomTheme;
   setCustomTheme: (customTheme: CustomTheme) => void;
 }
+
+export const FONT_FAMILIES: Record<
+  FontFamily,
+  { label: string; variable: string; stack: string }
+> = {
+  inter: {
+    label: "Inter",
+    variable: "--font-inter",
+    stack: "var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif",
+  },
+  roboto: {
+    label: "Roboto",
+    variable: "--font-roboto",
+    stack: "var(--font-roboto), Roboto, ui-sans-serif, system-ui, sans-serif",
+  },
+  poppins: {
+    label: "Poppins",
+    variable: "--font-poppins",
+    stack: "var(--font-poppins), Poppins, ui-sans-serif, system-ui, sans-serif",
+  },
+  "dm-sans": {
+    label: "DM Sans",
+    variable: "--font-dm-sans",
+    stack:
+      "var(--font-dm-sans), 'DM Sans', ui-sans-serif, system-ui, sans-serif",
+  },
+  "space-grotesk": {
+    label: "Space Grotesk",
+    variable: "--font-space-grotesk",
+    stack:
+      "var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  },
+};
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
@@ -151,6 +196,86 @@ const ACCENT_COLORS: Record<
       accentFg: "187 247 208",
     },
   },
+  amber: {
+    label: "Amber",
+    preview: "#D97706",
+    light: {
+      primary: "217 119 6",
+      foreground: "255 255 255",
+      accent: "254 243 199",
+      accentFg: "146 64 14",
+    },
+    dark: {
+      primary: "251 191 36",
+      foreground: "26 19 4",
+      accent: "55 37 10",
+      accentFg: "253 230 138",
+    },
+  },
+  cyan: {
+    label: "Cyan",
+    preview: "#0891B2",
+    light: {
+      primary: "8 145 178",
+      foreground: "255 255 255",
+      accent: "207 250 254",
+      accentFg: "22 78 99",
+    },
+    dark: {
+      primary: "34 211 238",
+      foreground: "4 26 34",
+      accent: "12 54 70",
+      accentFg: "165 243 252",
+    },
+  },
+  pink: {
+    label: "Pink",
+    preview: "#DB2777",
+    light: {
+      primary: "219 39 119",
+      foreground: "255 255 255",
+      accent: "252 231 243",
+      accentFg: "157 23 77",
+    },
+    dark: {
+      primary: "244 114 182",
+      foreground: "40 8 22",
+      accent: "62 20 42",
+      accentFg: "251 207 232",
+    },
+  },
+  indigo: {
+    label: "Indigo",
+    preview: "#4F46E5",
+    light: {
+      primary: "79 70 229",
+      foreground: "255 255 255",
+      accent: "224 231 255",
+      accentFg: "55 48 163",
+    },
+    dark: {
+      primary: "129 140 248",
+      foreground: "12 10 40",
+      accent: "30 27 75",
+      accentFg: "199 210 254",
+    },
+  },
+  red: {
+    label: "Red",
+    preview: "#DC2626",
+    light: {
+      primary: "220 38 38",
+      foreground: "255 255 255",
+      accent: "254 226 226",
+      accentFg: "153 27 27",
+    },
+    dark: {
+      primary: "248 113 113",
+      foreground: "40 8 8",
+      accent: "58 20 20",
+      accentFg: "254 202 202",
+    },
+  },
 };
 
 const RADIUS_VALUES: Record<RadiusSize, string> = {
@@ -164,9 +289,16 @@ const RADIUS_VALUES: Record<RadiusSize, string> = {
 function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "teal";
   const radius = customTheme.radius ?? "md";
+  const fontFamily = customTheme.fontFamily ?? "inter";
 
   // Apply radius
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
+
+  // Apply font
+  document.documentElement.style.setProperty(
+    "--font-sans",
+    FONT_FAMILIES[fontFamily].stack,
+  );
 
   // If using default teal, remove any custom style element so defaults apply
   if (accentColor === "teal") {
@@ -215,7 +347,7 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   `;
 }
 
-export { ACCENT_COLORS, RADIUS_VALUES };
+export { ACCENT_COLORS, RADIUS_VALUES, FONT_FAMILIES };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useTheme();

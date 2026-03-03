@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import {
+  Inter,
+  Roboto,
+  Poppins,
+  DM_Sans,
+  Space_Grotesk,
+} from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -45,13 +51,43 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  variable: "--font-roboto",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-poppins",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-dm-sans",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-space-grotesk",
+});
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${roboto.variable} ${poppins.variable} ${dmSans.variable} ${spaceGrotesk.variable}`}
+    >
       <body suppressHydrationWarning className="font-sans text-foreground">
         <ClerkProvider
           signInFallbackRedirectUrl="/home"

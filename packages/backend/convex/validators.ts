@@ -136,6 +136,11 @@ export const accentColorValidator = v.union(
   v.literal("rose"),
   v.literal("orange"),
   v.literal("green"),
+  v.literal("amber"),
+  v.literal("cyan"),
+  v.literal("pink"),
+  v.literal("indigo"),
+  v.literal("red"),
 );
 
 export const radiusValidator = v.union(
@@ -146,7 +151,16 @@ export const radiusValidator = v.union(
   v.literal("xl"),
 );
 
+export const fontFamilyValidator = v.union(
+  v.literal("inter"),
+  v.literal("roboto"),
+  v.literal("poppins"),
+  v.literal("dm-sans"),
+  v.literal("space-grotesk"),
+);
+
 export const customThemeValidator = v.object({
   accentColor: v.optional(accentColorValidator),
   radius: v.optional(radiusValidator),
+  fontFamily: v.optional(fontFamilyValidator),
 });

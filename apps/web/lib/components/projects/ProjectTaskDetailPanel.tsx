@@ -136,7 +136,16 @@ export function ProjectTaskDetailPanel({
                 <IconTerminal2 size={14} />
                 Agent Runs ({runs.length})
               </h4>
-              <Accordion type="multiple" className="space-y-2">
+              <Accordion
+                type="multiple"
+                defaultValue={runs
+                  .filter(
+                    (run) =>
+                      run.status === "running" || run.status === "queued",
+                  )
+                  .map((run) => run._id)}
+                className="space-y-2"
+              >
                 {runs.map((run) => (
                   <AccordionItem
                     key={run._id}

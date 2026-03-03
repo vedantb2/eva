@@ -1,5 +1,11 @@
 # Changelog
 
+## Increase quick-task watchdog timeout to 2 hours - 2026-03-03
+
+- **Why**: Some valid quick-task runs can exceed 45 minutes; the previous watchdog acted as a hard cap and timed out long-running executions.
+- **Change** (`taskWorkflow.ts`): Updated `RUN_TIMEOUT_MS` from 45 minutes to 2 hours and aligned the stale-run error text to "Run timed out after 2 hours".
+- **Reason for change (architectural)**: Keep watchdog protection for genuinely stuck runs while allowing realistic long-running agent tasks to complete.
+
 ## Fix quick task hanging at "Generating response" - 2026-03-03
 
 - **Why**: When `convex dev` reloads mid-execution, the sandbox's HTTP POST to Convex fails. The script exits without retrying, so the workflow's `awaitEvent` hangs forever — the UI shows "Generating response..." indefinitely.

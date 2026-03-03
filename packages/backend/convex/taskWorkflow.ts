@@ -835,7 +835,7 @@ export const clearActiveWorkflow = internalMutation({
   },
 });
 
-export const RUN_TIMEOUT_MS = 45 * 60 * 1000;
+export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 export const handleStaleRun = internalMutation({
   args: {
@@ -868,7 +868,7 @@ export const handleStaleRun = internalMutation({
     if (runStillActive) {
       await ctx.db.patch(args.runId, {
         status: "error",
-        error: "Run timed out after 45 minutes",
+        error: "Run timed out after 2 hours",
         finishedAt: Date.now(),
       });
       await ctx.db.patch(args.taskId, {

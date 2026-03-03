@@ -1,0 +1,14 @@
+{
+  "name": "clerk-backend-api",
+  "description": "Clerk Backend REST API explorer and executor - browse tags, inspect endpoint schemas, and execute API requests with scope enforcement.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Clerk",
+    "email": "support@clerk.com"
+  },
+  "license": "MIT",
+  "homepage": "https://clerk.com/docs",
+  "repository": "https://github.com/clerk/skills",
+  "keywords": ["clerk", "api", "backend", "rest", "openapi", "bapi"],
+  "category": "authentication"
+}

@@ -55,6 +55,7 @@ function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
+  baseBranch?: string,
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -64,6 +65,21 @@ function buildImplementationPrompt(
   const commitScope = isQuickTask
     ? "feat"
     : `feat(task-${task.taskNumber || 1})`;
+
+  const resolvedBaseBranch = baseBranch ?? "main";
+
+  const mergeStep = isQuickTask
+    ? `
+6. Sync with base branch before PR creation:
+   - Run: git fetch origin ${resolvedBaseBranch} && git merge origin/${resolvedBaseBranch} --no-edit
+   - If the merge succeeds with no conflicts: run git push
+   - If there are merge conflicts:
+     * Resolve each conflict carefully:
+       - Keep changes that implement this task's requirements
+       - Accept incoming changes from ${resolvedBaseBranch} for code unrelated to this task
+     * After resolving all conflicts: git add -A && git commit -m "merge: sync ${branchName} with ${resolvedBaseBranch}" && git push
+     * In your response, explain each conflict you resolved and why you kept or removed each change`
+    : "";
 
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
@@ -76,7 +92,7 @@ ${subtasksList}
 2. Implement the changes by editing source code files
 3. Update CLAUDE.md if you made major changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
+5. Run: git push -u origin ${branchName}${mergeStep}
 
 ## Proof of Completion (REQUIRED):
 After committing and pushing, you MUST capture visual proof using the agent-browser skill:
@@ -145,6 +161,7 @@ export const taskExecutionWorkflow = workflow.define({
       repoId: args.repoId,
       projectId: args.projectId,
       branchName: args.branchName,
+      baseBranch: args.baseBranch,
     });
 
     // Step 3: Setup sandbox + launch Claude CLI
@@ -317,6 +334,7 @@ export const getTaskData = internalQuery({
     repoId: v.id("githubRepos"),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
   },
   returns: v.object({
     prompt: v.string(),
@@ -361,6 +379,7 @@ export const getTaskData = internalQuery({
       branchName,
       !args.projectId,
       rootDirectory,
+      args.baseBranch,
     );
 
     const appLabel = repo.rootDirectory

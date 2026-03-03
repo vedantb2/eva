@@ -40,6 +40,15 @@ const auditCompleteEvent = defineEvent({
   }),
 });
 
+const mergeResolutionCompleteEvent = defineEvent({
+  name: "mergeResolutionComplete",
+  validator: v.object({
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+  }),
+});
+
 // --- Prompt builder ---
 
 const WORKSPACE_DIR = "/workspace/repo";
@@ -183,7 +192,42 @@ export const taskExecutionWorkflow = workflow.define({
     // Step 5: Wait for sandbox callback
     const result = await step.awaitEvent(taskCompleteEvent);
 
-    // Step 6: Create PR if first task on branch
+    // Step 6: Before creating the PR, pull latest from base branch and fix conflicts
+    if (
+      args.isFirstTaskOnBranch &&
+      result.success &&
+      args.baseBranch &&
+      sandboxId
+    ) {
+      try {
+        const mergeStatus = await step.runAction(
+          internal.daytona.mergeBranchInSandbox,
+          {
+            sandboxId,
+            baseBranch: args.baseBranch,
+            branchName: data.branchName,
+            repoId: args.repoId,
+          },
+        );
+
+        if (mergeStatus.status === "conflicts") {
+          await step.runAction(internal.daytona.launchMergeResolution, {
+            sandboxId,
+            branchName: data.branchName,
+            baseBranch: args.baseBranch,
+            taskId: String(args.taskId),
+            convexToken: args.convexToken,
+            repoId: args.repoId,
+          });
+
+          await step.awaitEvent(mergeResolutionCompleteEvent);
+        }
+      } catch (err) {
+        console.error("Merge base branch step failed (non-fatal):", err);
+      }
+    }
+
+    // Step 7: Create PR if first task on branch
     let prUrl: string | null = null;
     if (args.isFirstTaskOnBranch && result.success) {
       prUrl = await step.runAction(
@@ -205,7 +249,7 @@ export const taskExecutionWorkflow = workflow.define({
       );
     }
 
-    // Step 7: Run audit before completing (non-fatal)
+    // Step 8: Run audit before completing (non-fatal)
     if (result.success && sandboxId) {
       try {
         const diffRaw = await step.runAction(
@@ -266,7 +310,7 @@ export const taskExecutionWorkflow = workflow.define({
       }
     }
 
-    // Step 8: Complete the run (after audit so task stays in_progress until audit finishes)
+    // Step 9: Complete the run (after audit so task stays in_progress until audit finishes)
     await step.runMutation(internal.taskWorkflow.completeRun, {
       runId: args.runId,
       taskId: args.taskId,
@@ -644,6 +688,37 @@ export const handleAuditCompletion = mutation({
 
     await workflow.sendEvent(ctx, {
       ...auditCompleteEvent,
+      workflowId: task.activeWorkflowId as WorkflowId,
+      value: {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Sandbox merge resolution callback — routes merge completion event to the waiting workflow.
+ * Called by the nohup merge resolution script in Daytona when Claude CLI finishes.
+ */
+export const handleMergeResolutionCompletion = mutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task?.activeWorkflowId) return null;
+
+    await workflow.sendEvent(ctx, {
+      ...mergeResolutionCompleteEvent,
       workflowId: task.activeWorkflowId as WorkflowId,
       value: {
         success: args.success,

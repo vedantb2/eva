@@ -1173,6 +1173,152 @@ export const launchAudit = internalAction({
   },
 });
 
+function buildMergeResolutionPrompt(
+  branchName: string,
+  baseBranch: string,
+): string {
+  return `You are resolving merge conflicts in a git repository.
+
+## Context
+Working branch: ${branchName}
+Base branch that was merged: origin/${baseBranch}
+
+In conflict markers:
+- <<<<<<< HEAD = your changes (from ${branchName})
+- >>>>>>> origin/${baseBranch} = incoming changes (from ${baseBranch})
+
+## Steps
+1. Run: cd /workspace/repo && git status to identify all conflicted files
+2. For each file listed as "both modified" (conflicted), read the file and resolve the conflict markers
+3. For each conflict you resolve, note: (1) what was changed in ${branchName}, (2) what was changed in ${baseBranch}, (3) why you chose your resolution
+4. After resolving all files, run: git add -A
+5. Create a commit that explains each resolution decision in the message body
+6. Run: git push origin ${branchName}
+
+## Rules
+- Manually review every conflict — do not blindly favor one side
+- Keep changes from BOTH sides where they are compatible; only discard changes that are truly incompatible
+- The commit message MUST include a summary of each conflict and the reasoning for the resolution
+- GITHUB_TOKEN is already set for git push
+- Do NOT create .md plan files
+- Do NOT run build, lint, or test commands`;
+}
+
+/**
+ * Fetches the base branch and attempts a clean merge into the current feature branch.
+ * Returns status so the workflow can decide whether conflict resolution is needed.
+ */
+export const mergeBranchInSandbox = internalAction({
+  args: {
+    sandboxId: v.string(),
+    baseBranch: v.string(),
+    branchName: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    status: v.union(
+      v.literal("clean"),
+      v.literal("conflicts"),
+      v.literal("already_up_to_date"),
+      v.literal("error"),
+    ),
+    output: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    // Ensure we are on the feature branch
+    try {
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])}`,
+        15,
+      );
+    } catch (err) {
+      return { status: "error", output: String(err) };
+    }
+
+    // Fetch the base branch
+    try {
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git fetch origin ${quote([args.baseBranch])}`,
+        30,
+      );
+    } catch (err) {
+      return { status: "error", output: String(err) };
+    }
+
+    // Attempt merge
+    const mergeResult = await sandbox.process.executeCommand(
+      `cd ${WORKSPACE_DIR} && git merge --no-edit origin/${quote([args.baseBranch])}`,
+      "/",
+      undefined,
+      60,
+    );
+
+    const output = mergeResult.result?.trim() ?? "";
+
+    if (mergeResult.exitCode === 0) {
+      if (output.includes("Already up to date")) {
+        return { status: "already_up_to_date", output };
+      }
+      // Clean merge — push the updated branch
+      try {
+        await exec(
+          sandbox,
+          `cd ${WORKSPACE_DIR} && git push origin ${quote([args.branchName])}`,
+          30,
+        );
+      } catch {
+        // Push failure is non-fatal here; the feature branch already has the merge
+      }
+      return { status: "clean", output };
+    }
+
+    // Merge left the repo in a conflicted state — caller must launch resolution
+    return { status: "conflicts", output };
+  },
+});
+
+/**
+ * Launches a Claude session to resolve merge conflicts via nohup.
+ * Calls back to taskWorkflow:handleMergeResolutionCompletion when done.
+ */
+export const launchMergeResolution = internalAction({
+  args: {
+    sandboxId: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    taskId: v.string(),
+    convexToken: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    await launchScript(
+      sandbox,
+      buildMergeResolutionPrompt(args.branchName, args.baseBranch),
+      "taskWorkflow:handleMergeResolutionCompletion",
+      "taskId",
+      args.convexToken,
+      args.taskId,
+      {
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+      },
+    );
+
+    return null;
+  },
+});
+
 function buildSessionAuditPrompt(diff: string): string {
   return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
 

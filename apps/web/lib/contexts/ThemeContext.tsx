@@ -347,7 +347,7 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   `;
 }
 
-export { ACCENT_COLORS, RADIUS_VALUES, FONT_FAMILIES };
+export { ACCENT_COLORS, RADIUS_VALUES };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useTheme();

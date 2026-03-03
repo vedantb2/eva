@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -25,7 +26,6 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 
 interface QuickTaskCardProps {
@@ -35,6 +35,7 @@ interface QuickTaskCardProps {
   status: TaskStatus;
   branchName?: string;
   scheduledAt?: number;
+  tags?: string[];
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -48,6 +49,7 @@ export function QuickTaskCard({
   status,
   branchName,
   scheduledAt,
+  tags,
   onClick,
   isSelecting,
   isSelected,
@@ -107,19 +109,28 @@ export function QuickTaskCard({
                 {description}
               </p>
             ) : null}
+            {tags && tags.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {tags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="px-1.5 py-0 text-[10px] font-medium leading-4"
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
             {scheduledAt && status === "todo" ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center text-primary">
-                    <IconClock size={14} />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
-                </TooltipContent>
-              </Tooltip>
+              <span className="flex items-center gap-0.5 text-primary">
+                <IconClock size={14} />
+                <span className="text-[10px] font-medium tabular-nums">
+                  {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                </span>
+              </span>
             ) : null}
             <SubtaskProgress taskId={id} />
             {showActions ? (

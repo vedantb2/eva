@@ -6,6 +6,7 @@ import {
   IconCamera,
   IconFolders,
   IconPalette,
+  IconSettings2,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -23,6 +24,7 @@ export function SettingsSidebar({
   const baseUrl = `${basePath}/settings`;
 
   const navigation = [
+    { name: "Config", href: `${baseUrl}/config`, icon: IconSettings2 },
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },

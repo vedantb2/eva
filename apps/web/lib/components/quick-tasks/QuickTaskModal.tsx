@@ -26,7 +26,9 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   const { repo } = useRepo();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [baseBranch, setBaseBranch] = useState("main");
+  const [baseBranch, setBaseBranch] = useState(
+    repo.defaultBaseBranch ?? "main",
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
@@ -44,7 +46,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
       });
       setTitle("");
       setDescription("");
-      setBaseBranch("main");
+      setBaseBranch(repo.defaultBaseBranch ?? "main");
       onClose();
     } finally {
       setIsLoading(false);

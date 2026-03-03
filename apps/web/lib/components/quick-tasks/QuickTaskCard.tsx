@@ -130,7 +130,7 @@ export function QuickTaskCard({
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {scheduledAt && status === "todo" ? (
+            {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="flex items-center text-primary">
@@ -138,7 +138,9 @@ export function QuickTaskCard({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                  {status === "todo"
+                    ? `Scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`
+                    : `Was scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`}
                 </TooltipContent>
               </Tooltip>
             ) : null}

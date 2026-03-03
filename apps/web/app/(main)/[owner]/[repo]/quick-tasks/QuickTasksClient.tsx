@@ -35,6 +35,7 @@ import { DeleteTasksModal } from "@/lib/components/quick-tasks/DeleteTasksModal"
 import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
 import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
 import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
+import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
@@ -53,6 +54,7 @@ import {
   IconRefresh,
   IconSearch,
   IconX,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 
 type BulkAction =
@@ -62,7 +64,8 @@ type BulkAction =
   | "addLabels"
   | "assign"
   | "assignMe"
-  | "changeStatus";
+  | "changeStatus"
+  | "run";
 
 interface QuickTasksClientProps {
   initialTaskId?: string;
@@ -462,6 +465,12 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         selectedTaskIds={selectedIds}
         onSuccess={exitSelectMode}
       />
+      <RunTasksModal
+        isOpen={activeBulkAction === "run"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+      />
       <Dialog
         open={activeBulkAction === "actions"}
         onOpenChange={(v) => {
@@ -521,6 +530,15 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             >
               <IconRefresh size={16} />
               Change Status
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("run")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconPlayerPlay size={16} />
+              Run Tasks
             </Button>
             <Button
               variant="destructive"

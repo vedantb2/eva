@@ -373,9 +373,16 @@ export function TeamDetailClient({ teamId }: { teamId: string }) {
                       size={16}
                       className="text-muted-foreground"
                     />
-                    <p className="text-sm font-medium">
-                      {repo.owner}/{repo.name}
-                    </p>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {repo.rootDirectory
+                          ? repo.rootDirectory.split("/").pop()
+                          : repo.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {repo.owner}/{repo.name}
+                      </p>
+                    </div>
                   </div>
                   {team.userRole === "owner" && (
                     <Button

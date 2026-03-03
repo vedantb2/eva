@@ -458,6 +458,21 @@ async function callAction(path, args) {
   return res.json();
 }
 
+async function callMutationWithRetry(path, args, maxRetries = 5) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callMutation(path, args);
+    } catch (e) {
+      attempt++;
+      if (attempt > maxRetries) throw e;
+      const delayMs = Math.pow(2, attempt - 1) * 1000;
+      console.error("callMutation attempt " + attempt + " failed, retrying in " + delayMs + "ms:", String(e));
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
   if (parts.length <= 4) return parts.join("/");
@@ -780,7 +795,7 @@ try {
     activityLog,
   };
   try {
-    await callMutation("${completionMutation}", completionArgs);
+    await callMutationWithRetry("${completionMutation}", completionArgs);
   } catch (e) {
     console.error("Failed to send completion:", e);
     process.exit(1);
@@ -795,7 +810,7 @@ try {
     activityLog: "[]",
   };
   try {
-    await callMutation("${completionMutation}", errorArgs);
+    await callMutationWithRetry("${completionMutation}", errorArgs);
   } catch {}
 }
 `.trim();

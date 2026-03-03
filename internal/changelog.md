@@ -1,5 +1,12 @@
 # Changelog
 
+## Fix quick task hanging at "Generating response" - 2026-03-03
+
+- **Why**: When `convex dev` reloads mid-execution, the sandbox's HTTP POST to Convex fails. The script exits without retrying, so the workflow's `awaitEvent` hangs forever — the UI shows "Generating response..." indefinitely.
+- **Fix 1 — Retry** (`daytona.ts`): Added `callMutationWithRetry` with exponential backoff (1s→16s, 5 retries) to the sandbox callback script. Applied at both completion call sites (success + error). Non-critical calls (streaming, screenshots) left as-is.
+- **Fix 2 — Watchdog** (`taskWorkflow.ts`): Added `handleStaleRun` internalMutation + 45-minute timeout scheduled from `updateRunToRunning`. If the run is still active after 45 min, cancels the workflow, marks run as error, resets task to `todo`. If main run succeeded but audit hung, moves task to `business_review`. Guards against killing newer runs via run ID check.
+- **Fix 3 — Backfill** (`migrations.ts`): Added `cleanupStaleRuns` one-time migration to fix already-stuck tasks. Only touches runs older than 45 min cutoff. Cancels workflows, marks stale runs/audits as error, clears streaming.
+
 ## GitHub repo/app rename resilience - 2026-03-03
 
 - **Why**: When a GitHub repo is renamed (conductor → eva) or a monorepo app directory is renamed (apps/mcp-server → apps/mcp), `upsert` matched by `(owner, name, rootDirectory)` and created duplicate rows. Old rows lingered as stale cards on the home page with broken API calls.

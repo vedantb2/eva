@@ -316,6 +316,16 @@ export const updateRunToRunning = internalMutation({
       status: "in_progress",
       updatedAt: Date.now(),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.taskWorkflow.handleStaleRun,
+      {
+        taskId: args.taskId,
+        runId: args.runId,
+      },
+    );
+
     return null;
   },
 });
@@ -821,6 +831,85 @@ export const clearActiveWorkflow = internalMutation({
     if (task) {
       await ctx.db.patch(args.taskId, { activeWorkflowId: undefined });
     }
+    return null;
+  },
+});
+
+export const RUN_TIMEOUT_MS = 45 * 60 * 1000;
+
+export const handleStaleRun = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) return null;
+    if (task.status !== "in_progress" || !task.activeWorkflowId) return null;
+
+    const runs = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const latestRun = runs.sort(
+      (a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0),
+    )[0];
+    if (latestRun && latestRun._id !== args.runId) return null;
+
+    try {
+      await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+    } catch {}
+
+    const run = await ctx.db.get(args.runId);
+    const runStillActive =
+      run && (run.status === "queued" || run.status === "running");
+
+    if (runStillActive) {
+      await ctx.db.patch(args.runId, {
+        status: "error",
+        error: "Run timed out after 45 minutes",
+        finishedAt: Date.now(),
+      });
+      await ctx.db.patch(args.taskId, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+    } else {
+      const taskStatus =
+        run && run.status === "success" ? "business_review" : "todo";
+      await ctx.db.patch(args.taskId, {
+        status: taskStatus,
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+    }
+
+    const audits = await ctx.db
+      .query("taskAudits")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    for (const audit of audits) {
+      if (audit.status === "running") {
+        await ctx.db.patch(audit._id, {
+          status: "error",
+          error: "Run timed out",
+        });
+      }
+    }
+
+    for (const entityId of [
+      String(args.taskId),
+      `audit-${String(args.taskId)}`,
+    ]) {
+      const streaming = await ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+        .first();
+      if (streaming) await ctx.db.delete(streaming._id);
+    }
+
     return null;
   },
 });

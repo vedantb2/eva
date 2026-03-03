@@ -1,7 +1,10 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { type WorkflowId } from "@convex-dev/workflow";
+import { workflow } from "./workflowManager";
 import { hasRepoReferences } from "./repoUtils";
+import { RUN_TIMEOUT_MS } from "./taskWorkflow";
 
 export const assignOrphanRepos = internalMutation({
   args: {},
@@ -263,5 +266,89 @@ export const renameMcpServerToMcp = internalMutation({
     }
 
     return { updatedCount, deletedCount, referencesMovedCount };
+  },
+});
+
+export const cleanupStaleRuns = internalMutation({
+  args: {},
+  returns: v.object({ tasksFixed: v.number(), runsFixed: v.number() }),
+  handler: async (ctx) => {
+    let tasksFixed = 0;
+    let runsFixed = 0;
+    const cutoff = Date.now() - RUN_TIMEOUT_MS;
+
+    const allTasks = await ctx.db.query("agentTasks").collect();
+    const stuckTasks = allTasks.filter(
+      (t) => t.status === "in_progress" && t.activeWorkflowId,
+    );
+
+    for (const task of stuckTasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+
+      const activeRuns = runs.filter(
+        (r) => r.status === "queued" || r.status === "running",
+      );
+      const hasFreshActiveRun = activeRuns.some(
+        (r) => (r.startedAt ?? 0) >= cutoff,
+      );
+      const staleActiveRuns = activeRuns.filter(
+        (r) => (r.startedAt ?? 0) < cutoff,
+      );
+
+      if (hasFreshActiveRun) continue;
+
+      if (
+        activeRuns.length === 0 &&
+        !runs.some((r) => r.status === "success" || r.status === "error")
+      )
+        continue;
+
+      try {
+        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+      } catch {}
+
+      for (const staleRun of staleActiveRuns) {
+        await ctx.db.patch(staleRun._id, {
+          status: "error",
+          error: "Cleaned up stale run",
+          finishedAt: Date.now(),
+        });
+        runsFixed++;
+      }
+
+      const hasSuccessRun = runs.some((r) => r.status === "success");
+      await ctx.db.patch(task._id, {
+        status: hasSuccessRun ? "business_review" : "todo",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+      tasksFixed++;
+
+      const audits = await ctx.db
+        .query("taskAudits")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const audit of audits) {
+        if (audit.status === "running") {
+          await ctx.db.patch(audit._id, {
+            status: "error",
+            error: "Cleaned up stale audit",
+          });
+        }
+      }
+
+      for (const entityId of [String(task._id), `audit-${String(task._id)}`]) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+          .first();
+        if (streaming) await ctx.db.delete(streaming._id);
+      }
+    }
+
+    return { tasksFixed, runsFixed };
   },
 });

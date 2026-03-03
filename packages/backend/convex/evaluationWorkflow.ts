@@ -6,6 +6,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { evalResultValidator } from "./validators";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -291,6 +292,12 @@ export const startEvaluation = authMutation({
     await ctx.db.patch(reportId, {
       activeWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleEvaluation,
+      { reportId, workflowId: String(workflowId) },
+    );
 
     return reportId;
   },

@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { hasRepoReferences } from "./repoUtils";
-import { RUN_TIMEOUT_MS } from "./taskWorkflow";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 export const assignOrphanRepos = internalMutation({
   args: {},

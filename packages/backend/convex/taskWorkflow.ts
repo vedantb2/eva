@@ -835,7 +835,7 @@ export const clearActiveWorkflow = internalMutation({
   },
 });
 
-export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 export const handleStaleRun = internalMutation({
   args: {
@@ -908,6 +908,19 @@ export const handleStaleRun = internalMutation({
         .withIndex("by_entity", (q) => q.eq("entityId", entityId))
         .first();
       if (streaming) await ctx.db.delete(streaming._id);
+    }
+
+    if (task.projectId) {
+      const project = await ctx.db.get(task.projectId);
+      if (project?.activeBuildWorkflowId) {
+        try {
+          await workflow.sendEvent(ctx, {
+            ...buildTaskDoneEvent,
+            workflowId: project.activeBuildWorkflowId as WorkflowId,
+            value: { taskId: args.taskId, success: false },
+          });
+        } catch {}
+      }
     }
 
     return null;

@@ -74,6 +74,7 @@ import type * as testGenWorkflow from "../testGenWorkflow.js";
 import type * as users from "../users.js";
 import type * as validators from "../validators.js";
 import type * as workflowManager from "../workflowManager.js";
+import type * as workflowWatchdog from "../workflowWatchdog.js";
 
 import type {
   ApiFromModules,
@@ -148,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   validators: typeof validators;
   workflowManager: typeof workflowManager;
+  workflowWatchdog: typeof workflowWatchdog;
 }>;
 
 /**

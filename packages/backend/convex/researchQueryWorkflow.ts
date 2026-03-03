@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 // --- Shared completion event ---
 
@@ -472,6 +473,12 @@ export const startGenerate = authMutation({
       activeWorkflowId: String(workflowId),
     });
 
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleResearchQuery,
+      { queryId: args.queryId, workflowId: String(workflowId) },
+    );
+
     return null;
   },
 });
@@ -507,6 +514,12 @@ export const startConfirm = authMutation({
     await ctx.db.patch(args.queryId, {
       activeWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleResearchQuery,
+      { queryId: args.queryId, workflowId: String(workflowId) },
+    );
 
     return null;
   },

@@ -5,6 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -269,6 +270,12 @@ export const startPrdParse = authMutation({
     await ctx.db.patch(args.docId, {
       activeWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleDoc,
+      { docId: args.docId, workflowId: String(workflowId) },
+    );
 
     return null;
   },

@@ -1,5 +1,18 @@
 # Changelog
 
+## Fix handleStaleDoc branching + add sessionAudits watchdog - 2026-03-03
+
+- **handleStaleDoc bug** (`workflowWatchdog.ts`): The if/else-if chain checked `interviewHistory` before `testGenStatus`, so docs with interview history AND `testGenStatus === "running"` would skip the test-gen error cleanup. Fixed by checking both conditions independently and applying a single patch.
+- **sessionAudits watchdog** (`sessionAudits.ts`, `workflowWatchdog.ts`): `sessionAudits` uses a fire-and-forget callback pattern (not `awaitEvent`), so it was missed in the initial watchdog sweep. Added `handleStaleSessionAudit` handler and scheduled it from `startAudit` with `RUN_TIMEOUT_MS`. If the audit is still `"running"` after 2 hours, it's marked as `"error"`.
+
+## Add watchdog timeouts to all workflows - 2026-03-03
+
+- **Why**: Only `taskExecutionWorkflow` had a watchdog. All other workflows (session, design, research query, evaluation, doc interview, doc PRD, test gen, project interview, build) could hang forever if the sandbox callback failed after retries exhausted.
+- **New file** (`workflowWatchdog.ts`): Centralized timeout constant (`RUN_TIMEOUT_MS = 2h`) and 7 entity-type handlers: `handleStaleSession`, `handleStaleDesignSession`, `handleStaleResearchQuery`, `handleStaleEvaluation`, `handleStaleDoc`, `handleStaleProject`, `handleStaleBuild`. Each cancels the workflow, clears streaming, clears `activeWorkflowId`, and does entity-specific cleanup (error messages, status updates).
+- **Start mutations modified**: All 13 `start*` mutations now schedule the appropriate watchdog via `ctx.scheduler.runAfter(RUN_TIMEOUT_MS, ...)`. Each watchdog guards against stale timers by comparing `workflowId`.
+- **Build integration** (`taskWorkflow.ts`): `handleStaleRun` now sends `buildTaskDoneEvent` when the timed-out task is part of an active build, so the build workflow unsticks too.
+- **Shared constant**: `RUN_TIMEOUT_MS` moved from `taskWorkflow.ts` to `workflowWatchdog.ts`. Both `taskWorkflow.ts` and `migrations.ts` import from the shared location.
+
 ## Increase quick-task watchdog timeout to 2 hours - 2026-03-03
 
 - **Why**: Some valid quick-task runs can exceed 45 minutes; the previous watchdog acted as a hard cap and timed out long-running executions.

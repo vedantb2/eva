@@ -18,6 +18,16 @@ interface PRsOverTimeChartProps {
   timeline: Array<{ date: number; prsShipped: number }>;
 }
 
+function cssRadius(): number {
+  if (typeof document === "undefined") return 4;
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue("--radius")
+    .trim();
+  if (v.endsWith("rem")) return parseFloat(v) * 16;
+  if (v.endsWith("px")) return parseFloat(v);
+  return 4;
+}
+
 export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
   const labels = timeline.map((e) => dayjs(e.date).format("M/D"));
   const chartData = {
@@ -29,7 +39,7 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
         backgroundColor: cssColor("chart-1", 0.8),
         borderColor: cssColor("chart-1"),
         borderWidth: 1,
-        borderRadius: 4,
+        borderRadius: cssRadius(),
       },
     ],
   };

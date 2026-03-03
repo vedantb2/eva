@@ -676,18 +676,19 @@ export function TaskDetailModal({
                         </Badge>
                       </h4>
                       {audit.status === "running" &&
-                        auditStreaming?.currentActivity && (
-                          <Reasoning isStreaming defaultOpen>
-                            <ReasoningTrigger
-                              getThinkingMessage={(s) =>
-                                s ? "Auditing..." : "Audit complete"
-                              }
+                        auditStreaming?.currentActivity &&
+                        (() => {
+                          const steps = parseActivitySteps(
+                            auditStreaming.currentActivity,
+                          );
+                          return steps ? (
+                            <ActivitySteps
+                              steps={steps}
+                              isStreaming
+                              name="Auditing"
                             />
-                            <ReasoningContent>
-                              {auditStreaming.currentActivity}
-                            </ReasoningContent>
-                          </Reasoning>
-                        )}
+                          ) : null;
+                        })()}
                       {audit.status === "error" && audit.error && (
                         <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
                           {audit.error}

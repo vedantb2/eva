@@ -1,6 +1,7 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { hasRepoReferences } from "./repoUtils";
 
 export const assignOrphanRepos = internalMutation({
   args: {},
@@ -186,5 +187,81 @@ export const migrateBoardsAndCommentsToUserIds = internalMutation({
     }
 
     return { boardsUpdated, commentsUpdated, boardsSkipped, commentsSkipped };
+  },
+});
+
+export const renameMcpServerToMcp = internalMutation({
+  args: {},
+  returns: v.object({
+    updatedCount: v.number(),
+    deletedCount: v.number(),
+    referencesMovedCount: v.number(),
+  }),
+  handler: async (ctx) => {
+    let updatedCount = 0;
+    let deletedCount = 0;
+    let referencesMovedCount = 0;
+
+    const allRepos = await ctx.db.query("githubRepos").collect();
+    const oldRows = allRepos.filter(
+      (r) => r.rootDirectory === "apps/mcp-server",
+    );
+
+    for (const oldRow of oldRows) {
+      const targetRow = allRepos.find(
+        (r) =>
+          r.owner === oldRow.owner &&
+          r.name === oldRow.name &&
+          r.rootDirectory === "apps/mcp",
+      );
+
+      if (targetRow) {
+        const oldHasRefs = await hasRepoReferences(ctx, oldRow._id);
+        if (oldHasRefs) {
+          const tables = [
+            "sessions",
+            "projects",
+            "docs",
+            "researchQueries",
+            "savedQueries",
+            "routines",
+            "evaluationReports",
+            "designPersonas",
+            "designSessions",
+            "repoEnvVars",
+            "boards",
+            "agentTasks",
+            "notifications",
+          ] as const;
+
+          for (const table of tables) {
+            const rows = await ctx.db
+              .query(table)
+              .withIndex("by_repo", (q) => q.eq("repoId", oldRow._id))
+              .collect();
+            for (const row of rows) {
+              await ctx.db.patch(row._id, { repoId: targetRow._id });
+              referencesMovedCount++;
+            }
+          }
+
+          const snapRows = await ctx.db
+            .query("repoSnapshots")
+            .withIndex("by_repoId", (q) => q.eq("repoId", oldRow._id))
+            .collect();
+          for (const row of snapRows) {
+            await ctx.db.patch(row._id, { repoId: targetRow._id });
+            referencesMovedCount++;
+          }
+        }
+        await ctx.db.delete(oldRow._id);
+        deletedCount++;
+      } else {
+        await ctx.db.patch(oldRow._id, { rootDirectory: "apps/mcp" });
+        updatedCount++;
+      }
+    }
+
+    return { updatedCount, deletedCount, referencesMovedCount };
   },
 });

@@ -1,5 +1,15 @@
 # Changelog
 
+## GitHub repo/app rename resilience - 2026-03-03
+
+- **Why**: When a GitHub repo is renamed (conductor → eva) or a monorepo app directory is renamed (apps/mcp-server → apps/mcp), `upsert` matched by `(owner, name, rootDirectory)` and created duplicate rows. Old rows lingered as stale cards on the home page with broken API calls.
+- **Schema**: Added `githubId` (GitHub's numeric repo ID) to `githubRepos` with `by_github_id` index. Added `by_repo` indexes to `agentTasks` and `notifications` for efficient reference checking.
+- **Upsert/Create**: Now match by `githubId` + `rootDirectory` first, falling back to `owner/name`. When a match is found with different `owner`/`name`, the row is patched (rename detected) instead of creating a duplicate. Existing rows without `githubId` get it backfilled.
+- **Sync**: Removed `connectedParents` cascade from `syncConnectedStatus` — sub-app rows are only `connected: true` if explicitly in `connectedIds`. Added `cleanupStaleSubApps` to delete stale sub-app rows that are disconnected, sync-created (no `connectedBy`), not in detected paths, and have no data references.
+- **Migration**: Added `renameMcpServerToMcp` to rename existing `apps/mcp-server` rows to `apps/mcp`, re-pointing references if a target row already exists.
+- **Shared utility**: Created `repoUtils.ts` with `hasRepoReferences` (checks all 14 tables with `repoId`) and `normalizePath` (strips leading/trailing slashes, converts empty to `undefined`).
+- **Reason for change (architectural)**: GitHub's numeric repo ID is immutable across renames and is the correct primary key for matching. The previous `(owner, name)` matching was fragile to renames, a known GitHub operation.
+
 ## Split task run streaming from audit streaming - 2026-03-03
 
 - **Why**: Quick task execution UI could appear stuck at "Generating response..." because the run stayed `running` until audit finished. Users could not clearly see the main run had ended and audit had begun.

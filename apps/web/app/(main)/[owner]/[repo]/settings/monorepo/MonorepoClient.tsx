@@ -76,6 +76,7 @@ export function MonorepoClient() {
         owner: repo.owner,
         name: repo.name,
         installationId: repo.installationId,
+        githubId: repo.githubId,
         rootDirectory: path,
         teamId: repo.teamId,
       });

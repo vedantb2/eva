@@ -126,6 +126,7 @@ const schema = defineSchema({
   })
     .index("by_board", ["boardId"])
     .index("by_column", ["columnId"])
+    .index("by_repo", ["repoId"])
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
 
@@ -153,12 +154,14 @@ const schema = defineSchema({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
+    githubId: v.optional(v.number()),
     connected: v.optional(v.boolean()),
     connectedBy: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
   })
+    .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
 
@@ -372,7 +375,8 @@ const schema = defineSchema({
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_read", ["userId", "read"]),
+    .index("by_user_and_read", ["userId", "read"])
+    .index("by_repo", ["repoId"]),
   repoEnvVars: defineTable({
     repoId: v.id("githubRepos"),
     vars: v.array(v.object({ key: v.string(), value: v.string() })),

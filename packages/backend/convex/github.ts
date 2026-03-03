@@ -312,6 +312,11 @@ export const syncRepos = action({
     const installations = await appOctokit.rest.apps.listInstallations();
 
     const connectedIds: Array<Id<"githubRepos">> = [];
+    const detectedApps: Array<{
+      owner: string;
+      name: string;
+      paths: string[];
+    }> = [];
     let totalAdded = 0;
     for (const installation of installations.data) {
       const octokit = await getInstallationOctokit(installation.id);
@@ -324,6 +329,7 @@ export const syncRepos = action({
           owner: repo.owner.login,
           name: repo.name,
           installationId: installation.id,
+          githubId: repo.id,
           teamId: personalTeamId,
         });
 
@@ -334,6 +340,7 @@ export const syncRepos = action({
         );
         const appsUnderAppsDir = apps.filter((a) => a.path.startsWith("apps/"));
 
+        const appPaths: string[] = [];
         if (appsUnderAppsDir.length > 0) {
           for (const app of appsUnderAppsDir) {
             const subAppId = await ctx.runMutation(
@@ -342,13 +349,20 @@ export const syncRepos = action({
                 owner: repo.owner.login,
                 name: repo.name,
                 installationId: installation.id,
+                githubId: repo.id,
                 teamId: personalTeamId,
                 rootDirectory: app.path,
               },
             );
             connectedIds.push(subAppId);
+            appPaths.push(app.path);
           }
         }
+        detectedApps.push({
+          owner: repo.owner.login,
+          name: repo.name,
+          paths: appPaths,
+        });
         connectedIds.push(id);
         totalAdded++;
       }
@@ -356,6 +370,10 @@ export const syncRepos = action({
 
     await ctx.runMutation(internal.githubRepos.syncConnectedStatus, {
       connectedIds,
+    });
+
+    await ctx.runMutation(internal.githubRepos.cleanupStaleSubApps, {
+      detectedApps,
     });
 
     return { success: true, synced: totalAdded };

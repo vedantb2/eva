@@ -46,6 +46,7 @@ import type * as pty from "../pty.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
+import type * as repoUtils from "../repoUtils.js";
 import type * as researchQueries from "../researchQueries.js";
 import type * as researchQueryWorkflow from "../researchQueryWorkflow.js";
 import type * as routines from "../routines.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
   repoSnapshots: typeof repoSnapshots;
+  repoUtils: typeof repoUtils;
   researchQueries: typeof researchQueries;
   researchQueryWorkflow: typeof researchQueryWorkflow;
   routines: typeof routines;

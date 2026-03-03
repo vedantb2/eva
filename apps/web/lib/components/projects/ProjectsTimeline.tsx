@@ -579,7 +579,7 @@ export function ProjectsTimeline({
                                   style={{ left: deadlineX }}
                                 >
                                   <div className="absolute inset-y-0 left-0 w-px bg-destructive/60" />
-                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-destructive shadow-sm" />
+                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-sm bg-destructive shadow-sm" />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs">

@@ -5,6 +5,7 @@ import {
   authMutation,
   hasRepoAccess,
   hasBoardAccess,
+  getAccessibleBoards,
 } from "./functions";
 
 const boardValidator = v.object({
@@ -46,40 +47,7 @@ export const list = authQuery({
   args: {},
   returns: v.array(boardValidator),
   handler: async (ctx) => {
-    const ownedBoards = await ctx.db
-      .query("boards")
-      .withIndex("by_owner", (q) => q.eq("ownerId", ctx.userId))
-      .collect();
-    const teamMemberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-    const teamIds = new Set(teamMemberships.map((m) => m.teamId));
-    if (teamIds.size === 0) return ownedBoards;
-    const allRepos = await ctx.db.query("githubRepos").collect();
-    const teamRepoIds = new Set(
-      allRepos
-        .filter(
-          (r) =>
-            r.teamId && teamIds.has(r.teamId) && r.connectedBy !== ctx.userId,
-        )
-        .map((r) => r._id),
-    );
-    if (teamRepoIds.size === 0) return ownedBoards;
-    const ownedBoardIds = new Set(ownedBoards.map((b) => b._id));
-    const teamBoards: typeof ownedBoards = [];
-    for (const repoId of teamRepoIds) {
-      const boards = await ctx.db
-        .query("boards")
-        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-        .collect();
-      for (const board of boards) {
-        if (!ownedBoardIds.has(board._id)) {
-          teamBoards.push(board);
-        }
-      }
-    }
-    return [...ownedBoards, ...teamBoards];
+    return await getAccessibleBoards(ctx.db, ctx.userId);
   },
 });
 

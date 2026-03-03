@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation, hasBoardAccess } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasBoardAccess,
+  getAccessibleBoards,
+} from "./functions";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -110,33 +115,29 @@ export const listAll = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    const allBoards = await ctx.db.query("boards").collect();
-    const accessibleBoards = [];
-    for (const b of allBoards) {
-      if (await hasBoardAccess(ctx.db, b, ctx.userId)) {
-        accessibleBoards.push(b);
+    const accessibleBoards = await getAccessibleBoards(ctx.db, ctx.userId);
+    const enrichedRuns = [];
+    for (const board of accessibleBoards) {
+      const tasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+        .collect();
+      for (const task of tasks) {
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect();
+        for (const run of runs) {
+          enrichedRuns.push({
+            ...run,
+            taskTitle: task.title,
+            boardName: board.name,
+            boardId: board._id,
+          });
+        }
       }
     }
-    const boardMap = new Map(accessibleBoards.map((b) => [b._id, b]));
-    const tasks = await ctx.db.query("agentTasks").collect();
-    const userTasks = tasks.filter((t) => boardMap.has(t.boardId));
-    const taskMap = new Map(userTasks.map((t) => [t._id, t]));
-    const runs = await ctx.db.query("agentRuns").collect();
-    const userRuns = runs.filter((r) => taskMap.has(r.taskId));
-    return userRuns
-      .map((run) => {
-        const task = taskMap.get(run.taskId);
-        const board = task ? boardMap.get(task.boardId) : undefined;
-        if (!task || !board) return null;
-        return {
-          ...run,
-          taskTitle: task.title,
-          boardName: board.name,
-          boardId: board._id,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null)
-      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    return enrichedRuns.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
   },
 });
 

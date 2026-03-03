@@ -8,6 +8,7 @@ import {
   authMutation,
   hasBoardAccess,
   hasRepoAccess,
+  getAccessibleBoards,
 } from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
@@ -389,13 +390,7 @@ export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const allBoards = await ctx.db.query("boards").collect();
-    const accessibleBoards = [];
-    for (const b of allBoards) {
-      if (await hasBoardAccess(ctx.db, b, ctx.userId)) {
-        accessibleBoards.push(b);
-      }
-    }
+    const accessibleBoards = await getAccessibleBoards(ctx.db, ctx.userId);
     const relevantBoards = args.repoId
       ? accessibleBoards.filter((b) => b.repoId === args.repoId)
       : accessibleBoards;
@@ -669,14 +664,19 @@ export const startExecution = authMutation({
       });
     }
 
-    const existingRuns = await ctx.db
+    const activeQueuedRun = await ctx.db
       .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    const activeRun = existingRuns.find(
-      (r) => r.status === "queued" || r.status === "running",
-    );
-    if (activeRun) {
+      .withIndex("by_task_and_status", (q) =>
+        q.eq("taskId", args.id).eq("status", "queued"),
+      )
+      .first();
+    const activeRunningRun = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task_and_status", (q) =>
+        q.eq("taskId", args.id).eq("status", "running"),
+      )
+      .first();
+    if (activeQueuedRun || activeRunningRun) {
       throw new Error("Task already has an active execution");
     }
 
@@ -696,24 +696,38 @@ export const startExecution = authMutation({
 
       for (const pt of projectTasks) {
         if (pt._id === args.id) continue;
-        const runs = await ctx.db
+        const queuedRun = await ctx.db
           .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
-          .collect();
-        if (runs.some((r) => r.status === "queued" || r.status === "running")) {
+          .withIndex("by_task_and_status", (q) =>
+            q.eq("taskId", pt._id).eq("status", "queued"),
+          )
+          .first();
+        if (queuedRun) {
+          throw new Error("Another task in this project is already running");
+        }
+        const runningRun = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task_and_status", (q) =>
+            q.eq("taskId", pt._id).eq("status", "running"),
+          )
+          .first();
+        if (runningRun) {
           throw new Error("Another task in this project is already running");
         }
       }
 
-      const allRuns: { status: string }[] = [];
       for (const pt of projectTasks) {
-        const runs = await ctx.db
+        const successRun = await ctx.db
           .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", pt._id))
-          .collect();
-        allRuns.push(...runs);
+          .withIndex("by_task_and_status", (q) =>
+            q.eq("taskId", pt._id).eq("status", "success"),
+          )
+          .first();
+        if (successRun) {
+          isFirstTaskOnBranch = false;
+          break;
+        }
       }
-      isFirstTaskOnBranch = !allRuns.some((r) => r.status === "success");
     }
 
     const runId = await ctx.db.insert("agentRuns", {

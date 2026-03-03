@@ -18,6 +18,43 @@ import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import type { Id, Doc } from "./_generated/dataModel";
 
+export async function getAccessibleBoards(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+): Promise<Doc<"boards">[]> {
+  const ownedBoards = await db
+    .query("boards")
+    .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+    .collect();
+  const teamMemberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const teamIds = new Set(teamMemberships.map((m) => m.teamId));
+  if (teamIds.size === 0) return ownedBoards;
+  const ownedBoardIds = new Set(ownedBoards.map((b) => b._id));
+  const teamBoards: Doc<"boards">[] = [];
+  for (const teamId of teamIds) {
+    const repos = await db
+      .query("githubRepos")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .collect();
+    for (const repo of repos) {
+      if (repo.connectedBy === userId) continue;
+      const boards = await db
+        .query("boards")
+        .withIndex("by_repo", (q) => q.eq("repoId", repo._id))
+        .collect();
+      for (const board of boards) {
+        if (!ownedBoardIds.has(board._id)) {
+          teamBoards.push(board);
+        }
+      }
+    }
+  }
+  return [...ownedBoards, ...teamBoards];
+}
+
 export async function hasRepoAccess(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,

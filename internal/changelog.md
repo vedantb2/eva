@@ -1,5 +1,16 @@
 # Changelog
 
+## Query optimization — eliminate full table scans - 2026-03-03
+
+- **Why**: `boards.list`, `agentRuns.listAll`, and `agentTasks.getActiveTasks` scanned ENTIRE tables (`boards`, `agentTasks`, `agentRuns`, `githubRepos`) then post-filtered in JS. This doesn't scale as data grows.
+- **New indexes** (`schema.ts`): `agentTasks.by_board_and_status` and `agentRuns.by_task_and_status` enable targeted queries instead of full collects.
+- **Shared helper** (`functions.ts`): `getAccessibleBoards(db, userId)` replaces the repeated pattern of "collect all boards → check access per board". Queries `boards.by_owner` + `teamMembers.by_user` → `githubRepos.by_team` → `boards.by_repo` — all indexed.
+- **`boards.list`**: Replaced `ctx.db.query("githubRepos").collect()` (full repo scan) with the shared helper.
+- **`agentRuns.listAll`**: Replaced 3 full table scans (boards, agentTasks, agentRuns) with shared helper → indexed fan-out through boards → tasks → runs.
+- **`agentTasks.getActiveTasks`**: Replaced `ctx.db.query("boards").collect()` with shared helper.
+- **`agentTasks.startExecution`**: Replaced loading ALL runs per project task (twice) with `by_task_and_status` index queries that short-circuit on first match.
+- **`sessions.getOrCreateExtensionSession`**: Replaced Convex `.filter()` (post-index scan) with `by_repo_and_status` index + JS `.find()`.
+
 ## Fix handleStaleDoc branching + add sessionAudits watchdog - 2026-03-03
 
 - **handleStaleDoc bug** (`workflowWatchdog.ts`): The if/else-if chain checked `interviewHistory` before `testGenStatus`, so docs with interview history AND `testGenStatus === "running"` would skip the test-gen error cleanup. Fixed by checking both conditions independently and applying a single patch.

@@ -286,17 +286,18 @@ export const getOrCreateExtensionSession = authMutation({
     ),
   }),
   handler: async (ctx, args) => {
-    const existingSession = await ctx.db
+    const activeSessions = await ctx.db
       .query("sessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), ctx.userId),
-          q.eq(q.field("title"), "Extension Session"),
-          q.neq(q.field("archived"), true),
-        ),
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", args.repoId).eq("status", "active"),
       )
-      .first();
+      .collect();
+    const existingSession = activeSessions.find(
+      (s) =>
+        s.userId === ctx.userId &&
+        s.title === "Extension Session" &&
+        s.archived !== true,
+    );
 
     if (existingSession) {
       const messages = await ctx.db

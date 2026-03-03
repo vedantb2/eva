@@ -128,7 +128,8 @@ const schema = defineSchema({
     .index("by_column", ["columnId"])
     .index("by_repo", ["repoId"])
     .index("by_project", ["projectId"])
-    .index("by_project_and_status", ["projectId", "status"]),
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_board_and_status", ["boardId", "status"]),
 
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),
@@ -148,7 +149,9 @@ const schema = defineSchema({
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
     activityLog: v.optional(v.string()),
-  }).index("by_task", ["taskId"]),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_task_and_status", ["taskId", "status"]),
 
   githubRepos: defineTable({
     owner: v.string(),

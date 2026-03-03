@@ -1,31 +1,32 @@
+[] how to cancel task instead of kill claude code process
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
 [] verify task grouped into project create just 1 pr
-[x] sessions etc not getting shared across team
-[x] store collapse in cookies instead of localstorage (nextjs practice)
 [] auto open chrome in vnc
 [] see docs, use --continue
 [] add planning / think before execution
 [] add logs to see pricing per task execution
-
+[] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
 [] session branch not creating during sessions
 [] add posted via Assist, store the origin of msg send
 [] improve streaming log - add more detail
 [] improve cmdk search modal
-[x] explore just-bash use cases
 [] explore whether we even need to delete sandboxes for sessions, can archive instead
-[] get eva to auto fix merge conflicts, too many
 
+[x] explore just-bash use cases
+[x] sessions etc not getting shared across team
+[x] store collapse in cookies instead of localstorage (nextjs practice)
+[x] get eva to auto fix merge conflicts, too many
 [x] add back novnc
 [x] add file storage to convex and showing ss in chat
 [x] add fake auth in conductor
 [x] change repo selector to app selector (ie web/eprocurement)
 [x] add labels to github pr issues
-[] add the screenshots / videos to quick tasks
-[] schedule quick tasks to run later
+[x] add the screenshots / videos to quick tasks
+[x] schedule quick tasks to run later
 [] add human readable id's for the sessions etc
 [] improve extension toolbar
-[] add "View preview" button to quick tasks/sessions
 [] add vercel deployment status tracking
+[] add "View preview" button to quick tasks/sessions
 [] add num of design options in design input
 [] figure out chrome distribution policy
 

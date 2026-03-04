@@ -178,8 +178,8 @@ async function createSandbox(
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
       },
-      autoStopInterval: 10,
-      autoDeleteInterval: 15,
+      autoStopInterval: 30,
+      autoDeleteInterval: 45,
     },
     { timeout: timeoutSeconds },
   );

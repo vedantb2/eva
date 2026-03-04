@@ -18,6 +18,29 @@ import {
 } from "@/lib/components/notifications/notification-config";
 import { useMemo } from "react";
 
+function groupByDate(notifications: Notification[]) {
+  const groups: { label: string; items: Notification[] }[] = [];
+  const map = new Map<string, Notification[]>();
+
+  for (const n of notifications) {
+    const d = dayjs(n.createdAt);
+    const now = dayjs();
+    let label: string;
+    if (d.isSame(now, "day")) label = "Today";
+    else if (d.isSame(now.subtract(1, "day"), "day")) label = "Yesterday";
+    else if (d.isSame(now, "week")) label = d.format("dddd");
+    else label = d.format("MMMM D, YYYY");
+
+    if (!map.has(label)) {
+      const items: Notification[] = [];
+      map.set(label, items);
+      groups.push({ label, items });
+    }
+    map.get(label)!.push(n);
+  }
+  return groups;
+}
+
 export function InboxClient() {
   const router = useRouter();
   const notifications = useQuery(api.notifications.list);
@@ -32,6 +55,11 @@ export function InboxClient() {
     return notifications;
   }, [notifications, filter]);
 
+  const groups = useMemo(() => {
+    if (!filtered) return undefined;
+    return groupByDate(filtered);
+  }, [filtered]);
+
   const handleClick = (n: Notification) => {
     if (!n.read) markAsRead({ id: n._id });
     if (n.href) router.push(n.href);
@@ -40,105 +68,134 @@ export function InboxClient() {
   return (
     <PageWrapper
       title="Inbox"
+      fillHeight
+      childPadding={false}
       headerRight={
-        unreadCount > 0 ? (
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
-            variant="ghost"
-            onClick={() => markAllAsRead()}
-            className="text-muted-foreground"
+            variant={filter === "all" ? "secondary" : "ghost"}
+            className="h-7 text-xs"
+            onClick={() => setFilter("all")}
           >
-            <IconChecks size={16} />
-            Mark all read
+            All
           </Button>
-        ) : undefined
+          <Button
+            size="sm"
+            variant={filter === "unread" ? "secondary" : "ghost"}
+            className="h-7 text-xs"
+            onClick={() => setFilter("unread")}
+          >
+            Unread
+            {unreadCount > 0 && (
+              <Badge className="ml-1 h-4 min-w-4 justify-center rounded-full px-1 text-[10px]">
+                {unreadCount}
+              </Badge>
+            )}
+          </Button>
+          {unreadCount > 0 && (
+            <>
+              <div className="mx-1 h-4 w-px bg-border" />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => markAllAsRead()}
+                className="h-7 text-xs text-muted-foreground"
+              >
+                <IconChecks size={14} />
+                Mark all read
+              </Button>
+            </>
+          )}
+        </div>
       }
     >
-      <div className="flex items-center gap-1 mb-2">
-        <Button
-          size="sm"
-          variant={filter === "all" ? "secondary" : "ghost"}
-          className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-          onClick={() => setFilter("all")}
-        >
-          All
-        </Button>
-        <Button
-          size="sm"
-          variant={filter === "unread" ? "secondary" : "ghost"}
-          className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-          onClick={() => setFilter("unread")}
-        >
-          Unread
-          {unreadCount > 0 && (
-            <Badge className="ml-1 h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]">
-              {unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </div>
-
       {filtered === undefined ? (
         <div className="flex items-center justify-center py-20">
           <Spinner />
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<IconInbox size={24} className="text-muted-foreground" />}
-          title={
-            filter === "unread"
-              ? "No unread notifications"
-              : "No notifications yet"
-          }
-          description="You're all caught up"
-        />
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState
+            icon={<IconInbox size={24} className="text-muted-foreground" />}
+            title={
+              filter === "unread"
+                ? "No unread notifications"
+                : "No notifications yet"
+            }
+            description="You're all caught up"
+          />
+        </div>
       ) : (
-        <div className="divide-y divide-border">
+        <div className="flex-1 overflow-auto scrollbar">
           <AnimatePresence initial={false}>
-            {filtered.map((n, index) => {
-              const config = typeConfig[n.type];
-              return (
-                <motion.div
-                  key={n._id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{
-                    duration: 0.18,
-                    delay: Math.min(index * 0.02, 0.14),
-                  }}
-                >
-                  <button
-                    onClick={() => handleClick(n)}
-                    className={`flex w-full items-start gap-4 rounded-md px-2.5 py-2 text-left transition-all duration-200 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${n.read ? "opacity-50" : ""}`}
-                  >
-                    <NotificationIcon type={n.type} size="md" />
-                    <div className="flex-1 min-w-0 mt-0.5">
-                      <p className="text-sm font-medium truncate">{n.title}</p>
-                      {n.message && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {n.message}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant={config.badgeVariant}
-                          className="text-[10px] px-1.5 py-0 h-4"
-                        >
-                          {config.label}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {dayjs(n.createdAt).fromNow()}
-                        </span>
-                      </div>
-                    </div>
-                    {!n.read && (
-                      <span className="mt-3 h-2 w-2 flex-shrink-0 rounded-full bg-primary animate-in zoom-in-50 duration-200" />
-                    )}
-                  </button>
-                </motion.div>
-              );
-            })}
+            {groups!.map((group) => (
+              <motion.div
+                key={group.label}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <div className="sticky top-0 z-10 border-b border-border/50 bg-card/90 backdrop-blur-sm px-4 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {group.label}
+                  </span>
+                </div>
+                {group.items.map((n, index) => {
+                  const config = typeConfig[n.type];
+                  return (
+                    <motion.div
+                      key={n._id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{
+                        duration: 0.15,
+                        delay: Math.min(index * 0.02, 0.1),
+                      }}
+                    >
+                      <button
+                        onClick={() => handleClick(n)}
+                        className={`group flex w-full items-center gap-3 border-b border-border/40 px-4 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 ${n.read ? "opacity-60" : ""}`}
+                      >
+                        <div className="flex w-3 items-center justify-center flex-shrink-0">
+                          {!n.read && (
+                            <span className="h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <NotificationIcon type={n.type} size="sm" />
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">
+                            {n.title}
+                          </span>
+                          {n.message && (
+                            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                              {n.message}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge
+                            variant={config.badgeVariant}
+                            className="text-[10px] px-1.5 py-0 h-4 hidden sm:inline-flex"
+                          >
+                            {config.label}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {dayjs(n.createdAt).format(
+                              dayjs(n.createdAt).isSame(dayjs(), "day")
+                                ? "h:mm A"
+                                : "MMM D",
+                            )}
+                          </span>
+                        </div>
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            ))}
           </AnimatePresence>
         </div>
       )}

@@ -111,6 +111,7 @@ export const update = authMutation({
           title: `You were assigned to "${task.title}"`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
     }
@@ -187,6 +188,7 @@ export const updateStatus = authMutation({
           title: `Task "${task.title}" is done`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
       if (
@@ -200,6 +202,7 @@ export const updateStatus = authMutation({
           title: `Task "${task.title}" is done`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
     }

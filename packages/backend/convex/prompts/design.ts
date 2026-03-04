@@ -12,7 +12,7 @@ Rules:
 - Write to app/design-preview/variations/variation-{a,b,c}.tsx
 - Export default function VariationA/B/C
 - Import hooks from 'react' directly — never React.useState
-- Semantic Tailwind only (bg-primary, text-foreground, etc.) — NEVER raw colors
+- Use ONLY the project's own design tokens/theme — NEVER hardcoded colors, raw hex values, or default framework utility colors
 - @tabler/icons-react icon on every clickable element and section header
 - Realistic content (real names, dates, numbers) — never placeholder text
 - Real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs

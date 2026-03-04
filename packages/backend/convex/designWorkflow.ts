@@ -56,9 +56,13 @@ Read the codebase to understand the existing design system, then write 3 React c
 
 ## Steps
 1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
-2. Read CLAUDE.md, Tailwind config, globals.css, and existing components to understand project patterns
+2. Discover the project's design system:
+   - Read CLAUDE.md to understand the project
+   - Search for styling config files (e.g. tailwind.config.*, globals.css, theme.ts, stitches.config.*, styled-components theme, CSS custom properties, etc.)
+   - Read existing components to understand the styling approach, token naming, and visual patterns
+   - Identify the CSS/styling framework in use and its semantic tokens
 3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
-4. Write 3 variation files to app/design-preview/variations/variation-{a,b,c}.tsx
+4. Write 3 variation files to app/design-preview/variations/variation-{a,b,c}.tsx using ONLY the project's own design tokens
 5. Commit: "design: ${message.slice(0, 60)}" and push
 6. Output ONLY the JSON
 
@@ -88,12 +92,12 @@ export default function DesignPreview() {
 - C: Compact/efficient — high density, minimal chrome, space-efficient
 
 ## Design System
-Use the project's semantic Tailwind tokens from globals.css. NEVER use raw Tailwind colors (no bg-slate-500, text-gray-700). Use bg-primary, text-muted-foreground, border-border, rounded-md, font-sans, etc.
+Use ONLY the project's own design tokens and theme system discovered in Step 2. NEVER use hardcoded colors, raw hex values, or default framework utility colors. Match the existing codebase's styling conventions exactly.
 
 ## Design Rules
 - Realistic content (real names, dates, numbers) — never placeholder text
-- Clear visual hierarchy with consistent 4px-multiple spacing (p-2, p-4, p-6, p-8)
-- Generous whitespace, responsive layouts (max-w-*, flex/grid)
+- Clear visual hierarchy with consistent spacing using the project's spacing scale
+- Generous whitespace, responsive layouts
 
 ## Previous Conversation
 ${history || "None"}

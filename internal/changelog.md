@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix resultSummary for quick task re-runs - 2026-03-04
+
+- **Why**: When requesting changes on a quick task, the run completed with "Pushed commit to project branch" even though quick tasks have no project branch.
+- **Change**: `resultSummary` now shows "Pushed commit to project branch" only for project tasks; quick tasks show "Pushed commit to branch".
+- **Files**: `taskWorkflow.ts` — `finalizeRunStreamingPhase` and `completeRun` now take project context into account.
+
 ## Replace taskDrafts table with draft status on agentTasks - 2026-03-04
 
 - **Why**: Drafts are just tasks that haven't been submitted yet. A separate table duplicated the task schema and required separate CRUD functions. Using a status field keeps drafts as first-class agentTasks and eliminates the extra table.

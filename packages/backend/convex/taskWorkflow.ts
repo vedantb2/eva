@@ -220,6 +220,7 @@ export const taskExecutionWorkflow = workflow.define({
     await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
       runId: args.runId,
       taskId: args.taskId,
+      projectId: args.projectId,
       success: result.success,
       error: result.error,
       prUrl,
@@ -530,6 +531,7 @@ export const finalizeRunStreamingPhase = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
     success: v.boolean(),
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
@@ -543,13 +545,16 @@ export const finalizeRunStreamingPhase = internalMutation({
     if (run && (run.status === "queued" || run.status === "running")) {
       const exitReason =
         args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
@@ -588,13 +593,16 @@ export const completeRun = internalMutation({
     if (run && (run.status === "queued" || run.status === "running")) {
       const exitReason =
         args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),

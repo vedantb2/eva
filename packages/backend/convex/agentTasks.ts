@@ -484,6 +484,17 @@ export const startExecution = authMutation({
           break;
         }
       }
+    } else {
+      // Quick task re-run: check if this task already had a successful run (PR already exists)
+      const previousSuccessRun = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task_and_status", (q) =>
+          q.eq("taskId", args.id).eq("status", "success"),
+        )
+        .first();
+      if (previousSuccessRun) {
+        isFirstTaskOnBranch = false;
+      }
     }
 
     const runId = await ctx.db.insert("agentRuns", {

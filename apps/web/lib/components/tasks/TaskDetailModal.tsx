@@ -162,6 +162,27 @@ export function TaskDetailModal({
     if (!text) return;
     setCommentText("");
     await createComment({ taskId, content: text });
+
+    // When submitting from the request changes panel, trigger a new execution
+    if (requestChangesPanel) {
+      setRequestChangesPanel(false);
+      try {
+        const result = await startExecution({ id: taskId });
+        await triggerExecution({
+          runId: result.runId,
+          taskId: result.taskId,
+          repoId: result.repoId,
+          installationId: result.installationId,
+          projectId: result.projectId,
+          branchName: result.branchName,
+          baseBranch: result.projectId ? undefined : result.baseBranch,
+          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+          model: result.model,
+        });
+      } catch (err) {
+        console.error("Failed to start execution for change request:", err);
+      }
+    }
   };
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;

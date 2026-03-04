@@ -51,6 +51,7 @@ function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
+  changeRequests?: string[],
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -61,11 +62,19 @@ function buildImplementationPrompt(
     ? "feat"
     : `feat(task-${task.taskNumber || 1})`;
 
+  const changeRequestSection =
+    changeRequests && changeRequests.length > 0
+      ? `\n## Change Requests (from reviewer):
+${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
+      : "";
+
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
 ## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
-${subtasksList}
+${subtasksList}${changeRequestSection}
 
 ## Steps:
 1. Read CLAUDE.md to understand the codebase
@@ -211,6 +220,7 @@ export const taskExecutionWorkflow = workflow.define({
     await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
       runId: args.runId,
       taskId: args.taskId,
+      projectId: args.projectId,
       success: result.success,
       error: result.error,
       prUrl,
@@ -462,6 +472,14 @@ export const getTaskData = internalQuery({
       .collect();
     const sortedSubtasks = subtasks.sort((a, b) => a.order - b.order);
 
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
     const branchName =
       args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
@@ -473,6 +491,7 @@ export const getTaskData = internalQuery({
       branchName,
       !args.projectId,
       rootDirectory,
+      changeRequests.length > 0 ? changeRequests : undefined,
     );
 
     const appLabel = repo.rootDirectory
@@ -512,6 +531,7 @@ export const finalizeRunStreamingPhase = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
     success: v.boolean(),
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
@@ -525,13 +545,16 @@ export const finalizeRunStreamingPhase = internalMutation({
     if (run && (run.status === "queued" || run.status === "running")) {
       const exitReason =
         args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
@@ -570,13 +593,16 @@ export const completeRun = internalMutation({
     if (run && (run.status === "queued" || run.status === "running")) {
       const exitReason =
         args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),

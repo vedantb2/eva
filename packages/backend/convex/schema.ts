@@ -128,9 +128,13 @@ const schema = defineSchema({
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
     activityLog: v.optional(v.string()),
+    exitReason: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
+    repoId: v.optional(v.id("githubRepos")),
   })
     .index("by_task", ["taskId"])
-    .index("by_task_and_status", ["taskId", "status"]),
+    .index("by_task_and_status", ["taskId", "status"])
+    .index("by_status", ["status"]),
 
   githubRepos: defineTable({
     owner: v.string(),
@@ -220,6 +224,7 @@ const schema = defineSchema({
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),
+    lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
   docs: defineTable({
     repoId: v.id("githubRepos"),

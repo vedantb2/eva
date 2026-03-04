@@ -1,5 +1,27 @@
 # Changelog
 
+## Task execution freeze protection: guardrails + heartbeat watchdog - 2026-03-04
+
+- **Why**: Quick tasks froze at "Running command..." when Claude CLI ran blocking commands (e.g. `sleep 30`, hanging `gh api` calls). The 3-minute no-output timeout was too slow, and there was no server-side protection if the callback script itself died.
+- **Phase 1 — Command guardrails + reduced timeout**:
+  - `taskWorkflow.ts`: Added prompt rules requiring `timeout` prefix on all Bash commands, `GH_PROMPT_DISABLED=1` for `gh` commands, forbidding `sleep` and silent `2>/dev/null`
+  - `daytona.ts`: Reduced `NO_OUTPUT_TIMEOUT_MS` default from 180s to 60s
+  - `taskWorkflow.ts`: Made `handleCompletion` idempotent — ignores late/duplicate callbacks when run already finished
+  - `schema.ts` + completion mutations: Added `exitReason` field to `agentRuns` for observability (`completed`, `error`, `run_timeout`, `watchdog_killed`)
+- **Phase 2 — Heartbeat + stale run watchdog**:
+  - `daytona.ts`: Added 10s heartbeat ping in callback script that force-sends `streaming:set` even during long-running Bash commands
+  - `streaming.ts` + `schema.ts`: Added `lastUpdatedAt` timestamp to `streamingActivity` docs
+  - `taskWorkflow.ts`: Added `checkStaleRuns` self-rescheduling mutation (every 30s) that kills runs with no heartbeat for 90s — cancels workflow, kills sandbox process, marks run as error
+  - `schema.ts`: Added `sandboxId` and `repoId` on `agentRuns` so watchdog can call `killSandboxProcess`
+- **Reason for change (architectural)**: Fire-and-forget sandbox execution needs layered timeout protection: prompt-level (prevent bad commands), process-level (60s no-output kill), server-level (90s heartbeat watchdog), and global safety net (2h run timeout).
+
+## Prevent sandbox runs from hanging on blocked CLI commands - 2026-03-04
+
+- **Why**: Some quick tasks appeared frozen at "Running command..." when a Bash step blocked on non-interactive CLI behavior or produced no stream output for a long time.
+- **Fix** (`daytona.ts` callback script): Force GitHub CLI non-interactive defaults (`GH_PROMPT_DISABLED=1`, `GH_NO_UPDATE_NOTIFIER=1`) and normalize token env (`GH_TOKEN` from `GH_TOKEN`/`GITHUB_TOKEN`) before spawning Claude.
+- **Fix** (`daytona.ts` callback script): Added a no-stdout watchdog for Claude attempts (`CLAUDE_NO_OUTPUT_TIMEOUT_MS`, default 180000ms). If no stdout arrives past the threshold, the child process is terminated and completion returns an explicit timeout error instead of hanging indefinitely.
+- **Reason for change (architectural)**: Fire-and-forget sandbox jobs still need bounded execution semantics at the process level to avoid indefinite workflow stalls when tool subprocesses block.
+
 ## Fix "Not authenticated" on manual reload - 2026-03-04
 
 - **Why**: On full page reload (e.g. staging URL), auth-dependent Convex queries ran before Clerk rehydrated the session from cookies, causing "Not authenticated" errors.

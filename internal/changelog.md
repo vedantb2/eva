@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix "Not authenticated" on manual reload - 2026-03-04
+
+- **Why**: On full page reload (e.g. staging URL), auth-dependent Convex queries ran before Clerk rehydrated the session from cookies, causing "Not authenticated" errors.
+- **Fix**: Centralize auth gating in ClientProvider using Convex `AuthLoading` + `Authenticated`. Show spinner while auth is loading; only render ThemeProvider and children when authenticated. ThemeContext, PresenceHeartbeat, and RepoContext no longer need per-component skip logic.
+
 ## Cleanup legacy migrations - 2026-03-04
 
 - Removed one-time migrations from `migrations.ts`: `assignOrphanRepos`, `createPersonalTeamsAndMigrate`, `removeTeamSlugs`, `migrateBoardsAndCommentsToUserIds`, `renameMcpServerToMcp`. Kept `cleanupStaleRuns` (operational — fixes stuck task runs when run manually).

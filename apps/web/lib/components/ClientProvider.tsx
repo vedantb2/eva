@@ -1,6 +1,14 @@
 "use client";
 
-import { ConvexReactClient, useConvexAuth, useMutation } from "convex/react";
+import {
+  ConvexReactClient,
+  useConvexAuth,
+  useMutation,
+  useQuery,
+  AuthLoading,
+  Authenticated,
+} from "convex/react";
+import usePresence from "@convex-dev/presence/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/nextjs";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
@@ -8,9 +16,10 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { useEffect } from "react";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { TooltipProvider } from "@conductor/ui";
+import { TooltipProvider, Spinner } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 
 if (!clientEnv.NEXT_PUBLIC_CONVEX_URL) {
   throw new Error("Missing NEXT_PUBLIC_CONVEX_URL in your .env file");
@@ -31,22 +40,43 @@ function EnsureUser() {
   return null;
 }
 
+function PresenceHeartbeat() {
+  const userId = useQuery(api.auth.me);
+  if (!userId) return null;
+  return <PresenceInner userId={userId} />;
+}
+
+function PresenceInner({ userId }: { userId: Id<"users"> }) {
+  usePresence(api.presence, "platform", userId);
+  return null;
+}
+
 export function ClientProvider({ children }: { children: React.ReactNode }) {
   return (
     <NuqsAdapter>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ConvexQueryCacheProvider>
           <EnsureUser />
-          <NextThemesProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ThemeProvider>
-              <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-            </ThemeProvider>
-          </NextThemesProvider>
+          <AuthLoading>
+            <div className="flex min-h-screen items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          </AuthLoading>
+          <Authenticated>
+            <NextThemesProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <ThemeProvider>
+                <TooltipProvider delayDuration={300}>
+                  {children}
+                  <PresenceHeartbeat />
+                </TooltipProvider>
+              </ThemeProvider>
+            </NextThemesProvider>
+          </Authenticated>
         </ConvexQueryCacheProvider>
       </ConvexProviderWithClerk>
     </NuqsAdapter>

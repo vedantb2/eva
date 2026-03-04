@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/lib/components/Sidebar";
+import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 
 function MainContent({ children }: { children: React.ReactNode }) {
@@ -23,8 +24,10 @@ export default function InboxLayout({
 }) {
   return (
     <SidebarProvider>
-      <Sidebar />
-      <MainContent>{children}</MainContent>
+      <SearchProvider>
+        <Sidebar />
+        <MainContent>{children}</MainContent>
+      </SearchProvider>
     </SidebarProvider>
   );
 }

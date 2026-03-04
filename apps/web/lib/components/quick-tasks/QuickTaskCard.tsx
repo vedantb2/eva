@@ -42,6 +42,7 @@ interface QuickTaskCardProps {
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
+  isActive?: boolean;
   onToggleSelect?: () => void;
 }
 
@@ -56,6 +57,7 @@ export function QuickTaskCard({
   onClick,
   isSelecting,
   isSelected,
+  isActive,
   onToggleSelect,
 }: QuickTaskCardProps) {
   const { owner, name: repoName } = useRepo();
@@ -75,7 +77,7 @@ export function QuickTaskCard({
           : isInProgress
             ? "border-transparent bg-card/95"
             : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
-      } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${
+      } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${isActive ? "border-primary/50 bg-primary/5 shadow-sm" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""

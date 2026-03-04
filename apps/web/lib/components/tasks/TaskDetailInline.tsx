@@ -42,9 +42,9 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                 )}
                 {requestChangesPanel && requestChangesSection}
               </div>
-              <div className="border-l border-border pl-4 flex flex-col overflow-y-auto scrollbar">
+              <div className=" pl-4 flex flex-col overflow-y-auto scrollbar">
                 <div className="space-y-4 flex-1">{statusFieldsSection}</div>
-                <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+                <div className="flex items-center justify-between pt-4 mt-4 ">
                   {footerButtons}
                 </div>
               </div>

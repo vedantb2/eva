@@ -267,7 +267,7 @@ export const pollDeploymentStatus = internalAction({
 
       if (statuses.length === 0) {
         console.log(
-          `[deployment-poll] Deployment ${deployment.id} found but no statuses yet, attempt=${args.attempt}`,
+          `[deployment-poll] Deployment ${deployments[0].id} found but no statuses yet, attempt=${args.attempt}`,
         );
         await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
           runId: args.runId,

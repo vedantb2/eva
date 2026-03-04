@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
   DialogFooter,
   Button,
   Select,
@@ -70,6 +71,16 @@ import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
+
+function formatDuration(startedAt: number, finishedAt: number): string {
+  const totalSeconds = Math.round((finishedAt - startedAt) / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -153,6 +164,27 @@ export function TaskDetailModal({
     if (!text) return;
     setCommentText("");
     await createComment({ taskId, content: text });
+
+    // When submitting from the request changes panel, trigger a new execution
+    if (requestChangesPanel) {
+      setRequestChangesPanel(false);
+      try {
+        const result = await startExecution({ id: taskId });
+        await triggerExecution({
+          runId: result.runId,
+          taskId: result.taskId,
+          repoId: result.repoId,
+          installationId: result.installationId,
+          projectId: result.projectId,
+          branchName: result.branchName,
+          baseBranch: result.projectId ? undefined : result.baseBranch,
+          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
+          model: result.model,
+        });
+      } catch (err) {
+        console.error("Failed to start execution for change request:", err);
+      }
+    }
   };
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
@@ -1267,9 +1299,7 @@ export function TaskDetailModal({
           if (!v) onClose();
         }}
       >
-        <DialogContent
-          className={`${modalWidthClass} max-h-[85vh] overflow-y-auto`}
-        >
+        <DialogContent className={modalWidthClass}>
           <DialogHeader>
             <DialogTitle>{titleContent}</DialogTitle>
           </DialogHeader>

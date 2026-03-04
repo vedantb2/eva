@@ -5,6 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
+import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
 
 const designCompleteEvent = defineEvent({
   name: "designComplete",
@@ -17,35 +18,6 @@ const designCompleteEvent = defineEvent({
 });
 
 const llmJson = new LlmJson({ attemptCorrection: true });
-
-const DESIGN_SYSTEM_PROMPT = `You MUST write 3 React component variation files and commit them, then output ONLY valid JSON:
-{
-  "summary": "Brief design decisions",
-  "variations": [
-    { "label": "Design A - [descriptor]", "route": "/design-preview?v=a", "filePath": "[path you wrote]" },
-    { "label": "Design B - [descriptor]", "route": "/design-preview?v=b", "filePath": "[path you wrote]" },
-    { "label": "Design C - [descriptor]", "route": "/design-preview?v=c", "filePath": "[path you wrote]" }
-  ]
-}
-
-Rules for each variation file:
-- Write to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
-- Single React component with \`export default function VariationA() { ... }\` (or B/C)
-- ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
-- Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-slate-500, no text-gray-700)
-- Every clickable element and section header MUST include a @tabler/icons-react icon
-- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
-- Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
-- Add hover feedback on ALL interactive elements and smooth transitions
-- Add focus rings for accessibility
-- Follow ALL guidelines loaded from skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
-- After writing all files, commit with a descriptive message and push
-- Output ONLY the JSON, no other text`;
-
-function buildRootDirectoryInstruction(rootDirectory: string): string {
-  if (!rootDirectory) return "";
-  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
-}
 
 function buildDesignPrompt(
   repo: { owner: string; name: string },
@@ -83,21 +55,18 @@ Design with this persona in mind — consider their goals, context, and preferen
 Read the codebase to understand the existing design system, then write 3 React component variation files based on the user's request.
 
 ## Steps
-1. Invoke the /frontend-design skill to load design quality guidelines
-2. Invoke the /interface-design skill to load craft-focused design principles
-3. Invoke the /web-design-guidelines skill to load accessibility guidelines
-4. Read CLAUDE.md to understand the project
-5. Read the Tailwind config and globals.css to understand the design tokens
-6. Read existing components to understand STYLE PATTERNS (spacing, layout, visual language)
-7. Check if app/design-preview/page.tsx exists. If not, create the router scaffold:
-   - Create app/design-preview/page.tsx that lazy-imports variations/variation-{a,b,c}.tsx based on ?v= query param
-   - Create app/design-preview/variations/ directory
-8. Write 3 variation files to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
-9. Commit all changes with message: "design: ${message.slice(0, 60)}"
-10. Push to the current branch
-11. Output ONLY the JSON
+1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
+2. Discover the project's design system:
+   - Read CLAUDE.md to understand the project
+   - Search for styling config files (e.g. tailwind.config.*, globals.css, theme.ts, stitches.config.*, styled-components theme, CSS custom properties, etc.)
+   - Read existing components to understand the styling approach, token naming, and visual patterns
+   - Identify the CSS/styling framework in use and its semantic tokens
+3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
+4. Write 3 variation files to app/design-preview/variations/variation-{a,b,c}.tsx using ONLY the project's own design tokens
+5. Commit: "design: ${message.slice(0, 60)}" and push
+6. Output ONLY the JSON
 
-## Router Scaffold (create if app/design-preview/page.tsx doesn't exist)
+## Router Scaffold (create if missing)
 \`\`\`tsx
 'use client';
 import { lazy, Suspense } from 'react';
@@ -113,32 +82,22 @@ export default function DesignPreview() {
   const params = useSearchParams();
   const v = params.get('v') || 'a';
   const Component = variations[v] || variations.a;
-  return <Suspense fallback={<div className="flex items-center justify-center h-screen"><p>Loading...</p></div>}><Component /></Suspense>;
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
 }
 \`\`\`
 
 ## Variation Strategies
-- Design A: Clean/conventional — prioritize clarity, familiar patterns, and straightforward navigation
-- Design B: Creative/bold — unconventional layout, striking visual hierarchy, or unique interaction patterns
-- Design C: Compact/efficient — high information density, minimal chrome, space-efficient UI
+- A: Clean/conventional — clarity, familiar patterns, straightforward navigation
+- B: Creative/bold — unconventional layout, striking hierarchy, unique interactions
+- C: Compact/efficient — high density, minimal chrome, space-efficient
 
 ## Design System
-The project uses a custom Tailwind config with CSS variables. Use the project's actual design tokens:
+Use ONLY the project's own design tokens and theme system discovered in Step 2. NEVER use hardcoded colors, raw hex values, or default framework utility colors. Match the existing codebase's styling conventions exactly.
 
-**Colors:** bg-background, bg-foreground, bg-primary, bg-secondary, bg-muted, bg-accent, bg-card, bg-destructive, bg-success, bg-warning (and text-* equivalents, plus text-primary-foreground etc.)
-**Border:** border-border, border-input
-**Radius:** rounded-sm (6px), rounded-md (8px), rounded-lg (10px)
-**Font:** font-sans (Inter is loaded automatically)
-
-CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-slate-500, text-gray-700, bg-zinc-600. Always use bg-primary, text-muted-foreground, etc.
-
-## Design Quality Guidelines
-- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
-- Clear visual hierarchy: one primary action per view, secondary actions de-emphasized
-- Consistent spacing using multiples of 4px via Tailwind: p-2, p-4, p-6, p-8
-- Group related elements with cards (bg-card rounded-lg border border-border) or bordered sections
-- Use whitespace generously — don't crowd elements together
-- Responsive-first: use max-w-* containers, flex/grid layouts
+## Design Rules
+- Realistic content (real names, dates, numbers) — never placeholder text
+- Clear visual hierarchy with consistent spacing using the project's spacing scale
+- Generous whitespace, responsive layouts
 
 ## Previous Conversation
 ${history || "None"}
@@ -149,7 +108,7 @@ ${personaContext}
 ${message}
 
 ## Output
-After completing all steps above, output ONLY valid JSON matching the format described in your system prompt. No other text.${buildRootDirectoryInstruction(rootDirectory)}`;
+After completing all steps, output ONLY valid JSON matching the format in your system prompt.${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function extractJsonFromText(text: string): string | null {

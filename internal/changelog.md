@@ -1,5 +1,63 @@
 # Changelog
 
+## Fix resultSummary for quick task re-runs - 2026-03-04
+
+- **Why**: When requesting changes on a quick task, the run completed with "Pushed commit to project branch" even though quick tasks have no project branch.
+- **Change**: `resultSummary` now shows "Pushed commit to project branch" only for project tasks; quick tasks show "Pushed commit to branch".
+- **Files**: `taskWorkflow.ts` — `finalizeRunStreamingPhase` and `completeRun` now take project context into account.
+
+## Replace taskDrafts table with draft status on agentTasks - 2026-03-04
+
+- **Why**: Drafts are just tasks that haven't been submitted yet. A separate table duplicated the task schema and required separate CRUD functions. Using a status field keeps drafts as first-class agentTasks and eliminates the extra table.
+- **Changes**:
+  - Added `"draft"` to `taskStatusValidator`
+  - Added `saveDraft`, `listDrafts`, `activateDraft` functions to `agentTasks.ts`
+  - `getAllTasks` now excludes draft-status tasks so they don't appear on kanban/list views
+  - `startExecution` guards against accidentally running a draft
+  - `QuickTaskModal` rewired to use `agentTasks` draft functions instead of `taskDrafts` API
+  - `taskDrafts.ts` deleted; `taskDrafts` table kept temporarily in schema for migration
+  - Added `clearTaskDraftsTable` migration to `migrations.ts`
+
+## Tighten all system/user prompts for concision - 2026-03-04
+
+- **Why**: Prompts run on every sandbox invocation — redundant/verbose instructions waste tokens and dilute model attention. Repeated rules (e.g. "never push to main" appearing 3 times in one prompt) actually hurt compliance because the model wastes context parsing whether they're subtly different.
+- **Changes across 7 files**:
+  - `doc.ts`: Extracted shared `PRD_OUTPUT` template for `PARSE_PROMPT`/`GENERATE_PROMPT` (were near-identical). Merged overlapping "Your Role"/"Rules" sections in `INTERVIEW_PROMPT`.
+  - `project.ts`: Removed duplicate "ground in real code" instructions, merged "Do NOT" rules into role section.
+  - `sessionWorkflow.ts`: Collapsed 3 branch rules into 1 in `buildExecutePrompt`, tightened `buildAskPrompt` and `buildPlanPrompt`.
+  - `design.ts` + `designWorkflow.ts`: Replaced full token listing with "use semantic tokens from globals.css", collapsed 6 setup steps into 2, removed overlap between system and user prompts.
+  - `taskWorkflow.ts`: Condensed proof-of-completion section, merged overlapping "Do NOT" rules.
+  - `evaluationWorkflow.ts`: Removed duplicate requirements listing between Phase 1 and Phase 2.
+  - `researchQueryWorkflow.ts`: Removed duplicate "return ONLY raw query code", condensed analysis guidelines.
+
+## Extract static prompts to prompts folder - 2026-03-04
+
+- **Why**: Prompts were scattered across workflow files; harder to audit, tune, or share common patterns.
+- **Change**: Added `packages/backend/convex/prompts/` folder with domain-split files: `shared.ts` (buildRootDirectoryInstruction, getResponseLengthInstruction), `doc.ts` (PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT), `project.ts` (PROJECT_INTERVIEW_SYSTEM_PROMPT, TASK_PHILOSOPHY, SPEC_SYSTEM_PROMPT), `design.ts` (DESIGN_SYSTEM_PROMPT), `index.ts` (barrel export). Workflow-specific builders remain in their workflow files.
+- **Reason for change (architectural)**: Partial extraction keeps dynamic builders co-located with workflow logic. Folder structure makes prompts easier to parse and navigate per domain.
+
+## Task execution freeze protection: guardrails + heartbeat watchdog - 2026-03-04
+
+- **Why**: Quick tasks froze at "Running command..." when Claude CLI ran blocking commands (e.g. `sleep 30`, hanging `gh api` calls). The 3-minute no-output timeout was too slow, and there was no server-side protection if the callback script itself died.
+- **Phase 1 — Command guardrails + reduced timeout**:
+  - `taskWorkflow.ts`: Added prompt rules requiring `timeout` prefix on all Bash commands, `GH_PROMPT_DISABLED=1` for `gh` commands, forbidding `sleep` and silent `2>/dev/null`
+  - `daytona.ts`: Reduced `NO_OUTPUT_TIMEOUT_MS` default from 180s to 60s
+  - `taskWorkflow.ts`: Made `handleCompletion` idempotent — ignores late/duplicate callbacks when run already finished
+  - `schema.ts` + completion mutations: Added `exitReason` field to `agentRuns` for observability (`completed`, `error`, `run_timeout`, `watchdog_killed`)
+- **Phase 2 — Heartbeat + stale run watchdog**:
+  - `daytona.ts`: Added 10s heartbeat ping in callback script that force-sends `streaming:set` even during long-running Bash commands
+  - `streaming.ts` + `schema.ts`: Added `lastUpdatedAt` timestamp to `streamingActivity` docs
+  - `taskWorkflow.ts`: Added `checkStaleRuns` self-rescheduling mutation (every 30s) that kills runs with no heartbeat for 90s — cancels workflow, kills sandbox process, marks run as error
+  - `schema.ts`: Added `sandboxId` and `repoId` on `agentRuns` so watchdog can call `killSandboxProcess`
+- **Reason for change (architectural)**: Fire-and-forget sandbox execution needs layered timeout protection: prompt-level (prevent bad commands), process-level (60s no-output kill), server-level (90s heartbeat watchdog), and global safety net (2h run timeout).
+
+## Prevent sandbox runs from hanging on blocked CLI commands - 2026-03-04
+
+- **Why**: Some quick tasks appeared frozen at "Running command..." when a Bash step blocked on non-interactive CLI behavior or produced no stream output for a long time.
+- **Fix** (`daytona.ts` callback script): Force GitHub CLI non-interactive defaults (`GH_PROMPT_DISABLED=1`, `GH_NO_UPDATE_NOTIFIER=1`) and normalize token env (`GH_TOKEN` from `GH_TOKEN`/`GITHUB_TOKEN`) before spawning Claude.
+- **Fix** (`daytona.ts` callback script): Added a no-stdout watchdog for Claude attempts (`CLAUDE_NO_OUTPUT_TIMEOUT_MS`, default 180000ms). If no stdout arrives past the threshold, the child process is terminated and completion returns an explicit timeout error instead of hanging indefinitely.
+- **Reason for change (architectural)**: Fire-and-forget sandbox jobs still need bounded execution semantics at the process level to avoid indefinite workflow stalls when tool subprocesses block.
+
 ## Fix "Not authenticated" on manual reload - 2026-03-04
 
 - **Why**: On full page reload (e.g. staging URL), auth-dependent Convex queries ran before Clerk rehydrated the session from cookies, causing "Not authenticated" errors.

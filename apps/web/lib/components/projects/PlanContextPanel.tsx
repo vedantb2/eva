@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
   Avatar,
   AvatarFallback,
 } from "@conductor/ui";
@@ -67,35 +68,41 @@ export function PlanContextPanel({
       </div>
 
       <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Plan</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <h3 className="font-semibold text-lg">{parsedSpec.title}</h3>
-              <p className="text-muted-foreground">{parsedSpec.description}</p>
+          <DialogBody>
+            <div className="space-y-3">
+              <div>
+                <h3 className="font-semibold text-lg">{parsedSpec.title}</h3>
+                <p className="text-muted-foreground">
+                  {parsedSpec.description}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-medium">
+                  Tasks ({parsedSpec.tasks.length})
+                </h4>
+                {parsedSpec.tasks.map((task, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 p-2 bg-muted rounded"
+                  >
+                    <span className="text-muted-foreground font-mono">
+                      {i + 1}.
+                    </span>
+                    <span>{task.title}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <h4 className="font-medium">Tasks ({parsedSpec.tasks.length})</h4>
-              {parsedSpec.tasks.map((task, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 p-2 bg-muted rounded"
-                >
-                  <span className="text-muted-foreground font-mono">
-                    {i + 1}.
-                  </span>
-                  <span>{task.title}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showChatModal} onOpenChange={setShowChatModal}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader className="pb-4">
             <DialogTitle>
               <div className="flex items-center gap-2">
@@ -107,71 +114,73 @@ export function PlanContextPanel({
               </div>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            {conversationHistory.map((msg, i) => {
-              let displayContent = msg.content;
-              try {
-                const parsed = JSON.parse(msg.content);
-                if (parsed.question) {
-                  displayContent = parsed.question;
-                } else if (parsed.title) {
-                  displayContent = `Generated plan: ${parsed.title}`;
+          <DialogBody>
+            <div className="space-y-3 py-2">
+              {conversationHistory.map((msg, i) => {
+                let displayContent = msg.content;
+                try {
+                  const parsed = JSON.parse(msg.content);
+                  if (parsed.question) {
+                    displayContent = parsed.question;
+                  } else if (parsed.title) {
+                    displayContent = `Generated plan: ${parsed.title}`;
+                  }
+                } catch {
+                  // Keep original content
                 }
-              } catch {
-                // Keep original content
-              }
-              const isUser = msg.role === "user";
-              return (
-                <div
-                  key={i}
-                  className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
-                >
-                  {!isUser && (
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          <IconRobot
-                            size={16}
-                            className="text-muted-foreground"
-                          />
+                const isUser = msg.role === "user";
+                return (
+                  <div
+                    key={i}
+                    className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                  >
+                    {!isUser && (
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            <IconRobot
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Eva
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] px-4 py-3 rounded-lg ${
+                        isUser
+                          ? "bg-primary text-primary-foreground rounded-br-none"
+                          : "bg-muted rounded-tl-none"
+                      }`}
+                    >
+                      {isUser ? (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {displayContent}
+                        </p>
+                      ) : (
+                        <Streamdown
+                          plugins={{ code }}
+                          className="prose prose-sm dark:prose-invert max-w-none"
+                        >
+                          {displayContent}
+                        </Streamdown>
+                      )}
+                    </div>
+                    {isUser && (
+                      <Avatar className="mt-1.5 h-8 w-8">
+                        <AvatarFallback className="bg-accent">
+                          <IconUser size={16} className="text-primary" />
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Eva
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[80%] px-4 py-3 rounded-lg ${
-                      isUser
-                        ? "bg-primary text-primary-foreground rounded-br-none"
-                        : "bg-muted rounded-tl-none"
-                    }`}
-                  >
-                    {isUser ? (
-                      <p className="text-sm whitespace-pre-wrap">
-                        {displayContent}
-                      </p>
-                    ) : (
-                      <Streamdown
-                        plugins={{ code }}
-                        className="prose prose-sm dark:prose-invert max-w-none"
-                      >
-                        {displayContent}
-                      </Streamdown>
                     )}
                   </div>
-                  {isUser && (
-                    <Avatar className="mt-1.5 h-8 w-8">
-                      <AvatarFallback className="bg-accent">
-                        <IconUser size={16} className="text-primary" />
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </>

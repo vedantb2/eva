@@ -301,6 +301,7 @@ export const getTaskProgress = authQuery({
     business_review: v.number(),
     code_review: v.number(),
     done: v.number(),
+    cancelled: v.number(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -315,6 +316,7 @@ export const getTaskProgress = authQuery({
         business_review: 0,
         code_review: 0,
         done: 0,
+        cancelled: 0,
       };
     }
     const tasks = await ctx.db
@@ -329,6 +331,7 @@ export const getTaskProgress = authQuery({
         .length,
       code_review: tasks.filter((t) => t.status === "code_review").length,
       done: tasks.filter((t) => t.status === "done").length,
+      cancelled: tasks.filter((t) => t.status === "cancelled").length,
     };
   },
 });

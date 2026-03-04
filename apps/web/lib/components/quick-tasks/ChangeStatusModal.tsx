@@ -26,6 +26,7 @@ const STATUS_OPTIONS = [
   { value: "business_review", label: "Business Review" },
   { value: "code_review", label: "Code Review" },
   { value: "done", label: "Done" },
+  { value: "cancelled", label: "Cancelled" },
 ] as const;
 
 type TaskStatus = (typeof STATUS_OPTIONS)[number]["value"];

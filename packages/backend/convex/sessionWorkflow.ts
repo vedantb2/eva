@@ -6,6 +6,10 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { sessionModeValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import {
+  buildRootDirectoryInstruction,
+  getResponseLengthInstruction,
+} from "./prompts";
 
 // --- Completion event ---
 
@@ -31,19 +35,6 @@ const WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
 
-function getResponseLengthInstruction(responseLength: string): string {
-  if (responseLength === "concise")
-    return "\n\n## Response Length\nKeep your response very concise and brief. Use short sentences, bullet points where possible, and avoid unnecessary detail.";
-  if (responseLength === "detailed")
-    return "\n\n## Response Length\nProvide a detailed and thorough response. Include examples, explanations, and supporting context where helpful.";
-  return "";
-}
-
-function buildRootDirectoryInstruction(rootDirectory: string): string {
-  if (!rootDirectory) return "";
-  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
-}
-
 function buildAskPrompt(
   repo: { owner: string; name: string },
   conversationHistory: string,
@@ -51,7 +42,7 @@ function buildAskPrompt(
   responseLength: string,
   rootDirectory: string,
 ): string {
-  return `You are answering questions about a codebase for a non-technical user. This is READ-ONLY mode.
+  return `You are answering questions about a codebase for a non-technical user. READ-ONLY mode — do NOT modify any files.
 
 Repository: ${repo.owner}/${repo.name}
 
@@ -60,18 +51,12 @@ ${conversationHistory || "None"}
 
 Question: ${message}
 
-How to find information:
-- Use Glob to find files
-- Use Grep to search for patterns
-- Use Read to examine files
+Use Glob, Grep, Read to find information.
 
-CRITICAL response rules:
-- Keep your answer SHORT (2-4 sentences max)
-- Use PLAIN TEXT only, no markdown formatting, no headers, no bullet points, no code blocks
-- Write for someone who does NOT know programming - avoid technical jargon
-- If you must mention a file, just say the filename without the full path
-- Be direct and answer the question simply
-- DO NOT modify any files${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+Response rules:
+- 2-4 sentences max, PLAIN TEXT only (no markdown, headers, bullets, or code blocks)
+- Write for someone who does NOT know programming
+- If you mention a file, just say the filename without the full path${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(
@@ -82,30 +67,30 @@ function buildPlanPrompt(
   responseLength: string,
   rootDirectory: string,
 ): string {
-  return `You are a product planning assistant helping define a PRD (Product Requirements Document) for a feature or change. You iteratively refine the plan based on user feedback until they approve it.
+  return `You are a product planning assistant helping define a PRD for a feature or change.
 
 ## Repository: ${repo.owner}/${repo.name}
 
 ## Previous Conversation:
 ${conversationHistory || "None"}
 
-## Current plan.md contents:
+## Current plan.md:
 ${existingPlan || "No plan created yet."}
 
 ## User Message:
 ${message}
 
 ## Instructions:
-1. Use Glob, Grep, Read to explore the codebase and understand what already exists
+1. Use Glob, Grep, Read to explore the codebase
 2. Create or update plan.md in the repository root with the full PRD
-3. Refine the existing plan based on user feedback — don't rewrite from scratch unless asked
-4. Structure plan.md with: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope
+3. Refine based on user feedback — don't rewrite from scratch unless asked
+4. Structure: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope
 
 ## Rules:
-- You may ONLY write to plan.md — do NOT modify any other files
-- Keep your conversational response SHORT (1-2 sentences summarizing what changed in the plan)
-- Write for a non-technical audience — focus on WHAT to build and WHY, not HOW
-- Do NOT commit or push any changes${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- ONLY write to plan.md — do NOT modify other files
+- Response: 1-2 sentences on what changed in the plan
+- Non-technical audience — WHAT and WHY, not HOW
+- Do NOT commit or push${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildExecutePrompt(
@@ -120,7 +105,7 @@ function buildExecutePrompt(
   const planContext = planContent
     ? `\n\n## Approved Product Plan:\n${planContent}\n\nUse this plan as context for what to build and why. Follow the goals, user stories, and acceptance criteria defined above.`
     : "";
-  return `You are working on an ongoing session. The user has requested the following task:
+  return `You are working on an ongoing session.
 
 ## User Request:
 ${message}
@@ -128,28 +113,24 @@ ${message}
 ## Repository: ${repo.owner}/${repo.name}
 ## Branch: ${branchName}
 
-IMPORTANT: You are already on branch "${branchName}". All work MUST stay on this branch. NEVER checkout or push to main.${planContext}
+You are already on branch "${branchName}". All work MUST stay on this branch.${planContext}
 
 ## Instructions:
-1. Read the CLAUDE.md file if it exists to understand the codebase
-2. Use Glob and Read tools to explore and find relevant files
-3. Make the requested changes using Edit or Write tools
+1. Read CLAUDE.md if it exists
+2. Use Glob, Grep, Read to find relevant files
+3. Make changes using Edit or Write
 4. Only if you made code changes, commit and push:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
-5. Respond with a concise summary of what you did. Only describe the actions taken and their outcomes.
+5. Respond with a concise summary of what you did
 
 ## Rules:
-- In your response, do NOT mention recording/screenshot file paths, commit status, or meta-commentary about the process itself
-- You MUST commit and push ONLY to the branch "${branchName}" — NEVER push to main
-- Do NOT checkout main or any other branch
-- Do NOT create PRs - just commit and push
-- Do NOT run build, lint, test, or dev commands
+- NEVER checkout, push to, or interact with main — only "${branchName}"
+- Do NOT create PRs, run build/lint/test/dev commands, or commit if no source code changed
+- NEVER commit image or video files
 - Make minimal, focused changes
-- Use the repository's lockfile to determine the correct package manager
-- The GITHUB_TOKEN environment variable is set for git operations
-- Do NOT commit or push if no source code changes were made (e.g. only screenshots/recordings were taken)
-- NEVER commit image or video files — they need to be uploaded to storage separately
-- If the user asks for visual proof, screenshots, or anything requiring browser interaction, use the agent-browser skill. Save screenshots to screenshots/ and recordings to recordings/ in the repo root.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
+- Do NOT mention file paths, commit status, or process meta-commentary in your response
+- For browser interaction (screenshots, visual proof), use the agent-browser skill. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---

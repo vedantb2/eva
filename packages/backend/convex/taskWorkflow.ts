@@ -7,6 +7,7 @@ import { authMutation, hasTaskAccess } from "./functions";
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
+import { buildRootDirectoryInstruction } from "./prompts";
 
 // --- Events ---
 
@@ -44,17 +45,13 @@ const auditCompleteEvent = defineEvent({
 
 const WORKSPACE_DIR = "/workspace/repo";
 
-function buildRootDirectoryInstruction(rootDirectory: string): string {
-  if (!rootDirectory) return "";
-  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
-}
-
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
+  changeRequests?: string[],
 ): string {
   const subtasksList =
     subtasks.length > 0
@@ -65,34 +62,42 @@ function buildImplementationPrompt(
     ? "feat"
     : `feat(task-${task.taskNumber || 1})`;
 
+  const changeRequestSection =
+    changeRequests && changeRequests.length > 0
+      ? `\n## Change Requests (from reviewer):
+${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
+      : "";
+
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
 ## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
-${subtasksList}
+${subtasksList}${changeRequestSection}
 
 ## Steps:
 1. Read CLAUDE.md to understand the codebase
-2. Implement the changes by editing source code files
+2. Implement changes by editing source code files
 3. Update CLAUDE.md if you made major changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
 5. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
-After committing and pushing, you MUST capture visual proof using the agent-browser skill:
-1. Start the dev server in background, wait for it to be ready
-2. Use agent-browser to take a screenshot (simple changes) or record a video (complex multi-step changes) — pick one, not both
-3. Save to screenshots/ or recordings/ in the repo root
+After pushing, capture visual proof using agent-browser:
+1. Start dev server in background, wait for ready
+2. Screenshot (simple changes) or record video (complex changes) — pick one
+3. Save to screenshots/ or recordings/ in repo root
 4. Kill the dev server
-If the dev server fails to start or the page shows an error (e.g. env var issues, build errors), screenshot the error state anyway and save it — the user needs to see what went wrong.
-If the task has no UI changes, skip this step.
-Do NOT mention proof capture in your response or commit message.
+If dev server fails or page errors, screenshot the error state anyway.
+Skip if no UI changes. Do NOT mention proof capture in response or commit message.
 
 ## Rules:
-- Do NOT create .md plan files
-- Do NOT run build, lint, test, or dev commands EXCEPT starting a dev server for proof capture after committing
-- Use the lockfile to determine the package manager
-- GITHUB_TOKEN is already set for git push${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)
+- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildAuditPrompt(diff: string): string {
@@ -137,6 +142,7 @@ export const taskExecutionWorkflow = workflow.define({
     await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
       runId: args.runId,
       taskId: args.taskId,
+      repoId: args.repoId,
     });
 
     // Step 2: Fetch task data and build prompt
@@ -171,6 +177,12 @@ export const taskExecutionWorkflow = workflow.define({
       // Retrying this step can create duplicate sandboxes for one run.
       { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
     );
+
+    // Step 3b: Save sandbox ID on the run for watchdog cleanup
+    await step.runMutation(internal.taskWorkflow.saveSandboxId, {
+      runId: args.runId,
+      sandboxId,
+    });
 
     // Step 4: Update project sandbox if applicable
     if (args.projectId) {
@@ -208,6 +220,7 @@ export const taskExecutionWorkflow = workflow.define({
     await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
       runId: args.runId,
       taskId: args.taskId,
+      projectId: args.projectId,
       success: result.success,
       error: result.error,
       prUrl,
@@ -308,10 +321,11 @@ export const updateRunToRunning = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
+    repoId: v.id("githubRepos"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.runId, { status: "running" });
+    await ctx.db.patch(args.runId, { status: "running", repoId: args.repoId });
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
       updatedAt: Date.now(),
@@ -325,6 +339,95 @@ export const updateRunToRunning = internalMutation({
         runId: args.runId,
       },
     );
+
+    await ctx.scheduler.runAfter(
+      STALE_CHECK_DELAY_MS,
+      internal.taskWorkflow.checkStaleRuns,
+      {
+        runId: args.runId,
+        taskId: args.taskId,
+      },
+    );
+
+    return null;
+  },
+});
+
+export const saveSandboxId = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    sandboxId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run) {
+      await ctx.db.patch(args.runId, { sandboxId: args.sandboxId });
+    }
+    return null;
+  },
+});
+
+const STALE_THRESHOLD_MS = 90_000;
+const STALE_CHECK_DELAY_MS = 90_000;
+const STALE_RECHECK_MS = 30_000;
+
+export const checkStaleRuns = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.status !== "running") return null;
+
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !task.activeWorkflowId) return null;
+
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .first();
+
+    const now = Date.now();
+    const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
+    const isStale = now - lastActivity > STALE_THRESHOLD_MS;
+
+    if (!isStale) {
+      await ctx.scheduler.runAfter(
+        STALE_RECHECK_MS,
+        internal.taskWorkflow.checkStaleRuns,
+        { runId: args.runId, taskId: args.taskId },
+      );
+      return null;
+    }
+
+    if (run.sandboxId && run.repoId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+        sandboxId: run.sandboxId,
+        repoId: run.repoId,
+      });
+    }
+
+    try {
+      await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+    } catch {}
+
+    await ctx.db.patch(args.runId, {
+      status: "error",
+      error: "Run killed by watchdog: no heartbeat for 90s",
+      finishedAt: now,
+      exitReason: "watchdog_killed",
+    });
+
+    await ctx.db.patch(args.taskId, {
+      status: "todo",
+      activeWorkflowId: undefined,
+      updatedAt: now,
+    });
+
+    if (streaming) await ctx.db.delete(streaming._id);
 
     return null;
   },
@@ -369,6 +472,14 @@ export const getTaskData = internalQuery({
       .collect();
     const sortedSubtasks = subtasks.sort((a, b) => a.order - b.order);
 
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
     const branchName =
       args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
 
@@ -380,6 +491,7 @@ export const getTaskData = internalQuery({
       branchName,
       !args.projectId,
       rootDirectory,
+      changeRequests.length > 0 ? changeRequests : undefined,
     );
 
     const appLabel = repo.rootDirectory
@@ -419,27 +531,35 @@ export const finalizeRunStreamingPhase = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
     success: v.boolean(),
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    exitReason: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const now = Date.now();
     const run = await ctx.db.get(args.runId);
     if (run && (run.status === "queued" || run.status === "running")) {
+      const exitReason =
+        args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
         activityLog: args.activityLog ?? undefined,
+        exitReason,
       });
     }
 
@@ -463,6 +583,7 @@ export const completeRun = internalMutation({
     prUrl: v.union(v.string(), v.null()),
     hasSubtasks: v.boolean(),
     activityLog: v.union(v.string(), v.null()),
+    exitReason: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -470,17 +591,23 @@ export const completeRun = internalMutation({
 
     const run = await ctx.db.get(args.runId);
     if (run && (run.status === "queued" || run.status === "running")) {
+      const exitReason =
+        args.exitReason ?? (args.success ? "completed" : "error");
+      const pushSummary = args.projectId
+        ? "Pushed commit to project branch"
+        : "Pushed commit to branch";
       await ctx.db.patch(args.runId, {
         status: args.success ? "success" : "error",
         finishedAt: now,
         resultSummary: args.success
           ? args.prUrl
             ? "Created project PR"
-            : "Pushed commit to project branch"
+            : pushSummary
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
         activityLog: args.activityLog ?? undefined,
+        exitReason,
       });
     }
 
@@ -668,6 +795,15 @@ export const handleCompletion = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task || !task.activeWorkflowId) return null;
+
+    const runs = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const latestRun = runs.sort(
+      (a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0),
+    )[0];
+    if (!latestRun || latestRun.status !== "running") return null;
 
     await workflow.sendEvent(ctx, {
       ...taskCompleteEvent,
@@ -861,6 +997,7 @@ export const handleStaleRun = internalMutation({
         status: "error",
         error: "Run timed out after 2 hours",
         finishedAt: Date.now(),
+        exitReason: "run_timeout",
       });
       await ctx.db.patch(args.taskId, {
         status: "todo",

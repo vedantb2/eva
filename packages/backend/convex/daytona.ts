@@ -426,6 +426,16 @@ const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "${WORKSPACE_DIR}";
+const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
+const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
+
+const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+if (GH_TOKEN) {
+  process.env.GH_TOKEN = GH_TOKEN;
+  process.env.GITHUB_TOKEN = GH_TOKEN;
+}
+process.env.GH_PROMPT_DISABLED = "1";
+process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 async function callMutation(path, args) {
   const headers = { "Content-Type": "application/json" };
@@ -558,6 +568,7 @@ function parseStreamEvent(line) {
 const accumulatedSteps = [];
 let rawOutput = "";
 let lastProcessed = 0;
+let lastStreamingSentAt = Date.now();
 
 async function flushStreaming() {
   if (rawOutput.length <= lastProcessed) return;
@@ -577,8 +588,20 @@ async function flushStreaming() {
         entityId: STREAMING_ENTITY_ID,
         currentActivity: JSON.stringify(accumulatedSteps),
       });
+      lastStreamingSentAt = Date.now();
     } catch {}
   }
+}
+
+async function heartbeatPing() {
+  if (Date.now() - lastStreamingSentAt < 10000) return;
+  try {
+    await callMutation("streaming:set", {
+      entityId: STREAMING_ENTITY_ID,
+      currentActivity: JSON.stringify(accumulatedSteps),
+    });
+    lastStreamingSentAt = Date.now();
+  } catch {}
 }
 
 // Send initial step immediately so frontend sees progress right away
@@ -589,6 +612,7 @@ callMutation("streaming:set", {
 }).catch(() => {});
 
 const interval = setInterval(flushStreaming, 500);
+const heartbeatInterval = setInterval(heartbeatPing, 10000);
 
 // Clear stale media from previous executions so only current run's media gets uploaded
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -663,19 +687,34 @@ async function runClaudeAttempt(includeSessionId) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let attemptOutput = "";
+    let lastStdoutAt = Date.now();
+    let timedOutForNoOutput = false;
+    const noOutputTimer = setInterval(() => {
+      if (Date.now() - lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
+        return;
+      }
+      timedOutForNoOutput = true;
+      try { child.kill("SIGTERM"); } catch {}
+      setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch {}
+      }, 2000);
+    }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
       attemptOutput += text;
       rawOutput += text;
+      lastStdoutAt = Date.now();
     });
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString();
     });
     child.on("close", (code) => {
-      resolve({ code: code ?? 1, output: attemptOutput });
+      clearInterval(noOutputTimer);
+      resolve({ code: code ?? 1, output: attemptOutput, timedOutForNoOutput });
     });
     child.on("error", (err) => {
+      clearInterval(noOutputTimer);
       reject(err);
     });
   });
@@ -686,6 +725,7 @@ try {
   await flushStreaming();
 
   let finalCode = firstAttempt.code;
+  let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     Boolean(process.env.CLAUDE_SESSION_ID) &&
@@ -707,10 +747,12 @@ try {
     const secondAttempt = await runClaudeAttempt(false);
     await flushStreaming();
     finalCode = secondAttempt.code;
+    finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
   clearInterval(interval);
+  clearInterval(heartbeatInterval);
   await flushStreaming();
 
   for (const step of accumulatedSteps) step.status = "complete";
@@ -791,7 +833,14 @@ try {
     ${entityIdField}: ENTITY_ID,
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
-    error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode + (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "") : null),
+    error: finalResultEvent?.isError
+      ? finalResultEvent.result
+      : (finalCode !== 0
+          ? (finalTimedOutForNoOutput
+              ? "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms"
+              : "Claude CLI exited with code " + finalCode) +
+            (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
+          : null),
     activityLog,
   };
   try {
@@ -802,6 +851,7 @@ try {
   }
 } catch (err) {
   clearInterval(interval);
+  clearInterval(heartbeatInterval);
   const errorArgs = {
     ${entityIdField}: ENTITY_ID,
     success: false,
@@ -967,7 +1017,9 @@ export const getPreviewUrl = action({
       }
     }
 
-    const url = signedPreview.url.replace(/^http:\/\//, "https://");
+    const parsedUrl = new URL(signedPreview.url);
+    parsedUrl.protocol = "https:";
+    const url = parsedUrl.toString();
     return { url, port: args.port, ready };
   },
 });
@@ -1366,6 +1418,35 @@ export const toggleDesktopServer = action({
   },
 });
 
+export const launchChromeInDesktop = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    try {
+      await sandbox.process.executeCommand(
+        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage > /dev/null 2>&1 &"',
+        "/",
+        undefined,
+        5,
+      );
+    } catch {
+      // Non-fatal: Chrome launch failure shouldn't break the desktop
+    }
+
+    return null;
+  },
+});
+
 async function detectPackageManager(sandbox: Sandbox): Promise<string> {
   const lockFile = (
     await exec(
@@ -1424,16 +1505,12 @@ async function detectDevPort(
 async function startSessionServices(
   sandbox: Sandbox,
   rootDir: string,
-): Promise<number> {
+): Promise<{ port: number; devCommand: string }> {
   const pm = await detectPackageManager(sandbox);
   const port = await detectDevPort(sandbox, rootDir);
   const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
-  await exec(
-    sandbox,
-    `cd ${dir} && PORT=${port} ${pm} run dev > /tmp/devserver.log 2>&1 &`,
-    10,
-  );
-  return port;
+  const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
+  return { port, devCommand };
 }
 
 export const startSessionSandbox = internalAction({
@@ -1472,13 +1549,17 @@ export const startSessionSandbox = internalAction({
             args.repoName,
           );
           await checkoutSessionBranch(sandbox, args.branchName);
-          const devPort = await startSessionServices(sandbox, rootDir);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: args.existingSandboxId,
             branchName: args.branchName,
             isNew: false,
             devPort,
+            devCommand,
           });
           return null;
         } catch {
@@ -1509,7 +1590,10 @@ export const startSessionSandbox = internalAction({
         `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} && git pull --ff-only origin ${quote([args.branchName])}`,
         30,
       );
-      const devPort = await startSessionServices(sandbox, rootDir);
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
         sessionId: args.sessionId,
@@ -1518,6 +1602,7 @@ export const startSessionSandbox = internalAction({
         isNew: true,
         usedSnapshot: prepared.usedSnapshot,
         devPort,
+        devCommand,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -1566,7 +1651,11 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          const devPort = await startSessionServices(sandbox, rootDir);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
+          await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
             sandboxId: args.existingSandboxId,
@@ -1593,7 +1682,11 @@ export const startDesignSandbox = internalAction({
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }
-      const devPort = await startSessionServices(sandbox, rootDir);
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
+      await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,

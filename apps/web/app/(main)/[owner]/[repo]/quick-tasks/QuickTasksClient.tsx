@@ -148,7 +148,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname !== taskPath
     ) {
-      window.history.pushState(null, "", taskPath);
+      window.history.pushState(null, "", taskPath + window.location.search);
     }
   };
 
@@ -158,7 +158,11 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname.startsWith(quickTaskPathPrefix)
     ) {
-      window.history.replaceState(null, "", quickTasksPath);
+      window.history.replaceState(
+        null,
+        "",
+        quickTasksPath + window.location.search,
+      );
     }
   };
 

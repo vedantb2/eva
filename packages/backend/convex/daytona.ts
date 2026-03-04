@@ -1017,7 +1017,9 @@ export const getPreviewUrl = action({
       }
     }
 
-    const url = signedPreview.url.replace(/^http:\/\//, "https://");
+    const parsedUrl = new URL(signedPreview.url);
+    parsedUrl.protocol = "https:";
+    const url = parsedUrl.toString();
     return { url, port: args.port, ready };
   },
 });

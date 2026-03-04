@@ -14,6 +14,18 @@ import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
 type EditorState = "idle" | "starting" | "running" | "error";
 
+function ensureHttps(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function getCachedEditor(sessionId: string): string | null {
   try {
     const raw = sessionStorage.getItem(`conductor:editor:${sessionId}`);
@@ -185,7 +197,7 @@ export function EditorPanel({
         )}
         {url && editorState === "running" && (
           <iframe
-            src={url}
+            src={ensureHttps(url)}
             className="absolute inset-0 w-full h-full border-0"
             allow="clipboard-read; clipboard-write"
           />

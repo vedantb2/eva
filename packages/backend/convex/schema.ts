@@ -110,6 +110,16 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
 
+  taskDrafts: defineTable({
+    repoId: v.id("githubRepos"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_repo_and_user", ["repoId", "createdBy"]),
+
   agentRuns: defineTable({
     taskId: v.id("agentTasks"),
     status: runStatusValidator,

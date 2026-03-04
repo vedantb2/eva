@@ -254,7 +254,7 @@ export function Sidebar() {
                 },
                 {
                   name: "Settings",
-                  href: `${repoBasePath}/settings/theme`,
+                  href: `${repoBasePath}/settings/config`,
                   icon: IconSettings,
                 },
               ],

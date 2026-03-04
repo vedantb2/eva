@@ -68,6 +68,7 @@ import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { formatDuration } from "@/lib/utils/formatDuration";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
@@ -500,25 +501,40 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               className="border rounded-lg px-3"
             >
               <AccordionTrigger>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      run.status === "success"
-                        ? "success"
-                        : run.status === "error"
-                          ? "destructive"
-                          : run.status === "running"
-                            ? "warning"
-                            : "outline"
-                    }
-                  >
-                    {run.status}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {run.startedAt
-                      ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
-                      : "Queued"}
-                  </span>
+                <div className="flex flex-1 items-center justify-between mr-2">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        run.status === "success"
+                          ? "success"
+                          : run.status === "error"
+                            ? "destructive"
+                            : run.status === "running"
+                              ? "warning"
+                              : "outline"
+                      }
+                    >
+                      {run.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {run.startedAt
+                        ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                        : "Queued"}
+                    </span>
+                  </div>
+                  {run.startedAt && run.finishedAt && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDuration(run.startedAt, run.finishedAt)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Completed{" "}
+                        {dayjs(run.finishedAt).format("M/D/YYYY, h:mm:ss A")}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent>

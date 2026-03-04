@@ -13,7 +13,7 @@ Rules:
 - Export default function VariationA/B/C
 - Import hooks from 'react' directly — never React.useState
 - Use ONLY the project's own design tokens/theme — NEVER hardcoded colors, raw hex values, or default framework utility colors
-- @tabler/icons-react icon on every clickable element and section header
+- Use the project's existing icon library (discover from imports in existing components) on every clickable element and section header
 - Realistic content (real names, dates, numbers) — never placeholder text
 - Real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
 - Hover feedback on all interactive elements, smooth transitions, focus rings

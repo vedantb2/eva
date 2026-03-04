@@ -82,7 +82,7 @@ export default function DesignPreview() {
   const params = useSearchParams();
   const v = params.get('v') || 'a';
   const Component = variations[v] || variations.a;
-  return <Suspense fallback={<div className="flex items-center justify-center h-screen"><p>Loading...</p></div>}><Component /></Suspense>;
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
 }
 \`\`\`
 

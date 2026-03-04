@@ -328,7 +328,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 exit={{ opacity: 0, y: 16 }}
                 transition={{ duration: 0.18 }}
               >
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg backdrop-blur">
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg">
                   <Button
                     size="sm"
                     variant="secondary"

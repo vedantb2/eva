@@ -715,6 +715,7 @@ export const completeRun = internalMutation({
           title: `Run ${statusText} for "${task.title}"`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.taskId,
         });
       }
     }

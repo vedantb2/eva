@@ -14,16 +14,20 @@ export async function createNotification(
     href?: string;
     repoId?: Id<"githubRepos">;
     projectId?: Id<"projects">;
+    taskId?: Id<"agentTasks">;
   },
 ) {
   let href = params.href;
   if (!href && params.repoId) {
     const repo = await ctx.db.get(params.repoId);
     if (repo) {
-      const slug = `${repo.owner}-${repo.name}`;
-      href = params.projectId
-        ? `/${slug}/projects/${params.projectId}`
-        : `/${slug}/quick-tasks`;
+      if (params.projectId) {
+        href = `/${repo.owner}/${repo.name}/projects/${params.projectId}`;
+      } else if (params.taskId) {
+        href = `/${repo.owner}/${repo.name}/quick-tasks/${params.taskId}`;
+      } else {
+        href = `/${repo.owner}/${repo.name}/quick-tasks`;
+      }
     }
   }
   await ctx.db.insert("notifications", {

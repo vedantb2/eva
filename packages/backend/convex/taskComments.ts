@@ -48,6 +48,7 @@ export const create = authMutation({
         title: `New comment on "${task.title}"`,
         repoId: task.repoId,
         projectId: task.projectId,
+        taskId: args.taskId,
       });
     }
     return commentId;

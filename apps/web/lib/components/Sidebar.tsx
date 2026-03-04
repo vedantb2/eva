@@ -781,19 +781,23 @@ export function Sidebar() {
                               </div>
                             ))}
                           </div>
-
-                          {!collapsed && repo && (
-                            <ActiveTasksPopover
-                              repoId={repo._id}
-                              basePath={repoBasePath}
-                            />
-                          )}
                         </div>
                       )}
                     </motion.div>
                   </AnimatePresence>
                 )}
               </div>
+
+              {isRepoRoute &&
+                !collapsed &&
+                repo &&
+                repoBasePath &&
+                !showContextSidebar && (
+                  <ActiveTasksPopover
+                    repoId={repo._id}
+                    basePath={repoBasePath}
+                  />
+                )}
             </nav>
 
             <div

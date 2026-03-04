@@ -1,5 +1,18 @@
 # Changelog
 
+## Remove unused Convex functions - 2026-03-04
+
+- **auth.createOrMigrateUser**: Deleted. Web app uses `ensureUserExists` (ClientProvider) for user creation on sign-in.
+- **githubRepos.remove**: Deleted. No delete/disconnect flow in the app; team unassignment uses `removeFromTeam` instead.
+- **auth.isCurrentUserAdmin**: Deleted. No admin UI in the app.
+- **boards.ts**: Deleted entirely. Board/column data created by `agentTasks.createQuickTask`, `agentTasks.createQuickTasksBatch`, `projects.createFromTasks`. Access via `functions.getAccessibleBoards` and `agentTasks.getAllTasks`.
+- **columns.ts**: Deleted entirely. Columns created inline with boards by agentTasks and projects.
+- **routines.ts**: Deleted entirely. Routines feature not implemented.
+- **analytics**: Removed `getTaskStats`, `getRunStats`, `getSessionStats`, `getProjectStats`. App uses `getImpactStats`, `getActiveUsers`, `getActivityTimeline`, `getLeaderboard`.
+- **extensionReleases.getLatest**: Removed. HTTP routes use `getLatestInternal`.
+- **taskDependencies**: Removed `getForTask`, `getDependents`, `getDependencies`, `add`, `remove`, `removeByTasks`. App uses `isBlocked` only.
+- **projectInterviewWorkflow.startSpec**: Removed. App uses `startInterview` for the main flow.
+
 ## Query optimization — eliminate full table scans - 2026-03-03
 
 - **Why**: `boards.list`, `agentRuns.listAll`, and `agentTasks.getActiveTasks` scanned ENTIRE tables (`boards`, `agentTasks`, `agentRuns`, `githubRepos`) then post-filtered in JS. This doesn't scale as data grows.

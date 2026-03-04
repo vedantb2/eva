@@ -284,19 +284,6 @@ export const create = authMutation({
   },
 });
 
-export const remove = authMutation({
-  args: { id: v.id("githubRepos") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const repo = await ctx.db.get(args.id);
-    if (!repo) {
-      throw new Error("Repository not found");
-    }
-    await ctx.db.delete(args.id);
-    return null;
-  },
-});
-
 export const upsert = internalMutation({
   args: {
     owner: v.string(),

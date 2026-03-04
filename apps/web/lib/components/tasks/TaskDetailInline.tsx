@@ -32,7 +32,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
         <div className="px-4 flex-1 overflow-hidden flex flex-col">
           {scheduledBadge}
           <div className="flex-1 overflow-hidden">
-            <div className="grid grid-cols-[7fr_3fr] gap-6 h-full">
+            <div className="grid grid-cols-[3fr_2fr] gap-6 h-full">
               <div className="space-y-6 overflow-y-auto scrollbar pr-4">
                 {descriptionSection}
                 {subtasksSection}

@@ -43,6 +43,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
         title: title.trim(),
         description: description.trim() || undefined,
         baseBranch,
+        model: repo.defaultModel,
       });
       setTitle("");
       setDescription("");

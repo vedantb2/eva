@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { Dialog, DialogContent } from "@conductor/ui";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSearch } from "@/lib/contexts/SearchContext";
 import {
   IconSearch,
   IconLayoutKanban,
@@ -26,7 +27,7 @@ const headingClass =
   "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";
 
 export function SpotlightSearch() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, setIsOpen } = useSearch();
   const [search, setSearch] = useState("");
   const router = useRouter();
   const { repo, basePath } = useRepo();
@@ -38,17 +39,6 @@ export function SpotlightSearch() {
     repoId: repo._id,
   });
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
 
   useEffect(() => {
     if (!isOpen) setSearch("");

@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { authMutation } from "./functions";
+import { authMutation, hasTaskAccess } from "./functions";
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
@@ -720,7 +720,7 @@ export const executeScheduledTask = internalMutation({
   returns: v.union(v.id("agentRuns"), v.null()),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task || task.status !== "todo" || !task.repoId) {
+    if (!task || task.status !== "todo" || !task.repoId || !task.createdBy) {
       if (task) {
         await ctx.db.patch(args.taskId, {
           scheduledAt: undefined,
@@ -746,15 +746,6 @@ export const executeScheduledTask = internalMutation({
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) {
-      await ctx.db.patch(args.taskId, {
-        scheduledAt: undefined,
-        scheduledFunctionId: undefined,
-      });
-      return null;
-    }
-
-    const board = await ctx.db.get(task.boardId);
-    if (!board) {
       await ctx.db.patch(args.taskId, {
         scheduledAt: undefined,
         scheduledFunctionId: undefined,
@@ -811,7 +802,7 @@ export const executeScheduledTask = internalMutation({
         baseBranch: task.baseBranch,
         isFirstTaskOnBranch,
         model: task.model,
-        userId: board.ownerId,
+        userId: task.createdBy,
       },
     );
 
@@ -933,10 +924,8 @@ export const cancelExecution = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
-
-    const board = await ctx.db.get(task.boardId);
-    if (!board) throw new Error("Board not found");
-    if (board.ownerId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasTaskAccess(ctx.db, task, ctx.userId)))
+      throw new Error("Not authorized");
 
     if (task.activeWorkflowId) {
       try {

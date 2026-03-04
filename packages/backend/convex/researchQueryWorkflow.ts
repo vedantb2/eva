@@ -47,7 +47,7 @@ repoId: "${repoId}"
 ## CRITICAL RULES
 - Return ONLY the raw query code. No markdown, no explanation, no wrapping in backticks.
 - Filter by repoId where applicable.
-- For agentTasks: query boards by repoId first, then tasks by boardId.
+- For agentTasks: query by repoId using by_repo index.
 - For agentRuns: query tasks first, then runs by taskId.
 
 ## Query Format
@@ -107,7 +107,7 @@ repoId: "${repoId}"
    - Use tables, lists, or breakdowns where appropriate
    - Highlight trends, outliers, or notable patterns
    - Include percentages and comparisons when relevant
-4. NEVER include raw database IDs (like _id, repoId, boardId, userId) unless the user explicitly asks for raw data
+4. NEVER include raw database IDs (like _id, repoId, userId) unless the user explicitly asks for raw data
 5. Use names, titles, statuses, and human-readable labels
 6. If results are empty, say so clearly and suggest what the user might query instead`;
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Remove boards/columns tables — status-based tasks - 2026-03-04
+
+- **Why**: Boards and columns added indirection between repos and tasks. Tasks now use `status` directly; board/column was redundant.
+- **Schema**: Removed `boards` and `columns` tables. Removed `boardId`/`columnId` and indexes `by_board`, `by_column`, `by_board_and_status` from `agentTasks`.
+- **Migration** (`migrations.removeBoardsAndColumns`): Already run. Patches all agentTasks to clear `boardId`/`columnId`, deletes all columns, deletes all boards.
+- **Backend**: `agentTasks` uses `by_repo` index; `hasTaskAccess` replaces `hasBoardAccess` everywhere. `projects.startDevelopment` creates tasks with `repoId`, `status`, `order` only. `taskWorkflow.executeScheduledTask` uses `task.createdBy` instead of `board.ownerId`. `analytics` queries tasks by `by_repo`. Removed `getAccessibleBoards` and `hasBoardAccess` from `functions.ts`. `repoUtils.hasRepoReferences` no longer checks boards.
+- **Reason for change (architectural)**: Tasks belong to repos (and optionally projects). Status-driven workflow replaces column-based layout.
+
 ## Remove unused Convex functions - 2026-03-04
 
 - **auth.createOrMigrateUser**: Deleted. Web app uses `ensureUserExists` (ClientProvider) for user creation on sign-in.

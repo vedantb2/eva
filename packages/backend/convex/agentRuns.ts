@@ -2,12 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { runStatusValidator, logLevelValidator } from "./validators";
 import { createNotification } from "./notifications";
-import {
-  authQuery,
-  authMutation,
-  hasBoardAccess,
-  getAccessibleBoards,
-} from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -38,13 +33,7 @@ export const get = authQuery({
       return null;
     }
     const task = await ctx.db.get(run.taskId);
-    if (!task) {
-      return null;
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return null;
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
     return run;
   },
 });
@@ -56,30 +45,18 @@ export const getWithDetails = authQuery({
       ...agentRunValidator.fields,
       taskTitle: v.string(),
       taskDescription: v.optional(v.string()),
-      boardName: v.string(),
-      boardId: v.id("boards"),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);
-    if (!run) {
-      return null;
-    }
+    if (!run) return null;
     const task = await ctx.db.get(run.taskId);
-    if (!task) {
-      return null;
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return null;
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
     return {
       ...run,
       taskTitle: task.title,
       taskDescription: task.description,
-      boardName: board.name,
-      boardId: board._id,
     };
   },
 });
@@ -89,13 +66,7 @@ export const listByTask = authQuery({
   returns: v.array(agentRunValidator),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
-      return [];
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return [];
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
     const runs = await ctx.db
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -110,31 +81,22 @@ export const listAll = authQuery({
     v.object({
       ...agentRunValidator.fields,
       taskTitle: v.string(),
-      boardName: v.string(),
-      boardId: v.id("boards"),
     }),
   ),
   handler: async (ctx) => {
-    const accessibleBoards = await getAccessibleBoards(ctx.db, ctx.userId);
+    const tasks = await ctx.db.query("agentTasks").collect();
+    const accessibleTasks: typeof tasks = [];
+    for (const t of tasks) {
+      if (await hasTaskAccess(ctx.db, t, ctx.userId)) accessibleTasks.push(t);
+    }
     const enrichedRuns = [];
-    for (const board of accessibleBoards) {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+    for (const task of accessibleTasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
         .collect();
-      for (const task of tasks) {
-        const runs = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .collect();
-        for (const run of runs) {
-          enrichedRuns.push({
-            ...run,
-            taskTitle: task.title,
-            boardName: board.name,
-            boardId: board._id,
-          });
-        }
+      for (const run of runs) {
+        enrichedRuns.push({ ...run, taskTitle: task.title });
       }
     }
     return enrichedRuns.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
@@ -149,20 +111,12 @@ export const updateStatus = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);
-    if (!run) {
-      throw new Error("Run not found");
-    }
+    if (!run) throw new Error("Run not found");
     const task = await ctx.db.get(run.taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Run not found");
-    }
-    if (run.status === "success" || run.status === "error") {
+    if (run.status === "success" || run.status === "error")
       throw new Error("Cannot update completed run");
-    }
     await ctx.db.patch(args.id, { status: args.status });
     if (args.status === "running") {
       await ctx.db.patch(task._id, {
@@ -183,20 +137,12 @@ export const appendLog = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);
-    if (!run) {
-      throw new Error("Run not found");
-    }
+    if (!run) throw new Error("Run not found");
     const task = await ctx.db.get(run.taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Run not found");
-    }
-    if (run.status === "success" || run.status === "error") {
+    if (run.status === "success" || run.status === "error")
       throw new Error("Cannot append to completed run");
-    }
     const newLog = {
       timestamp: Date.now(),
       level: args.level,
@@ -221,20 +167,12 @@ export const complete = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);
-    if (!run) {
-      throw new Error("Run not found");
-    }
+    if (!run) throw new Error("Run not found");
     const task = await ctx.db.get(run.taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Run not found");
-    }
-    if (run.status === "success" || run.status === "error") {
+    if (run.status === "success" || run.status === "error")
       throw new Error("Run already completed");
-    }
     const now = Date.now();
     await ctx.db.patch(args.id, {
       status: args.success ? "success" : "error",

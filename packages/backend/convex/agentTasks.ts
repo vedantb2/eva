@@ -6,9 +6,8 @@ import { createNotification } from "./notifications";
 import {
   authQuery,
   authMutation,
-  hasBoardAccess,
   hasRepoAccess,
-  getAccessibleBoards,
+  hasTaskAccess,
 } from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
@@ -31,8 +30,6 @@ function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
 const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),
   _creationTime: v.number(),
-  boardId: v.id("boards"),
-  columnId: v.id("columns"),
   title: v.string(),
   description: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
@@ -52,45 +49,13 @@ const agentTaskValidator = v.object({
   scheduledFunctionId: v.optional(v.string()),
 });
 
-export const listByBoard = authQuery({
-  args: { boardId: v.id("boards") },
-  returns: v.array(agentTaskValidator),
-  handler: async (ctx, args) => {
-    const board = await ctx.db.get(args.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return [];
-    }
-    return await ctx.db
-      .query("agentTasks")
-      .withIndex("by_board", (q) => q.eq("boardId", args.boardId))
-      .collect();
-  },
-});
-
-export const listByColumn = authQuery({
-  args: { columnId: v.id("columns") },
-  returns: v.array(agentTaskValidator),
-  handler: async (ctx, args) => {
-    const column = await ctx.db.get(args.columnId);
-    if (!column) {
-      return [];
-    }
-    const board = await ctx.db.get(column.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return [];
-    }
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_column", (q) => q.eq("columnId", args.columnId))
-      .collect();
-    return tasks.sort((a, b) => a.order - b.order);
-  },
-});
-
 export const listByProject = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      return [];
     return await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -103,59 +68,8 @@ export const get = authQuery({
   returns: v.union(agentTaskValidator, v.null()),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
-      return null;
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return null;
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
     return task;
-  },
-});
-
-export const create = authMutation({
-  args: {
-    columnId: v.id("columns"),
-    title: v.string(),
-    description: v.optional(v.string()),
-    repoId: v.optional(v.id("githubRepos")),
-    projectId: v.optional(v.id("projects")),
-    tags: v.optional(v.array(v.string())),
-    taskNumber: v.optional(v.number()),
-    status: v.optional(taskStatusValidator),
-  },
-  returns: v.id("agentTasks"),
-  handler: async (ctx, args) => {
-    const column = await ctx.db.get(args.columnId);
-    if (!column) {
-      throw new Error("Column not found");
-    }
-    const board = await ctx.db.get(column.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Column not found");
-    }
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_column", (q) => q.eq("columnId", args.columnId))
-      .collect();
-    const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
-    const now = Date.now();
-    return await ctx.db.insert("agentTasks", {
-      boardId: column.boardId,
-      columnId: args.columnId,
-      title: args.title,
-      description: args.description,
-      repoId: args.repoId,
-      projectId: args.projectId,
-      tags: normalizeTaskTags(args.tags),
-      taskNumber: args.taskNumber,
-      status: args.status ?? "todo",
-      order: maxOrder + 1,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: ctx.userId,
-    });
   },
 });
 
@@ -175,13 +89,8 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
@@ -209,29 +118,17 @@ export const update = authMutation({
   },
 });
 
-export const moveToColumn = authMutation({
+export const updateStatus = authMutation({
   args: {
     id: v.id("agentTasks"),
-    columnId: v.id("columns"),
+    status: taskStatusValidator,
   },
-  returns: v.union(v.id("agentRuns"), v.null()),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
-    const targetColumn = await ctx.db.get(args.columnId);
-    if (!targetColumn || targetColumn.boardId !== task.boardId) {
-      throw new Error("Column not found");
-    }
-    if (task.columnId === args.columnId) {
-      return null;
-    }
-    if (targetColumn.isRunColumn) {
+    if (args.status === "in_progress") {
       const dependencies = await ctx.db
         .query("taskDependencies")
         .withIndex("by_task", (q) => q.eq("taskId", args.id))
@@ -244,61 +141,6 @@ export const moveToColumn = authMutation({
           );
         }
       }
-    }
-    const tasksInTarget = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_column", (q) => q.eq("columnId", args.columnId))
-      .collect();
-    const maxOrder = tasksInTarget.reduce(
-      (max, t) => Math.max(max, t.order),
-      -1,
-    );
-    await ctx.db.patch(args.id, {
-      columnId: args.columnId,
-      order: maxOrder + 1,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
-export const updateOrder = authMutation({
-  args: {
-    id: v.id("agentTasks"),
-    order: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.id);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
-    await ctx.db.patch(args.id, {
-      order: args.order,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
-export const updateStatus = authMutation({
-  args: {
-    id: v.id("agentTasks"),
-    status: taskStatusValidator,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.id);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
     }
     const workStatuses = [
       "todo",
@@ -390,26 +232,28 @@ export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const accessibleBoards = await getAccessibleBoards(ctx.db, ctx.userId);
-    const relevantBoards = args.repoId
-      ? accessibleBoards.filter((b) => b.repoId === args.repoId)
-      : accessibleBoards;
-    const activeTasks = [];
-    for (const board of relevantBoards) {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
-        .collect();
-      const active = tasks.filter(
-        (t) =>
-          t.status === "todo" ||
+    const allRepos = await ctx.db.query("githubRepos").collect();
+    const accessibleRepoIds = new Set(
+      (
+        await Promise.all(
+          allRepos.map(async (r) =>
+            (await hasRepoAccess(ctx.db, r._id, ctx.userId)) ? r._id : null,
+          ),
+        )
+      ).filter((id): id is Id<"githubRepos"> => id !== null),
+    );
+    const tasks = await ctx.db.query("agentTasks").collect();
+    const active = tasks.filter(
+      (t) =>
+        t.repoId &&
+        accessibleRepoIds.has(t.repoId) &&
+        (!args.repoId || t.repoId === args.repoId) &&
+        (t.status === "todo" ||
           t.status === "in_progress" ||
           t.status === "business_review" ||
-          t.status === "code_review",
-      );
-      activeTasks.push(...active);
-    }
-    return activeTasks.sort((a, b) => b.updatedAt - a.updatedAt);
+          t.status === "code_review"),
+    );
+    return active.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
 
@@ -418,13 +262,8 @@ export const remove = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     const runs = await ctx.db
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.id))
@@ -456,19 +295,11 @@ export const getAllTasks = authQuery({
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const boards = await ctx.db
-      .query("boards")
+    const tasks = await ctx.db
+      .query("agentTasks")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const allTasks = [];
-    for (const board of boards) {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
-        .collect();
-      allTasks.push(...tasks);
-    }
-    return allTasks.sort((a, b) => a.order - b.order);
+    return tasks.sort((a, b) => a.order - b.order);
   },
 });
 
@@ -481,53 +312,15 @@ export const createQuickTask = authMutation({
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
-    let board = await ctx.db
-      .query("boards")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
-    if (!board) {
-      const boardId = await ctx.db.insert("boards", {
-        name: "Quick Tasks",
-        ownerId: ctx.userId,
-        repoId: args.repoId,
-        createdAt: Date.now(),
-      });
-      await ctx.db.insert("columns", {
-        boardId,
-        name: "Backlog",
-        order: 0,
-        isRunColumn: false,
-      });
-      board = await ctx.db.get(boardId);
-    }
-    if (!board) {
-      throw new Error("Failed to create board");
-    }
-    let column = await ctx.db
-      .query("columns")
-      .withIndex("by_board", (q) => q.eq("boardId", board._id))
-      .first();
-    if (!column) {
-      const columnId = await ctx.db.insert("columns", {
-        boardId: board._id,
-        name: "Backlog",
-        order: 0,
-        isRunColumn: false,
-      });
-      column = await ctx.db.get(columnId);
-    }
-    if (!column) {
-      throw new Error("Failed to create column");
-    }
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     const tasks = await ctx.db
       .query("agentTasks")
-      .withIndex("by_column", (q) => q.eq("columnId", column._id))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
     const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
     const now = Date.now();
-    const taskId = await ctx.db.insert("agentTasks", {
-      boardId: board._id,
-      columnId: column._id,
+    return await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
       repoId: args.repoId,
@@ -538,7 +331,6 @@ export const createQuickTask = authMutation({
       createdBy: ctx.userId,
       baseBranch: args.baseBranch ?? "staging",
     });
-    return taskId;
   },
 });
 
@@ -555,47 +347,11 @@ export const createQuickTasksBatch = authMutation({
   },
   returns: v.array(v.id("agentTasks")),
   handler: async (ctx, args) => {
-    let board = await ctx.db
-      .query("boards")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
-    if (!board) {
-      const boardId = await ctx.db.insert("boards", {
-        name: "Quick Tasks",
-        ownerId: ctx.userId,
-        repoId: args.repoId,
-        createdAt: Date.now(),
-      });
-      await ctx.db.insert("columns", {
-        boardId,
-        name: "Backlog",
-        order: 0,
-        isRunColumn: false,
-      });
-      board = await ctx.db.get(boardId);
-    }
-    if (!board) {
-      throw new Error("Failed to create board");
-    }
-    let column = await ctx.db
-      .query("columns")
-      .withIndex("by_board", (q) => q.eq("boardId", board._id))
-      .first();
-    if (!column) {
-      const columnId = await ctx.db.insert("columns", {
-        boardId: board._id,
-        name: "Backlog",
-        order: 0,
-        isRunColumn: false,
-      });
-      column = await ctx.db.get(columnId);
-    }
-    if (!column) {
-      throw new Error("Failed to create column");
-    }
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
+      throw new Error("Not authorized");
     const existingTasks = await ctx.db
       .query("agentTasks")
-      .withIndex("by_column", (q) => q.eq("columnId", column._id))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
     let maxOrder = existingTasks.reduce((max, t) => Math.max(max, t.order), -1);
     const now = Date.now();
@@ -603,8 +359,6 @@ export const createQuickTasksBatch = authMutation({
     for (const task of args.tasks) {
       maxOrder += 1;
       const taskId = await ctx.db.insert("agentTasks", {
-        boardId: board._id,
-        columnId: column._id,
         title: task.title,
         description: task.description,
         repoId: args.repoId,
@@ -636,13 +390,8 @@ export const startExecution = authMutation({
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     if (!task.repoId) {
       throw new Error("Task has no associated repository");
     }
@@ -764,6 +513,8 @@ export const getDependentTasks = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
     const dependents = await ctx.db
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
@@ -791,9 +542,8 @@ export const assignToProject = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
-    if (!project) {
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       throw new Error("Project not found");
-    }
     for (const taskId of args.taskIds) {
       const task = await ctx.db.get(taskId);
       if (task) {
@@ -838,13 +588,8 @@ export const deleteCascade = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     const tasksToDelete: Id<"agentTasks">[] = [args.id];
     const collectDependents = async (taskId: Id<"agentTasks">) => {
       const dependents = await ctx.db
@@ -905,11 +650,8 @@ export const scheduleExecution = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) throw new Error("Task not found");
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
     if (task.status !== "todo") {
       throw new Error("Only todo tasks can be scheduled");
     }
@@ -945,11 +687,8 @@ export const cancelScheduledExecution = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) throw new Error("Task not found");
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
     if (!task.scheduledFunctionId) {
       throw new Error("Task is not scheduled");
     }
@@ -978,11 +717,8 @@ export const updateScheduledExecution = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task) throw new Error("Task not found");
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
     if (args.scheduledAt <= Date.now()) {
       throw new Error("Scheduled time must be in the future");
     }

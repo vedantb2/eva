@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation, hasBoardAccess } from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
@@ -16,13 +16,7 @@ export const listByTask = authQuery({
   returns: v.array(taskCommentValidator),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
-      return [];
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return [];
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
     const comments = await ctx.db
       .query("taskComments")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -39,13 +33,8 @@ export const create = authMutation({
   returns: v.id("taskComments"),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     const commentId = await ctx.db.insert("taskComments", {
       taskId: args.taskId,
       content: args.content,
@@ -74,13 +63,8 @@ export const remove = authMutation({
       throw new Error("Comment not found");
     }
     const task = await ctx.db.get(comment.taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Comment not found");
-    }
     await ctx.db.delete(args.id);
     return null;
   },

@@ -41,29 +41,24 @@ export const getImpactStats = authQuery({
         prUrls.add(s.prUrl);
       }
     }
-    const boards = await ctx.db
-      .query("boards")
+    const tasks = await ctx.db
+      .query("agentTasks")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    let tasksCompleted = 0;
-    for (const board of boards) {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
+    const filteredTasks =
+      startTime !== undefined
+        ? tasks.filter((t) => t.updatedAt >= startTime)
+        : tasks;
+    const tasksCompleted = filteredTasks.filter(
+      (t) => t.status === "done",
+    ).length;
+    for (const task of filteredTasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
         .collect();
-      const filtered =
-        startTime !== undefined
-          ? tasks.filter((t) => t.updatedAt >= startTime)
-          : tasks;
-      tasksCompleted += filtered.filter((t) => t.status === "done").length;
-      for (const task of filtered) {
-        const runs = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .collect();
-        for (const run of runs) {
-          if (run.prUrl) prUrls.add(run.prUrl);
-        }
+      for (const run of runs) {
+        if (run.prUrl) prUrls.add(run.prUrl);
       }
     }
     const projects = await ctx.db
@@ -176,37 +171,31 @@ export const getActivityTimeline = authQuery({
         args.startTime;
       return bucketStart;
     };
-    const boards = await ctx.db
-      .query("boards")
+    const tasks = await ctx.db
+      .query("agentTasks")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    for (const board of boards) {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
-        .collect();
-      for (const task of tasks) {
-        if (task.createdAt >= args.startTime) {
-          const bucket = getBucket(task.createdAt);
-          if (buckets[bucket]) buckets[bucket].tasks++;
-        }
-        if (task.status === "done" && task.updatedAt >= args.startTime) {
-          const bucket = getBucket(task.updatedAt);
-          if (buckets[bucket]) buckets[bucket].tasksCompleted++;
-        }
+    for (const task of tasks) {
+      if (task.createdAt >= args.startTime) {
+        const bucket = getBucket(task.createdAt);
+        if (buckets[bucket]) buckets[bucket].tasks++;
       }
-      for (const task of tasks) {
-        const runs = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .collect();
-        for (const run of runs) {
-          if (run.startedAt && run.startedAt >= args.startTime) {
-            const bucket = getBucket(run.startedAt);
-            if (buckets[bucket]) {
-              buckets[bucket].runs++;
-              if (run.prUrl) buckets[bucket].prsShipped++;
-            }
+      if (task.status === "done" && task.updatedAt >= args.startTime) {
+        const bucket = getBucket(task.updatedAt);
+        if (buckets[bucket]) buckets[bucket].tasksCompleted++;
+      }
+    }
+    for (const task of tasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const run of runs) {
+        if (run.startedAt && run.startedAt >= args.startTime) {
+          const bucket = getBucket(run.startedAt);
+          if (buckets[bucket]) {
+            buckets[bucket].runs++;
+            if (run.prUrl) buckets[bucket].prsShipped++;
           }
         }
       }
@@ -267,82 +256,63 @@ export const getLeaderboard = authQuery({
   ),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const boards = await ctx.db
-      .query("boards")
+    const tasks = await ctx.db
+      .query("agentTasks")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const userStats: Record<
-      string,
+    const userStats = new Map<
+      Id<"users">,
       { tasksCompleted: number; prsCreated: number; sessionsWithPr: number }
-    > = {};
-    for (const board of boards) {
-      if (!userStats[board.ownerId]) {
-        userStats[board.ownerId] = {
+    >();
+    const startTime = args.startTime;
+    const filteredTasks =
+      startTime !== undefined
+        ? tasks.filter((t) => t.updatedAt >= startTime)
+        : tasks;
+    for (const task of filteredTasks) {
+      if (task.createdBy) {
+        const cur = userStats.get(task.createdBy) ?? {
           tasksCompleted: 0,
           prsCreated: 0,
           sessionsWithPr: 0,
         };
-      }
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_board", (q) => q.eq("boardId", board._id))
-        .collect();
-      const startTime = args.startTime;
-      const filtered =
-        startTime !== undefined
-          ? tasks.filter((t) => t.updatedAt >= startTime)
-          : tasks;
-      userStats[board.ownerId].tasksCompleted += filtered.filter(
-        (t) => t.status === "done",
-      ).length;
-      for (const task of filtered) {
+        if (task.status === "done") cur.tasksCompleted++;
         const runs = await ctx.db
           .query("agentRuns")
           .withIndex("by_task", (q) => q.eq("taskId", task._id))
           .collect();
-        const startTime = args.startTime;
         const filteredRuns =
           startTime !== undefined
             ? runs.filter((r) => r.finishedAt && r.finishedAt >= startTime)
             : runs;
-        userStats[board.ownerId].prsCreated += filteredRuns.filter(
-          (r) => r.prUrl,
-        ).length;
+        cur.prsCreated += filteredRuns.filter((r) => r.prUrl).length;
+        userStats.set(task.createdBy, cur);
       }
     }
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const startTime = args.startTime;
     const filteredSessions =
       startTime !== undefined
         ? sessions.filter((s) => s._creationTime >= startTime)
         : sessions;
-    const userIdToClerkId: Record<string, string> = {};
     for (const session of filteredSessions) {
-      if (!userIdToClerkId[session.userId]) {
-        const user = await ctx.db.get(session.userId);
-        if (user?.clerkId) userIdToClerkId[session.userId] = user.clerkId;
-      }
-      const clerkId = userIdToClerkId[session.userId];
-      if (clerkId && session.prUrl) {
-        if (!userStats[clerkId]) {
-          userStats[clerkId] = {
-            tasksCompleted: 0,
-            prsCreated: 0,
-            sessionsWithPr: 0,
-          };
-        }
-        userStats[clerkId].sessionsWithPr++;
+      if (session.prUrl) {
+        const cur = userStats.get(session.userId) ?? {
+          tasksCompleted: 0,
+          prsCreated: 0,
+          sessionsWithPr: 0,
+        };
+        cur.sessionsWithPr++;
+        userStats.set(session.userId, cur);
       }
     }
     const leaderboard = [];
-    for (const [clerkId, stats] of Object.entries(userStats)) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-        .first();
+    for (const [userId, stats] of userStats) {
+      const user = await ctx.db.get(userId);
+      const clerkId = user?.clerkId ?? "";
+      if (!clerkId) continue;
       leaderboard.push({
         clerkId,
         fullName: user?.fullName ?? undefined,

@@ -31,7 +31,7 @@ export function VideoPreview({ url }: { url: string }) {
         controls
         playsInline
         preload="metadata"
-        className="rounded-lg border max-w-lg"
+        className="rounded-lg border max-w-full"
         onLoadedMetadata={() => {
           if (videoRef.current) {
             videoRef.current.playbackRate = speed;
@@ -73,7 +73,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
         <img
           src={url}
           alt="Screenshot"
-          className="rounded-lg max-w-lg border cursor-pointer hover:opacity-90 transition-opacity"
+          className="rounded-lg max-w-full border cursor-pointer hover:opacity-90 transition-opacity"
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>

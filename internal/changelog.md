@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix `scheduledFunctionId` type: `v.string()` → `v.id("_scheduled_functions")` - 2026-03-04
+
+- **Why**: The field stored Convex scheduled function IDs but was typed as `v.string()`, forcing 6 `as Id<"_scheduled_functions">` casts and 2 unnecessary `String()` wraps across the codebase — violating the no-`as` rule.
+- **Changes**: Used chicken-egg migration pattern (intermediate union type → clear stale data → final type). Removed all 6 `as` casts in `agentTasks.ts` and `githubWebhook.ts`, removed 2 `String(functionId)` wraps in write sites.
+- **Benefit**: Convex schema is now the single source of truth for the type. No more manual type assertions.
+
 ## Task card UI redesign + unified Activity timeline - 2026-03-04
 
 - **Why**: Task cards showed deployment dots, branch links, and dropdowns that cluttered the kanban board. Task activity (runs + webhook events) lived in separate sections. Needed cleaner card design and unified activity view.

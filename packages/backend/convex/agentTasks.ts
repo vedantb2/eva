@@ -46,7 +46,7 @@ const agentTaskValidator = v.object({
   baseBranch: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   scheduledAt: v.optional(v.number()),
-  scheduledFunctionId: v.optional(v.string()),
+  scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
 });
 
 export const listByProject = authQuery({
@@ -169,9 +169,7 @@ export const updateStatus = authMutation({
     });
     if (args.status !== "todo" && task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -411,9 +409,7 @@ export const startExecution = authMutation({
     }
     if (task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -631,9 +627,7 @@ export const deleteCascade = authMutation({
       const taskToDelete = await ctx.db.get(taskId);
       if (taskToDelete?.scheduledFunctionId) {
         try {
-          await ctx.scheduler.cancel(
-            taskToDelete.scheduledFunctionId as Id<"_scheduled_functions">,
-          );
+          await ctx.scheduler.cancel(taskToDelete.scheduledFunctionId);
         } catch {
           // may have already fired
         }
@@ -698,7 +692,7 @@ export const scheduleExecution = authMutation({
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,
-      scheduledFunctionId: String(functionId),
+      scheduledFunctionId: functionId,
       updatedAt: Date.now(),
     });
     return null;
@@ -717,9 +711,7 @@ export const cancelScheduledExecution = authMutation({
     }
 
     try {
-      await ctx.scheduler.cancel(
-        task.scheduledFunctionId as Id<"_scheduled_functions">,
-      );
+      await ctx.scheduler.cancel(task.scheduledFunctionId);
     } catch {
       // may have already fired
     }
@@ -748,9 +740,7 @@ export const updateScheduledExecution = authMutation({
 
     if (task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -763,7 +753,7 @@ export const updateScheduledExecution = authMutation({
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,
-      scheduledFunctionId: String(functionId),
+      scheduledFunctionId: functionId,
       updatedAt: Date.now(),
     });
     return null;

@@ -46,9 +46,7 @@ export const handlePrClosed = internalMutation({
 
     if (task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }

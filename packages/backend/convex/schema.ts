@@ -106,7 +106,7 @@ const schema = defineSchema({
     activeWorkflowId: v.optional(v.string()),
     scheduledRetryAt: v.optional(v.number()),
     scheduledAt: v.optional(v.number()),
-    scheduledFunctionId: v.optional(v.string()),
+    scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
     .index("by_project", ["projectId"])

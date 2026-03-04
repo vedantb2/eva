@@ -43,6 +43,7 @@ interface QuickTaskCardProps {
   isSelecting?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  isActive?: boolean;
 }
 
 export function QuickTaskCard({
@@ -57,6 +58,7 @@ export function QuickTaskCard({
   isSelecting,
   isSelected,
   onToggleSelect,
+  isActive,
 }: QuickTaskCardProps) {
   const { owner, name: repoName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
@@ -74,7 +76,9 @@ export function QuickTaskCard({
           ? "border border-destructive/60 bg-destructive/5"
           : isInProgress
             ? "border-transparent bg-card/95"
-            : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
+            : isActive
+              ? "border border-primary/40 bg-primary/5"
+              : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"

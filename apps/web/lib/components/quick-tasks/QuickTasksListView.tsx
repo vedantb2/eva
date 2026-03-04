@@ -39,6 +39,7 @@ interface QuickTasksListViewProps {
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (id: Id<"agentTasks">) => void;
+  selectedTaskId?: string | null;
 }
 
 export function QuickTasksListView({
@@ -47,6 +48,7 @@ export function QuickTasksListView({
   selectedIds,
   onToggleSelect,
   onOpenTask,
+  selectedTaskId,
 }: QuickTasksListViewProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
@@ -265,6 +267,7 @@ export function QuickTasksListView({
                             isSelecting={isSelecting}
                             isSelected={selectedIds.has(task._id)}
                             onToggleSelect={() => onToggleSelect(task._id)}
+                            isActive={selectedTaskId === task._id}
                           />
                         ))}
                       </div>

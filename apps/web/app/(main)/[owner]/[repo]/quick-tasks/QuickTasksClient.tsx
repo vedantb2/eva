@@ -148,7 +148,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname !== taskPath
     ) {
-      window.history.pushState(null, "", taskPath);
+      const search = window.location.search;
+      window.history.pushState(null, "", `${taskPath}${search}`);
     }
   };
 
@@ -158,7 +159,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname.startsWith(quickTaskPathPrefix)
     ) {
-      window.history.replaceState(null, "", quickTasksPath);
+      const search = window.location.search;
+      window.history.replaceState(null, "", `${quickTasksPath}${search}`);
     }
   };
 
@@ -308,13 +310,36 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksListView
-                  repoId={repo._id}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
-                />
+                <div
+                  className={`flex min-w-0 flex-1 min-h-0 ${selectedTaskId ? "gap-0" : ""}`}
+                >
+                  <div
+                    className={
+                      selectedTaskId
+                        ? "w-[30%] min-w-0 flex-shrink-0 min-h-0 h-full flex flex-col"
+                        : "flex-1"
+                    }
+                  >
+                    <QuickTasksListView
+                      repoId={repo._id}
+                      isSelecting={isSelecting}
+                      selectedIds={selectedIds}
+                      onToggleSelect={toggleSelect}
+                      onOpenTask={handleOpenTask}
+                      selectedTaskId={selectedTaskId}
+                    />
+                  </div>
+                  {selectedTaskId && (
+                    <div className="w-[70%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                      <TaskDetailModal
+                        isOpen
+                        onClose={handleTaskClose}
+                        taskId={selectedTaskId as Id<"agentTasks">}
+                        variant="panel"
+                      />
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -494,7 +519,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {selectedTaskId && (
+      {selectedTaskId && view === "kanban" && (
         <TaskDetailModal
           isOpen={!!selectedTaskId}
           onClose={handleTaskClose}

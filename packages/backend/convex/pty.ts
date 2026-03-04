@@ -41,11 +41,12 @@ export const connectPty = action({
   returns: v.object({
     wsUrl: v.string(),
     ptySessionId: v.string(),
+    isNewPty: v.boolean(),
   }),
   handler: async (
     ctx,
     args,
-  ): Promise<{ wsUrl: string; ptySessionId: string }> => {
+  ): Promise<{ wsUrl: string; ptySessionId: string; isNewPty: boolean }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -60,6 +61,7 @@ export const connectPty = action({
     const sandbox = await daytona.get(session.sandboxId);
 
     let ptyId: string | undefined = session.ptySessionId;
+    let isNewPty = false;
 
     if (!ptyId) {
       ptyId = `pty-${String(args.sessionId).slice(-8)}`;
@@ -95,6 +97,7 @@ export const connectPty = action({
         id: args.sessionId,
         ptySessionId: ptyId,
       });
+      isNewPty = true;
     }
 
     const [toolboxUrl, previewLink] = await Promise.all([
@@ -108,7 +111,7 @@ export const connectPty = action({
     baseUrl += sandbox.id;
     const wsUrl = `${baseUrl.replace(/^https/, "wss")}/process/pty/${ptyId}/connect?DAYTONA_SANDBOX_AUTH_KEY=${previewLink.token}`;
 
-    return { wsUrl, ptySessionId: ptyId };
+    return { wsUrl, ptySessionId: ptyId, isNewPty };
   },
 });
 

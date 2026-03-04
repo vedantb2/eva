@@ -57,6 +57,7 @@ interface SandboxPanelProps {
   onToggleChat?: () => void;
   repoId: Id<"githubRepos">;
   devPort?: number;
+  devCommand?: string;
 }
 
 export function SandboxPanel({
@@ -67,6 +68,7 @@ export function SandboxPanel({
   onToggleChat,
   repoId,
   devPort,
+  devCommand,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
@@ -149,9 +151,10 @@ export function SandboxPanel({
         sessionId={sessionId}
         sandboxId={sandboxId}
         isActive={isActive}
+        devCommand={devCommand}
       />
     ),
-    [sessionId, sandboxId, isActive],
+    [sessionId, sandboxId, isActive, devCommand],
   );
 
   const tabSwitcher = (

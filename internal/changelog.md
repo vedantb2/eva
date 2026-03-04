@@ -1,5 +1,19 @@
 # Changelog
 
+## Open-source Eva with MIT license - 2026-03-04
+
+- **Why**: Make Eva publicly available under an open-source license while maintaining ownership of the codebase. MIT allows anyone to use, modify, and distribute freely without restrictions.
+- **Changes**:
+  1. `LICENSE` — MIT license with copyright holder (Vedant Bhopatrao)
+  2. `CONTRIBUTING.md` — contributor guide with setup instructions, code style rules (no `any`/`unknown`/`as`), and PR guidelines
+  3. `SECURITY.md` — responsible disclosure policy for vulnerability reports
+- **Note**: Anyone can fork/modify privately or commercially, but must keep the MIT license. Contributes back to the original repo to avoid fragmentation.
+
+## Fix agent-login redirect behind reverse proxy - 2026-03-04
+
+- **Why**: When navigating to `/?agent` in the sandbox preview iframe (behind Daytona's reverse proxy), the auth redirect was pointing to `localhost:3000` instead of the external proxy domain, causing `net::ERR_CONNECTION_REFUSED`.
+- **Changes**: `apps/web/app/api/auth/agent-login/route.ts` — use `X-Forwarded-Host` and `X-Forwarded-Proto` headers from reverse proxy to construct redirect URL instead of `request.nextUrl.origin` (which resolves to internal `localhost:3000`). This matches how Next.js middleware already handles forwarded headers automatically.
+
 ## VNC resolution + quality upgrade to 1920x1080 - 2026-03-04
 
 - **Why**: VNC desktop rendered at 1024x768 (4:3) — looks wrong on modern 16:9 displays. noVNC quality=4 made text blurry. Agent-browser screenshots in quick tasks lacked proper viewport sizing.

@@ -137,7 +137,7 @@ export function DesignDetailClient({
         port: session.devPort ?? 3000,
         repoId: session.repoId,
       });
-      setPreviewUrl(data.url);
+      setPreviewUrl(data.url.replace(/^http:\/\//, "https://"));
     } catch {
       setPreviewUrl(null);
     }

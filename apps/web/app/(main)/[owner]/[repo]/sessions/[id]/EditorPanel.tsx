@@ -14,12 +14,16 @@ import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
 type EditorState = "idle" | "starting" | "running" | "error";
 
+function ensureHttps(url: string): string {
+  return url.replace(/^http:\/\//, "https://");
+}
+
 function getCachedEditor(sessionId: string): string | null {
   try {
     const raw = sessionStorage.getItem(`conductor:editor:${sessionId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed.url;
+    return ensureHttps(parsed.url);
   } catch {
     return null;
   }
@@ -28,7 +32,7 @@ function getCachedEditor(sessionId: string): string | null {
 function setCachedEditor(sessionId: string, url: string) {
   sessionStorage.setItem(
     `conductor:editor:${sessionId}`,
-    JSON.stringify({ url }),
+    JSON.stringify({ url: ensureHttps(url) }),
   );
 }
 
@@ -77,9 +81,10 @@ export function EditorPanel({
           repoId,
         });
         if (data.ready) {
-          setUrl(data.url);
+          const secureUrl = ensureHttps(data.url);
+          setUrl(secureUrl);
           setEditorState("running");
-          setCachedEditor(sessionId, data.url);
+          setCachedEditor(sessionId, secureUrl);
           return;
         }
         attempts.current += 1;
@@ -113,9 +118,10 @@ export function EditorPanel({
         repoId,
       });
       if (existing.ready) {
-        setUrl(existing.url);
+        const secureUrl = ensureHttps(existing.url);
+        setUrl(secureUrl);
         setEditorState("running");
-        setCachedEditor(sessionId, existing.url);
+        setCachedEditor(sessionId, secureUrl);
         return;
       }
       await toggleCodeServer({ sandboxId, repoId, action: "start" });

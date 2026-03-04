@@ -212,6 +212,8 @@ export const WebPreviewBody = ({
   ...props
 }: WebPreviewBodyProps) => {
   const { url, iframeRef } = useWebPreview();
+  const rawSrc = (src ?? url) || undefined;
+  const safeSrc = rawSrc?.replace(/^http:\/\//, "https://");
 
   return (
     <div className="flex-1 h-full relative overflow-hidden min-h-0">
@@ -219,7 +221,7 @@ export const WebPreviewBody = ({
         ref={iframeRef}
         className={cn("size-full", className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        src={(src ?? url) || undefined}
+        src={safeSrc}
         title="Preview"
         {...props}
       />

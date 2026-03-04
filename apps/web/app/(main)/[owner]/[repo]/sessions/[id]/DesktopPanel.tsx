@@ -20,8 +20,12 @@ import {
 
 type DesktopState = "idle" | "starting" | "running" | "error";
 
+function ensureHttps(url: string): string {
+  return url.replace(/^http:\/\//, "https://");
+}
+
 function appendNoVncParams(baseUrl: string): string {
-  const url = new URL(baseUrl);
+  const url = new URL(ensureHttps(baseUrl));
   url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
   url.searchParams.set("autoconnect", "true");
   url.searchParams.set("resize", "scale");
@@ -35,7 +39,7 @@ function getCachedDesktop(sessionId: string): string | null {
     const raw = sessionStorage.getItem(`conductor:desktop:${sessionId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed.url;
+    return ensureHttps(parsed.url);
   } catch {
     return null;
   }
@@ -44,7 +48,7 @@ function getCachedDesktop(sessionId: string): string | null {
 function setCachedDesktop(sessionId: string, url: string) {
   sessionStorage.setItem(
     `conductor:desktop:${sessionId}`,
-    JSON.stringify({ url }),
+    JSON.stringify({ url: ensureHttps(url) }),
   );
 }
 

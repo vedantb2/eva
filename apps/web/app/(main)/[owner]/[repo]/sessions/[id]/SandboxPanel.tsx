@@ -25,6 +25,10 @@ interface PreviewInfo {
   port: number;
 }
 
+function ensureHttps(url: string): string {
+  return url.replace(/^http:\/\//, "https://");
+}
+
 function getCachedPreview(sessionId: string, port: number): PreviewInfo | null {
   try {
     const raw = sessionStorage.getItem(
@@ -32,7 +36,7 @@ function getCachedPreview(sessionId: string, port: number): PreviewInfo | null {
     );
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return { url: parsed.url, port: parsed.port };
+    return { url: ensureHttps(parsed.url), port: parsed.port };
   } catch {
     return null;
   }
@@ -41,7 +45,7 @@ function getCachedPreview(sessionId: string, port: number): PreviewInfo | null {
 function setCachedPreview(sessionId: string, info: PreviewInfo) {
   sessionStorage.setItem(
     `conductor:preview:${sessionId}:${info.port}`,
-    JSON.stringify({ url: info.url, port: info.port }),
+    JSON.stringify({ url: ensureHttps(info.url), port: info.port }),
   );
 }
 
@@ -98,8 +102,9 @@ export function SandboxPanel({
         repoId,
       });
       if (data.ready) {
-        setPreviewInfo(data);
-        setCachedPreview(sessionId, data);
+        const secureData = { ...data, url: ensureHttps(data.url) };
+        setPreviewInfo(secureData);
+        setCachedPreview(sessionId, secureData);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
       } else {

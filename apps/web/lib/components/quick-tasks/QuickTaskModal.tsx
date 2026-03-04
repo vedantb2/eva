@@ -80,7 +80,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               placeholder="Add more details (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
+              rows={12}
             />
           </div>
           <div className="space-y-1.5">

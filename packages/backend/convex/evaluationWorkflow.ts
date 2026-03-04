@@ -223,6 +223,8 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    costUsd: v.optional(v.number()),
+    model: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -239,6 +241,18 @@ export const handleCompletion = authMutation({
         activityLog: args.activityLog,
       },
     });
+
+    if (args.costUsd !== undefined && args.costUsd > 0) {
+      await ctx.db.insert("costLogs", {
+        entityType: "evaluation",
+        entityId: String(args.reportId),
+        entityTitle: "Evaluation Report",
+        costUsd: args.costUsd,
+        model: args.model ?? "sonnet",
+        repoId: report.repoId,
+        createdAt: Date.now(),
+      });
+    }
 
     return null;
   },

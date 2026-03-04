@@ -83,6 +83,8 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    costUsd: v.optional(v.number()),
+    model: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -134,6 +136,21 @@ export const handleCompletion = authMutation({
         status: "error" as const,
         error: "Failed to parse audit JSON",
       });
+    }
+
+    if (args.costUsd !== undefined && args.costUsd > 0) {
+      const session = await ctx.db.get(args.sessionId);
+      if (session) {
+        await ctx.db.insert("costLogs", {
+          entityType: "sessionAudit",
+          entityId: String(args.sessionId),
+          entityTitle: `Audit: ${session.title}`,
+          costUsd: args.costUsd,
+          model: args.model ?? "haiku",
+          repoId: session.repoId,
+          createdAt: Date.now(),
+        });
+      }
     }
 
     return null;

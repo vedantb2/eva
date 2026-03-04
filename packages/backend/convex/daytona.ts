@@ -666,7 +666,7 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
-        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error) };
+        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.cost_usd === "number" ? parsed.cost_usd : 0 };
       }
     } catch {}
   }
@@ -842,6 +842,8 @@ try {
             (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
           : null),
     activityLog,
+    costUsd: finalResultEvent?.costUsd ?? 0,
+    model: MODEL,
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);
@@ -858,6 +860,8 @@ try {
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",
     activityLog: "[]",
+    costUsd: 0,
+    model: MODEL,
   };
   try {
     await callMutationWithRetry("${completionMutation}", errorArgs);

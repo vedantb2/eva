@@ -1,5 +1,16 @@
 # Changelog
 
+## Cost logging for all Claude invocations - 2026-03-04
+
+- **Why**: No visibility into how much each Claude run costs. Needed per-invocation cost tracking across all entity types (tasks, sessions, design sessions, research, docs, audits, etc.) and a UI to view/filter them.
+- **Changes**:
+  1. `daytona.ts` — extract `cost_usd` from stream-json `result` event, pass `costUsd` and `model` through completionArgs to all completion mutations.
+  2. New `costLogs` table in schema with indexes for repo-scoped queries.
+  3. New `costLogs.ts` backend with `log` internalMutation and `listByRepo` authQuery.
+  4. All 14 completion handlers across 10 workflow files now insert into `costLogs` when `costUsd > 0`.
+  5. New settings/logs page with TimeRangeFilter, entity type dropdown, total cost card, and collapsible groups by entity type.
+- **Benefit**: Full cost visibility per repo — see what each task/session/audit costs, filter by date and type, view totals.
+
 ## Fix `scheduledFunctionId` type: `v.string()` → `v.id("_scheduled_functions")` - 2026-03-04
 
 - **Why**: The field stored Convex scheduled function IDs but was typed as `v.string()`, forcing 6 `as Id<"_scheduled_functions">` casts and 2 unnecessary `String()` wraps across the codebase — violating the no-`as` rule.

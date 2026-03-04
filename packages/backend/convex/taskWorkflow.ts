@@ -839,6 +839,8 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    costUsd: v.optional(v.number()),
+    model: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -865,6 +867,18 @@ export const handleCompletion = authMutation({
       },
     });
 
+    if (args.costUsd !== undefined && args.costUsd > 0 && task.repoId) {
+      await ctx.db.insert("costLogs", {
+        entityType: "quickTask",
+        entityId: String(args.taskId),
+        entityTitle: task.title,
+        costUsd: args.costUsd,
+        model: args.model ?? "sonnet",
+        repoId: task.repoId,
+        createdAt: Date.now(),
+      });
+    }
+
     return null;
   },
 });
@@ -880,6 +894,8 @@ export const handleAuditCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    costUsd: v.optional(v.number()),
+    model: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -895,6 +911,18 @@ export const handleAuditCompletion = authMutation({
         error: args.error,
       },
     });
+
+    if (args.costUsd !== undefined && args.costUsd > 0 && task.repoId) {
+      await ctx.db.insert("costLogs", {
+        entityType: "taskAudit",
+        entityId: String(args.taskId),
+        entityTitle: `Audit: ${task.title}`,
+        costUsd: args.costUsd,
+        model: args.model ?? "haiku",
+        repoId: task.repoId,
+        createdAt: Date.now(),
+      });
+    }
 
     return null;
   },

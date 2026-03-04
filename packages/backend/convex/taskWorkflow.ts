@@ -424,6 +424,15 @@ export const checkStaleRuns = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task || !task.activeWorkflowId) return null;
 
+    if (!run.sandboxId) {
+      await ctx.scheduler.runAfter(
+        STALE_RECHECK_MS,
+        internal.taskWorkflow.checkStaleRuns,
+        { runId: args.runId, taskId: args.taskId },
+      );
+      return null;
+    }
+
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))

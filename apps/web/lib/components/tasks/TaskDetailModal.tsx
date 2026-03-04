@@ -165,7 +165,6 @@ export function TaskDetailModal({
     setCommentText("");
     await createComment({ taskId, content: text });
 
-    // When submitting from the request changes panel, trigger a new execution
     if (requestChangesPanel) {
       setRequestChangesPanel(false);
       try {
@@ -300,15 +299,13 @@ export function TaskDetailModal({
       ? "max-w-[64rem]"
       : "max-w-[52rem]";
 
-  const layoutGridClass = inline
-    ? "grid-cols-1"
-    : hasSecondColumn
-      ? requestChangesPanel
-        ? "grid-cols-[1fr_1fr_200px_1fr]"
-        : "grid-cols-[1fr_1fr_200px]"
-      : requestChangesPanel
-        ? "grid-cols-[1fr_200px_1fr]"
-        : "grid-cols-[1fr_200px]";
+  const layoutGridClass = hasSecondColumn
+    ? requestChangesPanel
+      ? "grid-cols-[1fr_1fr_200px_1fr]"
+      : "grid-cols-[1fr_1fr_200px]"
+    : requestChangesPanel
+      ? "grid-cols-[1fr_200px_1fr]"
+      : "grid-cols-[1fr_200px]";
 
   const titleContent = (
     <div className="flex items-center gap-2">
@@ -361,867 +358,873 @@ export function TaskDetailModal({
     </div>
   );
 
-  const taskContent = (
-    <div className={inline ? "px-4 flex-1" : ""}>
-      {task?.scheduledAt && (
-        <div className="flex items-center gap-1.5 px-1 -mt-1 mb-1">
-          <Badge
-            variant="outline"
-            className="gap-1 text-xs font-normal text-muted-foreground"
-          >
-            <IconClock size={11} />
-            {status === "todo" ? "Scheduled for" : "Was scheduled for"}{" "}
-            {dayjs(task.scheduledAt).format("MMM D, h:mm A")}
-          </Badge>
-        </div>
-      )}
-      <div className="pb-6">
+  const scheduledBadge = task?.scheduledAt ? (
+    <div className="flex items-center gap-1.5 px-1 -mt-1 mb-1">
+      <Badge
+        variant="outline"
+        className="gap-1 text-xs font-normal text-muted-foreground"
+      >
+        <IconClock size={11} />
+        {status === "todo" ? "Scheduled for" : "Was scheduled for"}{" "}
+        {dayjs(task.scheduledAt).format("MMM D, h:mm A")}
+      </Badge>
+    </div>
+  ) : null;
+
+  const descriptionSection = (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium text-foreground">Description</h4>
+        <span className="text-xs text-muted-foreground">
+          {task?.createdAt ? dayjs(task.createdAt).format("MMM D, YYYY") : ""}
+        </span>
+      </div>
+      {isEditingDescription ? (
         <div
-          className={`grid gap-6 ${inline ? "" : "min-h-[400px]"} ${layoutGridClass}`}
-        >
-          <div className="space-y-6 overflow-y-auto scrollbar pr-2">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-foreground">
-                  Description
-                </h4>
-                <span className="text-xs text-muted-foreground">
-                  {task?.createdAt
-                    ? dayjs(task.createdAt).format("MMM D, YYYY")
-                    : ""}
-                </span>
+          ref={descriptionEditorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={(event) =>
+            setEditDescription(event.currentTarget.innerText.replace(/\r/g, ""))
+          }
+          onBlur={() => {
+            const trimmed = editDescription.trim();
+            if (canEditTaskText && trimmed !== task?.description) {
+              updateTask({ id: taskId, description: trimmed });
+            }
+            setIsEditingDescription(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.ctrlKey) {
+              e.currentTarget.blur();
+            } else if (e.key === "Escape") {
+              setEditDescription(task?.description ?? "");
+              setIsEditingDescription(false);
+            }
+          }}
+          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-6 text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
+        />
+      ) : task?.description ? (
+        (() => {
+          const separatorIndex = task.description.indexOf("---");
+          const mainDesc =
+            separatorIndex !== -1
+              ? task.description.slice(0, separatorIndex).trimEnd()
+              : task.description;
+          const elementDetails =
+            separatorIndex !== -1
+              ? task.description.slice(separatorIndex + 3).trimStart()
+              : null;
+          return (
+            <>
+              <div
+                onClick={
+                  canEditTaskText
+                    ? () => beginDescriptionEdit(task.description ?? "")
+                    : undefined
+                }
+                title={
+                  canEditTaskText
+                    ? undefined
+                    : "Description can only be edited in To Do"
+                }
+                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${
+                  !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
+                }`}
+              >
+                <Streamdown
+                  plugins={{ code }}
+                  className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
+                >
+                  {mainDesc}
+                </Streamdown>
               </div>
-              {isEditingDescription ? (
-                <div
-                  ref={descriptionEditorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(event) =>
-                    setEditDescription(
-                      event.currentTarget.innerText.replace(/\r/g, ""),
-                    )
-                  }
-                  onBlur={() => {
-                    const trimmed = editDescription.trim();
-                    if (canEditTaskText && trimmed !== task?.description) {
-                      updateTask({ id: taskId, description: trimmed });
-                    }
-                    setIsEditingDescription(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.ctrlKey) {
-                      e.currentTarget.blur();
-                    } else if (e.key === "Escape") {
-                      setEditDescription(task?.description ?? "");
-                      setIsEditingDescription(false);
-                    }
-                  }}
-                  className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-6 text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
-                />
-              ) : task?.description ? (
-                (() => {
-                  const separatorIndex = task.description.indexOf("---");
-                  const mainDesc =
-                    separatorIndex !== -1
-                      ? task.description.slice(0, separatorIndex).trimEnd()
-                      : task.description;
-                  const elementDetails =
-                    separatorIndex !== -1
-                      ? task.description.slice(separatorIndex + 3).trimStart()
-                      : null;
-                  return (
-                    <>
-                      <div
-                        onClick={
-                          canEditTaskText
-                            ? () => beginDescriptionEdit(task.description ?? "")
-                            : undefined
-                        }
-                        title={
-                          canEditTaskText
-                            ? undefined
-                            : "Description can only be edited in To Do"
-                        }
-                        className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${
-                          !canEditTaskText
-                            ? ""
-                            : "cursor-pointer hover:bg-muted/50"
-                        }`}
+              {elementDetails && (
+                <Accordion type="single" collapsible className="mt-2 px-0">
+                  <AccordionItem value="element-details">
+                    <AccordionTrigger>
+                      <span className="text-xs text-muted-foreground">
+                        Element Details
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <SyntaxHighlighter
+                        language="css"
+                        style={oneDark}
+                        wrapLines
+                        wrapLongLines
+                        customStyle={{
+                          fontSize: "0.75rem",
+                          borderRadius: "0.5rem",
+                          margin: 0,
+                        }}
                       >
-                        <Streamdown
-                          plugins={{ code }}
-                          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
-                        >
-                          {mainDesc}
-                        </Streamdown>
-                      </div>
-                      {elementDetails && (
-                        <Accordion
-                          type="single"
-                          collapsible
-                          className="mt-2 px-0"
-                        >
-                          <AccordionItem value="element-details">
-                            <AccordionTrigger>
-                              <span className="text-xs text-muted-foreground">
-                                Element Details
-                              </span>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <SyntaxHighlighter
-                                language="css"
-                                style={oneDark}
-                                wrapLines
-                                wrapLongLines
-                                customStyle={{
-                                  fontSize: "0.75rem",
-                                  borderRadius: "0.5rem",
-                                  margin: 0,
-                                }}
-                              >
-                                {elementDetails}
-                              </SyntaxHighlighter>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      )}
-                    </>
-                  );
-                })()
-              ) : (
-                <p
-                  onClick={() => {
-                    if (canEditTaskText) {
-                      beginDescriptionEdit("");
-                    }
-                  }}
-                  title={
-                    canEditTaskText
-                      ? undefined
-                      : "Description can only be edited in To Do"
-                  }
-                  className={`text-sm text-muted-foreground italic ${
-                    !canEditTaskText
-                      ? ""
-                      : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
-                  }`}
-                >
-                  Click to add description...
-                </p>
-              )}
-            </div>
-
-            {subtasks && subtasks.length > 0 && (
-              <div className="pt-4">
-                <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
-              </div>
-            )}
-
-            {runs && runs.length > 0 && (
-              <div className="pt-4">
-                <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                  <IconTerminal2 size={16} />
-                  Agent Runs ({runs.length})
-                </h4>
-                <Accordion
-                  type="multiple"
-                  defaultValue={runs
-                    .filter(
-                      (run) =>
-                        run.status === "running" || run.status === "queued",
-                    )
-                    .map((run) => run._id)}
-                  className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2"
-                >
-                  {runs.map((run) => (
-                    <AccordionItem
-                      key={run._id}
-                      value={run._id}
-                      className="border rounded-lg px-3"
-                    >
-                      <AccordionTrigger>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              run.status === "success"
-                                ? "success"
-                                : run.status === "error"
-                                  ? "destructive"
-                                  : run.status === "running"
-                                    ? "warning"
-                                    : "outline"
-                            }
-                          >
-                            {run.status}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {run.startedAt
-                              ? dayjs(run.startedAt).format(
-                                  "M/D/YYYY, h:mm:ss A",
-                                )
-                              : "Queued"}
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          {run.status === "running" &&
-                            streaming?.currentActivity &&
-                            (() => {
-                              const steps = parseActivitySteps(
-                                streaming.currentActivity,
-                              );
-                              return steps ? (
-                                <ActivitySteps steps={steps} isStreaming />
-                              ) : (
-                                <Reasoning isStreaming defaultOpen>
-                                  <ReasoningTrigger
-                                    getThinkingMessage={(s) =>
-                                      s ? "Working..." : "Processing complete"
-                                    }
-                                  />
-                                  <ReasoningContent>
-                                    {streaming.currentActivity}
-                                  </ReasoningContent>
-                                </Reasoning>
-                              );
-                            })()}
-                          {run.activityLog &&
-                            (() => {
-                              const steps = parseActivitySteps(run.activityLog);
-                              return steps ? (
-                                <ActivitySteps steps={steps} />
-                              ) : null;
-                            })()}
-                          {run.resultSummary && (
-                            <p className="text-sm text-muted-foreground">
-                              {run.resultSummary}
-                            </p>
-                          )}
-                          {run.error && (
-                            <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-                              {run.error}
-                            </div>
-                          )}
-                          {run.prUrl && (
-                            <a
-                              href={run.prUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline"
-                            >
-                              View Pull Request
-                            </a>
-                          )}
-                          {run.logs.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs text-muted-foreground mb-1">
-                                Logs
-                              </p>
-                              <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
-                                {run.logs.map((log, i) => (
-                                  <div
-                                    key={i}
-                                    className={`flex gap-2 ${
-                                      log.level === "error"
-                                        ? "text-destructive"
-                                        : log.level === "warn"
-                                          ? "text-warning"
-                                          : "text-muted-foreground"
-                                    }`}
-                                  >
-                                    <span className="text-muted-foreground flex-shrink-0">
-                                      {dayjs(log.timestamp).format("h:mm:ss A")}
-                                    </span>
-                                    <span className="break-all">
-                                      {log.message}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                        {elementDetails}
+                      </SyntaxHighlighter>
+                    </AccordionContent>
+                  </AccordionItem>
                 </Accordion>
-              </div>
-            )}
-          </div>
-
-          {(audit || showProofSection) && (
-            <div className="pl-4 space-y-4 overflow-y-auto scrollbar">
-              {showProofSection && (
-                <div>
-                  <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-                    <IconPhoto size={14} />
-                    Proof of Completion
-                  </h4>
-                  {proofs && proofs.length > 0 ? (
-                    <div className="space-y-3">
-                      {proofs.map((proof) => (
-                        <div key={proof._id}>
-                          {proof.message ? (
-                            <p className="text-sm text-muted-foreground">
-                              {proof.message}
-                            </p>
-                          ) : proof.url &&
-                            proof.contentType?.startsWith("image/") ? (
-                            <ScreenshotPreview url={proof.url} />
-                          ) : proof.url &&
-                            proof.contentType?.startsWith("video/") ? (
-                            <VideoPreview url={proof.url} />
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No proof uploaded yet
-                    </p>
-                  )}
-                </div>
               )}
+            </>
+          );
+        })()
+      ) : (
+        <p
+          onClick={() => {
+            if (canEditTaskText) {
+              beginDescriptionEdit("");
+            }
+          }}
+          title={
+            canEditTaskText
+              ? undefined
+              : "Description can only be edited in To Do"
+          }
+          className={`text-sm text-muted-foreground italic ${
+            !canEditTaskText
+              ? ""
+              : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
+          }`}
+        >
+          Click to add description...
+        </p>
+      )}
+    </div>
+  );
 
-              {audit && (
-                <>
-                  <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-                    <IconShieldCheck size={16} />
-                    Post-Execution Audit
-                    <Badge
-                      variant={
-                        audit.status === "completed"
-                          ? "success"
-                          : audit.status === "error"
-                            ? "destructive"
-                            : "warning"
-                      }
-                    >
-                      {audit.status}
-                    </Badge>
-                  </h4>
-                  {audit.status === "running" &&
-                    auditStreaming?.currentActivity &&
+  const subtasksSection =
+    subtasks && subtasks.length > 0 ? (
+      <div className="pt-4">
+        <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
+      </div>
+    ) : null;
+
+  const runsSection =
+    runs && runs.length > 0 ? (
+      <div className="pt-4">
+        <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+          <IconTerminal2 size={16} />
+          Agent Runs ({runs.length})
+        </h4>
+        <Accordion
+          type="multiple"
+          defaultValue={runs
+            .filter(
+              (run) => run.status === "running" || run.status === "queued",
+            )
+            .map((run) => run._id)}
+          className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2"
+        >
+          {runs.map((run) => (
+            <AccordionItem
+              key={run._id}
+              value={run._id}
+              className="border rounded-lg px-3"
+            >
+              <AccordionTrigger>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      run.status === "success"
+                        ? "success"
+                        : run.status === "error"
+                          ? "destructive"
+                          : run.status === "running"
+                            ? "warning"
+                            : "outline"
+                    }
+                  >
+                    {run.status}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {run.startedAt
+                      ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                      : "Queued"}
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  {run.status === "running" &&
+                    streaming?.currentActivity &&
                     (() => {
                       const steps = parseActivitySteps(
-                        auditStreaming.currentActivity,
+                        streaming.currentActivity,
                       );
                       return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          isStreaming
-                          name="Auditing"
-                        />
-                      ) : null;
+                        <ActivitySteps steps={steps} isStreaming />
+                      ) : (
+                        <Reasoning isStreaming defaultOpen>
+                          <ReasoningTrigger
+                            getThinkingMessage={(s) =>
+                              s ? "Working..." : "Processing complete"
+                            }
+                          />
+                          <ReasoningContent>
+                            {streaming.currentActivity}
+                          </ReasoningContent>
+                        </Reasoning>
+                      );
                     })()}
-                  {audit.status === "error" && audit.error && (
+                  {run.activityLog &&
+                    (() => {
+                      const steps = parseActivitySteps(run.activityLog);
+                      return steps ? <ActivitySteps steps={steps} /> : null;
+                    })()}
+                  {run.resultSummary && (
+                    <p className="text-sm text-muted-foreground">
+                      {run.resultSummary}
+                    </p>
+                  )}
+                  {run.error && (
                     <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-                      {audit.error}
+                      {run.error}
                     </div>
                   )}
-                  {audit.status === "completed" && (
-                    <>
-                      {audit.summary && (
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {audit.summary}
-                        </p>
-                      )}
-                      <Accordion type="multiple" className="space-y-2">
-                        {[
-                          {
-                            key: "accessibility",
-                            label: "Accessibility",
-                            items: audit.accessibility,
-                          },
-                          {
-                            key: "testing",
-                            label: "Code Testing",
-                            items: audit.testing,
-                          },
-                          {
-                            key: "codeReview",
-                            label: "Code Review",
-                            items: audit.codeReview,
-                          },
-                        ].map((section) => (
-                          <AccordionItem
-                            key={section.key}
-                            value={section.key}
-                            className="border rounded-lg px-3"
-                          >
-                            <AccordionTrigger>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">{section.label}</span>
-                                <Badge
-                                  variant={
-                                    section.items.every((i) => i.passed)
-                                      ? "success"
-                                      : "destructive"
-                                  }
-                                >
-                                  {section.items.filter((i) => i.passed).length}
-                                  /{section.items.length}
-                                </Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-2">
-                                {section.items.map((item, i) => (
-                                  <div
-                                    key={i}
-                                    className="flex items-start gap-2 text-sm"
-                                  >
-                                    {item.passed ? (
-                                      <IconCheck
-                                        size={16}
-                                        className="text-success mt-0.5 flex-shrink-0"
-                                      />
-                                    ) : (
-                                      <IconAlertTriangle
-                                        size={16}
-                                        className="text-destructive mt-0.5 flex-shrink-0"
-                                      />
-                                    )}
-                                    <div>
-                                      <span className="font-medium">
-                                        {item.requirement}
-                                      </span>
-                                      <p className="text-muted-foreground">
-                                        {item.detail}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    </>
+                  {run.prUrl && (
+                    <a
+                      href={run.prUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      View Pull Request
+                    </a>
                   )}
-                </>
-              )}
+                  {run.logs.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Logs</p>
+                      <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
+                        {run.logs.map((log, i) => (
+                          <div
+                            key={i}
+                            className={`flex gap-2 ${
+                              log.level === "error"
+                                ? "text-destructive"
+                                : log.level === "warn"
+                                  ? "text-warning"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            <span className="text-muted-foreground flex-shrink-0">
+                              {dayjs(log.timestamp).format("h:mm:ss A")}
+                            </span>
+                            <span className="break-all">{log.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    ) : null;
+
+  const auditProofSection = (
+    <>
+      {showProofSection && (
+        <div>
+          <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+            <IconPhoto size={14} />
+            Proof of Completion
+          </h4>
+          {proofs && proofs.length > 0 ? (
+            <div className="space-y-3">
+              {proofs.map((proof) => (
+                <div key={proof._id}>
+                  {proof.message ? (
+                    <p className="text-sm text-muted-foreground">
+                      {proof.message}
+                    </p>
+                  ) : proof.url && proof.contentType?.startsWith("image/") ? (
+                    <ScreenshotPreview url={proof.url} />
+                  ) : proof.url && proof.contentType?.startsWith("video/") ? (
+                    <VideoPreview url={proof.url} />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No proof uploaded yet
+            </p>
+          )}
+        </div>
+      )}
+
+      {audit && (
+        <>
+          <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <IconShieldCheck size={16} />
+            Post-Execution Audit
+            <Badge
+              variant={
+                audit.status === "completed"
+                  ? "success"
+                  : audit.status === "error"
+                    ? "destructive"
+                    : "warning"
+              }
+            >
+              {audit.status}
+            </Badge>
+          </h4>
+          {audit.status === "running" &&
+            auditStreaming?.currentActivity &&
+            (() => {
+              const steps = parseActivitySteps(auditStreaming.currentActivity);
+              return steps ? (
+                <ActivitySteps steps={steps} isStreaming name="Auditing" />
+              ) : null;
+            })()}
+          {audit.status === "error" && audit.error && (
+            <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+              {audit.error}
             </div>
           )}
-
-          <div className="pl-4 space-y-4">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <IconCircleDot size={12} />
-                Status
-              </p>
-              <Select
-                value={status ?? ""}
-                onValueChange={(val) => {
-                  if (TASK_STATUSES.includes(val as TaskStatus)) {
-                    updateStatus({
-                      id: taskId,
-                      status: val as TaskStatus,
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue>
-                    {status
-                      ? (() => {
-                          const config = statusConfig[status as TaskStatus];
-                          const Icon = config.icon;
-                          return (
-                            <div
-                              className={`flex items-center gap-1.5 ${config.text}`}
-                            >
-                              <Icon size={14} />
-                              <span className="text-sm">{config.label}</span>
+          {audit.status === "completed" && (
+            <>
+              {audit.summary && (
+                <p className="text-sm text-muted-foreground mb-3">
+                  {audit.summary}
+                </p>
+              )}
+              <Accordion type="multiple" className="space-y-2">
+                {[
+                  {
+                    key: "accessibility",
+                    label: "Accessibility",
+                    items: audit.accessibility,
+                  },
+                  {
+                    key: "testing",
+                    label: "Code Testing",
+                    items: audit.testing,
+                  },
+                  {
+                    key: "codeReview",
+                    label: "Code Review",
+                    items: audit.codeReview,
+                  },
+                ].map((section) => (
+                  <AccordionItem
+                    key={section.key}
+                    value={section.key}
+                    className="border rounded-lg px-3"
+                  >
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{section.label}</span>
+                        <Badge
+                          variant={
+                            section.items.every((i) => i.passed)
+                              ? "success"
+                              : "destructive"
+                          }
+                        >
+                          {section.items.filter((i) => i.passed).length}/
+                          {section.items.length}
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2">
+                        {section.items.map((item, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 text-sm"
+                          >
+                            {item.passed ? (
+                              <IconCheck
+                                size={16}
+                                className="text-success mt-0.5 flex-shrink-0"
+                              />
+                            ) : (
+                              <IconAlertTriangle
+                                size={16}
+                                className="text-destructive mt-0.5 flex-shrink-0"
+                              />
+                            )}
+                            <div>
+                              <span className="font-medium">
+                                {item.requirement}
+                              </span>
+                              <p className="text-muted-foreground">
+                                {item.detail}
+                              </p>
                             </div>
-                          );
-                        })()
-                      : null}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_STATUSES.map((s) => {
-                    const config = statusConfig[s];
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  const statusFieldsSection = (
+    <>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          <IconCircleDot size={12} />
+          Status
+        </p>
+        <Select
+          value={status ?? ""}
+          onValueChange={(val) => {
+            const matched = TASK_STATUSES.find((s) => s === val);
+            if (matched) {
+              updateStatus({
+                id: taskId,
+                status: matched,
+              });
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue>
+              {status
+                ? (() => {
+                    const config = statusConfig[status as TaskStatus];
                     const Icon = config.icon;
                     return (
-                      <SelectItem key={s} value={s}>
-                        <div
-                          className={`flex items-center gap-1.5 ${config.text}`}
-                        >
-                          <Icon size={14} />
-                          <span>{config.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              {isBlocked && (
-                <Badge variant="warning" className="mt-1.5">
-                  Blocked
-                </Badge>
-              )}
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <IconFolder size={12} />
-                Add to Project
-              </p>
-              <Select
-                value={selectedProjectValue}
-                onValueChange={(val) => {
-                  updateTask({
-                    id: taskId,
-                    projectId:
-                      val === NO_PROJECT_VALUE ? null : (val as Id<"projects">),
-                  });
-                }}
-              >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="No project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROJECT_VALUE}>No project</SelectItem>
-                  {task?.projectId && !hasSelectedProject && (
-                    <SelectItem value={task.projectId}>
-                      Current project
-                    </SelectItem>
-                  )}
-                  {projectOptions.map((project) => (
-                    <SelectItem key={project._id} value={project._id}>
-                      {project.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <IconUserPlus size={12} />
-                Assign to ___ for Code Review
-              </p>
-              <Select
-                value={task?.assignedTo ?? ""}
-                onValueChange={(val) => {
-                  const user = users?.find((u) => u._id === val);
-                  updateTask({ id: taskId, assignedTo: user?._id });
-                }}
-              >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(users ?? []).map((user) => (
-                    <SelectItem key={user._id} value={user._id}>
-                      {user.fullName ||
-                        [user.firstName, user.lastName]
-                          .filter(Boolean)
-                          .join(" ") ||
-                        "Unnamed User"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <IconTags size={12} />
-                Tags
-              </p>
-              <Input
-                value={tagsInput}
-                placeholder="bug, ui, backend"
-                className="h-8 text-sm"
-                onChange={(e) => setTagsInput(e.target.value)}
-                onBlur={() => {
-                  void handleSaveTags();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleSaveTags();
-                  }
-                }}
-              />
-              {(task?.tags?.length ?? 0) > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {task?.tags?.map((tag) => (
-                    <Badge key={tag} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <IconBrain size={12} />
-                Model
-                {status !== "todo" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <IconInfoCircle
-                        size={12}
-                        className="text-muted-foreground cursor-help"
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Cannot be modified after task has run
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </p>
-              <Select
-                value={task?.model ?? "sonnet"}
-                onValueChange={(val) => {
-                  const model = CLAUDE_MODELS.find((m) => m === val);
-                  if (model) updateTask({ id: taskId, model });
-                }}
-                disabled={status !== "todo"}
-              >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLAUDE_MODELS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m.charAt(0).toUpperCase() + m.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {!task?.projectId && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                  <IconGitBranch size={12} />
-                  Base Branch
-                  {status !== "todo" && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <IconInfoCircle
-                          size={12}
-                          className="text-muted-foreground cursor-help"
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Cannot be modified after task has run
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </p>
-                {status === "todo" ? (
-                  <BranchSelect
-                    value={baseBranch}
-                    onValueChange={(val) => {
-                      setBaseBranch(val);
-                      updateTask({ id: taskId, baseBranch: val });
-                    }}
-                  />
-                ) : (
-                  <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
-                    <IconGitBranch
-                      size={14}
-                      className="text-muted-foreground"
-                    />
-                    <span className="text-foreground">{baseBranch}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {requestChangesPanel && (
-            <div className="flex flex-col border-l border-border pl-6">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-foreground">
-                  Ask Eva to make changes{" "}
-                  {comments && comments.length > 0 && `(${comments.length})`}
-                </h4>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => setRequestChangesPanel(false)}
-                >
-                  <IconX size={16} />
-                </Button>
-              </div>
-              <div className="flex-1 overflow-y-auto scrollbar space-y-3 mb-3">
-                {(!comments || comments.length === 0) && (
-                  <p className="text-sm text-muted-foreground">
-                    No change requests yet.
-                  </p>
-                )}
-                {comments?.map((comment) => (
-                  <div
-                    key={comment._id}
-                    className="group rounded-lg bg-muted p-3"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">
-                        {dayjs(comment.createdAt).fromNow()}
-                      </span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100"
-                        onClick={() => removeComment({ id: comment._id })}
+                      <div
+                        className={`flex items-center gap-1.5 ${config.text}`}
                       >
-                        <IconTrash size={14} />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {comment.content}
-                    </p>
+                        <Icon size={14} />
+                        <span className="text-sm">{config.label}</span>
+                      </div>
+                    );
+                  })()
+                : null}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {TASK_STATUSES.map((s) => {
+              const config = statusConfig[s];
+              const Icon = config.icon;
+              return (
+                <SelectItem key={s} value={s}>
+                  <div className={`flex items-center gap-1.5 ${config.text}`}>
+                    <Icon size={14} />
+                    <span>{config.label}</span>
                   </div>
-                ))}
-                <div ref={commentsEndRef} />
-              </div>
-              <form
-                onSubmit={handleAddComment}
-                className="flex gap-2 items-center bg-card rounded-lg"
-              >
-                <Textarea
-                  rows={3}
-                  placeholder="Describe the changes you'd like Eva to make..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAddComment(e);
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  type="submit"
-                  className="mt-auto mb-2 mr-2 rounded-full"
-                  disabled={!commentText.trim()}
-                >
-                  <IconArrowUp size={18} />
-                </Button>
-              </form>
-            </div>
-          )}
-        </div>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {isBlocked && (
+          <Badge variant="warning" className="mt-1.5">
+            Blocked
+          </Badge>
+        )}
       </div>
-      <div
-        className={`flex items-center justify-between ${inline ? "px-4 pb-4 pt-2" : ""}`}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <IconTrash size={18} />
-                Delete
-              </Button>
-            </div>
-          </TooltipTrigger>
-        </Tooltip>
-        <div className="flex items-center gap-2">
-          {latestPrUrl && (
-            <Button asChild variant="outline">
-              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                <IconGitPullRequest size={18} />
-                View PR
-              </a>
-            </Button>
-          )}
-          {!requestChangesPanel &&
-            status !== "todo" &&
-            status !== "in_progress" && (
-              <Button
-                variant="secondary"
-                onClick={() => setRequestChangesPanel(true)}
-              >
-                <IconMessagePlus size={18} />
-                Request Changes
-              </Button>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          <IconFolder size={12} />
+          Add to Project
+        </p>
+        <Select
+          value={selectedProjectValue}
+          onValueChange={(val) => {
+            updateTask({
+              id: taskId,
+              projectId:
+                val === NO_PROJECT_VALUE ? null : (val as Id<"projects">),
+            });
+          }}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="No project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_PROJECT_VALUE}>No project</SelectItem>
+            {task?.projectId && !hasSelectedProject && (
+              <SelectItem value={task.projectId}>Current project</SelectItem>
             )}
-          {hasActiveRun ? (
+            {projectOptions.map((project) => (
+              <SelectItem key={project._id} value={project._id}>
+                {project.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          <IconUserPlus size={12} />
+          Assign to ___ for Code Review
+        </p>
+        <Select
+          value={task?.assignedTo ?? ""}
+          onValueChange={(val) => {
+            const user = users?.find((u) => u._id === val);
+            updateTask({ id: taskId, assignedTo: user?._id });
+          }}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Unassigned" />
+          </SelectTrigger>
+          <SelectContent>
+            {(users ?? []).map((user) => (
+              <SelectItem key={user._id} value={user._id}>
+                {user.fullName ||
+                  [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+                  "Unnamed User"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          <IconTags size={12} />
+          Tags
+        </p>
+        <Input
+          value={tagsInput}
+          placeholder="bug, ui, backend"
+          className="h-8 text-sm"
+          onChange={(e) => setTagsInput(e.target.value)}
+          onBlur={() => {
+            void handleSaveTags();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void handleSaveTags();
+            }
+          }}
+        />
+        {(task?.tags?.length ?? 0) > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {task?.tags?.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          <IconBrain size={12} />
+          Model
+          {status !== "todo" && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    variant="destructive"
-                    onClick={handleStopExecution}
-                    disabled={isStopping || !isOwner}
-                  >
-                    {isStopping ? (
-                      <IconLoader2 size={18} className="animate-spin" />
-                    ) : (
-                      <IconPlayerStop size={18} />
-                    )}
-                    Stop
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!isOwner && (
-                <TooltipContent>
-                  Only the task owner can stop execution
-                </TooltipContent>
-              )}
-            </Tooltip>
-          ) : (
-            status === "todo" && (
-              <>
-                <SchedulePopover
-                  taskId={taskId}
-                  scheduledAt={task?.scheduledAt}
-                  disabled={!isOwner || isBlocked}
+                <IconInfoCircle
+                  size={12}
+                  className="text-muted-foreground cursor-help"
                 />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button
-                        onClick={handleStartExecution}
-                        disabled={
-                          isStarting ||
-                          isBlocked ||
-                          !isOwner ||
-                          task?.scheduledAt !== undefined
-                        }
-                      >
-                        {isStarting ? (
-                          <IconLoader2 size={18} className="animate-spin" />
-                        ) : (
-                          <IconPlayerPlay size={18} />
-                        )}
-                        Run Eva
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  {task?.scheduledAt !== undefined ? (
-                    <TooltipContent>
-                      Task is scheduled — remove the schedule to run immediately
-                    </TooltipContent>
+              </TooltipTrigger>
+              <TooltipContent>
+                Cannot be modified after task has run
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </p>
+        <Select
+          value={task?.model ?? "sonnet"}
+          onValueChange={(val) => {
+            const model = CLAUDE_MODELS.find((m) => m === val);
+            if (model) updateTask({ id: taskId, model });
+          }}
+          disabled={status !== "todo"}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CLAUDE_MODELS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m.charAt(0).toUpperCase() + m.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {!task?.projectId && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+            <IconGitBranch size={12} />
+            Base Branch
+            {status !== "todo" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <IconInfoCircle
+                    size={12}
+                    className="text-muted-foreground cursor-help"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Cannot be modified after task has run
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </p>
+          {status === "todo" ? (
+            <BranchSelect
+              value={baseBranch}
+              onValueChange={(val) => {
+                setBaseBranch(val);
+                updateTask({ id: taskId, baseBranch: val });
+              }}
+            />
+          ) : (
+            <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
+              <IconGitBranch size={14} className="text-muted-foreground" />
+              <span className="text-foreground">{baseBranch}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const requestChangesSection = (
+    <>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium text-foreground">
+          Ask Eva to make changes{" "}
+          {comments && comments.length > 0 && `(${comments.length})`}
+        </h4>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={() => setRequestChangesPanel(false)}
+        >
+          <IconX size={16} />
+        </Button>
+      </div>
+      <div className="flex-1 overflow-y-auto scrollbar space-y-3 mb-3">
+        {(!comments || comments.length === 0) && (
+          <p className="text-sm text-muted-foreground">
+            No change requests yet.
+          </p>
+        )}
+        {comments?.map((comment) => (
+          <div key={comment._id} className="group rounded-lg bg-muted p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-muted-foreground">
+                {dayjs(comment.createdAt).fromNow()}
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                onClick={() => removeComment({ id: comment._id })}
+              >
+                <IconTrash size={14} />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {comment.content}
+            </p>
+          </div>
+        ))}
+        <div ref={commentsEndRef} />
+      </div>
+      <form
+        onSubmit={handleAddComment}
+        className="flex gap-2 items-center bg-card rounded-lg"
+      >
+        <Textarea
+          rows={3}
+          placeholder="Describe the changes you'd like Eva to make..."
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          className="flex-1"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleAddComment(e);
+            }
+          }}
+        />
+        <Button
+          size="icon"
+          type="submit"
+          className="mt-auto mb-2 mr-2 rounded-full"
+          disabled={!commentText.trim()}
+        >
+          <IconArrowUp size={18} />
+        </Button>
+      </form>
+    </>
+  );
+
+  const footerButtons = (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <IconTrash size={18} />
+              Delete
+            </Button>
+          </div>
+        </TooltipTrigger>
+      </Tooltip>
+      <div className="flex items-center gap-2">
+        {latestPrUrl && (
+          <Button asChild variant="outline">
+            <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
+              <IconGitPullRequest size={18} />
+              View PR
+            </a>
+          </Button>
+        )}
+        {!requestChangesPanel &&
+          status !== "todo" &&
+          status !== "in_progress" && (
+            <Button
+              variant="secondary"
+              onClick={() => setRequestChangesPanel(true)}
+            >
+              <IconMessagePlus size={18} />
+              Request Changes
+            </Button>
+          )}
+        {hasActiveRun ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Button
+                  variant="destructive"
+                  onClick={handleStopExecution}
+                  disabled={isStopping || !isOwner}
+                >
+                  {isStopping ? (
+                    <IconLoader2 size={18} className="animate-spin" />
                   ) : (
-                    !isOwner && (
-                      <TooltipContent>
-                        Only the task owner can run Eva
-                      </TooltipContent>
-                    )
+                    <IconPlayerStop size={18} />
                   )}
-                </Tooltip>
-              </>
-            )
+                  Stop
+                </Button>
+              </div>
+            </TooltipTrigger>
+            {!isOwner && (
+              <TooltipContent>
+                Only the task owner can stop execution
+              </TooltipContent>
+            )}
+          </Tooltip>
+        ) : (
+          status === "todo" && (
+            <>
+              <SchedulePopover
+                taskId={taskId}
+                scheduledAt={task?.scheduledAt}
+                disabled={!isOwner || isBlocked}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      onClick={handleStartExecution}
+                      disabled={
+                        isStarting ||
+                        isBlocked ||
+                        !isOwner ||
+                        task?.scheduledAt !== undefined
+                      }
+                    >
+                      {isStarting ? (
+                        <IconLoader2 size={18} className="animate-spin" />
+                      ) : (
+                        <IconPlayerPlay size={18} />
+                      )}
+                      Run Eva
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {task?.scheduledAt !== undefined ? (
+                  <TooltipContent>
+                    Task is scheduled — remove the schedule to run immediately
+                  </TooltipContent>
+                ) : (
+                  !isOwner && (
+                    <TooltipContent>
+                      Only the task owner can run Eva
+                    </TooltipContent>
+                  )
+                )}
+              </Tooltip>
+            </>
+          )
+        )}
+      </div>
+    </>
+  );
+
+  const taskContent = inline ? (
+    <div className="px-4 flex-1 overflow-hidden flex flex-col">
+      {scheduledBadge}
+      <div className="flex-1 overflow-hidden">
+        <div className="grid grid-cols-[3fr_2fr] gap-6 h-full">
+          <div className="space-y-6 overflow-y-auto scrollbar pr-4">
+            {descriptionSection}
+            {subtasksSection}
+            {runsSection}
+            {(audit || showProofSection) && (
+              <div className="space-y-4">{auditProofSection}</div>
+            )}
+            {requestChangesPanel && requestChangesSection}
+          </div>
+          <div className="border-l border-border pl-4 flex flex-col overflow-y-auto scrollbar">
+            <div className="space-y-4 flex-1">{statusFieldsSection}</div>
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+              {footerButtons}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div>
+      {scheduledBadge}
+      <div className="pb-6">
+        <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
+          <div className="space-y-6 overflow-y-auto scrollbar pr-2">
+            {descriptionSection}
+            {subtasksSection}
+            {runsSection}
+          </div>
+          {(audit || showProofSection) && (
+            <div className="pl-4 space-y-4 overflow-y-auto scrollbar">
+              {auditProofSection}
+            </div>
+          )}
+          <div className="pl-4 space-y-4">{statusFieldsSection}</div>
+          {requestChangesPanel && (
+            <div className="flex flex-col border-l border-border pl-6">
+              {requestChangesSection}
+            </div>
           )}
         </div>
       </div>
+      <div className="flex items-center justify-between">{footerButtons}</div>
     </div>
   );
 
   if (inline) {
     return (
       <>
-        <div className="flex flex-col h-full overflow-y-auto scrollbar border-l border-border">
+        <div className="flex flex-col h-full border-l border-border overflow-hidden">
           <div className="px-4 pt-4 pb-2">{titleContent}</div>
           {taskContent}
         </div>

@@ -309,6 +309,7 @@ export const createQuickTask = authMutation({
     title: v.string(),
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
+    model: v.optional(claudeModelValidator),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -330,6 +331,7 @@ export const createQuickTask = authMutation({
       updatedAt: now,
       createdBy: ctx.userId,
       baseBranch: args.baseBranch ?? "staging",
+      model: args.model,
     });
   },
 });
@@ -498,7 +500,7 @@ export const startExecution = authMutation({
       branchName: project?.branchName,
       baseBranch: task.baseBranch,
       isFirstTaskOnBranch,
-      model: task.model,
+      model: task.model ?? repo.defaultModel,
     };
   },
 });

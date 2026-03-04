@@ -6,6 +6,7 @@ export const taskStatusValidator = v.union(
   v.literal("business_review"),
   v.literal("code_review"),
   v.literal("done"),
+  v.literal("cancelled"),
 );
 
 export const runStatusValidator = v.union(

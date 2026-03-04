@@ -71,6 +71,16 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
 
+function formatDuration(startedAt: number, finishedAt: number): string {
+  const totalSeconds = Math.round((finishedAt - startedAt) / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
+
 const NO_PROJECT_VALUE = "__none__";
 
 interface TaskDetailModalProps {
@@ -521,27 +531,47 @@ export function TaskDetailModal({
                           className="border rounded-lg px-3"
                         >
                           <AccordionTrigger>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant={
-                                  run.status === "success"
-                                    ? "success"
-                                    : run.status === "error"
-                                      ? "destructive"
-                                      : run.status === "running"
-                                        ? "warning"
-                                        : "outline"
-                                }
-                              >
-                                {run.status}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {run.startedAt
-                                  ? dayjs(run.startedAt).format(
+                            <div className="flex flex-1 items-center justify-between mr-2">
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant={
+                                    run.status === "success"
+                                      ? "success"
+                                      : run.status === "error"
+                                        ? "destructive"
+                                        : run.status === "running"
+                                          ? "warning"
+                                          : "outline"
+                                  }
+                                >
+                                  {run.status}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {run.startedAt
+                                    ? dayjs(run.startedAt).format(
+                                        "M/D/YYYY, h:mm:ss A",
+                                      )
+                                    : "Queued"}
+                                </span>
+                              </div>
+                              {run.startedAt && run.finishedAt && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDuration(
+                                        run.startedAt,
+                                        run.finishedAt,
+                                      )}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Completed{" "}
+                                    {dayjs(run.finishedAt).format(
                                       "M/D/YYYY, h:mm:ss A",
-                                    )
-                                  : "Queued"}
-                              </span>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                             </div>
                           </AccordionTrigger>
                           <AccordionContent>
@@ -587,16 +617,6 @@ export function TaskDetailModal({
                                 <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
                                   {run.error}
                                 </div>
-                              )}
-                              {run.prUrl && (
-                                <a
-                                  href={run.prUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-primary hover:underline"
-                                >
-                                  View Pull Request
-                                </a>
                               )}
                               {run.logs.length > 0 && (
                                 <div className="mt-2">

@@ -38,6 +38,10 @@ interface WebPreviewPanelProps {
   onPortChange: (port: number) => void;
 }
 
+function toProxiedSrc(url: string): string {
+  return `/api/preview?url=${encodeURIComponent(url)}`;
+}
+
 function getPathFromUrl(fullUrl: string): string {
   try {
     const parsed = new URL(fullUrl);
@@ -98,7 +102,7 @@ function NavigationButtons({
     const baseUrl = previewInfo?.url;
     if (!baseUrl || !iframeRef.current) return;
     const newUrl = buildUrlWithPath(baseUrl, pathInput);
-    iframeRef.current.src = newUrl;
+    iframeRef.current.src = toProxiedSrc(newUrl);
   }
 
   return (
@@ -216,7 +220,7 @@ export function WebPreviewPanel({
       />
       <WebPreviewBody
         key={iframeKey}
-        src={previewInfo?.url}
+        src={previewInfo?.url ? toProxiedSrc(previewInfo.url) : undefined}
         loading={
           isLoading && !previewInfo ? (
             <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">

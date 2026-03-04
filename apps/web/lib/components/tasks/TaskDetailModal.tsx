@@ -506,6 +506,7 @@ export function TaskDetailModal({
                     </h4>
                     <Accordion
                       type="multiple"
+                      key={runs.map((r) => r._id).join(",")}
                       defaultValue={runs
                         .filter(
                           (run) =>
@@ -546,7 +547,8 @@ export function TaskDetailModal({
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2">
-                              {run.status === "running" &&
+                              {(run.status === "running" ||
+                                run.status === "queued") &&
                                 streaming?.currentActivity &&
                                 (() => {
                                   const steps = parseActivitySteps(
@@ -569,6 +571,22 @@ export function TaskDetailModal({
                                     </Reasoning>
                                   );
                                 })()}
+                              {(run.status === "running" ||
+                                run.status === "queued") &&
+                                !streaming?.currentActivity &&
+                                !run.activityLog && (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                    <IconLoader2
+                                      className="animate-spin"
+                                      size={14}
+                                    />
+                                    <span>
+                                      {run.status === "queued"
+                                        ? "Waiting to start..."
+                                        : "Setting up agent..."}
+                                    </span>
+                                  </div>
+                                )}
                               {run.activityLog &&
                                 (() => {
                                   const steps = parseActivitySteps(

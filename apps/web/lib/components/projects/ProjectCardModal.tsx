@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
   DialogFooter,
   Button,
   Select,
@@ -72,7 +73,7 @@ export function ProjectCardModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         {!project ? (
           <div className="flex items-center justify-center min-h-[300px]">
             <Spinner size="lg" />
@@ -82,153 +83,155 @@ export function ProjectCardModal({
             <DialogHeader>
               <DialogTitle>{project.title}</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
-              <div className="space-y-4">
-                {(project.description || project.rawInput) && (
+            <DialogBody>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
+                <div className="space-y-4">
+                  {(project.description || project.rawInput) && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">
+                        Description
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {project.description || project.rawInput}
+                      </p>
+                    </div>
+                  )}
+                  <ProjectProgressBar projectId={projectId} />
+                </div>
+
+                <div className="pl-0 sm:pl-4 sm:border-l sm:border-border/40 space-y-4">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">
-                      Description
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconCalendar size={12} />
+                      Created
                     </p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {project.description || project.rawInput}
+                    <p className="text-sm text-foreground">
+                      {dayjs(createdAt).format("MMM D, YYYY")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {dayjs(createdAt).fromNow()}
                     </p>
                   </div>
-                )}
-                <ProjectProgressBar projectId={projectId} />
-              </div>
 
-              <div className="pl-0 sm:pl-4 sm:border-l sm:border-border/40 space-y-4">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <IconCalendar size={12} />
-                    Created
-                  </p>
-                  <p className="text-sm text-foreground">
-                    {dayjs(createdAt).format("MMM D, YYYY")}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {dayjs(createdAt).fromNow()}
-                  </p>
-                </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconFlag size={12} />
+                      Phase
+                    </p>
+                    <ProjectPhaseBadge phase={project.phase} />
+                  </div>
 
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <IconFlag size={12} />
-                    Phase
-                  </p>
-                  <ProjectPhaseBadge phase={project.phase} />
-                </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconUser size={12} />
+                      Project Lead
+                    </p>
+                    <Select
+                      value={project.projectLead ?? "none"}
+                      onValueChange={(val) =>
+                        updateProject({
+                          id: projectId,
+                          projectLead:
+                            val === "none" ? undefined : (val as Id<"users">),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {(users ?? []).map((user) => (
+                          <SelectItem key={user._id} value={user._id}>
+                            {displayName(user)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <IconUser size={12} />
-                    Project Lead
-                  </p>
-                  <Select
-                    value={project.projectLead ?? "none"}
-                    onValueChange={(val) =>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <IconUsers size={12} />
+                      Members
+                    </p>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full justify-start"
+                        >
+                          <IconUsers size={14} />
+                          {project.members?.length
+                            ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
+                            : "None"}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {(users ?? []).map((user) => {
+                          const isMember =
+                            project.members?.includes(user._id) ?? false;
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={user._id}
+                              checked={isMember}
+                              onCheckedChange={() => {
+                                const current = project.members ?? [];
+                                const next = isMember
+                                  ? current.filter((id) => id !== user._id)
+                                  : [...current, user._id];
+                                updateProject({ id: projectId, members: next });
+                              }}
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              {displayName(user)}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <DatePickerField
+                    label="Start Date"
+                    icon={IconCalendarEvent}
+                    value={project.projectStartDate}
+                    onChange={(date) =>
                       updateProject({
                         id: projectId,
-                        projectLead:
-                          val === "none" ? undefined : (val as Id<"users">),
+                        projectStartDate: date ?? undefined,
                       })
                     }
-                  >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Unassigned</SelectItem>
-                      {(users ?? []).map((user) => (
-                        <SelectItem key={user._id} value={user._id}>
-                          {displayName(user)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
+
+                  <DatePickerField
+                    label="End Date"
+                    icon={IconCalendarDue}
+                    value={project.projectEndDate}
+                    onChange={(date) =>
+                      updateProject({
+                        id: projectId,
+                        projectEndDate: date ?? undefined,
+                      })
+                    }
+                  />
+
+                  <DatePickerField
+                    label="Deadline"
+                    icon={IconAlertTriangle}
+                    value={project.deadline}
+                    className="text-destructive"
+                    onChange={(date) =>
+                      updateProject({
+                        id: projectId,
+                        deadline: date ?? undefined,
+                      })
+                    }
+                  />
                 </div>
-
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <IconUsers size={12} />
-                    Members
-                  </p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full justify-start"
-                      >
-                        <IconUsers size={14} />
-                        {project.members?.length
-                          ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
-                          : "None"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {(users ?? []).map((user) => {
-                        const isMember =
-                          project.members?.includes(user._id) ?? false;
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={user._id}
-                            checked={isMember}
-                            onCheckedChange={() => {
-                              const current = project.members ?? [];
-                              const next = isMember
-                                ? current.filter((id) => id !== user._id)
-                                : [...current, user._id];
-                              updateProject({ id: projectId, members: next });
-                            }}
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            {displayName(user)}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <DatePickerField
-                  label="Start Date"
-                  icon={IconCalendarEvent}
-                  value={project.projectStartDate}
-                  onChange={(date) =>
-                    updateProject({
-                      id: projectId,
-                      projectStartDate: date ?? undefined,
-                    })
-                  }
-                />
-
-                <DatePickerField
-                  label="End Date"
-                  icon={IconCalendarDue}
-                  value={project.projectEndDate}
-                  onChange={(date) =>
-                    updateProject({
-                      id: projectId,
-                      projectEndDate: date ?? undefined,
-                    })
-                  }
-                />
-
-                <DatePickerField
-                  label="Deadline"
-                  icon={IconAlertTriangle}
-                  value={project.deadline}
-                  className="text-destructive"
-                  onChange={(date) =>
-                    updateProject({
-                      id: projectId,
-                      deadline: date ?? undefined,
-                    })
-                  }
-                />
               </div>
-            </div>
+            </DialogBody>
             <DialogFooter>
               <Button
                 onClick={() => {

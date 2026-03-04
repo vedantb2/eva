@@ -146,6 +146,7 @@ const schema = defineSchema({
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
+    defaultModel: v.optional(claudeModelValidator),
   })
     .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])

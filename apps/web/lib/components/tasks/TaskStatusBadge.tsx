@@ -7,6 +7,7 @@ import {
   IconClipboardCheck,
   IconEye,
   IconCircleCheck,
+  IconCircleX,
 } from "@tabler/icons-react";
 
 export type TaskStatus =
@@ -14,7 +15,8 @@ export type TaskStatus =
   | "in_progress"
   | "business_review"
   | "code_review"
-  | "done";
+  | "done"
+  | "cancelled";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "todo",
@@ -22,6 +24,7 @@ export const TASK_STATUSES: TaskStatus[] = [
   "business_review",
   "code_review",
   "done",
+  "cancelled",
 ];
 
 interface TaskStatusBadgeProps {
@@ -78,6 +81,14 @@ export const statusConfig: Record<
     text: "text-status-done",
     label: "Done",
     icon: IconCircleCheck,
+  },
+  cancelled: {
+    bg: "bg-status-cancelled-bg",
+    cardBg: "bg-status-cancelled-subtle",
+    bar: "bg-status-cancelled-bar",
+    text: "text-status-cancelled",
+    label: "Cancelled",
+    icon: IconCircleX,
   },
 };
 

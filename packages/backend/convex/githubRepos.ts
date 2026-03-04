@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { hasRepoReferences, normalizePath } from "./repoUtils";
+import { claudeModelValidator } from "./validators";
 
 const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),
@@ -16,6 +17,7 @@ const githubRepoValidator = v.object({
   teamId: v.optional(v.id("teams")),
   rootDirectory: v.optional(v.string()),
   defaultBaseBranch: v.optional(v.string()),
+  defaultModel: v.optional(claudeModelValidator),
 });
 
 export const list = authQuery({
@@ -443,6 +445,7 @@ export const updateConfig = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
+    defaultModel: v.optional(claudeModelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -466,6 +469,7 @@ export const updateConfig = authMutation({
 
     await ctx.db.patch(args.repoId, {
       defaultBaseBranch: args.defaultBaseBranch,
+      defaultModel: args.defaultModel,
     });
     return null;
   },

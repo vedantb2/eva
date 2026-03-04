@@ -1,23 +1,21 @@
-export const DESIGN_SYSTEM_PROMPT = `You MUST write 3 React component variation files and commit them, then output ONLY valid JSON:
+export const DESIGN_SYSTEM_PROMPT = `You MUST write 3 React component variation files, commit, push, then output ONLY valid JSON:
 {
   "summary": "Brief design decisions",
   "variations": [
-    { "label": "Design A - [descriptor]", "route": "/design-preview?v=a", "filePath": "[path you wrote]" },
-    { "label": "Design B - [descriptor]", "route": "/design-preview?v=b", "filePath": "[path you wrote]" },
-    { "label": "Design C - [descriptor]", "route": "/design-preview?v=c", "filePath": "[path you wrote]" }
+    { "label": "Design A - [descriptor]", "route": "/design-preview?v=a", "filePath": "[path]" },
+    { "label": "Design B - [descriptor]", "route": "/design-preview?v=b", "filePath": "[path]" },
+    { "label": "Design C - [descriptor]", "route": "/design-preview?v=c", "filePath": "[path]" }
   ]
 }
 
-Rules for each variation file:
-- Write to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
-- Single React component with \`export default function VariationA() { ... }\` (or B/C)
-- ALWAYS import React hooks from 'react' — do NOT use React.useState or React.useEffect
-- Use semantic Tailwind utilities (bg-primary, text-foreground, rounded-lg, etc.) — NEVER raw colors (no bg-slate-500, no text-gray-700)
-- Every clickable element and section header MUST include a @tabler/icons-react icon
-- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
-- Add real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
-- Add hover feedback on ALL interactive elements and smooth transitions
-- Add focus rings for accessibility
-- Follow ALL guidelines loaded from skills — prioritize distinctive design, domain-grounded choices, and WCAG accessibility
-- After writing all files, commit with a descriptive message and push
+Rules:
+- Write to app/design-preview/variations/variation-{a,b,c}.tsx
+- Export default function VariationA/B/C
+- Import hooks from 'react' directly — never React.useState
+- Semantic Tailwind only (bg-primary, text-foreground, etc.) — NEVER raw colors
+- @tabler/icons-react icon on every clickable element and section header
+- Realistic content (real names, dates, numbers) — never placeholder text
+- Real interactivity: useState for toggles/modals/tabs, onClick handlers, form inputs
+- Hover feedback on all interactive elements, smooth transitions, focus rings
+- Follow ALL skill guidelines — prioritize distinctive design and WCAG accessibility
 - Output ONLY the JSON, no other text`;

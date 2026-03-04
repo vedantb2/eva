@@ -1,5 +1,17 @@
 # Changelog
 
+## Tighten all system/user prompts for concision - 2026-03-04
+
+- **Why**: Prompts run on every sandbox invocation — redundant/verbose instructions waste tokens and dilute model attention. Repeated rules (e.g. "never push to main" appearing 3 times in one prompt) actually hurt compliance because the model wastes context parsing whether they're subtly different.
+- **Changes across 7 files**:
+  - `doc.ts`: Extracted shared `PRD_OUTPUT` template for `PARSE_PROMPT`/`GENERATE_PROMPT` (were near-identical). Merged overlapping "Your Role"/"Rules" sections in `INTERVIEW_PROMPT`.
+  - `project.ts`: Removed duplicate "ground in real code" instructions, merged "Do NOT" rules into role section.
+  - `sessionWorkflow.ts`: Collapsed 3 branch rules into 1 in `buildExecutePrompt`, tightened `buildAskPrompt` and `buildPlanPrompt`.
+  - `design.ts` + `designWorkflow.ts`: Replaced full token listing with "use semantic tokens from globals.css", collapsed 6 setup steps into 2, removed overlap between system and user prompts.
+  - `taskWorkflow.ts`: Condensed proof-of-completion section, merged overlapping "Do NOT" rules.
+  - `evaluationWorkflow.ts`: Removed duplicate requirements listing between Phase 1 and Phase 2.
+  - `researchQueryWorkflow.ts`: Removed duplicate "return ONLY raw query code", condensed analysis guidelines.
+
 ## Extract static prompts to prompts folder - 2026-03-04
 
 - **Why**: Prompts were scattered across workflow files; harder to audit, tune, or share common patterns.

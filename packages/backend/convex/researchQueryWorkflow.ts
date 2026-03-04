@@ -27,38 +27,34 @@ function stripCodeFences(text: string): string {
 
 function buildGeneratePrompt(repoId: string): string {
   const now = new Date();
-  return `You are a data analyst. Generate a single Convex database query to answer the user's question. Do NOT execute anything — output ONLY the raw query code with no markdown, no explanation, no backticks.
+  return `You are a data analyst. Generate a single Convex database query to answer the user's question.
 
 ## Step 1: Read the Schema
-Before generating any query, read the database schema and validators to understand all tables, fields, and indexes:
+Before generating, read the schema and validators:
 - cat packages/backend/convex/schema.ts
 - cat packages/backend/convex/validators.ts
 
-Use ONLY the indexes defined in schema.ts. NEVER invent indexes — they will cause errors. To filter by a field without an index, collect all rows first, then use .filter() in JavaScript.
+Use ONLY indexes defined in schema.ts. NEVER invent indexes. To filter without an index, collect all rows then .filter() in JavaScript.
 
 ## Current Time
 - UTC: ${now.toISOString()}
 - Timestamp (ms): ${now.getTime()}
-- All database timestamps are in milliseconds since epoch (Unix ms). Use Date.now() in queries for current time. For "today", subtract 24*60*60*1000 from Date.now().
+- All timestamps are Unix ms. Use Date.now() for current time. For "today", subtract 24*60*60*1000.
 
-## Current Repository ID
-repoId: "${repoId}"
+## Repository ID: "${repoId}"
 
-## CRITICAL RULES
-- Return ONLY the raw query code. No markdown, no explanation, no wrapping in backticks.
-- Filter by repoId where applicable.
-- For agentTasks: query by repoId using by_repo index.
-- For agentRuns: query tasks first, then runs by taskId.
+## Output
+Return ONLY raw query code — no markdown, no backticks, no explanation.
+Filter by repoId where applicable. For agentRuns: query tasks first, then runs by taskId.
 
 ## Query Format
-Every query MUST use this exact wrapper:
 import { query } from "convex:/_system/repl/wrappers.js";
 export default query({ handler: async (ctx) => {
-  // your query logic here
+  // your query logic
   return result;
 }});
 
-## Query Examples
+## Examples
 - With index: await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()
 - Order desc: await ctx.db.query("agentRuns").order("desc").take(20)
 - Get by ID: await ctx.db.get(someId)`;
@@ -69,8 +65,6 @@ function buildAnalysePrompt(repoId: string): string {
   return `You are a data analyst. Execute the provided Convex database query and analyze the results.
 
 ## How to Execute
-Write the query code to /tmp/query.js, then run it using this pattern:
-
 cat > /tmp/query.js << 'QUERYEOF'
 <paste the query code here>
 QUERYEOF
@@ -89,27 +83,19 @@ RUNEOF
 
 node /tmp/run.mjs
 
-If the query fails, you may fix the query code and retry once.
+If the query fails, fix and retry once.
 
-## Current Time
-- UTC: ${now.toISOString()}
-- Timestamp (ms): ${now.getTime()}
+## Context
+- UTC: ${now.toISOString()} | Timestamp: ${now.getTime()}
+- Repository ID: "${repoId}"
 
-## Current Repository ID
-repoId: "${repoId}"
-
-## Analysis Guidelines
-1. Execute the provided query
-2. Analyze the results thoroughly
-3. Present findings in a structured, analyst-friendly format:
-   - Lead with the key metric or direct answer
-   - **Bold** important numbers, metrics, names, and key takeaways
-   - Use tables, lists, or breakdowns where appropriate
-   - Highlight trends, outliers, or notable patterns
-   - Include percentages and comparisons when relevant
-4. NEVER include raw database IDs (like _id, repoId, userId) unless the user explicitly asks for raw data
-5. Use names, titles, statuses, and human-readable labels
-6. If results are empty, say so clearly and suggest what the user might query instead`;
+## Analysis Rules
+- Lead with the key metric or direct answer
+- **Bold** important numbers, metrics, and key takeaways
+- Use tables, lists, or breakdowns where appropriate
+- Highlight trends, outliers, percentages, and comparisons
+- NEVER include raw database IDs — use names, titles, statuses, and human-readable labels
+- If results are empty, say so and suggest alternatives`;
 }
 
 // --- Workflow definitions ---

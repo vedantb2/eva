@@ -55,21 +55,14 @@ Design with this persona in mind — consider their goals, context, and preferen
 Read the codebase to understand the existing design system, then write 3 React component variation files based on the user's request.
 
 ## Steps
-1. Invoke the /frontend-design skill to load design quality guidelines
-2. Invoke the /interface-design skill to load craft-focused design principles
-3. Invoke the /web-design-guidelines skill to load accessibility guidelines
-4. Read CLAUDE.md to understand the project
-5. Read the Tailwind config and globals.css to understand the design tokens
-6. Read existing components to understand STYLE PATTERNS (spacing, layout, visual language)
-7. Check if app/design-preview/page.tsx exists. If not, create the router scaffold:
-   - Create app/design-preview/page.tsx that lazy-imports variations/variation-{a,b,c}.tsx based on ?v= query param
-   - Create app/design-preview/variations/ directory
-8. Write 3 variation files to app/design-preview/variations/variation-a.tsx, variation-b.tsx, variation-c.tsx
-9. Commit all changes with message: "design: ${message.slice(0, 60)}"
-10. Push to the current branch
-11. Output ONLY the JSON
+1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
+2. Read CLAUDE.md, Tailwind config, globals.css, and existing components to understand project patterns
+3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
+4. Write 3 variation files to app/design-preview/variations/variation-{a,b,c}.tsx
+5. Commit: "design: ${message.slice(0, 60)}" and push
+6. Output ONLY the JSON
 
-## Router Scaffold (create if app/design-preview/page.tsx doesn't exist)
+## Router Scaffold (create if missing)
 \`\`\`tsx
 'use client';
 import { lazy, Suspense } from 'react';
@@ -90,27 +83,17 @@ export default function DesignPreview() {
 \`\`\`
 
 ## Variation Strategies
-- Design A: Clean/conventional — prioritize clarity, familiar patterns, and straightforward navigation
-- Design B: Creative/bold — unconventional layout, striking visual hierarchy, or unique interaction patterns
-- Design C: Compact/efficient — high information density, minimal chrome, space-efficient UI
+- A: Clean/conventional — clarity, familiar patterns, straightforward navigation
+- B: Creative/bold — unconventional layout, striking hierarchy, unique interactions
+- C: Compact/efficient — high density, minimal chrome, space-efficient
 
 ## Design System
-The project uses a custom Tailwind config with CSS variables. Use the project's actual design tokens:
+Use the project's semantic Tailwind tokens from globals.css. NEVER use raw Tailwind colors (no bg-slate-500, text-gray-700). Use bg-primary, text-muted-foreground, border-border, rounded-md, font-sans, etc.
 
-**Colors:** bg-background, bg-foreground, bg-primary, bg-secondary, bg-muted, bg-accent, bg-card, bg-destructive, bg-success, bg-warning (and text-* equivalents, plus text-primary-foreground etc.)
-**Border:** border-border, border-input
-**Radius:** rounded-sm (6px), rounded-md (8px), rounded-lg (10px)
-**Font:** font-sans (Inter is loaded automatically)
-
-CRITICAL: Use ONLY these semantic color utilities. NEVER use raw Tailwind colors like bg-slate-500, text-gray-700, bg-zinc-600. Always use bg-primary, text-muted-foreground, etc.
-
-## Design Quality Guidelines
-- Use realistic content (real names, dates, numbers) — never "Lorem ipsum", "Item 1", or "User 1"
-- Clear visual hierarchy: one primary action per view, secondary actions de-emphasized
-- Consistent spacing using multiples of 4px via Tailwind: p-2, p-4, p-6, p-8
-- Group related elements with cards (bg-card rounded-lg border border-border) or bordered sections
-- Use whitespace generously — don't crowd elements together
-- Responsive-first: use max-w-* containers, flex/grid layouts
+## Design Rules
+- Realistic content (real names, dates, numbers) — never placeholder text
+- Clear visual hierarchy with consistent 4px-multiple spacing (p-2, p-4, p-6, p-8)
+- Generous whitespace, responsive layouts (max-w-*, flex/grid)
 
 ## Previous Conversation
 ${history || "None"}
@@ -121,7 +104,7 @@ ${personaContext}
 ${message}
 
 ## Output
-After completing all steps above, output ONLY valid JSON matching the format described in your system prompt. No other text.${buildRootDirectoryInstruction(rootDirectory)}`;
+After completing all steps, output ONLY valid JSON matching the format in your system prompt.${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function extractJsonFromText(text: string): string | null {

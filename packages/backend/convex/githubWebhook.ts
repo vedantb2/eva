@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { createNotification } from "./notifications";
 import type { Id } from "./_generated/dataModel";
 
@@ -71,6 +72,14 @@ export const handlePrClosed = internalMutation({
         repoId: task.repoId,
       });
     }
+
+    const commentText = args.merged
+      ? "PR was merged on GitHub. Task moved to done."
+      : "PR was closed without merging on GitHub. Task moved to cancelled.";
+    await ctx.runMutation(internal.taskComments.createSystemComment, {
+      taskId: task._id,
+      content: commentText,
+    });
 
     if (task.projectId && newStatus === "done") {
       const project = await ctx.db.get(task.projectId);

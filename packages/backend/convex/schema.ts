@@ -167,7 +167,7 @@ const schema = defineSchema({
   taskComments: defineTable({
     taskId: v.id("agentTasks"),
     content: v.string(),
-    authorId: v.id("users"),
+    authorId: v.optional(v.id("users")),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 

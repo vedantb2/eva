@@ -105,7 +105,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
-  const comments = useQuery(api.taskComments.listByTask, { taskId });
+  const allComments = useQuery(api.taskComments.listByTask, { taskId });
+  const comments = allComments?.filter((c) => c.authorId);
+  const systemComments = allComments?.filter((c) => !c.authorId);
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
@@ -479,132 +481,187 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       </div>
     ) : null;
 
+  type ActivityItem =
+    | { kind: "run"; timestamp: number; run: NonNullable<typeof runs>[number] }
+    | {
+        kind: "system";
+        timestamp: number;
+        comment: NonNullable<typeof systemComments>[number];
+      };
+
+  const activityItems: ActivityItem[] = [
+    ...(runs ?? []).map(
+      (run): ActivityItem => ({
+        kind: "run",
+        timestamp: run.startedAt ?? run._creationTime,
+        run,
+      }),
+    ),
+    ...(systemComments ?? []).map(
+      (comment): ActivityItem => ({
+        kind: "system",
+        timestamp: comment.createdAt,
+        comment,
+      }),
+    ),
+  ].sort((a, b) => b.timestamp - a.timestamp);
+
   const runsSection =
-    runs && runs.length > 0 ? (
+    activityItems.length > 0 ? (
       <div className="pt-4">
         <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
           <IconTerminal2 size={16} />
-          Agent Runs ({runs.length})
+          Activity
         </h4>
-        <Accordion
-          type="multiple"
-          defaultValue={runs
-            .filter(
-              (run) => run.status === "running" || run.status === "queued",
-            )
-            .map((run) => run._id)}
-          className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2"
-        >
-          {runs.map((run) => (
-            <AccordionItem
-              key={run._id}
-              value={run._id}
-              className="border rounded-lg px-3"
-            >
-              <AccordionTrigger>
-                <div className="flex flex-1 items-center justify-between mr-2">
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        run.status === "success"
-                          ? "success"
-                          : run.status === "error"
-                            ? "destructive"
-                            : run.status === "running"
-                              ? "warning"
-                              : "outline"
-                      }
-                    >
-                      {run.status}
-                    </Badge>
+        <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
+          {activityItems.map((item) => {
+            if (item.kind === "system") {
+              return (
+                <div
+                  key={item.comment._id}
+                  className="rounded-lg bg-blue-500/10 border border-blue-200 dark:border-blue-900 px-3 py-2 flex items-start gap-2"
+                >
+                  <IconGitPullRequest
+                    size={14}
+                    className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground">
+                      {item.comment.content}
+                    </p>
                     <span className="text-xs text-muted-foreground">
-                      {run.startedAt
-                        ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
-                        : "Queued"}
+                      {dayjs(item.comment.createdAt).fromNow()}
                     </span>
                   </div>
-                  {run.startedAt && run.finishedAt && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                </div>
+              );
+            }
+
+            const run = item.run;
+            return (
+              <Accordion
+                key={run._id}
+                type="multiple"
+                defaultValue={
+                  run.status === "running" || run.status === "queued"
+                    ? [run._id]
+                    : []
+                }
+              >
+                <AccordionItem
+                  value={run._id}
+                  className="border rounded-lg px-3"
+                >
+                  <AccordionTrigger>
+                    <div className="flex flex-1 items-center justify-between mr-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            run.status === "success"
+                              ? "success"
+                              : run.status === "error"
+                                ? "destructive"
+                                : run.status === "running"
+                                  ? "warning"
+                                  : "outline"
+                          }
+                        >
+                          {run.status}
+                        </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {formatDuration(run.startedAt, run.finishedAt)}
+                          {run.startedAt
+                            ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                            : "Queued"}
                         </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Completed{" "}
-                        {dayjs(run.finishedAt).format("M/D/YYYY, h:mm:ss A")}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-2">
-                  {run.status === "running" &&
-                    streaming?.currentActivity &&
-                    (() => {
-                      const steps = parseActivitySteps(
-                        streaming.currentActivity,
-                      );
-                      return steps ? (
-                        <ActivitySteps steps={steps} isStreaming />
-                      ) : (
-                        <Reasoning isStreaming defaultOpen>
-                          <ReasoningTrigger
-                            getThinkingMessage={(s) =>
-                              s ? "Working..." : "Processing complete"
-                            }
-                          />
-                          <ReasoningContent>
-                            {streaming.currentActivity}
-                          </ReasoningContent>
-                        </Reasoning>
-                      );
-                    })()}
-                  {run.activityLog &&
-                    (() => {
-                      const steps = parseActivitySteps(run.activityLog);
-                      return steps ? <ActivitySteps steps={steps} /> : null;
-                    })()}
-                  {run.resultSummary && (
-                    <p className="text-sm text-muted-foreground">
-                      {run.resultSummary}
-                    </p>
-                  )}
-                  {run.error && (
-                    <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-                      {run.error}
-                    </div>
-                  )}
-                  {run.logs.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground mb-1">Logs</p>
-                      <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
-                        {run.logs.map((log, i) => (
-                          <div
-                            key={i}
-                            className={`flex gap-2 ${
-                              log.level === "error"
-                                ? "text-destructive"
-                                : log.level === "warn"
-                                  ? "text-warning"
-                                  : "text-muted-foreground"
-                            }`}
-                          >
-                            <span className="text-muted-foreground flex-shrink-0">
-                              {dayjs(log.timestamp).format("h:mm:ss A")}
-                            </span>
-                            <span className="break-all">{log.message}</span>
-                          </div>
-                        ))}
                       </div>
+                      {run.startedAt && run.finishedAt && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDuration(run.startedAt, run.finishedAt)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Completed{" "}
+                            {dayjs(run.finishedAt).format(
+                              "M/D/YYYY, h:mm:ss A",
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {run.status === "running" &&
+                        streaming?.currentActivity &&
+                        (() => {
+                          const steps = parseActivitySteps(
+                            streaming.currentActivity,
+                          );
+                          return steps ? (
+                            <ActivitySteps steps={steps} isStreaming />
+                          ) : (
+                            <Reasoning isStreaming defaultOpen>
+                              <ReasoningTrigger
+                                getThinkingMessage={(s) =>
+                                  s ? "Working..." : "Processing complete"
+                                }
+                              />
+                              <ReasoningContent>
+                                {streaming.currentActivity}
+                              </ReasoningContent>
+                            </Reasoning>
+                          );
+                        })()}
+                      {run.activityLog &&
+                        (() => {
+                          const steps = parseActivitySteps(run.activityLog);
+                          return steps ? <ActivitySteps steps={steps} /> : null;
+                        })()}
+                      {run.resultSummary && (
+                        <p className="text-sm text-muted-foreground">
+                          {run.resultSummary}
+                        </p>
+                      )}
+                      {run.error && (
+                        <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+                          {run.error}
+                        </div>
+                      )}
+                      {run.logs.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Logs
+                          </p>
+                          <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
+                            {run.logs.map((log, i) => (
+                              <div
+                                key={i}
+                                className={`flex gap-2 ${
+                                  log.level === "error"
+                                    ? "text-destructive"
+                                    : log.level === "warn"
+                                      ? "text-warning"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                <span className="text-muted-foreground flex-shrink-0">
+                                  {dayjs(log.timestamp).format("h:mm:ss A")}
+                                </span>
+                                <span className="break-all">{log.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            );
+          })}
+        </div>
       </div>
     ) : null;
 

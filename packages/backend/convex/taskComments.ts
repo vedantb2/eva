@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internalMutation } from "./_generated/server";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 
@@ -7,7 +8,7 @@ const taskCommentValidator = v.object({
   _creationTime: v.number(),
   taskId: v.id("agentTasks"),
   content: v.string(),
-  authorId: v.id("users"),
+  authorId: v.optional(v.id("users")),
   createdAt: v.number(),
 });
 
@@ -68,5 +69,22 @@ export const remove = authMutation({
       throw new Error("Comment not found");
     await ctx.db.delete(args.id);
     return null;
+  },
+});
+
+export const createSystemComment = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    content: v.string(),
+  },
+  returns: v.id("taskComments"),
+  handler: async (ctx, args) => {
+    const commentId = await ctx.db.insert("taskComments", {
+      taskId: args.taskId,
+      content: args.content,
+      authorId: undefined,
+      createdAt: Date.now(),
+    });
+    return commentId;
   },
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## Task card UI redesign + unified Activity timeline - 2026-03-04
+
+- **Why**: Task cards showed deployment dots, branch links, and dropdowns that cluttered the kanban board. Task activity (runs + webhook events) lived in separate sections. Needed cleaner card design and unified activity view.
+- **Changes**:
+  1. `QuickTaskCard.tsx` — removed deployment status dot, branch icon, and dropdown menu. Added footer showing task creator avatar + relative creation time (e.g. "3 days ago").
+  2. `useTaskDetail.tsx` — merged Agent Runs and system comments into single **Activity** section sorted by date (newest first). System comments render as blue info cards.
+  3. `taskComments.ts` — made `authorId` optional to support system-generated comments (no user context).
+  4. `githubWebhook.ts` — creates system comment when PR is merged/closed via `createSystemComment` internalMutation.
+  5. `QuickTasksKanbanBoard.tsx` + `QuickTasksListView.tsx` — pass `createdBy` and `createdAt` to card component.
+- **Benefit**: Cleaner kanban board with less visual noise. Unified Activity timeline shows all events in chronological order. System events (PR lifecycle changes) visible without leaving the task detail.
+
 ## GitHub webhook: PR lifecycle → task status - 2026-03-04
 
 - **Why**: When Eva opens a PR for a task, the task stays in `business_review`/`code_review` even after the PR is merged or closed on GitHub. Users had to manually move tasks to done/cancelled.

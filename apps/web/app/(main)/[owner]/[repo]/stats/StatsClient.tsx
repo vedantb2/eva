@@ -28,7 +28,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 
-export function AnalyticsClient() {
+export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
@@ -66,7 +66,7 @@ export function AnalyticsClient() {
 
   return (
     <PageWrapper
-      title="Analytics"
+      title="Stats"
       headerRight={
         <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
       }

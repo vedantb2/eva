@@ -54,6 +54,7 @@ const KNOWN_SUB_PAGES = new Set([
   "analyse",
   "settings",
   "testing-arena",
+  "stats",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -241,7 +242,7 @@ export function Sidebar() {
               items: [
                 {
                   name: "Stats",
-                  href: `${repoBasePath}/settings/stats`,
+                  href: `${repoBasePath}/stats`,
                   icon: IconChartBar,
                 },
                 {

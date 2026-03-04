@@ -1,5 +1,16 @@
 # Changelog
 
+## Split TaskDetailModal into 3 files + inline 2-column layout - 2026-03-04
+
+- **Why**: `TaskDetailModal.tsx` was ~1400 lines handling both modal and inline views. The inline (list view) panel also stacked everything vertically which wasted horizontal space.
+- **Changes**:
+  1. `useTaskDetail.tsx` — custom hook with all queries, mutations, state, handlers, and JSX section blocks
+  2. `TaskDetailModal.tsx` — slim modal wrapper (~80 lines)
+  3. `TaskDetailInline.tsx` — inline 2-column layout with 60:40 split (left: description/subtasks/runs, right: status fields + action buttons)
+  4. Delete confirmation dialog extracted into hook return to avoid duplication
+  5. Removed unused `formatDuration` function and `inline` prop from `TaskDetailModal`
+- **Files**: `useTaskDetail.tsx`, `TaskDetailModal.tsx`, `TaskDetailInline.tsx`, `QuickTasksClient.tsx`
+
 ## Fix resultSummary for quick task re-runs - 2026-03-04
 
 - **Why**: When requesting changes on a quick task, the run completed with "Pushed commit to project branch" even though quick tasks have no project branch.

@@ -37,6 +37,7 @@ import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal"
 import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
 import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
+import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
   IconChecklist,
@@ -333,11 +334,9 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   </div>
                   {selectedTaskId && (
                     <div className="w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
-                      <TaskDetailModal
-                        isOpen
+                      <TaskDetailInline
                         onClose={handleTaskClose}
                         taskId={selectedTaskId as Id<"agentTasks">}
-                        inline
                       />
                     </div>
                   )}

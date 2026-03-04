@@ -967,7 +967,8 @@ export const getPreviewUrl = action({
       }
     }
 
-    return { url: signedPreview.url, port: args.port, ready };
+    const url = signedPreview.url.replace(/^http:\/\//, "https://");
+    return { url, port: args.port, ready };
   },
 });
 

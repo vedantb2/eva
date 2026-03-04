@@ -506,6 +506,13 @@ export function TaskDetailModal({
                     </h4>
                     <Accordion
                       type="multiple"
+                      key={runs
+                        .filter(
+                          (run) =>
+                            run.status === "running" || run.status === "queued",
+                        )
+                        .map((run) => run._id)
+                        .join(",")}
                       defaultValue={runs
                         .filter(
                           (run) =>
@@ -546,6 +553,21 @@ export function TaskDetailModal({
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2">
+                              {(run.status === "running" ||
+                                run.status === "queued") &&
+                                !streaming?.currentActivity && (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+                                    <IconLoader2
+                                      size={14}
+                                      className="animate-spin"
+                                    />
+                                    <span>
+                                      {run.status === "queued"
+                                        ? "Preparing..."
+                                        : "Setting up sandbox..."}
+                                    </span>
+                                  </div>
+                                )}
                               {run.status === "running" &&
                                 streaming?.currentActivity &&
                                 (() => {

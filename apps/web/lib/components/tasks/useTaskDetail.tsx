@@ -166,6 +166,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   };
 
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const latestDeployment = runs?.find((r) => r.deploymentStatus);
   const status = task?.status;
   const showProofSection =
     status !== undefined && status !== "todo" && status !== "in_progress";
@@ -972,51 +973,36 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           )}
         </div>
       )}
-      {(() => {
-        const latestDeployment = runs?.find((r) => r.deploymentStatus);
-        if (!latestDeployment?.deploymentStatus) return null;
-        return (
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <IconBrandVercel size={12} />
-              Vercel Status
-            </p>
-            <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  latestDeployment.deploymentStatus === "deployed"
-                    ? "bg-emerald-500"
-                    : latestDeployment.deploymentStatus === "error"
-                      ? "bg-red-500"
-                      : latestDeployment.deploymentStatus === "building"
-                        ? "bg-amber-500 animate-pulse"
-                        : "bg-blue-500 animate-pulse"
-                }`}
-              />
-              <span className="text-foreground">
-                {latestDeployment.deploymentStatus === "deployed"
-                  ? "Deployed"
-                  : latestDeployment.deploymentStatus === "building"
-                    ? "Building"
-                    : latestDeployment.deploymentStatus === "error"
-                      ? "Deploy failed"
-                      : "Queued"}
-              </span>
-            </div>
-            {latestDeployment.deploymentUrl && (
-              <a
-                href={latestDeployment.deploymentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <IconBrandVercel size={12} />
-                View Preview
-              </a>
-            )}
+      {latestDeployment?.deploymentStatus && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+            <IconBrandVercel size={12} />
+            Deploy Status
+          </p>
+          <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                latestDeployment.deploymentStatus === "deployed"
+                  ? "bg-emerald-500"
+                  : latestDeployment.deploymentStatus === "error"
+                    ? "bg-red-500"
+                    : latestDeployment.deploymentStatus === "building"
+                      ? "bg-amber-500 animate-pulse"
+                      : "bg-blue-500 animate-pulse"
+              }`}
+            />
+            <span className="text-foreground">
+              {latestDeployment.deploymentStatus === "deployed"
+                ? "Deployed"
+                : latestDeployment.deploymentStatus === "building"
+                  ? "Building"
+                  : latestDeployment.deploymentStatus === "error"
+                    ? "Deploy failed"
+                    : "Queued"}
+            </span>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </>
   );
 
@@ -1116,6 +1102,48 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               View PR
             </a>
           </Button>
+        )}
+        {latestDeployment?.deploymentStatus && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Button
+                  asChild={
+                    latestDeployment.deploymentStatus === "deployed" &&
+                    !!latestDeployment.deploymentUrl
+                  }
+                  variant="outline"
+                  disabled={latestDeployment.deploymentStatus !== "deployed"}
+                >
+                  {latestDeployment.deploymentStatus === "deployed" &&
+                  latestDeployment.deploymentUrl ? (
+                    <a
+                      href={latestDeployment.deploymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <IconBrandVercel size={18} />
+                      View Preview
+                    </a>
+                  ) : (
+                    <>
+                      <IconBrandVercel size={18} />
+                      View Preview
+                    </>
+                  )}
+                </Button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {latestDeployment.deploymentStatus === "deployed"
+                ? "Open preview deployment"
+                : latestDeployment.deploymentStatus === "error"
+                  ? "Deployment failed"
+                  : latestDeployment.deploymentStatus === "building"
+                    ? "Deployment is building..."
+                    : "Deployment is queued..."}
+            </TooltipContent>
+          </Tooltip>
         )}
         {!requestChangesPanel &&
           status !== "todo" &&

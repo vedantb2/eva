@@ -130,7 +130,7 @@ You are already on branch "${branchName}". All work MUST stay on this branch.${p
 - Make minimal, focused changes
 - Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
 - Do NOT mention file paths, commit status, or process meta-commentary in your response
-- For browser interaction (screenshots, visual proof), use the agent-browser skill. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- For browser interaction (screenshots, visual proof), use the agent-browser skill. Run \`agent-browser set viewport 1920 1080\` first. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---

@@ -1,5 +1,17 @@
 # Changelog
 
+## VNC resolution + quality upgrade to 1920x1080 - 2026-03-04
+
+- **Why**: VNC desktop rendered at 1024x768 (4:3) — looks wrong on modern 16:9 displays. noVNC quality=4 made text blurry. Agent-browser screenshots in quick tasks lacked proper viewport sizing.
+- **Changes**:
+  1. `rebuild-snapshot.yml` — added `x11-utils` to apt-get install (provides `xrandr` binary)
+  2. `daytona.ts` `toggleDesktopServer` — after `computerUse.start()`, runs `xrandr --fb 1920x1080` with fallback to `--newmode`/`--addmode`/`--output`. Non-fatal if xrandr unavailable.
+  3. `daytona.ts` `launchChromeInDesktop` — added `--start-maximized --window-size=1920,1080` to Chrome flags
+  4. `DesktopPanel.tsx` — bumped noVNC quality from 4 to 6
+  5. `taskWorkflow.ts` — added `agent-browser set viewport 1920 1080` step in proof-of-completion
+  6. `sessionWorkflow.ts` — added viewport instruction to browser interaction rules
+- **Note**: Snapshot rebuild required before xrandr takes effect. Desktop gracefully falls back to 1024x768 until then.
+
 ## Split TaskDetailModal into 3 files + inline 2-column layout - 2026-03-04
 
 - **Why**: `TaskDetailModal.tsx` was ~1400 lines handling both modal and inline views. The inline (list view) panel also stacked everything vertically which wasted horizontal space.

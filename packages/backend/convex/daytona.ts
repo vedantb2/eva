@@ -1410,6 +1410,21 @@ export const toggleDesktopServer = action({
 
     if (args.action === "start") {
       await sandbox.computerUse.start();
+      try {
+        await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
+      } catch {
+        try {
+          await exec(
+            sandbox,
+            'DISPLAY=:1 xrandr --newmode "1920x1080" 0 1920 1920 1920 1920 1080 1080 1080 1080 && ' +
+              'DISPLAY=:1 xrandr --addmode screen "1920x1080" && ' +
+              'DISPLAY=:1 xrandr --output screen --mode "1920x1080"',
+            10,
+          );
+        } catch {
+          // Non-fatal: desktop still works at default 1024x768
+        }
+      }
     } else {
       await sandbox.computerUse.stop();
     }
@@ -1434,7 +1449,7 @@ export const launchChromeInDesktop = action({
 
     try {
       await sandbox.process.executeCommand(
-        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage > /dev/null 2>&1 &"',
+        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 > /dev/null 2>&1 &"',
         "/",
         undefined,
         5,

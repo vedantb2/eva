@@ -37,7 +37,7 @@ function appendNoVncParams(baseUrl: string): string {
   url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
   url.searchParams.set("autoconnect", "true");
   url.searchParams.set("resize", "scale");
-  url.searchParams.set("quality", "4");
+  url.searchParams.set("quality", "6");
   url.searchParams.set("compression", "2");
   return url.toString();
 }

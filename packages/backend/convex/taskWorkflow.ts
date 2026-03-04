@@ -85,10 +85,11 @@ ${subtasksList}${changeRequestSection}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof using agent-browser:
-1. Start dev server in background, wait for ready
-2. Screenshot (simple changes) or record video (complex changes) — pick one
-3. Save to screenshots/ or recordings/ in repo root
-4. Kill the dev server
+1. Run \`agent-browser set viewport 1920 1080\` to set the viewport size
+2. Start dev server in background, wait for ready
+3. Screenshot (simple changes) or record video (complex changes) — pick one
+4. Save to screenshots/ or recordings/ in repo root
+5. Kill the dev server
 If dev server fails or page errors, screenshot the error state anyway.
 Skip if no UI changes. Do NOT mention proof capture in response or commit message.
 

@@ -57,26 +57,26 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ConvexQueryCacheProvider>
           <EnsureUser />
-          <AuthLoading>
-            <div className="flex min-h-screen items-center justify-center">
-              <Spinner size="lg" />
-            </div>
-          </AuthLoading>
-          <Authenticated>
-            <NextThemesProvider
-              attribute="class"
-              defaultTheme="light"
-              enableSystem
-              disableTransitionOnChange
-            >
+          <NextThemesProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthLoading>
+              <div className="min-h-screen w-full bg-background">
+                <Spinner size="lg" />
+              </div>
+            </AuthLoading>
+            <Authenticated>
               <ThemeProvider>
                 <TooltipProvider delayDuration={300}>
                   {children}
                   <PresenceHeartbeat />
                 </TooltipProvider>
               </ThemeProvider>
-            </NextThemesProvider>
-          </Authenticated>
+            </Authenticated>
+          </NextThemesProvider>
         </ConvexQueryCacheProvider>
       </ConvexProviderWithClerk>
     </NuqsAdapter>

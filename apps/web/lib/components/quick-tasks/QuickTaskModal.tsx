@@ -34,14 +34,17 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   const [description, setDescription] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBranch);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeDraftId, setActiveDraftId] = useState<Id<"taskDrafts"> | null>(
+  const [activeDraftId, setActiveDraftId] = useState<Id<"agentTasks"> | null>(
     null,
   );
+  const [confirmDeleteId, setConfirmDeleteId] =
+    useState<Id<"agentTasks"> | null>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
-  const saveDraft = useMutation(api.taskDrafts.save);
-  const removeDraft = useMutation(api.taskDrafts.remove);
-  const drafts = useQuery(api.taskDrafts.list, { repoId: repo._id });
+  const saveDraft = useMutation(api.agentTasks.saveDraft);
+  const activateDraft = useMutation(api.agentTasks.activateDraft);
+  const removeDraft = useMutation(api.agentTasks.remove);
+  const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
 
   const hasContent = title.trim() || description.trim();
 
@@ -81,15 +84,22 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
 
     setIsLoading(true);
     try {
-      await createQuickTask({
-        repoId: repo._id,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        baseBranch,
-        model: repo.defaultModel,
-      });
       if (activeDraftId) {
-        await removeDraft({ id: activeDraftId });
+        await activateDraft({
+          id: activeDraftId,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          baseBranch,
+          model: repo.defaultModel,
+        });
+      } else {
+        await createQuickTask({
+          repoId: repo._id,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          baseBranch,
+          model: repo.defaultModel,
+        });
       }
       resetForm();
       onClose();
@@ -105,12 +115,9 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
     setActiveDraftId(draft._id);
   };
 
-  const handleDeleteDraft = async (
-    e: React.MouseEvent,
-    draftId: Id<"taskDrafts">,
-  ) => {
-    e.stopPropagation();
+  const handleDeleteDraft = async (draftId: Id<"agentTasks">) => {
     await removeDraft({ id: draftId });
+    setConfirmDeleteId(null);
     if (activeDraftId === draftId) {
       resetForm();
     }
@@ -176,25 +183,61 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
                   </div>
                   <div className="max-h-56 overflow-y-auto">
                     {drafts.map((draft) => (
-                      <button
-                        key={draft._id}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors group"
-                        onClick={() => loadDraft(draft)}
-                      >
-                        <span className="flex-1 truncate">
-                          {draft.title || (
-                            <span className="text-muted-foreground italic">
-                              Untitled
+                      <div key={draft._id}>
+                        {confirmDeleteId === draft._id ? (
+                          <div className="flex items-center justify-between gap-2 px-3 py-2 text-sm bg-destructive/5">
+                            <span className="text-destructive truncate">
+                              Delete draft?
                             </span>
-                          )}
-                        </span>
-                        <button
-                          className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all"
-                          onClick={(e) => handleDeleteDraft(e, draft._id)}
-                        >
-                          <IconTrash size={14} />
-                        </button>
-                      </button>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setConfirmDeleteId(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => handleDeleteDraft(draft._id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors group cursor-pointer"
+                            onClick={() => loadDraft(draft)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ")
+                                loadDraft(draft);
+                            }}
+                          >
+                            <span className="flex-1 truncate">
+                              {draft.title || (
+                                <span className="text-muted-foreground italic">
+                                  Untitled
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteId(draft._id);
+                              }}
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </PopoverContent>

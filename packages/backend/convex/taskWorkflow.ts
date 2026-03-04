@@ -196,6 +196,17 @@ export const taskExecutionWorkflow = workflow.define({
     // Step 5: Wait for sandbox callback
     const result = await step.awaitEvent(taskCompleteEvent);
 
+    // Step 5b: Schedule deployment tracking (non-blocking)
+    if (result.success) {
+      await step.runMutation(internal.taskWorkflow.scheduleDeploymentTracking, {
+        runId: args.runId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        branchName: data.branchName,
+      });
+    }
+
     // Step 6: Create PR if first task on branch
     let prUrl: string | null = null;
     if (args.isFirstTaskOnBranch && result.success) {
@@ -365,6 +376,33 @@ export const saveSandboxId = internalMutation({
     if (run) {
       await ctx.db.patch(args.runId, { sandboxId: args.sandboxId });
     }
+    return null;
+  },
+});
+
+export const scheduleDeploymentTracking = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.runId, { deploymentStatus: "queued" });
+    await ctx.scheduler.runAfter(
+      30_000,
+      internal.taskWorkflowActions.pollDeploymentStatus,
+      {
+        runId: args.runId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        attempt: 0,
+      },
+    );
     return null;
   },
 });

@@ -1,9 +1,11 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
 import {
   runStatusValidator,
   logLevelValidator,
   errorTypeValidator,
+  deploymentStatusValidator,
 } from "./validators";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
@@ -31,6 +33,8 @@ const agentRunValidator = v.object({
   exitReason: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
 });
 
 export const get = authQuery({
@@ -210,6 +214,26 @@ export const complete = authMutation({
         projectId: task.projectId,
       });
     }
+    return null;
+  },
+});
+
+export const updateDeploymentStatus = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    deploymentStatus: deploymentStatusValidator,
+    deploymentUrl: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    await ctx.db.patch(args.runId, {
+      deploymentStatus: args.deploymentStatus,
+      ...(args.deploymentUrl !== undefined && {
+        deploymentUrl: args.deploymentUrl,
+      }),
+    });
     return null;
   },
 });

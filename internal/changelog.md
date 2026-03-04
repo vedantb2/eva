@@ -1,5 +1,19 @@
 # Changelog
 
+## Vercel deployment status tracking - 2026-03-04
+
+- **Why**: After Eva pushes code, Vercel builds a preview deployment but there's no visibility into the build status or preview URL. Users had to check Vercel manually.
+- **Changes**:
+  1. `validators.ts` — new `deploymentStatusValidator` (queued, building, deployed, error)
+  2. `schema.ts` — added `deploymentStatus` + `deploymentUrl` fields to `agentRuns` table
+  3. `agentRuns.ts` — updated return validator + added `updateDeploymentStatus` internal mutation
+  4. `taskWorkflowActions.ts` — new `pollDeploymentStatus` self-scheduling action that polls GitHub Deployments API (60s intervals, max 20 attempts / ~20 min)
+  5. `taskWorkflow.ts` — new `scheduleDeploymentTracking` mutation called after successful sandbox completion, sets initial "queued" status and schedules first poll
+  6. `QuickTaskCard.tsx` — inline colored deployment status dot on card + "View Preview" dropdown item
+  7. `useTaskDetail.tsx` — deployment status badge + "View Preview" link next to PR link per run
+- **Approach**: Uses GitHub Deployments API (not Vercel API directly). Vercel auto-creates GitHub Deployment records when building. Reuses existing GitHub App tokens — no new env vars. Provider-agnostic.
+- **Prerequisite**: GitHub App needs `deployments:read` permission.
+
 ## Open-source Eva with MIT license - 2026-03-04
 
 - **Why**: Make Eva publicly available under an open-source license while maintaining ownership of the codebase. MIT allows anyone to use, modify, and distribute freely without restrictions.

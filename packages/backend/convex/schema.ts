@@ -17,6 +17,7 @@ import {
   queryConfirmationStatusValidator,
   claudeModelValidator,
   errorTypeValidator,
+  deploymentStatusValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
@@ -131,6 +132,8 @@ const schema = defineSchema({
     exitReason: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
+    deploymentStatus: v.optional(deploymentStatusValidator),
+    deploymentUrl: v.optional(v.string()),
   })
     .index("by_task", ["taskId"])
     .index("by_task_and_status", ["taskId", "status"])

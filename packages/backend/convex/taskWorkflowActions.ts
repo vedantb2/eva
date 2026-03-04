@@ -2,7 +2,9 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getInstallationOctokit } from "./githubAuth";
+import { deploymentStatusValidator } from "./validators";
 
 type AuditRow = {
   requirement: string;
@@ -180,6 +182,127 @@ export const appendAuditToPullRequest = internalAction({
       console.error(
         `Failed to append audit to PR: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+    return null;
+  },
+});
+
+const MAX_POLL_ATTEMPTS = 20;
+const POLL_INTERVAL_MS = 60_000;
+
+type DeploymentStatus = typeof deploymentStatusValidator.type;
+
+function mapGitHubDeploymentState(state: string): DeploymentStatus {
+  switch (state) {
+    case "queued":
+      return "queued";
+    case "pending":
+    case "in_progress":
+    case "waiting":
+      return "building";
+    case "success":
+      return "deployed";
+    case "error":
+    case "failure":
+    case "inactive":
+      return "error";
+    default:
+      return "building";
+  }
+}
+
+function isTerminalDeploymentStatus(status: DeploymentStatus): boolean {
+  return status === "deployed" || status === "error";
+}
+
+export const pollDeploymentStatus = internalAction({
+  args: {
+    runId: v.id("agentRuns"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    attempt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+
+      const { data: deployments } = await octokit.rest.repos.listDeployments({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        ref: args.branchName,
+        per_page: 1,
+      });
+
+      if (deployments.length === 0) {
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
+
+      const deployment = deployments[0];
+      const { data: statuses } =
+        await octokit.rest.repos.listDeploymentStatuses({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          deployment_id: deployment.id,
+          per_page: 1,
+        });
+
+      if (statuses.length === 0) {
+        await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
+          runId: args.runId,
+          deploymentStatus: "queued",
+        });
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
+
+      const latestStatus = statuses[0];
+      const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
+      const deploymentUrl =
+        latestStatus.environment_url || latestStatus.target_url || undefined;
+
+      await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
+        runId: args.runId,
+        deploymentStatus: mappedStatus,
+        deploymentUrl,
+      });
+
+      if (
+        !isTerminalDeploymentStatus(mappedStatus) &&
+        args.attempt < MAX_POLL_ATTEMPTS
+      ) {
+        await ctx.scheduler.runAfter(
+          POLL_INTERVAL_MS,
+          internal.taskWorkflowActions.pollDeploymentStatus,
+          { ...args, attempt: args.attempt + 1 },
+        );
+      }
+    } catch (error) {
+      console.error(
+        `Failed to poll deployment status: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      if (args.attempt < MAX_POLL_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          POLL_INTERVAL_MS,
+          internal.taskWorkflowActions.pollDeploymentStatus,
+          { ...args, attempt: args.attempt + 1 },
+        );
+      }
     }
     return null;
   },

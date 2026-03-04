@@ -87,6 +87,13 @@ export const errorTypeValidator = v.union(
   v.literal("generic"),
 );
 
+export const deploymentStatusValidator = v.union(
+  v.literal("queued"),
+  v.literal("building"),
+  v.literal("deployed"),
+  v.literal("error"),
+);
+
 export const roleUserValidator = v.union(
   v.literal("business"),
   v.literal("dev"),

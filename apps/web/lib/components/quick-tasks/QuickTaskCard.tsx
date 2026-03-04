@@ -21,6 +21,7 @@ import {
   IconGitPullRequest,
   IconDotsVertical,
   IconClock,
+  IconRocket,
 } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -63,10 +64,13 @@ export function QuickTaskCard({
   const { owner, name: repoName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
+  const latestDeployment = runs?.find((run) => run.deploymentStatus);
   const hasError = runs?.[0]?.status === "error";
   const statusMeta = statusConfig[status];
   const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
-  const showActions = Boolean(branchName || latestPrUrl);
+  const showActions = Boolean(
+    branchName || latestPrUrl || latestDeployment?.deploymentUrl,
+  );
   const isInProgress = status === "in_progress" && !hasError;
 
   const card = (
@@ -149,6 +153,34 @@ export function QuickTaskCard({
               </Tooltip>
             ) : null}
             <SubtaskProgress taskId={id} />
+            {latestDeployment?.deploymentStatus ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        latestDeployment.deploymentStatus === "deployed"
+                          ? "bg-emerald-500"
+                          : latestDeployment.deploymentStatus === "error"
+                            ? "bg-red-500"
+                            : latestDeployment.deploymentStatus === "building"
+                              ? "bg-amber-500 animate-pulse"
+                              : "bg-blue-500 animate-pulse"
+                      }`}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {latestDeployment.deploymentStatus === "deployed"
+                    ? "Deployed"
+                    : latestDeployment.deploymentStatus === "building"
+                      ? "Building"
+                      : latestDeployment.deploymentStatus === "error"
+                        ? "Deploy failed"
+                        : "Queued"}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {showActions ? (
               <div
                 onPointerDown={(event) => event.stopPropagation()}
@@ -187,6 +219,16 @@ export function QuickTaskCard({
                       >
                         <IconGitPullRequest size={16} />
                         View PR
+                      </DropdownMenuItem>
+                    ) : null}
+                    {latestDeployment?.deploymentUrl ? (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          window.open(latestDeployment.deploymentUrl, "_blank")
+                        }
+                      >
+                        <IconRocket size={16} />
+                        View Preview
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>

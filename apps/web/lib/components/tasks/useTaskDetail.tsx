@@ -59,6 +59,7 @@ import {
   IconInfoCircle,
   IconPlayerStop,
   IconClock,
+  IconBrandVercel,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -558,16 +559,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                       {run.error}
                     </div>
                   )}
-                  {run.prUrl && (
-                    <a
-                      href={run.prUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline"
-                    >
-                      View Pull Request
-                    </a>
-                  )}
                   {run.logs.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs text-muted-foreground mb-1">Logs</p>
@@ -965,6 +956,51 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           )}
         </div>
       )}
+      {(() => {
+        const latestDeployment = runs?.find((r) => r.deploymentStatus);
+        if (!latestDeployment?.deploymentStatus) return null;
+        return (
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <IconBrandVercel size={12} />
+              Vercel Status
+            </p>
+            <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  latestDeployment.deploymentStatus === "deployed"
+                    ? "bg-emerald-500"
+                    : latestDeployment.deploymentStatus === "error"
+                      ? "bg-red-500"
+                      : latestDeployment.deploymentStatus === "building"
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-blue-500 animate-pulse"
+                }`}
+              />
+              <span className="text-foreground">
+                {latestDeployment.deploymentStatus === "deployed"
+                  ? "Deployed"
+                  : latestDeployment.deploymentStatus === "building"
+                    ? "Building"
+                    : latestDeployment.deploymentStatus === "error"
+                      ? "Deploy failed"
+                      : "Queued"}
+              </span>
+            </div>
+            {latestDeployment.deploymentUrl && (
+              <a
+                href={latestDeployment.deploymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <IconBrandVercel size={12} />
+                View Preview
+              </a>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 

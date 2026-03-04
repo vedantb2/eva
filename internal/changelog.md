@@ -1,5 +1,9 @@
 # Changelog
 
+## Cleanup legacy migrations - 2026-03-04
+
+- Removed one-time migrations from `migrations.ts`: `assignOrphanRepos`, `createPersonalTeamsAndMigrate`, `removeTeamSlugs`, `migrateBoardsAndCommentsToUserIds`, `renameMcpServerToMcp`. Kept `cleanupStaleRuns` (operational — fixes stuck task runs when run manually).
+
 ## Remove boards/columns tables — status-based tasks - 2026-03-04
 
 - **Why**: Boards and columns added indirection between repos and tasks. Tasks now use `status` directly; board/column was redundant.

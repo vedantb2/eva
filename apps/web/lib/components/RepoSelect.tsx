@@ -58,7 +58,7 @@ export function RepoSelect({
 
   const displayLabel = selectedRepo
     ? selectedRepo.rootDirectory
-      ? selectedRepo.rootDirectory.split("/").pop()
+      ? `${selectedRepo.name}/${selectedRepo.rootDirectory.split("/").pop()}`
       : selectedRepo.name
     : placeholder;
 
@@ -126,7 +126,7 @@ export function RepoSelect({
                           size={16}
                           className="text-muted-foreground"
                         />
-                        {appName}
+                        {`${rg.name}/${appName}`}
                       </DropdownMenuItem>
                     );
                   })}

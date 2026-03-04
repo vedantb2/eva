@@ -534,27 +534,47 @@ export function TaskDetailModal({
                             className="border rounded-lg px-3"
                           >
                             <AccordionTrigger>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant={
-                                    run.status === "success"
-                                      ? "success"
-                                      : run.status === "error"
-                                        ? "destructive"
-                                        : run.status === "running"
-                                          ? "warning"
-                                          : "outline"
-                                  }
-                                >
-                                  {run.status}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {run.startedAt
-                                    ? dayjs(run.startedAt).format(
+                              <div className="flex flex-1 items-center justify-between mr-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      run.status === "success"
+                                        ? "success"
+                                        : run.status === "error"
+                                          ? "destructive"
+                                          : run.status === "running"
+                                            ? "warning"
+                                            : "outline"
+                                    }
+                                  >
+                                    {run.status}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {run.startedAt
+                                      ? dayjs(run.startedAt).format(
+                                          "M/D/YYYY, h:mm:ss A",
+                                        )
+                                      : "Queued"}
+                                  </span>
+                                </div>
+                                {run.startedAt && run.finishedAt && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatDuration(
+                                          run.startedAt,
+                                          run.finishedAt,
+                                        )}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Completed{" "}
+                                      {dayjs(run.finishedAt).format(
                                         "M/D/YYYY, h:mm:ss A",
-                                      )
-                                    : "Queued"}
-                                </span>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
                             </AccordionTrigger>
                             <AccordionContent>

@@ -17,12 +17,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Spinner,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@conductor/ui";
+import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import {
   QuickTaskModal,
@@ -52,8 +52,6 @@ import {
   IconUser,
   IconUserCheck,
   IconRefresh,
-  IconSearch,
-  IconX,
   IconPlayerPlay,
 } from "@tabler/icons-react";
 
@@ -87,13 +85,11 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [{ q, view }, setParams] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
   });
   const searchQuery = q;
-  const showSearch = isSearchOpen || !!searchQuery;
   const quickTasksPath = `${basePath}/quick-tasks`;
   const quickTaskPathPrefix = `${quickTasksPath}/`;
 
@@ -152,7 +148,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname !== taskPath
     ) {
-      window.history.pushState(null, "", taskPath);
+      window.history.pushState(null, "", taskPath + window.location.search);
     }
   };
 
@@ -162,7 +158,11 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
       typeof window !== "undefined" &&
       window.location.pathname.startsWith(quickTaskPathPrefix)
     ) {
-      window.history.replaceState(null, "", quickTasksPath);
+      window.history.replaceState(
+        null,
+        "",
+        quickTasksPath + window.location.search,
+      );
     }
   };
 
@@ -174,75 +174,13 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         childPadding={false}
         headerRight={
           <div className="flex items-center gap-2">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {hasQuickTasks && showSearch ? (
-                <motion.div
-                  key="task-search-input"
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 176 }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="relative w-44">
-                    <IconSearch
-                      size={14}
-                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                    />
-                    <Input
-                      autoFocus
-                      placeholder="Search tasks..."
-                      value={searchQuery}
-                      onChange={(e) => setParams({ q: e.target.value || null })}
-                      onBlur={() => {
-                        if (!searchQuery) setIsSearchOpen(false);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          setParams({ q: null });
-                          setIsSearchOpen(false);
-                        }
-                      }}
-                      className="h-8 pl-7 pr-7 text-sm"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setParams({ q: null });
-                          setIsSearchOpen(false);
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <IconX size={13} />
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              ) : hasQuickTasks ? (
-                <motion.div
-                  key="task-search-icon"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
-                        onClick={() => setIsSearchOpen(true)}
-                      >
-                        <IconSearch size={16} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Search tasks</TooltipContent>
-                  </Tooltip>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+            <ToggleSearch
+              value={searchQuery}
+              onChange={(v) => setParams({ q: v })}
+              placeholder="Search tasks..."
+              tooltipLabel="Search tasks"
+              visible={hasQuickTasks}
+            />
             {hasQuickTasks && (
               <div className="flex items-center rounded-lg border border-border overflow-hidden">
                 <Tooltip>
@@ -394,7 +332,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 exit={{ opacity: 0, y: 16 }}
                 transition={{ duration: 0.18 }}
               >
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg backdrop-blur">
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg">
                   <Button
                     size="sm"
                     variant="secondary"

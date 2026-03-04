@@ -9,7 +9,7 @@
 [] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
 [] session branch not creating during sessions
 [] add posted via Assist, store the origin of msg send
-[] improve streaming log - add more detail
+[x] improve streaming log - add more detail
 [] improve cmdk search modal
 [] explore whether we even need to delete sandboxes for sessions, can archive instead
 

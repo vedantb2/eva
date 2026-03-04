@@ -1,23 +1,8 @@
 "use client";
 
-import { api } from "@conductor/backend";
-import usePresence from "@convex-dev/presence/react";
-import { useQuery } from "convex/react";
-import type { Id } from "@conductor/backend";
 import { usePathname } from "next/navigation";
 import { TopNavBar } from "@/lib/components/TopNavBar";
 import { ClientProvider } from "@/lib/components/ClientProvider";
-
-function PresenceHeartbeat() {
-  const userId = useQuery(api.auth.me);
-  if (!userId) return null;
-  return <PresenceInner userId={userId} />;
-}
-
-function PresenceInner({ userId }: { userId: Id<"users"> }) {
-  usePresence(api.presence, "platform", userId);
-  return null;
-}
 
 export default function MainLayout({
   children,
@@ -49,7 +34,6 @@ export default function MainLayout({
         >
           {children}
         </div>
-        <PresenceHeartbeat />
       </div>
     </ClientProvider>
   );

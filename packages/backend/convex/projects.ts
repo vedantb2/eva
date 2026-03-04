@@ -417,46 +417,12 @@ export const startDevelopment = authMutation({
         .replace(/^-|-$/g, "")
         .slice(0, 50);
     const branchName = `eva/${slugify(spec.title)}`;
-    let board = await ctx.db
-      .query("boards")
-      .withIndex("by_repo", (q) => q.eq("repoId", project.repoId))
-      .first();
-    if (!board) {
-      const boardId = await ctx.db.insert("boards", {
-        name: "Project Tasks",
-        ownerId: ctx.userId,
-        repoId: project.repoId,
-        createdAt: Date.now(),
-      });
-      board = await ctx.db.get(boardId);
-    }
-    if (!board) {
-      throw new Error("Failed to get or create board");
-    }
-    let column = await ctx.db
-      .query("columns")
-      .withIndex("by_board", (q) => q.eq("boardId", board._id))
-      .first();
-    if (!column) {
-      const columnId = await ctx.db.insert("columns", {
-        boardId: board._id,
-        name: "Backlog",
-        order: 0,
-        isRunColumn: false,
-      });
-      column = await ctx.db.get(columnId);
-    }
-    if (!column) {
-      throw new Error("Failed to get or create column");
-    }
     const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];
       const taskNumber = i + 1;
       const taskId = await ctx.db.insert("agentTasks", {
-        boardId: board._id,
-        columnId: column._id,
         title: task.title,
         description: task.description,
         repoId: project.repoId,
@@ -498,8 +464,6 @@ export const startDevelopment = authMutation({
       const audit = AUDIT_TASKS[i];
       const taskNumber = spec.tasks.length + i + 1;
       const auditTaskId = await ctx.db.insert("agentTasks", {
-        boardId: board._id,
-        columnId: column._id,
         title: audit.title,
         description: audit.description,
         repoId: project.repoId,

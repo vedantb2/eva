@@ -6,6 +6,7 @@ import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
+import { SearchProvider } from "@/lib/contexts/SearchContext";
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
@@ -38,11 +39,13 @@ export default function RepoLayout({
 
   return (
     <SidebarProvider>
-      <RepoProvider owner={owner} repoParam={repo}>
-        <Sidebar />
-        <MainContent>{children}</MainContent>
-        <SpotlightSearch />
-      </RepoProvider>
+      <SearchProvider>
+        <RepoProvider owner={owner} repoParam={repo}>
+          <Sidebar />
+          <MainContent>{children}</MainContent>
+          <SpotlightSearch />
+        </RepoProvider>
+      </SearchProvider>
     </SidebarProvider>
   );
 }

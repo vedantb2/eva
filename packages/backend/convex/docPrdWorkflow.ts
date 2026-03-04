@@ -6,6 +6,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { PARSE_PROMPT } from "./prompts";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -18,22 +19,6 @@ const prdCompleteEvent = defineEvent({
     activityLog: v.union(v.string(), v.null()),
   }),
 });
-
-const PARSE_PROMPT = `You are a product manager writing a PRD from an uploaded requirements document. Read CLAUDE.md and explore the codebase to understand existing product behavior, but write everything in plain business language.
-
-## Output Format
-You MUST output ONLY valid JSON with this exact structure:
-{
-  "description": "1-3 sentence description of what this feature does for the user",
-  "requirements": ["Acceptance criterion 1", "Acceptance criterion 2"],
-  "userFlows": [{"name": "Flow name", "steps": ["Step 1", "Step 2"]}]
-}
-
-## Guidelines
-- Description: plain-English summary of what the user can do and why it matters
-- Requirements: 5-15 acceptance criteria written as "The user can..." or "The system should..." statements. Each must be verifiable by a non-technical person just by using the product
-- User flows: 2-5 step-by-step journeys written from the user's perspective (e.g. "User clicks the Create button", "User sees a confirmation message"). 3-8 steps each
-- NEVER use technical language: no mention of APIs, databases, components, or code`;
 
 interface ParsedDocFields {
   description?: string;

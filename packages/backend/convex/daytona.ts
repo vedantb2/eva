@@ -178,8 +178,8 @@ async function createSandbox(
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
       },
-      autoStopInterval: 10,
-      autoDeleteInterval: 15,
+      autoStopInterval: 30,
+      autoDeleteInterval: 45,
     },
     { timeout: timeoutSeconds },
   );
@@ -426,6 +426,16 @@ const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "${WORKSPACE_DIR}";
+const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
+const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
+
+const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+if (GH_TOKEN) {
+  process.env.GH_TOKEN = GH_TOKEN;
+  process.env.GITHUB_TOKEN = GH_TOKEN;
+}
+process.env.GH_PROMPT_DISABLED = "1";
+process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 async function callMutation(path, args) {
   const headers = { "Content-Type": "application/json" };
@@ -558,6 +568,7 @@ function parseStreamEvent(line) {
 const accumulatedSteps = [];
 let rawOutput = "";
 let lastProcessed = 0;
+let lastStreamingSentAt = Date.now();
 
 async function flushStreaming() {
   if (rawOutput.length <= lastProcessed) return;
@@ -577,8 +588,20 @@ async function flushStreaming() {
         entityId: STREAMING_ENTITY_ID,
         currentActivity: JSON.stringify(accumulatedSteps),
       });
+      lastStreamingSentAt = Date.now();
     } catch {}
   }
+}
+
+async function heartbeatPing() {
+  if (Date.now() - lastStreamingSentAt < 10000) return;
+  try {
+    await callMutation("streaming:set", {
+      entityId: STREAMING_ENTITY_ID,
+      currentActivity: JSON.stringify(accumulatedSteps),
+    });
+    lastStreamingSentAt = Date.now();
+  } catch {}
 }
 
 // Send initial step immediately so frontend sees progress right away
@@ -589,6 +612,7 @@ callMutation("streaming:set", {
 }).catch(() => {});
 
 const interval = setInterval(flushStreaming, 500);
+const heartbeatInterval = setInterval(heartbeatPing, 10000);
 
 // Clear stale media from previous executions so only current run's media gets uploaded
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -663,19 +687,34 @@ async function runClaudeAttempt(includeSessionId) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let attemptOutput = "";
+    let lastStdoutAt = Date.now();
+    let timedOutForNoOutput = false;
+    const noOutputTimer = setInterval(() => {
+      if (Date.now() - lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
+        return;
+      }
+      timedOutForNoOutput = true;
+      try { child.kill("SIGTERM"); } catch {}
+      setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch {}
+      }, 2000);
+    }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
       attemptOutput += text;
       rawOutput += text;
+      lastStdoutAt = Date.now();
     });
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString();
     });
     child.on("close", (code) => {
-      resolve({ code: code ?? 1, output: attemptOutput });
+      clearInterval(noOutputTimer);
+      resolve({ code: code ?? 1, output: attemptOutput, timedOutForNoOutput });
     });
     child.on("error", (err) => {
+      clearInterval(noOutputTimer);
       reject(err);
     });
   });
@@ -686,6 +725,7 @@ try {
   await flushStreaming();
 
   let finalCode = firstAttempt.code;
+  let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     Boolean(process.env.CLAUDE_SESSION_ID) &&
@@ -707,10 +747,12 @@ try {
     const secondAttempt = await runClaudeAttempt(false);
     await flushStreaming();
     finalCode = secondAttempt.code;
+    finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
   clearInterval(interval);
+  clearInterval(heartbeatInterval);
   await flushStreaming();
 
   for (const step of accumulatedSteps) step.status = "complete";
@@ -791,7 +833,14 @@ try {
     ${entityIdField}: ENTITY_ID,
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
-    error: finalResultEvent?.isError ? finalResultEvent.result : (finalCode !== 0 ? "Claude CLI exited with code " + finalCode + (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "") : null),
+    error: finalResultEvent?.isError
+      ? finalResultEvent.result
+      : (finalCode !== 0
+          ? (finalTimedOutForNoOutput
+              ? "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms"
+              : "Claude CLI exited with code " + finalCode) +
+            (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
+          : null),
     activityLog,
   };
   try {
@@ -802,6 +851,7 @@ try {
   }
 } catch (err) {
   clearInterval(interval);
+  clearInterval(heartbeatInterval);
   const errorArgs = {
     ${entityIdField}: ENTITY_ID,
     success: false,
@@ -967,7 +1017,10 @@ export const getPreviewUrl = action({
       }
     }
 
-    return { url: signedPreview.url, port: args.port, ready };
+    const parsedUrl = new URL(signedPreview.url);
+    parsedUrl.protocol = "https:";
+    const url = parsedUrl.toString();
+    return { url, port: args.port, ready };
   },
 });
 
@@ -1359,6 +1412,35 @@ export const toggleDesktopServer = action({
       await sandbox.computerUse.start();
     } else {
       await sandbox.computerUse.stop();
+    }
+
+    return null;
+  },
+});
+
+export const launchChromeInDesktop = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    try {
+      await sandbox.process.executeCommand(
+        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage > /dev/null 2>&1 &"',
+        "/",
+        undefined,
+        5,
+      );
+    } catch {
+      // Non-fatal: Chrome launch failure shouldn't break the desktop
     }
 
     return null;

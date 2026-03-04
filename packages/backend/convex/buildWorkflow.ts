@@ -156,7 +156,7 @@ export const startTaskForBuild = internalMutation({
         branchName: project.branchName,
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
-        model: task.model,
+        model: task.model ?? repo.defaultModel,
         userId: args.userId,
       },
     );

@@ -32,80 +32,6 @@ export async function getCurrentUserId(
   return null;
 }
 
-export const createOrMigrateUser = mutation({
-  args: {
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    fullName: v.optional(v.string()),
-  },
-  returns: v.object({
-    userId: v.id("users"),
-    wasCreated: v.boolean(),
-    wasMigrated: v.optional(v.boolean()),
-  }),
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const clerkUserId = identity.subject;
-    const email = identity.email || "";
-
-    if (!email) {
-      throw new Error("Email is required");
-    }
-
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .first();
-
-    if (existingUser) {
-      console.log(`User already exists for email: ${email}`);
-      return {
-        userId: existingUser._id,
-        wasCreated: false,
-        wasMigrated: false,
-      };
-    }
-
-    const userId = await ctx.db.insert("users", {
-      clerkId: clerkUserId,
-      email,
-      firstName: args.firstName || undefined,
-      lastName: args.lastName || undefined,
-      fullName: args.fullName || undefined,
-      // createdAt: now,
-      // updatedAt: now,
-    });
-
-    console.log(`Created new user: ${userId} for email: ${email}`);
-    const wasMigrated = await runMigration(ctx, clerkUserId, userId, email);
-    return {
-      userId,
-      wasCreated: true,
-      wasMigrated,
-    };
-  },
-});
-
-async function runMigration(
-  ctx: MutationCtx,
-  clerkUserId: string,
-  userId: Id<"users">,
-  email: string,
-): Promise<undefined> {
-  const now = Date.now();
-
-  await ctx.db.insert("userMigrations", {
-    clerkUserId,
-    userId,
-    email,
-    migratedAt: now,
-    migrationStatus: "started",
-  });
-}
-
 export const getUserClerkId = internalQuery({
   args: { userId: v.id("users") },
   returns: v.union(v.string(), v.null()),
@@ -156,15 +82,6 @@ export const me = authQuery({
   returns: v.id("users"),
   handler: async (ctx) => {
     return ctx.userId;
-  },
-});
-
-export const isCurrentUserAdmin = authQuery({
-  args: {},
-  returns: v.boolean(),
-  handler: async (ctx) => {
-    const user = await ctx.db.get(ctx.userId);
-    return user?.isAdmin === true;
   },
 });
 

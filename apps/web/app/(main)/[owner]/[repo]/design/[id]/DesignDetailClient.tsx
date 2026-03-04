@@ -423,7 +423,7 @@ export function DesignDetailClient({
                 >
                   {previewUrl ? (
                     <iframe
-                      src={`/api/preview?url=${encodeURIComponent(`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`)}`}
+                      src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
                       className="w-full h-full border-0"
                       title={variation.label}
                     />

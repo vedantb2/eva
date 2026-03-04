@@ -27,6 +27,7 @@ import {
   statusConfig,
   TASK_STATUSES,
   type TaskStatus,
+  type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
@@ -39,6 +40,7 @@ interface QuickTasksListViewProps {
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (id: Id<"agentTasks">) => void;
+  selectedTaskId?: string | null;
 }
 
 export function QuickTasksListView({
@@ -47,6 +49,7 @@ export function QuickTasksListView({
   selectedIds,
   onToggleSelect,
   onOpenTask,
+  selectedTaskId,
 }: QuickTasksListViewProps) {
   const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
@@ -64,10 +67,7 @@ export function QuickTasksListView({
     statuses: statusesParser,
   });
   const searchQuery = q;
-  const visibleStatuses = useMemo(
-    () => new Set(statuses as TaskStatus[]),
-    [statuses],
-  );
+  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const tasks = useMemo(
     () =>
@@ -101,7 +101,7 @@ export function QuickTasksListView({
   const ownedTodoTasks = todoTasks.filter((t) => t.createdBy === currentUserId);
   const skippedCount = todoTasks.length - ownedTodoTasks.length;
 
-  const handleStatusToggle = (status: TaskStatus) => {
+  const handleStatusToggle = (status: DisplayTaskStatus) => {
     const next = new Set(visibleStatuses);
     if (next.has(status)) {
       if (next.size === 1) return;
@@ -264,6 +264,7 @@ export function QuickTasksListView({
                             }}
                             isSelecting={isSelecting}
                             isSelected={selectedIds.has(task._id)}
+                            isActive={selectedTaskId === task._id}
                             onToggleSelect={() => onToggleSelect(task._id)}
                           />
                         ))}

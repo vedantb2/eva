@@ -246,16 +246,6 @@ export function ProjectTaskDetailPanel({
                             {run.error}
                           </div>
                         )}
-                        {run.prUrl && (
-                          <a
-                            href={run.prUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            View Pull Request
-                          </a>
-                        )}
                         {run.logs.length > 0 && (
                           <div className="mt-2">
                             <p className="text-xs text-muted-foreground mb-1">

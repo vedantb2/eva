@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract static prompts to prompts folder - 2026-03-04
+
+- **Why**: Prompts were scattered across workflow files; harder to audit, tune, or share common patterns.
+- **Change**: Added `packages/backend/convex/prompts/` folder with domain-split files: `shared.ts` (buildRootDirectoryInstruction, getResponseLengthInstruction), `doc.ts` (PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT), `project.ts` (PROJECT_INTERVIEW_SYSTEM_PROMPT, TASK_PHILOSOPHY, SPEC_SYSTEM_PROMPT), `design.ts` (DESIGN_SYSTEM_PROMPT), `index.ts` (barrel export). Workflow-specific builders remain in their workflow files.
+- **Reason for change (architectural)**: Partial extraction keeps dynamic builders co-located with workflow logic. Folder structure makes prompts easier to parse and navigate per domain.
+
 ## Task execution freeze protection: guardrails + heartbeat watchdog - 2026-03-04
 
 - **Why**: Quick tasks froze at "Running command..." when Claude CLI ran blocking commands (e.g. `sleep 30`, hanging `gh api` calls). The 3-minute no-output timeout was too slow, and there was no server-side protection if the callback script itself died.

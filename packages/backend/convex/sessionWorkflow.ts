@@ -6,6 +6,10 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { sessionModeValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import {
+  buildRootDirectoryInstruction,
+  getResponseLengthInstruction,
+} from "./prompts";
 
 // --- Completion event ---
 
@@ -30,19 +34,6 @@ const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
 const WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
-
-function getResponseLengthInstruction(responseLength: string): string {
-  if (responseLength === "concise")
-    return "\n\n## Response Length\nKeep your response very concise and brief. Use short sentences, bullet points where possible, and avoid unnecessary detail.";
-  if (responseLength === "detailed")
-    return "\n\n## Response Length\nProvide a detailed and thorough response. Include examples, explanations, and supporting context where helpful.";
-  return "";
-}
-
-function buildRootDirectoryInstruction(rootDirectory: string): string {
-  if (!rootDirectory) return "";
-  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
-}
 
 function buildAskPrompt(
   repo: { owner: string; name: string },

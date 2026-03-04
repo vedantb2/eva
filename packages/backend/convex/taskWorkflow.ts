@@ -7,6 +7,7 @@ import { authMutation, hasTaskAccess } from "./functions";
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
+import { buildRootDirectoryInstruction } from "./prompts";
 
 // --- Events ---
 
@@ -43,11 +44,6 @@ const auditCompleteEvent = defineEvent({
 // --- Prompt builder ---
 
 const WORKSPACE_DIR = "/workspace/repo";
-
-function buildRootDirectoryInstruction(rootDirectory: string): string {
-  if (!rootDirectory) return "";
-  return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
-}
 
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },

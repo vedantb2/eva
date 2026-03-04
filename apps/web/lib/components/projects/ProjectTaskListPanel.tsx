@@ -38,11 +38,13 @@ export function ProjectTaskListPanel({
 }: ProjectTaskListPanelProps) {
   const groupedTasks = useMemo(() => {
     const groups: Record<TaskStatus, Task[]> = {
+      draft: [],
       todo: [],
       in_progress: [],
       business_review: [],
       code_review: [],
       done: [],
+      cancelled: [],
     };
     for (const task of tasks) {
       groups[task.status].push(task);

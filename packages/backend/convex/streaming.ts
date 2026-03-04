@@ -22,14 +22,17 @@ export const set = authMutation({
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
       .first();
+    const now = Date.now();
     if (existing) {
       await ctx.db.patch(existing._id, {
         currentActivity: args.currentActivity,
+        lastUpdatedAt: now,
       });
     } else {
       await ctx.db.insert("streamingActivity", {
         entityId: args.entityId,
         currentActivity: args.currentActivity,
+        lastUpdatedAt: now,
       });
     }
     return null;

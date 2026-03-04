@@ -87,6 +87,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
             owner: repo.owner,
             name: repo.name,
             installationId: Number(installationId),
+            githubId: repo.id,
           });
           setAddedRepos((prev) => new Set([...prev, repo.fullName]));
         } catch {}
@@ -131,6 +132,7 @@ export function RepoSetupClient({ installationId }: RepoSetupClientProps) {
         owner: repo.owner,
         name: repo.name,
         installationId: Number(installationId),
+        githubId: repo.id,
         rootDirectory,
       });
       setAddedRepos((prev) => new Set([...prev, key]));

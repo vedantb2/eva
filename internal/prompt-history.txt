@@ -1,3 +1,4 @@
+.
 [] how to cancel task instead of kill claude code process
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
 [] verify task grouped into project create just 1 pr
@@ -8,7 +9,7 @@
 [] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
 [] session branch not creating during sessions
 [] add posted via Assist, store the origin of msg send
-[] improve streaming log - add more detail
+[x] improve streaming log - add more detail
 [] improve cmdk search modal
 [] explore whether we even need to delete sandboxes for sessions, can archive instead
 

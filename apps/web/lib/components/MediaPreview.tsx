@@ -19,6 +19,7 @@ export function VideoPreview({ url }: { url: string }) {
     setSpeed(rate);
     if (videoRef.current) {
       videoRef.current.playbackRate = rate;
+      videoRef.current.defaultPlaybackRate = rate;
     }
   };
 
@@ -30,9 +31,15 @@ export function VideoPreview({ url }: { url: string }) {
         controls
         playsInline
         preload="metadata"
-        className="rounded-lg border max-w-lg"
+        className="rounded-lg border max-w-full"
         onLoadedMetadata={() => {
           if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+            videoRef.current.defaultPlaybackRate = speed;
+          }
+        }}
+        onPlay={() => {
+          if (videoRef.current && videoRef.current.playbackRate !== speed) {
             videoRef.current.playbackRate = speed;
           }
         }}
@@ -66,7 +73,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
         <img
           src={url}
           alt="Screenshot"
-          className="rounded-lg max-w-lg border cursor-pointer hover:opacity-90 transition-opacity"
+          className="rounded-lg max-w-full border cursor-pointer hover:opacity-90 transition-opacity"
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -77,7 +84,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <IconExternalLink size={14} />
               Open in new tab

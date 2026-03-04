@@ -71,6 +71,12 @@ export const themeExtend = {
         subtle: c("status-done-subtle"),
         bar: c("status-done-bar"),
       },
+      cancelled: {
+        DEFAULT: c("status-cancelled"),
+        bg: c("status-cancelled-bg"),
+        subtle: c("status-cancelled-subtle"),
+        bar: c("status-cancelled-bar"),
+      },
     },
   },
   boxShadow: {

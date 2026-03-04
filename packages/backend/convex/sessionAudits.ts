@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { evaluationStatusValidator, evalResultValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
@@ -56,6 +57,12 @@ export const startAudit = authMutation({
       auditId,
       userId: ctx.userId,
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleSessionAudit,
+      { auditId },
+    );
 
     return auditId;
   },

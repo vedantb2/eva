@@ -9,6 +9,7 @@ import {
   variationValidator,
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -324,6 +325,12 @@ export const executeMessage = authMutation({
     await ctx.db.patch(args.id, {
       activeWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleDesignSession,
+      { designSessionId: args.id, workflowId: String(workflowId) },
+    );
 
     return null;
   },

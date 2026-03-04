@@ -13,9 +13,7 @@ import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
-import type * as boards from "../boards.js";
 import type * as buildWorkflow from "../buildWorkflow.js";
-import type * as columns from "../columns.js";
 import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
 import type * as designSessions from "../designSessions.js";
@@ -41,14 +39,19 @@ import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projects from "../projects.js";
+import type * as prompts_design from "../prompts/design.js";
+import type * as prompts_doc from "../prompts/doc.js";
+import type * as prompts_index from "../prompts/index.js";
+import type * as prompts_project from "../prompts/project.js";
+import type * as prompts_shared from "../prompts/shared.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
 import type * as pty from "../pty.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
+import type * as repoUtils from "../repoUtils.js";
 import type * as researchQueries from "../researchQueries.js";
 import type * as researchQueryWorkflow from "../researchQueryWorkflow.js";
-import type * as routines from "../routines.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
 import type * as savedQueries from "../savedQueries.js";
 import type * as screenshots from "../screenshots.js";
@@ -73,6 +76,7 @@ import type * as testGenWorkflow from "../testGenWorkflow.js";
 import type * as users from "../users.js";
 import type * as validators from "../validators.js";
 import type * as workflowManager from "../workflowManager.js";
+import type * as workflowWatchdog from "../workflowWatchdog.js";
 
 import type {
   ApiFromModules,
@@ -86,9 +90,7 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   annotations: typeof annotations;
   auth: typeof auth;
-  boards: typeof boards;
   buildWorkflow: typeof buildWorkflow;
-  columns: typeof columns;
   daytona: typeof daytona;
   designPersonas: typeof designPersonas;
   designSessions: typeof designSessions;
@@ -114,14 +116,19 @@ declare const fullApi: ApiFromModules<{
   presence: typeof presence;
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projects: typeof projects;
+  "prompts/design": typeof prompts_design;
+  "prompts/doc": typeof prompts_doc;
+  "prompts/index": typeof prompts_index;
+  "prompts/project": typeof prompts_project;
+  "prompts/shared": typeof prompts_shared;
   prosemirrorSync: typeof prosemirrorSync;
   pty: typeof pty;
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
   repoSnapshots: typeof repoSnapshots;
+  repoUtils: typeof repoUtils;
   researchQueries: typeof researchQueries;
   researchQueryWorkflow: typeof researchQueryWorkflow;
-  routines: typeof routines;
   sandboxJwt: typeof sandboxJwt;
   savedQueries: typeof savedQueries;
   screenshots: typeof screenshots;
@@ -146,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   validators: typeof validators;
   workflowManager: typeof workflowManager;
+  workflowWatchdog: typeof workflowWatchdog;
 }>;
 
 /**

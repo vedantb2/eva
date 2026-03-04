@@ -28,7 +28,7 @@ export async function getDeployKey(convexUrl: string): Promise<string> {
   if (!response.ok) {
     throw new Error(
       `Failed to bootstrap deploy key: HTTP ${response.status}. ` +
-        "Ensure CONDUCTOR_DEPLOY_KEY and MCP_JWT_SECRET are set in Convex env vars.",
+        "Ensure EVA_DEPLOY_KEY and MCP_JWT_SECRET are set in Convex env vars.",
     );
   }
   const body = bootstrapResponseSchema.parse(await response.json());
@@ -285,8 +285,8 @@ interface CachedRepoCreds {
 const repoCredentialsCache = new Map<string, CachedRepoCreds>();
 
 export async function getRepoConvexCredentials(
-  conductorUrl: string,
-  conductorDeployKey: string,
+  evaUrl: string,
+  evaDeployKey: string,
   repoId: string,
 ): Promise<{ convexUrl: string; deployKey: string } | null> {
   const cached = repoCredentialsCache.get(repoId);
@@ -294,7 +294,7 @@ export async function getRepoConvexCredentials(
     return { convexUrl: cached.convexUrl, deployKey: cached.deployKey };
   }
 
-  const vars = await getRepoEnvVars(conductorUrl, conductorDeployKey, repoId);
+  const vars = await getRepoEnvVars(evaUrl, evaDeployKey, repoId);
   const urlEntry = vars.find(
     (v) => v.key === "NEXT_PUBLIC_CONVEX_URL" || v.key === "CONVEX_URL",
   );

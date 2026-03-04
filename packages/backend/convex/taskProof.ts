@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authMutation, authQuery } from "./functions";
+import { authMutation, authQuery, hasTaskAccess } from "./functions";
 
 export const generateUploadUrl = authMutation({
   args: {},
@@ -18,13 +18,8 @@ export const save = authMutation({
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
-      throw new Error("Task not found");
-    }
     return await ctx.db.insert("taskProof", {
       taskId: args.taskId,
       storageId: args.storageId,
@@ -42,13 +37,8 @@ export const saveMessage = authMutation({
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
-      throw new Error("Task not found");
-    }
     return await ctx.db.insert("taskProof", {
       taskId: args.taskId,
       message: args.message,
@@ -74,13 +64,7 @@ export const listByTask = authQuery({
   ),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) {
-      return [];
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
-      return [];
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
     const proofs = await ctx.db
       .query("taskProof")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -110,13 +94,8 @@ export const remove = authMutation({
       throw new Error("Proof not found");
     }
     const task = await ctx.db.get(proof.taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || board.ownerId !== ctx.userId) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Proof not found");
-    }
     if (proof.storageId) {
       await ctx.storage.delete(proof.storageId);
     }

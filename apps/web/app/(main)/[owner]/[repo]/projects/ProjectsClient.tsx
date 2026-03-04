@@ -7,7 +7,6 @@ import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  SearchInput,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -24,6 +23,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@conductor/ui";
+import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
@@ -152,24 +152,24 @@ export function ProjectsClient() {
         title="Projects"
         fillHeight
         childPadding={false}
-        headerCenter={
-          <SearchInput
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(v) => setParams({ q: v || null })}
-            onClear={() => setParams({ q: null })}
-            className="animate-in fade-in duration-300"
-          />
-        }
         headerRight={
-          <Button
-            size="sm"
-            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-            onClick={() => setIsCreating(true)}
-          >
-            <IconPlus size={16} />
-            New Project
-          </Button>
+          <div className="flex items-center gap-2">
+            <ToggleSearch
+              value={searchQuery}
+              onChange={(v) => setParams({ q: v })}
+              placeholder="Search projects..."
+              tooltipLabel="Search projects"
+              visible={projects !== undefined && projects.length > 0}
+            />
+            <Button
+              size="sm"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+              onClick={() => setIsCreating(true)}
+            >
+              <IconPlus size={16} />
+              New Project
+            </Button>
+          </div>
         }
       >
         <div className="flex flex-1 min-h-0 min-w-0 flex-col p-4">

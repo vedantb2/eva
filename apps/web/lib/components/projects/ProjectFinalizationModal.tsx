@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
   DialogFooter,
   Button,
   Spinner,
@@ -85,7 +86,7 @@ export function ProjectFinalizationModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader className="flex flex-col gap-1">
           <DialogTitle>
             <span className="flex items-center gap-2 text-sm sm:text-base">
@@ -97,41 +98,43 @@ export function ProjectFinalizationModal({
             </span>
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold text-base sm:text-lg">
-              {parsedSpec.title}
-            </h3>
-            <p className="text-muted-foreground text-xs sm:text-sm">
-              {parsedSpec.description}
-            </p>
+        <DialogBody>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-base sm:text-lg">
+                {parsedSpec.title}
+              </h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">
+                {parsedSpec.description}
+              </p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2 text-sm sm:text-base">
+                Tasks ({parsedSpec.tasks.length})
+              </h4>
+              <ul className="space-y-2">
+                {parsedSpec.tasks.map((task, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs sm:text-sm bg-muted p-2 rounded"
+                  >
+                    <span className="text-muted-foreground font-mono flex-shrink-0">
+                      {i + 1}.
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-medium">{task.title}</span>
+                      {task.dependencies.length > 0 && (
+                        <span className="text-muted-foreground ml-1 sm:ml-2 block sm:inline">
+                          (depends on: {task.dependencies.join(", ")})
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="font-medium mb-2 text-sm sm:text-base">
-              Tasks ({parsedSpec.tasks.length})
-            </h4>
-            <ul className="space-y-2">
-              {parsedSpec.tasks.map((task, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 text-xs sm:text-sm bg-muted p-2 rounded"
-                >
-                  <span className="text-muted-foreground font-mono flex-shrink-0">
-                    {i + 1}.
-                  </span>
-                  <div className="min-w-0">
-                    <span className="font-medium">{task.title}</span>
-                    {task.dependencies.length > 0 && (
-                      <span className="text-muted-foreground ml-1 sm:ml-2 block sm:inline">
-                        (depends on: {task.dependencies.join(", ")})
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        </DialogBody>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="secondary"

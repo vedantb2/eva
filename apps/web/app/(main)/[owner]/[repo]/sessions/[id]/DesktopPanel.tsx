@@ -20,6 +20,18 @@ import {
 
 type DesktopState = "idle" | "starting" | "running" | "error";
 
+function ensureHttps(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function appendNoVncParams(baseUrl: string): string {
   const url = new URL(baseUrl);
   url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
@@ -76,6 +88,7 @@ export function DesktopPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
+  const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
 
   const stopPolling = useCallback(() => {
     clearTimeout(pollTimer.current);
@@ -99,6 +112,9 @@ export function DesktopPanel({
           setUrl(noVncUrl);
           setDesktopState("running");
           setCachedDesktop(sessionId, noVncUrl);
+          launchChromeInDesktop({ sandboxId: sandboxId!, repoId }).catch(
+            () => {},
+          );
           return;
         }
         attempts.current += 1;
@@ -115,7 +131,14 @@ export function DesktopPanel({
     };
 
     check();
-  }, [sandboxId, isActive, getPreviewUrl, repoId, sessionId]);
+  }, [
+    sandboxId,
+    isActive,
+    getPreviewUrl,
+    repoId,
+    sessionId,
+    launchChromeInDesktop,
+  ]);
 
   const startDesktop = useCallback(async () => {
     if (!sandboxId) return;
@@ -135,6 +158,7 @@ export function DesktopPanel({
         setUrl(noVncUrl);
         setDesktopState("running");
         setCachedDesktop(sessionId, noVncUrl);
+        launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
         return;
       }
       await toggleDesktopServer({ sandboxId, repoId, action: "start" });
@@ -151,6 +175,7 @@ export function DesktopPanel({
     stopPolling,
     getPreviewUrl,
     sessionId,
+    launchChromeInDesktop,
   ]);
 
   useEffect(() => {
@@ -250,7 +275,7 @@ export function DesktopPanel({
         )}
         {url && desktopState === "running" && (
           <iframe
-            src={url}
+            src={ensureHttps(url)}
             className="absolute inset-0 w-full h-full border-0"
             allow="clipboard-read; clipboard-write"
           />

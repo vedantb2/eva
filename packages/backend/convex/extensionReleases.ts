@@ -1,4 +1,4 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import { mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 function validateAdminKey(key: string): void {
@@ -7,36 +7,6 @@ function validateAdminKey(key: string): void {
     throw new Error("Unauthorized");
   }
 }
-
-export const getLatest = query({
-  args: {},
-  returns: v.union(
-    v.object({
-      version: v.string(),
-      crxUrl: v.union(v.string(), v.null()),
-      releasedAt: v.number(),
-      notes: v.union(v.string(), v.null()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx) => {
-    const release = await ctx.db
-      .query("extensionReleases")
-      .order("desc")
-      .first();
-
-    if (!release) return null;
-
-    const crxUrl = await ctx.storage.getUrl(release.crxStorageId);
-
-    return {
-      version: release.version,
-      crxUrl,
-      releasedAt: release.releasedAt,
-      notes: release.notes ?? null,
-    };
-  },
-});
 
 export const getLatestInternal = internalQuery({
   args: {},

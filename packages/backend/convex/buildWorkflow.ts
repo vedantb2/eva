@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 // --- Workflow ---
 
@@ -155,7 +156,7 @@ export const startTaskForBuild = internalMutation({
         branchName: project.branchName,
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
-        model: task.model,
+        model: task.model ?? repo.defaultModel,
         userId: args.userId,
       },
     );
@@ -212,6 +213,12 @@ export const startBuild = authMutation({
     await ctx.db.patch(args.projectId, {
       activeBuildWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleBuild,
+      { projectId: args.projectId, workflowId: String(workflowId) },
+    );
 
     return null;
   },

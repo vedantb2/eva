@@ -16,7 +16,7 @@ import {
 import { getCurrentUserId } from "./auth";
 import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import type { Id, Doc } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 
 export async function hasRepoAccess(
   db: GenericDatabaseReader<DataModel>,
@@ -37,15 +37,17 @@ export async function hasRepoAccess(
   return membership !== null;
 }
 
-export async function hasBoardAccess(
+export async function hasTaskAccess(
   db: GenericDatabaseReader<DataModel>,
-  board: Doc<"boards">,
+  task: { repoId?: Id<"githubRepos">; projectId?: Id<"projects"> },
   userId: Id<"users">,
 ): Promise<boolean> {
-  if (board.ownerId === userId) return true;
-  const repoId = board.repoId;
-  if (!repoId) return false;
-  return hasRepoAccess(db, repoId, userId);
+  if (task.repoId) return hasRepoAccess(db, task.repoId, userId);
+  if (task.projectId) {
+    const project = await db.get(task.projectId);
+    return project ? hasRepoAccess(db, project.repoId, userId) : false;
+  }
+  return false;
 }
 
 export const authQuery = customQuery(

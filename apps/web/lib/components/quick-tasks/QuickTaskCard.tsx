@@ -42,6 +42,7 @@ interface QuickTaskCardProps {
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
+  isActive?: boolean;
   onToggleSelect?: () => void;
 }
 
@@ -56,6 +57,7 @@ export function QuickTaskCard({
   onClick,
   isSelecting,
   isSelected,
+  isActive,
   onToggleSelect,
 }: QuickTaskCardProps) {
   const { owner, name: repoName } = useRepo();
@@ -74,8 +76,10 @@ export function QuickTaskCard({
           ? "border border-destructive/60 bg-destructive/5"
           : isInProgress
             ? "border-transparent bg-card/95"
-            : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
-      } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${
+            : isActive
+              ? "border border-primary/40 bg-primary/5"
+              : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
+      } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         !isSelecting && onClick
           ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
@@ -130,7 +134,7 @@ export function QuickTaskCard({
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {scheduledAt && status === "todo" ? (
+            {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="flex items-center text-primary">
@@ -138,7 +142,9 @@ export function QuickTaskCard({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Scheduled for {dayjs(scheduledAt).format("MMM D, h:mm A")}
+                  {status === "todo"
+                    ? `Scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`
+                    : `Was scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`}
                 </TooltipContent>
               </Tooltip>
             ) : null}

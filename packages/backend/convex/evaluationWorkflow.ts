@@ -6,6 +6,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { evalResultValidator } from "./validators";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -110,36 +111,25 @@ export const getDocData = internalQuery({
     // Two-phase prompt: first explore the codebase, then generate evaluation JSON
     const prompt = `You are a QA engineer evaluating whether a codebase meets a specification.
 
-## Phase 1: Explore the Codebase
-
 ## Feature: ${doc.title}
 ${doc.description || ""}
 
 ## Requirements to verify:
 ${requirements.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-For each requirement above, explore the codebase to find evidence of whether it is implemented.
-Search for relevant files, read implementations, and note what you find.
-Be thorough — check routes, components, API handlers, database schemas, and business logic.
+## Phase 1: Explore
+For each requirement, search the codebase for evidence of implementation. Check routes, components, API handlers, schemas, and business logic.
 
-After exploring, produce the final evaluation.
-
-## Phase 2: Generate Evaluation
-
-Based on your analysis, produce the final evaluation as JSON.
-
-Requirements (evaluate exactly ${requirements.length}, one result per requirement):
-${requirements.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+## Phase 2: Evaluate
+Based on your analysis, output ONLY valid JSON:
+{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}
 
 Rules:
-- "passed": true means the requirement is fully implemented and functional
-- "passed": false means it is missing, partial, or broken
-- "detail": brief plain-language explanation of what you found (no file paths or code)
-- You MUST produce exactly ${requirements.length} results, one per requirement, in order
+- "passed": true = fully implemented and functional; false = missing, partial, or broken
+- "detail": brief plain-language explanation (no file paths or code)
+- Exactly ${requirements.length} results, one per requirement, in order
 
-Output ONLY valid JSON. No markdown, no explanation, no text outside the JSON object.
-
-{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}${rootDirInstruction}`;
+No markdown, no explanation, no text outside the JSON.${rootDirInstruction}`;
 
     return {
       repoOwner: repo.owner,
@@ -291,6 +281,12 @@ export const startEvaluation = authMutation({
     await ctx.db.patch(reportId, {
       activeWorkflowId: String(workflowId),
     });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleEvaluation,
+      { reportId, workflowId: String(workflowId) },
+    );
 
     return reportId;
   },

@@ -1,5 +1,151 @@
 # Changelog
 
+## Split TaskDetailModal into 3 files + inline 2-column layout - 2026-03-04
+
+- **Why**: `TaskDetailModal.tsx` was ~1400 lines handling both modal and inline views. The inline (list view) panel also stacked everything vertically which wasted horizontal space.
+- **Changes**:
+  1. `useTaskDetail.tsx` — custom hook with all queries, mutations, state, handlers, and JSX section blocks
+  2. `TaskDetailModal.tsx` — slim modal wrapper (~80 lines)
+  3. `TaskDetailInline.tsx` — inline 2-column layout with 60:40 split (left: description/subtasks/runs, right: status fields + action buttons)
+  4. Delete confirmation dialog extracted into hook return to avoid duplication
+  5. Removed unused `formatDuration` function and `inline` prop from `TaskDetailModal`
+- **Files**: `useTaskDetail.tsx`, `TaskDetailModal.tsx`, `TaskDetailInline.tsx`, `QuickTasksClient.tsx`
+
+## Fix resultSummary for quick task re-runs - 2026-03-04
+
+- **Why**: When requesting changes on a quick task, the run completed with "Pushed commit to project branch" even though quick tasks have no project branch.
+- **Change**: `resultSummary` now shows "Pushed commit to project branch" only for project tasks; quick tasks show "Pushed commit to branch".
+- **Files**: `taskWorkflow.ts` — `finalizeRunStreamingPhase` and `completeRun` now take project context into account.
+
+## Replace taskDrafts table with draft status on agentTasks - 2026-03-04
+
+- **Why**: Drafts are just tasks that haven't been submitted yet. A separate table duplicated the task schema and required separate CRUD functions. Using a status field keeps drafts as first-class agentTasks and eliminates the extra table.
+- **Changes**:
+  - Added `"draft"` to `taskStatusValidator`
+  - Added `saveDraft`, `listDrafts`, `activateDraft` functions to `agentTasks.ts`
+  - `getAllTasks` now excludes draft-status tasks so they don't appear on kanban/list views
+  - `startExecution` guards against accidentally running a draft
+  - `QuickTaskModal` rewired to use `agentTasks` draft functions instead of `taskDrafts` API
+  - `taskDrafts.ts` deleted; `taskDrafts` table kept temporarily in schema for migration
+  - Added `clearTaskDraftsTable` migration to `migrations.ts`
+
+## Tighten all system/user prompts for concision - 2026-03-04
+
+- **Why**: Prompts run on every sandbox invocation — redundant/verbose instructions waste tokens and dilute model attention. Repeated rules (e.g. "never push to main" appearing 3 times in one prompt) actually hurt compliance because the model wastes context parsing whether they're subtly different.
+- **Changes across 7 files**:
+  - `doc.ts`: Extracted shared `PRD_OUTPUT` template for `PARSE_PROMPT`/`GENERATE_PROMPT` (were near-identical). Merged overlapping "Your Role"/"Rules" sections in `INTERVIEW_PROMPT`.
+  - `project.ts`: Removed duplicate "ground in real code" instructions, merged "Do NOT" rules into role section.
+  - `sessionWorkflow.ts`: Collapsed 3 branch rules into 1 in `buildExecutePrompt`, tightened `buildAskPrompt` and `buildPlanPrompt`.
+  - `design.ts` + `designWorkflow.ts`: Replaced full token listing with "use semantic tokens from globals.css", collapsed 6 setup steps into 2, removed overlap between system and user prompts.
+  - `taskWorkflow.ts`: Condensed proof-of-completion section, merged overlapping "Do NOT" rules.
+  - `evaluationWorkflow.ts`: Removed duplicate requirements listing between Phase 1 and Phase 2.
+  - `researchQueryWorkflow.ts`: Removed duplicate "return ONLY raw query code", condensed analysis guidelines.
+
+## Extract static prompts to prompts folder - 2026-03-04
+
+- **Why**: Prompts were scattered across workflow files; harder to audit, tune, or share common patterns.
+- **Change**: Added `packages/backend/convex/prompts/` folder with domain-split files: `shared.ts` (buildRootDirectoryInstruction, getResponseLengthInstruction), `doc.ts` (PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT), `project.ts` (PROJECT_INTERVIEW_SYSTEM_PROMPT, TASK_PHILOSOPHY, SPEC_SYSTEM_PROMPT), `design.ts` (DESIGN_SYSTEM_PROMPT), `index.ts` (barrel export). Workflow-specific builders remain in their workflow files.
+- **Reason for change (architectural)**: Partial extraction keeps dynamic builders co-located with workflow logic. Folder structure makes prompts easier to parse and navigate per domain.
+
+## Task execution freeze protection: guardrails + heartbeat watchdog - 2026-03-04
+
+- **Why**: Quick tasks froze at "Running command..." when Claude CLI ran blocking commands (e.g. `sleep 30`, hanging `gh api` calls). The 3-minute no-output timeout was too slow, and there was no server-side protection if the callback script itself died.
+- **Phase 1 — Command guardrails + reduced timeout**:
+  - `taskWorkflow.ts`: Added prompt rules requiring `timeout` prefix on all Bash commands, `GH_PROMPT_DISABLED=1` for `gh` commands, forbidding `sleep` and silent `2>/dev/null`
+  - `daytona.ts`: Reduced `NO_OUTPUT_TIMEOUT_MS` default from 180s to 60s
+  - `taskWorkflow.ts`: Made `handleCompletion` idempotent — ignores late/duplicate callbacks when run already finished
+  - `schema.ts` + completion mutations: Added `exitReason` field to `agentRuns` for observability (`completed`, `error`, `run_timeout`, `watchdog_killed`)
+- **Phase 2 — Heartbeat + stale run watchdog**:
+  - `daytona.ts`: Added 10s heartbeat ping in callback script that force-sends `streaming:set` even during long-running Bash commands
+  - `streaming.ts` + `schema.ts`: Added `lastUpdatedAt` timestamp to `streamingActivity` docs
+  - `taskWorkflow.ts`: Added `checkStaleRuns` self-rescheduling mutation (every 30s) that kills runs with no heartbeat for 90s — cancels workflow, kills sandbox process, marks run as error
+  - `schema.ts`: Added `sandboxId` and `repoId` on `agentRuns` so watchdog can call `killSandboxProcess`
+- **Reason for change (architectural)**: Fire-and-forget sandbox execution needs layered timeout protection: prompt-level (prevent bad commands), process-level (60s no-output kill), server-level (90s heartbeat watchdog), and global safety net (2h run timeout).
+
+## Prevent sandbox runs from hanging on blocked CLI commands - 2026-03-04
+
+- **Why**: Some quick tasks appeared frozen at "Running command..." when a Bash step blocked on non-interactive CLI behavior or produced no stream output for a long time.
+- **Fix** (`daytona.ts` callback script): Force GitHub CLI non-interactive defaults (`GH_PROMPT_DISABLED=1`, `GH_NO_UPDATE_NOTIFIER=1`) and normalize token env (`GH_TOKEN` from `GH_TOKEN`/`GITHUB_TOKEN`) before spawning Claude.
+- **Fix** (`daytona.ts` callback script): Added a no-stdout watchdog for Claude attempts (`CLAUDE_NO_OUTPUT_TIMEOUT_MS`, default 180000ms). If no stdout arrives past the threshold, the child process is terminated and completion returns an explicit timeout error instead of hanging indefinitely.
+- **Reason for change (architectural)**: Fire-and-forget sandbox jobs still need bounded execution semantics at the process level to avoid indefinite workflow stalls when tool subprocesses block.
+
+## Fix "Not authenticated" on manual reload - 2026-03-04
+
+- **Why**: On full page reload (e.g. staging URL), auth-dependent Convex queries ran before Clerk rehydrated the session from cookies, causing "Not authenticated" errors.
+- **Fix**: Centralize auth gating in ClientProvider using Convex `AuthLoading` + `Authenticated`. Show spinner while auth is loading; only render ThemeProvider and children when authenticated. ThemeContext, PresenceHeartbeat, and RepoContext no longer need per-component skip logic.
+
+## Cleanup legacy migrations - 2026-03-04
+
+- Removed one-time migrations from `migrations.ts`: `assignOrphanRepos`, `createPersonalTeamsAndMigrate`, `removeTeamSlugs`, `migrateBoardsAndCommentsToUserIds`, `renameMcpServerToMcp`. Kept `cleanupStaleRuns` (operational — fixes stuck task runs when run manually).
+
+## Remove boards/columns tables — status-based tasks - 2026-03-04
+
+- **Why**: Boards and columns added indirection between repos and tasks. Tasks now use `status` directly; board/column was redundant.
+- **Schema**: Removed `boards` and `columns` tables. Removed `boardId`/`columnId` and indexes `by_board`, `by_column`, `by_board_and_status` from `agentTasks`.
+- **Migration** (`migrations.removeBoardsAndColumns`): Already run. Patches all agentTasks to clear `boardId`/`columnId`, deletes all columns, deletes all boards.
+- **Backend**: `agentTasks` uses `by_repo` index; `hasTaskAccess` replaces `hasBoardAccess` everywhere. `projects.startDevelopment` creates tasks with `repoId`, `status`, `order` only. `taskWorkflow.executeScheduledTask` uses `task.createdBy` instead of `board.ownerId`. `analytics` queries tasks by `by_repo`. Removed `getAccessibleBoards` and `hasBoardAccess` from `functions.ts`. `repoUtils.hasRepoReferences` no longer checks boards.
+- **Reason for change (architectural)**: Tasks belong to repos (and optionally projects). Status-driven workflow replaces column-based layout.
+
+## Remove unused Convex functions - 2026-03-04
+
+- **auth.createOrMigrateUser**: Deleted. Web app uses `ensureUserExists` (ClientProvider) for user creation on sign-in.
+- **githubRepos.remove**: Deleted. No delete/disconnect flow in the app; team unassignment uses `removeFromTeam` instead.
+- **auth.isCurrentUserAdmin**: Deleted. No admin UI in the app.
+- **boards.ts**: Deleted entirely. Board/column data created by `agentTasks.createQuickTask`, `agentTasks.createQuickTasksBatch`, `projects.createFromTasks`. Access via `functions.getAccessibleBoards` and `agentTasks.getAllTasks`.
+- **columns.ts**: Deleted entirely. Columns created inline with boards by agentTasks and projects.
+- **routines.ts**: Deleted entirely. Routines feature not implemented.
+- **analytics**: Removed `getTaskStats`, `getRunStats`, `getSessionStats`, `getProjectStats`. App uses `getImpactStats`, `getActiveUsers`, `getActivityTimeline`, `getLeaderboard`.
+- **extensionReleases.getLatest**: Removed. HTTP routes use `getLatestInternal`.
+- **taskDependencies**: Removed `getForTask`, `getDependents`, `getDependencies`, `add`, `remove`, `removeByTasks`. App uses `isBlocked` only.
+- **projectInterviewWorkflow.startSpec**: Removed. App uses `startInterview` for the main flow.
+
+## Query optimization — eliminate full table scans - 2026-03-03
+
+- **Why**: `boards.list`, `agentRuns.listAll`, and `agentTasks.getActiveTasks` scanned ENTIRE tables (`boards`, `agentTasks`, `agentRuns`, `githubRepos`) then post-filtered in JS. This doesn't scale as data grows.
+- **New indexes** (`schema.ts`): `agentTasks.by_board_and_status` and `agentRuns.by_task_and_status` enable targeted queries instead of full collects.
+- **Shared helper** (`functions.ts`): `getAccessibleBoards(db, userId)` replaces the repeated pattern of "collect all boards → check access per board". Queries `boards.by_owner` + `teamMembers.by_user` → `githubRepos.by_team` → `boards.by_repo` — all indexed.
+- **`boards.list`**: Replaced `ctx.db.query("githubRepos").collect()` (full repo scan) with the shared helper.
+- **`agentRuns.listAll`**: Replaced 3 full table scans (boards, agentTasks, agentRuns) with shared helper → indexed fan-out through boards → tasks → runs.
+- **`agentTasks.getActiveTasks`**: Replaced `ctx.db.query("boards").collect()` with shared helper.
+- **`agentTasks.startExecution`**: Replaced loading ALL runs per project task (twice) with `by_task_and_status` index queries that short-circuit on first match.
+- **`sessions.getOrCreateExtensionSession`**: Replaced Convex `.filter()` (post-index scan) with `by_repo_and_status` index + JS `.find()`.
+
+## Fix handleStaleDoc branching + add sessionAudits watchdog - 2026-03-03
+
+- **handleStaleDoc bug** (`workflowWatchdog.ts`): The if/else-if chain checked `interviewHistory` before `testGenStatus`, so docs with interview history AND `testGenStatus === "running"` would skip the test-gen error cleanup. Fixed by checking both conditions independently and applying a single patch.
+- **sessionAudits watchdog** (`sessionAudits.ts`, `workflowWatchdog.ts`): `sessionAudits` uses a fire-and-forget callback pattern (not `awaitEvent`), so it was missed in the initial watchdog sweep. Added `handleStaleSessionAudit` handler and scheduled it from `startAudit` with `RUN_TIMEOUT_MS`. If the audit is still `"running"` after 2 hours, it's marked as `"error"`.
+
+## Add watchdog timeouts to all workflows - 2026-03-03
+
+- **Why**: Only `taskExecutionWorkflow` had a watchdog. All other workflows (session, design, research query, evaluation, doc interview, doc PRD, test gen, project interview, build) could hang forever if the sandbox callback failed after retries exhausted.
+- **New file** (`workflowWatchdog.ts`): Centralized timeout constant (`RUN_TIMEOUT_MS = 2h`) and 7 entity-type handlers: `handleStaleSession`, `handleStaleDesignSession`, `handleStaleResearchQuery`, `handleStaleEvaluation`, `handleStaleDoc`, `handleStaleProject`, `handleStaleBuild`. Each cancels the workflow, clears streaming, clears `activeWorkflowId`, and does entity-specific cleanup (error messages, status updates).
+- **Start mutations modified**: All 13 `start*` mutations now schedule the appropriate watchdog via `ctx.scheduler.runAfter(RUN_TIMEOUT_MS, ...)`. Each watchdog guards against stale timers by comparing `workflowId`.
+- **Build integration** (`taskWorkflow.ts`): `handleStaleRun` now sends `buildTaskDoneEvent` when the timed-out task is part of an active build, so the build workflow unsticks too.
+- **Shared constant**: `RUN_TIMEOUT_MS` moved from `taskWorkflow.ts` to `workflowWatchdog.ts`. Both `taskWorkflow.ts` and `migrations.ts` import from the shared location.
+
+## Increase quick-task watchdog timeout to 2 hours - 2026-03-03
+
+- **Why**: Some valid quick-task runs can exceed 45 minutes; the previous watchdog acted as a hard cap and timed out long-running executions.
+- **Change** (`taskWorkflow.ts`): Updated `RUN_TIMEOUT_MS` from 45 minutes to 2 hours and aligned the stale-run error text to "Run timed out after 2 hours".
+- **Reason for change (architectural)**: Keep watchdog protection for genuinely stuck runs while allowing realistic long-running agent tasks to complete.
+
+## Fix quick task hanging at "Generating response" - 2026-03-03
+
+- **Why**: When `convex dev` reloads mid-execution, the sandbox's HTTP POST to Convex fails. The script exits without retrying, so the workflow's `awaitEvent` hangs forever — the UI shows "Generating response..." indefinitely.
+- **Fix 1 — Retry** (`daytona.ts`): Added `callMutationWithRetry` with exponential backoff (1s→16s, 5 retries) to the sandbox callback script. Applied at both completion call sites (success + error). Non-critical calls (streaming, screenshots) left as-is.
+- **Fix 2 — Watchdog** (`taskWorkflow.ts`): Added `handleStaleRun` internalMutation + 45-minute timeout scheduled from `updateRunToRunning`. If the run is still active after 45 min, cancels the workflow, marks run as error, resets task to `todo`. If main run succeeded but audit hung, moves task to `business_review`. Guards against killing newer runs via run ID check.
+- **Fix 3 — Backfill** (`migrations.ts`): Added `cleanupStaleRuns` one-time migration to fix already-stuck tasks. Only touches runs older than 45 min cutoff. Cancels workflows, marks stale runs/audits as error, clears streaming.
+
+## GitHub repo/app rename resilience - 2026-03-03
+
+- **Why**: When a GitHub repo is renamed (conductor → eva) or a monorepo app directory is renamed (apps/mcp-server → apps/mcp), `upsert` matched by `(owner, name, rootDirectory)` and created duplicate rows. Old rows lingered as stale cards on the home page with broken API calls.
+- **Schema**: Added `githubId` (GitHub's numeric repo ID) to `githubRepos` with `by_github_id` index. Added `by_repo` indexes to `agentTasks` and `notifications` for efficient reference checking.
+- **Upsert/Create**: Now match by `githubId` + `rootDirectory` first, falling back to `owner/name`. When a match is found with different `owner`/`name`, the row is patched (rename detected) instead of creating a duplicate. Existing rows without `githubId` get it backfilled.
+- **Sync**: Removed `connectedParents` cascade from `syncConnectedStatus` — sub-app rows are only `connected: true` if explicitly in `connectedIds`. Added `cleanupStaleSubApps` to delete stale sub-app rows that are disconnected, sync-created (no `connectedBy`), not in detected paths, and have no data references.
+- **Migration**: Added `renameMcpServerToMcp` to rename existing `apps/mcp-server` rows to `apps/mcp`, re-pointing references if a target row already exists.
+- **Shared utility**: Created `repoUtils.ts` with `hasRepoReferences` (checks all 14 tables with `repoId`) and `normalizePath` (strips leading/trailing slashes, converts empty to `undefined`).
+- **Reason for change (architectural)**: GitHub's numeric repo ID is immutable across renames and is the correct primary key for matching. The previous `(owner, name)` matching was fragile to renames, a known GitHub operation.
+
 ## Split task run streaming from audit streaming - 2026-03-03
 
 - **Why**: Quick task execution UI could appear stuck at "Generating response..." because the run stayed `running` until audit finished. Users could not clearly see the main run had ended and audit had begun.

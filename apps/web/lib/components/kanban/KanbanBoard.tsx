@@ -19,6 +19,7 @@ import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,
   type TaskStatus,
+  type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import {
   SortableContext,
@@ -108,10 +109,7 @@ export function KanbanBoard<T extends BaseTask>({
     statuses: statusesParser,
   });
   const searchQuery = q;
-  const visibleStatuses = useMemo(
-    () => new Set(statuses as TaskStatus[]),
-    [statuses],
-  );
+  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -141,7 +139,7 @@ export function KanbanBoard<T extends BaseTask>({
     );
   }, [filteredItems]);
 
-  const handleStatusToggle = (status: TaskStatus) => {
+  const handleStatusToggle = (status: DisplayTaskStatus) => {
     const next = new Set(visibleStatuses);
     if (next.has(status)) {
       if (next.size === 1) return;
@@ -175,9 +173,8 @@ export function KanbanBoard<T extends BaseTask>({
     const activeItemData = items.find((i) => i._id === activeId);
     if (!activeItemData) return;
 
-    const isOverStatus = KANBAN_STATUSES.includes(overId as TaskStatus);
-    if (isOverStatus) {
-      const targetStatus = overId as TaskStatus;
+    const targetStatus = KANBAN_STATUSES.find((s) => s === overId);
+    if (targetStatus) {
       if (activeItemData.status !== targetStatus) {
         try {
           await onStatusChange(activeId, targetStatus);

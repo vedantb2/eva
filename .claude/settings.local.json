@@ -9,7 +9,8 @@
       "WebSearch",
       "mcp__plugin_context7_context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
-      "mcp__claude_ai_Eva__run_query"
+      "mcp__claude_ai_Eva__run_query",
+      "mcp__claude_ai_Eva__list_tables"
     ]
   }
 }

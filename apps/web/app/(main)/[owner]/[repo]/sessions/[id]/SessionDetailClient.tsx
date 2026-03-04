@@ -123,6 +123,7 @@ export function SessionDetailClient({
           onToggleChat={handleChatToggle}
           repoId={session.repoId}
           devPort={session.devPort}
+          devCommand={session.devCommand}
         />
       </Panel>
     </Group>

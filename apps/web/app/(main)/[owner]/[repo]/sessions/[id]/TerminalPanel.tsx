@@ -15,6 +15,7 @@ interface TerminalPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
+  devCommand?: string;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -55,6 +56,7 @@ export function TerminalPanel({
   sessionId,
   sandboxId,
   isActive,
+  devCommand,
 }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +81,7 @@ export function TerminalPanel({
 
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
-      const { wsUrl } = await connectPty({
+      const { wsUrl, isNewPty } = await connectPty({
         sessionId: typedSessionId,
         cols: terminal.cols,
         rows: terminal.rows,
@@ -107,6 +109,20 @@ export function TerminalPanel({
                 terminalInstanceRef.current.writeln(
                   "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
                 );
+                if (
+                  isNewPty &&
+                  devCommand &&
+                  ws.readyState === WebSocket.OPEN
+                ) {
+                  terminalInstanceRef.current.writeln(
+                    "\x1b[33m* Starting dev server...\x1b[0m\r\n",
+                  );
+                  setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                      ws.send(devCommand + "\r");
+                    }
+                  }, 300);
+                }
                 return;
               }
               if (parsed.status === "error") {
@@ -159,7 +175,7 @@ export function TerminalPanel({
         }
       });
     },
-    [connectPty, typedSessionId],
+    [connectPty, typedSessionId, devCommand],
   );
 
   useEffect(() => {

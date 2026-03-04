@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation, hasBoardAccess } from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 
 const subtaskValidator = v.object({
   _id: v.id("subtasks"),
@@ -15,13 +15,7 @@ export const listByTask = authQuery({
   returns: v.array(subtaskValidator),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.parentTaskId);
-    if (!task) {
-      return [];
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      return [];
-    }
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
@@ -37,6 +31,9 @@ export const markCompleted = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.parentTaskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
+      throw new Error("Task not found");
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
@@ -59,13 +56,8 @@ export const create = authMutation({
   returns: v.id("subtasks"),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.parentTaskId);
-    if (!task) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-      throw new Error("Task not found");
-    }
     const subtasks = await ctx.db
       .query("subtasks")
       .withIndex("by_parent", (q) => q.eq("parentTaskId", args.parentTaskId))
@@ -89,17 +81,10 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const subtask = await ctx.db.get(args.id);
-    if (!subtask) {
-      throw new Error("Subtask not found");
-    }
+    if (!subtask) throw new Error("Subtask not found");
     const task = await ctx.db.get(subtask.parentTaskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Subtask not found");
-    }
     const updates: { title?: string; completed?: boolean } = {};
     if (args.title !== undefined) updates.title = args.title;
     if (args.completed !== undefined) updates.completed = args.completed;
@@ -117,13 +102,8 @@ export const remove = authMutation({
       throw new Error("Subtask not found");
     }
     const task = await ctx.db.get(subtask.parentTaskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const board = await ctx.db.get(task.boardId);
-    if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Subtask not found");
-    }
     await ctx.db.delete(args.id);
     return null;
   },
@@ -146,13 +126,7 @@ export const reorder = authMutation({
         continue;
       }
       const task = await ctx.db.get(subtask.parentTaskId);
-      if (!task) {
-        continue;
-      }
-      const board = await ctx.db.get(task.boardId);
-      if (!board || !(await hasBoardAccess(ctx.db, board, ctx.userId))) {
-        continue;
-      }
+      if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) continue;
       await ctx.db.patch(update.id, { order: update.order });
     }
     return null;

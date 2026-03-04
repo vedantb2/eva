@@ -17,6 +17,7 @@ import {
   IconFlask,
   IconHammer,
   IconHome,
+  IconInbox,
   IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
@@ -24,6 +25,7 @@ import {
   IconMoon,
   IconPalette,
   IconPlus,
+  IconSearch,
   IconSettings,
   IconSun,
   IconTerminal2,
@@ -41,8 +43,8 @@ import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSi
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
-import { NotificationsPopoverClient } from "@/lib/components/NotificationsPopoverClient";
 import { RepoSelect } from "@/lib/components/RepoSelect";
+import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 const KNOWN_SUB_PAGES = new Set([
@@ -54,6 +56,7 @@ const KNOWN_SUB_PAGES = new Set([
   "analyse",
   "settings",
   "testing-arena",
+  "stats",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -240,8 +243,13 @@ export function Sidebar() {
               groupIcon: IconSettings,
               items: [
                 {
+                  name: "Inbox",
+                  href: `/inbox`,
+                  icon: IconInbox,
+                },
+                {
                   name: "Stats",
-                  href: `${repoBasePath}/settings/stats`,
+                  href: `${repoBasePath}/stats`,
                   icon: IconChartBar,
                 },
                 {
@@ -256,11 +264,19 @@ export function Sidebar() {
     [repoBasePath, isRepoRoute],
   );
 
+  const { openSearch } = useSearch();
   const { theme, toggleTheme } = useThemeContext();
 
   const handleRepoSelect = (selectedHref: string) => {
     if (selectedHref !== repoBasePath) {
-      router.push(selectedHref);
+      // Preserve the current sub-page when switching repos
+      const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
+      const firstSegment = subPath.split("/").filter(Boolean)[0];
+      const preservePath =
+        firstSegment && KNOWN_SUB_PAGES.has(firstSegment)
+          ? `/${firstSegment}`
+          : "";
+      router.push(`${selectedHref}${preservePath}`);
     }
   };
 
@@ -805,7 +821,15 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                 )}
-                <NotificationsPopoverClient />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-sidebar-foreground"
+                  title="Search"
+                  onClick={openSearch}
+                >
+                  <IconSearch size={16} />
+                </Button>
 
                 <Button
                   size="icon"

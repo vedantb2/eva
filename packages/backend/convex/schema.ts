@@ -86,25 +86,7 @@ const schema = defineSchema({
     .index("by_user", ["userId"])
     .index("by_repo_and_phase", ["repoId", "phase"]),
 
-  boards: defineTable({
-    name: v.string(),
-    ownerId: v.id("users"),
-    repoId: v.optional(v.id("githubRepos")),
-    createdAt: v.number(),
-  })
-    .index("by_owner", ["ownerId"])
-    .index("by_repo", ["repoId"]),
-
-  columns: defineTable({
-    boardId: v.id("boards"),
-    name: v.string(),
-    order: v.number(),
-    isRunColumn: v.optional(v.boolean()),
-  }).index("by_board", ["boardId"]),
-
   agentTasks: defineTable({
-    boardId: v.id("boards"),
-    columnId: v.id("columns"),
     title: v.string(),
     description: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
@@ -124,8 +106,7 @@ const schema = defineSchema({
     scheduledAt: v.optional(v.number()),
     scheduledFunctionId: v.optional(v.string()),
   })
-    .index("by_board", ["boardId"])
-    .index("by_column", ["columnId"])
+    .index("by_repo", ["repoId"])
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
 
@@ -147,17 +128,27 @@ const schema = defineSchema({
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
     activityLog: v.optional(v.string()),
-  }).index("by_task", ["taskId"]),
+    exitReason: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
+    repoId: v.optional(v.id("githubRepos")),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_task_and_status", ["taskId", "status"])
+    .index("by_status", ["status"]),
 
   githubRepos: defineTable({
     owner: v.string(),
     name: v.string(),
     installationId: v.number(),
+    githubId: v.optional(v.number()),
     connected: v.optional(v.boolean()),
     connectedBy: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
+    defaultBaseBranch: v.optional(v.string()),
+    defaultModel: v.optional(claudeModelValidator),
   })
+    .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
 
@@ -227,6 +218,7 @@ const schema = defineSchema({
     planContent: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
     devPort: v.optional(v.number()),
+    devCommand: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -234,6 +226,7 @@ const schema = defineSchema({
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),
+    lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
   docs: defineTable({
     repoId: v.id("githubRepos"),
@@ -371,7 +364,8 @@ const schema = defineSchema({
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_read", ["userId", "read"]),
+    .index("by_user_and_read", ["userId", "read"])
+    .index("by_repo", ["repoId"]),
   repoEnvVars: defineTable({
     repoId: v.id("githubRepos"),
     vars: v.array(v.object({ key: v.string(), value: v.string() })),

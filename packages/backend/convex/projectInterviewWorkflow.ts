@@ -5,6 +5,8 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -17,66 +19,6 @@ const projectInterviewCompleteEvent = defineEvent({
     activityLog: v.union(v.string(), v.null()),
   }),
 });
-
-const SYSTEM_PROMPT = `You are a product-minded engineer helping a user spec out a feature before building it. You have access to their codebase and understand how it works.
-
-## Before You Ask
-Read CLAUDE.md and explore relevant files (Glob, Grep, Read) BEFORE formulating your question. Ground every question in real code you've seen.
-
-## Your Role
-- Ask questions that actually matter for implementation — things that would block you or lead to rework if you guessed wrong
-- Ground your questions in the real codebase: reference existing patterns, pages, or behaviors the user already has
-- Each question should include a brief example or scenario so the user understands why it matters
-- Use plain language but you CAN reference things the user would recognize (e.g. "the settings page", "your current notification system", "the sidebar")
-
-## Format Rules
-- Question: 1-3 sentences. Include a concrete example or "for instance..." to illustrate why the question matters.
-- Options: 2-4 options, each with a short label and a description explaining what it means and why it matters.
-- Do NOT ask about purely technical choices (database schema, state management library, API design)
-- Do NOT repeat topics already covered in previous answers
-
-## Readiness
-If you believe all critical decisions are covered and you have enough information to create a comprehensive implementation plan, output {"ready": true} instead of a question.
-
-## Output Format
-You MUST output ONLY valid JSON with one of these structures:
-{"question": "your question here", "options": [{"label": "Short name", "description": "What this means and why it matters"}]}
-OR
-{"ready": true}`;
-
-const TASK_PHILOSOPHY = `
-TASK GRANULARITY RULES:
-- Each task should represent ONE ownership boundary in the codebase
-- A task should encompass all related changes within that boundary (multiple file edits are expected)
-- Think in terms of: "core capability/infrastructure" vs "user-facing integration/UI"
-- Aim for 2-5 tasks total, NOT 10+ micro-tasks
-
-SUBTASKS:
-- Each task MUST have 3-7 subtasks that serve as a checklist for the agent
-- Subtasks should be discrete, actionable items the agent will mark as complete
-- Subtasks should be specific enough that completion is unambiguous
-
-Each task description should specify ALL the changes needed within that ownership boundary.`;
-
-const SPEC_SYSTEM_PROMPT = `You are a technical architect. Read CLAUDE.md first to understand the codebase, then create a detailed implementation plan based on the feature description and interview answers.
-${TASK_PHILOSOPHY}
-
-Reference actual file paths and follow the project's existing patterns and conventions.
-
-## Output Format
-You MUST output ONLY valid JSON with this exact structure:
-{
-  "title": "Clear, concise feature title (max 60 chars)",
-  "description": "Detailed description of the feature including scope and goals",
-  "tasks": [
-    {
-      "title": "Task title",
-      "description": "What needs to be done",
-      "dependencies": [1, 2],
-      "subtasks": ["subtask 1", "subtask 2", "subtask 3"]
-    }
-  ]
-}`;
 
 interface PreviousAnswer {
   question: string;
@@ -148,7 +90,7 @@ export const projectInterviewWorkflow = workflow.define({
       args.previousAnswers,
       args.rejectionReason,
     );
-    const fullPrompt = `${SYSTEM_PROMPT} ${questionPrompt}`;
+    const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
 
     // Step 3: Setup sandbox + fire Claude CLI
     await step.runAction(internal.daytona.setupAndExecute, {
@@ -356,6 +298,12 @@ export const startInterview = authMutation({
       activeWorkflowId: String(workflowId),
     });
 
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleProject,
+      { projectId: args.projectId, workflowId: String(workflowId) },
+    );
+
     return null;
   },
 });
@@ -503,43 +451,6 @@ export const saveSpecResult = internalMutation({
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });
-    return null;
-  },
-});
-
-/**
- * Public mutation to start the spec generation phase.
- */
-export const startSpec = authMutation({
-  args: {
-    projectId: v.id("projects"),
-    featureDescription: v.string(),
-    previousAnswers: v.array(
-      v.object({ question: v.string(), answer: v.string() }),
-    ),
-    installationId: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.projectInterviewWorkflow.projectSpecWorkflow,
-      {
-        projectId: args.projectId,
-        featureDescription: args.featureDescription,
-        previousAnswers: args.previousAnswers,
-        userId: ctx.userId,
-        installationId: args.installationId,
-      },
-    );
-
-    await ctx.db.patch(args.projectId, {
-      activeWorkflowId: String(workflowId),
-    });
-
     return null;
   },
 });

@@ -30,7 +30,7 @@ export function registerTools(
     );
     if (!repoCreds) {
       throw new Error(
-        `Repo ${repoId} has no Convex credentials. Ensure NEXT_PUBLIC_CONVEX_URL and CONVEX_DEPLOY_KEY are set in its env vars in Conductor.`,
+        `Repo ${repoId} has no Convex credentials. Ensure NEXT_PUBLIC_CONVEX_URL and CONVEX_DEPLOY_KEY are set in its env vars in Eva.`,
       );
     }
     return repoCreds;
@@ -38,7 +38,7 @@ export function registerTools(
 
   server.tool(
     "list_repos",
-    "List all GitHub repos connected to this Conductor instance. Call this first to let the user choose which codebase to work with.",
+    "List all GitHub repos connected to this Eva instance. Call this first to let the user choose which codebase to work with.",
     {},
     async () => {
       const deployKey = await getDeployKey(convexUrl);
@@ -62,7 +62,7 @@ export function registerTools(
         .string()
         .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Conductor.",
+          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
         ),
     },
     async ({ repoId }) => {
@@ -122,7 +122,7 @@ export function registerTools(
         .string()
         .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Conductor.",
+          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
         ),
     },
     async ({ table, order, limit, cursor, repoId }) => {
@@ -163,7 +163,7 @@ export function registerTools(
         .string()
         .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Conductor.",
+          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
         ),
     },
     async ({ id, repoId }) => {
@@ -219,7 +219,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .string()
         .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Conductor.",
+          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
         ),
     },
     async ({ code, repoId }) => {
@@ -254,7 +254,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .string()
         .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Conductor.",
+          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
         ),
     },
     async ({ table, repoId }) => {

@@ -269,7 +269,14 @@ export function Sidebar() {
 
   const handleRepoSelect = (selectedHref: string) => {
     if (selectedHref !== repoBasePath) {
-      router.push(selectedHref);
+      // Preserve the current sub-page when switching repos
+      const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
+      const firstSegment = subPath.split("/").filter(Boolean)[0];
+      const preservePath =
+        firstSegment && KNOWN_SUB_PAGES.has(firstSegment)
+          ? `/${firstSegment}`
+          : "";
+      router.push(`${selectedHref}${preservePath}`);
     }
   };
 

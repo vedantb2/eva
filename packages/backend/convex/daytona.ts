@@ -1365,6 +1365,35 @@ export const toggleDesktopServer = action({
   },
 });
 
+export const launchChromeInDesktop = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+
+    try {
+      await sandbox.process.executeCommand(
+        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage > /dev/null 2>&1 &"',
+        "/",
+        undefined,
+        5,
+      );
+    } catch {
+      // Non-fatal: Chrome launch failure shouldn't break the desktop
+    }
+
+    return null;
+  },
+});
+
 async function detectPackageManager(sandbox: Sandbox): Promise<string> {
   const lockFile = (
     await exec(

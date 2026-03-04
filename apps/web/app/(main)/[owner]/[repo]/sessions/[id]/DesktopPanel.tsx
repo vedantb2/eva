@@ -76,6 +76,7 @@ export function DesktopPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
+  const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
 
   const stopPolling = useCallback(() => {
     clearTimeout(pollTimer.current);
@@ -99,6 +100,9 @@ export function DesktopPanel({
           setUrl(noVncUrl);
           setDesktopState("running");
           setCachedDesktop(sessionId, noVncUrl);
+          launchChromeInDesktop({ sandboxId: sandboxId!, repoId }).catch(
+            () => {},
+          );
           return;
         }
         attempts.current += 1;
@@ -115,7 +119,14 @@ export function DesktopPanel({
     };
 
     check();
-  }, [sandboxId, isActive, getPreviewUrl, repoId, sessionId]);
+  }, [
+    sandboxId,
+    isActive,
+    getPreviewUrl,
+    repoId,
+    sessionId,
+    launchChromeInDesktop,
+  ]);
 
   const startDesktop = useCallback(async () => {
     if (!sandboxId) return;
@@ -135,6 +146,7 @@ export function DesktopPanel({
         setUrl(noVncUrl);
         setDesktopState("running");
         setCachedDesktop(sessionId, noVncUrl);
+        launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
         return;
       }
       await toggleDesktopServer({ sandboxId, repoId, action: "start" });
@@ -151,6 +163,7 @@ export function DesktopPanel({
     stopPolling,
     getPreviewUrl,
     sessionId,
+    launchChromeInDesktop,
   ]);
 
   useEffect(() => {

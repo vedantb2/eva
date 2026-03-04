@@ -1,5 +1,17 @@
 # Changelog
 
+## Replace taskDrafts table with draft status on agentTasks - 2026-03-04
+
+- **Why**: Drafts are just tasks that haven't been submitted yet. A separate table duplicated the task schema and required separate CRUD functions. Using a status field keeps drafts as first-class agentTasks and eliminates the extra table.
+- **Changes**:
+  - Added `"draft"` to `taskStatusValidator`
+  - Added `saveDraft`, `listDrafts`, `activateDraft` functions to `agentTasks.ts`
+  - `getAllTasks` now excludes draft-status tasks so they don't appear on kanban/list views
+  - `startExecution` guards against accidentally running a draft
+  - `QuickTaskModal` rewired to use `agentTasks` draft functions instead of `taskDrafts` API
+  - `taskDrafts.ts` deleted; `taskDrafts` table kept temporarily in schema for migration
+  - Added `clearTaskDraftsTable` migration to `migrations.ts`
+
 ## Tighten all system/user prompts for concision - 2026-03-04
 
 - **Why**: Prompts run on every sandbox invocation — redundant/verbose instructions waste tokens and dilute model attention. Repeated rules (e.g. "never push to main" appearing 3 times in one prompt) actually hurt compliance because the model wastes context parsing whether they're subtly different.

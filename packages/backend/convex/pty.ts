@@ -101,7 +101,9 @@ export const connectPty = action({
       getToolboxBaseUrl(sandbox.id, daytonaApiKey),
       sandbox.getPreviewLink(1),
     ]);
-    let baseUrl = toolboxUrl.replace(/^http:\/\//, "https://");
+    const toolboxUrlObj = new URL(toolboxUrl);
+    toolboxUrlObj.protocol = "https:";
+    let baseUrl = toolboxUrlObj.toString();
     if (!baseUrl.endsWith("/")) baseUrl += "/";
     baseUrl += sandbox.id;
     const wsUrl = `${baseUrl.replace(/^https/, "wss")}/process/pty/${ptyId}/connect?DAYTONA_SANDBOX_AUTH_KEY=${previewLink.token}`;

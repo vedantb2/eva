@@ -229,14 +229,24 @@ export const pollDeploymentStatus = internalAction({
     try {
       const octokit = await getInstallationOctokit(args.installationId);
 
+      const { data: branch } = await octokit.rest.repos.getBranch({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        branch: args.branchName,
+      });
+      const commitSha = branch.commit.sha;
+
       const { data: deployments } = await octokit.rest.repos.listDeployments({
         owner: args.repoOwner,
         repo: args.repoName,
-        ref: args.branchName,
+        sha: commitSha,
         per_page: 1,
       });
 
       if (deployments.length === 0) {
+        console.log(
+          `[deployment-poll] No deployment found for ${args.repoOwner}/${args.repoName} branch=${args.branchName} sha=${commitSha} attempt=${args.attempt}`,
+        );
         if (args.attempt < MAX_POLL_ATTEMPTS) {
           await ctx.scheduler.runAfter(
             POLL_INTERVAL_MS,
@@ -247,16 +257,18 @@ export const pollDeploymentStatus = internalAction({
         return null;
       }
 
-      const deployment = deployments[0];
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({
           owner: args.repoOwner,
           repo: args.repoName,
-          deployment_id: deployment.id,
+          deployment_id: deployments[0].id,
           per_page: 1,
         });
 
       if (statuses.length === 0) {
+        console.log(
+          `[deployment-poll] Deployment ${deployment.id} found but no statuses yet, attempt=${args.attempt}`,
+        );
         await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
           runId: args.runId,
           deploymentStatus: "queued",
@@ -275,6 +287,9 @@ export const pollDeploymentStatus = internalAction({
       const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
       const deploymentUrl =
         latestStatus.environment_url || latestStatus.target_url || undefined;
+      console.log(
+        `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"}`,
+      );
 
       await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
         runId: args.runId,
@@ -294,7 +309,7 @@ export const pollDeploymentStatus = internalAction({
       }
     } catch (error) {
       console.error(
-        `Failed to poll deployment status: ${error instanceof Error ? error.message : String(error)}`,
+        `[deployment-poll] Error for ${args.repoOwner}/${args.repoName} branch=${args.branchName} attempt=${args.attempt}: ${error instanceof Error ? error.message : String(error)}`,
       );
       if (args.attempt < MAX_POLL_ATTEMPTS) {
         await ctx.scheduler.runAfter(

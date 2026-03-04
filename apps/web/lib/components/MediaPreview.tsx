@@ -19,6 +19,7 @@ export function VideoPreview({ url }: { url: string }) {
     setSpeed(rate);
     if (videoRef.current) {
       videoRef.current.playbackRate = rate;
+      videoRef.current.defaultPlaybackRate = rate;
     }
   };
 
@@ -33,6 +34,12 @@ export function VideoPreview({ url }: { url: string }) {
         className="rounded-lg border max-w-lg"
         onLoadedMetadata={() => {
           if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+            videoRef.current.defaultPlaybackRate = speed;
+          }
+        }}
+        onPlay={() => {
+          if (videoRef.current && videoRef.current.playbackRate !== speed) {
             videoRef.current.playbackRate = speed;
           }
         }}

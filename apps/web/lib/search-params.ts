@@ -18,6 +18,7 @@ const taskStatuses = [
   "business_review",
   "code_review",
   "done",
+  "cancelled",
 ] as const;
 export const statusesParser = parseAsArrayOf(parseAsStringLiteral(taskStatuses))
   .withDefault([...taskStatuses])

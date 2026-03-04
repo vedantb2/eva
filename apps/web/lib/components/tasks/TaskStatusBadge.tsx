@@ -8,9 +8,11 @@ import {
   IconEye,
   IconCircleCheck,
   IconCircleX,
+  IconPencil,
 } from "@tabler/icons-react";
 
 export type TaskStatus =
+  | "draft"
   | "todo"
   | "in_progress"
   | "business_review"
@@ -18,7 +20,9 @@ export type TaskStatus =
   | "done"
   | "cancelled";
 
-export const TASK_STATUSES: TaskStatus[] = [
+export type DisplayTaskStatus = Exclude<TaskStatus, "draft">;
+
+export const TASK_STATUSES: DisplayTaskStatus[] = [
   "todo",
   "in_progress",
   "business_review",
@@ -42,6 +46,14 @@ export const statusConfig: Record<
     icon: typeof IconCircle;
   }
 > = {
+  draft: {
+    bg: "bg-secondary",
+    cardBg: "bg-secondary",
+    bar: "bg-muted-foreground/50",
+    text: "text-muted-foreground",
+    label: "Draft",
+    icon: IconPencil,
+  },
   todo: {
     bg: "bg-secondary",
     cardBg: "bg-secondary",

@@ -318,7 +318,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   <div
                     className={
                       selectedTaskId
-                        ? "w-[30%] min-w-0 flex-shrink-0 overflow-hidden flex flex-col"
+                        ? "w-[20%] min-w-0 flex-shrink-0 overflow-hidden flex flex-col"
                         : "flex-1 min-w-0"
                     }
                   >
@@ -332,7 +332,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                     />
                   </div>
                   {selectedTaskId && (
-                    <div className="w-[70%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                    <div className="w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
                       <TaskDetailModal
                         isOpen
                         onClose={handleTaskClose}

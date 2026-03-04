@@ -1147,7 +1147,7 @@ export function TaskDetailModal({
                     Request Changes
                   </Button>
                 )}
-              {hasActiveRun ? (
+              {hasActiveRun || status === "in_progress" ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>

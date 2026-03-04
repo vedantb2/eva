@@ -13,6 +13,50 @@ export const cleanupStaleRuns = internalMutation({
     const cutoff = Date.now() - RUN_TIMEOUT_MS;
 
     const allTasks = await ctx.db.query("agentTasks").collect();
+
+    // Handle tasks stuck in_progress without activeWorkflowId (triggerExecution
+    // failed after startExecution, leaving a stale queued run with no workflow)
+    const orphanTasks = allTasks.filter(
+      (t) => t.status === "in_progress" && !t.activeWorkflowId,
+    );
+    for (const task of orphanTasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      const activeRuns = runs.filter(
+        (r) => r.status === "queued" || r.status === "running",
+      );
+      const hasFreshActiveRun = activeRuns.some(
+        (r) => (r.startedAt ?? 0) >= cutoff,
+      );
+      if (hasFreshActiveRun) continue;
+
+      for (const staleRun of activeRuns) {
+        await ctx.db.patch(staleRun._id, {
+          status: "error",
+          error: "Cleaned up stale run",
+          finishedAt: Date.now(),
+        });
+        runsFixed++;
+      }
+
+      const hasSuccessRun = runs.some((r) => r.status === "success");
+      await ctx.db.patch(task._id, {
+        status: hasSuccessRun ? "business_review" : "todo",
+        updatedAt: Date.now(),
+      });
+      tasksFixed++;
+
+      for (const entityId of [String(task._id), `audit-${String(task._id)}`]) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+          .first();
+        if (streaming) await ctx.db.delete(streaming._id);
+      }
+    }
+
     const stuckTasks = allTasks.filter(
       (t) => t.status === "in_progress" && t.activeWorkflowId,
     );

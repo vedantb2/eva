@@ -180,4 +180,94 @@ http.route({
   }),
 });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getString(obj: Record<string, unknown>, key: string): string | null {
+  const val = obj[key];
+  return typeof val === "string" ? val : null;
+}
+
+function getBoolean(obj: Record<string, unknown>, key: string): boolean | null {
+  const val = obj[key];
+  return typeof val === "boolean" ? val : null;
+}
+
+async function verifyWebhookSignature(
+  body: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  const computed =
+    "sha256=" +
+    Array.from(new Uint8Array(sig))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  return computed === signature;
+}
+
+http.route({
+  path: "/api/github/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const signature = request.headers.get("X-Hub-Signature-256");
+    const event = request.headers.get("X-GitHub-Event");
+    const body = await request.text();
+
+    const secret = process.env.GITHUB_WEBHOOK_SECRET;
+    if (!secret) {
+      return new Response("GITHUB_WEBHOOK_SECRET not configured", {
+        status: 500,
+      });
+    }
+
+    if (
+      !signature ||
+      !(await verifyWebhookSignature(body, signature, secret))
+    ) {
+      return new Response("Invalid signature", { status: 401 });
+    }
+
+    if (event === "pull_request") {
+      const payload: unknown = JSON.parse(body);
+      if (!isRecord(payload)) {
+        return new Response("OK", { status: 200 });
+      }
+
+      const action = getString(payload, "action");
+      if (action !== "closed") {
+        return new Response("OK", { status: 200 });
+      }
+
+      const pullRequest = payload["pull_request"];
+      if (!isRecord(pullRequest)) {
+        return new Response("OK", { status: 200 });
+      }
+
+      const prUrl = getString(pullRequest, "html_url");
+      const merged = getBoolean(pullRequest, "merged");
+      if (!prUrl || merged === null) {
+        return new Response("OK", { status: 200 });
+      }
+
+      await ctx.scheduler.runAfter(0, internal.githubWebhook.handlePrClosed, {
+        prUrl,
+        merged,
+      });
+    }
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
 export default http;

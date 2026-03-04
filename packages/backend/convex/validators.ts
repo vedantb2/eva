@@ -132,6 +132,12 @@ export const teamMemberRoleValidator = v.union(
   v.literal("member"),
 );
 
+export const webhookEventStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("completed"),
+  v.literal("skipped"),
+);
+
 export const variationValidator = v.object({
   label: v.string(),
   route: v.optional(v.string()),

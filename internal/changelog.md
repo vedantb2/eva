@@ -1,5 +1,15 @@
 # Changelog
 
+## GitHub webhook: PR lifecycle → task status - 2026-03-04
+
+- **Why**: When Eva opens a PR for a task, the task stays in `business_review`/`code_review` even after the PR is merged or closed on GitHub. Users had to manually move tasks to done/cancelled.
+- **Changes**:
+  1. `validators.ts` — new `webhookEventStatusValidator` (pending, completed, skipped)
+  2. `schema.ts` — new `githubWebhookEvents` table for audit trail + `by_pr_url` index on `agentRuns`
+  3. `http.ts` — `POST /api/github/webhook` endpoint with HMAC-SHA256 verification via Web Crypto API
+  4. `githubWebhook.ts` — **NEW** — `handlePrClosed` internalMutation: matches PR URL → agentRun → task, updates status to `done` (merged) or `cancelled` (closed), sends notifications, auto-completes project phase if all tasks done
+- **Prerequisite**: Set `GITHUB_WEBHOOK_SECRET` env var in Convex. Configure webhook URL in GitHub App settings, subscribe to `pull_request` events.
+
 ## Vercel deployment status tracking - 2026-03-04
 
 - **Why**: After Eva pushes code, Vercel builds a preview deployment but there's no visibility into the build status or preview URL. Users had to check Vercel manually.

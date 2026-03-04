@@ -30,6 +30,7 @@ import type * as functions from "../functions.js";
 import type * as github from "../github.js";
 import type * as githubAuth from "../githubAuth.js";
 import type * as githubRepos from "../githubRepos.js";
+import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
 import type * as linearActions from "../linearActions.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   github: typeof github;
   githubAuth: typeof githubAuth;
   githubRepos: typeof githubRepos;
+  githubWebhook: typeof githubWebhook;
   http: typeof http;
   linearActions: typeof linearActions;
   mcpRoutes: typeof mcpRoutes;

@@ -24,6 +24,7 @@ import {
   teamMemberRoleValidator,
   variationValidator,
   customThemeValidator,
+  webhookEventStatusValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -137,7 +138,8 @@ const schema = defineSchema({
   })
     .index("by_task", ["taskId"])
     .index("by_task_and_status", ["taskId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_pr_url", ["prUrl"]),
 
   githubRepos: defineTable({
     owner: v.string(),
@@ -416,6 +418,15 @@ const schema = defineSchema({
     .index("by_team", ["teamId"])
     .index("by_user", ["userId"])
     .index("by_team_and_user", ["teamId", "userId"]),
+  githubWebhookEvents: defineTable({
+    event: v.string(),
+    action: v.string(),
+    prUrl: v.optional(v.string()),
+    merged: v.optional(v.boolean()),
+    taskId: v.optional(v.id("agentTasks")),
+    status: webhookEventStatusValidator,
+    createdAt: v.number(),
+  }).index("by_status", ["status"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
     vars: v.array(v.object({ key: v.string(), value: v.string() })),

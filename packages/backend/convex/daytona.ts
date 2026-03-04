@@ -1505,16 +1505,12 @@ async function detectDevPort(
 async function startSessionServices(
   sandbox: Sandbox,
   rootDir: string,
-): Promise<number> {
+): Promise<{ port: number; devCommand: string }> {
   const pm = await detectPackageManager(sandbox);
   const port = await detectDevPort(sandbox, rootDir);
   const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
-  await exec(
-    sandbox,
-    `cd ${dir} && PORT=${port} ${pm} run dev > /tmp/devserver.log 2>&1 &`,
-    10,
-  );
-  return port;
+  const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
+  return { port, devCommand };
 }
 
 export const startSessionSandbox = internalAction({
@@ -1553,13 +1549,17 @@ export const startSessionSandbox = internalAction({
             args.repoName,
           );
           await checkoutSessionBranch(sandbox, args.branchName);
-          const devPort = await startSessionServices(sandbox, rootDir);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: args.existingSandboxId,
             branchName: args.branchName,
             isNew: false,
             devPort,
+            devCommand,
           });
           return null;
         } catch {
@@ -1590,7 +1590,10 @@ export const startSessionSandbox = internalAction({
         `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} && git pull --ff-only origin ${quote([args.branchName])}`,
         30,
       );
-      const devPort = await startSessionServices(sandbox, rootDir);
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
 
       await ctx.runMutation(internal.sessions.sandboxReady, {
         sessionId: args.sessionId,
@@ -1599,6 +1602,7 @@ export const startSessionSandbox = internalAction({
         isNew: true,
         usedSnapshot: prepared.usedSnapshot,
         devPort,
+        devCommand,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -1647,7 +1651,11 @@ export const startDesignSandbox = internalAction({
             args.repoName,
           );
           await setupBranch(sandbox, args.branchName);
-          const devPort = await startSessionServices(sandbox, rootDir);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
+          await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
             sandboxId: args.existingSandboxId,
@@ -1674,7 +1682,11 @@ export const startDesignSandbox = internalAction({
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }
-      const devPort = await startSessionServices(sandbox, rootDir);
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
+      await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,

@@ -54,14 +54,15 @@ export function QuickTaskCard({
 }: QuickTaskCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const hasError = runs?.[0]?.status === "error";
+  const showError = hasError && status !== "done";
   const statusMeta = statusConfig[status];
-  const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
+  const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
 
   const card = (
     <Card
       className={`group relative overflow-hidden shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
-        hasError
+        showError
           ? "border border-destructive/60 bg-destructive/5"
           : isInProgress
             ? "border-transparent bg-card/95"

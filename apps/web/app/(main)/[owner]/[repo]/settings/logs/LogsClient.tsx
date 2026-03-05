@@ -63,6 +63,22 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function formatTotalDuration(ms: number): string {
+  if (ms === 0) return "0s";
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    const remainingMin = minutes % 60;
+    return remainingMin > 0 ? `${hours}h ${remainingMin}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    const remainingSec = seconds % 60;
+    return remainingSec > 0 ? `${minutes}m ${remainingSec}s` : `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
 interface ParsedResultEvent {
   costUsd: number;
   model: string;
@@ -164,51 +180,61 @@ export function LogsClient() {
     entityType: entityType ?? undefined,
   });
 
-  const { totalCost, totalInput, totalOutput, grouped, availableTypes } =
-    useMemo(() => {
-      if (!logs)
-        return {
-          totalCost: 0,
-          totalInput: 0,
-          totalOutput: 0,
-          grouped: [],
-          availableTypes: [],
-        };
-
-      let cost = 0;
-      let input = 0;
-      let output = 0;
-      const groups = new Map<string, { logs: typeof logs; total: number }>();
-
-      for (const log of logs) {
-        const parsed = parseResultEvent(log.rawResultEvent);
-        cost += parsed.costUsd;
-        input += parsed.inputTokens;
-        output += parsed.outputTokens;
-        const existing = groups.get(log.entityType);
-        if (existing) {
-          existing.logs.push(log);
-          existing.total += parsed.costUsd;
-        } else {
-          groups.set(log.entityType, {
-            logs: [log],
-            total: parsed.costUsd,
-          });
-        }
-      }
-
-      const sorted = Array.from(groups.entries())
-        .sort((a, b) => b[1].total - a[1].total)
-        .map(([type, data]) => ({ type, ...data }));
-
+  const {
+    totalCost,
+    totalInput,
+    totalOutput,
+    totalDuration,
+    grouped,
+    availableTypes,
+  } = useMemo(() => {
+    if (!logs)
       return {
-        totalCost: cost,
-        totalInput: input,
-        totalOutput: output,
-        grouped: sorted,
-        availableTypes: sorted.map((g) => g.type),
+        totalCost: 0,
+        totalInput: 0,
+        totalOutput: 0,
+        totalDuration: 0,
+        grouped: [],
+        availableTypes: [],
       };
-    }, [logs]);
+
+    let cost = 0;
+    let input = 0;
+    let output = 0;
+    let duration = 0;
+    const groups = new Map<string, { logs: typeof logs; total: number }>();
+
+    for (const log of logs) {
+      const parsed = parseResultEvent(log.rawResultEvent);
+      cost += parsed.costUsd;
+      input += parsed.inputTokens;
+      output += parsed.outputTokens;
+      duration += parsed.durationMs;
+      const existing = groups.get(log.entityType);
+      if (existing) {
+        existing.logs.push(log);
+        existing.total += parsed.costUsd;
+      } else {
+        groups.set(log.entityType, {
+          logs: [log],
+          total: parsed.costUsd,
+        });
+      }
+    }
+
+    const sorted = Array.from(groups.entries())
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([type, data]) => ({ type, ...data }));
+
+    return {
+      totalCost: cost,
+      totalInput: input,
+      totalOutput: output,
+      totalDuration: duration,
+      grouped: sorted,
+      availableTypes: sorted.map((g) => g.type),
+    };
+  }, [logs]);
 
   return (
     <PageWrapper
@@ -272,6 +298,12 @@ export function LogsClient() {
               <div className="text-sm text-muted-foreground">Output Tokens</div>
               <div className="text-2xl font-semibold">
                 {formatTokens(totalOutput)}
+              </div>
+            </div>
+            <div className="flex-1 rounded-lg border bg-card p-4">
+              <div className="text-sm text-muted-foreground">Ran For</div>
+              <div className="text-2xl font-semibold">
+                {formatTotalDuration(totalDuration)}
               </div>
             </div>
           </div>

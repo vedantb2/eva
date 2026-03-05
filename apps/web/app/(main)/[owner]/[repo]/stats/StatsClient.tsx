@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { useQuery } from "convex/react";
@@ -58,11 +57,11 @@ export function StatsClient() {
     startTime,
   });
 
-  const isLoading =
-    impactStats === undefined ||
-    activeUsers === undefined ||
-    timeline === undefined ||
-    leaderboard === undefined;
+  const statsLoaded = impactStats !== undefined && activeUsers !== undefined;
+  const chartsLoaded =
+    impactStats !== undefined &&
+    timeline !== undefined &&
+    leaderboard !== undefined;
 
   return (
     <PageWrapper
@@ -71,59 +70,59 @@ export function StatsClient() {
         <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
       }
     >
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {statsLoaded ? (
+            <>
+              <StatCard
+                icon={IconGitPullRequest}
+                label="PRs Shipped"
+                value={impactStats.prsShipped}
+              />
+              <StatCard
+                icon={IconPercentage}
+                label="Ship Rate"
+                value={`${impactStats.shipRate}%`}
+                subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
+              />
+              <StatCard
+                icon={IconUsers}
+                label="Humans Prompting"
+                value={activeUsers.count}
+                subtitle="Last 5 minutes"
+              />
+              <StatCard
+                icon={IconChecklist}
+                label="Tasks Completed"
+                value={impactStats.tasksCompleted}
+              />
+            </>
+          ) : (
+            <div className="col-span-full flex items-center justify-center py-12">
+              <Spinner size="md" />
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="space-y-6">
-          <motion.div
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <StatCard
-              icon={IconGitPullRequest}
-              label="PRs Shipped"
-              value={impactStats.prsShipped}
-            />
-            <StatCard
-              icon={IconPercentage}
-              label="Ship Rate"
-              value={`${impactStats.shipRate}%`}
-              subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
-            />
-            <StatCard
-              icon={IconUsers}
-              label="Humans Prompting"
-              value={activeUsers.count}
-              subtitle="Last 5 minutes"
-            />
-            <StatCard
-              icon={IconChecklist}
-              label="Tasks Completed"
-              value={impactStats.tasksCompleted}
-            />
-          </motion.div>
 
-          <motion.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-2"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: 0.05 }}
-          >
-            <PRsOverTimeChart timeline={timeline} />
-            <SessionFunnel
-              totalSessions={impactStats.totalSessions}
-              sessionsWithPr={impactStats.sessionsWithPr}
-              shipRate={impactStats.shipRate}
-            />
-            <ActivityTimelineChart timeline={timeline} />
-            <Leaderboard entries={leaderboard} />
-          </motion.div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {chartsLoaded ? (
+            <>
+              <PRsOverTimeChart timeline={timeline} />
+              <SessionFunnel
+                totalSessions={impactStats.totalSessions}
+                sessionsWithPr={impactStats.sessionsWithPr}
+                shipRate={impactStats.shipRate}
+              />
+              <ActivityTimelineChart timeline={timeline} />
+              <Leaderboard entries={leaderboard} />
+            </>
+          ) : (
+            <div className="col-span-full flex items-center justify-center py-12">
+              <Spinner size="md" />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </PageWrapper>
   );
 }

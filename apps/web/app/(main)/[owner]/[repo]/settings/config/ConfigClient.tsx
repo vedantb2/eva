@@ -27,31 +27,12 @@ export function ConfigClient() {
   const [defaultModel, setDefaultModel] = useState<ClaudeModel>(
     repo.defaultModel ?? "sonnet",
   );
-  const [postAuditEnabled, setPostAuditEnabled] = useState(
-    repo.postAuditEnabled !== false,
-  );
-  const [sessionsVncEnabled, setSessionsVncEnabled] = useState(
-    repo.sessionsVncEnabled !== false,
-  );
-  const [sessionsVscodeEnabled, setSessionsVscodeEnabled] = useState(
-    repo.sessionsVscodeEnabled !== false,
-  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDefaultBaseBranch(repo.defaultBaseBranch ?? "main");
     setDefaultModel(repo.defaultModel ?? "sonnet");
-    setPostAuditEnabled(repo.postAuditEnabled !== false);
-    setSessionsVncEnabled(repo.sessionsVncEnabled !== false);
-    setSessionsVscodeEnabled(repo.sessionsVscodeEnabled !== false);
-  }, [
-    repo._id,
-    repo.defaultBaseBranch,
-    repo.defaultModel,
-    repo.postAuditEnabled,
-    repo.sessionsVncEnabled,
-    repo.sessionsVscodeEnabled,
-  ]);
+  }, [repo._id, repo.defaultBaseBranch, repo.defaultModel]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -60,9 +41,6 @@ export function ConfigClient() {
         repoId,
         defaultBaseBranch: defaultBaseBranch || undefined,
         defaultModel,
-        postAuditEnabled,
-        sessionsVncEnabled,
-        sessionsVscodeEnabled,
       });
     } finally {
       setSaving(false);
@@ -127,9 +105,9 @@ export function ConfigClient() {
           <div className="grid gap-3">
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
-                checked={postAuditEnabled}
+                checked={repo.postAuditEnabled !== false}
                 onCheckedChange={(checked) =>
-                  setPostAuditEnabled(checked === true)
+                  updateConfig({ repoId, postAuditEnabled: checked === true })
                 }
               />
               <div>
@@ -141,9 +119,9 @@ export function ConfigClient() {
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
-                checked={sessionsVncEnabled}
+                checked={repo.sessionsVncEnabled !== false}
                 onCheckedChange={(checked) =>
-                  setSessionsVncEnabled(checked === true)
+                  updateConfig({ repoId, sessionsVncEnabled: checked === true })
                 }
               />
               <div>
@@ -155,9 +133,12 @@ export function ConfigClient() {
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
-                checked={sessionsVscodeEnabled}
+                checked={repo.sessionsVscodeEnabled !== false}
                 onCheckedChange={(checked) =>
-                  setSessionsVscodeEnabled(checked === true)
+                  updateConfig({
+                    repoId,
+                    sessionsVscodeEnabled: checked === true,
+                  })
                 }
               />
               <div>

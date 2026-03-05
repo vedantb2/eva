@@ -96,7 +96,6 @@ const schema = defineSchema({
     tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     status: taskStatusValidator,
-    order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),

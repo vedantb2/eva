@@ -38,7 +38,6 @@ const agentTaskValidator = v.object({
   tags: v.optional(v.array(v.string())),
   taskNumber: v.optional(v.number()),
   status: taskStatusValidator,
-  order: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
@@ -285,7 +284,7 @@ export const getAllTasks = authQuery({
       .collect();
     return tasks
       .filter((t) => t.status !== "draft")
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => a.createdAt - b.createdAt);
   },
 });
 
@@ -301,18 +300,12 @@ export const createQuickTask = authMutation({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
       throw new Error("Not authorized");
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
     const now = Date.now();
     return await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
       repoId: args.repoId,
       status: "todo",
-      order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
@@ -337,21 +330,14 @@ export const createQuickTasksBatch = authMutation({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
       throw new Error("Not authorized");
-    const existingTasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    let maxOrder = existingTasks.reduce((max, t) => Math.max(max, t.order), -1);
     const now = Date.now();
     const taskIds: Id<"agentTasks">[] = [];
     for (const task of args.tasks) {
-      maxOrder += 1;
       const taskId = await ctx.db.insert("agentTasks", {
         title: task.title,
         description: task.description,
         repoId: args.repoId,
         status: "todo",
-        order: maxOrder,
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
@@ -790,18 +776,11 @@ export const saveDraft = authMutation({
       return args.id;
     }
 
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order), -1);
-
     return await ctx.db.insert("agentTasks", {
       title: args.title ?? "",
       description: args.description,
       repoId: args.repoId,
       status: "draft",
-      order: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,

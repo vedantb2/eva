@@ -1,5 +1,14 @@
 # Changelog
 
+## Remove redundant `order` field + fix branch naming — 2026-03-05
+
+- **Why**: `order` (0-based) and `taskNumber` (1-based) were redundant — both tracked task position. Quick task branches used `Date.now()` fallback producing unreadable names like `eva/task-1741209600000`.
+- **Changes**:
+  1. Branch naming changed from `eva/task-${taskNumber || Date.now()}` to `eva/task-${taskId}` — deterministic, unique, and tied to the actual task.
+  2. Removed `order` field from `agentTasks` schema, all insert calls, and the validator.
+  3. `getAllTasks` sort changed from `order` to `createdAt` (frontend was already re-sorting by `updatedAt` anyway).
+  4. Ran migration to strip `order` from 100 existing documents.
+
 ## Harden quick-task retry orchestration + Daytona failure cleanup - 2026-03-05
 
 - **Why**: Quick-task reliability still had three gaps after the first pass: retry scheduling only happened on workflow exceptions (not all error exits), sandbox creation failures could leak capacity before `sandboxId` was persisted, and callback HTTP calls could hang long enough to create false "stuck" runs.

@@ -99,7 +99,7 @@ function buildImplementationPrompt(
 
   const commitScope = isQuickTask
     ? "feat"
-    : `feat(task-${task.taskNumber || 1})`;
+    : `feat(task-${task.taskNumber ?? task.title})`;
 
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
@@ -749,8 +749,7 @@ export const getTaskData = internalQuery({
       .sort((a, b) => a.createdAt - b.createdAt)
       .map((c) => c.content);
 
-    const branchName =
-      args.branchName || `eva/task-${task.taskNumber || Date.now()}`;
+    const branchName = args.branchName || `eva/task-${args.taskId}`;
 
     const rootDirectory = repo.rootDirectory ?? "";
 

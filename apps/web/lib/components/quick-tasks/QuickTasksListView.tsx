@@ -207,7 +207,7 @@ export function QuickTasksListView({
                   open={openSections.has(status)}
                   onOpenChange={() => toggleSection(status)}
                 >
-                  <div className="flex items-center sticky top-0 z-10 bg-background">
+                  <div className="flex items-center sticky top-0 z-10 bg-background pb-2">
                     <CollapsibleTrigger asChild>
                       <button className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50">
                         <IconChevronRight

@@ -336,8 +336,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   <div
                     className={
                       selectedTaskId
-                        ? "hidden md:flex md:w-[20%] min-w-0 flex-shrink-0 overflow-hidden flex-col"
-                        : "flex-1 min-w-0"
+                        ? "hidden md:flex md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
+                        : "flex flex-col flex-1 min-w-0 min-h-0"
                     }
                   >
                     <QuickTasksListView

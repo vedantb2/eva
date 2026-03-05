@@ -54,23 +54,23 @@ export function TaskDetailModal({
           </DialogHeader>
           <div className="flex-1 min-h-0 flex flex-col">
             {scheduledBadge}
-            <div className="flex-1 min-h-0 pb-6">
-              <div className={`grid gap-4 md:gap-6 h-full ${layoutGridClass}`}>
-                <div className="space-y-4 md:space-y-6 overflow-y-auto scrollbar md:pr-2">
+            <div className="flex-1 min-h-0 pb-6 flex flex-col">
+              <div className={`grid grid-rows-1 gap-4 md:gap-6 flex-1 min-h-0 ${layoutGridClass}`}>
+                <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-2">
                   {descriptionSection}
                   {subtasksSection}
                   {runsSection}
                 </div>
                 {(audit || showProofSection) && (
-                  <div className="md:pl-4 space-y-4 overflow-y-auto scrollbar">
+                  <div className="md:pl-4 space-y-4 min-h-0 overflow-y-auto scrollbar">
                     {auditProofSection}
                   </div>
                 )}
-                <div className="md:pl-4 space-y-4 overflow-y-auto scrollbar">
+                <div className="md:pl-4 space-y-4 min-h-0 overflow-y-auto scrollbar">
                   {statusFieldsSection}
                 </div>
                 {requestChangesPanel && (
-                  <div className="flex flex-col md:border-l border-border md:pl-6 overflow-y-auto scrollbar">
+                  <div className="flex flex-col md:border-l border-border md:pl-6 min-h-0 overflow-y-auto scrollbar">
                     {requestChangesSection}
                   </div>
                 )}

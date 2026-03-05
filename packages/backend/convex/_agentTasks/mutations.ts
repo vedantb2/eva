@@ -206,7 +206,7 @@ export const createQuickTasksBatch = authMutation({
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
-        baseBranch: repo.defaultBaseBranch ?? "main",
+        baseBranch: repo.defaultBaseBranch ?? "staging",
         model: repo.defaultModel,
       });
       taskIds.push(taskId);

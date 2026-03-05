@@ -58,6 +58,7 @@ interface SandboxPanelProps {
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
+  onPreviewReady?: (url: string | null) => void;
 }
 
 export function SandboxPanel({
@@ -69,6 +70,7 @@ export function SandboxPanel({
   repoId,
   devPort,
   devCommand,
+  onPreviewReady,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
@@ -104,6 +106,7 @@ export function SandboxPanel({
         setCachedPreview(sessionId, data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
+        onPreviewReady?.(data.url);
       } else {
         pollingRef.current = setTimeout(() => {
           fetchPreview();
@@ -121,6 +124,7 @@ export function SandboxPanel({
     repoId,
     effectivePort,
     sessionId,
+    onPreviewReady,
   ]);
 
   useEffect(() => {
@@ -128,12 +132,14 @@ export function SandboxPanel({
       const cached = getCachedPreview(sessionId, effectivePort);
       if (cached) {
         setPreviewInfo(cached);
+        onPreviewReady?.(cached.url);
         return;
       }
       fetchPreview();
     }
     if (!isActive) {
       clearCachedPreview(sessionId, effectivePort);
+      onPreviewReady?.(null);
     }
     return stopPolling;
   }, [
@@ -143,6 +149,7 @@ export function SandboxPanel({
     stopPolling,
     sessionId,
     effectivePort,
+    onPreviewReady,
   ]);
 
   const terminal = useMemo(

@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
@@ -31,6 +31,7 @@ export function SessionDetailClient({
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const chatPanelRef = usePanelRef();
   const [chatCollapsed, setChatCollapsed] = useState(false);
 
@@ -80,6 +81,10 @@ export function SessionDetailClient({
     );
   }
 
+  const handlePreviewReady = useCallback((url: string | null) => {
+    setPreviewUrl(url);
+  }, []);
+
   const isSandboxActive = session.status === "active";
 
   return (
@@ -105,6 +110,7 @@ export function SessionDetailClient({
           isSandboxToggling={isSandboxToggling}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
+          previewUrl={previewUrl}
         />
       </Panel>
       <Separator
@@ -124,6 +130,7 @@ export function SessionDetailClient({
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}
+          onPreviewReady={handlePreviewReady}
         />
       </Panel>
     </Group>

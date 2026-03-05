@@ -162,6 +162,8 @@ export const createQuickTask = authMutation({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
       throw new Error("Not authorized");
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repo not found");
     const now = Date.now();
     return await ctx.db.insert("agentTasks", {
       title: args.title,
@@ -171,8 +173,8 @@ export const createQuickTask = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      baseBranch: args.baseBranch ?? "staging",
-      model: args.model,
+      baseBranch: args.baseBranch ?? repo.defaultBaseBranch ?? "main",
+      model: args.model ?? repo.defaultModel,
     });
   },
 });
@@ -186,12 +188,13 @@ export const createQuickTasksBatch = authMutation({
         description: v.optional(v.string()),
       }),
     ),
-    baseBranch: v.optional(v.string()),
   },
   returns: v.array(v.id("agentTasks")),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
       throw new Error("Not authorized");
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repo not found");
     const now = Date.now();
     const taskIds: Id<"agentTasks">[] = [];
     for (const task of args.tasks) {
@@ -203,7 +206,8 @@ export const createQuickTasksBatch = authMutation({
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
-        baseBranch: args.baseBranch ?? "staging",
+        baseBranch: repo.defaultBaseBranch ?? "main",
+        model: repo.defaultModel,
       });
       taskIds.push(taskId);
     }

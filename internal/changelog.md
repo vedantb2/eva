@@ -1,5 +1,35 @@
 # Changelog
 
+## Break down agentTasks.ts into smaller modules - 2026-03-05
+
+- **Why**: `agentTasks.ts` was 780 lines mixing queries, CRUD mutations, execution logic, draft management, and shared helpers in a single file. Finding and modifying specific functions required scrolling through unrelated concerns.
+- **Changes**:
+  1. Created `convex/agentTasks/helpers.ts` — `normalizeTaskTags`, `buildTaskNotificationMessage`, `agentTaskValidator`.
+  2. Created `convex/agentTasks/queries.ts` — `listByProject`, `get`, `getActiveTasks`, `getAllTasks`, `getDependentTasks`, `getStatusesByIds`.
+  3. Created `convex/agentTasks/mutations.ts` — `update`, `updateStatus`, `remove`, `createQuickTask`, `createQuickTasksBatch`, `assignToProject`, `deleteCascade`.
+  4. Created `convex/agentTasks/execution.ts` — `startExecution`, `scheduleExecution`, `cancelScheduledExecution`, `updateScheduledExecution`.
+  5. Created `convex/agentTasks/drafts.ts` — `listDrafts`, `saveDraft`, `activateDraft`.
+  6. `agentTasks.ts` is now a barrel file that re-exports everything, preserving the `api.agentTasks.*` namespace for all frontend consumers.
+- **Reason for change (architectural)**: Follows the same pattern established by `taskWorkflow/` — sub-modules own the logic, the top-level file owns the API surface. Convex re-exports are resolved at bundle time so all `api.agentTasks.*` paths remain intact.
+
+## Break down taskWorkflow.ts into smaller modules - 2026-03-05
+
+- **Why**: `taskWorkflow.ts` was 1550 lines with Convex function registrations, prompt builders, stale-run recovery logic, and shared DB helpers all in one file. This made navigation and maintenance difficult.
+- **Changes**:
+  1. Created `convex/taskWorkflow/prompts.ts` — `buildImplementationPrompt`, `buildAuditPrompt`, `buildWorkflowRunNotificationMessage`, `WORKSPACE_DIR`.
+  2. Created `convex/taskWorkflow/recovery.ts` — `cleanUpStaleRun`, `isDaytonaNetworkIssue`, `buildQuickTaskRetryDelayMs`, stale-run timing constants.
+  3. Created `convex/taskWorkflow/helpers.ts` — `clearStreamingActivity`, `upsertActivityLog`, `finalizeRunStatus`, `buildRunResultSummary`, `extractJsonBlock`.
+  4. `taskWorkflow.ts` now imports from these modules. All Convex function registrations remain in place so API paths are unchanged.
+- **Reason for change (architectural)**: Convex function definitions must stay in the original file (API path = filename), but pure helper logic can live in sub-modules. This keeps the orchestration layer slim while co-locating related helpers.
+
+## Fix quick-task no-sandbox watchdog false positives - 2026-03-05
+
+- **Why**: Quick tasks could be killed with `Run killed by watchdog: sandbox was never attached` while sandbox setup was still legitimately in progress, causing empty logs and unnecessary auto-retries.
+- **Changes**:
+  1. `taskWorkflow.updateRunToRunning` now resets `agentRuns.startedAt` when the run actually enters `running` instead of relying on the earlier queued timestamp.
+  2. Increased `STALE_NO_SANDBOX_THRESHOLD_MS` from 3 minutes to 10 minutes to tolerate slower sandbox provisioning windows.
+- **Reason for change (architectural)**: Watchdog deadlines should be measured from active execution start, not queue creation time, and pre-launch detection must be conservative enough to avoid killing valid in-flight provisioning.
+
 ## Simplify agentTasks, projects, taskWorkflow with shared helpers - 2026-03-05
 
 - **Why**: Three backend files accumulated duplicated task-deletion logic, missing authorization checks on project mutations (security gap), and inconsistent cleanup in stale-run handling.

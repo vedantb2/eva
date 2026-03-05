@@ -10,6 +10,11 @@
 
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
+import type * as agentTasks_drafts from "../agentTasks/drafts.js";
+import type * as agentTasks_execution from "../agentTasks/execution.js";
+import type * as agentTasks_helpers from "../agentTasks/helpers.js";
+import type * as agentTasks_mutations from "../agentTasks/mutations.js";
+import type * as agentTasks_queries from "../agentTasks/queries.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as auth from "../auth.js";
@@ -99,6 +104,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
+  "agentTasks/drafts": typeof agentTasks_drafts;
+  "agentTasks/execution": typeof agentTasks_execution;
+  "agentTasks/helpers": typeof agentTasks_helpers;
+  "agentTasks/mutations": typeof agentTasks_mutations;
+  "agentTasks/queries": typeof agentTasks_queries;
   analytics: typeof analytics;
   annotations: typeof annotations;
   auth: typeof auth;

@@ -139,191 +139,246 @@ export const taskExecutionWorkflow = workflow.define({
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Update run to "running"
-    await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
-      runId: args.runId,
-      taskId: args.taskId,
-      repoId: args.repoId,
-    });
+    let sandboxId: string | undefined;
+    let hasSubtasks = false;
+    let completionSuccess: boolean | undefined;
+    let completionError: string | null = null;
+    let completionPrUrl: string | null = null;
+    let completionActivityLog: string | null = null;
+    let runCompletionRecorded = false;
+    let runFinalized = false;
+    let sandboxDeleted = false;
 
-    // Step 2: Fetch task data and build prompt
-    const data = await step.runQuery(internal.taskWorkflow.getTaskData, {
-      taskId: args.taskId,
-      repoId: args.repoId,
-      projectId: args.projectId,
-      branchName: args.branchName,
-    });
-
-    // Step 3: Setup sandbox + launch Claude CLI
-    const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
-      {
-        entityId: String(args.taskId),
-        existingSandboxId: data.projectSandboxId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "taskWorkflow:handleCompletion",
-        entityIdField: "taskId",
-        model: args.model ?? "sonnet",
-        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-        branchName: data.branchName,
-        baseBranch: args.baseBranch,
-        ephemeral: !args.projectId,
-        repoId: args.repoId,
-      },
-      // setupAndExecute creates a new sandbox for standalone tasks.
-      // Retrying this step can create duplicate sandboxes for one run.
-      { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
-    );
-
-    // Step 3b: Save sandbox ID on the run for watchdog cleanup
-    await step.runMutation(internal.taskWorkflow.saveSandboxId, {
-      runId: args.runId,
-      sandboxId,
-    });
-
-    // Step 4: Update project sandbox if applicable
-    if (args.projectId) {
-      await step.runMutation(internal.taskWorkflow.updateProjectSandbox, {
-        projectId: args.projectId,
-        sandboxId,
-      });
-    }
-
-    // Step 5: Wait for sandbox callback
-    const result = await step.awaitEvent(taskCompleteEvent);
-
-    // Step 5b: Schedule deployment tracking (non-blocking)
-    if (result.success) {
-      await step.runMutation(internal.taskWorkflow.scheduleDeploymentTracking, {
+    try {
+      await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
         runId: args.runId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
-        branchName: data.branchName,
+        taskId: args.taskId,
+        repoId: args.repoId,
       });
-    }
 
-    // Step 6: Create PR if first task on branch
-    let prUrl: string | null = null;
-    if (args.isFirstTaskOnBranch && result.success) {
-      prUrl = await step.runAction(
-        internal.taskWorkflowActions.createPullRequest,
+      const data = await step.runQuery(internal.taskWorkflow.getTaskData, {
+        taskId: args.taskId,
+        repoId: args.repoId,
+        projectId: args.projectId,
+        branchName: args.branchName,
+      });
+      hasSubtasks = data.hasSubtasks;
+
+      const setupResult = await step.runAction(
+        internal.daytona.setupAndExecute,
         {
+          entityId: String(args.taskId),
+          existingSandboxId: data.projectSandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
+          prompt: data.prompt,
+          userId: args.userId,
+          completionMutation: "taskWorkflow:handleCompletion",
+          entityIdField: "taskId",
+          model: args.model ?? "sonnet",
+          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
           branchName: data.branchName,
           baseBranch: args.baseBranch,
-          title: data.taskTitle,
-          description: data.taskDescription,
-          labels: [
-            "eva",
-            args.projectId ? "project" : "quick-task",
-            ...(data.appLabel ? [data.appLabel] : []),
-          ],
+          ephemeral: !args.projectId,
+          repoId: args.repoId,
         },
+        { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );
-    }
+      sandboxId = setupResult.sandboxId;
 
-    await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
-      runId: args.runId,
-      taskId: args.taskId,
-      projectId: args.projectId,
-      success: result.success,
-      error: result.error,
-      prUrl,
-      activityLog: result.activityLog,
-    });
+      await step.runMutation(internal.taskWorkflow.saveSandboxId, {
+        runId: args.runId,
+        sandboxId,
+      });
 
-    // Step 7: Run audit before completing task status (non-fatal)
-    if (result.success && sandboxId) {
-      try {
-        const diffRaw = await step.runAction(
-          internal.daytona.runSandboxCommand,
+      if (args.projectId) {
+        await step.runMutation(internal.taskWorkflow.updateProjectSandbox, {
+          projectId: args.projectId,
+          sandboxId,
+        });
+      }
+
+      const result = await step.awaitEvent(taskCompleteEvent);
+      completionSuccess = result.success;
+      completionError = result.error;
+      completionActivityLog = result.activityLog;
+
+      if (result.success) {
+        await step.runMutation(
+          internal.taskWorkflow.scheduleDeploymentTracking,
           {
-            sandboxId,
-            command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-            timeoutSeconds: 30,
-            repoId: args.repoId,
+            runId: args.runId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
           },
         );
+      }
 
-        if (diffRaw.trim()) {
-          const auditId = await step.runMutation(
-            internal.taskWorkflow.createAudit,
+      if (args.isFirstTaskOnBranch && result.success) {
+        completionPrUrl = await step.runAction(
+          internal.taskWorkflowActions.createPullRequest,
+          {
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
+            baseBranch: args.baseBranch,
+            title: data.taskTitle,
+            description: data.taskDescription,
+            labels: [
+              "eva",
+              args.projectId ? "project" : "quick-task",
+              ...(data.appLabel ? [data.appLabel] : []),
+            ],
+          },
+        );
+      }
+
+      await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
+        runId: args.runId,
+        taskId: args.taskId,
+        projectId: args.projectId,
+        success: result.success,
+        error: result.error,
+        prUrl: completionPrUrl,
+        activityLog: result.activityLog,
+      });
+      runCompletionRecorded = true;
+
+      if (result.success && sandboxId) {
+        try {
+          const diffRaw = await step.runAction(
+            internal.daytona.runSandboxCommand,
             {
-              taskId: args.taskId,
-              runId: args.runId,
+              sandboxId,
+              command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
+              timeoutSeconds: 30,
+              repoId: args.repoId,
             },
           );
 
-          await step.runAction(internal.daytona.launchAudit, {
-            sandboxId,
-            prompt: buildAuditPrompt(diffRaw),
-            taskId: String(args.taskId),
-            userId: args.userId,
-            repoId: args.repoId,
-          });
-
-          const auditResult = await step.awaitEvent(auditCompleteEvent);
-
-          await step.runMutation(internal.taskWorkflow.saveAuditResult, {
-            auditId,
-            result: auditResult.result,
-            error: auditResult.success
-              ? undefined
-              : (auditResult.error ?? "Audit failed"),
-          });
-
-          if (prUrl) {
-            await step.runAction(
-              internal.taskWorkflowActions.appendAuditToPullRequest,
+          if (diffRaw.trim()) {
+            const auditId = await step.runMutation(
+              internal.taskWorkflow.createAudit,
               {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                auditResult: auditResult.result,
-                auditError: auditResult.success
-                  ? null
-                  : (auditResult.error ?? "Audit failed"),
+                taskId: args.taskId,
+                runId: args.runId,
               },
             );
+
+            await step.runAction(internal.daytona.launchAudit, {
+              sandboxId,
+              prompt: buildAuditPrompt(diffRaw),
+              taskId: String(args.taskId),
+              userId: args.userId,
+              repoId: args.repoId,
+            });
+
+            const auditResult = await step.awaitEvent(auditCompleteEvent);
+
+            await step.runMutation(internal.taskWorkflow.saveAuditResult, {
+              auditId,
+              result: auditResult.result,
+              error: auditResult.success
+                ? undefined
+                : (auditResult.error ?? "Audit failed"),
+            });
+
+            if (completionPrUrl) {
+              await step.runAction(
+                internal.taskWorkflowActions.appendAuditToPullRequest,
+                {
+                  installationId: args.installationId,
+                  repoOwner: data.repoOwner,
+                  repoName: data.repoName,
+                  branchName: data.branchName,
+                  auditResult: auditResult.result,
+                  auditError: auditResult.success
+                    ? null
+                    : (auditResult.error ?? "Audit failed"),
+                },
+              );
+            }
           }
+        } catch (err) {
+          console.error("Audit step failed:", err);
         }
-      } catch (err) {
-        console.error("Audit step failed:", err);
       }
-    }
 
-    // Step 8: Complete the run (after audit so task stays in_progress until audit finishes)
-    await step.runMutation(internal.taskWorkflow.completeRun, {
-      runId: args.runId,
-      taskId: args.taskId,
-      projectId: args.projectId,
-      success: result.success,
-      error: result.error,
-      prUrl,
-      hasSubtasks: data.hasSubtasks,
-      activityLog: result.activityLog,
-    });
+      await step.runMutation(internal.taskWorkflow.completeRun, {
+        runId: args.runId,
+        taskId: args.taskId,
+        projectId: args.projectId,
+        success: result.success,
+        error: result.error,
+        prUrl: completionPrUrl,
+        hasSubtasks: data.hasSubtasks,
+        activityLog: result.activityLog,
+      });
+      runFinalized = true;
 
-    // Cleanup: Delete sandbox for ephemeral (standalone) tasks
-    if (!args.projectId && sandboxId) {
-      await step.runAction(internal.daytona.deleteSandbox, {
-        sandboxId,
-        repoId: args.repoId,
+      if (!args.projectId && sandboxId) {
+        await step.runAction(internal.daytona.deleteSandbox, {
+          sandboxId,
+          repoId: args.repoId,
+        });
+        sandboxDeleted = true;
+      }
+    } catch (error) {
+      const workflowError =
+        error instanceof Error ? error.message : "Task workflow failed";
+      const fallbackSuccess = completionSuccess ?? false;
+      const fallbackError = fallbackSuccess
+        ? null
+        : (completionError ?? workflowError);
+      const fallbackExitReason = fallbackSuccess ? "completed" : "error";
+
+      if (!runCompletionRecorded) {
+        await step.runMutation(
+          internal.taskWorkflow.finalizeRunStreamingPhase,
+          {
+            runId: args.runId,
+            taskId: args.taskId,
+            projectId: args.projectId,
+            success: fallbackSuccess,
+            error: fallbackError,
+            prUrl: completionPrUrl,
+            activityLog: completionActivityLog,
+            exitReason: fallbackExitReason,
+          },
+        );
+      }
+
+      if (!runFinalized) {
+        await step.runMutation(internal.taskWorkflow.completeRun, {
+          runId: args.runId,
+          taskId: args.taskId,
+          projectId: args.projectId,
+          success: fallbackSuccess,
+          error: fallbackError,
+          prUrl: completionPrUrl,
+          hasSubtasks,
+          activityLog: completionActivityLog,
+          exitReason: fallbackExitReason,
+        });
+      }
+
+      if (!args.projectId && sandboxId && !sandboxDeleted) {
+        try {
+          await step.runAction(internal.daytona.deleteSandbox, {
+            sandboxId,
+            repoId: args.repoId,
+          });
+        } catch {}
+      }
+    } finally {
+      await step.runMutation(internal.taskWorkflow.clearActiveWorkflow, {
+        taskId: args.taskId,
       });
     }
-
-    // Final step: Always clear activeWorkflowId on the task
-    await step.runMutation(internal.taskWorkflow.clearActiveWorkflow, {
-      taskId: args.taskId,
-    });
   },
 });
 
@@ -456,6 +511,12 @@ export const checkStaleRuns = internalMutation({
         sandboxId: run.sandboxId,
         repoId: run.repoId,
       });
+      if (!task.projectId) {
+        await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+          sandboxId: run.sandboxId,
+          repoId: run.repoId,
+        });
+      }
     }
 
     try {
@@ -1064,6 +1125,19 @@ export const handleStaleRun = internalMutation({
     const run = await ctx.db.get(args.runId);
     const runStillActive =
       run && (run.status === "queued" || run.status === "running");
+
+    if (run && runStillActive && run.sandboxId && run.repoId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+        sandboxId: run.sandboxId,
+        repoId: run.repoId,
+      });
+      if (!task.projectId) {
+        await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+          sandboxId: run.sandboxId,
+          repoId: run.repoId,
+        });
+      }
+    }
 
     if (runStillActive) {
       await ctx.db.patch(args.runId, {

@@ -1,5 +1,16 @@
 # Changelog
 
+## Improve quick-task run robustness and batch start behavior - 2026-03-05
+
+- **Why**: Some quick-task runs stayed on "Generating response..." until the 2-hour watchdog because failures before callback completion were not finalized immediately. Batch run actions also stopped on the first failing task, so only part of a selected set started.
+- **Changes**:
+  1. `taskWorkflow.ts` — wrapped `taskExecutionWorkflow` in fail-fast recovery: exceptions now finalize and complete the run immediately, always clear `activeWorkflowId`, and attempt ephemeral sandbox cleanup.
+  2. `taskWorkflow.ts` — timeout/watchdog paths now also clean quick-task sandboxes (`checkStaleRuns` and `handleStaleRun`) to avoid leaked capacity.
+  3. `daytona.ts` — callback script now enforces a max total runtime (`CLAUDE_MAX_TOTAL_RUNTIME_MS`, default 90 minutes) in addition to no-output timeout.
+  4. `daytona.ts` — `launchScript` now verifies the callback process stays alive after launch (`/tmp/run-design.pid` + `kill -0`) and fails early with log tail if it exits immediately.
+  5. `RunTasksModal.tsx`, `QuickTasksKanbanBoard.tsx`, `QuickTasksListView.tsx` — per-task error handling now continues launching remaining tasks instead of aborting the entire batch.
+- **Benefit**: Failures surface quickly instead of aging into generic 2-hour timeouts, leaked quick-task sandboxes are cleaned up, and batch execution starts as many tasks as possible.
+
 ## Fix cost logging: correct field name + always log - 2026-03-05
 
 - **Why**: Cost logs were always $0.00 because we read `cost_usd` from the stream-json result event, but the actual field is `total_cost_usd`. Also, the `> 0` guard silently skipped entries when cost was 0 or missing, making it impossible to diagnose.

@@ -428,6 +428,8 @@ const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "${WORKSPACE_DIR}";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
+const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "5400000");
+const SCRIPT_STARTED_AT = Date.now();
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -693,7 +695,16 @@ async function runClaudeAttempt(includeSessionId) {
     let attemptOutput = "";
     let lastStdoutAt = Date.now();
     let timedOutForNoOutput = false;
+    let timedOutForMaxRuntime = false;
     const noOutputTimer = setInterval(() => {
+      if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
+        timedOutForMaxRuntime = true;
+        try { child.kill("SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch {}
+        }, 2000);
+        return;
+      }
       if (Date.now() - lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
         return;
       }
@@ -715,7 +726,12 @@ async function runClaudeAttempt(includeSessionId) {
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
-      resolve({ code: code ?? 1, output: attemptOutput, timedOutForNoOutput });
+      resolve({
+        code: code ?? 1,
+        output: attemptOutput,
+        timedOutForNoOutput,
+        timedOutForMaxRuntime,
+      });
     });
     child.on("error", (err) => {
       clearInterval(noOutputTimer);
@@ -730,6 +746,7 @@ try {
 
   let finalCode = firstAttempt.code;
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
+  let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     Boolean(process.env.CLAUDE_SESSION_ID) &&
@@ -752,6 +769,7 @@ try {
     await flushStreaming();
     finalCode = secondAttempt.code;
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
+    finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
@@ -840,7 +858,9 @@ try {
     error: finalResultEvent?.isError
       ? finalResultEvent.result
       : (finalCode !== 0
-          ? (finalTimedOutForNoOutput
+          ? (finalTimedOutForMaxRuntime
+              ? "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms"
+              : finalTimedOutForNoOutput
               ? "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms"
               : "Claude CLI exited with code " + finalCode) +
             (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
@@ -923,11 +943,10 @@ async function launchScript(
     }
   }
   const envVars = envParts.join(" ");
-  await sandbox.process.executeCommand(
-    `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 &`,
-    "/",
-    undefined,
-    10,
+  await exec(
+    sandbox,
+    `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; sleep 1; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi`,
+    20,
   );
 }
 

@@ -69,15 +69,15 @@ export function QuickTaskCard({
               ? "border border-primary/40 bg-primary/5"
               : "border border-border/70 bg-card/88 hover:border-primary/25 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40 shadow-md" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
-        !isSelecting && onClick
+        onClick
           ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onClick={isSelecting ? undefined : onClick}
-      role={!isSelecting && onClick ? "button" : undefined}
-      tabIndex={!isSelecting && onClick ? 0 : undefined}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onKeyDown={(event) => {
-        if (isSelecting || !onClick) return;
+        if (!onClick) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();
@@ -96,6 +96,7 @@ export function QuickTaskCard({
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect?.()}
+              onClick={(e) => e.stopPropagation()}
               className="mt-0.5 flex-shrink-0"
             />
           )}

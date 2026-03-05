@@ -5,7 +5,7 @@ export {
   getTeamIdForRepo,
   listByTeam,
   getInternal,
-} from "./githubRepos/queries";
+} from "./_githubRepos/queries";
 
 export {
   assignToTeam,
@@ -13,10 +13,10 @@ export {
   create,
   updateConfig,
   deleteInternal,
-} from "./githubRepos/mutations";
+} from "./_githubRepos/mutations";
 
 export {
   upsert,
   syncConnectedStatus,
   cleanupStaleSubApps,
-} from "./githubRepos/sync";
+} from "./_githubRepos/sync";

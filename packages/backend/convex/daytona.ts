@@ -5,21 +5,21 @@ export {
   killSandboxProcess,
   deleteSandbox,
   stopSandbox,
-} from "./daytona/lifecycle";
+} from "./_daytona/lifecycle";
 
 export {
   runSandboxCommand,
   getPreviewUrl,
   setupAndExecute,
   launchOnExistingSandbox,
-} from "./daytona/execution";
+} from "./_daytona/execution";
 
 export {
   toggleCodeServer,
   toggleDesktopServer,
   launchChromeInDesktop,
-} from "./daytona/services";
+} from "./_daytona/services";
 
-export { launchAudit, runSessionAudit } from "./daytona/audit";
+export { launchAudit, runSessionAudit } from "./_daytona/audit";
 
-export { startSessionSandbox, startDesignSandbox } from "./daytona/sessions";
+export { startSessionSandbox, startDesignSandbox } from "./_daytona/sessions";

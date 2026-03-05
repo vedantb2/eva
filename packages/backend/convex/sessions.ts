@@ -1,4 +1,4 @@
-export { list, listArchived, get } from "./sessions/queries";
+export { list, listArchived, get } from "./_sessions/queries";
 
 export {
   create,
@@ -9,7 +9,7 @@ export {
   archive,
   updatePlanContent,
   updateLastMessage,
-} from "./sessions/mutations";
+} from "./_sessions/mutations";
 
 export {
   updateSandbox,
@@ -18,10 +18,10 @@ export {
   stopSandbox,
   sandboxReady,
   sandboxError,
-} from "./sessions/sandbox";
+} from "./_sessions/sandbox";
 
-export { updatePtySession, updatePtySessionInternal } from "./sessions/pty";
+export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
-export { getOrCreateExtensionSession } from "./sessions/extension";
+export { getOrCreateExtensionSession } from "./_sessions/extension";
 
-export { getInternal, setPrUrl } from "./sessions/internal";
+export { getInternal, setPrUrl } from "./_sessions/internal";

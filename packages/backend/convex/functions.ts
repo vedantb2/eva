@@ -8,6 +8,7 @@ import type {
   GenericDatabaseReader,
   GenericDatabaseWriter,
 } from "convex/server";
+import { makeFunctionReference } from "convex/server";
 import {
   query,
   mutation,
@@ -16,10 +17,9 @@ import {
   internalMutation,
   internalAction,
 } from "./_generated/server";
+import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
-import { internal } from "./_generated/api";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
 
 export async function hasRepoAccess(
   db: GenericDatabaseReader<DataModel>,
@@ -214,13 +214,24 @@ export const authMutation = customMutation(
   }),
 );
 
+const getUserIdFromIdentityRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  Id<"users"> | null
+>("auth:getUserIdFromIdentity");
+
+async function resolveActionUserId(ctx: ActionCtx): Promise<Id<"users">> {
+  const userId = await ctx.runQuery(getUserIdFromIdentityRef);
+  if (!userId) {
+    throw new Error("Not authenticated");
+  }
+  return userId;
+}
+
 export const authAction = customAction(
   action,
-  customCtx(async (ctx): Promise<{ userId: Id<"users"> }> => {
-    const userId = await ctx.runQuery(internal.auth.getUserIdFromIdentity, {});
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
+  customCtx(async (ctx: ActionCtx) => {
+    const userId = await resolveActionUserId(ctx);
     return { userId };
   }),
 );
@@ -249,11 +260,8 @@ export const internalAuthMutation = customMutation(
 
 export const internalAuthAction = customAction(
   internalAction,
-  customCtx(async (ctx): Promise<{ userId: Id<"users"> }> => {
-    const userId = await ctx.runQuery(internal.auth.getUserIdFromIdentity, {});
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
+  customCtx(async (ctx: ActionCtx) => {
+    const userId = await resolveActionUserId(ctx);
     return { userId };
   }),
 );

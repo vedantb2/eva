@@ -5,10 +5,6 @@ import { quote } from "shell-quote";
 import { exec, requireEnv } from "./helpers";
 import { buildCallbackScript } from "./callbackScript";
 
-/**
- * Uploads prompt + script to sandbox and fires the script via nohup.
- * Returns immediately -- the script calls back to Convex when done.
- */
 export async function launchScript(
   sandbox: Sandbox,
   prompt: string,
@@ -55,7 +51,7 @@ export async function launchScript(
   const envVars = envParts.join(" ");
   await exec(
     sandbox,
-    `${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; sleep 1; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi`,
-    20,
+    `${envVars} rm -f /tmp/run-design.pid /tmp/run-design.ready; nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt 25 ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
+    40,
   );
 }

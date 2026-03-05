@@ -1,6 +1,6 @@
-export { buildTaskDoneEvent } from "./taskWorkflow/events";
+export { buildTaskDoneEvent } from "./_taskWorkflow/events";
 
-export { taskExecutionWorkflow } from "./taskWorkflow/workflowDefinition";
+export { taskExecutionWorkflow } from "./_taskWorkflow/workflowDefinition";
 
 export {
   updateRunToRunning,
@@ -9,23 +9,23 @@ export {
   updateProjectSandbox,
   finalizeRunStreamingPhase,
   completeRun,
-} from "./taskWorkflow/runLifecycle";
+} from "./_taskWorkflow/runLifecycle";
 
-export { createAudit, saveAuditResult } from "./taskWorkflow/audit";
+export { createAudit, saveAuditResult } from "./_taskWorkflow/audit";
 
-export { checkStaleRuns, handleStaleRun } from "./taskWorkflow/watchdog";
+export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
 
 export {
   maybeScheduleQuickTaskRetry,
   executeScheduledTask,
   clearActiveWorkflow,
-} from "./taskWorkflow/scheduling";
+} from "./_taskWorkflow/scheduling";
 
-export { getTaskData } from "./taskWorkflow/queries";
+export { getTaskData } from "./_taskWorkflow/queries";
 
 export {
   handleCompletion,
   handleAuditCompletion,
   cancelExecution,
   triggerExecution,
-} from "./taskWorkflow/publicMutations";
+} from "./_taskWorkflow/publicMutations";

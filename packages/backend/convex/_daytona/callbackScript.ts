@@ -18,7 +18,7 @@ export function buildCallbackScript(
 ): string {
   return `
 import { spawn } from "child_process";
-import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -36,6 +36,7 @@ const SCRIPT_STARTED_AT = Date.now();
 const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "15000");
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
+const READY_FILE = "/tmp/run-design.ready";
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -242,11 +243,33 @@ async function heartbeatPing() {
   } catch {}
 }
 
+try { unlinkSync(READY_FILE); } catch {}
+
 accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
-callMutation("streaming:set", {
-  entityId: STREAMING_ENTITY_ID,
-  currentActivity: JSON.stringify(accumulatedSteps),
-}).catch(() => {});
+
+let callbackReady = false;
+await callMutationWithRetry(
+  "streaming:set",
+  {
+    entityId: STREAMING_ENTITY_ID,
+    currentActivity: JSON.stringify(accumulatedSteps),
+  },
+  1,
+)
+  .then(() => {
+    lastStreamingSentAt = Date.now();
+    callbackReady = true;
+    try {
+      writeFileSync(READY_FILE, String(Date.now()));
+    } catch {}
+  })
+  .catch((error) => {
+    console.error("Callback preflight failed:", String(error));
+  });
+
+if (!callbackReady) {
+  process.exit(1);
+}
 
 const interval = setInterval(flushStreaming, 500);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);

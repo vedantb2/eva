@@ -1,5 +1,14 @@
 # Changelog
 
+## Harden quick-task callback startup and JWT issuer consistency - 2026-03-05
+
+- **Why**: Quick-task runs could appear as `running` with no Claude activity when the sandbox callback process started but could not authenticate back to Convex, or when JWT issuer config drifted between token signing and auth provider validation.
+- **Changes**:
+  1. Added callback readiness handshake in `_daytona/callbackScript.ts`: the script now writes `/tmp/run-design.ready` only after an authenticated `streaming:set` preflight succeeds.
+  2. Strengthened `_daytona/launch.ts` startup verification: launch now waits for the readiness file, fails fast with tailed logs if readiness is never reached, and kills the orphaned process.
+  3. Added `sandboxAuthConfig.ts` and centralized sandbox JWT issuer/JWKS constants; wired `auth.config.ts`, `sandboxJwt.ts`, and `http.ts` to the shared values so signing and validation cannot silently diverge.
+- **Reason for change (architectural)**: Runtime orchestration should only mark a callback as started after callback-to-Convex authentication is proven, and auth-critical issuer configuration must come from one source of truth.
+
 ## Break down agentTasks.ts into smaller modules - 2026-03-05
 
 - **Why**: `agentTasks.ts` was 780 lines mixing queries, CRUD mutations, execution logic, draft management, and shared helpers in a single file. Finding and modifying specific functions required scrolling through unrelated concerns.

@@ -1,4 +1,4 @@
-export { list, get, getTaskCount, getTaskProgress } from "./projects/queries";
+export { list, get, getTaskCount, getTaskProgress } from "./_projects/queries";
 
 export {
   create,
@@ -12,6 +12,6 @@ export {
   clearProjectSandbox,
   updateLastSandboxActivity,
   updateLastConversationMessage,
-} from "./projects/mutations";
+} from "./_projects/mutations";
 
-export { startDevelopment, createFromTasks } from "./projects/development";
+export { startDevelopment, createFromTasks } from "./_projects/development";

@@ -129,7 +129,7 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runCompletionRecorded = true;
 
-      if (result.success && sandboxId) {
+      if (result.success && sandboxId && data.postAuditEnabled) {
         try {
           const diffRaw = await step.runAction(
             internal.daytona.runSandboxCommand,

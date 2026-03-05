@@ -60,6 +60,8 @@ interface SandboxPanelProps {
   devCommand?: string;
   previewInfo: PreviewInfo | null;
   onPreviewInfoChange: (info: PreviewInfo | null) => void;
+  vncEnabled?: boolean;
+  vscodeEnabled?: boolean;
 }
 
 export function SandboxPanel({
@@ -73,6 +75,8 @@ export function SandboxPanel({
   devCommand,
   previewInfo,
   onPreviewInfoChange,
+  vncEnabled = true,
+  vscodeEnabled = true,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [isLoading, setIsLoading] = useState(false);
@@ -233,6 +237,7 @@ export function SandboxPanel({
             isActive={isActive}
             tabSwitcher={tabSwitcher}
             repoId={repoId}
+            enabled={vscodeEnabled}
           />
         </div>
         <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
@@ -250,6 +255,7 @@ export function SandboxPanel({
             isActive={isActive}
             tabSwitcher={tabSwitcher}
             repoId={repoId}
+            enabled={vncEnabled}
           />
         </div>
       </div>

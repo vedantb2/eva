@@ -158,6 +158,9 @@ const schema = defineSchema({
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
+    postAuditEnabled: v.optional(v.boolean()),
+    sessionsVncEnabled: v.optional(v.boolean()),
+    sessionsVscodeEnabled: v.optional(v.boolean()),
   })
     .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])

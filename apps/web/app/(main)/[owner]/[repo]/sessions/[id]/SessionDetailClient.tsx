@@ -19,7 +19,7 @@ export function SessionDetailClient({
 }: {
   sessionId: Id<"sessions">;
 }) {
-  const { installationId } = useRepo();
+  const { installationId, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,
@@ -135,6 +135,8 @@ export function SessionDetailClient({
           devCommand={session.devCommand}
           previewInfo={previewInfo}
           onPreviewInfoChange={handlePreviewInfoChange}
+          vncEnabled={repo.sessionsVncEnabled !== false}
+          vscodeEnabled={repo.sessionsVscodeEnabled !== false}
         />
       </Panel>
     </Group>

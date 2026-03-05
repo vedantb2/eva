@@ -19,6 +19,7 @@ export const getTaskData = internalQuery({
     projectSandboxId: v.optional(v.string()),
     hasSubtasks: v.boolean(),
     appLabel: v.optional(v.string()),
+    postAuditEnabled: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -76,6 +77,7 @@ export const getTaskData = internalQuery({
       projectSandboxId,
       hasSubtasks: sortedSubtasks.length > 0,
       appLabel,
+      postAuditEnabled: repo.postAuditEnabled !== false,
     };
   },
 });

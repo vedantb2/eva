@@ -665,9 +665,8 @@ function extractResultEvent(output) {
     try {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
-        console.log("[cost-debug] result event:", JSON.stringify(parsed));
         const r = parsed.result ?? "";
-        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.cost_usd === "number" ? parsed.cost_usd : 0 };
+        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.cost_usd === "number" ? parsed.cost_usd : 0, raw: clean.slice(0, 2000) };
       }
     } catch {}
   }
@@ -845,6 +844,7 @@ try {
     activityLog,
     costUsd: finalResultEvent?.costUsd ?? 0,
     model: MODEL,
+    rawResultEvent: finalResultEvent?.raw ?? null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);

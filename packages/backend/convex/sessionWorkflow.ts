@@ -415,6 +415,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     costUsd: v.optional(v.number()),
     model: v.optional(v.string()),
+    rawResultEvent: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -441,6 +442,7 @@ export const handleCompletion = authMutation({
       model: args.model ?? "sonnet",
       repoId: session.repoId,
       createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent ?? undefined,
     });
 
     return null;

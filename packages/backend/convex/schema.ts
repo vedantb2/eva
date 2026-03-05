@@ -440,6 +440,7 @@ const schema = defineSchema({
     model: v.string(),
     repoId: v.id("githubRepos"),
     createdAt: v.number(),
+    rawResultEvent: v.optional(v.string()),
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])

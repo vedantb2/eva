@@ -45,6 +45,10 @@ export function SessionDetailClient({
     }
   };
 
+  const handlePreviewReady = useCallback((url: string | null) => {
+    setPreviewUrl(url);
+  }, []);
+
   const handleSandboxToggle = async (action: "start" | "stop") => {
     setIsSandboxToggling(true);
     try {
@@ -80,10 +84,6 @@ export function SessionDetailClient({
       </div>
     );
   }
-
-  const handlePreviewReady = useCallback((url: string | null) => {
-    setPreviewUrl(url);
-  }, []);
 
   const isSandboxActive = session.status === "active";
 

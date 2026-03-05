@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api, CLAUDE_MODELS } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
-  Button,
-  Spinner,
   Select,
   SelectContent,
   SelectItem,
@@ -21,27 +18,6 @@ export function ConfigClient() {
   const { repo, repoId } = useRepo();
   const updateConfig = useMutation(api.githubRepos.updateConfig);
 
-  const [defaultBaseBranch, setDefaultBaseBranch] = useState(
-    repo.defaultBaseBranch ?? "main",
-  );
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setDefaultBaseBranch(repo.defaultBaseBranch ?? "main");
-  }, [repo._id, repo.defaultBaseBranch]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateConfig({
-        repoId,
-        defaultBaseBranch: defaultBaseBranch || undefined,
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <PageWrapper title="Config">
       <div className="space-y-4">
@@ -54,8 +30,10 @@ export function ConfigClient() {
                 Default Base Branch
               </label>
               <BranchSelect
-                value={defaultBaseBranch}
-                onValueChange={setDefaultBaseBranch}
+                value={repo.defaultBaseBranch ?? "main"}
+                onValueChange={(val) =>
+                  updateConfig({ repoId, defaultBaseBranch: val || undefined })
+                }
                 className="h-8 text-xs"
                 placeholder="Select a branch"
               />
@@ -144,13 +122,6 @@ export function ConfigClient() {
               </div>
             </label>
           </div>
-        </div>
-
-        <div className="flex justify-end">
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? <Spinner size="sm" className="mr-1.5" /> : null}
-            Save
-          </Button>
         </div>
       </div>
     </PageWrapper>

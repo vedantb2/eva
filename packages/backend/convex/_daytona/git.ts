@@ -160,9 +160,18 @@ export async function setupBranch(
   branchName: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
+  const quotedRemote = quote([`origin/${branchName}`]);
+  // Stash any local changes first
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null; git checkout -B ${quotedBranch}`,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+    10,
+  );
+  // Try to checkout the existing remote branch first (preserves previous commits),
+  // then fall back to creating a new branch from current HEAD
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -B ${quotedBranch})`,
     10,
   );
   const currentBranch = (

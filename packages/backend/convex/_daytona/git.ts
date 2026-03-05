@@ -197,6 +197,7 @@ export async function createSandboxAndPrepareRepo(
   sandboxEnvVars: Record<string, string>,
   snapshotName?: string,
   volumes?: VolumeMount[],
+  onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let initialSandbox: Sandbox | undefined;
   try {
@@ -207,6 +208,9 @@ export async function createSandboxAndPrepareRepo(
       snapshotName,
       volumes,
     );
+    if (onSandboxAcquired) {
+      await onSandboxAcquired(initialSandbox);
+    }
     if (snapshotName) {
       await syncRepo(initialSandbox, installationId, owner, name);
       return { sandbox: initialSandbox, usedSnapshot: true };
@@ -235,6 +239,9 @@ export async function createSandboxAndPrepareRepo(
       volumes,
     );
     try {
+      if (onSandboxAcquired) {
+        await onSandboxAcquired(sandbox);
+      }
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, usedSnapshot: true };
     } catch (retryError) {

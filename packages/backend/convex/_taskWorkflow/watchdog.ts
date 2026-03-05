@@ -12,6 +12,15 @@ import {
 } from "./recovery";
 import { clearStreamingActivity } from "./helpers";
 
+function isSandboxStartupActivity(
+  currentActivity: string | undefined,
+): boolean {
+  if (!currentActivity) {
+    return true;
+  }
+  return currentActivity.includes('"Starting sandbox..."');
+}
+
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -65,8 +74,14 @@ export const checkStaleRuns = internalMutation({
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
       .first();
+    const startupStillInProgress = isSandboxStartupActivity(
+      streaming?.currentActivity,
+    );
     const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
-    const isStale = Date.now() - lastActivity > STALE_THRESHOLD_MS;
+    const staleThresholdMs = startupStillInProgress
+      ? STALE_NO_SANDBOX_THRESHOLD_MS
+      : STALE_THRESHOLD_MS;
+    const isStale = Date.now() - lastActivity > staleThresholdMs;
 
     if (!isStale) {
       await ctx.scheduler.runAfter(
@@ -83,8 +98,12 @@ export const checkStaleRuns = internalMutation({
       sandboxId: run.sandboxId,
       repoId: run.repoId,
       isProjectTask: !!task.projectId,
-      errorMessage: "Run killed by watchdog: no heartbeat for 90s",
-      exitReason: "watchdog_killed",
+      errorMessage: startupStillInProgress
+        ? "Run killed by watchdog: sandbox startup stalled"
+        : "Run killed by watchdog: no heartbeat for 90s",
+      exitReason: startupStillInProgress
+        ? "watchdog_startup_stalled"
+        : "watchdog_killed",
       activeWorkflowId: task.activeWorkflowId,
     });
     return null;

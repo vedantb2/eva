@@ -99,6 +99,7 @@ export const setupAndExecute = internalAction({
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.optional(v.id("githubRepos")),
+    attachRunId: v.optional(v.id("agentRuns")),
     sessionPersistenceId: v.optional(v.id("sessions")),
     startDesktop: v.optional(v.boolean()),
   },
@@ -120,6 +121,17 @@ export const setupAndExecute = internalAction({
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
+    const attachRunSandbox = async (
+      sandboxToAttach: Sandbox,
+    ): Promise<void> => {
+      if (!args.attachRunId) {
+        return;
+      }
+      await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
+        runId: args.attachRunId,
+        sandboxId: sandboxToAttach.id,
+      });
+    };
 
     while (true) {
       try {
@@ -132,6 +144,7 @@ export const setupAndExecute = internalAction({
             sandboxEnvVars,
             snapshotName,
             sessionVolumeMounts,
+            attachRunSandbox,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;

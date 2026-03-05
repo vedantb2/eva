@@ -63,6 +63,7 @@ export const taskExecutionWorkflow = workflow.define({
           baseBranch: args.baseBranch,
           ephemeral: !args.projectId,
           repoId: args.repoId,
+          attachRunId: args.runId,
         },
         { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );

@@ -31,44 +31,49 @@ export const evaluationWorkflow = workflow.define({
     branchName: v.optional(v.string()),
   },
   handler: async (step, args): Promise<void> => {
-    // Step 1: Create report and set status to running
-    await step.runMutation(internal.evaluationWorkflow.setRunning, {
-      reportId: args.reportId,
-    });
+    try {
+      await step.runMutation(internal.evaluationWorkflow.setRunning, {
+        reportId: args.reportId,
+      });
 
-    // Step 2: Fetch doc data and build two-phase prompt
-    const docData = await step.runQuery(
-      internal.evaluationWorkflow.getDocData,
-      { docId: args.docId },
-    );
+      const docData = await step.runQuery(
+        internal.evaluationWorkflow.getDocData,
+        { docId: args.docId },
+      );
 
-    // Step 3: Setup sandbox + fire two-phase Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
-      entityId: String(args.reportId),
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
-      prompt: docData.prompt,
-      userId: args.userId,
-      completionMutation: "evaluationWorkflow:handleCompletion",
-      entityIdField: "reportId",
-      model: "sonnet",
-      allowedTools: "Read,Glob,Grep",
-      baseBranch: args.branchName,
-      ephemeral: true,
-      repoId: docData.repoId,
-    });
+      await step.runAction(internal.daytona.setupAndExecute, {
+        entityId: String(args.reportId),
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        prompt: docData.prompt,
+        userId: args.userId,
+        completionMutation: "evaluationWorkflow:handleCompletion",
+        entityIdField: "reportId",
+        model: "sonnet",
+        allowedTools: "Read,Glob,Grep",
+        baseBranch: args.branchName,
+        ephemeral: true,
+        repoId: docData.repoId,
+      });
 
-    // Step 4: Wait for callback
-    const result = await step.awaitEvent(evalCompleteEvent);
+      const result = await step.awaitEvent(evalCompleteEvent);
 
-    // Step 5: Save results
-    await step.runMutation(internal.evaluationWorkflow.saveResult, {
-      reportId: args.reportId,
-      success: result.success,
-      result: result.result,
-      error: result.error,
-    });
+      await step.runMutation(internal.evaluationWorkflow.saveResult, {
+        reportId: args.reportId,
+        success: result.success,
+        result: result.result,
+        error: result.error,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Evaluation workflow failed";
+      await step.runMutation(internal.evaluationWorkflow.saveWorkflowFailure, {
+        reportId: args.reportId,
+        error: errorMessage,
+      });
+      throw error;
+    }
   },
 });
 
@@ -213,6 +218,36 @@ export const saveResult = internalMutation({
   },
 });
 
+export const saveWorkflowFailure = internalMutation({
+  args: {
+    reportId: v.id("evaluationReports"),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
+      .first();
+    if (streaming) await ctx.db.delete(streaming._id);
+
+    const report = await ctx.db.get(args.reportId);
+    if (!report) return null;
+    if (report.status === "completed") return null;
+    if (report.status === "error" && report.activeWorkflowId === undefined) {
+      return null;
+    }
+
+    await ctx.db.patch(args.reportId, {
+      status: "error",
+      error: args.error,
+      activeWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 /**
  * Called by the sandbox via Convex HTTP API (authenticated with Clerk JWT).
  */
@@ -288,9 +323,16 @@ export const startEvaluation = authMutation({
       },
     );
 
-    await ctx.db.patch(reportId, {
-      activeWorkflowId: String(workflowId),
-    });
+    const report = await ctx.db.get(reportId);
+    if (
+      report &&
+      report.status !== "error" &&
+      report.activeWorkflowId === undefined
+    ) {
+      await ctx.db.patch(reportId, {
+        activeWorkflowId: String(workflowId),
+      });
+    }
 
     await ctx.scheduler.runAfter(
       RUN_TIMEOUT_MS,

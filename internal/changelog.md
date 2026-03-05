@@ -1,5 +1,22 @@
 # Changelog
 
+## Finalize evaluation workflow failures immediately - 2026-03-05
+
+- **Why**: Evaluation reports could stay in `running` until the 2-hour watchdog when workflow startup failed before the sandbox callback path ever fired.
+- **Changes**:
+  1. `convex/evaluationWorkflow.ts` now catches early workflow failures, writes the report into its error state immediately through a guarded failure mutation, and then rethrows so the workflow component still records a failed run.
+  2. `startEvaluation` now only attaches `activeWorkflowId` when the report has not already been finalized as an error.
+- **Reason for change (architectural)**: Callback-driven workflows still need a direct failure path for pre-callback setup errors, otherwise app state lags far behind workflow state.
+
+## Attach quick-task sandboxes earlier without startup watchdog regressions - 2026-03-05
+
+- **Why**: Quick tasks still only persisted sandboxId after full sandbox preparation and callback launch readiness, so pre-launch stalls could surface as "sandbox was never attached" even when Daytona had already created the sandbox. Simply attaching earlier would have moved those runs onto the 90s heartbeat watchdog too soon, causing a different false positive during legitimate setup work.
+- **Changes**:
+  1. \_daytona/git.ts now exposes a sandbox-acquired callback during ephemeral sandbox creation, and \_daytona/execution.ts uses it to persist the run sandboxId as soon as Daytona returns the sandbox.
+  2. \_taskWorkflow/workflowDefinition.ts now passes the run id into setupAndExecute so quick-task startup can attach the sandbox before repo prep and launch readiness finish.
+  3. \_taskWorkflow/watchdog.ts now keeps runs on the longer startup watchdog window while streaming still shows Starting sandbox..., then switches to the 90s heartbeat watchdog only after callback activity replaces that startup state.
+- **Reason for change (architectural)**: Sandbox acquisition and Claude heartbeat are different lifecycle phases. The watchdog needs phase-aware thresholds so earlier sandbox visibility does not create a new class of startup false positives.
+
 ## Improve quick-task startup visibility and Daytona timeout resilience - 2026-03-05
 
 - **Why**: Quick tasks could sit in `running` with no visible activity during sandbox setup contention, and Daytona control-plane timeouts (`status code 408`) were not classified consistently in retry policy decisions.

@@ -13,6 +13,7 @@ export const getImpactStats = authQuery({
     sessionsWithPr: v.number(),
     shipRate: v.number(),
     tasksCompleted: v.number(),
+    totalRunTimeMs: v.number(),
   }),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
@@ -22,6 +23,7 @@ export const getImpactStats = authQuery({
         sessionsWithPr: 0,
         shipRate: 0,
         tasksCompleted: 0,
+        totalRunTimeMs: 0,
       };
     }
     const startTime = args.startTime;
@@ -52,6 +54,7 @@ export const getImpactStats = authQuery({
     const tasksCompleted = filteredTasks.filter(
       (t) => t.status === "done",
     ).length;
+    let totalRunTimeMs = 0;
     for (const task of filteredTasks) {
       const runs = await ctx.db
         .query("agentRuns")
@@ -59,6 +62,9 @@ export const getImpactStats = authQuery({
         .collect();
       for (const run of runs) {
         if (run.prUrl) prUrls.add(run.prUrl);
+        if (run.startedAt && run.finishedAt) {
+          totalRunTimeMs += run.finishedAt - run.startedAt;
+        }
       }
     }
     const projects = await ctx.db
@@ -83,6 +89,7 @@ export const getImpactStats = authQuery({
       sessionsWithPr,
       shipRate,
       tasksCompleted,
+      totalRunTimeMs,
     };
   },
 });

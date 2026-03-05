@@ -1,10 +1,47 @@
 # Eva
 
-A platform for managing codebases and running them remotely in sandboxes with Claude AI integration.
+A platform for managing codebases and running them remotely in cloud sandboxes with AI-powered development workflows.
+
+## Overview
+
+Eva gives engineering teams a centralised hub to manage repositories, run AI-driven tasks, and collaborate on code — all in cloud sandboxes. Connect your repos, define your environment with snapshots, and let Eva handle the rest: from quick bug fixes to full feature builds, with live previews and database access baked in.
+
+## Features
+
+### Quick Tasks
+
+Fix issues fast. Describe a bug or a small change, and Eva spins up an isolated sandbox to execute it. Each task runs independently — launch batches without worrying about one blocking another.
+
+### Sessions
+
+Cloud-hosted development environments with live previews. Use sessions as a collaborative workspace where you and the AI agent can iterate together in real-time.
+
+### Projects
+
+For building features end-to-end. Projects give the agent a structured workflow to plan, implement, and verify larger changes across your codebase.
+
+### Documents
+
+Store PRDs, specs, and context documents that the agent can reference during tasks. Keep your requirements close to the work.
+
+### Testing
+
+Automatically run your test suite in sandboxes. Validate changes before they land without tying up local resources.
+
+### MCP
+
+Access your connected databases (Convex, Supabase) directly from Claude. Query, inspect, and debug your data without leaving your AI workflow.
+
+## How It Works
+
+1. **Connect a repo** — Link your GitHub repository and configure environment variables.
+2. **Build a snapshot** — Create a sandbox snapshot with your dependencies pre-installed (automate via GitHub Actions).
+3. **Run tasks** — Launch quick tasks, sessions, or projects. Eva provisions a cloud sandbox from your snapshot, runs the AI agent, and streams results back.
+4. **Review and merge** — View diffs, live previews, and test results. Merge when ready.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS
+- **Frontend**: Next.js, React, Tailwind CSS
 - **Backend**: Convex
 - **Sandboxes**: Daytona SDK
 - **Auth**: Clerk

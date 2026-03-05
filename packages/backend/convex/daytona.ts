@@ -1051,6 +1051,7 @@ export const setupAndExecute = internalAction({
     ephemeral: v.optional(v.boolean()),
     repoId: v.optional(v.id("githubRepos")),
     sessionPersistenceId: v.optional(v.id("sessions")),
+    startDesktop: v.optional(v.boolean()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -1106,6 +1107,10 @@ export const setupAndExecute = internalAction({
 
     if (args.branchName) {
       await setupBranch(sandbox, args.branchName);
+    }
+
+    if (args.startDesktop) {
+      await startDesktopWithChrome(sandbox);
     }
 
     const sandboxToken = await ctx.runAction(
@@ -1397,6 +1402,39 @@ export const toggleCodeServer = action({
   },
 });
 
+async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
+  try {
+    await sandbox.computerUse.start();
+    try {
+      await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
+    } catch {
+      try {
+        await exec(
+          sandbox,
+          'DISPLAY=:1 xrandr --newmode "1920x1080" 0 1920 1920 1920 1920 1080 1080 1080 1080 && ' +
+            'DISPLAY=:1 xrandr --addmode screen "1920x1080" && ' +
+            'DISPLAY=:1 xrandr --output screen --mode "1920x1080"',
+          10,
+        );
+      } catch {
+        // Non-fatal: desktop still works at default 1024x768
+      }
+    }
+    try {
+      await sandbox.process.executeCommand(
+        'bash -c "pgrep -f google-chrome > /dev/null 2>&1 || DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 --remote-debugging-port=9222 > /dev/null 2>&1 &"',
+        "/",
+        undefined,
+        5,
+      );
+    } catch {
+      // Non-fatal: Chrome launch failure shouldn't break the desktop
+    }
+  } catch {
+    // Non-fatal: entire desktop startup failure shouldn't block the workflow
+  }
+}
+
 export const toggleDesktopServer = action({
   args: {
     sandboxId: v.string(),
@@ -1453,7 +1491,7 @@ export const launchChromeInDesktop = action({
 
     try {
       await sandbox.process.executeCommand(
-        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 > /dev/null 2>&1 &"',
+        'bash -c "pgrep -f google-chrome > /dev/null 2>&1 || DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 --remote-debugging-port=9222 > /dev/null 2>&1 &"',
         "/",
         undefined,
         5,

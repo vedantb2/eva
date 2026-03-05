@@ -1,5 +1,13 @@
 # Changelog
 
+## CDP mode: agent-browser connects to VNC Chrome in sessions - 2026-03-04
+
+- **Why**: agent-browser used its own headless Chromium, invisible to users. The VNC Desktop tab showed a separate Chrome. No way to watch agent-browser actions live.
+- **Changes**:
+  1. `daytona.ts` — new `startDesktopWithChrome` helper that starts VNC + Chrome with `--remote-debugging-port=9222`. Added `startDesktop` flag to `setupAndExecute`. Updated `launchChromeInDesktop` with CDP flag and `pgrep` idempotency guard.
+  2. `sessionWorkflow.ts` — passes `startDesktop: true` so desktop auto-starts for sessions. Updated prompt with CDP detection: agent checks port 9222, uses `--cdp 9222` if available, falls back to headless otherwise.
+- **Benefit**: Users can watch agent-browser actions in real-time through the Desktop tab during sessions. When CDP is unavailable, agent falls back to headless browser seamlessly.
+
 ## Cost logging for all Claude invocations - 2026-03-04
 
 - **Why**: No visibility into how much each Claude run costs. Needed per-invocation cost tracking across all entity types (tasks, sessions, design sessions, research, docs, audits, etc.) and a UI to view/filter them.

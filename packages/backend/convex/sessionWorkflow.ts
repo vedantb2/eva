@@ -130,7 +130,7 @@ You are already on branch "${branchName}". All work MUST stay on this branch.${p
 - Make minimal, focused changes
 - Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
 - Do NOT mention file paths, commit status, or process meta-commentary in your response
-- For browser interaction (screenshots, visual proof), use the agent-browser skill. Run \`agent-browser set viewport 1920 1080\` first. Always use \`agent-browser screenshot --annotate\` for screenshots. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- For browser interaction (screenshots, visual proof), use the agent-browser skill. Before using agent-browser, check CDP: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. If CDP: use \`agent-browser --cdp 9222\` for all commands (skip \`set viewport\`, VNC Chrome is already 1920x1080). If NO_CDP: run \`agent-browser set viewport 1920 1080\` first. Always use \`--annotate\` for screenshots. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
@@ -182,6 +182,7 @@ export const sessionExecuteWorkflow = workflow.define({
         branchName: data.branchName,
         repoId: data.repoId,
         sessionPersistenceId: args.sessionId,
+        startDesktop: true,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );

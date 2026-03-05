@@ -51,7 +51,7 @@ import {
   IconMessageCircle2,
   IconClipboardList,
   IconGitPullRequest,
-  IconWorld,
+  IconBrandVercel,
   IconSparkles,
   IconSend,
   IconCircleCheck,
@@ -60,7 +60,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
-import { sandboxTabParser, sessionModeParser } from "@/lib/search-params";
+import { sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
 import Image from "next/image";
@@ -149,6 +149,7 @@ interface ChatPanelProps {
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
+  previewUrl?: string;
 }
 
 export function ChatPanel({
@@ -165,6 +166,7 @@ export function ChatPanel({
   isSandboxToggling,
   onSandboxToggle,
   isArchived,
+  previewUrl,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
@@ -177,7 +179,6 @@ export function ChatPanel({
   >("confirm");
   const [completedAudits, setCompletedAudits] = useState(0);
   const [mode, setMode] = useQueryState("mode", sessionModeParser);
-  const [, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
@@ -338,10 +339,20 @@ export function ChatPanel({
         size="sm"
         variant="secondary"
         className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-        onClick={() => setActiveTab("preview")}
+        asChild={!!previewUrl}
+        disabled={!previewUrl}
       >
-        <IconWorld size={14} />
-        View Preview
+        {previewUrl ? (
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+            <IconBrandVercel size={14} />
+            View Preview
+          </a>
+        ) : (
+          <>
+            <IconBrandVercel size={14} />
+            View Preview
+          </>
+        )}
       </Button>
       {prUrl ? (
         <Link href={prUrl} target="_blank">

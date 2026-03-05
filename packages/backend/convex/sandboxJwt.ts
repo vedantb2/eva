@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { importJWK, SignJWT } from "jose";
+import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
 export const signSandboxToken = internalAction({
   args: { userId: v.id("users") },
@@ -21,19 +22,13 @@ export const signSandboxToken = internalAction({
       throw new Error("Missing SANDBOX_JWT_PRIVATE_KEY env var");
     }
 
-    const siteUrl = process.env.CONVEX_SITE_URL;
-    if (!siteUrl) {
-      throw new Error("Missing CONVEX_SITE_URL env var");
-    }
-
-    const privateKeyJwk: Record<string, unknown> = JSON.parse(privateKeyJson);
-    const kid =
-      typeof privateKeyJwk.kid === "string" ? privateKeyJwk.kid : "sandbox-1";
+    const privateKeyJwk: Record<string, string> = JSON.parse(privateKeyJson);
+    const kid = privateKeyJwk.kid ?? "sandbox-1";
     const key = await importJWK(privateKeyJwk, "ES256");
 
     const jwt = await new SignJWT({ sub: clerkId })
       .setProtectedHeader({ alg: "ES256", kid })
-      .setIssuer(siteUrl)
+      .setIssuer(SANDBOX_JWT_ISSUER)
       .setAudience("convex")
       .setExpirationTime("24h")
       .setIssuedAt()

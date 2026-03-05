@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
 const http = httpRouter();
 
@@ -77,10 +78,7 @@ http.route({
   path: "/.well-known/openid-configuration",
   method: "GET",
   handler: httpAction(async () => {
-    const siteUrl = process.env.CONVEX_SITE_URL;
-    if (!siteUrl) {
-      return new Response("CONVEX_SITE_URL not configured", { status: 500 });
-    }
+    const siteUrl = SANDBOX_JWT_ISSUER;
     return new Response(
       JSON.stringify({
         issuer: siteUrl,

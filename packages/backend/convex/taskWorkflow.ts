@@ -915,9 +915,27 @@ export const finalizeRunStreamingPhase = internalMutation({
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
-        activityLog: args.activityLog ?? undefined,
         exitReason,
       });
+    }
+
+    if (args.activityLog) {
+      const existing = await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run", (q) => q.eq("runId", args.runId))
+        .first();
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("agentRunActivityLogs", {
+          runId: args.runId,
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      }
     }
 
     const streaming = await ctx.db
@@ -963,9 +981,27 @@ export const completeRun = internalMutation({
           : undefined,
         prUrl: args.prUrl ?? undefined,
         error: args.success ? undefined : (args.error ?? "Unknown error"),
-        activityLog: args.activityLog ?? undefined,
         exitReason,
       });
+    }
+
+    if (args.activityLog) {
+      const existing = await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run", (q) => q.eq("runId", args.runId))
+        .first();
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("agentRunActivityLogs", {
+          runId: args.runId,
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      }
     }
 
     // Update task status
@@ -1321,9 +1357,23 @@ export const clearActiveWorkflow = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (task) {
+    if (!task) return null;
+
+    const activeRun = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "queued"),
+          q.eq(q.field("status"), "running"),
+        ),
+      )
+      .first();
+
+    if (!activeRun) {
       await ctx.db.patch(args.taskId, { activeWorkflowId: undefined });
     }
+
     return null;
   },
 });

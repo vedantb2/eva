@@ -137,7 +137,7 @@ export function InboxClient() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="sticky top-0 z-10 border-b border-border/50 bg-card/90 backdrop-blur-sm px-4 py-1.5">
+                <div className="sticky top-0 z-10 border-b border-border/50 bg-card/90 px-4 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
                     {group.label}
                   </span>

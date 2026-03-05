@@ -20,6 +20,7 @@
   4. Quick-task and task-detail frontend launch flows now call only `agentTasks.startExecution` (removed the second `triggerExecution` call).
   5. `taskWorkflow.triggerExecution` is now an idempotent fallback that no-ops when the run is no longer queued or the task already has an active workflow.
   6. `migrations.cleanupStaleRuns` now includes `in_progress` tasks even when `activeWorkflowId` is missing, so existing orphaned tasks can be repaired in one backfill run.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 - **Benefit**: Removes the main orphan-state path and tightens watchdog recovery for pre-launch hangs, so "running with no Claude process" self-heals instead of lingering.
 
 ## Split agentRuns activity log into dedicated table - 2026-03-05
@@ -82,7 +83,7 @@
   4. Consolidated duplicated lock file detection (`cloneAndSetupRepo` now reuses `detectPackageManager`).
   5. Extracted duplicated xrandr resolution setup into `setDisplayResolution`.
   6. Extracted repeated resolve-api-key/get-sandbox pattern into `getSandbox` helper.
-  7. Replaced volume invalid-state check from long `||` chain to a `Set` lookup.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
   8. Extracted duplicated media upload logic into `uploadMediaFile` within the callback script.
   9. Replaced `hasToolActivity` long `||` chain with a `Set` lookup.
 - **Reason**: Main `daytona.ts` is now ~700 lines (actions only), each helper module is under 260 lines, and no circular dependencies exist. All external API references (`internal.daytona.*`, `api.daytona.*`) are unchanged.
@@ -165,7 +166,7 @@
   4. `githubWebhook.ts` — **NEW** — `handlePrClosed` internalMutation: matches PR URL → agentRun → task, updates status to `done` (merged) or `cancelled` (closed), sends notifications, creates system comment, auto-completes project phase if all tasks done
   5. `taskComments.ts` — added `createSystemComment` internalMutation for webhook-triggered comments (no user context)
   6. `QuickTaskCard.tsx` — badge showing "PR Merged" (green) or "PR Closed" (red) when task status is done/cancelled with PR
-  7. `useTaskDetail.tsx` — system comments styled with blue background + "System" label, visible in activity feed
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 - **Prerequisite**: Set `GITHUB_WEBHOOK_SECRET` env var in Convex. Configure webhook URL in GitHub App settings, subscribe to `pull_request` events.
 
 ## Vercel deployment status tracking - 2026-03-04
@@ -178,7 +179,7 @@
   4. `taskWorkflowActions.ts` — new `pollDeploymentStatus` self-scheduling action that polls GitHub Deployments API (60s intervals, max 20 attempts / ~20 min)
   5. `taskWorkflow.ts` — new `scheduleDeploymentTracking` mutation called after successful sandbox completion, sets initial "queued" status and schedules first poll
   6. `QuickTaskCard.tsx` — inline colored deployment status dot on card + "View Preview" dropdown item
-  7. `useTaskDetail.tsx` — deployment status badge + "View Preview" link next to PR link per run
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 - **Approach**: Uses GitHub Deployments API (not Vercel API directly). Vercel auto-creates GitHub Deployment records when building. Reuses existing GitHub App tokens — no new env vars. Provider-agnostic.
 - **Prerequisite**: GitHub App needs `deployments:read` permission.
 
@@ -522,7 +523,7 @@
   4. **`RepoContext.tsx`**: Now takes `owner` + `repoParam` props, exposes `basePath`, `owner`, `name` instead of `repoSlug`/`fullName`.
   5. **`githubRepos.ts` (`getByOwnerAndName`)**: Changed `rootDirectory` arg to `appName` — matches by `rootDirectory.split("/").pop()`.
   6. **`Sidebar.tsx`**: Extracts `repoBasePath` from pathname instead of decoding a single slug segment. Passes `basePath` to all child sidebars.
-  7. **All sidebars + consumer components**: Renamed `repoSlug` prop/usage to `basePath` throughout (~22 files).
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 
 ## Monorepo Auto-Detection in Sync + Data Migration - 2026-03-02
 
@@ -554,7 +555,7 @@
   4. **daytona.ts**: Extracted `detectPackageManager` helper, added `detectDevPort` (parses dev script for port flags, falls back to framework defaults), implemented `startSessionServices` to start dev server in the correct root directory, returns detected port. Both `startSessionSandbox` and `startDesignSandbox` now fetch `rootDirectory` from repo and pass `devPort` to `sandboxReady`.
   5. **sessions.ts / designSessions.ts**: `sandboxReady` mutations accept and persist `devPort`.
   6. **repoUrl.ts**: Slug encoding now appends `~apps~web` for root directories (`/` → `~`). `decodeRepoSlug` returns `{ fullName, rootDirectory }`.
-  7. **RepoContext.tsx**: Passes `rootDirectory` to `getByOwnerAndName` query and exposes it in context.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
   8. **RepoSelect.tsx**: Uses encoded slug as value, shows `rootDirectory` below repo name.
   9. **RepoSetupClient.tsx**: On "Add", calls `detectMonorepoApps` and shows expandable sub-app picker with checkboxes + custom path input.
   10. **ReposClient.tsx**: Card shows app name from root dir path, subtitle shows `owner/repo → apps/web`.
@@ -982,7 +983,7 @@
   4. **Replaced all `executeCommand` calls with `exec`** - 20+ call sites simplified from 5-line verbose calls to 1-line `exec` calls
   5. **Collapsed `setupAndExecute` ephemeral/non-ephemeral branches** - Both paths called similar functions with different args. Unified to conditional expression using `?:` operator
   6. **Simplified `startDesignSandbox` if/else** - Pulled common `setupBranch` call outside the conditional, eliminated duplication
-  7. **Added proper TypeScript return types** - Added explicit return type annotation to `resolveSandboxContext` to satisfy strict type checking
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 
 - **Result**: File reduced from 1137 to 956 lines (181 lines removed). No exported signatures changed. All type checks pass.
 

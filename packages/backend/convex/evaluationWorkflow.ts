@@ -242,17 +242,15 @@ export const handleCompletion = authMutation({
       },
     });
 
-    if (args.costUsd !== undefined && args.costUsd > 0) {
-      await ctx.db.insert("costLogs", {
-        entityType: "evaluation",
-        entityId: String(args.reportId),
-        entityTitle: "Evaluation Report",
-        costUsd: args.costUsd,
-        model: args.model ?? "sonnet",
-        repoId: report.repoId,
-        createdAt: Date.now(),
-      });
-    }
+    await ctx.db.insert("costLogs", {
+      entityType: "evaluation",
+      entityId: String(args.reportId),
+      entityTitle: "Evaluation Report",
+      costUsd: args.costUsd ?? 0,
+      model: args.model ?? "sonnet",
+      repoId: report.repoId,
+      createdAt: Date.now(),
+    });
 
     return null;
   },

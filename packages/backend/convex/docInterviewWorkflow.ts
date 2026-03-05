@@ -277,17 +277,15 @@ export const handleCompletion = authMutation({
       },
     });
 
-    if (args.costUsd !== undefined && args.costUsd > 0) {
-      await ctx.db.insert("costLogs", {
-        entityType: "doc",
-        entityId: String(args.docId),
-        entityTitle: doc.title,
-        costUsd: args.costUsd,
-        model: args.model ?? "sonnet",
-        repoId: doc.repoId,
-        createdAt: Date.now(),
-      });
-    }
+    await ctx.db.insert("costLogs", {
+      entityType: "doc",
+      entityId: String(args.docId),
+      entityTitle: doc.title,
+      costUsd: args.costUsd ?? 0,
+      model: args.model ?? "sonnet",
+      repoId: doc.repoId,
+      createdAt: Date.now(),
+    });
 
     return null;
   },
@@ -426,17 +424,15 @@ export const handleGenerateCompletion = authMutation({
       },
     });
 
-    if (args.costUsd !== undefined && args.costUsd > 0) {
-      await ctx.db.insert("costLogs", {
-        entityType: "doc",
-        entityId: String(args.docId),
-        entityTitle: doc.title,
-        costUsd: args.costUsd,
-        model: args.model ?? "sonnet",
-        repoId: doc.repoId,
-        createdAt: Date.now(),
-      });
-    }
+    await ctx.db.insert("costLogs", {
+      entityType: "doc",
+      entityId: String(args.docId),
+      entityTitle: doc.title,
+      costUsd: args.costUsd ?? 0,
+      model: args.model ?? "sonnet",
+      repoId: doc.repoId,
+      createdAt: Date.now(),
+    });
 
     return null;
   },

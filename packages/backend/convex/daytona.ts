@@ -665,6 +665,7 @@ function extractResultEvent(output) {
     try {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
+        console.log("[cost-debug] result event:", JSON.stringify(parsed));
         const r = parsed.result ?? "";
         resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.cost_usd === "number" ? parsed.cost_usd : 0 };
       }

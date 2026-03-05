@@ -867,12 +867,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    if (args.costUsd !== undefined && args.costUsd > 0 && task.repoId) {
+    if (task.repoId) {
       await ctx.db.insert("costLogs", {
         entityType: "quickTask",
         entityId: String(args.taskId),
         entityTitle: task.title,
-        costUsd: args.costUsd,
+        costUsd: args.costUsd ?? 0,
         model: args.model ?? "sonnet",
         repoId: task.repoId,
         createdAt: Date.now(),
@@ -912,12 +912,12 @@ export const handleAuditCompletion = authMutation({
       },
     });
 
-    if (args.costUsd !== undefined && args.costUsd > 0 && task.repoId) {
+    if (task.repoId) {
       await ctx.db.insert("costLogs", {
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
-        costUsd: args.costUsd,
+        costUsd: args.costUsd ?? 0,
         model: args.model ?? "haiku",
         repoId: task.repoId,
         createdAt: Date.now(),

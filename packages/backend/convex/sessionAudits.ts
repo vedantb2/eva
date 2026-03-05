@@ -138,19 +138,17 @@ export const handleCompletion = authMutation({
       });
     }
 
-    if (args.costUsd !== undefined && args.costUsd > 0) {
-      const session = await ctx.db.get(args.sessionId);
-      if (session) {
-        await ctx.db.insert("costLogs", {
-          entityType: "sessionAudit",
-          entityId: String(args.sessionId),
-          entityTitle: `Audit: ${session.title}`,
-          costUsd: args.costUsd,
-          model: args.model ?? "haiku",
-          repoId: session.repoId,
-          createdAt: Date.now(),
-        });
-      }
+    const session = await ctx.db.get(args.sessionId);
+    if (session) {
+      await ctx.db.insert("costLogs", {
+        entityType: "sessionAudit",
+        entityId: String(args.sessionId),
+        entityTitle: `Audit: ${session.title}`,
+        costUsd: args.costUsd ?? 0,
+        model: args.model ?? "haiku",
+        repoId: session.repoId,
+        createdAt: Date.now(),
+      });
     }
 
     return null;

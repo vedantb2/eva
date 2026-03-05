@@ -1,0 +1,213 @@
+"use node";
+
+import { v } from "convex/values";
+import { internalAction } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { quote } from "shell-quote";
+import {
+  exec,
+  WORKSPACE_DIR,
+  resolveSandboxContext,
+  ensureSandboxRunning,
+  errorMessage,
+} from "./helpers";
+import {
+  fetchOrigin,
+  syncRepo,
+  setupBranch,
+  checkoutSessionBranch,
+  createSandboxAndPrepareRepo,
+} from "./git";
+import { ensureSessionClaudeVolume } from "./volumes";
+import { startSessionServices } from "./devServer";
+
+export const startSessionSandbox = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    repoId: v.optional(v.id("githubRepos")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      if (!args.repoId) {
+        throw new Error("repoId is required for startSessionSandbox");
+      }
+
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const rootDir = repo?.rootDirectory ?? "";
+
+      const { daytona, sandboxEnvVars, snapshotName } =
+        await resolveSandboxContext(ctx, args.repoId);
+
+      if (args.existingSandboxId) {
+        try {
+          const sandbox = await daytona.get(args.existingSandboxId);
+          await ensureSandboxRunning(sandbox);
+          await syncRepo(
+            sandbox,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+          );
+          await checkoutSessionBranch(sandbox, args.branchName);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
+          await ctx.runMutation(internal.sessions.sandboxReady, {
+            sessionId: args.sessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+            devPort,
+            devCommand,
+          });
+          return null;
+        } catch {
+          // Sandbox dead or unresponsive, create new
+        }
+      }
+
+      const prepared = await createSandboxAndPrepareRepo(
+        daytona,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        sandboxEnvVars,
+        snapshotName,
+        await ensureSessionClaudeVolume(daytona, args.sessionId),
+      );
+      const sandbox = prepared.sandbox;
+      await fetchOrigin(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        { prune: false, timeoutSeconds: 30 },
+      );
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && (git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} 2>/dev/null || git checkout -b ${quote([args.branchName])}) && (git pull --ff-only origin ${quote([args.branchName])} 2>/dev/null || true)`,
+        30,
+      );
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
+
+      await ctx.runMutation(internal.sessions.sandboxReady, {
+        sessionId: args.sessionId,
+        sandboxId: sandbox.id,
+        branchName: args.branchName,
+        isNew: true,
+        usedSnapshot: prepared.usedSnapshot,
+        devPort,
+        devCommand,
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.sessions.sandboxError, {
+        sessionId: args.sessionId,
+        error: errorMessage(e, "Unknown error"),
+      });
+    }
+    return null;
+  },
+});
+
+export const startDesignSandbox = internalAction({
+  args: {
+    designSessionId: v.id("designSessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    repoId: v.optional(v.id("githubRepos")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      if (!args.repoId) {
+        throw new Error("repoId is required for startDesignSandbox");
+      }
+
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const rootDir = repo?.rootDirectory ?? "";
+
+      const { daytona, sandboxEnvVars, snapshotName } =
+        await resolveSandboxContext(ctx, args.repoId);
+
+      if (args.existingSandboxId) {
+        try {
+          const sandbox = await daytona.get(args.existingSandboxId);
+          await exec(sandbox, "echo 1", 5);
+          await syncRepo(
+            sandbox,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+          );
+          await setupBranch(sandbox, args.branchName);
+          const { port: devPort, devCommand } = await startSessionServices(
+            sandbox,
+            rootDir,
+          );
+          await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+          await ctx.runMutation(internal.designSessions.sandboxReady, {
+            designSessionId: args.designSessionId,
+            sandboxId: args.existingSandboxId,
+            branchName: args.branchName,
+            isNew: false,
+            devPort,
+          });
+          return null;
+        } catch {
+          // Sandbox dead or unresponsive, create new
+        }
+      }
+
+      const prepared = await createSandboxAndPrepareRepo(
+        daytona,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        sandboxEnvVars,
+        snapshotName,
+      );
+      const sandbox = prepared.sandbox;
+      await setupBranch(sandbox, args.branchName);
+      if (prepared.usedSnapshot) {
+        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
+      }
+      const { port: devPort, devCommand } = await startSessionServices(
+        sandbox,
+        rootDir,
+      );
+      await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+
+      await ctx.runMutation(internal.designSessions.sandboxReady, {
+        designSessionId: args.designSessionId,
+        sandboxId: sandbox.id,
+        branchName: args.branchName,
+        isNew: true,
+        devPort,
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.designSessions.sandboxError, {
+        designSessionId: args.designSessionId,
+        error: errorMessage(e, "Unknown error"),
+      });
+    }
+    return null;
+  },
+});

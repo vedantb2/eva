@@ -72,6 +72,7 @@
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.563.0",
+    "millify": "^6.1.0",
     "motion": "^12.33.0",
     "nanoid": "^5.1.6",
     "next": "15.5.9",

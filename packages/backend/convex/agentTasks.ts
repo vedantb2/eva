@@ -509,7 +509,7 @@ export const startExecution = authMutation({
       repoId: task.repoId,
       installationId: repo.installationId,
       projectId: task.projectId,
-      branchName: project?.branchName,
+      branchName: task.projectId ? `project/${task.projectId}` : undefined,
       baseBranch: task.baseBranch,
       isFirstTaskOnBranch,
       model: task.model ?? repo.defaultModel,

@@ -1,5 +1,13 @@
 # Changelog
 
+## Project build branch now uses project/<projectId> - 2026-03-05
+
+- **Why**: Project builds need all task commits and PR activity to stay on one deterministic branch tied to the project, not a mutable title slug.
+- **Changes**:
+  1. projects.startDevelopment now sets project branch to project/<projectId>.
+  2. projects.createFromTasks now creates the project first, then sets branch to project/<projectId>.
+- **Benefit**: Branch naming is stable, predictable, and consistent with the single-branch-per-project workflow.
+
 ## Real-time notification toasts + deep-link details - 2026-03-05
 
 - **Why**: Users had to manually check notifications and couldn�t always tell what happened or jump directly to the right task/project context.

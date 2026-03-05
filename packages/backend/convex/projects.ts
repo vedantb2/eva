@@ -377,13 +377,7 @@ export const startDevelopment = authMutation({
       throw new Error("Project has no generated spec");
     }
     const spec = parseSpec(project.generatedSpec);
-    const slugify = (text: string) =>
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 50);
-    const branchName = `eva/${slugify(spec.title)}`;
+    const branchName = `project/${args.projectId}`;
     const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
     for (let i = 0; i < spec.tasks.length; i++) {
@@ -472,22 +466,17 @@ export const createFromTasks = authMutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const slugify = (text: string) =>
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 50);
-    const branchName = `eva/${slugify(args.title)}`;
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
       rawInput: args.title,
       phase: "active",
-      branchName,
       projectStartDate: Date.now(),
       conversationHistory: [],
+    });
+    await ctx.db.patch(projectId, {
+      branchName: `project/${projectId}`,
     });
     for (let i = 0; i < args.taskIds.length; i++) {
       const taskId = args.taskIds[i];

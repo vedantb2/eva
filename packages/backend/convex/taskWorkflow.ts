@@ -44,8 +44,8 @@ const auditCompleteEvent = defineEvent({
 // --- Prompt builder ---
 
 const WORKSPACE_DIR = "/workspace/repo";
-const QUICK_TASK_AUTO_RETRY_DELAY_MS = 20_000;
-const AUTO_RETRY_CHAIN_WINDOW_MS = 30 * 60 * 1000;
+const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
+const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
 
 function isDaytonaNetworkIssue(errorMessage: string): boolean {
   const message = errorMessage.toLowerCase();
@@ -75,6 +75,13 @@ function isDaytonaNetworkIssue(errorMessage: string): boolean {
   }
 
   return hasNetworkMarker && hasDaytonaMarker;
+}
+
+function buildQuickTaskRetryDelayMs(): number {
+  return (
+    QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS +
+    Math.floor(Math.random() * QUICK_TASK_AUTO_RETRY_JITTER_MS)
+  );
 }
 
 function buildImplementationPrompt(
@@ -352,6 +359,25 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runFinalized = true;
 
+      if (!args.projectId && !result.success) {
+        try {
+          await step.runMutation(
+            internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+            {
+              taskId: args.taskId,
+              runId: args.runId,
+              error: result.error ?? undefined,
+              delayMs: buildQuickTaskRetryDelayMs(),
+            },
+          );
+        } catch (retryError) {
+          console.error(
+            "Failed to schedule quick-task auto-retry:",
+            retryError,
+          );
+        }
+      }
+
       if (!args.projectId && sandboxId) {
         await step.runAction(internal.daytona.deleteSandbox, {
           sandboxId,
@@ -398,20 +424,15 @@ export const taskExecutionWorkflow = workflow.define({
         });
       }
 
-      const shouldAutoRetryQuickTask =
-        !args.projectId &&
-        !fallbackSuccess &&
-        fallbackError !== null &&
-        !isDaytonaNetworkIssue(fallbackError);
-
-      if (shouldAutoRetryQuickTask) {
+      if (!args.projectId) {
         try {
           await step.runMutation(
-            internal.taskWorkflow.scheduleQuickTaskAutoRetry,
+            internal.taskWorkflow.maybeScheduleQuickTaskRetry,
             {
               taskId: args.taskId,
               runId: args.runId,
-              delayMs: QUICK_TASK_AUTO_RETRY_DELAY_MS,
+              error: fallbackError ?? undefined,
+              delayMs: buildQuickTaskRetryDelayMs(),
             },
           );
         } catch (retryError) {
@@ -518,11 +539,12 @@ export const scheduleDeploymentTracking = internalMutation({
   },
 });
 
-export const scheduleQuickTaskAutoRetry = internalMutation({
+export const maybeScheduleQuickTaskRetry = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),
-    delayMs: v.number(),
+    error: v.optional(v.string()),
+    delayMs: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -532,6 +554,12 @@ export const scheduleQuickTaskAutoRetry = internalMutation({
     const run = await ctx.db.get(args.runId);
     if (!run || run.taskId !== args.taskId || run.status !== "error")
       return null;
+    if (run.exitReason === "auto_retry_scheduled") return null;
+
+    const errorMessage = args.error ?? run.error ?? "";
+    if (errorMessage && isDaytonaNetworkIssue(errorMessage)) return null;
+
+    if (task.scheduledFunctionId) return null;
 
     const runs = await ctx.db
       .query("agentRuns")
@@ -545,11 +573,9 @@ export const scheduleQuickTaskAutoRetry = internalMutation({
     if (!latestRun || latestRun._id !== args.runId) return null;
 
     const previousRun = sortedRuns[1];
-    const previousRunStartedAt = previousRun?.startedAt ?? 0;
     const previousWasRetrySchedule =
       previousRun !== undefined &&
-      previousRun.exitReason === "auto_retry_scheduled" &&
-      Date.now() - previousRunStartedAt < AUTO_RETRY_CHAIN_WINDOW_MS;
+      previousRun.exitReason === "auto_retry_scheduled";
     if (previousWasRetrySchedule) return null;
 
     const hasOtherActiveRun = sortedRuns.some(
@@ -559,13 +585,14 @@ export const scheduleQuickTaskAutoRetry = internalMutation({
     );
     if (hasOtherActiveRun) return null;
 
+    const delayMs = args.delayMs ?? buildQuickTaskRetryDelayMs();
     const functionId = await ctx.scheduler.runAfter(
-      args.delayMs,
+      delayMs,
       internal.taskWorkflow.executeScheduledTask,
       { taskId: args.taskId },
     );
 
-    const scheduledAt = Date.now() + args.delayMs;
+    const scheduledAt = Date.now() + delayMs;
     await ctx.db.patch(args.taskId, {
       scheduledAt,
       scheduledFunctionId: functionId,
@@ -575,7 +602,7 @@ export const scheduleQuickTaskAutoRetry = internalMutation({
     const existingError = run.error ?? "Run failed";
     await ctx.db.patch(args.runId, {
       exitReason: "auto_retry_scheduled",
-      error: `${existingError}\n\nAuto-retry scheduled in ${Math.round(args.delayMs / 1000)}s`,
+      error: `${existingError}\n\nAuto-retry scheduled in ${Math.round(delayMs / 1000)}s`,
     });
 
     return null;
@@ -655,6 +682,19 @@ export const checkStaleRuns = internalMutation({
       activeWorkflowId: undefined,
       updatedAt: now,
     });
+
+    if (!task.projectId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+        {
+          taskId: args.taskId,
+          runId: args.runId,
+          error: "Run killed by watchdog: no heartbeat for 90s",
+          delayMs: buildQuickTaskRetryDelayMs(),
+        },
+      );
+    }
 
     if (streaming) await ctx.db.delete(streaming._id);
 
@@ -1271,6 +1311,18 @@ export const handleStaleRun = internalMutation({
         activeWorkflowId: undefined,
         updatedAt: Date.now(),
       });
+      if (!task.projectId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+          {
+            taskId: args.taskId,
+            runId: args.runId,
+            error: "Run timed out after 2 hours",
+            delayMs: buildQuickTaskRetryDelayMs(),
+          },
+        );
+      }
     } else {
       const taskStatus =
         run && run.status === "success" ? "business_review" : "todo";

@@ -3,11 +3,15 @@
 import type { Sandbox } from "@daytonaio/sdk";
 import { exec, WORKSPACE_DIR } from "./helpers";
 
-export async function detectPackageManager(sandbox: Sandbox): Promise<string> {
+export async function detectPackageManager(
+  sandbox: Sandbox,
+  rootDir = "",
+): Promise<string> {
+  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
   const lockFile = (
     await exec(
       sandbox,
-      `cd ${WORKSPACE_DIR} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
+      `cd ${dir} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
       5,
     )
   ).trim();
@@ -65,7 +69,7 @@ export async function startSessionServices(
   sandbox: Sandbox,
   rootDir: string,
 ): Promise<{ port: number; devCommand: string }> {
-  const pm = await detectPackageManager(sandbox);
+  const pm = await detectPackageManager(sandbox, rootDir);
   const port = await detectDevPort(sandbox, rootDir);
   const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
   const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;

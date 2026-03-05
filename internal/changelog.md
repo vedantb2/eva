@@ -1,5 +1,17 @@
 # Changelog
 
+## Harden quick-task retry orchestration + Daytona failure cleanup - 2026-03-05
+
+- **Why**: Quick-task reliability still had three gaps after the first pass: retry scheduling only happened on workflow exceptions (not all error exits), sandbox creation failures could leak capacity before `sandboxId` was persisted, and callback HTTP calls could hang long enough to create false "stuck" runs.
+- **Changes**:
+  1. `taskWorkflow.ts` — replaced narrow retry path with centralized `maybeScheduleQuickTaskRetry` mutation (single retry chain, jittered backoff, latest-run guard, active-run guard), and wired it into all quick-task failure exits: normal callback failure, workflow catch, watchdog stale kill, and 2-hour timeout.
+  2. `taskWorkflow.ts` — retry skip policy now lives in one place and explicitly skips auto-retry when error text matches Daytona network/connectivity issues.
+  3. `daytona.ts` — `setupAndExecute` now deletes newly created sandboxes when setup/launch fails before successful handoff, preventing pre-run capacity leaks.
+  4. `daytona/git.ts` — `createSandboxAndPrepareRepo` now deletes failed sandboxes on both first-attempt and retry-attempt prep failures.
+  5. `daytona/callbackScript.ts` — added request timeouts and retry backoff for callback HTTP paths (Convex mutation/action calls and media upload URL flow), plus reduced default `CLAUDE_MAX_TOTAL_RUNTIME_MS` from 90m to 50m.
+  6. `daytona/devServer.ts` — package manager detection now respects `rootDir` for session/design service startup in subdirectory repos.
+- **Benefit**: Fewer leaked sandboxes, fewer long-hanging callback failures, and more consistent self-healing of quick-task failures without retrying Daytona network outages.
+
 ## Refactor daytona.ts into focused modules - 2026-03-05
 
 - **Why**: At ~1800 lines, `daytona.ts` mixed sandbox lifecycle, git operations, callback script generation, desktop management, and dev server detection in a single file, making it difficult to navigate, understand, and maintain.

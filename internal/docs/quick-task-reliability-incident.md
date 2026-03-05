@@ -118,19 +118,23 @@ Result:
 
 File: `packages/backend/convex/taskWorkflow.ts`
 
-- Added quick-task auto-retry scheduling for non-success runs in workflow catch path.
+- Added quick-task auto-retry scheduling with centralized orchestration.
 - Added Daytona-network classification helper and skips auto-retry for those errors.
-- New mutation: `scheduleQuickTaskAutoRetry`.
+- New mutation: `maybeScheduleQuickTaskRetry`.
   - Only quick tasks.
   - Only latest errored run.
   - No retry if another active run exists.
-  - Prevents immediate retry chains (`auto_retry_scheduled` window guard).
+  - Enforces a single retry chain via `auto_retry_scheduled` guard.
   - Schedules re-execution via `executeScheduledTask` after delay.
+- Wired retry scheduling to all quick-task failure exits:
+  - callback failure (`success=false`),
+  - workflow exception path,
+  - watchdog stale kill,
+  - 2-hour timeout path.
 
 Current settings:
 
-- Retry delay: 20 seconds.
-- Retry chain guard window: 30 minutes.
+- Retry delay: 20s base + jitter.
 
 Result:
 
@@ -195,14 +199,26 @@ Target should be: fast failure detection, bounded retries, deterministic recover
 - Dashboard for watchdog kills, launch verification failures, auto-retry outcomes, and sandbox cleanup failures.
 - Alerts for abnormal spikes by repo/time window.
 
+## Phase 2 Hardening Implemented (2026-03-05)
+
+Additional improvements now in place:
+
+- `setupAndExecute` deletes newly created sandboxes if setup/launch fails before successful handoff.
+- `createSandboxAndPrepareRepo` deletes failed first-attempt and retry-attempt sandboxes.
+- Callback HTTP calls now use request timeout + retry backoff for Convex callback paths and media upload URL flow.
+- Default callback max runtime changed from 90m to 50m to reduce token-expiry-related failures.
+- Session/design package manager detection now respects `rootDir`.
+
 ## Operational Tuning Knobs
 
 - `RUN_TIMEOUT_MS` (workflow watchdog total timeout)
 - `STALE_THRESHOLD_MS` / `STALE_RECHECK_MS` (heartbeat watchdog)
 - `CLAUDE_NO_OUTPUT_TIMEOUT_MS` (stdout silence timeout)
 - `CLAUDE_MAX_TOTAL_RUNTIME_MS` (total callback runtime cap)
-- `QUICK_TASK_AUTO_RETRY_DELAY_MS`
-- `AUTO_RETRY_CHAIN_WINDOW_MS`
+- `CALLBACK_HTTP_TIMEOUT_MS`
+- `CALLBACK_HTTP_MAX_RETRIES`
+- `QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS`
+- `QUICK_TASK_AUTO_RETRY_JITTER_MS`
 
 ## Definition of Done for This Incident
 

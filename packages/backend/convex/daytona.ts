@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { quote } from "shell-quote";
@@ -159,73 +160,91 @@ export const setupAndExecute = internalAction({
       ? sessionClaudeUuid(args.sessionPersistenceId)
       : undefined;
 
-    const { sandbox } = await (args.ephemeral
-      ? createSandboxAndPrepareRepo(
-          daytona,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          sandboxEnvVars,
-          snapshotName,
-          sessionVolumeMounts,
-        )
-      : getOrCreateSandbox(
-          daytona,
-          args.existingSandboxId,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          sandboxEnvVars,
-          snapshotName,
-          sessionVolumeMounts,
-        ));
+    let sandbox: Sandbox;
+    let deleteSandboxOnFailure = false;
 
-    if (args.baseBranch) {
-      await fetchOrigin(
-        sandbox,
+    if (args.ephemeral) {
+      const prepared = await createSandboxAndPrepareRepo(
+        daytona,
         args.installationId,
         args.repoOwner,
         args.repoName,
-        args.baseBranch,
-        { prune: false, timeoutSeconds: 30 },
+        sandboxEnvVars,
+        snapshotName,
+        sessionVolumeMounts,
       );
-      await exec(
+      sandbox = prepared.sandbox;
+      deleteSandboxOnFailure = true;
+    } else {
+      const prepared = await getOrCreateSandbox(
+        daytona,
+        args.existingSandboxId,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        sandboxEnvVars,
+        snapshotName,
+        sessionVolumeMounts,
+      );
+      sandbox = prepared.sandbox;
+      deleteSandboxOnFailure = prepared.isNew;
+    }
+
+    try {
+      if (args.baseBranch) {
+        await fetchOrigin(
+          sandbox,
+          args.installationId,
+          args.repoOwner,
+          args.repoName,
+          args.baseBranch,
+          { prune: false, timeoutSeconds: 30 },
+        );
+        await exec(
+          sandbox,
+          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
+          30,
+        );
+      }
+
+      if (args.branchName) {
+        await setupBranch(sandbox, args.branchName);
+      }
+
+      if (args.startDesktop) {
+        await startDesktopWithChrome(sandbox);
+      }
+
+      const sandboxToken = await ctx.runAction(
+        internal.sandboxJwt.signSandboxToken,
+        { userId: args.userId },
+      );
+
+      await launchScript(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-        30,
+        args.prompt,
+        args.completionMutation,
+        args.entityIdField,
+        sandboxToken,
+        args.entityId,
+        {
+          model: args.model,
+          allowedTools: args.allowedTools,
+          systemPrompt: args.systemPrompt,
+          extraEnvVars: sandboxEnvVars,
+          claudeSessionId,
+        },
       );
+
+      return { sandboxId: sandbox.id };
+    } catch (error) {
+      if (deleteSandboxOnFailure) {
+        try {
+          await sandbox.delete();
+        } catch {}
+      }
+      throw error;
     }
-
-    if (args.branchName) {
-      await setupBranch(sandbox, args.branchName);
-    }
-
-    if (args.startDesktop) {
-      await startDesktopWithChrome(sandbox);
-    }
-
-    const sandboxToken = await ctx.runAction(
-      internal.sandboxJwt.signSandboxToken,
-      { userId: args.userId },
-    );
-
-    await launchScript(
-      sandbox,
-      args.prompt,
-      args.completionMutation,
-      args.entityIdField,
-      sandboxToken,
-      args.entityId,
-      {
-        model: args.model,
-        allowedTools: args.allowedTools,
-        systemPrompt: args.systemPrompt,
-        extraEnvVars: sandboxEnvVars,
-        claudeSessionId,
-      },
-    );
-
-    return { sandboxId: sandbox.id };
   },
 });
 

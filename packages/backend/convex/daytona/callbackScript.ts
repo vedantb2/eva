@@ -31,8 +31,11 @@ const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "${WORKSPACE_DIR}";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
-const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "5400000");
+const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
+const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "15000");
+const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
+const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -42,10 +45,26 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
+async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function buildRetryDelayMs(attempt) {
+  const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
+  const jitter = Math.floor(Math.random() * 500);
+  return exponential + jitter;
+}
+
 async function callMutation(path, args) {
   const headers = { "Content-Type": "application/json" };
   if (CONVEX_TOKEN) headers["Authorization"] = "Bearer " + CONVEX_TOKEN;
-  const res = await fetch(CONVEX_URL + "/api/mutation", {
+  const res = await fetchWithTimeout(CONVEX_URL + "/api/mutation", {
     method: "POST",
     headers,
     body: JSON.stringify({ path, args, format: "json" }),
@@ -58,7 +77,7 @@ async function callMutation(path, args) {
 }
 
 async function callAction(path, args) {
-  const res = await fetch(CONVEX_URL + "/api/action", {
+  const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -73,7 +92,7 @@ async function callAction(path, args) {
   return res.json();
 }
 
-async function callMutationWithRetry(path, args, maxRetries = 5) {
+async function callMutationWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
   let attempt = 0;
   while (true) {
     try {
@@ -81,8 +100,23 @@ async function callMutationWithRetry(path, args, maxRetries = 5) {
     } catch (e) {
       attempt++;
       if (attempt > maxRetries) throw e;
-      const delayMs = Math.pow(2, attempt - 1) * 1000;
+      const delayMs = buildRetryDelayMs(attempt);
       console.error("callMutation attempt " + attempt + " failed, retrying in " + delayMs + "ms:", String(e));
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
+async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callAction(path, args);
+    } catch (e) {
+      attempt++;
+      if (attempt > maxRetries) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error("callAction attempt " + attempt + " failed, retrying in " + delayMs + "ms:", String(e));
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
@@ -228,7 +262,7 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
 const INSTALLATION_ID = process.env.INSTALLATION_ID;
 if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
-    const res = await fetch(CONVEX_URL + "/api/action", {
+    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + CONVEX_TOKEN },
       body: JSON.stringify({ path: "github:getInstallationTokenAction", args: { installationId: Number(INSTALLATION_ID) }, format: "json" }),
@@ -283,13 +317,20 @@ function buildErrorMessage(code, timedOutForMaxRuntime, timedOutForNoOutput) {
 }
 
 async function uploadMediaFile(filePath, mimeType) {
-  const urlRes = await callMutation("screenshots:generateUploadUrl", {});
+  const urlRes = await callMutationWithRetry("screenshots:generateUploadUrl", {}, 3);
   const fileData = readFileSync(filePath);
-  const uploadRes = await fetch(urlRes.value, {
-    method: "POST",
-    headers: { "Content-Type": mimeType },
-    body: fileData,
-  });
+  const uploadRes = await fetchWithTimeout(
+    urlRes.value,
+    {
+      method: "POST",
+      headers: { "Content-Type": mimeType },
+      body: fileData,
+    },
+    30000,
+  );
+  if (!uploadRes.ok) {
+    throw new Error("Upload failed: " + uploadRes.status);
+  }
   const uploadJson = await uploadRes.json();
   return uploadJson.storageId;
 }
@@ -432,17 +473,17 @@ try {
     try {
       if (ENTITY_TYPE === "taskId") {
         const storageId = videoStorageId || imageStorageId;
-        await callMutation("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName });
+        await callMutationWithRetry("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName }, 3);
       } else {
         const mediaArgs = { parentId: ENTITY_ID };
         if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
         if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
-        await callAction("screenshots:attachMedia", mediaArgs);
+        await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
       }
     } catch {}
   } else if (ENTITY_TYPE === "taskId") {
     try {
-      await callMutation("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" });
+      await callMutationWithRetry("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" }, 3);
     } catch {}
   }
 

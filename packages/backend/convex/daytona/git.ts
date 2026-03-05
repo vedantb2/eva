@@ -189,8 +189,9 @@ export async function createSandboxAndPrepareRepo(
   snapshotName?: string,
   volumes?: VolumeMount[],
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
+  let initialSandbox: Sandbox | undefined;
   try {
-    const sandbox = await createSandbox(
+    initialSandbox = await createSandbox(
       daytona,
       installationId,
       sandboxEnvVars,
@@ -198,12 +199,18 @@ export async function createSandboxAndPrepareRepo(
       volumes,
     );
     if (snapshotName) {
-      await syncRepo(sandbox, installationId, owner, name);
-      return { sandbox, usedSnapshot: true };
+      await syncRepo(initialSandbox, installationId, owner, name);
+      return { sandbox: initialSandbox, usedSnapshot: true };
     }
-    await cloneAndSetupRepo(sandbox, installationId, owner, name);
-    return { sandbox, usedSnapshot: false };
+    await cloneAndSetupRepo(initialSandbox, installationId, owner, name);
+    return { sandbox: initialSandbox, usedSnapshot: false };
   } catch (error) {
+    if (initialSandbox) {
+      try {
+        await initialSandbox.delete();
+      } catch {}
+    }
+
     if (!snapshotName || !isSnapshotReadyTimeoutError(error)) {
       throw error;
     }
@@ -218,8 +225,15 @@ export async function createSandboxAndPrepareRepo(
       snapshotName,
       volumes,
     );
-    await syncRepo(sandbox, installationId, owner, name);
-    return { sandbox, usedSnapshot: true };
+    try {
+      await syncRepo(sandbox, installationId, owner, name);
+      return { sandbox, usedSnapshot: true };
+    } catch (retryError) {
+      try {
+        await sandbox.delete();
+      } catch {}
+      throw retryError;
+    }
   }
 }
 

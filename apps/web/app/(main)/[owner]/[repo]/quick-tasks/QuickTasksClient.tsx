@@ -36,6 +36,7 @@ import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
 import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
 import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
 import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
+import { ScheduleTasksModal } from "@/lib/components/quick-tasks/ScheduleTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
@@ -54,6 +55,7 @@ import {
   IconUserCheck,
   IconRefresh,
   IconPlayerPlay,
+  IconCalendarClock,
 } from "@tabler/icons-react";
 
 type BulkAction =
@@ -64,7 +66,8 @@ type BulkAction =
   | "assign"
   | "assignMe"
   | "changeStatus"
-  | "run";
+  | "run"
+  | "schedule";
 
 interface QuickTasksClientProps {
   initialTaskId?: string;
@@ -445,6 +448,12 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         selectedTaskIds={selectedIds}
         onSuccess={exitSelectMode}
       />
+      <ScheduleTasksModal
+        isOpen={activeBulkAction === "schedule"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+      />
       <Dialog
         open={activeBulkAction === "actions"}
         onOpenChange={(v) => {
@@ -504,6 +513,15 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             >
               <IconRefresh size={16} />
               Change Status
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("schedule")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconCalendarClock size={16} />
+              Schedule Run
             </Button>
             <Button
               variant="secondary"

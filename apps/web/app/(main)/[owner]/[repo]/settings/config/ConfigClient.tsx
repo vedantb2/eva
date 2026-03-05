@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
-import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
+import { api, CLAUDE_MODELS } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -24,15 +24,11 @@ export function ConfigClient() {
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(
     repo.defaultBaseBranch ?? "main",
   );
-  const [defaultModel, setDefaultModel] = useState<ClaudeModel>(
-    repo.defaultModel ?? "sonnet",
-  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDefaultBaseBranch(repo.defaultBaseBranch ?? "main");
-    setDefaultModel(repo.defaultModel ?? "sonnet");
-  }, [repo._id, repo.defaultBaseBranch, repo.defaultModel]);
+  }, [repo._id, repo.defaultBaseBranch]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -40,7 +36,6 @@ export function ConfigClient() {
       await updateConfig({
         repoId,
         defaultBaseBranch: defaultBaseBranch || undefined,
-        defaultModel,
       });
     } finally {
       setSaving(false);
@@ -75,10 +70,10 @@ export function ConfigClient() {
                 Default Model
               </label>
               <Select
-                value={defaultModel}
+                value={repo.defaultModel ?? "sonnet"}
                 onValueChange={(val) => {
                   const model = CLAUDE_MODELS.find((m) => m === val);
-                  if (model) setDefaultModel(model);
+                  if (model) updateConfig({ repoId, defaultModel: model });
                 }}
               >
                 <SelectTrigger className="h-8 text-xs">

@@ -1,5 +1,17 @@
 # Changelog
 
+## Make quick-task execution atomic + pre-launch watchdog recovery - 2026-03-05
+
+- **Why**: Quick tasks could get stuck as active with no real worker when the old two-step launch only partially succeeded, or when a run was marked `running` before sandbox attachment and never advanced.
+- **Changes**:
+  1. `agentTasks.startExecution` now starts `taskExecutionWorkflow` in the same mutation and sets `activeWorkflowId` server-side; if workflow start fails, it marks the run error and restores task state to `todo`.
+  2. `taskWorkflow.checkStaleRuns` now treats `running` runs with missing `activeWorkflowId` as watchdog failures instead of returning early.
+  3. `taskWorkflow.checkStaleRuns` now fails runs that never attach a `sandboxId` within a bounded window, cancels workflow state, resets task status, and schedules quick-task retry.
+  4. Quick-task and task-detail frontend launch flows now call only `agentTasks.startExecution` (removed the second `triggerExecution` call).
+  5. `taskWorkflow.triggerExecution` is now an idempotent fallback that no-ops when the run is no longer queued or the task already has an active workflow.
+  6. `migrations.cleanupStaleRuns` now includes `in_progress` tasks even when `activeWorkflowId` is missing, so existing orphaned tasks can be repaired in one backfill run.
+- **Benefit**: Removes the main orphan-state path and tightens watchdog recovery for pre-launch hangs, so "running with no Claude process" self-heals instead of lingering.
+
 ## Split agentRuns activity log into dedicated table - 2026-03-05
 
 - **Why**: `agentRuns.listByTask` still read the full `activityLog` field from each run document at DB level, so high-frequency list queries were paying for the heaviest payload even when UI loaded run logs lazily.

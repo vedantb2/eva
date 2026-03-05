@@ -280,7 +280,7 @@ export function LogsClient() {
               <div className="text-sm text-muted-foreground">Total Cost</div>
               <div className="text-2xl font-semibold">
                 {formatCost(totalCost)}{" "}
-                <span className="text-base text-muted-foreground">
+                <span className="text-base font-normal text-muted-foreground">
                   ~£{(totalCost * USD_TO_GBP).toFixed(4)}
                 </span>
               </div>

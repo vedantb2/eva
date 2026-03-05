@@ -8,6 +8,7 @@ import {
   authMutation,
   hasRepoAccess,
   hasTaskAccess,
+  recomputeProjectPhase,
 } from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
@@ -205,25 +206,7 @@ export const updateStatus = authMutation({
       }
     }
     if (task.projectId) {
-      const project = await ctx.db.get(task.projectId);
-      if (project) {
-        if (args.status === "done") {
-          const projectTasks = await ctx.db
-            .query("agentTasks")
-            .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
-            .collect();
-          const allDone = projectTasks.every((t) =>
-            t._id === args.id ? true : t.status === "done",
-          );
-          if (allDone && project.phase !== "completed") {
-            await ctx.db.patch(task.projectId, { phase: "completed" });
-          }
-        } else {
-          if (project.phase === "finalized") {
-            await ctx.db.patch(task.projectId, { phase: "active" });
-          }
-        }
-      }
+      await recomputeProjectPhase(ctx.db, task.projectId);
     }
     return null;
   },
@@ -849,6 +832,9 @@ export const activateDraft = authMutation({
       status: "todo",
       updatedAt: Date.now(),
     });
+    if (task.projectId) {
+      await recomputeProjectPhase(ctx.db, task.projectId);
+    }
     return null;
   },
 });

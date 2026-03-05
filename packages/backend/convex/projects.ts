@@ -35,43 +35,25 @@ const projectValidator = v.object({
   activeWorkflowId: v.optional(v.string()),
 });
 
+const {
+  conversationHistory: _ch,
+  generatedSpec: _gs,
+  ...projectSummaryFields
+} = projectValidator.fields;
+const projectSummaryValidator = v.object(projectSummaryFields);
+
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(projectValidator),
+  returns: v.array(projectSummaryValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const result = [];
-    for (const project of projects) {
-      if (project.phase === "active" || project.phase === "completed") {
-        const tasks = await ctx.db
-          .query("agentTasks")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect();
-        if (tasks.length > 0) {
-          const allDone = tasks.every((t) => t.status === "done");
-          const anyActive = tasks.some(
-            (t) =>
-              t.status === "todo" ||
-              t.status === "in_progress" ||
-              t.status === "code_review",
-          );
-          if (allDone && project.phase === "active") {
-            result.push({ ...project, phase: "completed" as const });
-            continue;
-          }
-          if (anyActive && project.phase === "completed") {
-            result.push({ ...project, phase: "active" as const });
-            continue;
-          }
-        }
-      }
-      result.push(project);
-    }
-    return result;
+    return projects.map(
+      ({ conversationHistory: _, generatedSpec: _g, ...rest }) => rest,
+    );
   },
 });
 
@@ -84,27 +66,6 @@ export const get = authQuery({
       return null;
     }
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) return null;
-    if (project.phase === "active" || project.phase === "completed") {
-      const tasks = await ctx.db
-        .query("agentTasks")
-        .withIndex("by_project", (q) => q.eq("projectId", args.id))
-        .collect();
-      if (tasks.length > 0) {
-        const allDone = tasks.every((t) => t.status === "done");
-        const anyActive = tasks.some(
-          (t) =>
-            t.status === "todo" ||
-            t.status === "in_progress" ||
-            t.status === "code_review",
-        );
-        if (allDone && project.phase === "active") {
-          return { ...project, phase: "completed" as const };
-        }
-        if (anyActive && project.phase === "completed") {
-          return { ...project, phase: "active" as const };
-        }
-      }
-    }
     return project;
   },
 });

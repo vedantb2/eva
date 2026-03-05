@@ -36,6 +36,7 @@ import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 import { formatDuration } from "@/lib/utils/formatDuration";
+import { RunActivityLog } from "@/lib/components/tasks/RunActivityLog";
 
 interface ProjectTaskDetailPanelProps {
   taskId: Id<"agentTasks">;
@@ -221,13 +222,7 @@ export function ProjectTaskDetailPanel({
                               </Reasoning>
                             );
                           })()}
-                        {run.activityLog &&
-                          (() => {
-                            const steps = parseActivitySteps(run.activityLog);
-                            return steps ? (
-                              <ActivitySteps steps={steps} />
-                            ) : null;
-                          })()}
+                        <RunActivityLog runId={run._id} />
                         {run.resultSummary && (
                           <p className="text-sm text-muted-foreground">
                             {run.resultSummary}

@@ -1,5 +1,15 @@
 # Changelog
 
+## Optimize agentRuns.listByTask and projects.list database bandwidth - 2026-03-05
+
+- **Why**: Both are live queries that transferred full documents on every mutation. `listByTask` sent the heavy `activityLog` string (full agent execution trace) for every run. `projects.list` sent `conversationHistory` (unbounded message array) and `generatedSpec` (large JSON) per project, plus ran N+1 queries to compute project phase from tasks on every read.
+- **Changes**:
+  1. `agentRuns.ts` — strip `activityLog` from `listByTask`, `listAll`, `get`, `getWithDetails` return types. New `getActivityLog` query for on-demand loading per run.
+  2. `projects.ts` — strip `conversationHistory` and `generatedSpec` from `list` return. Removed on-read phase computation from `list` and `get`.
+  3. `functions.ts` — new `recomputeProjectPhase` helper that persists phase transitions on write. Wired into `agentTasks.updateStatus`, `agentRuns.complete`, `agentRuns.updateStatus`, `agentTasks.activateDraft`.
+  4. Frontend — new `RunActivityLog` component lazy-loads activity log per run via `getActivityLog` when accordion is expanded.
+- **Benefit**: Eliminates N+1 queries from projects.list, removes heavy field transfer from list queries, phase is now computed on write instead of every read.
+
 ## CDP mode: agent-browser connects to VNC Chrome in sessions - 2026-03-04
 
 - **Why**: agent-browser used its own headless Chromium, invisible to users. The VNC Desktop tab showed a separate Chrome. No way to watch agent-browser actions live.

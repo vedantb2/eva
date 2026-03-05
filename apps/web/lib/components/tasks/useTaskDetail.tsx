@@ -72,6 +72,7 @@ import { formatDuration } from "@/lib/utils/formatDuration";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
+import { RunActivityLog } from "./RunActivityLog";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -614,11 +615,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                             </Reasoning>
                           );
                         })()}
-                      {run.activityLog &&
-                        (() => {
-                          const steps = parseActivitySteps(run.activityLog);
-                          return steps ? <ActivitySteps steps={steps} /> : null;
-                        })()}
+                      <RunActivityLog runId={run._id} />
                       {run.resultSummary && (
                         <p className="text-sm text-muted-foreground">
                           {run.resultSummary}

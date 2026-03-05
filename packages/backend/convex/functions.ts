@@ -4,7 +4,10 @@ import {
   customQuery,
   customAction,
 } from "convex-helpers/server/customFunctions";
-import type { GenericDatabaseReader } from "convex/server";
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+} from "convex/server";
 import {
   query,
   mutation,
@@ -48,6 +51,39 @@ export async function hasTaskAccess(
     return project ? hasRepoAccess(db, project.repoId, userId) : false;
   }
   return false;
+}
+
+export async function recomputeProjectPhase(
+  db: GenericDatabaseWriter<DataModel>,
+  projectId: Id<"projects">,
+): Promise<void> {
+  const project = await db.get(projectId);
+  if (!project) return;
+  if (
+    project.phase !== "active" &&
+    project.phase !== "completed" &&
+    project.phase !== "finalized"
+  )
+    return;
+  const tasks = await db
+    .query("agentTasks")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  if (tasks.length === 0) return;
+  const allDone = tasks.every((t) => t.status === "done");
+  const anyActive = tasks.some(
+    (t) =>
+      t.status === "todo" ||
+      t.status === "in_progress" ||
+      t.status === "code_review",
+  );
+  if (allDone && project.phase !== "completed") {
+    await db.patch(projectId, { phase: "completed" });
+  } else if (anyActive && project.phase === "completed") {
+    await db.patch(projectId, { phase: "active" });
+  } else if (anyActive && project.phase === "finalized") {
+    await db.patch(projectId, { phase: "active" });
+  }
 }
 
 export const authQuery = customQuery(

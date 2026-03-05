@@ -180,6 +180,7 @@ export const sessionExecuteWorkflow = workflow.define({
         model: data.model,
         allowedTools: data.allowedTools,
         branchName: data.branchName,
+        baseBranch: data.baseBranch,
         repoId: data.repoId,
         sessionPersistenceId: args.sessionId,
         startDesktop: true,
@@ -262,6 +263,7 @@ export const getSessionData = internalQuery({
     repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
     allowedTools: v.string(),
     model: v.string(),
   }),
@@ -326,6 +328,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      baseBranch: repo.defaultBaseBranch,
       allowedTools: MODE_TOOLS[args.mode],
       model: args.model,
     };

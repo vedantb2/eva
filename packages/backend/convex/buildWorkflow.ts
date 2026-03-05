@@ -20,16 +20,15 @@ export const buildProjectWorkflow = workflow.define({
       projectId: args.projectId,
     });
 
-    if (tasks.length <= 1) {
-      // No tasks to execute (index 0 is skipped per existing behavior)
+    if (tasks.length === 0) {
       await step.runMutation(internal.buildWorkflow.completeBuild, {
         projectId: args.projectId,
       });
       return;
     }
 
-    // Step 2: Execute tasks sequentially (skip index 0 — first task already started above)
-    for (let i = 1; i < tasks.length; i++) {
+    // Step 2: Execute tasks sequentially
+    for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
 
       // Start the task execution workflow

@@ -489,10 +489,15 @@ export const createFromTasks = authMutation({
       projectStartDate: Date.now(),
       conversationHistory: [],
     });
-    for (const taskId of args.taskIds) {
+    for (let i = 0; i < args.taskIds.length; i++) {
+      const taskId = args.taskIds[i];
       const task = await ctx.db.get(taskId);
       if (task) {
-        await ctx.db.patch(taskId, { projectId, updatedAt: Date.now() });
+        await ctx.db.patch(taskId, {
+          projectId,
+          taskNumber: i + 1,
+          updatedAt: Date.now(),
+        });
       }
     }
     return projectId;

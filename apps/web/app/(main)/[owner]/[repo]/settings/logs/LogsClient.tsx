@@ -25,6 +25,7 @@ import {
 } from "@conductor/ui";
 import { IconChevronRight, IconFilter, IconCode } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import millify from "millify";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",
@@ -50,8 +51,7 @@ function formatCost(cost: number): string {
 
 function formatTokens(count: number): string {
   if (count === 0) return "0";
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
-  return String(count);
+  return millify(count, { precision: 1 });
 }
 
 function formatDuration(ms: number): string {

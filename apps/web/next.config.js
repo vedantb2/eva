@@ -1,11 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  experimental: {
-    optimisticClientCache: true,
-  },
   turbopack: {
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx"],
   },

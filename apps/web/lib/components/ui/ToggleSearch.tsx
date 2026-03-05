@@ -37,12 +37,12 @@ export function ToggleSearch({
         <motion.div
           key="toggle-search-input"
           initial={{ opacity: 0, width: 0 }}
-          animate={{ opacity: 1, width: 176 }}
+          animate={{ opacity: 1, width: "auto" }}
           exit={{ opacity: 0, width: 0 }}
           transition={{ duration: 0.2 }}
           className="overflow-hidden"
         >
-          <div className="relative w-44">
+          <div className="relative w-32 sm:w-44">
             <IconSearch
               size={14}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"

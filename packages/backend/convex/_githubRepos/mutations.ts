@@ -178,13 +178,18 @@ export const updateConfig = authMutation({
       }
     }
 
-    await ctx.db.patch(args.repoId, {
-      defaultBaseBranch: args.defaultBaseBranch,
-      defaultModel: args.defaultModel,
-      postAuditEnabled: args.postAuditEnabled,
-      sessionsVncEnabled: args.sessionsVncEnabled,
-      sessionsVscodeEnabled: args.sessionsVscodeEnabled,
-    });
+    const patch: Record<string, string | boolean> = {};
+    if (args.defaultBaseBranch !== undefined)
+      patch.defaultBaseBranch = args.defaultBaseBranch;
+    if (args.defaultModel !== undefined) patch.defaultModel = args.defaultModel;
+    if (args.postAuditEnabled !== undefined)
+      patch.postAuditEnabled = args.postAuditEnabled;
+    if (args.sessionsVncEnabled !== undefined)
+      patch.sessionsVncEnabled = args.sessionsVncEnabled;
+    if (args.sessionsVscodeEnabled !== undefined)
+      patch.sessionsVscodeEnabled = args.sessionsVscodeEnabled;
+
+    await ctx.db.patch(args.repoId, patch);
     return null;
   },
 });

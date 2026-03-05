@@ -55,7 +55,9 @@ export function TaskDetailModal({
           <div className="flex-1 min-h-0 flex flex-col">
             {scheduledBadge}
             <div className="flex-1 min-h-0 pb-6 flex flex-col">
-              <div className={`grid grid-rows-1 gap-4 md:gap-6 flex-1 min-h-0 ${layoutGridClass}`}>
+              <div
+                className={`grid grid-rows-1 gap-4 md:gap-6 flex-1 min-h-0 ${layoutGridClass}`}
+              >
                 <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-2">
                   {descriptionSection}
                   {subtasksSection}

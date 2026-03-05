@@ -28,7 +28,9 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-6 md:pt-5">{titleContent}</div>
+        <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-6 md:pt-5">
+          {titleContent}
+        </div>
         <div className="px-3 sm:px-4 md:px-6 flex-1 overflow-hidden flex flex-col">
           {scheduledBadge}
           <div className="flex-1 overflow-hidden flex flex-col">

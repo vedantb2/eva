@@ -32,8 +32,8 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
         <div className="px-3 sm:px-4 flex-1 overflow-hidden flex flex-col">
           {scheduledBadge}
           <div className="flex-1 overflow-hidden">
-            <div className="flex flex-col md:grid md:grid-cols-[3fr_2fr] gap-4 md:gap-6 h-full overflow-y-auto md:overflow-hidden">
-              <div className="space-y-4 md:space-y-6 md:overflow-y-auto scrollbar md:pr-4">
+            <div className="flex flex-col md:grid md:grid-cols-[3fr_2fr] gap-4 md:gap-6 h-full overflow-hidden">
+              <div className="space-y-4 md:space-y-6 overflow-y-auto scrollbar md:pr-4">
                 {descriptionSection}
                 {subtasksSection}
                 {runsSection}

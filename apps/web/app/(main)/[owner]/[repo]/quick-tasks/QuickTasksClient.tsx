@@ -8,6 +8,7 @@ import type { Id } from "@conductor/backend";
 import { usePathname } from "next/navigation";
 import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { normalizePathname } from "@/lib/utils/repoUrl";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -75,7 +76,7 @@ interface QuickTasksClientProps {
 
 export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const { repo, basePath } = useRepo();
-  const pathname = usePathname();
+  const pathname = normalizePathname(usePathname());
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);

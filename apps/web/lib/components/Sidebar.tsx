@@ -47,6 +47,7 @@ import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
+import { normalizePathname } from "@/lib/utils/repoUrl";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
   "design",
@@ -96,7 +97,8 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
 }
 
 export function Sidebar() {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = normalizePathname(rawPathname);
   const router = useRouter();
   const { user } = useUser();
   const { collapsed, setCollapsed } = useSidebar();

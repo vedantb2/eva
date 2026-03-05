@@ -10,6 +10,8 @@ import {
   WORKSPACE_DIR,
   resolveSandboxContext,
   getSandbox,
+  sleep,
+  errorMessage,
 } from "./helpers";
 import {
   fetchOrigin,
@@ -115,61 +117,125 @@ export const setupAndExecute = internalAction({
       ? sessionClaudeUuid(args.sessionPersistenceId)
       : undefined;
 
-    let sandbox: Sandbox;
+    let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
+    let attempt = 1;
 
-    if (args.ephemeral) {
-      const prepared = await createSandboxAndPrepareRepo(
-        daytona,
-        args.installationId,
-        args.repoOwner,
-        args.repoName,
-        sandboxEnvVars,
-        snapshotName,
-        sessionVolumeMounts,
-      );
-      sandbox = prepared.sandbox;
-      deleteSandboxOnFailure = true;
-    } else {
-      const prepared = await getOrCreateSandbox(
-        daytona,
-        args.existingSandboxId,
-        args.installationId,
-        args.repoOwner,
-        args.repoName,
-        sandboxEnvVars,
-        snapshotName,
-        sessionVolumeMounts,
-      );
-      sandbox = prepared.sandbox;
-      deleteSandboxOnFailure = prepared.isNew;
+    while (true) {
+      try {
+        if (args.ephemeral) {
+          const prepared = await createSandboxAndPrepareRepo(
+            daytona,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+            sandboxEnvVars,
+            snapshotName,
+            sessionVolumeMounts,
+          );
+          sandbox = prepared.sandbox;
+          deleteSandboxOnFailure = true;
+        } else {
+          const prepared = await getOrCreateSandbox(
+            daytona,
+            args.existingSandboxId,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+            sandboxEnvVars,
+            snapshotName,
+            sessionVolumeMounts,
+          );
+          sandbox = prepared.sandbox;
+          deleteSandboxOnFailure = prepared.isNew;
+        }
+
+        if (args.baseBranch) {
+          await fetchOrigin(
+            sandbox,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+            args.baseBranch,
+            { prune: false, timeoutSeconds: 30 },
+          );
+          await exec(
+            sandbox,
+            `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
+            30,
+          );
+        }
+
+        if (args.branchName) {
+          await setupBranch(sandbox, args.branchName);
+        }
+
+        if (args.startDesktop) {
+          await startDesktopWithChrome(sandbox);
+        }
+
+        break;
+      } catch (error) {
+        if (deleteSandboxOnFailure && sandbox) {
+          try {
+            await sandbox.delete();
+          } catch {}
+        }
+
+        const message = errorMessage(error, "Sandbox setup failed");
+        const lowerMessage = message.toLowerCase();
+        const hasDaytonaMarker =
+          lowerMessage.includes("daytona") ||
+          lowerMessage.includes("daytonaerror") ||
+          lowerMessage.includes("sandbox") ||
+          lowerMessage.includes("snapshot");
+        const hasTransientMarker =
+          lowerMessage.includes("network") ||
+          lowerMessage.includes("fetch failed") ||
+          lowerMessage.includes("econnreset") ||
+          lowerMessage.includes("econnrefused") ||
+          lowerMessage.includes("etimedout") ||
+          lowerMessage.includes("enotfound") ||
+          lowerMessage.includes("getaddrinfo") ||
+          lowerMessage.includes("socket hang up") ||
+          lowerMessage.includes("timeout") ||
+          lowerMessage.includes("timed out") ||
+          lowerMessage.includes("aborted");
+        const hasTransientStatus =
+          lowerMessage.includes("status code 408") ||
+          lowerMessage.includes("status code 429") ||
+          lowerMessage.includes("status code 500") ||
+          lowerMessage.includes("status code 502") ||
+          lowerMessage.includes("status code 503") ||
+          lowerMessage.includes("status code 504");
+        const isSnapshotReadyTimeout = lowerMessage.includes(
+          "sandbox failed to become ready within the timeout period",
+        );
+        const shouldRetry =
+          (hasDaytonaMarker && (hasTransientMarker || hasTransientStatus)) ||
+          isSnapshotReadyTimeout;
+
+        if (!shouldRetry || attempt >= 3) {
+          throw error;
+        }
+
+        const delayMs =
+          1500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
+        console.warn(
+          `[daytona] setupAndExecute transient failure (attempt ${attempt}/3), retrying in ${delayMs}ms: ${message}`,
+        );
+        await sleep(delayMs);
+        attempt += 1;
+        sandbox = undefined;
+        deleteSandboxOnFailure = false;
+      }
+    }
+
+    if (!sandbox) {
+      throw new Error("Sandbox setup failed");
     }
 
     try {
-      if (args.baseBranch) {
-        await fetchOrigin(
-          sandbox,
-          args.installationId,
-          args.repoOwner,
-          args.repoName,
-          args.baseBranch,
-          { prune: false, timeoutSeconds: 30 },
-        );
-        await exec(
-          sandbox,
-          `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-          30,
-        );
-      }
-
-      if (args.branchName) {
-        await setupBranch(sandbox, args.branchName);
-      }
-
-      if (args.startDesktop) {
-        await startDesktopWithChrome(sandbox);
-      }
-
       const sandboxToken = await ctx.runAction(
         internal.sandboxJwt.signSandboxToken,
         { userId: args.userId },

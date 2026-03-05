@@ -1,5 +1,15 @@
 # Changelog
 
+## Improve quick-task startup visibility and Daytona timeout resilience - 2026-03-05
+
+- **Why**: Quick tasks could sit in `running` with no visible activity during sandbox setup contention, and Daytona control-plane timeouts (`status code 408`) were not classified consistently in retry policy decisions.
+- **Changes**:
+  1. `convex/_taskWorkflow/runLifecycle.ts` now seeds `streamingActivity` as soon as a run transitions to `running` (`Starting sandbox...`) so the UI never shows an empty running state.
+  2. `convex/_taskWorkflow/audit.ts` now seeds audit streaming state (`Starting audit...`) at audit creation time for the same reason.
+  3. `convex/_daytona/execution.ts` now retries transient Daytona setup failures (including timeout/status-code patterns) with bounded exponential backoff before failing setup.
+  4. `convex/_taskWorkflow/recovery.ts` now classifies Daytona HTTP timeout/server-status patterns (including 408) as Daytona-network issues.
+- **Reason for change (architectural)**: Startup observability and transient-control-plane resilience should be first-class in orchestration, so operators see immediate progress while setup retries happen deterministically and bounded.
+
 ## Harden quick-task callback startup and JWT issuer consistency - 2026-03-05
 
 - **Why**: Quick-task runs could appear as `running` with no Claude activity when the sandbox callback process started but could not authenticate back to Convex, or when JWT issuer config drifted between token signing and auth provider validation.
@@ -8,6 +18,7 @@
   2. Strengthened `_daytona/launch.ts` startup verification: launch now waits for the readiness file, fails fast with tailed logs if readiness is never reached, and kills the orphaned process.
   3. Added `sandboxAuthConfig.ts` and centralized sandbox JWT issuer/JWKS constants; wired `auth.config.ts`, `sandboxJwt.ts`, and `http.ts` to the shared values so signing and validation cannot silently diverge.
 - **Reason for change (architectural)**: Runtime orchestration should only mark a callback as started after callback-to-Convex authentication is proven, and auth-critical issuer configuration must come from one source of truth.
+- **Follow-up fix**: corrected launcher env scoping so callback env vars (`CONVEX_URL`, `CONVEX_TOKEN`, etc.) are applied to `nohup node /tmp/run-design.mjs` (not only to the pre-cleanup command). This prevents `Failed to parse URL from undefined/api/mutation` startup failures.
 
 ## Break down agentTasks.ts into smaller modules - 2026-03-05
 

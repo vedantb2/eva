@@ -11,6 +11,7 @@ import { buildTaskDoneEvent } from "./events";
 import { STALE_CHECK_DELAY_MS } from "./recovery";
 import {
   clearStreamingActivity,
+  upsertStreamingActivity,
   upsertActivityLog,
   finalizeRunStatus,
 } from "./helpers";
@@ -23,15 +24,28 @@ export const updateRunToRunning = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
+
     await ctx.db.patch(args.runId, {
       status: "running",
       repoId: args.repoId,
-      startedAt: Date.now(),
+      startedAt,
     });
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
-      updatedAt: Date.now(),
+      updatedAt: startedAt,
     });
+    await upsertStreamingActivity(
+      ctx,
+      String(args.taskId),
+      JSON.stringify([
+        {
+          type: "thinking",
+          label: "Starting sandbox...",
+          status: "active",
+        },
+      ]),
+    );
 
     await ctx.scheduler.runAfter(
       RUN_TIMEOUT_MS,

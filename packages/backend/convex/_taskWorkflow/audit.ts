@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import { extractJsonBlock } from "./helpers";
+import { extractJsonBlock, upsertStreamingActivity } from "./helpers";
 
 export const createAudit = internalMutation({
   args: {
@@ -9,7 +9,7 @@ export const createAudit = internalMutation({
   },
   returns: v.id("taskAudits"),
   handler: async (ctx, args) => {
-    return await ctx.db.insert("taskAudits", {
+    const auditId = await ctx.db.insert("taskAudits", {
       taskId: args.taskId,
       runId: args.runId,
       status: "running",
@@ -18,6 +18,20 @@ export const createAudit = internalMutation({
       codeReview: [],
       createdAt: Date.now(),
     });
+
+    await upsertStreamingActivity(
+      ctx,
+      `audit-${String(args.taskId)}`,
+      JSON.stringify([
+        {
+          type: "thinking",
+          label: "Starting audit...",
+          status: "active",
+        },
+      ]),
+    );
+
+    return auditId;
   },
 });
 

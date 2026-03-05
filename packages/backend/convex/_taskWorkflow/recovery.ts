@@ -24,13 +24,31 @@ export function isDaytonaNetworkIssue(errorMessage: string): boolean {
     "enotfound",
     "getaddrinfo",
     "socket hang up",
+    "timeout",
+    "timed out",
+    "aborted",
   ];
-  const daytonaMarkers = ["daytona", "sandbox", "snapshot"];
+  const daytonaMarkers = ["daytona", "daytonaerror", "sandbox", "snapshot"];
+  const daytonaStatusMarkers = [
+    "status code 408",
+    "status code 429",
+    "status code 500",
+    "status code 502",
+    "status code 503",
+    "status code 504",
+  ];
+
+  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
+    message.includes(marker),
+  );
+  if (!hasDaytonaMarker) {
+    return false;
+  }
 
   const hasNetworkMarker = networkMarkers.some((marker) =>
     message.includes(marker),
   );
-  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
+  const hasDaytonaStatusMarker = daytonaStatusMarkers.some((marker) =>
     message.includes(marker),
   );
 
@@ -40,7 +58,7 @@ export function isDaytonaNetworkIssue(errorMessage: string): boolean {
     return true;
   }
 
-  return hasNetworkMarker && hasDaytonaMarker;
+  return hasNetworkMarker || hasDaytonaStatusMarker;
 }
 
 export function buildQuickTaskRetryDelayMs(): number {

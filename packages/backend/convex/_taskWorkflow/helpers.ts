@@ -12,6 +12,27 @@ export async function clearStreamingActivity(
   if (streaming) await ctx.db.delete(streaming._id);
 }
 
+export async function upsertStreamingActivity(
+  ctx: MutationCtx,
+  entityId: string,
+  currentActivity: string,
+): Promise<void> {
+  const existing = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .first();
+  const now = Date.now();
+  if (existing) {
+    await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
+  } else {
+    await ctx.db.insert("streamingActivity", {
+      entityId,
+      currentActivity,
+      lastUpdatedAt: now,
+    });
+  }
+}
+
 export async function upsertActivityLog(
   ctx: MutationCtx,
   runId: Id<"agentRuns">,

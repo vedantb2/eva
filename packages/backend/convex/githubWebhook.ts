@@ -61,13 +61,21 @@ export const handlePrClosed = internalMutation({
         (id): id is Id<"users"> => id !== undefined,
       ),
     );
-    const statusLabel = args.merged ? "merged & done" : "closed & cancelled";
+    const notificationTitle = args.merged
+      ? `PR merged for "${task.title}"`
+      : `PR closed for "${task.title}"`;
+    const notificationMessage = args.merged
+      ? `GitHub merged ${args.prUrl}. Task moved to done.`
+      : `GitHub closed ${args.prUrl} without merge. Task moved to cancelled.`;
     for (const userId of notifyUsers) {
       await createNotification(ctx, {
         userId,
         type: args.merged ? "task_complete" : "system",
-        title: `PR ${statusLabel} for "${task.title}"`,
+        title: notificationTitle,
+        message: notificationMessage,
         repoId: task.repoId,
+        projectId: task.projectId,
+        taskId: task._id,
       });
     }
 

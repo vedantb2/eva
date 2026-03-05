@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 
@@ -11,6 +12,22 @@ const taskCommentValidator = v.object({
   authorId: v.optional(v.id("users")),
   createdAt: v.number(),
 });
+
+function buildCommentNotificationMessage(
+  content: string,
+  projectId: Id<"projects"> | undefined,
+): string {
+  const scopeLabel = projectId ? "project task" : "quick task";
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    return `New comment added on this ${scopeLabel}.`;
+  }
+  const summary =
+    trimmedContent.length > 180
+      ? `${trimmedContent.slice(0, 177)}...`
+      : trimmedContent;
+  return `New comment on this ${scopeLabel}: "${summary}"`;
+}
 
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
@@ -50,6 +67,7 @@ export const create = authMutation({
         repoId: task.repoId,
         projectId: task.projectId,
         taskId: args.taskId,
+        message: buildCommentNotificationMessage(args.content, task.projectId),
       });
     }
     return commentId;

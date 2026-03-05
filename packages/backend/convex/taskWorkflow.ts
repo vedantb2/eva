@@ -84,6 +84,30 @@ function buildQuickTaskRetryDelayMs(): number {
   );
 }
 
+function buildWorkflowRunNotificationMessage(params: {
+  success: boolean;
+  projectId: Id<"projects"> | undefined;
+  error: string | null;
+  prUrl: string | null;
+}): string {
+  const scopeLabel = params.projectId ? "project task" : "quick task";
+  if (params.success) {
+    if (params.prUrl) {
+      return `Run succeeded for this ${scopeLabel}. Pull request: ${params.prUrl}`;
+    }
+    return `Run succeeded for this ${scopeLabel}.`;
+  }
+  if (params.error) {
+    const trimmedError = params.error.trim();
+    const clippedError =
+      trimmedError.length > 200
+        ? `${trimmedError.slice(0, 197)}...`
+        : trimmedError;
+    return `Run failed for this ${scopeLabel}. ${clippedError}`;
+  }
+  return `Run failed for this ${scopeLabel}.`;
+}
+
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
@@ -936,6 +960,12 @@ export const completeRun = internalMutation({
           repoId: task.repoId,
           projectId: task.projectId,
           taskId: args.taskId,
+          message: buildWorkflowRunNotificationMessage({
+            success: args.success,
+            projectId: task.projectId,
+            error: args.error,
+            prUrl: args.prUrl,
+          }),
         });
       }
     }

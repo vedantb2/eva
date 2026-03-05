@@ -1,5 +1,15 @@
 # Changelog
 
+## Real-time notification toasts + deep-link details - 2026-03-05
+
+- **Why**: Users had to manually check notifications and couldn�t always tell what happened or jump directly to the right task/project context.
+- **Changes**:
+  1. Added `NotificationToastStream` to the main layout so new notifications surface immediately with an in-app toast.
+  2. Updated notification popover item clicks to navigate directly to notification `href`, and added message previews so each item is actionable without opening a modal.
+  3. Enriched backend notification messages for task assignment/completion, run completion, PR webhook events, and task comments.
+  4. Quick-task notifications now always append `Quick task ID: <id>` automatically, and webhook notifications now pass `taskId`/`projectId` for exact deep links.
+- **Benefit**: Notification UX is now real-time, clearer, and faster to act on, with direct navigation to exact destinations.
+
 ## Remove redundant `order` field + fix branch naming — 2026-03-05
 
 - **Why**: `order` (0-based) and `taskNumber` (1-based) were redundant — both tracked task position. Quick task branches used `Date.now()` fallback producing unreadable names like `eva/task-1741209600000`.

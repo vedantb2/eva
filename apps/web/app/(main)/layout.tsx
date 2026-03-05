@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { TopNavBar } from "@/lib/components/TopNavBar";
 import { ClientProvider } from "@/lib/components/ClientProvider";
+import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 
 export default function MainLayout({
   children,
@@ -34,6 +35,7 @@ export default function MainLayout({
         >
           {children}
         </div>
+        <NotificationToastStream />
       </div>
     </ClientProvider>
   );

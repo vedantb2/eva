@@ -46,6 +46,33 @@ const { activityLog: _activityLog, ...agentRunSummaryFields } =
   agentRunValidator.fields;
 const agentRunSummaryValidator = v.object(agentRunSummaryFields);
 
+function buildRunNotificationMessage(params: {
+  success: boolean;
+  projectId: Id<"projects"> | undefined;
+  resultSummary: string | undefined;
+  error: string | undefined;
+  prUrl: string | undefined;
+}): string {
+  const scopeLabel = params.projectId ? "project task" : "quick task";
+  if (params.success) {
+    if (params.prUrl) {
+      return `Run succeeded for this ${scopeLabel}. Pull request: ${params.prUrl}`;
+    }
+    if (params.resultSummary) {
+      return `Run succeeded for this ${scopeLabel}. ${params.resultSummary}`;
+    }
+    return `Run succeeded for this ${scopeLabel}.`;
+  }
+  if (params.error) {
+    const trimmedError = params.error.trim();
+    const clippedError =
+      trimmedError.length > 200
+        ? `${trimmedError.slice(0, 197)}...`
+        : trimmedError;
+    return `Run failed for this ${scopeLabel}. ${clippedError}`;
+  }
+  return `Run failed for this ${scopeLabel}.`;
+}
 export const get = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(agentRunSummaryValidator, v.null()),
@@ -245,6 +272,13 @@ export const complete = authMutation({
         repoId: task.repoId,
         projectId: task.projectId,
         taskId: task._id,
+        message: buildRunNotificationMessage({
+          success: args.success,
+          projectId: task.projectId,
+          resultSummary: args.resultSummary,
+          error: args.error,
+          prUrl: args.prUrl,
+        }),
       });
     }
     return null;

@@ -50,7 +50,10 @@ function formatCost(cost: number): string {
 
 function formatTokens(count: number): string {
   if (count === 0) return "0";
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+  if (count >= 1e12) return `${(count / 1e12).toFixed(1)}T`;
+  if (count >= 1e9) return `${(count / 1e9).toFixed(1)}B`;
+  if (count >= 1e6) return `${(count / 1e6).toFixed(1)}M`;
+  if (count >= 1e3) return `${(count / 1e3).toFixed(1)}k`;
   return String(count);
 }
 

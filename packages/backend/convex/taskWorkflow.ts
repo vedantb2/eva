@@ -502,7 +502,11 @@ export const updateRunToRunning = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.runId, { status: "running", repoId: args.repoId });
+    await ctx.db.patch(args.runId, {
+      status: "running",
+      repoId: args.repoId,
+      startedAt: Date.now(),
+    });
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
       updatedAt: Date.now(),
@@ -645,7 +649,7 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
 const STALE_THRESHOLD_MS = 90_000;
 const STALE_CHECK_DELAY_MS = 90_000;
 const STALE_RECHECK_MS = 30_000;
-const STALE_NO_SANDBOX_THRESHOLD_MS = 180_000;
+const STALE_NO_SANDBOX_THRESHOLD_MS = 600_000;
 
 async function cleanUpStaleRun(
   ctx: MutationCtx,

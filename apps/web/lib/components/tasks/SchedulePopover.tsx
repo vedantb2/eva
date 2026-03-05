@@ -41,7 +41,10 @@ export function SchedulePopover({
 
   function getTimestamp(): number | null {
     if (!selectedDate) return null;
-    const [hours, minutes] = time.split(":").map(Number);
+    const parts = time.split(":");
+    if (parts.length < 2) return null;
+    const [hours, minutes] = parts.map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return null;
     const combined = dayjs(selectedDate)
       .hour(hours)
       .minute(minutes)

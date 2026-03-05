@@ -1,9 +1,5 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -16,7 +12,28 @@ import {
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
-import { buildRootDirectoryInstruction } from "./prompts";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import {
+  buildImplementationPrompt,
+  buildAuditPrompt,
+  buildWorkflowRunNotificationMessage,
+  WORKSPACE_DIR,
+} from "./taskWorkflow/prompts";
+import {
+  isDaytonaNetworkIssue,
+  buildQuickTaskRetryDelayMs,
+  cleanUpStaleRun,
+  STALE_THRESHOLD_MS,
+  STALE_CHECK_DELAY_MS,
+  STALE_RECHECK_MS,
+  STALE_NO_SANDBOX_THRESHOLD_MS,
+} from "./taskWorkflow/recovery";
+import {
+  clearStreamingActivity,
+  upsertActivityLog,
+  finalizeRunStatus,
+  extractJsonBlock,
+} from "./taskWorkflow/helpers";
 
 // --- Events ---
 
@@ -49,151 +66,6 @@ const auditCompleteEvent = defineEvent({
     error: v.union(v.string(), v.null()),
   }),
 });
-
-// --- Prompt builder ---
-
-const WORKSPACE_DIR = "/workspace/repo";
-const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
-const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
-
-function isDaytonaNetworkIssue(errorMessage: string): boolean {
-  const message = errorMessage.toLowerCase();
-  const networkMarkers = [
-    "network",
-    "fetch failed",
-    "econnreset",
-    "econnrefused",
-    "etimedout",
-    "enotfound",
-    "getaddrinfo",
-    "socket hang up",
-  ];
-  const daytonaMarkers = ["daytona", "sandbox", "snapshot"];
-
-  const hasNetworkMarker = networkMarkers.some((marker) =>
-    message.includes(marker),
-  );
-  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
-    message.includes(marker),
-  );
-
-  if (
-    message.includes("sandbox failed to become ready within the timeout period")
-  ) {
-    return true;
-  }
-
-  return hasNetworkMarker && hasDaytonaMarker;
-}
-
-function buildQuickTaskRetryDelayMs(): number {
-  return (
-    QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS +
-    Math.floor(Math.random() * QUICK_TASK_AUTO_RETRY_JITTER_MS)
-  );
-}
-
-function buildWorkflowRunNotificationMessage(params: {
-  success: boolean;
-  projectId: Id<"projects"> | undefined;
-  error: string | null;
-  prUrl: string | null;
-}): string {
-  const scopeLabel = params.projectId ? "project task" : "quick task";
-  if (params.success) {
-    if (params.prUrl) {
-      return `Run succeeded for this ${scopeLabel}. Pull request: ${params.prUrl}`;
-    }
-    return `Run succeeded for this ${scopeLabel}.`;
-  }
-  if (params.error) {
-    const trimmedError = params.error.trim();
-    const clippedError =
-      trimmedError.length > 200
-        ? `${trimmedError.slice(0, 197)}...`
-        : trimmedError;
-    return `Run failed for this ${scopeLabel}. ${clippedError}`;
-  }
-  return `Run failed for this ${scopeLabel}.`;
-}
-
-function buildImplementationPrompt(
-  task: { title: string; description?: string; taskNumber?: number },
-  subtasks: Array<{ title: string }>,
-  branchName: string,
-  isQuickTask: boolean,
-  rootDirectory: string,
-  changeRequests?: string[],
-): string {
-  const subtasksList =
-    subtasks.length > 0
-      ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
-      : "";
-
-  const commitScope = isQuickTask
-    ? "feat"
-    : `feat(task-${task.taskNumber ?? task.title})`;
-
-  const changeRequestSection =
-    changeRequests && changeRequests.length > 0
-      ? `\n## Change Requests (from reviewer):
-${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
-
-IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
-      : "";
-
-  return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
-
-## Task: ${task.title}
-## Description: ${task.description || "No description provided"}
-${subtasksList}${changeRequestSection}
-
-## Steps:
-1. Read CLAUDE.md to understand the codebase
-2. Implement changes by editing source code files
-3. Update CLAUDE.md if you made major changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
-
-## Proof of Completion (REQUIRED):
-After pushing, capture visual proof using agent-browser:
-1. Run \`agent-browser set viewport 1920 1080\` to set the viewport size
-2. Start dev server in background, wait for ready
-3. Screenshot with \`agent-browser screenshot --annotate\` (simple changes) or record video (complex changes) — pick one
-4. Save to screenshots/ or recordings/ in repo root
-5. Kill the dev server
-If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
-Skip if no UI changes. Do NOT mention proof capture in response or commit message.
-
-## Rules:
-- Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)
-- Use lockfile for package manager. GITHUB_TOKEN is set.
-- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
-- For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
-}
-
-function buildAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
-
-For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
-
-## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
-
-Return ONLY valid JSON in this exact format:
-{
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "summary": "1-2 sentence overall assessment"
-}
-
-## Git Diff:
-${diff.slice(0, 30000)}`;
-}
 
 // --- Workflow ---
 
@@ -646,76 +518,6 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
   },
 });
 
-const STALE_THRESHOLD_MS = 90_000;
-const STALE_CHECK_DELAY_MS = 90_000;
-const STALE_RECHECK_MS = 30_000;
-const STALE_NO_SANDBOX_THRESHOLD_MS = 600_000;
-
-async function cleanUpStaleRun(
-  ctx: MutationCtx,
-  params: {
-    taskId: Id<"agentTasks">;
-    runId: Id<"agentRuns">;
-    sandboxId?: string;
-    repoId?: Id<"githubRepos">;
-    isProjectTask: boolean;
-    errorMessage: string;
-    exitReason: string;
-    activeWorkflowId?: string;
-  },
-): Promise<void> {
-  if (params.activeWorkflowId) {
-    try {
-      await workflow.cancel(ctx, params.activeWorkflowId as WorkflowId);
-    } catch {}
-  }
-
-  if (params.sandboxId && params.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
-      sandboxId: params.sandboxId,
-      repoId: params.repoId,
-    });
-    if (!params.isProjectTask) {
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-        sandboxId: params.sandboxId,
-        repoId: params.repoId,
-      });
-    }
-  }
-
-  await ctx.db.patch(params.runId, {
-    status: "error",
-    error: params.errorMessage,
-    finishedAt: Date.now(),
-    exitReason: params.exitReason,
-  });
-
-  await ctx.db.patch(params.taskId, {
-    status: "todo",
-    activeWorkflowId: undefined,
-    updatedAt: Date.now(),
-  });
-
-  if (!params.isProjectTask) {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.taskWorkflow.maybeScheduleQuickTaskRetry,
-      {
-        taskId: params.taskId,
-        runId: params.runId,
-        error: params.errorMessage,
-        delayMs: buildQuickTaskRetryDelayMs(),
-      },
-    );
-  }
-
-  const streaming = await ctx.db
-    .query("streamingActivity")
-    .withIndex("by_entity", (q) => q.eq("entityId", String(params.taskId)))
-    .first();
-  if (streaming) await ctx.db.delete(streaming._id);
-}
-
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -901,53 +703,18 @@ export const finalizeRunStreamingPhase = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const now = Date.now();
-    const run = await ctx.db.get(args.runId);
-    if (run && (run.status === "queued" || run.status === "running")) {
-      const exitReason =
-        args.exitReason ?? (args.success ? "completed" : "error");
-      const pushSummary = args.projectId
-        ? "Pushed commit to project branch"
-        : "Pushed commit to branch";
-      await ctx.db.patch(args.runId, {
-        status: args.success ? "success" : "error",
-        finishedAt: now,
-        resultSummary: args.success
-          ? args.prUrl
-            ? "Created project PR"
-            : pushSummary
-          : undefined,
-        prUrl: args.prUrl ?? undefined,
-        error: args.success ? undefined : (args.error ?? "Unknown error"),
-        exitReason,
-      });
-    }
-
+    await finalizeRunStatus(ctx, {
+      runId: args.runId,
+      projectId: args.projectId,
+      success: args.success,
+      error: args.error,
+      prUrl: args.prUrl,
+      exitReason: args.exitReason,
+    });
     if (args.activityLog) {
-      const existing = await ctx.db
-        .query("agentRunActivityLogs")
-        .withIndex("by_run", (q) => q.eq("runId", args.runId))
-        .first();
-      if (existing) {
-        await ctx.db.patch(existing._id, {
-          activityLog: args.activityLog,
-          updatedAt: now,
-        });
-      } else {
-        await ctx.db.insert("agentRunActivityLogs", {
-          runId: args.runId,
-          activityLog: args.activityLog,
-          updatedAt: now,
-        });
-      }
+      await upsertActivityLog(ctx, args.runId, args.activityLog);
     }
-
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
-
+    await clearStreamingActivity(ctx, String(args.taskId));
     return null;
   },
 });
@@ -968,47 +735,19 @@ export const completeRun = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    const run = await ctx.db.get(args.runId);
-    if (run && (run.status === "queued" || run.status === "running")) {
-      const exitReason =
-        args.exitReason ?? (args.success ? "completed" : "error");
-      const pushSummary = args.projectId
-        ? "Pushed commit to project branch"
-        : "Pushed commit to branch";
-      await ctx.db.patch(args.runId, {
-        status: args.success ? "success" : "error",
-        finishedAt: now,
-        resultSummary: args.success
-          ? args.prUrl
-            ? "Created project PR"
-            : pushSummary
-          : undefined,
-        prUrl: args.prUrl ?? undefined,
-        error: args.success ? undefined : (args.error ?? "Unknown error"),
-        exitReason,
-      });
-    }
+    await finalizeRunStatus(ctx, {
+      runId: args.runId,
+      projectId: args.projectId,
+      success: args.success,
+      error: args.error,
+      prUrl: args.prUrl,
+      exitReason: args.exitReason,
+    });
 
     if (args.activityLog) {
-      const existing = await ctx.db
-        .query("agentRunActivityLogs")
-        .withIndex("by_run", (q) => q.eq("runId", args.runId))
-        .first();
-      if (existing) {
-        await ctx.db.patch(existing._id, {
-          activityLog: args.activityLog,
-          updatedAt: now,
-        });
-      } else {
-        await ctx.db.insert("agentRunActivityLogs", {
-          runId: args.runId,
-          activityLog: args.activityLog,
-          updatedAt: now,
-        });
-      }
+      await upsertActivityLog(ctx, args.runId, args.activityLog);
     }
 
-    // Update task status
     const task = await ctx.db.get(args.taskId);
     if (task) {
       await ctx.db.patch(args.taskId, {
@@ -1017,7 +756,6 @@ export const completeRun = internalMutation({
       });
     }
 
-    // Mark subtasks completed on success
     if (args.success && args.hasSubtasks) {
       const subtasks = await ctx.db
         .query("subtasks")
@@ -1028,7 +766,6 @@ export const completeRun = internalMutation({
       }
     }
 
-    // Update project PR URL + sandbox activity
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (project) {
@@ -1042,14 +779,8 @@ export const completeRun = internalMutation({
       }
     }
 
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.taskId));
 
-    // Create notifications
     if (task) {
       const statusText = args.success ? "succeeded" : "failed";
       const notifyUsers = new Set(
@@ -1075,7 +806,6 @@ export const completeRun = internalMutation({
       }
     }
 
-    // Notify build workflow if task is part of an active build
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (project?.activeBuildWorkflowId) {
@@ -1112,20 +842,6 @@ export const createAudit = internalMutation({
     });
   },
 });
-
-/**
- * Extracts the first JSON object from raw LLM text output.
- * Handles code blocks (```json ... ```) and bare JSON objects.
- */
-function extractJsonBlock(text: string): string {
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (codeBlockMatch && codeBlockMatch[1]) return codeBlockMatch[1].trim();
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) return jsonMatch[0];
-
-  return text;
-}
 
 export const saveAuditResult = internalMutation({
   args: {
@@ -1284,30 +1000,29 @@ export const executeScheduledTask = internalMutation({
   returns: v.union(v.id("agentRuns"), v.null()),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task || task.status !== "todo" || !task.repoId || !task.createdBy) {
-      if (task) {
-        await ctx.db.patch(args.taskId, {
-          scheduledAt: undefined,
-          scheduledFunctionId: undefined,
-        });
-      }
+    if (!task) return null;
+
+    const clearSchedule: {
+      scheduledAt: undefined;
+      scheduledFunctionId: undefined;
+    } = {
+      scheduledAt: undefined,
+      scheduledFunctionId: undefined,
+    };
+
+    if (task.status !== "todo" || !task.repoId || !task.createdBy) {
+      await ctx.db.patch(args.taskId, clearSchedule);
       return null;
     }
 
     if (await hasActiveRun(ctx.db, args.taskId)) {
-      await ctx.db.patch(args.taskId, {
-        scheduledAt: undefined,
-        scheduledFunctionId: undefined,
-      });
+      await ctx.db.patch(args.taskId, clearSchedule);
       return null;
     }
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) {
-      await ctx.db.patch(args.taskId, {
-        scheduledAt: undefined,
-        scheduledFunctionId: undefined,
-      });
+      await ctx.db.patch(args.taskId, clearSchedule);
       return null;
     }
 
@@ -1325,9 +1040,8 @@ export const executeScheduledTask = internalMutation({
     });
 
     await ctx.db.patch(args.taskId, {
+      ...clearSchedule,
       status: "in_progress",
-      scheduledAt: undefined,
-      scheduledFunctionId: undefined,
       updatedAt: Date.now(),
     });
 
@@ -1381,8 +1095,6 @@ export const clearActiveWorkflow = internalMutation({
     return null;
   },
 });
-
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 export const handleStaleRun = internalMutation({
   args: {
@@ -1443,16 +1155,8 @@ export const handleStaleRun = internalMutation({
       }
     }
 
-    for (const entityId of [
-      String(args.taskId),
-      `audit-${String(args.taskId)}`,
-    ]) {
-      const streaming = await ctx.db
-        .query("streamingActivity")
-        .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-        .first();
-      if (streaming) await ctx.db.delete(streaming._id);
-    }
+    await clearStreamingActivity(ctx, String(args.taskId));
+    await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     if (task.projectId) {
       const project = await ctx.db.get(task.projectId);
@@ -1507,11 +1211,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.taskId));
 
     await ctx.db.patch(args.taskId, {
       status: "todo",
@@ -1549,11 +1249,7 @@ export const triggerExecution = authMutation({
       throw new Error("Run not found");
     }
 
-    if (task.activeWorkflowId) {
-      return null;
-    }
-
-    if (run.status !== "queued") {
+    if (task.activeWorkflowId || run.status !== "queued") {
       return null;
     }
 

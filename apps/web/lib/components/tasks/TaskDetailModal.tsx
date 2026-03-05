@@ -52,7 +52,7 @@ export function TaskDetailModal({
           <DialogHeader>
             <DialogTitle>{titleContent}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto md:overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0 scrollbar">
             {scheduledBadge}
             <div className="pb-6">
               <div
@@ -76,9 +76,9 @@ export function TaskDetailModal({
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              {footerButtons}
-            </div>
+          </div>
+          <div className="flex shrink-0 items-center justify-between border-t border-border pt-4">
+            {footerButtons}
           </div>
         </DialogContent>
       </Dialog>

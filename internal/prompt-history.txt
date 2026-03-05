@@ -1,18 +1,12 @@
-.
-[] how to cancel task instead of kill claude code process
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
-[] verify task grouped into project create just 1 pr
-[] auto open chrome in vnc
-[] see docs, use --continue
-[] add planning / think before execution
-[] add logs to see pricing per task execution
 [] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
 [] session branch not creating during sessions
 [] add posted via Assist, store the origin of msg send
-[x] improve streaming log - add more detail
 [] improve cmdk search modal
 [] explore whether we even need to delete sandboxes for sessions, can archive instead
 
+[x] verify task grouped into project create just 1 pr
+[x] improve streaming log - add more detail
 [x] explore just-bash use cases
 [x] sessions etc not getting shared across team
 [x] store collapse in cookies instead of localstorage (nextjs practice)
@@ -24,18 +18,25 @@
 [x] add labels to github pr issues
 [x] add the screenshots / videos to quick tasks
 [x] schedule quick tasks to run later
-[] add human readable id's for the sessions etc
-[] improve extension toolbar
+[x] add MIT license, add notes to README.md on how to contribute, dm convex guys - ask to present during ama maybe?
+[] how to cancel task instead of kill claude code process
+[] auto open chrome in vnc
+[] see docs, use --continue
+[] add planning / think before execution
+[] add logs to see pricing per task execution
 [] add vercel deployment status tracking
 [] add "View preview" button to quick tasks/sessions
-[] add num of design options in design input
+[] add figma auth in designs
+
+[] add human readable id's for the sessions etc
+[] improve notifications like linear
+[] improve extension toolbar
 [] figure out chrome distribution policy
+[] add num of design options in design input
 
 [] add checkpoint in messages so you can rewind
-[] add figma auth in designs
-[] make app more interactive, so user icon on active page
-[] improve notifications like linear
 [] add state/version history for designs and sessions
+[] make app more interactive, so user icon on active page
 [] need a way to effectively rollback changes in a file post git commit, like undo
 [] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935

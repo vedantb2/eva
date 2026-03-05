@@ -666,7 +666,11 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
-        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error) };
+        resultEvent = {
+          result: typeof r === "string" ? r : JSON.stringify(r),
+          isError: Boolean(parsed.is_error),
+          rawResultEvent: clean,
+        };
       }
     } catch {}
   }
@@ -842,6 +846,7 @@ try {
             (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
           : null),
     activityLog,
+    rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);
@@ -858,6 +863,7 @@ try {
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",
     activityLog: "[]",
+    rawResultEvent: null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", errorArgs);
@@ -1047,6 +1053,7 @@ export const setupAndExecute = internalAction({
     ephemeral: v.optional(v.boolean()),
     repoId: v.optional(v.id("githubRepos")),
     sessionPersistenceId: v.optional(v.id("sessions")),
+    startDesktop: v.optional(v.boolean()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -1102,6 +1109,10 @@ export const setupAndExecute = internalAction({
 
     if (args.branchName) {
       await setupBranch(sandbox, args.branchName);
+    }
+
+    if (args.startDesktop) {
+      await startDesktopWithChrome(sandbox);
     }
 
     const sandboxToken = await ctx.runAction(
@@ -1393,6 +1404,57 @@ export const toggleCodeServer = action({
   },
 });
 
+const CHROME_LAUNCH_CMD =
+  "mkdir -p ~/.config/google-chrome/Default && " +
+  "touch ~/.config/google-chrome/'First Run' && " +
+  "(pgrep -f google-chrome > /dev/null 2>&1 || " +
+  "DISPLAY=:1 nohup google-chrome-stable " +
+  "--no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 " +
+  "--remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-sync " +
+  "> /tmp/chrome.log 2>&1 &)";
+
+async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
+  try {
+    await sandbox.computerUse.start();
+    try {
+      await exec(
+        sandbox,
+        "for i in 1 2 3 4 5 6 7 8 9 10; do DISPLAY=:1 xdpyinfo > /dev/null 2>&1 && break; sleep 1; done",
+        15,
+      );
+    } catch {
+      // Non-fatal: continue and hope display is ready
+    }
+    try {
+      await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
+    } catch {
+      try {
+        await exec(
+          sandbox,
+          'DISPLAY=:1 xrandr --newmode "1920x1080" 0 1920 1920 1920 1920 1080 1080 1080 1080 && ' +
+            'DISPLAY=:1 xrandr --addmode screen "1920x1080" && ' +
+            'DISPLAY=:1 xrandr --output screen --mode "1920x1080"',
+          10,
+        );
+      } catch {
+        // Non-fatal: desktop still works at default 1024x768
+      }
+    }
+    try {
+      await sandbox.process.executeCommand(
+        `bash -c "${CHROME_LAUNCH_CMD}"`,
+        "/",
+        undefined,
+        5,
+      );
+    } catch {
+      // Non-fatal: Chrome launch failure shouldn't break the desktop
+    }
+  } catch {
+    // Non-fatal: entire desktop startup failure shouldn't block the workflow
+  }
+}
+
 export const toggleDesktopServer = action({
   args: {
     sandboxId: v.string(),
@@ -1410,6 +1472,21 @@ export const toggleDesktopServer = action({
 
     if (args.action === "start") {
       await sandbox.computerUse.start();
+      try {
+        await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
+      } catch {
+        try {
+          await exec(
+            sandbox,
+            'DISPLAY=:1 xrandr --newmode "1920x1080" 0 1920 1920 1920 1920 1080 1080 1080 1080 && ' +
+              'DISPLAY=:1 xrandr --addmode screen "1920x1080" && ' +
+              'DISPLAY=:1 xrandr --output screen --mode "1920x1080"',
+            10,
+          );
+        } catch {
+          // Non-fatal: desktop still works at default 1024x768
+        }
+      }
     } else {
       await sandbox.computerUse.stop();
     }
@@ -1434,7 +1511,7 @@ export const launchChromeInDesktop = action({
 
     try {
       await sandbox.process.executeCommand(
-        'bash -c "DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage > /dev/null 2>&1 &"',
+        `bash -c "${CHROME_LAUNCH_CMD}"`,
         "/",
         undefined,
         5,

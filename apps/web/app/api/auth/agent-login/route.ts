@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
     expiresInSeconds: 60,
   });
 
-  const callbackUrl = new URL("/agent-callback", request.nextUrl.origin);
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    request.nextUrl.host;
+  const callbackUrl = new URL("/agent-callback", `${proto}://${host}`);
   callbackUrl.searchParams.set("ticket", token);
 
   return NextResponse.redirect(callbackUrl, 302);

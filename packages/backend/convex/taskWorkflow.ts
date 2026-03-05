@@ -85,11 +85,12 @@ ${subtasksList}${changeRequestSection}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof using agent-browser:
-1. Start dev server in background, wait for ready
-2. Screenshot (simple changes) or record video (complex changes) — pick one
-3. Save to screenshots/ or recordings/ in repo root
-4. Kill the dev server
-If dev server fails or page errors, screenshot the error state anyway.
+1. Run \`agent-browser set viewport 1920 1080\` to set the viewport size
+2. Start dev server in background, wait for ready
+3. Screenshot with \`agent-browser screenshot --annotate\` (simple changes) or record video (complex changes) — pick one
+4. Save to screenshots/ or recordings/ in repo root
+5. Kill the dev server
+If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 Skip if no UI changes. Do NOT mention proof capture in response or commit message.
 
 ## Rules:
@@ -194,6 +195,17 @@ export const taskExecutionWorkflow = workflow.define({
 
     // Step 5: Wait for sandbox callback
     const result = await step.awaitEvent(taskCompleteEvent);
+
+    // Step 5b: Schedule deployment tracking (non-blocking)
+    if (result.success) {
+      await step.runMutation(internal.taskWorkflow.scheduleDeploymentTracking, {
+        runId: args.runId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        branchName: data.branchName,
+      });
+    }
 
     // Step 6: Create PR if first task on branch
     let prUrl: string | null = null;
@@ -368,6 +380,33 @@ export const saveSandboxId = internalMutation({
   },
 });
 
+export const scheduleDeploymentTracking = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.runId, { deploymentStatus: "queued" });
+    await ctx.scheduler.runAfter(
+      30_000,
+      internal.taskWorkflowActions.pollDeploymentStatus,
+      {
+        runId: args.runId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        attempt: 0,
+      },
+    );
+    return null;
+  },
+});
+
 const STALE_THRESHOLD_MS = 90_000;
 const STALE_CHECK_DELAY_MS = 90_000;
 const STALE_RECHECK_MS = 30_000;
@@ -384,6 +423,15 @@ export const checkStaleRuns = internalMutation({
 
     const task = await ctx.db.get(args.taskId);
     if (!task || !task.activeWorkflowId) return null;
+
+    if (!run.sandboxId) {
+      await ctx.scheduler.runAfter(
+        STALE_RECHECK_MS,
+        internal.taskWorkflow.checkStaleRuns,
+        { runId: args.runId, taskId: args.taskId },
+      );
+      return null;
+    }
 
     const streaming = await ctx.db
       .query("streamingActivity")
@@ -667,6 +715,7 @@ export const completeRun = internalMutation({
           title: `Run ${statusText} for "${task.title}"`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.taskId,
         });
       }
     }
@@ -790,6 +839,7 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -816,6 +866,17 @@ export const handleCompletion = authMutation({
       },
     });
 
+    if (task.repoId) {
+      await ctx.db.insert("logs", {
+        entityType: "quickTask",
+        entityId: String(args.taskId),
+        entityTitle: task.title,
+        rawResultEvent: args.rawResultEvent,
+        repoId: task.repoId,
+        createdAt: Date.now(),
+      });
+    }
+
     return null;
   },
 });
@@ -831,6 +892,7 @@ export const handleAuditCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -846,6 +908,17 @@ export const handleAuditCompletion = authMutation({
         error: args.error,
       },
     });
+
+    if (task.repoId) {
+      await ctx.db.insert("logs", {
+        entityType: "taskAudit",
+        entityId: String(args.taskId),
+        entityTitle: `Audit: ${task.title}`,
+        rawResultEvent: args.rawResultEvent,
+        repoId: task.repoId,
+        createdAt: Date.now(),
+      });
+    }
 
     return null;
   },

@@ -1,12 +1,19 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
 import {
   runStatusValidator,
   logLevelValidator,
   errorTypeValidator,
+  deploymentStatusValidator,
 } from "./validators";
 import { createNotification } from "./notifications";
-import { authQuery, authMutation, hasTaskAccess } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasTaskAccess,
+  recomputeProjectPhase,
+} from "./functions";
 
 const logEntryValidator = v.object({
   timestamp: v.number(),
@@ -31,11 +38,17 @@ const agentRunValidator = v.object({
   exitReason: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
 });
+
+const { activityLog: _activityLog, ...agentRunSummaryFields } =
+  agentRunValidator.fields;
+const agentRunSummaryValidator = v.object(agentRunSummaryFields);
 
 export const get = authQuery({
   args: { id: v.id("agentRuns") },
-  returns: v.union(agentRunValidator, v.null()),
+  returns: v.union(agentRunSummaryValidator, v.null()),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.id);
     if (!run) {
@@ -43,7 +56,8 @@ export const get = authQuery({
     }
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    return run;
+    const { activityLog: _, ...rest } = run;
+    return rest;
   },
 });
 
@@ -51,7 +65,7 @@ export const getWithDetails = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(
     v.object({
-      ...agentRunValidator.fields,
+      ...agentRunSummaryValidator.fields,
       taskTitle: v.string(),
       taskDescription: v.optional(v.string()),
     }),
@@ -62,17 +76,30 @@ export const getWithDetails = authQuery({
     if (!run) return null;
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+    const { activityLog: _, ...rest } = run;
     return {
-      ...run,
+      ...rest,
       taskTitle: task.title,
       taskDescription: task.description,
     };
   },
 });
 
+export const getActivityLog = authQuery({
+  args: { id: v.id("agentRuns") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.id);
+    if (!run) return null;
+    const task = await ctx.db.get(run.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+    return run.activityLog ?? null;
+  },
+});
+
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
-  returns: v.array(agentRunValidator),
+  returns: v.array(agentRunSummaryValidator),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
@@ -80,7 +107,9 @@ export const listByTask = authQuery({
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
-    return runs.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    return runs
+      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))
+      .map(({ activityLog: _, ...rest }) => rest);
   },
 });
 
@@ -88,7 +117,7 @@ export const listAll = authQuery({
   args: {},
   returns: v.array(
     v.object({
-      ...agentRunValidator.fields,
+      ...agentRunSummaryValidator.fields,
       taskTitle: v.string(),
     }),
   ),
@@ -105,7 +134,8 @@ export const listAll = authQuery({
         .withIndex("by_task", (q) => q.eq("taskId", task._id))
         .collect();
       for (const run of runs) {
-        enrichedRuns.push({ ...run, taskTitle: task.title });
+        const { activityLog: _, ...rest } = run;
+        enrichedRuns.push({ ...rest, taskTitle: task.title });
       }
     }
     return enrichedRuns.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
@@ -132,6 +162,9 @@ export const updateStatus = authMutation({
         status: "in_progress",
         updatedAt: Date.now(),
       });
+      if (task.projectId) {
+        await recomputeProjectPhase(ctx.db, task.projectId);
+      }
     }
     return null;
   },
@@ -195,6 +228,9 @@ export const complete = authMutation({
       status: args.success ? "business_review" : "todo",
       updatedAt: now,
     });
+    if (task.projectId) {
+      await recomputeProjectPhase(ctx.db, task.projectId);
+    }
     const statusText = args.success ? "succeeded" : "failed";
     const notifyUsers = new Set(
       [task.createdBy, task.assignedTo].filter(
@@ -208,8 +244,29 @@ export const complete = authMutation({
         title: `Run ${statusText} for "${task.title}"`,
         repoId: task.repoId,
         projectId: task.projectId,
+        taskId: task._id,
       });
     }
+    return null;
+  },
+});
+
+export const updateDeploymentStatus = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    deploymentStatus: deploymentStatusValidator,
+    deploymentUrl: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    await ctx.db.patch(args.runId, {
+      deploymentStatus: args.deploymentStatus,
+      ...(args.deploymentUrl !== undefined && {
+        deploymentUrl: args.deploymentUrl,
+      }),
+    });
     return null;
   },
 });

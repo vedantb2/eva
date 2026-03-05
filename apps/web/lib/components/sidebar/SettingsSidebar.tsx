@@ -7,6 +7,7 @@ import {
   IconFolders,
   IconPalette,
   IconSettings2,
+  IconReceipt2,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -29,6 +30,7 @@ export function SettingsSidebar({
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
     { name: "Theme", href: `${baseUrl}/theme`, icon: IconPalette },
+    { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
   ];
 
   return (

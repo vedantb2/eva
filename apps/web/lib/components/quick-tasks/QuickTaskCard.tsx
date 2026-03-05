@@ -2,29 +2,19 @@
 
 import {
   Badge,
-  Button,
   Card,
   CardContent,
   Checkbox,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
-import {
-  IconGitBranch,
-  IconGitPullRequest,
-  IconDotsVertical,
-  IconClock,
-} from "@tabler/icons-react";
+import { UserInitials } from "@conductor/shared";
+import { IconClock } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   statusConfig,
   type TaskStatus,
@@ -36,9 +26,10 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
-  branchName?: string;
   scheduledAt?: number;
   tags?: string[];
+  createdBy?: Id<"users">;
+  createdAt: number;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -51,22 +42,20 @@ export function QuickTaskCard({
   title,
   description,
   status,
-  branchName,
   scheduledAt,
   tags,
+  createdBy,
+  createdAt,
   onClick,
   isSelecting,
   isSelected,
   isActive,
   onToggleSelect,
 }: QuickTaskCardProps) {
-  const { owner, name: repoName } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
   const hasError = runs?.[0]?.status === "error";
   const statusMeta = statusConfig[status];
   const accentClass = hasError ? "bg-destructive" : statusMeta.bar;
-  const showActions = Boolean(branchName || latestPrUrl);
   const isInProgress = status === "in_progress" && !hasError;
 
   const card = (
@@ -149,51 +138,17 @@ export function QuickTaskCard({
               </Tooltip>
             ) : null}
             <SubtaskProgress taskId={id} />
-            {showActions ? (
-              <div
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      className="motion-press rounded-full hover:scale-105 active:scale-95"
-                    >
-                      <IconDotsVertical
-                        size={13}
-                        className="text-muted-foreground"
-                      />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {branchName ? (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          window.open(
-                            `https://github.com/${owner}/${repoName}/tree/${branchName}`,
-                            "_blank",
-                          )
-                        }
-                      >
-                        <IconGitBranch size={16} />
-                        View Branch
-                      </DropdownMenuItem>
-                    ) : null}
-                    {latestPrUrl ? (
-                      <DropdownMenuItem
-                        onClick={() => window.open(latestPrUrl, "_blank")}
-                      >
-                        <IconGitPullRequest size={16} />
-                        View PR
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : null}
           </div>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center">
+            {createdBy && (
+              <UserInitials userId={createdBy} size="sm" hideLastSeen />
+            )}
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {dayjs(createdAt).fromNow()}
+          </span>
         </div>
       </CardContent>
     </Card>

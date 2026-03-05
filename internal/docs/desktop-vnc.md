@@ -15,7 +15,7 @@ noVNC (web-based VNC client)
     ↓
 x11vnc (VNC server)
     ↓
-Xvfb (virtual framebuffer, 1024x768x24)
+Xvfb (virtual framebuffer, resized to 1920x1080 via xrandr)
     ↓
 xfce4 (desktop environment) + Chrome + GUI apps
 ```
@@ -26,7 +26,7 @@ Daytona's SDK manages the entire VNC stack via `sandbox.computerUse.start()` / `
 
 ### Backend (`packages/backend/convex/daytona.ts`)
 
-`toggleDesktopServer` action — calls `sandbox.computerUse.start()` or `stop()`. Follows the same pattern as `toggleCodeServer`.
+`toggleDesktopServer` action — calls `sandbox.computerUse.start()` or `stop()`. After start, runs `xrandr --fb 1920x1080` to resize the virtual framebuffer from the default 1024x768. Falls back to `xrandr --newmode` + `--addmode` + `--output` if `--fb` fails. Non-fatal — desktop still works at 1024x768 if xrandr is unavailable (requires `x11-utils` in snapshot).
 
 ### Frontend (`apps/web/app/(main)/[repo]/sessions/[id]/DesktopPanel.tsx`)
 
@@ -45,11 +45,11 @@ Follows the `EditorPanel.tsx` pattern exactly:
 ```
 autoconnect=true    — auto-connect on load (skip "Connect" button)
 resize=scale        — scale desktop to fit iframe
-quality=4           — JPEG quality (0-9, lower = faster, less sharp)
+quality=6           — JPEG quality (0-9, higher = sharper)
 compression=2       — zlib compression (0-9, lower = less CPU overhead)
 ```
 
-Quality/compression are tuned for balance: low enough to reduce bandwidth, high enough to avoid excessive CPU overhead on encoding.
+Quality=6 provides sharp text/UI at 1920x1080. Compression stays at 2 to avoid CPU overhead on encoding.
 
 ### Search Params (`apps/web/lib/search-params.ts`)
 
@@ -66,7 +66,7 @@ Since we use a custom image (not Daytona's default), VNC packages must be explic
 
 ### VNC & Desktop Packages
 
-`xvfb`, `xfce4`, `xfce4-terminal`, `x11vnc`, `novnc`, `dbus-x11`
+`xvfb`, `xfce4`, `xfce4-terminal`, `x11vnc`, `novnc`, `dbus-x11`, `x11-utils` (provides `xrandr`)
 
 ### X11 Libraries
 

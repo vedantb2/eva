@@ -8,6 +8,7 @@ import {
   authMutation,
   hasRepoAccess,
   hasTaskAccess,
+  recomputeProjectPhase,
 } from "./functions";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
@@ -46,7 +47,7 @@ const agentTaskValidator = v.object({
   baseBranch: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   scheduledAt: v.optional(v.number()),
-  scheduledFunctionId: v.optional(v.string()),
+  scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
 });
 
 export const listByProject = authQuery({
@@ -111,6 +112,7 @@ export const update = authMutation({
           title: `You were assigned to "${task.title}"`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
     }
@@ -168,9 +170,7 @@ export const updateStatus = authMutation({
     });
     if (args.status !== "todo" && task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -187,6 +187,7 @@ export const updateStatus = authMutation({
           title: `Task "${task.title}" is done`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
       if (
@@ -200,29 +201,12 @@ export const updateStatus = authMutation({
           title: `Task "${task.title}" is done`,
           repoId: task.repoId,
           projectId: task.projectId,
+          taskId: args.id,
         });
       }
     }
     if (task.projectId) {
-      const project = await ctx.db.get(task.projectId);
-      if (project) {
-        if (args.status === "done") {
-          const projectTasks = await ctx.db
-            .query("agentTasks")
-            .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
-            .collect();
-          const allDone = projectTasks.every((t) =>
-            t._id === args.id ? true : t.status === "done",
-          );
-          if (allDone && project.phase !== "completed") {
-            await ctx.db.patch(task.projectId, { phase: "completed" });
-          }
-        } else {
-          if (project.phase === "finalized") {
-            await ctx.db.patch(task.projectId, { phase: "active" });
-          }
-        }
-      }
+      await recomputeProjectPhase(ctx.db, task.projectId);
     }
     return null;
   },
@@ -408,9 +392,7 @@ export const startExecution = authMutation({
     }
     if (task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -628,9 +610,7 @@ export const deleteCascade = authMutation({
       const taskToDelete = await ctx.db.get(taskId);
       if (taskToDelete?.scheduledFunctionId) {
         try {
-          await ctx.scheduler.cancel(
-            taskToDelete.scheduledFunctionId as Id<"_scheduled_functions">,
-          );
+          await ctx.scheduler.cancel(taskToDelete.scheduledFunctionId);
         } catch {
           // may have already fired
         }
@@ -695,7 +675,7 @@ export const scheduleExecution = authMutation({
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,
-      scheduledFunctionId: String(functionId),
+      scheduledFunctionId: functionId,
       updatedAt: Date.now(),
     });
     return null;
@@ -714,9 +694,7 @@ export const cancelScheduledExecution = authMutation({
     }
 
     try {
-      await ctx.scheduler.cancel(
-        task.scheduledFunctionId as Id<"_scheduled_functions">,
-      );
+      await ctx.scheduler.cancel(task.scheduledFunctionId);
     } catch {
       // may have already fired
     }
@@ -745,9 +723,7 @@ export const updateScheduledExecution = authMutation({
 
     if (task.scheduledFunctionId) {
       try {
-        await ctx.scheduler.cancel(
-          task.scheduledFunctionId as Id<"_scheduled_functions">,
-        );
+        await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
@@ -760,7 +736,7 @@ export const updateScheduledExecution = authMutation({
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,
-      scheduledFunctionId: String(functionId),
+      scheduledFunctionId: functionId,
       updatedAt: Date.now(),
     });
     return null;
@@ -856,6 +832,9 @@ export const activateDraft = authMutation({
       status: "todo",
       updatedAt: Date.now(),
     });
+    if (task.projectId) {
+      await recomputeProjectPhase(ctx.db, task.projectId);
+    }
     return null;
   },
 });

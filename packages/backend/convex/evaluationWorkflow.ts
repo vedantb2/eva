@@ -223,6 +223,7 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -238,6 +239,15 @@ export const handleCompletion = authMutation({
         error: args.error,
         activityLog: args.activityLog,
       },
+    });
+
+    await ctx.db.insert("logs", {
+      entityType: "evaluation",
+      entityId: String(args.reportId),
+      entityTitle: "Evaluation Report",
+      rawResultEvent: args.rawResultEvent,
+      repoId: report.repoId,
+      createdAt: Date.now(),
     });
 
     return null;

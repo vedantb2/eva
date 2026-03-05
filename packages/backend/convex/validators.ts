@@ -87,6 +87,13 @@ export const errorTypeValidator = v.union(
   v.literal("generic"),
 );
 
+export const deploymentStatusValidator = v.union(
+  v.literal("queued"),
+  v.literal("building"),
+  v.literal("deployed"),
+  v.literal("error"),
+);
+
 export const roleUserValidator = v.union(
   v.literal("business"),
   v.literal("dev"),
@@ -123,6 +130,12 @@ export const snapshotBuildTriggerValidator = v.union(
 export const teamMemberRoleValidator = v.union(
   v.literal("owner"),
   v.literal("member"),
+);
+
+export const webhookEventStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("completed"),
+  v.literal("skipped"),
 );
 
 export const variationValidator = v.object({

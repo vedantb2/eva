@@ -258,6 +258,7 @@ export const handleCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -273,6 +274,15 @@ export const handleCompletion = authMutation({
         error: args.error,
         activityLog: args.activityLog,
       },
+    });
+
+    await ctx.db.insert("logs", {
+      entityType: "doc",
+      entityId: String(args.docId),
+      entityTitle: doc.title,
+      rawResultEvent: args.rawResultEvent,
+      repoId: doc.repoId,
+      createdAt: Date.now(),
     });
 
     return null;
@@ -393,6 +403,7 @@ export const handleGenerateCompletion = authMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -408,6 +419,15 @@ export const handleGenerateCompletion = authMutation({
         error: args.error,
         activityLog: args.activityLog,
       },
+    });
+
+    await ctx.db.insert("logs", {
+      entityType: "doc",
+      entityId: String(args.docId),
+      entityTitle: doc.title,
+      rawResultEvent: args.rawResultEvent,
+      repoId: doc.repoId,
+      createdAt: Date.now(),
     });
 
     return null;

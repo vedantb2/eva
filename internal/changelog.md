@@ -1,5 +1,114 @@
 # Changelog
 
+## Fix cost logging: correct field name + always log - 2026-03-05
+
+- **Why**: Cost logs were always $0.00 because we read `cost_usd` from the stream-json result event, but the actual field is `total_cost_usd`. Also, the `> 0` guard silently skipped entries when cost was 0 or missing, making it impossible to diagnose.
+- **Changes**:
+  1. `daytona.ts` — `parsed.cost_usd` → `parsed.total_cost_usd` in `extractResultEvent()`.
+  2. All 14 completion handlers — removed `costUsd > 0` guard so every invocation is logged (zero-cost entries still useful as audit trail).
+  3. `schema.ts` / `validators.ts` — `entityType` changed from hardcoded validator to `v.string()` for resilience when adding/renaming workflows.
+  4. Frontend — filter dropdown derives options from actual data instead of hardcoded list.
+- **Benefit**: Actual dollar costs now flow through. New workflows auto-appear in the logs page without code changes.
+
+## Optimize agentRuns.listByTask and projects.list database bandwidth - 2026-03-05
+
+- **Why**: Both are live queries that transferred full documents on every mutation. `listByTask` sent the heavy `activityLog` string (full agent execution trace) for every run. `projects.list` sent `conversationHistory` (unbounded message array) and `generatedSpec` (large JSON) per project, plus ran N+1 queries to compute project phase from tasks on every read.
+- **Changes**:
+  1. `agentRuns.ts` — strip `activityLog` from `listByTask`, `listAll`, `get`, `getWithDetails` return types. New `getActivityLog` query for on-demand loading per run.
+  2. `projects.ts` — strip `conversationHistory` and `generatedSpec` from `list` return. Removed on-read phase computation from `list` and `get`.
+  3. `functions.ts` — new `recomputeProjectPhase` helper that persists phase transitions on write. Wired into `agentTasks.updateStatus`, `agentRuns.complete`, `agentRuns.updateStatus`, `agentTasks.activateDraft`.
+  4. Frontend — new `RunActivityLog` component lazy-loads activity log per run via `getActivityLog` when accordion is expanded.
+- **Benefit**: Eliminates N+1 queries from projects.list, removes heavy field transfer from list queries, phase is now computed on write instead of every read.
+
+## CDP mode: agent-browser connects to VNC Chrome in sessions - 2026-03-04
+
+- **Why**: agent-browser used its own headless Chromium, invisible to users. The VNC Desktop tab showed a separate Chrome. No way to watch agent-browser actions live.
+- **Changes**:
+  1. `daytona.ts` — new `startDesktopWithChrome` helper that starts VNC + Chrome with `--remote-debugging-port=9222`. Added `startDesktop` flag to `setupAndExecute`. Updated `launchChromeInDesktop` with CDP flag and `pgrep` idempotency guard.
+  2. `sessionWorkflow.ts` — passes `startDesktop: true` so desktop auto-starts for sessions. Updated prompt with CDP detection: agent checks port 9222, uses `--cdp 9222` if available, falls back to headless otherwise.
+- **Benefit**: Users can watch agent-browser actions in real-time through the Desktop tab during sessions. When CDP is unavailable, agent falls back to headless browser seamlessly.
+
+## Cost logging for all Claude invocations - 2026-03-04
+
+- **Why**: No visibility into how much each Claude run costs. Needed per-invocation cost tracking across all entity types (tasks, sessions, design sessions, research, docs, audits, etc.) and a UI to view/filter them.
+- **Changes**:
+  1. `daytona.ts` — extract `cost_usd` from stream-json `result` event, pass `costUsd` and `model` through completionArgs to all completion mutations.
+  2. New `costLogs` table in schema with indexes for repo-scoped queries.
+  3. New `costLogs.ts` backend with `log` internalMutation and `listByRepo` authQuery.
+  4. All 14 completion handlers across 10 workflow files now insert into `costLogs` when `costUsd > 0`.
+  5. New settings/logs page with TimeRangeFilter, entity type dropdown, total cost card, and collapsible groups by entity type.
+- **Benefit**: Full cost visibility per repo — see what each task/session/audit costs, filter by date and type, view totals.
+
+## Fix `scheduledFunctionId` type: `v.string()` → `v.id("_scheduled_functions")` - 2026-03-04
+
+- **Why**: The field stored Convex scheduled function IDs but was typed as `v.string()`, forcing 6 `as Id<"_scheduled_functions">` casts and 2 unnecessary `String()` wraps across the codebase — violating the no-`as` rule.
+- **Changes**: Used chicken-egg migration pattern (intermediate union type → clear stale data → final type). Removed all 6 `as` casts in `agentTasks.ts` and `githubWebhook.ts`, removed 2 `String(functionId)` wraps in write sites.
+- **Benefit**: Convex schema is now the single source of truth for the type. No more manual type assertions.
+
+## Task card UI redesign + unified Activity timeline - 2026-03-04
+
+- **Why**: Task cards showed deployment dots, branch links, and dropdowns that cluttered the kanban board. Task activity (runs + webhook events) lived in separate sections. Needed cleaner card design and unified activity view.
+- **Changes**:
+  1. `QuickTaskCard.tsx` — removed deployment status dot, branch icon, and dropdown menu. Added footer showing task creator avatar + relative creation time (e.g. "3 days ago").
+  2. `useTaskDetail.tsx` — merged Agent Runs and system comments into single **Activity** section sorted by date (newest first). System comments render as blue info cards.
+  3. `taskComments.ts` — made `authorId` optional to support system-generated comments (no user context).
+  4. `githubWebhook.ts` — creates system comment when PR is merged/closed via `createSystemComment` internalMutation.
+  5. `QuickTasksKanbanBoard.tsx` + `QuickTasksListView.tsx` — pass `createdBy` and `createdAt` to card component.
+- **Benefit**: Cleaner kanban board with less visual noise. Unified Activity timeline shows all events in chronological order. System events (PR lifecycle changes) visible without leaving the task detail.
+
+## GitHub webhook: PR lifecycle → task status - 2026-03-04
+
+- **Why**: When Eva opens a PR for a task, the task stays in `business_review`/`code_review` even after the PR is merged or closed on GitHub. Users had to manually move tasks to done/cancelled.
+- **Changes**:
+  1. `validators.ts` — new `webhookEventStatusValidator` (pending, completed, skipped)
+  2. `schema.ts` — new `githubWebhookEvents` table for audit trail + `by_pr_url` index on `agentRuns` + `authorId` optional on `taskComments`
+  3. `http.ts` — `POST /api/github/webhook` endpoint with HMAC-SHA256 verification via Web Crypto API
+  4. `githubWebhook.ts` — **NEW** — `handlePrClosed` internalMutation: matches PR URL → agentRun → task, updates status to `done` (merged) or `cancelled` (closed), sends notifications, creates system comment, auto-completes project phase if all tasks done
+  5. `taskComments.ts` — added `createSystemComment` internalMutation for webhook-triggered comments (no user context)
+  6. `QuickTaskCard.tsx` — badge showing "PR Merged" (green) or "PR Closed" (red) when task status is done/cancelled with PR
+  7. `useTaskDetail.tsx` — system comments styled with blue background + "System" label, visible in activity feed
+- **Prerequisite**: Set `GITHUB_WEBHOOK_SECRET` env var in Convex. Configure webhook URL in GitHub App settings, subscribe to `pull_request` events.
+
+## Vercel deployment status tracking - 2026-03-04
+
+- **Why**: After Eva pushes code, Vercel builds a preview deployment but there's no visibility into the build status or preview URL. Users had to check Vercel manually.
+- **Changes**:
+  1. `validators.ts` — new `deploymentStatusValidator` (queued, building, deployed, error)
+  2. `schema.ts` — added `deploymentStatus` + `deploymentUrl` fields to `agentRuns` table
+  3. `agentRuns.ts` — updated return validator + added `updateDeploymentStatus` internal mutation
+  4. `taskWorkflowActions.ts` — new `pollDeploymentStatus` self-scheduling action that polls GitHub Deployments API (60s intervals, max 20 attempts / ~20 min)
+  5. `taskWorkflow.ts` — new `scheduleDeploymentTracking` mutation called after successful sandbox completion, sets initial "queued" status and schedules first poll
+  6. `QuickTaskCard.tsx` — inline colored deployment status dot on card + "View Preview" dropdown item
+  7. `useTaskDetail.tsx` — deployment status badge + "View Preview" link next to PR link per run
+- **Approach**: Uses GitHub Deployments API (not Vercel API directly). Vercel auto-creates GitHub Deployment records when building. Reuses existing GitHub App tokens — no new env vars. Provider-agnostic.
+- **Prerequisite**: GitHub App needs `deployments:read` permission.
+
+## Open-source Eva with MIT license - 2026-03-04
+
+- **Why**: Make Eva publicly available under an open-source license while maintaining ownership of the codebase. MIT allows anyone to use, modify, and distribute freely without restrictions.
+- **Changes**:
+  1. `LICENSE` — MIT license with copyright holder (Vedant Bhopatrao)
+  2. `CONTRIBUTING.md` — contributor guide with setup instructions, code style rules (no `any`/`unknown`/`as`), and PR guidelines
+  3. `SECURITY.md` — responsible disclosure policy for vulnerability reports
+- **Note**: Anyone can fork/modify privately or commercially, but must keep the MIT license. Contributes back to the original repo to avoid fragmentation.
+
+## Fix agent-login redirect behind reverse proxy - 2026-03-04
+
+- **Why**: When navigating to `/?agent` in the sandbox preview iframe (behind Daytona's reverse proxy), the auth redirect was pointing to `localhost:3000` instead of the external proxy domain, causing `net::ERR_CONNECTION_REFUSED`.
+- **Changes**: `apps/web/app/api/auth/agent-login/route.ts` — use `X-Forwarded-Host` and `X-Forwarded-Proto` headers from reverse proxy to construct redirect URL instead of `request.nextUrl.origin` (which resolves to internal `localhost:3000`). This matches how Next.js middleware already handles forwarded headers automatically.
+
+## VNC resolution + quality upgrade to 1920x1080 - 2026-03-04
+
+- **Why**: VNC desktop rendered at 1024x768 (4:3) — looks wrong on modern 16:9 displays. noVNC quality=4 made text blurry. Agent-browser screenshots in quick tasks lacked proper viewport sizing.
+- **Changes**:
+  1. `rebuild-snapshot.yml` — added `x11-utils` to apt-get install (provides `xrandr` binary)
+  2. `daytona.ts` `toggleDesktopServer` — after `computerUse.start()`, runs `xrandr --fb 1920x1080` with fallback to `--newmode`/`--addmode`/`--output`. Non-fatal if xrandr unavailable.
+  3. `daytona.ts` `launchChromeInDesktop` — added `--start-maximized --window-size=1920,1080` to Chrome flags
+  4. `DesktopPanel.tsx` — bumped noVNC quality from 4 to 6
+  5. `taskWorkflow.ts` — added `agent-browser set viewport 1920 1080` step in proof-of-completion
+  6. `sessionWorkflow.ts` — added viewport instruction to browser interaction rules
+- **Note**: Snapshot rebuild required before xrandr takes effect. Desktop gracefully falls back to 1024x768 until then.
+
 ## Split TaskDetailModal into 3 files + inline 2-column layout - 2026-03-04
 
 - **Why**: `TaskDetailModal.tsx` was ~1400 lines handling both modal and inline views. The inline (list view) panel also stacked everything vertically which wasted horizontal space.

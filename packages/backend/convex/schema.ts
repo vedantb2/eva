@@ -17,12 +17,14 @@ import {
   queryConfirmationStatusValidator,
   claudeModelValidator,
   errorTypeValidator,
+  deploymentStatusValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   teamMemberRoleValidator,
   variationValidator,
   customThemeValidator,
+  webhookEventStatusValidator,
 } from "./validators";
 
 const schema = defineSchema({
@@ -104,7 +106,7 @@ const schema = defineSchema({
     activeWorkflowId: v.optional(v.string()),
     scheduledRetryAt: v.optional(v.number()),
     scheduledAt: v.optional(v.number()),
-    scheduledFunctionId: v.optional(v.string()),
+    scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
     .index("by_project", ["projectId"])
@@ -131,10 +133,13 @@ const schema = defineSchema({
     exitReason: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
+    deploymentStatus: v.optional(deploymentStatusValidator),
+    deploymentUrl: v.optional(v.string()),
   })
     .index("by_task", ["taskId"])
     .index("by_task_and_status", ["taskId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_pr_url", ["prUrl"]),
 
   githubRepos: defineTable({
     owner: v.string(),
@@ -162,7 +167,7 @@ const schema = defineSchema({
   taskComments: defineTable({
     taskId: v.id("agentTasks"),
     content: v.string(),
-    authorId: v.id("users"),
+    authorId: v.optional(v.id("users")),
     createdAt: v.number(),
   }).index("by_task", ["taskId"]),
 
@@ -413,11 +418,31 @@ const schema = defineSchema({
     .index("by_team", ["teamId"])
     .index("by_user", ["userId"])
     .index("by_team_and_user", ["teamId", "userId"]),
+  githubWebhookEvents: defineTable({
+    event: v.string(),
+    action: v.string(),
+    prUrl: v.optional(v.string()),
+    merged: v.optional(v.boolean()),
+    taskId: v.optional(v.id("agentTasks")),
+    status: webhookEventStatusValidator,
+    createdAt: v.number(),
+  }).index("by_status", ["status"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
     vars: v.array(v.object({ key: v.string(), value: v.string() })),
     updatedAt: v.number(),
   }).index("by_team", ["teamId"]),
+  logs: defineTable({
+    entityType: v.string(),
+    entityId: v.string(),
+    entityTitle: v.string(),
+    rawResultEvent: v.optional(v.string()),
+    repoId: v.id("githubRepos"),
+    createdAt: v.number(),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_repo_and_created", ["repoId", "createdAt"])
+    .index("by_entity_type", ["entityType"]),
 });
 
 export default schema;

@@ -140,8 +140,8 @@ export function GroupTasksModal({
                         : "border-transparent bg-muted hover:bg-accent/70"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium truncate">
                         {project.title}
                       </span>
                       <ProjectPhaseBadge phase={project.phase} />

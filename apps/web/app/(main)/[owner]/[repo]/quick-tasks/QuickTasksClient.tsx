@@ -174,7 +174,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         fillHeight
         childPadding={false}
         headerRight={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <ToggleSearch
               value={searchQuery}
               onChange={(v) => setParams({ q: v })}
@@ -221,34 +221,48 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.18 }}
                 >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={() => setIsSelecting(true)}
-                  >
-                    <IconCheckbox size={16} />
-                    Select
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                        onClick={() => setIsSelecting(true)}
+                      >
+                        <IconCheckbox size={16} />
+                        <span className="hidden sm:inline">Select</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="sm:hidden">
+                      Select
+                    </TooltipContent>
+                  </Tooltip>
                 </motion.div>
               ) : null}
             </AnimatePresence>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setIsImporting(true)}
-            >
-              <IconFileImport size={16} />
-              Import from Linear
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                  onClick={() => setIsImporting(true)}
+                >
+                  <IconFileImport size={16} />
+                  <span className="hidden md:inline">Import from Linear</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="md:hidden">
+                Import from Linear
+              </TooltipContent>
+            </Tooltip>
             <Button
               size="sm"
               className="motion-press hover:scale-[1.01] active:scale-[0.99]"
               onClick={() => setIsCreating(true)}
             >
               <IconPlus size={16} />
-              New Task
+              <span className="hidden sm:inline">New Task</span>
             </Button>
           </div>
         }
@@ -319,7 +333,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   <div
                     className={
                       selectedTaskId
-                        ? "w-[20%] min-w-0 flex-shrink-0 overflow-hidden flex flex-col"
+                        ? "hidden md:flex md:w-[20%] min-w-0 flex-shrink-0 overflow-hidden flex-col"
                         : "flex-1 min-w-0"
                     }
                   >
@@ -333,7 +347,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                     />
                   </div>
                   {selectedTaskId && (
-                    <div className="w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                    <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
                       <TaskDetailInline
                         onClose={handleTaskClose}
                         taskId={selectedTaskId as Id<"agentTasks">}

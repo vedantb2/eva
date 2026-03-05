@@ -46,27 +46,31 @@ export function TaskDetailModal({
           if (!v) onClose();
         }}
       >
-        <DialogContent className={modalWidthClass}>
+        <DialogContent
+          className={`${modalWidthClass} max-h-[90vh] overflow-hidden flex flex-col`}
+        >
           <DialogHeader>
             <DialogTitle>{titleContent}</DialogTitle>
           </DialogHeader>
-          <div>
+          <div className="flex-1 overflow-y-auto md:overflow-hidden min-h-0">
             {scheduledBadge}
             <div className="pb-6">
-              <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
-                <div className="space-y-6 overflow-y-auto scrollbar pr-2">
+              <div
+                className={`grid gap-4 md:gap-6 md:min-h-[400px] ${layoutGridClass}`}
+              >
+                <div className="space-y-4 md:space-y-6 md:overflow-y-auto scrollbar md:pr-2">
                   {descriptionSection}
                   {subtasksSection}
                   {runsSection}
                 </div>
                 {(audit || showProofSection) && (
-                  <div className="pl-4 space-y-4 overflow-y-auto scrollbar">
+                  <div className="md:pl-4 space-y-4 md:overflow-y-auto scrollbar">
                     {auditProofSection}
                   </div>
                 )}
-                <div className="pl-4 space-y-4">{statusFieldsSection}</div>
+                <div className="md:pl-4 space-y-4">{statusFieldsSection}</div>
                 {requestChangesPanel && (
-                  <div className="flex flex-col border-l border-border pl-6">
+                  <div className="flex flex-col md:border-l border-border md:pl-6">
                     {requestChangesSection}
                   </div>
                 )}

@@ -2,7 +2,9 @@
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@conductor/ui";
@@ -50,7 +52,7 @@ export function TaskDetailModal({
           <DialogHeader>
             <DialogTitle>{titleContent}</DialogTitle>
           </DialogHeader>
-          <div>
+          <DialogBody>
             {scheduledBadge}
             <div className="pb-6">
               <div className={`grid gap-6 min-h-[400px] ${layoutGridClass}`}>
@@ -72,10 +74,10 @@ export function TaskDetailModal({
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              {footerButtons}
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter className="sm:justify-between">
+            {footerButtons}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {deleteConfirmDialog}

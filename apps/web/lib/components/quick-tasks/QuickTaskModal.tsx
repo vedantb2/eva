@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -136,7 +137,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             {activeDraftId ? "Continue Draft" : "New Quick Task"}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Title</label>
             <Input
@@ -166,7 +167,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               className="h-10"
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter className="sm:justify-between">
           <div>
             {drafts && drafts.length > 0 && (

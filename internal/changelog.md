@@ -1,5 +1,15 @@
 # Changelog
 
+## Simplify agentTasks, projects, taskWorkflow with shared helpers - 2026-03-05
+
+- **Why**: Three backend files accumulated duplicated task-deletion logic, missing authorization checks on project mutations (security gap), and inconsistent cleanup in stale-run handling.
+- **Changes**:
+  1. Added 4 shared helpers to `functions.ts`: `getProjectWithAccess` (auth + fetch), `hasActiveRun` (index-based active run check), `isFirstTaskOnBranch` (handles both project and quick-task cases via `by_task_and_status` index), `deleteTaskRelatedData` (cancels scheduled function, deletes runs/deps/dependents/subtasks/task).
+  2. `agentTasks.ts`: removed redundant dependency check in `updateStatus` (already covered by `workStatuses` block), replaced inline queries in `startExecution` with `hasActiveRun`/`isFirstTaskOnBranch`, replaced manual deletion in `remove`/`deleteCascade` with `deleteTaskRelatedData` (fixes missing subtask + scheduled cancellation).
+  3. `projects.ts`: added authorization checks to 9 mutations that only checked existence (`update`, `addMessage`, `remove`, `clearMessages`, `updatePrUrl`, `updateProjectSandbox`, `clearProjectSandbox`, `updateLastSandboxActivity`, `updateLastConversationMessage`), replaced manual deletion in `deleteCascade` with `deleteTaskRelatedData` (fixes missing scheduled cancellation).
+  4. `taskWorkflow.ts`: extracted `cleanUpStaleRun` local helper (workflow cancel → sandbox kill/delete → run patch → task patch → retry schedule → streaming cleanup), refactored `checkStaleRuns` and `handleStaleRun` to use it, replaced inline queries in `executeScheduledTask` with `hasActiveRun`/`isFirstTaskOnBranch`.
+- **Benefit**: Fixes auth gaps on project mutations, ensures consistent cleanup (subtasks, scheduled functions) across all deletion paths, and reduces ~200 lines of duplicated code.
+
 ## Make quick-task execution atomic + pre-launch watchdog recovery - 2026-03-05
 
 - **Why**: Quick tasks could get stuck as active with no real worker when the old two-step launch only partially succeeded, or when a run was marked `running` before sandbox attachment and never advanced.

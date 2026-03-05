@@ -2,7 +2,13 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { roleValidator, phaseValidator } from "./validators";
-import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasRepoAccess,
+  getProjectWithAccess,
+  deleteTaskRelatedData,
+} from "./functions";
 
 const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -120,10 +126,7 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const { id, ...fields } = args;
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -143,10 +146,7 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, {
       conversationHistory: [
         ...project.conversationHistory,
@@ -166,10 +166,7 @@ export const remove = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.delete(args.id);
     return null;
   },
@@ -179,47 +176,13 @@ export const deleteCascade = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.id))
       .collect();
     for (const task of tasks) {
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
-        .collect();
-      for (const run of runs) {
-        await ctx.db.delete(run._id);
-      }
-      const dependencies = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
-        .collect();
-      for (const dep of dependencies) {
-        await ctx.db.delete(dep._id);
-      }
-      const dependents = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_dependency", (q) => q.eq("dependsOnId", task._id))
-        .collect();
-      for (const dep of dependents) {
-        await ctx.db.delete(dep._id);
-      }
-      const subtasks = await ctx.db
-        .query("subtasks")
-        .withIndex("by_parent", (q) => q.eq("parentTaskId", task._id))
-        .collect();
-      for (const subtask of subtasks) {
-        await ctx.db.delete(subtask._id);
-      }
-      await ctx.db.delete(task._id);
+      await deleteTaskRelatedData(ctx, task._id);
     }
     await ctx.db.delete(args.id);
     return null;
@@ -230,10 +193,7 @@ export const clearMessages = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, {
       conversationHistory: [],
     });
@@ -500,10 +460,7 @@ export const updatePrUrl = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { prUrl: args.prUrl });
     return null;
   },
@@ -516,10 +473,7 @@ export const updateProjectSandbox = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, {
       sandboxId: args.sandboxId,
       lastSandboxActivity: Date.now(),
@@ -532,10 +486,7 @@ export const clearProjectSandbox = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     if (project.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: project.sandboxId,
@@ -554,10 +505,7 @@ export const updateLastSandboxActivity = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { lastSandboxActivity: Date.now() });
     return null;
   },
@@ -571,8 +519,7 @@ export const updateLastConversationMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.id);
-    if (!project) throw new Error("Project not found");
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const messages = [...project.conversationHistory];
     const last = messages[messages.length - 1];
     if (!last) return null;

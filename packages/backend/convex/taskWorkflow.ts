@@ -1,9 +1,18 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { authMutation, hasTaskAccess } from "./functions";
+import {
+  authMutation,
+  hasTaskAccess,
+  hasActiveRun,
+  isFirstTaskOnBranch,
+} from "./functions";
 import { createNotification } from "./notifications";
 import { claudeModelValidator } from "./validators";
 import type { Id } from "./_generated/dataModel";
@@ -638,6 +647,71 @@ const STALE_CHECK_DELAY_MS = 90_000;
 const STALE_RECHECK_MS = 30_000;
 const STALE_NO_SANDBOX_THRESHOLD_MS = 180_000;
 
+async function cleanUpStaleRun(
+  ctx: MutationCtx,
+  params: {
+    taskId: Id<"agentTasks">;
+    runId: Id<"agentRuns">;
+    sandboxId?: string;
+    repoId?: Id<"githubRepos">;
+    isProjectTask: boolean;
+    errorMessage: string;
+    exitReason: string;
+    activeWorkflowId?: string;
+  },
+): Promise<void> {
+  if (params.activeWorkflowId) {
+    try {
+      await workflow.cancel(ctx, params.activeWorkflowId as WorkflowId);
+    } catch {}
+  }
+
+  if (params.sandboxId && params.repoId) {
+    await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+      sandboxId: params.sandboxId,
+      repoId: params.repoId,
+    });
+    if (!params.isProjectTask) {
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+        sandboxId: params.sandboxId,
+        repoId: params.repoId,
+      });
+    }
+  }
+
+  await ctx.db.patch(params.runId, {
+    status: "error",
+    error: params.errorMessage,
+    finishedAt: Date.now(),
+    exitReason: params.exitReason,
+  });
+
+  await ctx.db.patch(params.taskId, {
+    status: "todo",
+    activeWorkflowId: undefined,
+    updatedAt: Date.now(),
+  });
+
+  if (!params.isProjectTask) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+      {
+        taskId: params.taskId,
+        runId: params.runId,
+        error: params.errorMessage,
+        delayMs: buildQuickTaskRetryDelayMs(),
+      },
+    );
+  }
+
+  const streaming = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", String(params.taskId)))
+    .first();
+  if (streaming) await ctx.db.delete(streaming._id);
+}
+
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -651,49 +725,21 @@ export const checkStaleRuns = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
-      .first();
-
-    const now = Date.now();
-
     if (!task.activeWorkflowId) {
-      await ctx.db.patch(args.runId, {
-        status: "error",
-        error: "Run killed by watchdog: workflow tracking lost",
-        finishedAt: now,
+      await cleanUpStaleRun(ctx, {
+        taskId: args.taskId,
+        runId: args.runId,
+        isProjectTask: !!task.projectId,
+        errorMessage: "Run killed by watchdog: workflow tracking lost",
         exitReason: "workflow_tracking_lost",
       });
-
-      await ctx.db.patch(args.taskId, {
-        status: "todo",
-        activeWorkflowId: undefined,
-        updatedAt: now,
-      });
-
-      if (!task.projectId) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
-          {
-            taskId: args.taskId,
-            runId: args.runId,
-            error: "Run killed by watchdog: workflow tracking lost",
-            delayMs: buildQuickTaskRetryDelayMs(),
-          },
-        );
-      }
-
-      if (streaming) await ctx.db.delete(streaming._id);
-
       return null;
     }
 
     if (!run.sandboxId) {
-      const startedAt = run.startedAt ?? now;
+      const startedAt = run.startedAt ?? Date.now();
       const sandboxAttachTimedOut =
-        now - startedAt > STALE_NO_SANDBOX_THRESHOLD_MS;
+        Date.now() - startedAt > STALE_NO_SANDBOX_THRESHOLD_MS;
 
       if (!sandboxAttachTimedOut) {
         await ctx.scheduler.runAfter(
@@ -704,43 +750,23 @@ export const checkStaleRuns = internalMutation({
         return null;
       }
 
-      try {
-        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-      } catch {}
-
-      await ctx.db.patch(args.runId, {
-        status: "error",
-        error: "Run killed by watchdog: sandbox was never attached",
-        finishedAt: now,
+      await cleanUpStaleRun(ctx, {
+        taskId: args.taskId,
+        runId: args.runId,
+        isProjectTask: !!task.projectId,
+        errorMessage: "Run killed by watchdog: sandbox was never attached",
         exitReason: "watchdog_no_sandbox",
+        activeWorkflowId: task.activeWorkflowId,
       });
-
-      await ctx.db.patch(args.taskId, {
-        status: "todo",
-        activeWorkflowId: undefined,
-        updatedAt: now,
-      });
-
-      if (!task.projectId) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
-          {
-            taskId: args.taskId,
-            runId: args.runId,
-            error: "Run killed by watchdog: sandbox was never attached",
-            delayMs: buildQuickTaskRetryDelayMs(),
-          },
-        );
-      }
-
-      if (streaming) await ctx.db.delete(streaming._id);
-
       return null;
     }
 
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .first();
     const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
-    const isStale = now - lastActivity > STALE_THRESHOLD_MS;
+    const isStale = Date.now() - lastActivity > STALE_THRESHOLD_MS;
 
     if (!isStale) {
       await ctx.scheduler.runAfter(
@@ -751,51 +777,16 @@ export const checkStaleRuns = internalMutation({
       return null;
     }
 
-    if (run.sandboxId && run.repoId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
-        sandboxId: run.sandboxId,
-        repoId: run.repoId,
-      });
-      if (!task.projectId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-          sandboxId: run.sandboxId,
-          repoId: run.repoId,
-        });
-      }
-    }
-
-    try {
-      await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-    } catch {}
-
-    await ctx.db.patch(args.runId, {
-      status: "error",
-      error: "Run killed by watchdog: no heartbeat for 90s",
-      finishedAt: now,
+    await cleanUpStaleRun(ctx, {
+      taskId: args.taskId,
+      runId: args.runId,
+      sandboxId: run.sandboxId,
+      repoId: run.repoId,
+      isProjectTask: !!task.projectId,
+      errorMessage: "Run killed by watchdog: no heartbeat for 90s",
       exitReason: "watchdog_killed",
+      activeWorkflowId: task.activeWorkflowId,
     });
-
-    await ctx.db.patch(args.taskId, {
-      status: "todo",
-      activeWorkflowId: undefined,
-      updatedAt: now,
-    });
-
-    if (!task.projectId) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.taskWorkflow.maybeScheduleQuickTaskRetry,
-        {
-          taskId: args.taskId,
-          runId: args.runId,
-          error: "Run killed by watchdog: no heartbeat for 90s",
-          delayMs: buildQuickTaskRetryDelayMs(),
-        },
-      );
-    }
-
-    if (streaming) await ctx.db.delete(streaming._id);
-
     return null;
   },
 });
@@ -1263,13 +1254,7 @@ export const executeScheduledTask = internalMutation({
       return null;
     }
 
-    const existingRuns = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    if (
-      existingRuns.some((r) => r.status === "queued" || r.status === "running")
-    ) {
+    if (await hasActiveRun(ctx.db, args.taskId)) {
       await ctx.db.patch(args.taskId, {
         scheduledAt: undefined,
         scheduledFunctionId: undefined,
@@ -1286,27 +1271,11 @@ export const executeScheduledTask = internalMutation({
       return null;
     }
 
-    let isFirstTaskOnBranch = true;
-    let project = null;
-    if (task.projectId) {
-      project = await ctx.db.get(task.projectId);
-      if (project) {
-        const projectTasks = await ctx.db
-          .query("agentTasks")
-          .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
-          .collect();
-        for (const pt of projectTasks) {
-          const runs = await ctx.db
-            .query("agentRuns")
-            .withIndex("by_task", (q) => q.eq("taskId", pt._id))
-            .collect();
-          if (runs.some((r) => r.status === "success")) {
-            isFirstTaskOnBranch = false;
-            break;
-          }
-        }
-      }
-    }
+    const firstOnBranch = await isFirstTaskOnBranch(
+      ctx.db,
+      args.taskId,
+      task.projectId,
+    );
 
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.taskId,
@@ -1333,7 +1302,7 @@ export const executeScheduledTask = internalMutation({
         projectId: task.projectId,
         branchName: task.projectId ? `project/${task.projectId}` : undefined,
         baseBranch: task.baseBranch,
-        isFirstTaskOnBranch,
+        isFirstTaskOnBranch: firstOnBranch,
         model: task.model,
         userId: task.createdBy,
       },
@@ -1386,46 +1355,17 @@ export const handleStaleRun = internalMutation({
     } catch {}
 
     const run = await ctx.db.get(args.runId);
-    const runStillActive =
-      run && (run.status === "queued" || run.status === "running");
 
-    if (run && runStillActive && run.sandboxId && run.repoId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+    if (run && (run.status === "queued" || run.status === "running")) {
+      await cleanUpStaleRun(ctx, {
+        taskId: args.taskId,
+        runId: args.runId,
         sandboxId: run.sandboxId,
         repoId: run.repoId,
-      });
-      if (!task.projectId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-          sandboxId: run.sandboxId,
-          repoId: run.repoId,
-        });
-      }
-    }
-
-    if (runStillActive) {
-      await ctx.db.patch(args.runId, {
-        status: "error",
-        error: "Run timed out after 2 hours",
-        finishedAt: Date.now(),
+        isProjectTask: !!task.projectId,
+        errorMessage: "Run timed out after 2 hours",
         exitReason: "run_timeout",
       });
-      await ctx.db.patch(args.taskId, {
-        status: "todo",
-        activeWorkflowId: undefined,
-        updatedAt: Date.now(),
-      });
-      if (!task.projectId) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
-          {
-            taskId: args.taskId,
-            runId: args.runId,
-            error: "Run timed out after 2 hours",
-            delayMs: buildQuickTaskRetryDelayMs(),
-          },
-        );
-      }
     } else {
       const taskStatus =
         run && run.status === "success" ? "business_review" : "todo";

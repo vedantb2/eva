@@ -8,6 +8,9 @@ import {
   authMutation,
   hasRepoAccess,
   hasTaskAccess,
+  hasActiveRun,
+  isFirstTaskOnBranch,
+  deleteTaskRelatedData,
   recomputeProjectPhase,
 } from "./functions";
 import { workflow } from "./workflowManager";
@@ -156,20 +159,6 @@ export const updateStatus = authMutation({
     const task = await ctx.db.get(args.id);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    if (args.status === "in_progress") {
-      const dependencies = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_task", (q) => q.eq("taskId", args.id))
-        .collect();
-      for (const dep of dependencies) {
-        const dependsOnTask = await ctx.db.get(dep.dependsOnId);
-        if (dependsOnTask && dependsOnTask.status !== "done") {
-          throw new Error(
-            `Task is blocked by incomplete dependency: ${dependsOnTask.title}`,
-          );
-        }
-      }
-    }
     const workStatuses = [
       "todo",
       "in_progress",
@@ -276,28 +265,7 @@ export const remove = authMutation({
     const task = await ctx.db.get(args.id);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    const runs = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    for (const run of runs) {
-      await ctx.db.delete(run._id);
-    }
-    const dependencies = await ctx.db
-      .query("taskDependencies")
-      .withIndex("by_task", (q) => q.eq("taskId", args.id))
-      .collect();
-    for (const dep of dependencies) {
-      await ctx.db.delete(dep._id);
-    }
-    const dependents = await ctx.db
-      .query("taskDependencies")
-      .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.id))
-      .collect();
-    for (const dep of dependents) {
-      await ctx.db.delete(dep._id);
-    }
-    await ctx.db.delete(args.id);
+    await deleteTaskRelatedData(ctx, args.id);
     return null;
   },
 });
@@ -417,27 +385,12 @@ export const startExecution = authMutation({
       });
     }
 
-    const activeQueuedRun = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task_and_status", (q) =>
-        q.eq("taskId", args.id).eq("status", "queued"),
-      )
-      .first();
-    const activeRunningRun = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task_and_status", (q) =>
-        q.eq("taskId", args.id).eq("status", "running"),
-      )
-      .first();
-    if (activeQueuedRun || activeRunningRun) {
+    if (await hasActiveRun(ctx.db, args.id)) {
       throw new Error("Task already has an active execution");
     }
 
-    let project = null;
-    let isFirstTaskOnBranch = true;
-
     if (task.projectId) {
-      project = await ctx.db.get(task.projectId);
+      const project = await ctx.db.get(task.projectId);
       if (!project) {
         throw new Error("Project not found");
       }
@@ -449,50 +402,17 @@ export const startExecution = authMutation({
 
       for (const pt of projectTasks) {
         if (pt._id === args.id) continue;
-        const queuedRun = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task_and_status", (q) =>
-            q.eq("taskId", pt._id).eq("status", "queued"),
-          )
-          .first();
-        if (queuedRun) {
+        if (await hasActiveRun(ctx.db, pt._id)) {
           throw new Error("Another task in this project is already running");
         }
-        const runningRun = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task_and_status", (q) =>
-            q.eq("taskId", pt._id).eq("status", "running"),
-          )
-          .first();
-        if (runningRun) {
-          throw new Error("Another task in this project is already running");
-        }
-      }
-
-      for (const pt of projectTasks) {
-        const successRun = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task_and_status", (q) =>
-            q.eq("taskId", pt._id).eq("status", "success"),
-          )
-          .first();
-        if (successRun) {
-          isFirstTaskOnBranch = false;
-          break;
-        }
-      }
-    } else {
-      // Quick task re-run: check if this task already had a successful run (PR already exists)
-      const previousSuccessRun = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task_and_status", (q) =>
-          q.eq("taskId", args.id).eq("status", "success"),
-        )
-        .first();
-      if (previousSuccessRun) {
-        isFirstTaskOnBranch = false;
       }
     }
+
+    const firstOnBranch = await isFirstTaskOnBranch(
+      ctx.db,
+      args.id,
+      task.projectId,
+    );
 
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.id,
@@ -517,7 +437,7 @@ export const startExecution = authMutation({
           projectId: task.projectId,
           branchName: task.projectId ? `project/${task.projectId}` : undefined,
           baseBranch: task.baseBranch,
-          isFirstTaskOnBranch,
+          isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           userId: ctx.userId,
         },
@@ -552,7 +472,7 @@ export const startExecution = authMutation({
       projectId: task.projectId,
       branchName: task.projectId ? `project/${task.projectId}` : undefined,
       baseBranch: task.baseBranch,
-      isFirstTaskOnBranch,
+      isFirstTaskOnBranch: firstOnBranch,
       model: task.model ?? repo.defaultModel,
     };
   },
@@ -662,36 +582,7 @@ export const deleteCascade = authMutation({
     };
     await collectDependents(args.id);
     for (const taskId of tasksToDelete) {
-      const taskToDelete = await ctx.db.get(taskId);
-      if (taskToDelete?.scheduledFunctionId) {
-        try {
-          await ctx.scheduler.cancel(taskToDelete.scheduledFunctionId);
-        } catch {
-          // may have already fired
-        }
-      }
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId))
-        .collect();
-      for (const run of runs) {
-        await ctx.db.delete(run._id);
-      }
-      const dependencies = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId))
-        .collect();
-      for (const dep of dependencies) {
-        await ctx.db.delete(dep._id);
-      }
-      const dependents = await ctx.db
-        .query("taskDependencies")
-        .withIndex("by_dependency", (q) => q.eq("dependsOnId", taskId))
-        .collect();
-      for (const dep of dependents) {
-        await ctx.db.delete(dep._id);
-      }
-      await ctx.db.delete(taskId);
+      await deleteTaskRelatedData(ctx, taskId);
     }
     return null;
   },

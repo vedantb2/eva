@@ -18,8 +18,8 @@ import {
 } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 import { internal } from "./_generated/api";
-import type { DataModel } from "./_generated/dataModel";
-import type { Id } from "./_generated/dataModel";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 
 export async function hasRepoAccess(
   db: GenericDatabaseReader<DataModel>,
@@ -84,6 +84,112 @@ export async function recomputeProjectPhase(
   } else if (anyActive && project.phase === "finalized") {
     await db.patch(projectId, { phase: "active" });
   }
+}
+
+export async function getProjectWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  projectId: Id<"projects">,
+  userId: Id<"users">,
+): Promise<Doc<"projects">> {
+  const project = await db.get(projectId);
+  if (!project) throw new Error("Project not found");
+  if (!(await hasRepoAccess(db, project.repoId, userId))) {
+    throw new Error("Not authorized");
+  }
+  return project;
+}
+
+export async function hasActiveRun(
+  db: GenericDatabaseReader<DataModel>,
+  taskId: Id<"agentTasks">,
+): Promise<boolean> {
+  const queued = await db
+    .query("agentRuns")
+    .withIndex("by_task_and_status", (q) =>
+      q.eq("taskId", taskId).eq("status", "queued"),
+    )
+    .first();
+  if (queued) return true;
+  const running = await db
+    .query("agentRuns")
+    .withIndex("by_task_and_status", (q) =>
+      q.eq("taskId", taskId).eq("status", "running"),
+    )
+    .first();
+  return running !== null;
+}
+
+export async function isFirstTaskOnBranch(
+  db: GenericDatabaseReader<DataModel>,
+  taskId: Id<"agentTasks">,
+  projectId?: Id<"projects">,
+): Promise<boolean> {
+  if (projectId) {
+    const projectTasks = await db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .collect();
+    for (const pt of projectTasks) {
+      const successRun = await db
+        .query("agentRuns")
+        .withIndex("by_task_and_status", (q) =>
+          q.eq("taskId", pt._id).eq("status", "success"),
+        )
+        .first();
+      if (successRun) return false;
+    }
+    return true;
+  }
+  const successRun = await db
+    .query("agentRuns")
+    .withIndex("by_task_and_status", (q) =>
+      q.eq("taskId", taskId).eq("status", "success"),
+    )
+    .first();
+  return successRun === null;
+}
+
+export async function deleteTaskRelatedData(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<void> {
+  const task = await ctx.db.get(taskId);
+  if (task?.scheduledFunctionId) {
+    try {
+      await ctx.scheduler.cancel(task.scheduledFunctionId);
+    } catch {
+      // may have already fired
+    }
+  }
+  const runs = await ctx.db
+    .query("agentRuns")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  for (const run of runs) {
+    await ctx.db.delete(run._id);
+  }
+  const dependencies = await ctx.db
+    .query("taskDependencies")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  for (const dep of dependencies) {
+    await ctx.db.delete(dep._id);
+  }
+  const dependents = await ctx.db
+    .query("taskDependencies")
+    .withIndex("by_dependency", (q) => q.eq("dependsOnId", taskId))
+    .collect();
+  for (const dep of dependents) {
+    await ctx.db.delete(dep._id);
+  }
+  const subtasks = await ctx.db
+    .query("subtasks")
+    .withIndex("by_parent", (q) => q.eq("parentTaskId", taskId))
+    .collect();
+  for (const subtask of subtasks) {
+    await ctx.db.delete(subtask._id);
+  }
+  await ctx.db.delete(taskId);
 }
 
 export const authQuery = customQuery(

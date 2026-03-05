@@ -20,7 +20,7 @@ const KNOWN_SUB_PAGES = new Set([
   "testing-arena",
 ]);
 
-export default clerkMiddleware(
+export const proxy = clerkMiddleware(
   async (auth, req) => {
     const { userId, redirectToSignIn } = await auth();
 

@@ -33,6 +33,9 @@ const projectValidator = v.object({
   projectEndDate: v.optional(v.number()),
   deadline: v.optional(v.number()),
   activeWorkflowId: v.optional(v.string()),
+  activeBuildWorkflowId: v.optional(v.string()),
+  scheduledBuildAt: v.optional(v.number()),
+  scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
 });
 
 const {

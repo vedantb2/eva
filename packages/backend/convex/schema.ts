@@ -83,6 +83,8 @@ const schema = defineSchema({
     deadline: v.optional(v.number()),
     activeWorkflowId: v.optional(v.string()),
     activeBuildWorkflowId: v.optional(v.string()),
+    scheduledBuildAt: v.optional(v.number()),
+    scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

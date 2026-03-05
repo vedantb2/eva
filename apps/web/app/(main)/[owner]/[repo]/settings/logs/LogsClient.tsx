@@ -61,6 +61,8 @@ function formatDuration(ms: number): string {
 }
 
 interface ParsedResultEvent {
+  costUsd: number;
+  model: string;
   inputTokens: number;
   outputTokens: number;
   durationMs: number;
@@ -68,19 +70,23 @@ interface ParsedResultEvent {
   cacheCreationTokens: number;
 }
 
+const EMPTY_PARSED: ParsedResultEvent = {
+  costUsd: 0,
+  model: "-",
+  inputTokens: 0,
+  outputTokens: 0,
+  durationMs: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+};
+
 function parseResultEvent(raw: string | undefined): ParsedResultEvent {
-  if (!raw) {
-    return {
-      inputTokens: 0,
-      outputTokens: 0,
-      durationMs: 0,
-      cacheReadTokens: 0,
-      cacheCreationTokens: 0,
-    };
-  }
+  if (!raw) return EMPTY_PARSED;
   try {
     const parsed = JSON.parse(raw);
     const usage = parsed.usage ?? {};
+    const modelUsage = parsed.modelUsage ?? {};
+    const modelKeys = Object.keys(modelUsage);
     const inputTokens =
       (typeof usage.input_tokens === "number" ? usage.input_tokens : 0) +
       (typeof usage.cache_read_input_tokens === "number"
@@ -90,6 +96,9 @@ function parseResultEvent(raw: string | undefined): ParsedResultEvent {
         ? usage.cache_creation_input_tokens
         : 0);
     return {
+      costUsd:
+        typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
+      model: modelKeys.length > 0 ? modelKeys[0] : "-",
       inputTokens,
       outputTokens:
         typeof usage.output_tokens === "number" ? usage.output_tokens : 0,
@@ -105,13 +114,7 @@ function parseResultEvent(raw: string | undefined): ParsedResultEvent {
           : 0,
     };
   } catch {
-    return {
-      inputTokens: 0,
-      outputTokens: 0,
-      durationMs: 0,
-      cacheReadTokens: 0,
-      cacheCreationTokens: 0,
-    };
+    return EMPTY_PARSED;
   }
 }
 
@@ -175,16 +178,19 @@ export function LogsClient() {
       const groups = new Map<string, { logs: typeof logs; total: number }>();
 
       for (const log of logs) {
-        cost += log.costUsd;
         const parsed = parseResultEvent(log.rawResultEvent);
+        cost += parsed.costUsd;
         input += parsed.inputTokens;
         output += parsed.outputTokens;
         const existing = groups.get(log.entityType);
         if (existing) {
           existing.logs.push(log);
-          existing.total += log.costUsd;
+          existing.total += parsed.costUsd;
         } else {
-          groups.set(log.entityType, { logs: [log], total: log.costUsd });
+          groups.set(log.entityType, {
+            logs: [log],
+            total: parsed.costUsd,
+          });
         }
       }
 
@@ -297,7 +303,7 @@ export function LogsClient() {
                               {log.entityTitle}
                             </span>
                             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
-                              {log.model}
+                              {evt.model}
                             </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {formatTokens(evt.inputTokens)} in /{" "}
@@ -309,7 +315,7 @@ export function LogsClient() {
                               </span>
                             )}
                             <span className="shrink-0 font-mono text-xs">
-                              {formatCost(log.costUsd)}
+                              {formatCost(evt.costUsd)}
                             </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {dayjs(log.createdAt).format("MMM D, HH:mm")}

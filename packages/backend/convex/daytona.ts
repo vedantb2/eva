@@ -669,7 +669,6 @@ function extractResultEvent(output) {
         resultEvent = {
           result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
-          costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
           rawResultEvent: clean,
         };
       }
@@ -847,8 +846,6 @@ try {
             (stderrOutput ? "\\n" + stderrOutput.slice(-500) : "")
           : null),
     activityLog,
-    costUsd: finalResultEvent?.costUsd ?? 0,
-    model: MODEL,
     rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
   };
   try {
@@ -866,8 +863,6 @@ try {
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",
     activityLog: "[]",
-    costUsd: 0,
-    model: MODEL,
     rawResultEvent: null,
   };
   try {

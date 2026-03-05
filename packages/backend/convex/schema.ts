@@ -436,8 +436,6 @@ const schema = defineSchema({
     entityType: v.string(),
     entityId: v.string(),
     entityTitle: v.string(),
-    costUsd: v.number(),
-    model: v.string(),
     rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
     createdAt: v.number(),

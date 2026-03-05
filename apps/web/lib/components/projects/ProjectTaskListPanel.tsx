@@ -23,6 +23,7 @@ const STATUS_ORDER: TaskStatus[] = [
   "business_review",
   "code_review",
   "done",
+  "cancelled",
 ];
 
 interface ProjectTaskListPanelProps {
@@ -55,7 +56,9 @@ export function ProjectTaskListPanel({
   const nonEmptyStatuses = STATUS_ORDER.filter(
     (status) => groupedTasks[status].length > 0,
   );
-  const defaultExpandedKeys = nonEmptyStatuses.filter((s) => s !== "done");
+  const defaultExpandedKeys = nonEmptyStatuses.filter(
+    (s) => s !== "done" && s !== "cancelled",
+  );
 
   return (
     <div className="h-full overflow-y-auto scrollbar">

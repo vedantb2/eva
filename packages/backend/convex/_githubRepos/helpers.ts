@@ -14,4 +14,7 @@ export const githubRepoValidator = v.object({
   rootDirectory: v.optional(v.string()),
   defaultBaseBranch: v.optional(v.string()),
   defaultModel: v.optional(claudeModelValidator),
+  postAuditEnabled: v.optional(v.boolean()),
+  sessionsVncEnabled: v.optional(v.boolean()),
+  sessionsVscodeEnabled: v.optional(v.boolean()),
 });

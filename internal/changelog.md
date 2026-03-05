@@ -1,5 +1,15 @@
 # Changelog
 
+## Fix cost logging: correct field name + always log - 2026-03-05
+
+- **Why**: Cost logs were always $0.00 because we read `cost_usd` from the stream-json result event, but the actual field is `total_cost_usd`. Also, the `> 0` guard silently skipped entries when cost was 0 or missing, making it impossible to diagnose.
+- **Changes**:
+  1. `daytona.ts` — `parsed.cost_usd` → `parsed.total_cost_usd` in `extractResultEvent()`.
+  2. All 14 completion handlers — removed `costUsd > 0` guard so every invocation is logged (zero-cost entries still useful as audit trail).
+  3. `schema.ts` / `validators.ts` — `entityType` changed from hardcoded validator to `v.string()` for resilience when adding/renaming workflows.
+  4. Frontend — filter dropdown derives options from actual data instead of hardcoded list.
+- **Benefit**: Actual dollar costs now flow through. New workflows auto-appear in the logs page without code changes.
+
 ## Optimize agentRuns.listByTask and projects.list database bandwidth - 2026-03-05
 
 - **Why**: Both are live queries that transferred full documents on every mutation. `listByTask` sent the heavy `activityLog` string (full agent execution trace) for every run. `projects.list` sent `conversationHistory` (unbounded message array) and `generatedSpec` (large JSON) per project, plus ran N+1 queries to compute project phase from tasks on every read.

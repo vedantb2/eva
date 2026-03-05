@@ -666,7 +666,7 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
-        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.cost_usd === "number" ? parsed.cost_usd : 0, raw: clean.slice(0, 2000) };
+        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0 };
       }
     } catch {}
   }
@@ -844,7 +844,6 @@ try {
     activityLog,
     costUsd: finalResultEvent?.costUsd ?? 0,
     model: MODEL,
-    rawResultEvent: finalResultEvent?.raw ?? null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);

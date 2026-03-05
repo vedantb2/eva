@@ -25,7 +25,6 @@ import {
 } from "@conductor/ui";
 import { IconChevronRight, IconFilter, IconCode } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import millify from "millify";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",

@@ -1,5 +1,16 @@
 # Changelog
 
+## Split agentRuns activity log into dedicated table - 2026-03-05
+
+- **Why**: `agentRuns.listByTask` still read the full `activityLog` field from each run document at DB level, so high-frequency list queries were paying for the heaviest payload even when UI loaded run logs lazily.
+- **Changes**:
+  1. Removed `activityLog` from `agentRuns` schema.
+  2. Added `agentRunActivityLogs` table keyed by `runId`.
+  3. Updated `agentRuns.complete` to upsert into `agentRunActivityLogs` when activity log is provided.
+  4. Updated `agentRuns.getActivityLog` to read from `agentRunActivityLogs`.
+  5. Simplified `agentRuns` list/get responses to return run docs directly (no activityLog stripping required).
+- **Benefit**: `agentRuns.listByTask` no longer pulls activity log payloads from DB, reducing read bandwidth for task cards and task detail subscriptions.
+
 ## Project build branch now uses project/<projectId> - 2026-03-05
 
 - **Why**: Project builds need all task commits and PR activity to stay on one deterministic branch tied to the project, not a mutable title slug.

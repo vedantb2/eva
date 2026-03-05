@@ -34,7 +34,6 @@ const agentRunValidator = v.object({
   error: v.optional(v.string()),
   errorType: v.optional(errorTypeValidator),
   limitResetAt: v.optional(v.number()),
-  activityLog: v.optional(v.string()),
   exitReason: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
@@ -42,9 +41,7 @@ const agentRunValidator = v.object({
   deploymentUrl: v.optional(v.string()),
 });
 
-const { activityLog: _activityLog, ...agentRunSummaryFields } =
-  agentRunValidator.fields;
-const agentRunSummaryValidator = v.object(agentRunSummaryFields);
+const agentRunSummaryValidator = v.object(agentRunValidator.fields);
 
 function buildRunNotificationMessage(params: {
   success: boolean;
@@ -83,8 +80,7 @@ export const get = authQuery({
     }
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    const { activityLog: _, ...rest } = run;
-    return rest;
+    return run;
   },
 });
 
@@ -103,9 +99,8 @@ export const getWithDetails = authQuery({
     if (!run) return null;
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    const { activityLog: _, ...rest } = run;
     return {
-      ...rest,
+      ...run,
       taskTitle: task.title,
       taskDescription: task.description,
     };
@@ -120,7 +115,12 @@ export const getActivityLog = authQuery({
     if (!run) return null;
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    return run.activityLog ?? null;
+
+    const activityLog = await ctx.db
+      .query("agentRunActivityLogs")
+      .withIndex("by_run", (q) => q.eq("runId", args.id))
+      .first();
+    return activityLog?.activityLog ?? null;
   },
 });
 
@@ -134,9 +134,7 @@ export const listByTask = authQuery({
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
-    return runs
-      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))
-      .map(({ activityLog: _, ...rest }) => rest);
+    return runs.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
   },
 });
 
@@ -161,8 +159,7 @@ export const listAll = authQuery({
         .withIndex("by_task", (q) => q.eq("taskId", task._id))
         .collect();
       for (const run of runs) {
-        const { activityLog: _, ...rest } = run;
-        enrichedRuns.push({ ...rest, taskTitle: task.title });
+        enrichedRuns.push({ ...run, taskTitle: task.title });
       }
     }
     return enrichedRuns.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
@@ -249,8 +246,27 @@ export const complete = authMutation({
       resultSummary: args.resultSummary,
       prUrl: args.prUrl,
       error: args.error,
-      activityLog: args.activityLog,
     });
+
+    if (args.activityLog !== undefined) {
+      const existingActivityLog = await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run", (q) => q.eq("runId", args.id))
+        .first();
+      if (existingActivityLog) {
+        await ctx.db.patch(existingActivityLog._id, {
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("agentRunActivityLogs", {
+          runId: args.id,
+          activityLog: args.activityLog,
+          updatedAt: now,
+        });
+      }
+    }
+
     await ctx.db.patch(task._id, {
       status: args.success ? "business_review" : "todo",
       updatedAt: now,

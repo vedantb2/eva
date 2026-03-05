@@ -130,7 +130,6 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
-    activityLog: v.optional(v.string()),
     exitReason: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
@@ -141,6 +140,12 @@ const schema = defineSchema({
     .index("by_task_and_status", ["taskId", "status"])
     .index("by_status", ["status"])
     .index("by_pr_url", ["prUrl"]),
+
+  agentRunActivityLogs: defineTable({
+    runId: v.id("agentRuns"),
+    activityLog: v.string(),
+    updatedAt: v.number(),
+  }).index("by_run", ["runId"]),
 
   githubRepos: defineTable({
     owner: v.string(),

@@ -224,7 +224,7 @@ export function ChatPanel({
   );
 
   const handleSend = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isSending || !!streamingActivity) return;
     const content = text.trim();
     setIsSending(true);
     try {
@@ -301,7 +301,8 @@ export function ChatPanel({
   const lastMessage = messages[messages.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting = isSending || lastAssistantHasNoContent;
+  const isExecuting =
+    isSending || lastAssistantHasNoContent || !!streamingActivity;
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -317,7 +318,7 @@ export function ChatPanel({
     await cancelExecutionMutation({ sessionId });
   };
 
-  const isInputDisabled = !isSandboxActive || isSending;
+  const isInputDisabled = !isSandboxActive || isSending || !!streamingActivity;
   const submitStatus = isExecuting
     ? lastAssistantHasNoContent
       ? "streaming"

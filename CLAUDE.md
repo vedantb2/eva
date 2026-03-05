@@ -8,3 +8,5 @@ if the user asks you to run a migration, you need to add a migration function to
 you can only run npx convex dev, never deploy
 
 if you are using the agent-browser skill, you will need to login as a user, you can go to /?agent to auto login as the Eva user. this must be done otherwise you won't have access to the platform
+
+quick tasks are isolated runs in their own sandbox. when launching batches, continue launching independent quick tasks even if one fails to start.

@@ -44,6 +44,38 @@ const auditCompleteEvent = defineEvent({
 // --- Prompt builder ---
 
 const WORKSPACE_DIR = "/workspace/repo";
+const QUICK_TASK_AUTO_RETRY_DELAY_MS = 20_000;
+const AUTO_RETRY_CHAIN_WINDOW_MS = 30 * 60 * 1000;
+
+function isDaytonaNetworkIssue(errorMessage: string): boolean {
+  const message = errorMessage.toLowerCase();
+  const networkMarkers = [
+    "network",
+    "fetch failed",
+    "econnreset",
+    "econnrefused",
+    "etimedout",
+    "enotfound",
+    "getaddrinfo",
+    "socket hang up",
+  ];
+  const daytonaMarkers = ["daytona", "sandbox", "snapshot"];
+
+  const hasNetworkMarker = networkMarkers.some((marker) =>
+    message.includes(marker),
+  );
+  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
+    message.includes(marker),
+  );
+
+  if (
+    message.includes("sandbox failed to become ready within the timeout period")
+  ) {
+    return true;
+  }
+
+  return hasNetworkMarker && hasDaytonaMarker;
+}
 
 function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
@@ -366,6 +398,30 @@ export const taskExecutionWorkflow = workflow.define({
         });
       }
 
+      const shouldAutoRetryQuickTask =
+        !args.projectId &&
+        !fallbackSuccess &&
+        fallbackError !== null &&
+        !isDaytonaNetworkIssue(fallbackError);
+
+      if (shouldAutoRetryQuickTask) {
+        try {
+          await step.runMutation(
+            internal.taskWorkflow.scheduleQuickTaskAutoRetry,
+            {
+              taskId: args.taskId,
+              runId: args.runId,
+              delayMs: QUICK_TASK_AUTO_RETRY_DELAY_MS,
+            },
+          );
+        } catch (retryError) {
+          console.error(
+            "Failed to schedule quick-task auto-retry:",
+            retryError,
+          );
+        }
+      }
+
       if (!args.projectId && sandboxId && !sandboxDeleted) {
         try {
           await step.runAction(internal.daytona.deleteSandbox, {
@@ -458,6 +514,70 @@ export const scheduleDeploymentTracking = internalMutation({
         attempt: 0,
       },
     );
+    return null;
+  },
+});
+
+export const scheduleQuickTaskAutoRetry = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+    delayMs: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || task.projectId) return null;
+
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.taskId !== args.taskId || run.status !== "error")
+      return null;
+
+    const runs = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const sortedRuns = runs.sort(
+      (a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0),
+    );
+
+    const latestRun = sortedRuns[0];
+    if (!latestRun || latestRun._id !== args.runId) return null;
+
+    const previousRun = sortedRuns[1];
+    const previousRunStartedAt = previousRun?.startedAt ?? 0;
+    const previousWasRetrySchedule =
+      previousRun !== undefined &&
+      previousRun.exitReason === "auto_retry_scheduled" &&
+      Date.now() - previousRunStartedAt < AUTO_RETRY_CHAIN_WINDOW_MS;
+    if (previousWasRetrySchedule) return null;
+
+    const hasOtherActiveRun = sortedRuns.some(
+      (candidate) =>
+        candidate._id !== args.runId &&
+        (candidate.status === "queued" || candidate.status === "running"),
+    );
+    if (hasOtherActiveRun) return null;
+
+    const functionId = await ctx.scheduler.runAfter(
+      args.delayMs,
+      internal.taskWorkflow.executeScheduledTask,
+      { taskId: args.taskId },
+    );
+
+    const scheduledAt = Date.now() + args.delayMs;
+    await ctx.db.patch(args.taskId, {
+      scheduledAt,
+      scheduledFunctionId: functionId,
+      updatedAt: Date.now(),
+    });
+
+    const existingError = run.error ?? "Run failed";
+    await ctx.db.patch(args.runId, {
+      exitReason: "auto_retry_scheduled",
+      error: `${existingError}\n\nAuto-retry scheduled in ${Math.round(args.delayMs / 1000)}s`,
+    });
+
     return null;
   },
 });

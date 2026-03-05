@@ -1,5 +1,21 @@
 # Changelog
 
+## Refactor daytona.ts into focused modules - 2026-03-05
+
+- **Why**: At ~1800 lines, `daytona.ts` mixed sandbox lifecycle, git operations, callback script generation, desktop management, and dev server detection in a single file, making it difficult to navigate, understand, and maintain.
+- **Changes**:
+  1. Extracted helper functions into `convex/daytona/` folder with 7 focused modules: `helpers.ts` (core utilities), `volumes.ts` (session volume management), `git.ts` (repo clone/sync/branch), `callbackScript.ts` (sandbox callback template), `launch.ts` (script upload/fire), `desktop.ts` (xrandr/Chrome), `devServer.ts` (package manager/port detection).
+  2. Eliminated 3 `as` type assertions in `detectDevPort` by introducing an `isRecord` type guard.
+  3. Replaced deeply nested ternary in callback script's error field with a `buildErrorMessage` helper function.
+  4. Consolidated duplicated lock file detection (`cloneAndSetupRepo` now reuses `detectPackageManager`).
+  5. Extracted duplicated xrandr resolution setup into `setDisplayResolution`.
+  6. Extracted repeated resolve-api-key/get-sandbox pattern into `getSandbox` helper.
+  7. Replaced volume invalid-state check from long `||` chain to a `Set` lookup.
+  8. Extracted duplicated media upload logic into `uploadMediaFile` within the callback script.
+  9. Replaced `hasToolActivity` long `||` chain with a `Set` lookup.
+- **Reason**: Main `daytona.ts` is now ~700 lines (actions only), each helper module is under 260 lines, and no circular dependencies exist. All external API references (`internal.daytona.*`, `api.daytona.*`) are unchanged.
+- **Benefit**: Each concern is isolated and independently readable. TypeScript compiles with zero errors.
+
 ## Improve quick-task run robustness and batch start behavior - 2026-03-05
 
 - **Why**: Some quick-task runs stayed on "Generating response..." until the 2-hour watchdog because failures before callback completion were not finalized immediately. Batch run actions also stopped on the first failing task, so only part of a selected set started.

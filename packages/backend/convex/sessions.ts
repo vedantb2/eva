@@ -388,7 +388,7 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName = session.branchName || `session/${args.sessionId}`;
+    const branchName = session.branchName || repo.defaultBaseBranch || `session/${args.sessionId}`;
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,

@@ -154,6 +154,9 @@ export const updateConfig = authMutation({
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
+    postAuditEnabled: v.optional(v.boolean()),
+    sessionsVncEnabled: v.optional(v.boolean()),
+    sessionsVscodeEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -178,6 +181,9 @@ export const updateConfig = authMutation({
     await ctx.db.patch(args.repoId, {
       defaultBaseBranch: args.defaultBaseBranch,
       defaultModel: args.defaultModel,
+      postAuditEnabled: args.postAuditEnabled,
+      sessionsVncEnabled: args.sessionsVncEnabled,
+      sessionsVscodeEnabled: args.sessionsVscodeEnabled,
     });
     return null;
   },

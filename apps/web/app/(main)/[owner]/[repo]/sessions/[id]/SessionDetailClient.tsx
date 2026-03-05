@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
@@ -33,6 +33,14 @@ export function SessionDetailClient({
   const [isSandboxToggling, setIsSandboxToggling] = useState(false);
   const chatPanelRef = usePanelRef();
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [previewInfo, setPreviewInfo] = useState<{
+    url: string;
+    port: number;
+  } | null>(null);
+  const handlePreviewInfoChange = useCallback(
+    (info: { url: string; port: number } | null) => setPreviewInfo(info),
+    [],
+  );
 
   const handleChatToggle = () => {
     if (chatCollapsed) {
@@ -105,6 +113,7 @@ export function SessionDetailClient({
           isSandboxToggling={isSandboxToggling}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
+          previewUrl={previewInfo?.url}
         />
       </Panel>
       <Separator
@@ -124,6 +133,8 @@ export function SessionDetailClient({
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}
+          previewInfo={previewInfo}
+          onPreviewInfoChange={handlePreviewInfoChange}
         />
       </Panel>
     </Group>

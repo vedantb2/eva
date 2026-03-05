@@ -583,7 +583,7 @@ export const startSessionSandbox = internalAction({
       );
       await exec(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} && git pull --ff-only origin ${quote([args.branchName])}`,
+        `cd ${WORKSPACE_DIR} && (git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} 2>/dev/null || git checkout -b ${quote([args.branchName])}) && (git pull --ff-only origin ${quote([args.branchName])} 2>/dev/null || true)`,
         30,
       );
       const { port: devPort, devCommand } = await startSessionServices(

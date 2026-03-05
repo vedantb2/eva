@@ -82,7 +82,7 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    return await ctx.db.insert("sessions", {
+    const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
@@ -90,6 +90,10 @@ export const create = authMutation({
       createdBy: ctx.userId,
       updatedAt: Date.now(),
     });
+    await ctx.db.patch(sessionId, {
+      branchName: `session/${sessionId}`,
+    });
+    return sessionId;
   },
 });
 
@@ -322,6 +326,9 @@ export const getOrCreateExtensionSession = authMutation({
       status: "active",
       updatedAt: Date.now(),
     });
+    await ctx.db.patch(sessionId, {
+      branchName: `session/${sessionId}`,
+    });
 
     return {
       id: sessionId,
@@ -381,7 +388,7 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName = session.branchName || repo.defaultBaseBranch || "main";
+    const branchName = session.branchName || repo.defaultBaseBranch || `session/${args.sessionId}`;
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,

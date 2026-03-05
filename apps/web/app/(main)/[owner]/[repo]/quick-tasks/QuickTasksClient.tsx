@@ -8,6 +8,7 @@ import type { Id } from "@conductor/backend";
 import { usePathname } from "next/navigation";
 import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { normalizePathname } from "@/lib/utils/repoUrl";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -36,6 +37,7 @@ import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
 import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
 import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
 import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
+import { ScheduleTasksModal } from "@/lib/components/quick-tasks/ScheduleTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
@@ -54,6 +56,7 @@ import {
   IconUserCheck,
   IconRefresh,
   IconPlayerPlay,
+  IconCalendarClock,
 } from "@tabler/icons-react";
 
 type BulkAction =
@@ -64,7 +67,8 @@ type BulkAction =
   | "assign"
   | "assignMe"
   | "changeStatus"
-  | "run";
+  | "run"
+  | "schedule";
 
 interface QuickTasksClientProps {
   initialTaskId?: string;
@@ -72,7 +76,7 @@ interface QuickTasksClientProps {
 
 export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const { repo, basePath } = useRepo();
-  const pathname = usePathname();
+  const pathname = normalizePathname(usePathname());
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -174,7 +178,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         fillHeight
         childPadding={false}
         headerRight={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <ToggleSearch
               value={searchQuery}
               onChange={(v) => setParams({ q: v })}
@@ -221,34 +225,48 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.18 }}
                 >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={() => setIsSelecting(true)}
-                  >
-                    <IconCheckbox size={16} />
-                    Select
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                        onClick={() => setIsSelecting(true)}
+                      >
+                        <IconCheckbox size={16} />
+                        <span className="hidden sm:inline">Select</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="sm:hidden">
+                      Select
+                    </TooltipContent>
+                  </Tooltip>
                 </motion.div>
               ) : null}
             </AnimatePresence>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setIsImporting(true)}
-            >
-              <IconFileImport size={16} />
-              Import from Linear
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                  onClick={() => setIsImporting(true)}
+                >
+                  <IconFileImport size={16} />
+                  <span className="hidden md:inline">Import from Linear</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="md:hidden">
+                Import from Linear
+              </TooltipContent>
+            </Tooltip>
             <Button
               size="sm"
               className="motion-press hover:scale-[1.01] active:scale-[0.99]"
               onClick={() => setIsCreating(true)}
             >
               <IconPlus size={16} />
-              New Task
+              <span className="hidden sm:inline">New Task</span>
             </Button>
           </div>
         }
@@ -319,8 +337,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   <div
                     className={
                       selectedTaskId
-                        ? "w-[20%] min-w-0 flex-shrink-0 overflow-hidden flex flex-col"
-                        : "flex-1 min-w-0"
+                        ? "hidden md:flex md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
+                        : "flex flex-col flex-1 min-w-0 min-h-0"
                     }
                   >
                     <QuickTasksListView
@@ -333,7 +351,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                     />
                   </div>
                   {selectedTaskId && (
-                    <div className="w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                    <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
                       <TaskDetailInline
                         onClose={handleTaskClose}
                         taskId={selectedTaskId as Id<"agentTasks">}
@@ -431,6 +449,12 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         selectedTaskIds={selectedIds}
         onSuccess={exitSelectMode}
       />
+      <ScheduleTasksModal
+        isOpen={activeBulkAction === "schedule"}
+        onClose={() => setActiveBulkAction(null)}
+        selectedTaskIds={selectedIds}
+        onSuccess={exitSelectMode}
+      />
       <Dialog
         open={activeBulkAction === "actions"}
         onOpenChange={(v) => {
@@ -490,6 +514,15 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             >
               <IconRefresh size={16} />
               Change Status
+            </Button>
+            <Button
+              variant="secondary"
+              className="justify-start"
+              onClick={() => setActiveBulkAction("schedule")}
+              disabled={selectedIds.size === 0}
+            >
+              <IconCalendarClock size={16} />
+              Schedule Run
             </Button>
             <Button
               variant="secondary"

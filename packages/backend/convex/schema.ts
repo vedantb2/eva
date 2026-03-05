@@ -83,6 +83,8 @@ const schema = defineSchema({
     deadline: v.optional(v.number()),
     activeWorkflowId: v.optional(v.string()),
     activeBuildWorkflowId: v.optional(v.string()),
+    scheduledBuildAt: v.optional(v.number()),
+    scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -96,7 +98,6 @@ const schema = defineSchema({
     tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     status: taskStatusValidator,
-    order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
     createdBy: v.optional(v.id("users")),
@@ -129,7 +130,6 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     errorType: v.optional(errorTypeValidator),
     limitResetAt: v.optional(v.number()),
-    activityLog: v.optional(v.string()),
     exitReason: v.optional(v.string()),
     sandboxId: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
@@ -140,6 +140,12 @@ const schema = defineSchema({
     .index("by_task_and_status", ["taskId", "status"])
     .index("by_status", ["status"])
     .index("by_pr_url", ["prUrl"]),
+
+  agentRunActivityLogs: defineTable({
+    runId: v.id("agentRuns"),
+    activityLog: v.string(),
+    updatedAt: v.number(),
+  }).index("by_run", ["runId"]),
 
   githubRepos: defineTable({
     owner: v.string(),
@@ -152,6 +158,9 @@ const schema = defineSchema({
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
+    postAuditEnabled: v.optional(v.boolean()),
+    sessionsVncEnabled: v.optional(v.boolean()),
+    sessionsVscodeEnabled: v.optional(v.boolean()),
   })
     .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])

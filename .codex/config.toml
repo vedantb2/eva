@@ -1,0 +1,4 @@
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "live"
+model_reasoning_effort = "high"

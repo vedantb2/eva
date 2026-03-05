@@ -217,26 +217,20 @@ export function RepoHomeClient() {
     bucketSizeMs: timelineWindow.bucketSizeMs,
   });
 
-  if (
+  const isLoading =
     impactStats === undefined ||
     activeUsers === undefined ||
-    timeline === undefined
-  ) {
-    return (
-      <div className="flex items-center justify-center flex-1">
-        <Spinner />
-      </div>
-    );
-  }
+    timeline === undefined;
 
-  const prsTrend = timeline.map((bucket) => bucket.prsShipped);
-  const shipRateTrend = timeline.map((bucket) =>
-    bucket.sessions > 0
-      ? Math.round((bucket.sessionsWithPr / bucket.sessions) * 100)
-      : 0,
-  );
-  const activeUsersTrend = timeline.map((bucket) => bucket.activeUsers);
-  const tasksDoneTrend = timeline.map((bucket) => bucket.tasksCompleted);
+  const prsTrend = timeline?.map((bucket) => bucket.prsShipped) ?? [];
+  const shipRateTrend =
+    timeline?.map((bucket) =>
+      bucket.sessions > 0
+        ? Math.round((bucket.sessionsWithPr / bucket.sessions) * 100)
+        : 0,
+    ) ?? [];
+  const activeUsersTrend = timeline?.map((bucket) => bucket.activeUsers) ?? [];
+  const tasksDoneTrend = timeline?.map((bucket) => bucket.tasksCompleted) ?? [];
 
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
@@ -281,36 +275,42 @@ export function RepoHomeClient() {
             </Select>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <StatCard
-            icon={IconGitPullRequest}
-            label="PRs Shipped"
-            value={impactStats.prsShipped}
-            trendValues={prsTrend}
-            trendToneClassName="text-chart-1"
-          />
-          <StatCard
-            icon={IconPercentage}
-            label="Cook Rate"
-            value={impactStats.shipRate + "%"}
-            trendValues={shipRateTrend}
-            trendToneClassName="text-chart-2"
-          />
-          <StatCard
-            icon={IconUsers}
-            label="Cookers Now"
-            value={activeUsers.count}
-            trendValues={activeUsersTrend}
-            trendToneClassName="text-chart-3"
-          />
-          <StatCard
-            icon={IconChecklist}
-            label="Tasks Done"
-            value={impactStats.tasksCompleted}
-            trendValues={tasksDoneTrend}
-            trendToneClassName="text-chart-4"
-          />
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Spinner />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard
+              icon={IconGitPullRequest}
+              label="PRs Shipped"
+              value={impactStats.prsShipped}
+              trendValues={prsTrend}
+              trendToneClassName="text-chart-1"
+            />
+            <StatCard
+              icon={IconPercentage}
+              label="Cook Rate"
+              value={impactStats.shipRate + "%"}
+              trendValues={shipRateTrend}
+              trendToneClassName="text-chart-2"
+            />
+            <StatCard
+              icon={IconUsers}
+              label="Cookers Now"
+              value={activeUsers.count}
+              trendValues={activeUsersTrend}
+              trendToneClassName="text-chart-3"
+            />
+            <StatCard
+              icon={IconChecklist}
+              label="Tasks Done"
+              value={impactStats.tasksCompleted}
+              trendValues={tasksDoneTrend}
+              trendToneClassName="text-chart-4"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

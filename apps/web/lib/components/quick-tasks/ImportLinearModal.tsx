@@ -14,7 +14,6 @@ import {
 import { useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconAlertCircle } from "@tabler/icons-react";
 
 interface ImportLinearModalProps {
@@ -48,7 +47,6 @@ function parseLinearIdentifiers(text: string): string[] {
 export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
   const { repo } = useRepo();
   const [input, setInput] = useState("");
-  const [baseBranch, setBaseBranch] = useState("main");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,7 +58,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
   const identifiers = useMemo(() => parseLinearIdentifiers(input), [input]);
 
   const handleSubmit = async () => {
-    if (identifiers.length === 0 || !baseBranch || !repo) return;
+    if (identifiers.length === 0 || !repo) return;
 
     setIsLoading(true);
     setError(null);
@@ -85,11 +83,9 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
       await createQuickTasksBatch({
         repoId: repo._id,
         tasks,
-        baseBranch,
       });
 
       setInput("");
-      setBaseBranch("main");
       setError(null);
       onClose();
     } catch (err) {
@@ -130,22 +126,11 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
               autoFocus
             />
             {identifiers.length > 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground break-words">
                 {identifiers.length} issue{identifiers.length === 1 ? "" : "s"}{" "}
                 detected: {identifiers.join(", ")}
               </p>
             )}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Base Branch <span className="text-destructive">*</span>
-            </label>
-            <BranchSelect
-              value={baseBranch}
-              onValueChange={setBaseBranch}
-              placeholder="Select a branch"
-              className="h-10"
-            />
           </div>
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
@@ -164,7 +149,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading || identifiers.length === 0 || !baseBranch}
+            disabled={isLoading || identifiers.length === 0}
           >
             {isLoading && <Spinner size="sm" />}
             Import {identifiers.length} Issue

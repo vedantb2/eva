@@ -29,32 +29,45 @@ export function RunTasksModal({
   onSuccess,
 }: RunTasksModalProps) {
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const [isLoading, setIsLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const count = selectedTaskIds.size;
 
   const handleRun = async () => {
     setIsLoading(true);
+    setRunError(null);
     try {
-      for (const id of selectedTaskIds) {
-        const result = await startExecution({ id });
-        await triggerExecution({
-          runId: result.runId,
-          taskId: result.taskId,
-          repoId: result.repoId,
-          installationId: result.installationId,
-          projectId: result.projectId,
-          branchName: result.branchName,
-          baseBranch: result.projectId ? undefined : result.baseBranch,
-          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-          model: result.model,
-        });
+      const taskIds = [...selectedTaskIds];
+      const results = await Promise.all(
+        taskIds.map(async (id) => {
+          try {
+            await startExecution({ id });
+            return true;
+          } catch (err) {
+            console.error(`Failed to start task ${id}:`, err);
+            return false;
+          }
+        }),
+      );
+      const startedCount = results.filter((started) => started).length;
+      if (startedCount === count) {
+        onSuccess();
+        onClose();
+        return;
       }
-      onSuccess();
-      onClose();
+      if (startedCount === 0) {
+        setRunError(
+          "Failed to start any selected tasks. Check task state and try again.",
+        );
+      } else {
+        setRunError(
+          `Started ${startedCount} of ${count} tasks. ${count - startedCount} failed to start.`,
+        );
+      }
     } catch (err) {
       console.error("Failed to run tasks:", err);
+      setRunError("Failed to run selected tasks.");
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +77,10 @@ export function RunTasksModal({
     <Dialog
       open={isOpen}
       onOpenChange={(v) => {
-        if (!v) onClose();
+        if (!v) {
+          setRunError(null);
+          onClose();
+        }
       }}
     >
       <DialogContent className="max-w-sm">
@@ -77,6 +93,7 @@ export function RunTasksModal({
             {count === 1 ? "" : "s"} immediately.
           </DialogDescription>
         </DialogHeader>
+        {runError && <p className="text-sm text-destructive">{runError}</p>}
         <DialogFooter>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancel

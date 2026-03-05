@@ -101,7 +101,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     task?.repoId ? { repoId: task.repoId } : "skip",
   );
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -150,18 +149,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     if (requestChangesPanel) {
       setRequestChangesPanel(false);
       try {
-        const result = await startExecution({ id: taskId });
-        await triggerExecution({
-          runId: result.runId,
-          taskId: result.taskId,
-          repoId: result.repoId,
-          installationId: result.installationId,
-          projectId: result.projectId,
-          branchName: result.branchName,
-          baseBranch: result.projectId ? undefined : result.baseBranch,
-          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-          model: result.model,
-        });
+        await startExecution({ id: taskId });
       } catch (err) {
         console.error("Failed to start execution for change request:", err);
       }
@@ -209,18 +197,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const handleStartExecution = async () => {
     setIsStarting(true);
     try {
-      const result = await startExecution({ id: taskId });
-      await triggerExecution({
-        runId: result.runId,
-        taskId: result.taskId,
-        repoId: result.repoId,
-        installationId: result.installationId,
-        projectId: result.projectId,
-        branchName: result.branchName,
-        baseBranch: result.projectId ? undefined : result.baseBranch,
-        isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-        model: result.model,
-      });
+      await startExecution({ id: taskId });
     } catch (err) {
       console.error("Failed to start execution:", err);
     } finally {
@@ -284,11 +261,11 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
 
   const layoutGridClass = hasSecondColumn
     ? requestChangesPanel
-      ? "grid-cols-[1fr_1fr_200px_1fr]"
-      : "grid-cols-[1fr_1fr_200px]"
+      ? "grid-cols-1 md:grid-cols-[1fr_1fr_200px_1fr]"
+      : "grid-cols-1 md:grid-cols-[1fr_1fr_200px]"
     : requestChangesPanel
-      ? "grid-cols-[1fr_200px_1fr]"
-      : "grid-cols-[1fr_200px]";
+      ? "grid-cols-1 md:grid-cols-[1fr_200px_1fr]"
+      : "grid-cols-1 md:grid-cols-[1fr_200px]";
 
   const titleContent = (
     <div className="flex items-center gap-2">
@@ -554,8 +531,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                   className="border rounded-lg px-3"
                 >
                   <AccordionTrigger>
-                    <div className="flex flex-1 items-center justify-between mr-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
                         <Badge
                           variant={
                             run.status === "success"
@@ -569,7 +546,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                         >
                           {run.status}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground truncate">
                           {run.startedAt
                             ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
                             : "Queued"}
@@ -578,7 +555,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                       {run.startedAt && run.finishedAt && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground shrink-0">
                               {formatDuration(run.startedAt, run.finishedAt)}
                             </span>
                           </TooltipTrigger>
@@ -1143,17 +1120,18 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               onClick={() => setShowDeleteConfirm(true)}
             >
               <IconTrash size={18} />
-              Delete
+              <span className="hidden sm:inline">Delete</span>
             </Button>
           </div>
         </TooltipTrigger>
+        <TooltipContent className="sm:hidden">Delete</TooltipContent>
       </Tooltip>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
         {latestPrUrl && (
           <Button asChild variant="outline">
             <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
               <IconGitPullRequest size={18} />
-              View PR
+              <span className="hidden sm:inline">View PR</span>
             </a>
           </Button>
         )}
@@ -1177,12 +1155,12 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                       rel="noopener noreferrer"
                     >
                       <IconBrandVercel size={18} />
-                      View Preview
+                      <span className="hidden sm:inline">View Preview</span>
                     </a>
                   ) : (
                     <>
                       <IconBrandVercel size={18} />
-                      View Preview
+                      <span className="hidden sm:inline">View Preview</span>
                     </>
                   )}
                 </Button>
@@ -1207,7 +1185,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               onClick={() => setRequestChangesPanel(true)}
             >
               <IconMessagePlus size={18} />
-              Request Changes
+              <span className="hidden sm:inline">Request Changes</span>
             </Button>
           )}
         {hasActiveRun ? (

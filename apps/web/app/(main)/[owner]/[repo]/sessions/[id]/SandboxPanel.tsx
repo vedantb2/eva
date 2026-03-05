@@ -58,6 +58,10 @@ interface SandboxPanelProps {
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
+  previewInfo: PreviewInfo | null;
+  onPreviewInfoChange: (info: PreviewInfo | null) => void;
+  vncEnabled?: boolean;
+  vscodeEnabled?: boolean;
 }
 
 export function SandboxPanel({
@@ -69,9 +73,12 @@ export function SandboxPanel({
   repoId,
   devPort,
   devCommand,
+  previewInfo,
+  onPreviewInfoChange,
+  vncEnabled = true,
+  vscodeEnabled = true,
 }: SandboxPanelProps) {
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
-  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
@@ -100,7 +107,7 @@ export function SandboxPanel({
         repoId,
       });
       if (data.ready) {
-        setPreviewInfo(data);
+        onPreviewInfoChange(data);
         setCachedPreview(sessionId, data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
@@ -121,13 +128,14 @@ export function SandboxPanel({
     repoId,
     effectivePort,
     sessionId,
+    onPreviewInfoChange,
   ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
       const cached = getCachedPreview(sessionId, effectivePort);
       if (cached) {
-        setPreviewInfo(cached);
+        onPreviewInfoChange(cached);
         return;
       }
       fetchPreview();
@@ -143,6 +151,7 @@ export function SandboxPanel({
     stopPolling,
     sessionId,
     effectivePort,
+    onPreviewInfoChange,
   ]);
 
   const terminal = useMemo(
@@ -228,6 +237,7 @@ export function SandboxPanel({
             isActive={isActive}
             tabSwitcher={tabSwitcher}
             repoId={repoId}
+            enabled={vscodeEnabled}
           />
         </div>
         <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
@@ -245,6 +255,7 @@ export function SandboxPanel({
             isActive={isActive}
             tabSwitcher={tabSwitcher}
             repoId={repoId}
+            enabled={vncEnabled}
           />
         </div>
       </div>

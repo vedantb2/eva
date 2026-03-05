@@ -21,25 +21,48 @@ export async function createNotification(
   if (!href && params.repoId) {
     const repo = await ctx.db.get(params.repoId);
     if (repo) {
-      if (params.projectId) {
-        href = `/${repo.owner}/${repo.name}/projects/${params.projectId}`;
-      } else if (params.taskId) {
+      if (params.taskId && !params.projectId) {
         href = `/${repo.owner}/${repo.name}/quick-tasks/${params.taskId}`;
+      } else if (params.projectId) {
+        href = `/${repo.owner}/${repo.name}/projects/${params.projectId}`;
       } else {
         href = `/${repo.owner}/${repo.name}/quick-tasks`;
       }
     }
   }
+  const message = buildNotificationMessage(
+    params.message,
+    params.projectId,
+    params.taskId,
+  );
   await ctx.db.insert("notifications", {
     userId: params.userId,
     type: params.type ?? "system",
     title: params.title,
-    message: params.message,
+    message,
     href,
     repoId: params.repoId,
     read: false,
     createdAt: Date.now(),
   });
+}
+
+function buildNotificationMessage(
+  message: string | undefined,
+  projectId: Id<"projects"> | undefined,
+  taskId: Id<"agentTasks"> | undefined,
+): string | undefined {
+  if (!taskId || projectId) {
+    return message;
+  }
+  const quickTaskIdMessage = `Quick task ID: ${taskId}`;
+  if (!message) {
+    return quickTaskIdMessage;
+  }
+  if (message.includes(quickTaskIdMessage)) {
+    return message;
+  }
+  return `${message} ${quickTaskIdMessage}`;
 }
 
 const notificationValidator = v.object({

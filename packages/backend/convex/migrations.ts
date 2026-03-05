@@ -13,9 +13,7 @@ export const cleanupStaleRuns = internalMutation({
     const cutoff = Date.now() - RUN_TIMEOUT_MS;
 
     const allTasks = await ctx.db.query("agentTasks").collect();
-    const stuckTasks = allTasks.filter(
-      (t) => t.status === "in_progress" && t.activeWorkflowId,
-    );
+    const stuckTasks = allTasks.filter((t) => t.status === "in_progress");
 
     for (const task of stuckTasks) {
       const runs = await ctx.db
@@ -41,9 +39,11 @@ export const cleanupStaleRuns = internalMutation({
       )
         continue;
 
-      try {
-        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-      } catch {}
+      if (task.activeWorkflowId) {
+        try {
+          await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+        } catch {}
+      }
 
       for (const staleRun of staleActiveRuns) {
         await ctx.db.patch(staleRun._id, {

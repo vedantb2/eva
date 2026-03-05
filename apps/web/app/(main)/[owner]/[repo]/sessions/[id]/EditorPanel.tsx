@@ -54,6 +54,7 @@ interface EditorPanelProps {
   isActive: boolean;
   tabSwitcher: ReactNode;
   repoId: Id<"githubRepos">;
+  enabled?: boolean;
 }
 
 export function EditorPanel({
@@ -62,6 +63,7 @@ export function EditorPanel({
   isActive,
   repoId,
   tabSwitcher,
+  enabled = true,
 }: EditorPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>("idle");
@@ -161,6 +163,23 @@ export function EditorPanel({
     }
     return stopPolling;
   }, [isActive, sandboxId, editorState, startEditor, stopPolling, sessionId]);
+
+  if (!enabled) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-1 border-b p-2">
+          {tabSwitcher}
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
+          <IconCode className="w-12 h-12 opacity-50" />
+          <p className="text-sm">Editor (VSCode) is disabled</p>
+          <p className="text-xs text-muted-foreground/70">
+            Enable it in repository settings under Config.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isActive || !sandboxId) {
     return (

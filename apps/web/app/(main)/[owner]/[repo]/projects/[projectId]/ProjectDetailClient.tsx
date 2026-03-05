@@ -27,6 +27,7 @@ import {
   IconGitPullRequest,
   IconHammer,
 } from "@tabler/icons-react";
+import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import Link from "next/link";
 
 interface ProjectDetailClientProps {
@@ -86,23 +87,34 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       }
       headerRight={
         !isDraftOrFinalized ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Button
-                  size="sm"
-                  onClick={() => setIsBuildModalOpen(true)}
-                  disabled={!isOwner}
-                >
-                  <IconHammer size={16} />
-                  Build Project
-                </Button>
-              </div>
-            </TooltipTrigger>
-            {!isOwner && (
-              <TooltipContent>Only the project owner can build</TooltipContent>
-            )}
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            <ScheduleBuildPopover
+              projectId={typedProjectId}
+              scheduledBuildAt={project.scheduledBuildAt}
+              disabled={!isOwner || !!project.activeBuildWorkflowId}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    size="sm"
+                    onClick={() => setIsBuildModalOpen(true)}
+                    disabled={!isOwner || !!project.scheduledBuildAt}
+                  >
+                    <IconHammer size={16} />
+                    Build Project
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isOwner ? (
+                <TooltipContent>
+                  Only the project owner can build
+                </TooltipContent>
+              ) : project.scheduledBuildAt ? (
+                <TooltipContent>Build is already scheduled</TooltipContent>
+              ) : null}
+            </Tooltip>
+          </div>
         ) : null
       }
     >

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { authMutation } from "./functions";
+import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
@@ -20,16 +20,15 @@ export const buildProjectWorkflow = workflow.define({
       projectId: args.projectId,
     });
 
-    if (tasks.length <= 1) {
-      // No tasks to execute (index 0 is skipped per existing behavior)
+    if (tasks.length === 0) {
       await step.runMutation(internal.buildWorkflow.completeBuild, {
         projectId: args.projectId,
       });
       return;
     }
 
-    // Step 2: Execute tasks sequentially (skip index 0 — first task already started above)
-    for (let i = 1; i < tasks.length; i++) {
+    // Step 2: Execute tasks sequentially
+    for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
 
       // Start the task execution workflow
@@ -153,7 +152,7 @@ export const startTaskForBuild = internalMutation({
         repoId: task.repoId,
         installationId: args.installationId,
         projectId: args.projectId,
-        branchName: project.branchName,
+        branchName: `project/${args.projectId}`,
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,
@@ -220,6 +219,142 @@ export const startBuild = authMutation({
       { projectId: args.projectId, workflowId: String(workflowId) },
     );
 
+    return null;
+  },
+});
+
+// --- Scheduled Build ---
+
+/**
+ * Called by the Convex scheduler at the scheduled time.
+ * Kicks off the build workflow if the project is still eligible.
+ */
+export const executeScheduledBuild = internalMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+
+    // Clear schedule fields regardless
+    await ctx.db.patch(args.projectId, {
+      scheduledBuildAt: undefined,
+      scheduledBuildFunctionId: undefined,
+    });
+
+    // Don't start if already building
+    if (project.activeBuildWorkflowId) return null;
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) return null;
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.buildWorkflow.buildProjectWorkflow,
+      {
+        projectId: args.projectId,
+        userId: project.userId,
+        installationId: repo.installationId,
+      },
+    );
+
+    await ctx.db.patch(args.projectId, {
+      activeBuildWorkflowId: String(workflowId),
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleBuild,
+      { projectId: args.projectId, workflowId: String(workflowId) },
+    );
+
+    return null;
+  },
+});
+
+export const scheduleBuild = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    scheduledAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+    if (project.activeBuildWorkflowId)
+      throw new Error("Project already has an active build");
+    if (project.scheduledBuildFunctionId)
+      throw new Error("Project already has a scheduled build");
+    if (args.scheduledAt <= Date.now())
+      throw new Error("Scheduled time must be in the future");
+
+    const functionId = await ctx.scheduler.runAt(
+      args.scheduledAt,
+      internal.buildWorkflow.executeScheduledBuild,
+      { projectId: args.projectId },
+    );
+    await ctx.db.patch(args.projectId, {
+      scheduledBuildAt: args.scheduledAt,
+      scheduledBuildFunctionId: functionId,
+    });
+    return null;
+  },
+});
+
+export const cancelScheduledBuild = authMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+    if (!project.scheduledBuildFunctionId)
+      throw new Error("Project has no scheduled build");
+
+    try {
+      await ctx.scheduler.cancel(project.scheduledBuildFunctionId);
+    } catch {
+      // may have already fired
+    }
+    await ctx.db.patch(args.projectId, {
+      scheduledBuildAt: undefined,
+      scheduledBuildFunctionId: undefined,
+    });
+    return null;
+  },
+});
+
+export const updateScheduledBuild = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    scheduledAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+    if (args.scheduledAt <= Date.now())
+      throw new Error("Scheduled time must be in the future");
+
+    if (project.scheduledBuildFunctionId) {
+      try {
+        await ctx.scheduler.cancel(project.scheduledBuildFunctionId);
+      } catch {
+        // may have already fired
+      }
+    }
+
+    const functionId = await ctx.scheduler.runAt(
+      args.scheduledAt,
+      internal.buildWorkflow.executeScheduledBuild,
+      { projectId: args.projectId },
+    );
+    await ctx.db.patch(args.projectId, {
+      scheduledBuildAt: args.scheduledAt,
+      scheduledBuildFunctionId: functionId,
+    });
     return null;
   },
 });

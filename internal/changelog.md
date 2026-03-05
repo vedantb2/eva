@@ -1,5 +1,172 @@
 # Changelog
 
+## Finalize evaluation workflow failures immediately - 2026-03-05
+
+- **Why**: Evaluation reports could stay in `running` until the 2-hour watchdog when workflow startup failed before the sandbox callback path ever fired.
+- **Changes**:
+  1. `convex/evaluationWorkflow.ts` now catches early workflow failures, writes the report into its error state immediately through a guarded failure mutation, and then rethrows so the workflow component still records a failed run.
+  2. `startEvaluation` now only attaches `activeWorkflowId` when the report has not already been finalized as an error.
+- **Reason for change (architectural)**: Callback-driven workflows still need a direct failure path for pre-callback setup errors, otherwise app state lags far behind workflow state.
+
+## Attach quick-task sandboxes earlier without startup watchdog regressions - 2026-03-05
+
+- **Why**: Quick tasks still only persisted sandboxId after full sandbox preparation and callback launch readiness, so pre-launch stalls could surface as "sandbox was never attached" even when Daytona had already created the sandbox. Simply attaching earlier would have moved those runs onto the 90s heartbeat watchdog too soon, causing a different false positive during legitimate setup work.
+- **Changes**:
+  1. \_daytona/git.ts now exposes a sandbox-acquired callback during ephemeral sandbox creation, and \_daytona/execution.ts uses it to persist the run sandboxId as soon as Daytona returns the sandbox.
+  2. \_taskWorkflow/workflowDefinition.ts now passes the run id into setupAndExecute so quick-task startup can attach the sandbox before repo prep and launch readiness finish.
+  3. \_taskWorkflow/watchdog.ts now keeps runs on the longer startup watchdog window while streaming still shows Starting sandbox..., then switches to the 90s heartbeat watchdog only after callback activity replaces that startup state.
+- **Reason for change (architectural)**: Sandbox acquisition and Claude heartbeat are different lifecycle phases. The watchdog needs phase-aware thresholds so earlier sandbox visibility does not create a new class of startup false positives.
+
+## Improve quick-task startup visibility and Daytona timeout resilience - 2026-03-05
+
+- **Why**: Quick tasks could sit in `running` with no visible activity during sandbox setup contention, and Daytona control-plane timeouts (`status code 408`) were not classified consistently in retry policy decisions.
+- **Changes**:
+  1. `convex/_taskWorkflow/runLifecycle.ts` now seeds `streamingActivity` as soon as a run transitions to `running` (`Starting sandbox...`) so the UI never shows an empty running state.
+  2. `convex/_taskWorkflow/audit.ts` now seeds audit streaming state (`Starting audit...`) at audit creation time for the same reason.
+  3. `convex/_daytona/execution.ts` now retries transient Daytona setup failures (including timeout/status-code patterns) with bounded exponential backoff before failing setup.
+  4. `convex/_taskWorkflow/recovery.ts` now classifies Daytona HTTP timeout/server-status patterns (including 408) as Daytona-network issues.
+- **Reason for change (architectural)**: Startup observability and transient-control-plane resilience should be first-class in orchestration, so operators see immediate progress while setup retries happen deterministically and bounded.
+
+## Harden quick-task callback startup and JWT issuer consistency - 2026-03-05
+
+- **Why**: Quick-task runs could appear as `running` with no Claude activity when the sandbox callback process started but could not authenticate back to Convex, or when JWT issuer config drifted between token signing and auth provider validation.
+- **Changes**:
+  1. Added callback readiness handshake in `_daytona/callbackScript.ts`: the script now writes `/tmp/run-design.ready` only after an authenticated `streaming:set` preflight succeeds.
+  2. Strengthened `_daytona/launch.ts` startup verification: launch now waits for the readiness file, fails fast with tailed logs if readiness is never reached, and kills the orphaned process.
+  3. Added `sandboxAuthConfig.ts` and centralized sandbox JWT issuer/JWKS constants; wired `auth.config.ts`, `sandboxJwt.ts`, and `http.ts` to the shared values so signing and validation cannot silently diverge.
+- **Reason for change (architectural)**: Runtime orchestration should only mark a callback as started after callback-to-Convex authentication is proven, and auth-critical issuer configuration must come from one source of truth.
+- **Follow-up fix**: corrected launcher env scoping so callback env vars (`CONVEX_URL`, `CONVEX_TOKEN`, etc.) are applied to `nohup node /tmp/run-design.mjs` (not only to the pre-cleanup command). This prevents `Failed to parse URL from undefined/api/mutation` startup failures.
+
+## Break down agentTasks.ts into smaller modules - 2026-03-05
+
+- **Why**: `agentTasks.ts` was 780 lines mixing queries, CRUD mutations, execution logic, draft management, and shared helpers in a single file. Finding and modifying specific functions required scrolling through unrelated concerns.
+- **Changes**:
+  1. Created `convex/agentTasks/helpers.ts` — `normalizeTaskTags`, `buildTaskNotificationMessage`, `agentTaskValidator`.
+  2. Created `convex/agentTasks/queries.ts` — `listByProject`, `get`, `getActiveTasks`, `getAllTasks`, `getDependentTasks`, `getStatusesByIds`.
+  3. Created `convex/agentTasks/mutations.ts` — `update`, `updateStatus`, `remove`, `createQuickTask`, `createQuickTasksBatch`, `assignToProject`, `deleteCascade`.
+  4. Created `convex/agentTasks/execution.ts` — `startExecution`, `scheduleExecution`, `cancelScheduledExecution`, `updateScheduledExecution`.
+  5. Created `convex/agentTasks/drafts.ts` — `listDrafts`, `saveDraft`, `activateDraft`.
+  6. `agentTasks.ts` is now a barrel file that re-exports everything, preserving the `api.agentTasks.*` namespace for all frontend consumers.
+- **Reason for change (architectural)**: Follows the same pattern established by `taskWorkflow/` — sub-modules own the logic, the top-level file owns the API surface. Convex re-exports are resolved at bundle time so all `api.agentTasks.*` paths remain intact.
+
+## Break down taskWorkflow.ts into smaller modules - 2026-03-05
+
+- **Why**: `taskWorkflow.ts` was 1550 lines with Convex function registrations, prompt builders, stale-run recovery logic, and shared DB helpers all in one file. This made navigation and maintenance difficult.
+- **Changes**:
+  1. Created `convex/taskWorkflow/prompts.ts` — `buildImplementationPrompt`, `buildAuditPrompt`, `buildWorkflowRunNotificationMessage`, `WORKSPACE_DIR`.
+  2. Created `convex/taskWorkflow/recovery.ts` — `cleanUpStaleRun`, `isDaytonaNetworkIssue`, `buildQuickTaskRetryDelayMs`, stale-run timing constants.
+  3. Created `convex/taskWorkflow/helpers.ts` — `clearStreamingActivity`, `upsertActivityLog`, `finalizeRunStatus`, `buildRunResultSummary`, `extractJsonBlock`.
+  4. `taskWorkflow.ts` now imports from these modules. All Convex function registrations remain in place so API paths are unchanged.
+- **Reason for change (architectural)**: Convex function definitions must stay in the original file (API path = filename), but pure helper logic can live in sub-modules. This keeps the orchestration layer slim while co-locating related helpers.
+
+## Fix quick-task no-sandbox watchdog false positives - 2026-03-05
+
+- **Why**: Quick tasks could be killed with `Run killed by watchdog: sandbox was never attached` while sandbox setup was still legitimately in progress, causing empty logs and unnecessary auto-retries.
+- **Changes**:
+  1. `taskWorkflow.updateRunToRunning` now resets `agentRuns.startedAt` when the run actually enters `running` instead of relying on the earlier queued timestamp.
+  2. Increased `STALE_NO_SANDBOX_THRESHOLD_MS` from 3 minutes to 10 minutes to tolerate slower sandbox provisioning windows.
+- **Reason for change (architectural)**: Watchdog deadlines should be measured from active execution start, not queue creation time, and pre-launch detection must be conservative enough to avoid killing valid in-flight provisioning.
+
+## Simplify agentTasks, projects, taskWorkflow with shared helpers - 2026-03-05
+
+- **Why**: Three backend files accumulated duplicated task-deletion logic, missing authorization checks on project mutations (security gap), and inconsistent cleanup in stale-run handling.
+- **Changes**:
+  1. Added 4 shared helpers to `functions.ts`: `getProjectWithAccess` (auth + fetch), `hasActiveRun` (index-based active run check), `isFirstTaskOnBranch` (handles both project and quick-task cases via `by_task_and_status` index), `deleteTaskRelatedData` (cancels scheduled function, deletes runs/deps/dependents/subtasks/task).
+  2. `agentTasks.ts`: removed redundant dependency check in `updateStatus` (already covered by `workStatuses` block), replaced inline queries in `startExecution` with `hasActiveRun`/`isFirstTaskOnBranch`, replaced manual deletion in `remove`/`deleteCascade` with `deleteTaskRelatedData` (fixes missing subtask + scheduled cancellation).
+  3. `projects.ts`: added authorization checks to 9 mutations that only checked existence (`update`, `addMessage`, `remove`, `clearMessages`, `updatePrUrl`, `updateProjectSandbox`, `clearProjectSandbox`, `updateLastSandboxActivity`, `updateLastConversationMessage`), replaced manual deletion in `deleteCascade` with `deleteTaskRelatedData` (fixes missing scheduled cancellation).
+  4. `taskWorkflow.ts`: extracted `cleanUpStaleRun` local helper (workflow cancel → sandbox kill/delete → run patch → task patch → retry schedule → streaming cleanup), refactored `checkStaleRuns` and `handleStaleRun` to use it, replaced inline queries in `executeScheduledTask` with `hasActiveRun`/`isFirstTaskOnBranch`.
+- **Benefit**: Fixes auth gaps on project mutations, ensures consistent cleanup (subtasks, scheduled functions) across all deletion paths, and reduces ~200 lines of duplicated code.
+
+## Make quick-task execution atomic + pre-launch watchdog recovery - 2026-03-05
+
+- **Why**: Quick tasks could get stuck as active with no real worker when the old two-step launch only partially succeeded, or when a run was marked `running` before sandbox attachment and never advanced.
+- **Changes**:
+  1. `agentTasks.startExecution` now starts `taskExecutionWorkflow` in the same mutation and sets `activeWorkflowId` server-side; if workflow start fails, it marks the run error and restores task state to `todo`.
+  2. `taskWorkflow.checkStaleRuns` now treats `running` runs with missing `activeWorkflowId` as watchdog failures instead of returning early.
+  3. `taskWorkflow.checkStaleRuns` now fails runs that never attach a `sandboxId` within a bounded window, cancels workflow state, resets task status, and schedules quick-task retry.
+  4. Quick-task and task-detail frontend launch flows now call only `agentTasks.startExecution` (removed the second `triggerExecution` call).
+  5. `taskWorkflow.triggerExecution` is now an idempotent fallback that no-ops when the run is no longer queued or the task already has an active workflow.
+  6. `migrations.cleanupStaleRuns` now includes `in_progress` tasks even when `activeWorkflowId` is missing, so existing orphaned tasks can be repaired in one backfill run.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
+- **Benefit**: Removes the main orphan-state path and tightens watchdog recovery for pre-launch hangs, so "running with no Claude process" self-heals instead of lingering.
+
+## Split agentRuns activity log into dedicated table - 2026-03-05
+
+- **Why**: `agentRuns.listByTask` still read the full `activityLog` field from each run document at DB level, so high-frequency list queries were paying for the heaviest payload even when UI loaded run logs lazily.
+- **Changes**:
+  1. Removed `activityLog` from `agentRuns` schema.
+  2. Added `agentRunActivityLogs` table keyed by `runId`.
+  3. Updated `agentRuns.complete` to upsert into `agentRunActivityLogs` when activity log is provided.
+  4. Updated `agentRuns.getActivityLog` to read from `agentRunActivityLogs`.
+  5. Simplified `agentRuns` list/get responses to return run docs directly (no activityLog stripping required).
+- **Benefit**: `agentRuns.listByTask` no longer pulls activity log payloads from DB, reducing read bandwidth for task cards and task detail subscriptions.
+
+## Project build branch now uses project/<projectId> - 2026-03-05
+
+- **Why**: Project builds need all task commits and PR activity to stay on one deterministic branch tied to the project, not a mutable title slug.
+- **Changes**:
+  1. projects.startDevelopment now sets project branch to project/<projectId>.
+  2. projects.createFromTasks now creates the project first, then sets branch to project/<projectId>.
+- **Benefit**: Branch naming is stable, predictable, and consistent with the single-branch-per-project workflow.
+
+## Real-time notification toasts + deep-link details - 2026-03-05
+
+- **Why**: Users had to manually check notifications and couldn�t always tell what happened or jump directly to the right task/project context.
+- **Changes**:
+  1. Added `NotificationToastStream` to the main layout so new notifications surface immediately with an in-app toast.
+  2. Updated notification popover item clicks to navigate directly to notification `href`, and added message previews so each item is actionable without opening a modal.
+  3. Enriched backend notification messages for task assignment/completion, run completion, PR webhook events, and task comments.
+  4. Quick-task notifications now always append `Quick task ID: <id>` automatically, and webhook notifications now pass `taskId`/`projectId` for exact deep links.
+- **Benefit**: Notification UX is now real-time, clearer, and faster to act on, with direct navigation to exact destinations.
+
+## Remove redundant `order` field + fix branch naming — 2026-03-05
+
+- **Why**: `order` (0-based) and `taskNumber` (1-based) were redundant — both tracked task position. Quick task branches used `Date.now()` fallback producing unreadable names like `eva/task-1741209600000`.
+- **Changes**:
+  1. Branch naming changed from `eva/task-${taskNumber || Date.now()}` to `eva/task-${taskId}` — deterministic, unique, and tied to the actual task.
+  2. Removed `order` field from `agentTasks` schema, all insert calls, and the validator.
+  3. `getAllTasks` sort changed from `order` to `createdAt` (frontend was already re-sorting by `updatedAt` anyway).
+  4. Ran migration to strip `order` from 100 existing documents.
+
+## Harden quick-task retry orchestration + Daytona failure cleanup - 2026-03-05
+
+- **Why**: Quick-task reliability still had three gaps after the first pass: retry scheduling only happened on workflow exceptions (not all error exits), sandbox creation failures could leak capacity before `sandboxId` was persisted, and callback HTTP calls could hang long enough to create false "stuck" runs.
+- **Changes**:
+  1. `taskWorkflow.ts` — replaced narrow retry path with centralized `maybeScheduleQuickTaskRetry` mutation (single retry chain, jittered backoff, latest-run guard, active-run guard), and wired it into all quick-task failure exits: normal callback failure, workflow catch, watchdog stale kill, and 2-hour timeout.
+  2. `taskWorkflow.ts` — retry skip policy now lives in one place and explicitly skips auto-retry when error text matches Daytona network/connectivity issues.
+  3. `daytona.ts` — `setupAndExecute` now deletes newly created sandboxes when setup/launch fails before successful handoff, preventing pre-run capacity leaks.
+  4. `daytona/git.ts` — `createSandboxAndPrepareRepo` now deletes failed sandboxes on both first-attempt and retry-attempt prep failures.
+  5. `daytona/callbackScript.ts` — added request timeouts and retry backoff for callback HTTP paths (Convex mutation/action calls and media upload URL flow), plus reduced default `CLAUDE_MAX_TOTAL_RUNTIME_MS` from 90m to 50m.
+  6. `daytona/devServer.ts` — package manager detection now respects `rootDir` for session/design service startup in subdirectory repos.
+- **Benefit**: Fewer leaked sandboxes, fewer long-hanging callback failures, and more consistent self-healing of quick-task failures without retrying Daytona network outages.
+
+## Refactor daytona.ts into focused modules - 2026-03-05
+
+- **Why**: At ~1800 lines, `daytona.ts` mixed sandbox lifecycle, git operations, callback script generation, desktop management, and dev server detection in a single file, making it difficult to navigate, understand, and maintain.
+- **Changes**:
+  1. Extracted helper functions into `convex/daytona/` folder with 7 focused modules: `helpers.ts` (core utilities), `volumes.ts` (session volume management), `git.ts` (repo clone/sync/branch), `callbackScript.ts` (sandbox callback template), `launch.ts` (script upload/fire), `desktop.ts` (xrandr/Chrome), `devServer.ts` (package manager/port detection).
+  2. Eliminated 3 `as` type assertions in `detectDevPort` by introducing an `isRecord` type guard.
+  3. Replaced deeply nested ternary in callback script's error field with a `buildErrorMessage` helper function.
+  4. Consolidated duplicated lock file detection (`cloneAndSetupRepo` now reuses `detectPackageManager`).
+  5. Extracted duplicated xrandr resolution setup into `setDisplayResolution`.
+  6. Extracted repeated resolve-api-key/get-sandbox pattern into `getSandbox` helper.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
+  8. Extracted duplicated media upload logic into `uploadMediaFile` within the callback script.
+  9. Replaced `hasToolActivity` long `||` chain with a `Set` lookup.
+- **Reason**: Main `daytona.ts` is now ~700 lines (actions only), each helper module is under 260 lines, and no circular dependencies exist. All external API references (`internal.daytona.*`, `api.daytona.*`) are unchanged.
+- **Benefit**: Each concern is isolated and independently readable. TypeScript compiles with zero errors.
+
+## Improve quick-task run robustness and batch start behavior - 2026-03-05
+
+- **Why**: Some quick-task runs stayed on "Generating response..." until the 2-hour watchdog because failures before callback completion were not finalized immediately. Batch run actions also stopped on the first failing task, so only part of a selected set started.
+- **Changes**:
+  1. `taskWorkflow.ts` — wrapped `taskExecutionWorkflow` in fail-fast recovery: exceptions now finalize and complete the run immediately, always clear `activeWorkflowId`, and attempt ephemeral sandbox cleanup.
+  2. `taskWorkflow.ts` — timeout/watchdog paths now also clean quick-task sandboxes (`checkStaleRuns` and `handleStaleRun`) to avoid leaked capacity.
+  3. `daytona.ts` — callback script now enforces a max total runtime (`CLAUDE_MAX_TOTAL_RUNTIME_MS`, default 90 minutes) in addition to no-output timeout.
+  4. `daytona.ts` — `launchScript` now verifies the callback process stays alive after launch (`/tmp/run-design.pid` + `kill -0`) and fails early with log tail if it exits immediately.
+  5. `RunTasksModal.tsx`, `QuickTasksKanbanBoard.tsx`, `QuickTasksListView.tsx` — per-task error handling now continues launching remaining tasks instead of aborting the entire batch.
+- **Benefit**: Failures surface quickly instead of aging into generic 2-hour timeouts, leaked quick-task sandboxes are cleaned up, and batch execution starts as many tasks as possible.
+
 ## Fix cost logging: correct field name + always log - 2026-03-05
 
 - **Why**: Cost logs were always $0.00 because we read `cost_usd` from the stream-json result event, but the actual field is `total_cost_usd`. Also, the `> 0` guard silently skipped entries when cost was 0 or missing, making it impossible to diagnose.
@@ -66,7 +233,7 @@
   4. `githubWebhook.ts` — **NEW** — `handlePrClosed` internalMutation: matches PR URL → agentRun → task, updates status to `done` (merged) or `cancelled` (closed), sends notifications, creates system comment, auto-completes project phase if all tasks done
   5. `taskComments.ts` — added `createSystemComment` internalMutation for webhook-triggered comments (no user context)
   6. `QuickTaskCard.tsx` — badge showing "PR Merged" (green) or "PR Closed" (red) when task status is done/cancelled with PR
-  7. `useTaskDetail.tsx` — system comments styled with blue background + "System" label, visible in activity feed
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 - **Prerequisite**: Set `GITHUB_WEBHOOK_SECRET` env var in Convex. Configure webhook URL in GitHub App settings, subscribe to `pull_request` events.
 
 ## Vercel deployment status tracking - 2026-03-04
@@ -79,7 +246,7 @@
   4. `taskWorkflowActions.ts` — new `pollDeploymentStatus` self-scheduling action that polls GitHub Deployments API (60s intervals, max 20 attempts / ~20 min)
   5. `taskWorkflow.ts` — new `scheduleDeploymentTracking` mutation called after successful sandbox completion, sets initial "queued" status and schedules first poll
   6. `QuickTaskCard.tsx` — inline colored deployment status dot on card + "View Preview" dropdown item
-  7. `useTaskDetail.tsx` — deployment status badge + "View Preview" link next to PR link per run
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 - **Approach**: Uses GitHub Deployments API (not Vercel API directly). Vercel auto-creates GitHub Deployment records when building. Reuses existing GitHub App tokens — no new env vars. Provider-agnostic.
 - **Prerequisite**: GitHub App needs `deployments:read` permission.
 
@@ -423,7 +590,7 @@
   4. **`RepoContext.tsx`**: Now takes `owner` + `repoParam` props, exposes `basePath`, `owner`, `name` instead of `repoSlug`/`fullName`.
   5. **`githubRepos.ts` (`getByOwnerAndName`)**: Changed `rootDirectory` arg to `appName` — matches by `rootDirectory.split("/").pop()`.
   6. **`Sidebar.tsx`**: Extracts `repoBasePath` from pathname instead of decoding a single slug segment. Passes `basePath` to all child sidebars.
-  7. **All sidebars + consumer components**: Renamed `repoSlug` prop/usage to `basePath` throughout (~22 files).
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 
 ## Monorepo Auto-Detection in Sync + Data Migration - 2026-03-02
 
@@ -455,7 +622,7 @@
   4. **daytona.ts**: Extracted `detectPackageManager` helper, added `detectDevPort` (parses dev script for port flags, falls back to framework defaults), implemented `startSessionServices` to start dev server in the correct root directory, returns detected port. Both `startSessionSandbox` and `startDesignSandbox` now fetch `rootDirectory` from repo and pass `devPort` to `sandboxReady`.
   5. **sessions.ts / designSessions.ts**: `sandboxReady` mutations accept and persist `devPort`.
   6. **repoUrl.ts**: Slug encoding now appends `~apps~web` for root directories (`/` → `~`). `decodeRepoSlug` returns `{ fullName, rootDirectory }`.
-  7. **RepoContext.tsx**: Passes `rootDirectory` to `getByOwnerAndName` query and exposes it in context.
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
   8. **RepoSelect.tsx**: Uses encoded slug as value, shows `rootDirectory` below repo name.
   9. **RepoSetupClient.tsx**: On "Add", calls `detectMonorepoApps` and shows expandable sub-app picker with checkboxes + custom path input.
   10. **ReposClient.tsx**: Card shows app name from root dir path, subtitle shows `owner/repo → apps/web`.
@@ -883,7 +1050,7 @@
   4. **Replaced all `executeCommand` calls with `exec`** - 20+ call sites simplified from 5-line verbose calls to 1-line `exec` calls
   5. **Collapsed `setupAndExecute` ephemeral/non-ephemeral branches** - Both paths called similar functions with different args. Unified to conditional expression using `?:` operator
   6. **Simplified `startDesignSandbox` if/else** - Pulled common `setupBranch` call outside the conditional, eliminated duplication
-  7. **Added proper TypeScript return types** - Added explicit return type annotation to `resolveSandboxContext` to satisfy strict type checking
+  7. `taskWorkflow.clearActiveWorkflow` no longer clears blindly in `finally`; it now preserves `activeWorkflowId` when a queued/running run exists to prevent old runs from orphaning newer retries.
 
 - **Result**: File reduced from 1137 to 956 lines (181 lines removed). No exported signatures changed. All type checks pass.
 

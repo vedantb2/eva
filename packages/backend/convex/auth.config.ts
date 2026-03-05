@@ -1,3 +1,8 @@
+import {
+  SANDBOX_JWT_ISSUER,
+  SANDBOX_JWT_JWKS_DATA_URI,
+} from "./sandboxAuthConfig";
+
 export default {
   providers: [
     {
@@ -7,8 +12,8 @@ export default {
     {
       type: "customJwt" as const,
       applicationID: "convex",
-      issuer: "https://elegant-snail-639.convex.site",
-      jwks: "data:application/json;base64,eyJrZXlzIjpbeyJrdHkiOiJFQyIsIngiOiIzTmxVWkF3ZXA4OFFVTXJGbFh1MEk1ZEktUWVyWjhTZ21WOG54SkFGWnFnIiwieSI6IkpPNnRpLU13VXMydWpNaGcwRlJGaDNqOF9HU0lvNU5VX28ySWJnVG1QU0UiLCJjcnYiOiJQLTI1NiIsImtpZCI6InNhbmRib3gtMSIsImFsZyI6IkVTMjU2IiwidXNlIjoic2lnIn1dfQ==",
+      issuer: SANDBOX_JWT_ISSUER,
+      jwks: SANDBOX_JWT_JWKS_DATA_URI,
       algorithm: "ES256" as const,
     },
   ],

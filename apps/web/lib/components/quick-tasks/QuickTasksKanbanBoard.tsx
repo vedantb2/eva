@@ -33,7 +33,6 @@ export function QuickTasksKanbanBoard({
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -68,18 +67,7 @@ export function QuickTasksKanbanBoard({
       const results = await Promise.all(
         ownedTodoTasks.map(async (task) => {
           try {
-            const result = await startExecution({ id: task._id });
-            await triggerExecution({
-              runId: result.runId,
-              taskId: result.taskId,
-              repoId: result.repoId,
-              installationId: result.installationId,
-              projectId: result.projectId,
-              branchName: result.branchName,
-              baseBranch: result.baseBranch,
-              isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-              model: result.model,
-            });
+            await startExecution({ id: task._id });
             return true;
           } catch (err) {
             console.error(`Failed to start task ${task._id}:`, err);

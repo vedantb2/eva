@@ -636,6 +636,7 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
 const STALE_THRESHOLD_MS = 90_000;
 const STALE_CHECK_DELAY_MS = 90_000;
 const STALE_RECHECK_MS = 30_000;
+const STALE_NO_SANDBOX_THRESHOLD_MS = 180_000;
 
 export const checkStaleRuns = internalMutation({
   args: {
@@ -648,16 +649,7 @@ export const checkStaleRuns = internalMutation({
     if (!run || run.status !== "running") return null;
 
     const task = await ctx.db.get(args.taskId);
-    if (!task || !task.activeWorkflowId) return null;
-
-    if (!run.sandboxId) {
-      await ctx.scheduler.runAfter(
-        STALE_RECHECK_MS,
-        internal.taskWorkflow.checkStaleRuns,
-        { runId: args.runId, taskId: args.taskId },
-      );
-      return null;
-    }
+    if (!task) return null;
 
     const streaming = await ctx.db
       .query("streamingActivity")
@@ -665,6 +657,88 @@ export const checkStaleRuns = internalMutation({
       .first();
 
     const now = Date.now();
+
+    if (!task.activeWorkflowId) {
+      await ctx.db.patch(args.runId, {
+        status: "error",
+        error: "Run killed by watchdog: workflow tracking lost",
+        finishedAt: now,
+        exitReason: "workflow_tracking_lost",
+      });
+
+      await ctx.db.patch(args.taskId, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: now,
+      });
+
+      if (!task.projectId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+          {
+            taskId: args.taskId,
+            runId: args.runId,
+            error: "Run killed by watchdog: workflow tracking lost",
+            delayMs: buildQuickTaskRetryDelayMs(),
+          },
+        );
+      }
+
+      if (streaming) await ctx.db.delete(streaming._id);
+
+      return null;
+    }
+
+    if (!run.sandboxId) {
+      const startedAt = run.startedAt ?? now;
+      const sandboxAttachTimedOut =
+        now - startedAt > STALE_NO_SANDBOX_THRESHOLD_MS;
+
+      if (!sandboxAttachTimedOut) {
+        await ctx.scheduler.runAfter(
+          STALE_RECHECK_MS,
+          internal.taskWorkflow.checkStaleRuns,
+          { runId: args.runId, taskId: args.taskId },
+        );
+        return null;
+      }
+
+      try {
+        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+      } catch {}
+
+      await ctx.db.patch(args.runId, {
+        status: "error",
+        error: "Run killed by watchdog: sandbox was never attached",
+        finishedAt: now,
+        exitReason: "watchdog_no_sandbox",
+      });
+
+      await ctx.db.patch(args.taskId, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: now,
+      });
+
+      if (!task.projectId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+          {
+            taskId: args.taskId,
+            runId: args.runId,
+            error: "Run killed by watchdog: sandbox was never attached",
+            delayMs: buildQuickTaskRetryDelayMs(),
+          },
+        );
+      }
+
+      if (streaming) await ctx.db.delete(streaming._id);
+
+      return null;
+    }
+
     const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
     const isStale = now - lastActivity > STALE_THRESHOLD_MS;
 
@@ -1475,6 +1549,19 @@ export const triggerExecution = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
+
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.taskId !== args.taskId) {
+      throw new Error("Run not found");
+    }
+
+    if (task.activeWorkflowId) {
+      return null;
+    }
+
+    if (run.status !== "queued") {
+      return null;
+    }
 
     const workflowId = await workflow.start(
       ctx,

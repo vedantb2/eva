@@ -29,7 +29,6 @@ export function RunTasksModal({
   onSuccess,
 }: RunTasksModalProps) {
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const [isLoading, setIsLoading] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
@@ -43,18 +42,7 @@ export function RunTasksModal({
       const results = await Promise.all(
         taskIds.map(async (id) => {
           try {
-            const result = await startExecution({ id });
-            await triggerExecution({
-              runId: result.runId,
-              taskId: result.taskId,
-              repoId: result.repoId,
-              installationId: result.installationId,
-              projectId: result.projectId,
-              branchName: result.branchName,
-              baseBranch: result.projectId ? undefined : result.baseBranch,
-              isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-              model: result.model,
-            });
+            await startExecution({ id });
             return true;
           } catch (err) {
             console.error(`Failed to start task ${id}:`, err);

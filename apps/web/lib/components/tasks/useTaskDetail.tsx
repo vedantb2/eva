@@ -101,7 +101,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     task?.repoId ? { repoId: task.repoId } : "skip",
   );
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -150,18 +149,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     if (requestChangesPanel) {
       setRequestChangesPanel(false);
       try {
-        const result = await startExecution({ id: taskId });
-        await triggerExecution({
-          runId: result.runId,
-          taskId: result.taskId,
-          repoId: result.repoId,
-          installationId: result.installationId,
-          projectId: result.projectId,
-          branchName: result.branchName,
-          baseBranch: result.projectId ? undefined : result.baseBranch,
-          isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-          model: result.model,
-        });
+        await startExecution({ id: taskId });
       } catch (err) {
         console.error("Failed to start execution for change request:", err);
       }
@@ -209,18 +197,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const handleStartExecution = async () => {
     setIsStarting(true);
     try {
-      const result = await startExecution({ id: taskId });
-      await triggerExecution({
-        runId: result.runId,
-        taskId: result.taskId,
-        repoId: result.repoId,
-        installationId: result.installationId,
-        projectId: result.projectId,
-        branchName: result.branchName,
-        baseBranch: result.projectId ? undefined : result.baseBranch,
-        isFirstTaskOnBranch: result.isFirstTaskOnBranch,
-        model: result.model,
-      });
+      await startExecution({ id: taskId });
     } catch (err) {
       console.error("Failed to start execution:", err);
     } finally {

@@ -10,6 +10,7 @@ import {
   hasTaskAccess,
   recomputeProjectPhase,
 } from "./functions";
+import { workflow } from "./workflowManager";
 
 function normalizeTaskTags(tags: string[] | undefined): string[] | undefined {
   if (tags === undefined) {
@@ -503,6 +504,46 @@ export const startExecution = authMutation({
       status: "in_progress",
       updatedAt: Date.now(),
     });
+    let workflowIdString = "";
+    try {
+      const workflowId = await workflow.start(
+        ctx,
+        internal.taskWorkflow.taskExecutionWorkflow,
+        {
+          runId,
+          taskId: args.id,
+          repoId: task.repoId,
+          installationId: repo.installationId,
+          projectId: task.projectId,
+          branchName: task.projectId ? `project/${task.projectId}` : undefined,
+          baseBranch: task.baseBranch,
+          isFirstTaskOnBranch,
+          model: task.model ?? repo.defaultModel,
+          userId: ctx.userId,
+        },
+      );
+      workflowIdString = String(workflowId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start workflow";
+      await ctx.db.patch(runId, {
+        status: "error",
+        error: message,
+        finishedAt: Date.now(),
+        exitReason: "workflow_start_failed",
+      });
+      await ctx.db.patch(args.id, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+      throw error;
+    }
+
+    await ctx.db.patch(args.id, {
+      activeWorkflowId: workflowIdString,
+    });
+
     return {
       runId,
       taskId: args.id,

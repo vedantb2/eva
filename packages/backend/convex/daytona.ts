@@ -10,6 +10,7 @@ import {
   resolveSandboxContext,
   getSandbox,
   errorMessage,
+  ensureSandboxRunning,
 } from "./daytona/helpers";
 import {
   createSandbox,
@@ -17,7 +18,6 @@ import {
   syncRepo,
   setupBranch,
   checkoutSessionBranch,
-  cloneAndSetupRepo,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
 } from "./daytona/git";
@@ -58,7 +58,7 @@ export const warmSnapshotCache = internalAction({
     } catch (err) {
       console.error(
         "[daytona] warmSnapshotCache failed (best-effort):",
-        errorMessage(err, "Unknown error"),
+        err instanceof Error ? err.message : err,
       );
     }
     return null;
@@ -537,7 +537,7 @@ export const startSessionSandbox = internalAction({
       if (args.existingSandboxId) {
         try {
           const sandbox = await daytona.get(args.existingSandboxId);
-          await exec(sandbox, "echo 1", 5);
+          await ensureSandboxRunning(sandbox);
           await syncRepo(
             sandbox,
             args.installationId,

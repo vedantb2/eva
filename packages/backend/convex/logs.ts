@@ -9,16 +9,18 @@ export const log = internalMutation({
     entityTitle: v.string(),
     costUsd: v.number(),
     model: v.string(),
+    rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.insert("costLogs", {
+    await ctx.db.insert("logs", {
       entityType: args.entityType,
       entityId: args.entityId,
       entityTitle: args.entityTitle,
       costUsd: args.costUsd,
       model: args.model,
+      rawResultEvent: args.rawResultEvent,
       repoId: args.repoId,
       createdAt: Date.now(),
     });
@@ -34,12 +36,13 @@ export const listByRepo = authQuery({
   },
   returns: v.array(
     v.object({
-      _id: v.id("costLogs"),
+      _id: v.id("logs"),
       entityType: v.string(),
       entityId: v.string(),
       entityTitle: v.string(),
       costUsd: v.number(),
       model: v.string(),
+      rawResultEvent: v.optional(v.string()),
       createdAt: v.number(),
     }),
   ),
@@ -48,30 +51,34 @@ export const listByRepo = authQuery({
       return [];
     }
 
-    const logs = await ctx.db
-      .query("costLogs")
+    const all = await ctx.db
+      .query("logs")
       .withIndex("by_repo_and_created", (q) => q.eq("repoId", args.repoId))
       .order("desc")
       .collect();
 
-    const filtered = logs.filter((log) => {
-      if (args.startTime !== undefined && log.createdAt < args.startTime) {
+    const filtered = all.filter((entry) => {
+      if (args.startTime !== undefined && entry.createdAt < args.startTime) {
         return false;
       }
-      if (args.entityType !== undefined && log.entityType !== args.entityType) {
+      if (
+        args.entityType !== undefined &&
+        entry.entityType !== args.entityType
+      ) {
         return false;
       }
       return true;
     });
 
-    return filtered.map((log) => ({
-      _id: log._id,
-      entityType: log.entityType,
-      entityId: log.entityId,
-      entityTitle: log.entityTitle,
-      costUsd: log.costUsd,
-      model: log.model,
-      createdAt: log.createdAt,
+    return filtered.map((entry) => ({
+      _id: entry._id,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      entityTitle: entry.entityTitle,
+      costUsd: entry.costUsd,
+      model: entry.model,
+      rawResultEvent: entry.rawResultEvent,
+      createdAt: entry.createdAt,
     }));
   },
 });

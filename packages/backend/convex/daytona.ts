@@ -666,7 +666,12 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
-        resultEvent = { result: typeof r === "string" ? r : JSON.stringify(r), isError: Boolean(parsed.is_error), costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0 };
+        resultEvent = {
+          result: typeof r === "string" ? r : JSON.stringify(r),
+          isError: Boolean(parsed.is_error),
+          costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
+          rawResultEvent: clean,
+        };
       }
     } catch {}
   }
@@ -844,6 +849,7 @@ try {
     activityLog,
     costUsd: finalResultEvent?.costUsd ?? 0,
     model: MODEL,
+    rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);
@@ -862,6 +868,7 @@ try {
     activityLog: "[]",
     costUsd: 0,
     model: MODEL,
+    rawResultEvent: null,
   };
   try {
     await callMutationWithRetry("${completionMutation}", errorArgs);
@@ -1402,9 +1409,27 @@ export const toggleCodeServer = action({
   },
 });
 
+const CHROME_LAUNCH_CMD =
+  "mkdir -p ~/.config/google-chrome/Default && " +
+  "touch ~/.config/google-chrome/'First Run' && " +
+  "(pgrep -f google-chrome > /dev/null 2>&1 || " +
+  "DISPLAY=:1 nohup google-chrome-stable " +
+  "--no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 " +
+  "--remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-sync " +
+  "> /tmp/chrome.log 2>&1 &)";
+
 async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
   try {
     await sandbox.computerUse.start();
+    try {
+      await exec(
+        sandbox,
+        "for i in 1 2 3 4 5 6 7 8 9 10; do DISPLAY=:1 xdpyinfo > /dev/null 2>&1 && break; sleep 1; done",
+        15,
+      );
+    } catch {
+      // Non-fatal: continue and hope display is ready
+    }
     try {
       await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
     } catch {
@@ -1422,7 +1447,7 @@ async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
     }
     try {
       await sandbox.process.executeCommand(
-        'bash -c "pgrep -f google-chrome > /dev/null 2>&1 || DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 --remote-debugging-port=9222 > /dev/null 2>&1 &"',
+        `bash -c "${CHROME_LAUNCH_CMD}"`,
         "/",
         undefined,
         5,
@@ -1491,7 +1516,7 @@ export const launchChromeInDesktop = action({
 
     try {
       await sandbox.process.executeCommand(
-        'bash -c "pgrep -f google-chrome > /dev/null 2>&1 || DISPLAY=:1 nohup google-chrome-stable --no-sandbox --disable-dev-shm-usage --start-maximized --window-size=1920,1080 --remote-debugging-port=9222 > /dev/null 2>&1 &"',
+        `bash -c "${CHROME_LAUNCH_CMD}"`,
         "/",
         undefined,
         5,

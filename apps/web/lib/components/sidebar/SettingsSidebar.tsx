@@ -30,7 +30,7 @@ export function SettingsSidebar({
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
     { name: "Theme", href: `${baseUrl}/theme`, icon: IconPalette },
-    { name: "Cost Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
+    { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
   ];
 
   return (

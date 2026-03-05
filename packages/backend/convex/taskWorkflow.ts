@@ -841,6 +841,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     costUsd: v.optional(v.number()),
     model: v.optional(v.string()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -868,12 +869,13 @@ export const handleCompletion = authMutation({
     });
 
     if (task.repoId) {
-      await ctx.db.insert("costLogs", {
+      await ctx.db.insert("logs", {
         entityType: "quickTask",
         entityId: String(args.taskId),
         entityTitle: task.title,
         costUsd: args.costUsd ?? 0,
         model: args.model ?? "sonnet",
+        rawResultEvent: args.rawResultEvent,
         repoId: task.repoId,
         createdAt: Date.now(),
       });
@@ -896,6 +898,7 @@ export const handleAuditCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     costUsd: v.optional(v.number()),
     model: v.optional(v.string()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -913,12 +916,13 @@ export const handleAuditCompletion = authMutation({
     });
 
     if (task.repoId) {
-      await ctx.db.insert("costLogs", {
+      await ctx.db.insert("logs", {
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
         costUsd: args.costUsd ?? 0,
         model: args.model ?? "haiku",
+        rawResultEvent: args.rawResultEvent,
         repoId: task.repoId,
         createdAt: Date.now(),
       });

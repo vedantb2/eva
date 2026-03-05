@@ -115,4 +115,4 @@ export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
   .withDefault("members")
   .withOptions(tabOptions);
 
-export const costEntityTypeParser = parseAsString.withOptions(searchOptions);
+export const logEntityTypeParser = parseAsString.withOptions(searchOptions);

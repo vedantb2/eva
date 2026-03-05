@@ -432,12 +432,13 @@ const schema = defineSchema({
     vars: v.array(v.object({ key: v.string(), value: v.string() })),
     updatedAt: v.number(),
   }).index("by_team", ["teamId"]),
-  costLogs: defineTable({
+  logs: defineTable({
     entityType: v.string(),
     entityId: v.string(),
     entityTitle: v.string(),
     costUsd: v.number(),
     model: v.string(),
+    rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
     createdAt: v.number(),
   })

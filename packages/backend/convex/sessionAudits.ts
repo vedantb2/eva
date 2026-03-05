@@ -85,6 +85,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     costUsd: v.optional(v.number()),
     model: v.optional(v.string()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -140,12 +141,13 @@ export const handleCompletion = authMutation({
 
     const session = await ctx.db.get(args.sessionId);
     if (session) {
-      await ctx.db.insert("costLogs", {
+      await ctx.db.insert("logs", {
         entityType: "sessionAudit",
         entityId: String(args.sessionId),
         entityTitle: `Audit: ${session.title}`,
         costUsd: args.costUsd ?? 0,
         model: args.model ?? "haiku",
+        rawResultEvent: args.rawResultEvent,
         repoId: session.repoId,
         createdAt: Date.now(),
       });

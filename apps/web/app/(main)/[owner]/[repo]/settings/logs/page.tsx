@@ -1,5 +1,5 @@
-import { CostLogsClient } from "./CostLogsClient";
+import { LogsClient } from "./LogsClient";
 
-export default function CostLogsPage() {
-  return <CostLogsClient />;
+export default function LogsPage() {
+  return <LogsClient />;
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Add font spacing (letter-spacing) to theme settings - 2026-03-06
+
+- **Why**: Users had control over font family, accent color, border radius, and appearance mode but could not customize letter spacing, which significantly affects readability and visual feel.
+- **Changes**:
+  1. Added `letterSpacingValidator` and included it in `customThemeValidator` in Convex validators.
+  2. Added `LetterSpacing` type and `LETTER_SPACING_VALUES` config to `ThemeContext.tsx`, applying the value to the `--tracking-normal` CSS variable.
+  3. Added a "Font Spacing" section to the theme settings UI with five options: Tighter, Tight, Normal, Wide, Wider.
+
 ## Finalize evaluation workflow failures immediately - 2026-03-05
 
 - **Why**: Evaluation reports could stay in `running` until the 2-hour watchdog when workflow startup failed before the sandbox callback path ever fired.

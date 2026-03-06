@@ -6,9 +6,11 @@ import {
   ACCENT_COLORS,
   RADIUS_VALUES,
   FONT_FAMILIES,
+  LETTER_SPACING_VALUES,
   AccentColor,
   RadiusSize,
   FontFamily,
+  LetterSpacing,
 } from "@/lib/contexts/ThemeContext";
 import { cn, Spinner } from "@conductor/ui";
 import {
@@ -27,6 +29,14 @@ const RADIUS_OPTIONS: { value: RadiusSize; label: string }[] = [
   { value: "xl", label: "X-Large" },
 ];
 
+const LETTER_SPACING_OPTIONS: { value: LetterSpacing; label: string }[] = [
+  { value: "tighter", label: "Tighter" },
+  { value: "tight", label: "Tight" },
+  { value: "normal", label: "Normal" },
+  { value: "wide", label: "Wide" },
+  { value: "wider", label: "Wider" },
+];
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -43,6 +53,8 @@ export function ThemeSettingsClient() {
   const accentColor = (customTheme.accentColor ?? "teal") as AccentColor;
   const radius = (customTheme.radius ?? "md") as RadiusSize;
   const fontFamily = (customTheme.fontFamily ?? "inter") as FontFamily;
+  const letterSpacing = (customTheme.letterSpacing ??
+    "normal") as LetterSpacing;
 
   const handleModeChange = (mode: "light" | "dark" | "system") => {
     if (mode === "system") {
@@ -65,6 +77,10 @@ export function ThemeSettingsClient() {
 
   const handleFontChange = (f: FontFamily) => {
     setCustomTheme({ ...customTheme, fontFamily: f });
+  };
+
+  const handleLetterSpacingChange = (ls: LetterSpacing) => {
+    setCustomTheme({ ...customTheme, letterSpacing: ls });
   };
 
   if (!mounted) {
@@ -263,6 +279,38 @@ export function ThemeSettingsClient() {
           </div>
         </section>
 
+        {/* Font Spacing */}
+        <section>
+          <SectionLabel>Font Spacing</SectionLabel>
+          <div className="flex flex-wrap gap-3">
+            {LETTER_SPACING_OPTIONS.map(({ value, label }) => {
+              const isActive = letterSpacing === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => handleLetterSpacingChange(value)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
+                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
+                  )}
+                >
+                  <span
+                    className="text-xs font-semibold"
+                    style={{
+                      letterSpacing: LETTER_SPACING_VALUES[value].value,
+                    }}
+                  >
+                    Aa
+                  </span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Preview */}
         <section>
           <SectionLabel>Preview</SectionLabel>
@@ -276,6 +324,7 @@ export function ThemeSettingsClient() {
                 {ACCENT_COLORS[accentColor].label} &middot;{" "}
                 {RADIUS_OPTIONS.find((r) => r.value === radius)?.label} radius
                 &middot; {FONT_FAMILIES[fontFamily].label} &middot;{" "}
+                {LETTER_SPACING_VALUES[letterSpacing].label} spacing &middot;{" "}
                 {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)}{" "}
                 mode
               </p>

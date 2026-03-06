@@ -1239,7 +1239,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               Only the task owner can stop execution
             </TooltipContent>
           )}
-        {!hasActiveRun && status === "todo" && (
+        </Tooltip>
+      ) : (
+        !hasActiveRun &&
+        status === "todo" && (
           <>
             <SchedulePopover
               taskId={taskId}
@@ -1280,9 +1283,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               )}
             </Tooltip>
           </>
-        )}
-      </div>
-    </>
+        )
+      )}
+    </div>
   );
 
   const deleteConfirmDialog = (

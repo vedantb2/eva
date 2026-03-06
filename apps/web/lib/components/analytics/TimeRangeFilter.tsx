@@ -30,7 +30,8 @@ const TIME_RANGE_LABELS: Record<TimeRange, string> = {
 };
 
 function isTimeRange(v: string): v is TimeRange {
-  return (TIME_RANGES satisfies readonly string[]).includes(v);
+  const ranges: ReadonlyArray<string> = TIME_RANGES;
+  return ranges.includes(v);
 }
 
 export function getStartTime(range: TimeRange): number | undefined {

@@ -235,7 +235,9 @@ export function LogsClient() {
 
   return (
     <PageWrapper
-      title="Logs"
+      title={
+        logs !== undefined && logs.length > 0 ? `Logs (${logs.length})` : "Logs"
+      }
       headerRight={
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -283,9 +285,6 @@ export function LogsClient() {
                 <span className="text-base font-normal text-muted-foreground">
                   ~£{(totalCost * USD_TO_GBP).toFixed(4)}
                 </span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {logs.length} log{logs.length !== 1 ? "s" : ""}
               </div>
             </div>
             <div className="flex-1 rounded-lg border bg-card p-4">

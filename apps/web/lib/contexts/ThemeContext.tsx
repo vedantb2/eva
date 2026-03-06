@@ -31,6 +31,7 @@ export type FontFamily =
   | "dm-sans"
   | "space-grotesk"
   | "geist";
+export type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
 
 export interface CustomTheme {
   accentColor?: AccentColor;

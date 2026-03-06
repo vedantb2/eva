@@ -63,7 +63,7 @@ export function QuickTaskCard({
     <Card
       className={`group relative overflow-hidden shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         showError
-          ? "border border-destructive/60 bg-destructive/5"
+          ? "border border-border/70 bg-card/88"
           : isInProgress
             ? "border-transparent bg-card/95"
             : isActive

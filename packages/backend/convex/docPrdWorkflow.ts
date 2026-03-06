@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PARSE_PROMPT } from "./prompts";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -161,12 +162,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.docId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.docId));
 
     const doc = await ctx.db.get(args.docId);
     if (!doc) return null;

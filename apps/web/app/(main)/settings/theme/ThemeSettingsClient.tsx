@@ -95,7 +95,7 @@ export function ThemeSettingsClient() {
 
   return (
     <PageWrapper title="Theme">
-      <div className="max-w-2xl space-y-8">
+      <div className="max-w-2xl space-y-6 sm:space-y-8">
         {/* Mode */}
         <section>
           <SectionLabel>Appearance</SectionLabel>
@@ -162,7 +162,7 @@ export function ThemeSettingsClient() {
         {/* Accent Color */}
         <section>
           <SectionLabel>Accent Color</SectionLabel>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {(
               Object.entries(ACCENT_COLORS) as [
                 AccentColor,
@@ -176,7 +176,7 @@ export function ThemeSettingsClient() {
                   onClick={() => handleAccentChange(key)}
                   title={color.label}
                   className={cn(
-                    "group relative flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    "group relative flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
                     isActive
                       ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
                       : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
@@ -207,7 +207,7 @@ export function ThemeSettingsClient() {
         {/* Border Radius */}
         <section>
           <SectionLabel>Border Radius</SectionLabel>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {RADIUS_OPTIONS.map(({ value, label }) => {
               const isActive = radius === value;
               const previewRadius =
@@ -226,7 +226,7 @@ export function ThemeSettingsClient() {
                   key={value}
                   onClick={() => handleRadiusChange(value)}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
                     isActive
                       ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
                       : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
@@ -246,7 +246,7 @@ export function ThemeSettingsClient() {
         {/* Font */}
         <section>
           <SectionLabel>Font</SectionLabel>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {(
               Object.entries(FONT_FAMILIES) as [
                 FontFamily,
@@ -259,7 +259,7 @@ export function ThemeSettingsClient() {
                   key={key}
                   onClick={() => handleFontChange(key)}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
                     isActive
                       ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
                       : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
@@ -282,7 +282,7 @@ export function ThemeSettingsClient() {
         {/* Font Spacing */}
         <section>
           <SectionLabel>Font Spacing</SectionLabel>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {LETTER_SPACING_OPTIONS.map(({ value, label }) => {
               const isActive = letterSpacing === value;
               return (
@@ -290,7 +290,7 @@ export function ThemeSettingsClient() {
                   key={value}
                   onClick={() => handleLetterSpacingChange(value)}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-all",
+                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
                     isActive
                       ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
                       : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
@@ -314,7 +314,7 @@ export function ThemeSettingsClient() {
         {/* Preview */}
         <section>
           <SectionLabel>Preview</SectionLabel>
-          <div className="rounded-xl border border-border/70 bg-card/80 p-5 shadow-sm">
+          <div className="rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm sm:p-5">
             <div className="mb-4 flex items-start gap-2">
               <div
                 className="mt-1 h-3 w-3 shrink-0 rounded-full"

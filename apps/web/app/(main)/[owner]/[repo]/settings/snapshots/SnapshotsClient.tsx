@@ -434,7 +434,7 @@ function BuildRow({
               </a>
             )}
             {build.logs ? (
-              <pre className="max-h-64 overflow-auto rounded bg-muted/50 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+              <pre className="max-h-64 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap sm:p-3 sm:text-[11px]">
                 {build.logs}
               </pre>
             ) : (
@@ -532,8 +532,8 @@ function CronGuide() {
           Cron format reference
         </p>
       </div>
-      <div className="p-3 flex flex-col gap-3 sm:flex-row sm:gap-6">
-        <pre className="font-mono text-[11px] text-muted-foreground leading-relaxed shrink-0">
+      <div className="p-2 flex flex-col gap-3 sm:flex-row sm:gap-6 sm:p-3">
+        <pre className="overflow-x-auto font-mono text-[10px] text-muted-foreground leading-relaxed shrink-0 sm:text-[11px]">
           {"┌─ minute (0-59)\n"}
           {"│ ┌─ hour (0-23)\n"}
           {"│ │ ┌─ day of month (1-31)\n"}
@@ -541,7 +541,7 @@ function CronGuide() {
           {"│ │ │ │ ┌─ day of week (0-6)\n"}
           {"* * * * *"}
         </pre>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] content-start">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] content-start sm:gap-x-4 sm:text-[11px]">
           {[
             ["*", "any value"],
             [",", "list separator"],

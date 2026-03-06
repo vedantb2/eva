@@ -175,7 +175,7 @@ export function InboxClient() {
                         </div>
                         <NotificationIcon type={n.type} size="sm" />
                         <div className="flex-1 min-w-0 flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-xs font-medium truncate sm:text-sm">
                             {n.title}
                           </span>
                           {n.message && (
@@ -191,7 +191,7 @@ export function InboxClient() {
                           >
                             {config.label}
                           </Badge>
-                          <span className="text-xs text-muted-foreground tabular-nums">
+                          <span className="text-[10px] text-muted-foreground tabular-nums sm:text-xs">
                             {dayjs(n.createdAt).format(
                               dayjs(n.createdAt).isSame(dayjs(), "day")
                                 ? "h:mm A"

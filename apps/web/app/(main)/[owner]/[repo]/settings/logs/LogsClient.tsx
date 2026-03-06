@@ -318,7 +318,7 @@ export function LogsClient() {
           <div className="space-y-2">
             {grouped.map((group) => (
               <Collapsible key={group.type} defaultOpen>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent/50 [&[data-state=open]>svg]:rotate-90">
+                <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium hover:bg-accent/50 sm:gap-2 sm:px-3 sm:text-sm [&[data-state=open]>svg]:rotate-90">
                   <IconChevronRight
                     size={14}
                     className="transition-transform"
@@ -332,7 +332,7 @@ export function LogsClient() {
                   </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="ml-5 space-y-px">
+                  <div className="ml-2 space-y-px sm:ml-5">
                     {group.logs.map((log) => {
                       const evt = parseResultEvent(log.rawResultEvent);
                       return (
@@ -340,7 +340,7 @@ export function LogsClient() {
                           key={log._id}
                           className="rounded-md px-3 py-2 hover:bg-accent/30"
                         >
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3 text-sm">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3 text-xs sm:text-sm">
                             <span className="min-w-0 flex-1 truncate">
                               {log.entityTitle}
                             </span>

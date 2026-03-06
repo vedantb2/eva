@@ -40,6 +40,7 @@ import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
 import { ScheduleTasksModal } from "@/lib/components/quick-tasks/ScheduleTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
+import { QuickTasksStatusSummary } from "@/lib/components/quick-tasks/QuickTasksStatusSummary";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
 import {
   IconChecklist,
@@ -331,14 +332,12 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <div
-                  className={`flex min-w-0 flex-1 min-h-0 ${selectedTaskId ? "gap-0" : ""}`}
-                >
+                <div className="flex min-w-0 flex-1 min-h-0">
                   <div
                     className={
                       selectedTaskId
                         ? "hidden md:flex md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
-                        : "flex flex-col flex-1 min-w-0 min-h-0"
+                        : "flex flex-col min-w-0 min-h-0 flex-1 md:flex-none md:w-[20%] md:flex-shrink-0 md:overflow-hidden"
                     }
                   >
                     <QuickTasksListView
@@ -350,12 +349,16 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                       selectedTaskId={selectedTaskId}
                     />
                   </div>
-                  {selectedTaskId && (
+                  {selectedTaskId ? (
                     <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
                       <TaskDetailInline
                         onClose={handleTaskClose}
                         taskId={selectedTaskId as Id<"agentTasks">}
                       />
+                    </div>
+                  ) : (
+                    <div className="hidden md:flex md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                      <QuickTasksStatusSummary tasks={quickTasks} />
                     </div>
                   )}
                 </div>

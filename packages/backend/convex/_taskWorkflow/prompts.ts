@@ -66,14 +66,22 @@ ${subtasksList}${changeRequestSection}
 5. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
-After pushing, capture visual proof using agent-browser:
-1. Run \`agent-browser set viewport 1920 1080\` to set the viewport size
+After pushing, capture visual proof of your changes using agent-browser.
+Skip entirely if your changes are backend-only with no UI impact. Do NOT mention proof capture in your response or commit message.
+
+### How to decide WHAT to capture:
+- Think about which page/route your changes affect. If you edited a settings form, navigate to /settings. If you changed a dashboard widget, go to /dashboard.
+- Look at the files you modified — map them to the routes/pages they render.
+- Always navigate to the SPECIFIC page that demonstrates your change, never just screenshot the homepage or a random page.
+
+### Steps:
+1. Run \`agent-browser set viewport 1920 1080\`
 2. Start dev server in background, wait for ready
-3. Screenshot with \`agent-browser screenshot --annotate\` (simple changes) or record video (complex changes) — pick one
-4. Save to screenshots/ or recordings/ in repo root
-5. Kill the dev server
+3. Navigate to the page that shows your change: \`agent-browser open http://localhost:3000/<relevant-route>\`
+4. For simple/single-page changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
+5. For complex/multi-page changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait for load, scroll to show changes), then \`agent-browser record stop\`
+6. Kill the dev server
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
-Skip if no UI changes. Do NOT mention proof capture in response or commit message.
 
 ## Rules:
 - Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)

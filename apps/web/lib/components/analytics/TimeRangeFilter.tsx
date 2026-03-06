@@ -1,6 +1,14 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@conductor/ui";
+import { IconCalendar } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 
 type TimeRange = "7d" | "30d" | "90d" | "all";
@@ -11,6 +19,19 @@ interface TimeRangeFilterProps {
 }
 
 const DAY_MS = 86_400_000;
+
+const TIME_RANGES = ["7d", "30d", "90d", "all"] as const;
+
+const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  all: "All time",
+};
+
+function isTimeRange(v: string): v is TimeRange {
+  return (TIME_RANGES satisfies readonly string[]).includes(v);
+}
 
 export function getStartTime(range: TimeRange): number | undefined {
   if (range === "all") return undefined;
@@ -24,14 +45,30 @@ export function getBucketSize(range: TimeRange): number {
 
 export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {
   return (
-    <Tabs value={value} onValueChange={(v) => onChange(v as TimeRange)}>
-      <TabsList>
-        <TabsTrigger value="7d">7 Days</TabsTrigger>
-        <TabsTrigger value="30d">30 Days</TabsTrigger>
-        <TabsTrigger value="90d">90 Days</TabsTrigger>
-        <TabsTrigger value="all">All Time</TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm">
+          <IconCalendar size={14} />
+          {TIME_RANGE_LABELS[value]}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(v) => {
+            if (isTimeRange(v)) {
+              onChange(v);
+            }
+          }}
+        >
+          {TIME_RANGES.map((range) => (
+            <DropdownMenuRadioItem key={range} value={range}>
+              {TIME_RANGE_LABELS[range]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

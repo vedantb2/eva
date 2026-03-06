@@ -1,5 +1,67 @@
 # Changelog
 
+## Change date filter from tabs to dropdown - 2026-03-06
+
+- **Why**: Tabs took up more horizontal space and didn't match the adjacent entity type filter's dropdown pattern. A dropdown is more consistent and compact.
+- **Changes**: Replaced `Tabs`/`TabsList`/`TabsTrigger` with `DropdownMenu`/`DropdownMenuRadioGroup` in `TimeRangeFilter`. Labels now show full text ("Last 7 days" etc.) instead of abbreviations. Affects both Logs and Stats pages.
+
+## Improve task detail modal activity UX - 2026-03-06
+
+- **Why**: Stop button was buried in the footer far from the activity it controls. User change request messages cluttered the request changes panel when they belong contextually next to the run they triggered.
+- **Changes**:
+  1. Moved the stop button from the modal footer to the right end of the Activity section header for proximity to what it controls.
+  2. Added `IconEdit` indicator on agent runs triggered by user change requests (all runs after the first) to visually distinguish edits from initial runs.
+  3. Added `IconMessageCircle` button in accordion triggers that opens a modal showing the user message that triggered that run.
+  4. Removed user comment history from the request changes panel — messages are now accessible via the icon on each run.
+
+## Mobile responsiveness audit for Quick Tasks page - 2026-03-06
+
+- **Why**: Quick Tasks page components were not optimized for mobile viewports, leading to cramped layouts, poor touch targets, and usability issues on small screens.
+- **Changes**:
+  1. KanbanBoard: Added snap scrolling on mobile for smooth horizontal column navigation, increased min column width from 240px to 280px for better readability.
+  2. QuickTasksClient: Added safe-area-inset-bottom padding to floating selection bar, improved padding and backdrop blur for mobile touch comfort.
+  3. QuickTaskModal: Reduced textarea from 12 rows to 6 with responsive min-height, made dialog footer stack vertically on mobile.
+  4. QuickTaskCard: Increased vertical padding on mobile for better touch targets.
+  5. QuickTasksListView: Added bottom padding for scroll comfort and improved sticky header spacing.
+  6. GroupTasksModal: Added responsive max-width to prevent overflow on very small screens.
+
+## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
+
+- **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.
+- **Changes**:
+  1. **LogsClient**: Converted 4 stat cards from `flex` to `grid grid-cols-2 lg:grid-cols-4`. Made log entry rows stack vertically on mobile with `flex-wrap`.
+  2. **SnapshotsClient**: Made status grid responsive (`grid-cols-1 sm:grid-cols-2`), added horizontal scroll to builds table, made cron guide stack vertically on mobile, made config header and save row wrap properly.
+  3. **EnvVarsTable**: Added horizontal scroll wrapper to table, made header description + buttons stack on mobile.
+  4. **ThemeSettingsClient**: Tightened appearance mode grid spacing on small screens, made preview text smaller on mobile.
+  5. **TimeRangeFilter**: Shortened tab labels and reduced padding for mobile fit.
+  6. **InboxClient**: Collapsed "Mark all read" to icon-only on mobile, tightened notification item padding and gap.
+
+## Watchdog consolidation + shared streaming cleanup - 2026-03-06
+
+- **Why**: `workflowWatchdog.ts` had 8 handlers with identical cancel-workflow + clear-streaming preambles (6 of 8 repeated the same 5-line inline streaming cleanup). Separately, 15+ workflow files inlined the same 4-line `query("streamingActivity").withIndex(...).first(); if (streaming) delete` pattern instead of using the existing `clearStreamingActivity` helper.
+- **Changes**:
+  1. Extracted `cancelStaleWorkflow(ctx, workflowId, streamingEntityIds)` helper in `workflowWatchdog.ts` that cancels the workflow + clears streaming for a list of entity IDs. All 6 handlers that had both operations now call this single function.
+  2. Replaced 15 inline streaming cleanup patterns across 10 workflow files (`sessionWorkflow`, `designWorkflow`, `designSessions`, `docInterviewWorkflow`, `docPrdWorkflow`, `evaluationWorkflow`, `projectInterviewWorkflow`, `researchQueryWorkflow`, `summarizeWorkflow`, `testGenWorkflow`) with `clearStreamingActivity()` imported from `_taskWorkflow/helpers.ts`.
+- **Reason for change (architectural)**: Single source of truth for streaming cleanup logic. Bug fixes to the cleanup pattern now propagate everywhere.
+
+## Simplify backend/convex: dedup error classification, consolidate sandbox reuse, fix N+1 queries - 2026-03-06
+
+- **Why**: Codebase had grown organically with duplicated error classification logic (inline in execution.ts vs function in recovery.ts), near-identical sandbox startup try-reuse blocks in sessions.ts, and sequential db.get/query loops (N+1) in analytics and agentTasks queries that hurt both readability and performance.
+- **Changes**:
+  1. Moved `isDaytonaNetworkIssue()` from `_taskWorkflow/recovery.ts` to `_daytona/helpers.ts` (canonical location). Replaced 30-line inline error marker logic in `execution.ts` with a single function call. Re-exported from recovery.ts to preserve existing imports.
+  2. Extracted `tryReuseSandbox()` helper in `_daytona/sessions.ts` to consolidate the duplicated "get existing sandbox → prepare → return or fall through" pattern shared by `startSessionSandbox` and `startDesignSandbox`.
+  3. Converted sequential `for` loops with `ctx.db.get()` / `ctx.db.query()` to `Promise.all` in `analytics.ts` (5 N+1 patterns across getImpactStats, getActiveUsers, getActivityTimeline, getLeaderboard) and `_agentTasks/queries.ts` (getDependentTasks, getStatusesByIds).
+- **Reason for change (architectural)**: Error classification is Daytona-specific and should live in the Daytona module. Sandbox reuse is a shared lifecycle pattern. N+1 queries cause unnecessary sequential round-trips in Convex queries.
+
+## Consolidate duplicated Daytona operational logic - 2026-03-06
+
+- **Why**: The "sign JWT token + launch script on sandbox" pattern was duplicated across 4 call sites (`execution.ts` 2x, `audit.ts` 2x). A bug fix or enhancement to this flow required changes in 4 places. Additionally, `getDaytona()` and `WORKSPACE_DIR` were redefined in `pty.ts` and `snapshotActions.ts` instead of importing from the canonical `_daytona/helpers.ts`.
+- **Changes**:
+  1. Added `signAndLaunchScript()` helper in `_daytona/helpers.ts` that composes token signing + script launch into a single call.
+  2. Updated `_daytona/execution.ts` (`setupAndExecute`, `launchOnExistingSandbox`) and `_daytona/audit.ts` (`launchAudit`, `runSessionAudit`) to use the new helper.
+  3. Removed local `getDaytona()` and `WORKSPACE_DIR` from `pty.ts` and `snapshotActions.ts`, importing from `_daytona/helpers.ts` instead.
+- **Reason for change (architectural)**: Service layer consolidation — reusable operational mechanics should live in one place so bug fixes propagate to all callers.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

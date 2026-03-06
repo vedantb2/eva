@@ -239,7 +239,7 @@ export function LogsClient() {
         logs !== undefined && logs.length > 0 ? `Logs (${logs.length})` : "Logs"
       }
       headerRight={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm">
@@ -277,31 +277,39 @@ export function LogsClient() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1 rounded-lg border bg-card p-4">
-              <div className="text-sm text-muted-foreground">Total Cost</div>
-              <div className="text-2xl font-semibold">
-                {formatCost(totalCost)}{" "}
-                <span className="text-base font-normal text-muted-foreground">
-                  ~£{(totalCost * USD_TO_GBP).toFixed(4)}
-                </span>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-lg border bg-card p-3 sm:p-4">
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                Total Cost
+              </div>
+              <div className="text-lg sm:text-2xl font-semibold">
+                {formatCost(totalCost)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                ~£{(totalCost * USD_TO_GBP).toFixed(4)}
               </div>
             </div>
-            <div className="flex-1 rounded-lg border bg-card p-4">
-              <div className="text-sm text-muted-foreground">Ran For</div>
-              <div className="text-2xl font-semibold">
+            <div className="rounded-lg border bg-card p-3 sm:p-4">
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                Ran For
+              </div>
+              <div className="text-lg sm:text-2xl font-semibold">
                 {formatTotalDuration(totalDuration)}
               </div>
             </div>
-            <div className="flex-1 rounded-lg border bg-card p-4">
-              <div className="text-sm text-muted-foreground">Input Tokens</div>
-              <div className="text-2xl font-semibold">
+            <div className="rounded-lg border bg-card p-3 sm:p-4">
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                Input Tokens
+              </div>
+              <div className="text-lg sm:text-2xl font-semibold">
                 {formatTokens(totalInput)}
               </div>
             </div>
-            <div className="flex-1 rounded-lg border bg-card p-4">
-              <div className="text-sm text-muted-foreground">Output Tokens</div>
-              <div className="text-2xl font-semibold">
+            <div className="rounded-lg border bg-card p-3 sm:p-4">
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                Output Tokens
+              </div>
+              <div className="text-lg sm:text-2xl font-semibold">
                 {formatTokens(totalOutput)}
               </div>
             </div>
@@ -310,7 +318,7 @@ export function LogsClient() {
           <div className="space-y-2">
             {grouped.map((group) => (
               <Collapsible key={group.type} defaultOpen>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent/50 [&[data-state=open]>svg]:rotate-90">
+                <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium hover:bg-accent/50 sm:gap-2 sm:px-3 sm:text-sm [&[data-state=open]>svg]:rotate-90">
                   <IconChevronRight
                     size={14}
                     className="transition-transform"
@@ -324,7 +332,7 @@ export function LogsClient() {
                   </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="ml-5 space-y-px">
+                  <div className="ml-2 space-y-px sm:ml-5">
                     {group.logs.map((log) => {
                       const evt = parseResultEvent(log.rawResultEvent);
                       return (
@@ -332,28 +340,30 @@ export function LogsClient() {
                           key={log._id}
                           className="rounded-md px-3 py-2 hover:bg-accent/30"
                         >
-                          <div className="flex items-center gap-3 text-sm">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3 text-xs sm:text-sm">
                             <span className="min-w-0 flex-1 truncate">
                               {log.entityTitle}
                             </span>
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
-                              {evt.model}
-                            </span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {formatTokens(evt.inputTokens)} in /{" "}
-                              {formatTokens(evt.outputTokens)} out
-                            </span>
-                            {evt.durationMs > 0 && (
-                              <span className="shrink-0 text-xs text-muted-foreground">
-                                {formatDuration(evt.durationMs)}
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
+                                {evt.model}
                               </span>
-                            )}
-                            <span className="shrink-0 font-mono text-xs">
-                              {formatCost(evt.costUsd)}
-                            </span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {dayjs(log.createdAt).format("MMM D, HH:mm")}
-                            </span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {formatTokens(evt.inputTokens)} in /{" "}
+                                {formatTokens(evt.outputTokens)} out
+                              </span>
+                              {evt.durationMs > 0 && (
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                  {formatDuration(evt.durationMs)}
+                                </span>
+                              )}
+                              <span className="shrink-0 font-mono text-xs">
+                                {formatCost(evt.costUsd)}
+                              </span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {dayjs(log.createdAt).format("MMM D, HH:mm")}
+                              </span>
+                            </div>
                           </div>
                           <RawEventViewer raw={log.rawResultEvent} />
                         </div>

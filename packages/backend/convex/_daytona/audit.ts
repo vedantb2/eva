@@ -3,9 +3,14 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { exec, WORKSPACE_DIR, getSandbox, errorMessage } from "./helpers";
+import {
+  exec,
+  WORKSPACE_DIR,
+  getSandbox,
+  errorMessage,
+  signAndLaunchScript,
+} from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
-import { launchScript } from "./launch";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
 function buildSessionAuditPrompt(diff: string): string {
@@ -41,18 +46,15 @@ export const launchAudit = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandboxToken = await ctx.runAction(
-      internal.sandboxJwt.signSandboxToken,
-      { userId: args.userId },
-    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
-    await launchScript(
+    await signAndLaunchScript(
+      ctx,
       sandbox,
+      args.userId,
       args.prompt,
       "taskWorkflow:handleAuditCompletion",
       "taskId",
-      sandboxToken,
       args.taskId,
       {
         model: "haiku",
@@ -84,10 +86,6 @@ export const runSessionAudit = internalAction({
         throw new Error("Session not found");
       }
 
-      const sandboxToken = await ctx.runAction(
-        internal.sandboxJwt.signSandboxToken,
-        { userId: args.userId },
-      );
       const sandbox = await getSandbox(ctx, session.repoId, args.sandboxId);
 
       const diffRaw = await exec(
@@ -104,12 +102,13 @@ export const runSessionAudit = internalAction({
         return null;
       }
 
-      await launchScript(
+      await signAndLaunchScript(
+        ctx,
         sandbox,
+        args.userId,
         buildSessionAuditPrompt(diffRaw),
         "sessionAudits:handleCompletion",
         "sessionId",
-        sandboxToken,
         String(args.sessionId),
         {
           model: "haiku",

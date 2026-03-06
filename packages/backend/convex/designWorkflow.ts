@@ -6,6 +6,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const designCompleteEvent = defineEvent({
   name: "designComplete",
@@ -265,13 +266,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) =>
-        q.eq("entityId", String(args.designSessionId)),
-      )
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.designSessionId));
 
     const last = await ctx.db
       .query("messages")

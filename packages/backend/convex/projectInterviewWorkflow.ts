@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -175,12 +176,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.projectId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.projectId));
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
@@ -429,11 +425,7 @@ export const saveSpecResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.projectId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.projectId));
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;

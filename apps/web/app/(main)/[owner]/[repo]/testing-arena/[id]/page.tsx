@@ -34,6 +34,8 @@ import {
   IconCheck,
   IconX,
   IconAlertTriangle,
+  IconGitPullRequest,
+  IconTool,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "../UITestingPanel";
@@ -52,6 +54,9 @@ interface EvaluationReport {
   results: EvalResult[];
   summary?: string;
   error?: string;
+  fixStatus?: "fixing" | "fix_completed" | "fix_error";
+  fixBranchName?: string;
+  prUrl?: string;
   createdAt: number;
 }
 
@@ -102,13 +107,62 @@ function ReportCard({
         <>
           <TestResultsHeader>
             <TestResultsSummary />
-            <span className="text-sm text-muted-foreground">
-              {dayjs(report.createdAt).fromNow()}
-            </span>
+            <div className="flex items-center gap-2">
+              {report.fixStatus === "fixing" && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Spinner size="sm" />
+                  Fixing issues...
+                </span>
+              )}
+              {report.fixStatus === "fix_error" && (
+                <span className="flex items-center gap-1.5 text-xs text-destructive">
+                  <IconAlertTriangle size={14} />
+                  Fix failed
+                </span>
+              )}
+              {report.prUrl && (
+                <a
+                  href={report.prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+                >
+                  <IconGitPullRequest size={14} />
+                  View Fix PR
+                </a>
+              )}
+              <span className="text-sm text-muted-foreground">
+                {dayjs(report.createdAt).fromNow()}
+              </span>
+            </div>
           </TestResultsHeader>
 
           <TestResultsContent>
             <TestResultsProgress />
+
+            {report.fixStatus === "fixing" &&
+              (() => {
+                const fixSteps = parseActivitySteps(streamingActivity);
+                return fixSteps ? (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <IconTool size={14} className="text-primary shrink-0" />
+                      <span className="text-xs font-medium text-primary">
+                        Fixing issues...
+                      </span>
+                    </div>
+                    <ActivitySteps steps={fixSteps} isStreaming />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                    <IconTool size={14} className="text-primary shrink-0" />
+                    <span className="text-sm text-primary">
+                      {streamingActivity ||
+                        "Eva is fixing the failing requirements and will create a PR automatically..."}
+                    </span>
+                  </div>
+                );
+              })()}
 
             {report.summary && (
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -185,6 +239,8 @@ function RunListItem({
         <>
           {failed === 0 ? (
             <IconCheck size={14} className="text-success shrink-0" />
+          ) : report.prUrl ? (
+            <IconGitPullRequest size={14} className="text-primary shrink-0" />
           ) : (
             <IconX size={14} className="text-destructive shrink-0" />
           )}
@@ -194,6 +250,8 @@ function RunListItem({
             </span>
             <span className="text-xs text-muted-foreground">
               {passRate}% &middot; {dayjs(report.createdAt).fromNow()}
+              {report.fixStatus === "fixing" && " · Fixing..."}
+              {report.prUrl && " · PR created"}
             </span>
           </div>
         </>
@@ -280,7 +338,10 @@ function CodeTestingContent({
           <ReportCard
             report={activeReport}
             streamingActivity={
-              activeReport.status === "running" ? streamingActivity : undefined
+              activeReport.status === "running" ||
+              activeReport.fixStatus === "fixing"
+                ? streamingActivity
+                : undefined
             }
           />
         )}
@@ -301,10 +362,12 @@ export default function TestingArenaDocPage({
     api.evaluationReports.listByDoc,
     doc ? { docId: doc._id } : "skip",
   );
-  const runningReport = reports?.find((r) => r.status === "running");
+  const activeReport = reports?.find(
+    (r) => r.status === "running" || r.fixStatus === "fixing",
+  );
   const streaming = useQuery(
     api.streaming.get,
-    runningReport ? { entityId: runningReport._id } : "skip",
+    activeReport ? { entityId: activeReport._id } : "skip",
   );
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isRunning, setIsRunning] = useState(false);

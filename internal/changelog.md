@@ -1,5 +1,15 @@
 # Changelog
 
+## Auto-generate fix PRs from testing arena evaluation failures - 2026-03-06
+
+- **Why**: When the testing arena evaluation found failing requirements, users had to manually create tasks to fix them. Now the system automatically spins up a sandbox, fixes the issues, and creates a PR — closing the feedback loop without leaving the testing arena.
+- **Changes**:
+  1. Added `fixStatus`, `fixBranchName`, and `prUrl` fields to the `evaluationReports` schema and validators.
+  2. Extended `evaluationWorkflow` to continue after evaluation completes with failures: spins up a write-enabled sandbox, gives Claude the failing requirements to fix, creates a branch and PR via `createPullRequest`, stores the PR URL on the report.
+  3. Added `fixCompleteEvent`, `handleFixCompletion`, `getFixData`, `setFixing`, `saveFixResult`, `saveFixError` functions to support the fix workflow lifecycle.
+  4. Updated the frontend testing arena page to display fix status (fixing indicator, streaming activity during fix), and a "View Fix PR" link button on the report card header.
+- **Reason for change (architectural)**: Evaluation and fix are a natural continuation — keeping them in the same workflow simplifies state management and avoids orphaned fix attempts.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

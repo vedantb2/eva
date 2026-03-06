@@ -58,6 +58,12 @@ export const evaluationStatusValidator = v.union(
   v.literal("error"),
 );
 
+export const evalFixStatusValidator = v.union(
+  v.literal("fixing"),
+  v.literal("fix_completed"),
+  v.literal("fix_error"),
+);
+
 export const themeValidator = v.union(v.literal("light"), v.literal("dark"));
 
 export const evalResultValidator = v.object({

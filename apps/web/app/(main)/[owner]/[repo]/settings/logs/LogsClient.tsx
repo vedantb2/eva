@@ -261,9 +261,9 @@ export function LogsClient() {
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm">
                 <IconFilter size={14} />
-                {visibleTypes.size === availableTypes.length
+                {availableTypes.every((t) => visibleTypes.has(t))
                   ? "All Types"
-                  : `${visibleTypes.size} Types`}
+                  : `${availableTypes.filter((t) => visibleTypes.has(t)).length} Types`}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>

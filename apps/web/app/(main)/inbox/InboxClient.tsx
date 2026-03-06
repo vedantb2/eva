@@ -93,15 +93,24 @@ export function InboxClient() {
           </Button>
           {unreadCount > 0 && (
             <>
-              <div className="mx-1 h-4 w-px bg-border" />
+              <div className="mx-1 h-4 w-px bg-border hidden sm:block" />
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => markAllAsRead()}
-                className="h-7 text-xs text-muted-foreground"
+                className="h-7 text-xs text-muted-foreground hidden sm:inline-flex"
               >
                 <IconChecks size={14} />
                 Mark all read
+              </Button>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => markAllAsRead()}
+                className="h-7 w-7 text-muted-foreground sm:hidden"
+                title="Mark all as read"
+              >
+                <IconChecks size={14} />
               </Button>
             </>
           )}
@@ -135,7 +144,7 @@ export function InboxClient() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="border-b border-border/50 bg-muted/40 px-4 py-1.5">
+                <div className="border-b border-border/50 bg-muted/40 px-3 sm:px-4 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
                     {group.label}
                   </span>
@@ -155,7 +164,7 @@ export function InboxClient() {
                     >
                       <button
                         onClick={() => handleClick(n)}
-                        className={`group flex w-full items-center gap-3 border-b border-border/40 px-4 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 ${n.read ? "opacity-60" : ""}`}
+                        className={`group flex w-full items-center gap-2 border-b border-border/40 px-3 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
                       >
                         <div className="flex w-3 items-center justify-center flex-shrink-0">
                           {!n.read && (
@@ -164,7 +173,7 @@ export function InboxClient() {
                         </div>
                         <NotificationIcon type={n.type} size="sm" />
                         <div className="flex-1 min-w-0 flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-xs font-medium truncate sm:text-sm">
                             {n.title}
                           </span>
                           {n.message && (
@@ -180,7 +189,7 @@ export function InboxClient() {
                           >
                             {config.label}
                           </Badge>
-                          <span className="text-xs text-muted-foreground tabular-nums">
+                          <span className="text-[10px] text-muted-foreground tabular-nums sm:text-xs">
                             {dayjs(n.createdAt).format(
                               dayjs(n.createdAt).isSame(dayjs(), "day")
                                 ? "h:mm A"

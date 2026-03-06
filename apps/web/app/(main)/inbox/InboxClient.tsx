@@ -68,8 +68,6 @@ export function InboxClient() {
   return (
     <PageWrapper
       title="Inbox"
-      fillHeight
-      childPadding={false}
       headerRight={
         <div className="flex items-center gap-1">
           <Button
@@ -115,7 +113,7 @@ export function InboxClient() {
           <Spinner />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex items-center justify-center py-20">
           <EmptyState
             icon={<IconInbox size={24} className="text-muted-foreground" />}
             title={
@@ -127,7 +125,7 @@ export function InboxClient() {
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto scrollbar">
+        <div className="rounded-lg border border-border/70 overflow-hidden">
           <AnimatePresence initial={false}>
             {groups!.map((group) => (
               <motion.div
@@ -137,7 +135,7 @@ export function InboxClient() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="sticky top-0 z-10 border-b border-border/50 bg-card/90 px-4 py-1.5">
+                <div className="border-b border-border/50 bg-muted/40 px-4 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
                     {group.label}
                   </span>

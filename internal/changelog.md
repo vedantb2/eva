@@ -1,5 +1,10 @@
 # Changelog
 
+## Change date filter from tabs to dropdown - 2026-03-06
+
+- **Why**: Tabs took up more horizontal space and didn't match the adjacent entity type filter's dropdown pattern. A dropdown is more consistent and compact.
+- **Changes**: Replaced `Tabs`/`TabsList`/`TabsTrigger` with `DropdownMenu`/`DropdownMenuRadioGroup` in `TimeRangeFilter`. Labels now show full text ("Last 7 days" etc.) instead of abbreviations. Affects both Logs and Stats pages.
+
 ## Improve task detail modal activity UX - 2026-03-06
 
 - **Why**: Stop button was buried in the footer far from the activity it controls. User change request messages cluttered the request changes panel when they belong contextually next to the run they triggered.
@@ -8,6 +13,7 @@
   2. Added `IconEdit` indicator on agent runs triggered by user change requests (all runs after the first) to visually distinguish edits from initial runs.
   3. Added `IconMessageCircle` button in accordion triggers that opens a modal showing the user message that triggered that run.
   4. Removed user comment history from the request changes panel — messages are now accessible via the icon on each run.
+
 ## Mobile responsiveness audit for Quick Tasks page - 2026-03-06
 
 - **Why**: Quick Tasks page components were not optimized for mobile viewports, leading to cramped layouts, poor touch targets, and usability issues on small screens.
@@ -18,6 +24,7 @@
   4. QuickTaskCard: Increased vertical padding on mobile for better touch targets.
   5. QuickTasksListView: Added bottom padding for scroll comfort and improved sticky header spacing.
   6. GroupTasksModal: Added responsive max-width to prevent overflow on very small screens.
+
 ## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
 
 - **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.
@@ -28,6 +35,7 @@
   4. **ThemeSettingsClient**: Tightened appearance mode grid spacing on small screens, made preview text smaller on mobile.
   5. **TimeRangeFilter**: Shortened tab labels and reduced padding for mobile fit.
   6. **InboxClient**: Collapsed "Mark all read" to icon-only on mobile, tightened notification item padding and gap.
+
 ## Watchdog consolidation + shared streaming cleanup - 2026-03-06
 
 - **Why**: `workflowWatchdog.ts` had 8 handlers with identical cancel-workflow + clear-streaming preambles (6 of 8 repeated the same 5-line inline streaming cleanup). Separately, 15+ workflow files inlined the same 4-line `query("streamingActivity").withIndex(...).first(); if (streaming) delete` pattern instead of using the existing `clearStreamingActivity` helper.

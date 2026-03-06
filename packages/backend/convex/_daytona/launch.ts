@@ -2,12 +2,7 @@
 
 import type { Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
-import {
-  exec,
-  requireEnv,
-  withTimeout,
-  SANDBOX_UPLOAD_TIMEOUT_MS,
-} from "./helpers";
+import { exec, requireEnv } from "./helpers";
 import { buildCallbackScript } from "./callbackScript";
 
 export async function launchScript(
@@ -25,23 +20,15 @@ export async function launchScript(
     claudeSessionId?: string;
   } = {},
 ): Promise<void> {
-  await withTimeout(
-    sandbox.fs.uploadFile(
-      Buffer.from(prompt, "utf-8"),
-      "/tmp/design-prompt.txt",
-    ),
-    SANDBOX_UPLOAD_TIMEOUT_MS,
-    "sandbox.uploadFile(prompt)",
+  await sandbox.fs.uploadFile(
+    Buffer.from(prompt, "utf-8"),
+    "/tmp/design-prompt.txt",
   );
 
   const handlerScript = buildCallbackScript(completionMutation, entityIdField);
-  await withTimeout(
-    sandbox.fs.uploadFile(
-      Buffer.from(handlerScript, "utf-8"),
-      "/tmp/run-design.mjs",
-    ),
-    SANDBOX_UPLOAD_TIMEOUT_MS,
-    "sandbox.uploadFile(callback-script)",
+  await sandbox.fs.uploadFile(
+    Buffer.from(handlerScript, "utf-8"),
+    "/tmp/run-design.mjs",
   );
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");

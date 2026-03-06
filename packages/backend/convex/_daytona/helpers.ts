@@ -11,11 +11,6 @@ export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 export const SNAPSHOT_READY_TIMEOUT_ERROR =
   "Sandbox failed to become ready within the timeout period";
-export const DAYTONA_GET_TIMEOUT_MS = 30_000;
-export const DAYTONA_CREATE_TIMEOUT_PADDING_MS = 15_000;
-export const SANDBOX_UPLOAD_TIMEOUT_MS = 30_000;
-export const SETUP_WALL_CLOCK_TIMEOUT_MS = 420_000;
-export const SETUP_MAX_ATTEMPTS = 3;
 
 export async function exec(
   sandbox: Sandbox,
@@ -39,29 +34,6 @@ export async function exec(
   return resp.result;
 }
 
-export async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  label: string,
-): Promise<T> {
-  if (timeoutMs <= 0) {
-    throw new Error(`${label} timed out after ${timeoutMs}ms`);
-  }
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<T>((_resolve, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
 export async function ensureSandboxRunning(
   sandbox: Sandbox,
   timeoutSeconds = DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
@@ -70,11 +42,7 @@ export async function ensureSandboxRunning(
     await exec(sandbox, "echo 1", 5);
     return;
   } catch {
-    await withTimeout(
-      sandbox.start(timeoutSeconds),
-      timeoutSeconds * 1000 + 10_000,
-      "sandbox.start",
-    );
+    await sandbox.start(timeoutSeconds);
     await exec(sandbox, "echo 1", 5);
   }
 }
@@ -95,18 +63,13 @@ export async function sleep(ms: number): Promise<void> {
   });
 }
 
-export function isSnapshotReadyTimeoutError<T>(error: T): boolean {
+export function isSnapshotReadyTimeoutError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes(SNAPSHOT_READY_TIMEOUT_ERROR);
 }
 
-export function errorMessage<T>(error: T, fallback: string): string {
+export function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = error.message;
-    if (typeof message === "string") return message;
-  }
   return fallback;
 }
 
@@ -138,9 +101,5 @@ export async function getSandbox(
 ): Promise<Sandbox> {
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
   const daytona = getDaytona(daytonaApiKey);
-  return withTimeout(
-    daytona.get(sandboxId),
-    DAYTONA_GET_TIMEOUT_MS,
-    `daytona.get(${sandboxId})`,
-  );
+  return daytona.get(sandboxId);
 }

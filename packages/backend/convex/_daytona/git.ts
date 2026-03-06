@@ -14,9 +14,6 @@ import {
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   isSnapshotReadyTimeoutError,
   ensureSandboxRunning,
-  withTimeout,
-  DAYTONA_CREATE_TIMEOUT_PADDING_MS,
-  DAYTONA_GET_TIMEOUT_MS,
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 
@@ -32,30 +29,23 @@ export async function createSandbox(
     : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS;
 
   const githubToken = await getInstallationToken(installationId);
-  const createTimeoutMs =
-    timeoutSeconds * 1000 + DAYTONA_CREATE_TIMEOUT_PADDING_MS;
 
-  const sandbox = await withTimeout(
-    daytona.create(
-      {
-        ...(snapshotName
-          ? { snapshot: snapshotName }
-          : { language: "typescript" }),
-        ...(volumes ? { volumes } : {}),
-        envVars: {
-          ...sandboxEnvVars,
-          GITHUB_TOKEN: githubToken,
-          INSTALLATION_ID: String(installationId),
-        },
-        autoStopInterval: 15,
-        autoDeleteInterval: 30,
+  const sandbox = await daytona.create(
+    {
+      ...(snapshotName
+        ? { snapshot: snapshotName }
+        : { language: "typescript" }),
+      ...(volumes ? { volumes } : {}),
+      envVars: {
+        ...sandboxEnvVars,
+        GITHUB_TOKEN: githubToken,
+        INSTALLATION_ID: String(installationId),
       },
-      { timeout: timeoutSeconds },
-    ),
-    createTimeoutMs,
-    "daytona.create",
+      autoStopInterval: 15,
+      autoDeleteInterval: 30,
+    },
+    { timeout: timeoutSeconds },
   );
-
   await exec(
     sandbox,
     'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
@@ -148,13 +138,6 @@ async function installDependencies(
   }
 }
 
-export async function ensureWorkspaceDependencies(
-  sandbox: Sandbox,
-): Promise<void> {
-  const pm = await detectPackageManager(sandbox);
-  await installDependencies(sandbox, pm);
-}
-
 export async function cloneAndSetupRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -168,7 +151,8 @@ export async function cloneAndSetupRepo(
     `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
     120,
   );
-  await ensureWorkspaceDependencies(sandbox);
+  const pm = await detectPackageManager(sandbox);
+  await installDependencies(sandbox, pm);
 }
 
 export async function setupBranch(
@@ -177,11 +161,14 @@ export async function setupBranch(
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
   const quotedRemote = quote([`origin/${branchName}`]);
+  // Stash any local changes first
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
     10,
   );
+  // Try to checkout the existing remote branch first (preserves previous commits),
+  // then fall back to creating a new branch from current HEAD
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -B ${quotedBranch})`,
@@ -200,56 +187,6 @@ export async function setupBranch(
     `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
     30,
   );
-}
-
-export async function acquireSandbox(
-  daytona: Daytona,
-  existingSandboxId: string | undefined,
-  installationId: number,
-  sandboxEnvVars: Record<string, string>,
-  snapshotName?: string,
-  volumes?: VolumeMount[],
-): Promise<{ sandbox: Sandbox; isNew: boolean }> {
-  if (existingSandboxId) {
-    try {
-      const sandbox = await withTimeout(
-        daytona.get(existingSandboxId),
-        DAYTONA_GET_TIMEOUT_MS,
-        `daytona.get(${existingSandboxId})`,
-      );
-      await ensureSandboxRunning(sandbox);
-      return { sandbox, isNew: false };
-    } catch {}
-  }
-
-  const sandbox = await createSandbox(
-    daytona,
-    installationId,
-    sandboxEnvVars,
-    snapshotName,
-    volumes,
-  );
-  return { sandbox, isNew: true };
-}
-
-export async function prepareSandboxRepo(
-  sandbox: Sandbox,
-  installationId: number,
-  owner: string,
-  name: string,
-  opts: { isNew: boolean; snapshotName?: string },
-): Promise<void> {
-  if (!opts.isNew) {
-    await syncRepo(sandbox, installationId, owner, name);
-    await ensureWorkspaceDependencies(sandbox);
-    return;
-  }
-  if (opts.snapshotName) {
-    await syncRepo(sandbox, installationId, owner, name);
-    await ensureWorkspaceDependencies(sandbox);
-    return;
-  }
-  await cloneAndSetupRepo(sandbox, installationId, owner, name);
 }
 
 export async function createSandboxAndPrepareRepo(
@@ -274,11 +211,12 @@ export async function createSandboxAndPrepareRepo(
     if (onSandboxAcquired) {
       await onSandboxAcquired(initialSandbox);
     }
-    await prepareSandboxRepo(initialSandbox, installationId, owner, name, {
-      isNew: true,
-      snapshotName,
-    });
-    return { sandbox: initialSandbox, usedSnapshot: Boolean(snapshotName) };
+    if (snapshotName) {
+      await syncRepo(initialSandbox, installationId, owner, name);
+      return { sandbox: initialSandbox, usedSnapshot: true };
+    }
+    await cloneAndSetupRepo(initialSandbox, installationId, owner, name);
+    return { sandbox: initialSandbox, usedSnapshot: false };
   } catch (error) {
     if (initialSandbox) {
       try {
@@ -304,10 +242,7 @@ export async function createSandboxAndPrepareRepo(
       if (onSandboxAcquired) {
         await onSandboxAcquired(sandbox);
       }
-      await prepareSandboxRepo(sandbox, installationId, owner, name, {
-        isNew: true,
-        snapshotName,
-      });
+      await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, usedSnapshot: true };
     } catch (retryError) {
       try {
@@ -328,17 +263,24 @@ export async function getOrCreateSandbox(
   snapshotName?: string,
   volumes?: VolumeMount[],
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
-  const acquired = await acquireSandbox(
+  if (existingSandboxId) {
+    try {
+      const sandbox = await daytona.get(existingSandboxId);
+      await ensureSandboxRunning(sandbox);
+      await syncRepo(sandbox, installationId, owner, name);
+      return { sandbox, isNew: false };
+    } catch {
+      // Sandbox was deleted/expired or sync failed, fall through to create a new one
+    }
+  }
+  const { sandbox } = await createSandboxAndPrepareRepo(
     daytona,
-    existingSandboxId,
     installationId,
+    owner,
+    name,
     sandboxEnvVars,
     snapshotName,
     volumes,
   );
-  await prepareSandboxRepo(acquired.sandbox, installationId, owner, name, {
-    isNew: acquired.isNew,
-    snapshotName,
-  });
-  return acquired;
+  return { sandbox, isNew: true };
 }

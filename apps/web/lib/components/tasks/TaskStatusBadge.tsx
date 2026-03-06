@@ -57,7 +57,7 @@ export const statusConfig: Record<
   todo: {
     bg: "bg-secondary",
     cardBg: "bg-secondary",
-    bar: "bg-muted-foreground",
+    bar: "bg-foreground/50",
     text: "text-muted-foreground",
     label: "To Do",
     icon: IconCircle,

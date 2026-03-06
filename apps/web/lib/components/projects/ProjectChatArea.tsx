@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Spinner,
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -16,7 +20,6 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { IconMessageCircle } from "@tabler/icons-react";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface ProjectChatAreaProps {
@@ -52,27 +55,25 @@ export function ProjectChatArea({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto scrollbar space-y-3 p-4">
-        {conversationHistory.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <IconMessageCircle
-              size={32}
-              className="text-muted-foreground mb-2"
-            />
-            <p className="text-sm text-muted-foreground">No messages yet</p>
-          </div>
-        )}
-        {conversationHistory.map((m, i) => (
-          <ChatMessage key={`msg-${i}`} role={m.role} content={m.content} />
-        ))}
-        {isSending && (
-          <div className="flex gap-3 items-center">
-            <Spinner size="sm" />
-            <span className="text-sm text-muted-foreground">Sending...</span>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="gap-3 p-3">
+          {conversationHistory.length === 0 ? (
+            <ConversationEmptyState title="No messages yet" />
+          ) : (
+            conversationHistory.map((m, i) => (
+              <ChatMessage key={`msg-${i}`} role={m.role} content={m.content} />
+            ))
+          )}
+          {isSending && (
+            <div className="flex gap-3 items-center">
+              <Spinner size="sm" />
+              <span className="text-sm text-muted-foreground">Sending...</span>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
       <div className="p-3">
         <PromptInput onSubmit={handleSubmit}>
           <PromptInputTextarea

@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { ActivitySteps, Button, Spinner } from "@conductor/ui";
+import {
+  ActivitySteps,
+  Button,
+  Spinner,
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -223,89 +230,94 @@ export function ProjectChatTab({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto scrollbar space-y-3 p-4">
-        {initialMessages.map((m, i) => {
-          if (m.role === "assistant") {
-            if (!m.content) {
-              const steps = parseActivitySteps(streamingActivity);
-              return steps ? (
-                <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
-              ) : (
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="gap-3 p-3">
+          {initialMessages.map((m, i) => {
+            if (m.role === "assistant") {
+              if (!m.content) {
+                const steps = parseActivitySteps(streamingActivity);
+                return steps ? (
+                  <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
+                ) : (
+                  <ChatMessage
+                    key={`msg-${i}`}
+                    role="assistant"
+                    content={streamingActivity || "Starting..."}
+                    isStreaming
+                  />
+                );
+              }
+              try {
+                const parsed = JSON.parse(m.content);
+                if (parsed.question) {
+                  let logs = m.activityLog;
+                  const nextAssistant = initialMessages
+                    .slice(i + 1)
+                    .find((n) => n.role === "assistant" && n.content);
+                  if (nextAssistant) {
+                    try {
+                      const np = JSON.parse(nextAssistant.content);
+                      if (np.title && np.tasks && nextAssistant.activityLog) {
+                        logs = [logs, nextAssistant.activityLog]
+                          .filter(Boolean)
+                          .join("\n\n");
+                      }
+                    } catch {}
+                  }
+                  return (
+                    <ChatMessage
+                      key={`msg-${i}`}
+                      role="assistant"
+                      content={parsed.question}
+                      logs={logs}
+                    />
+                  );
+                }
+                if (parsed.title && parsed.tasks) {
+                  return (
+                    <ChatMessage
+                      key={`msg-${i}`}
+                      role="assistant"
+                      content={`Generated spec: ${parsed.title}`}
+                    />
+                  );
+                }
+              } catch {
+                // Not parseable JSON
+              }
+              return (
                 <ChatMessage
                   key={`msg-${i}`}
                   role="assistant"
-                  content={streamingActivity || "Starting..."}
-                  isStreaming
+                  content={m.content}
+                  logs={m.activityLog}
                 />
               );
-            }
-            try {
-              const parsed = JSON.parse(m.content);
-              if (parsed.question) {
-                let logs = m.activityLog;
-                const nextAssistant = initialMessages
-                  .slice(i + 1)
-                  .find((n) => n.role === "assistant" && n.content);
-                if (nextAssistant) {
-                  try {
-                    const np = JSON.parse(nextAssistant.content);
-                    if (np.title && np.tasks && nextAssistant.activityLog) {
-                      logs = [logs, nextAssistant.activityLog]
-                        .filter(Boolean)
-                        .join("\n\n");
-                    }
-                  } catch {}
-                }
-                return (
-                  <ChatMessage
-                    key={`msg-${i}`}
-                    role="assistant"
-                    content={parsed.question}
-                    logs={logs}
-                  />
-                );
-              }
-              if (parsed.title && parsed.tasks) {
-                return (
-                  <ChatMessage
-                    key={`msg-${i}`}
-                    role="assistant"
-                    content={`Generated spec: ${parsed.title}`}
-                  />
-                );
-              }
-            } catch {
-              // Not parseable JSON
             }
             return (
               <ChatMessage
                 key={`msg-${i}`}
-                role="assistant"
+                role="user"
                 content={m.content}
-                logs={m.activityLog}
+                userId={m.userId}
               />
             );
-          }
-          return (
-            <ChatMessage
-              key={`msg-${i}`}
-              role="user"
-              content={m.content}
-              userId={m.userId}
-            />
-          );
-        })}
-        {(isLoading || waitingForResponse) &&
-          !initialMessages.some(
-            (m) => m.role === "assistant" && !m.content,
-          ) && (
-            <div className="flex gap-3 items-center">
-              <Spinner size="sm" />
-              <span className="text-sm text-muted-foreground">Thinking...</span>
-            </div>
-          )}
-        <div ref={messagesEndRef} />
-      </div>
+          })}
+          {(isLoading || waitingForResponse) &&
+            !initialMessages.some(
+              (m) => m.role === "assistant" && !m.content,
+            ) && (
+              <div className="flex gap-3 items-center">
+                <Spinner size="sm" />
+                <span className="text-sm text-muted-foreground">
+                  Thinking...
+                </span>
+              </div>
+            )}
+          <div ref={messagesEndRef} />
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
       <div className="p-4 space-y-3">
         {showQuestion && (
           <MultipleChoiceQuestion

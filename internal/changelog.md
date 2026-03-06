@@ -8,6 +8,8 @@
   2. `_taskWorkflow/recovery.ts` increases heartbeat stale threshold from 90s to 180s and startup stale threshold from 10m to 15m to better tolerate transient backend reload/control-plane jitter.
   3. `_taskWorkflow/watchdog.ts` now formats heartbeat-kill error text from the configured threshold value so diagnostics stay accurate.
   4. `_daytona/execution.ts` increases transient Daytona setup retry budget (5 attempts) with longer exponential backoff to reduce surfaced 408 setup failures.
+  5. `_taskWorkflow/watchdog.ts` now recognizes a streamed `"Finalizing response..."` phase and applies a longer stale threshold so completion/upload tail work is not killed prematurely.
+  6. `_taskWorkflow/recovery.ts` adds a dedicated finalization stale threshold used by the watchdog for clearer phase-aware behavior without adding new run-state fields.
 - **Reason for change (architectural)**: Finalization is a distinct lifecycle phase from active tool streaming; watchdogs should be strict enough to catch true hangs but tolerant of bounded callback/network jitter during shutdown paths.
 
 ## Add Geist font to theme settings - 2026-03-06

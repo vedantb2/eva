@@ -235,7 +235,9 @@ export function LogsClient() {
 
   return (
     <PageWrapper
-      title="Logs"
+      title={
+        logs !== undefined && logs.length > 0 ? `Logs (${logs.length})` : "Logs"
+      }
       headerRight={
         <div className="flex items-center gap-2">
           <DropdownMenu>

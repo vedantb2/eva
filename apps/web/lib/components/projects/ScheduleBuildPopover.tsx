@@ -27,10 +27,12 @@ export function ScheduleBuildPopover({
 }: ScheduleBuildPopoverProps) {
   const [open, setOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    scheduledBuildAt ? new Date(scheduledBuildAt) : undefined,
+    scheduledBuildAt ? new Date(scheduledBuildAt) : new Date(),
   );
   const [time, setTime] = useState(
-    scheduledBuildAt ? dayjs(scheduledBuildAt).format("HH:mm") : "09:00",
+    scheduledBuildAt
+      ? dayjs(scheduledBuildAt).format("HH:mm")
+      : dayjs().format("HH:mm"),
   );
 
   const schedule = useMutation(api.buildWorkflow.scheduleBuild);
@@ -71,10 +73,12 @@ export function ScheduleBuildPopover({
   function handleOpenChange(next: boolean) {
     if (next) {
       setSelectedDate(
-        scheduledBuildAt ? new Date(scheduledBuildAt) : undefined,
+        scheduledBuildAt ? new Date(scheduledBuildAt) : new Date(),
       );
       setTime(
-        scheduledBuildAt ? dayjs(scheduledBuildAt).format("HH:mm") : "09:00",
+        scheduledBuildAt
+          ? dayjs(scheduledBuildAt).format("HH:mm")
+          : dayjs().format("HH:mm"),
       );
     }
     setOpen(next);

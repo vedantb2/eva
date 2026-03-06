@@ -10,6 +10,7 @@ import {
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -362,11 +363,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.id)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.id));
 
     await ctx.db.patch(args.id, {
       activeWorkflowId: undefined,

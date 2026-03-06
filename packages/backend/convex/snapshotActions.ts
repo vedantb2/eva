@@ -3,18 +3,14 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Daytona } from "@daytonaio/sdk";
 import { resolveEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
+import { getDaytona } from "./_daytona/helpers";
 
 const POLL_INTERVAL_MS = 30000;
 const MAX_POLLS = 40;
 const MAX_FIND_ATTEMPTS = 5;
 const GITHUB_API = "https://api.github.com";
-
-function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
-}
 
 function githubFetch(
   path: string,

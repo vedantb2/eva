@@ -3,15 +3,10 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Daytona } from "@daytonaio/sdk";
 import { resolveDaytonaApiKey } from "./envVarResolver";
+import { getDaytona, WORKSPACE_DIR } from "./_daytona/helpers";
 
-const WORKSPACE_DIR = "/workspace/repo";
 const DAYTONA_API_URL = "https://app.daytona.io/api";
-
-function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
-}
 
 async function getToolboxBaseUrl(
   sandboxId: string,

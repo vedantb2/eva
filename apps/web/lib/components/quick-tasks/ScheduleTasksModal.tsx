@@ -34,8 +34,10 @@ export function ScheduleTasksModal({
   const updateSchedule = useMutation(api.agentTasks.updateScheduledExecution);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [time, setTime] = useState("09:00");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date(),
+  );
+  const [time, setTime] = useState(dayjs().format("HH:mm"));
 
   const count = selectedTaskIds.size;
 
@@ -101,8 +103,8 @@ export function ScheduleTasksModal({
 
   function handleClose() {
     setError(null);
-    setSelectedDate(undefined);
-    setTime("09:00");
+    setSelectedDate(new Date());
+    setTime(dayjs().format("HH:mm"));
     onClose();
   }
 

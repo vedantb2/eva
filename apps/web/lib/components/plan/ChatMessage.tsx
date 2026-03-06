@@ -4,11 +4,6 @@ import {
   ActivitySteps,
   Avatar,
   AvatarFallback,
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-  Spinner,
   Message as AIMessage,
   MessageContent,
   MessageResponse,
@@ -64,12 +59,30 @@ export function ChatMessage({
           }
         >
           {isStreaming ? (
-            <>
-              <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
-                {content}
-              </pre>
-              <Spinner size="sm" className="mt-2" />
-            </>
+            (() => {
+              const steps = parseActivitySteps(content);
+              return steps ? (
+                <ActivitySteps
+                  steps={steps}
+                  isStreaming
+                  name="Eva"
+                  icon={evaIcon}
+                />
+              ) : (
+                <Reasoning isStreaming defaultOpen>
+                  <ReasoningTrigger
+                    getThinkingMessage={(streaming) =>
+                      streaming ? "Working..." : "Processing complete"
+                    }
+                  />
+                  <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                    <pre className="whitespace-pre-wrap font-mono text-xs">
+                      {content || "Starting..."}
+                    </pre>
+                  </CollapsibleContent>
+                </Reasoning>
+              );
+            })()
           ) : (
             <>
               {isUser ? (

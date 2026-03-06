@@ -27,10 +27,10 @@ export function SchedulePopover({
 }: SchedulePopoverProps) {
   const [open, setOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    scheduledAt ? new Date(scheduledAt) : undefined,
+    scheduledAt ? new Date(scheduledAt) : new Date(),
   );
   const [time, setTime] = useState(
-    scheduledAt ? dayjs(scheduledAt).format("HH:mm") : "09:00",
+    scheduledAt ? dayjs(scheduledAt).format("HH:mm") : dayjs().format("HH:mm"),
   );
 
   const schedule = useMutation(api.agentTasks.scheduleExecution);
@@ -73,8 +73,12 @@ export function SchedulePopover({
 
   function handleOpenChange(next: boolean) {
     if (next) {
-      setSelectedDate(scheduledAt ? new Date(scheduledAt) : undefined);
-      setTime(scheduledAt ? dayjs(scheduledAt).format("HH:mm") : "09:00");
+      setSelectedDate(scheduledAt ? new Date(scheduledAt) : new Date());
+      setTime(
+        scheduledAt
+          ? dayjs(scheduledAt).format("HH:mm")
+          : dayjs().format("HH:mm"),
+      );
     }
     setOpen(next);
   }

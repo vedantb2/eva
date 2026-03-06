@@ -1,5 +1,27 @@
 # Changelog
 
+## Fix startup type regressions and reinstall deps on repo sync - 2026-03-06
+
+- **Why**: The startup refactor introduced TypeScript narrowing regressions, and persistent/snapshot sandboxes could run with stale dependencies after repo sync or base-branch pulls (causing missing package errors at runtime).
+- **Changes**:
+  1. `_daytona/execution.ts` narrowed optional values before async closures (`repoId`, `attachRunId`, `baseBranch`, `branchName`) to remove startup type errors.
+  2. `_taskWorkflow/workflowDefinition.ts` switched catch-path sandbox cleanup to a narrowed `sandboxIdForCleanup` value so delete calls are strictly typed.
+  3. `_daytona/git.ts` adds `ensureWorkspaceDependencies` and now runs dependency install after existing/snapshot repo sync paths.
+  4. `_daytona/execution.ts` now runs dependency install after base branch checkout/pull to keep sandbox node_modules aligned with pulled lockfile/package changes.
+  5. Re-ran backend type-check (`npx tsc -p packages/backend/tsconfig.json`) and confirmed clean.
+- **Reason for change (architectural)**: Persistent sandboxes must rehydrate dependencies when code revisions change, otherwise sandbox runtime state drifts from repo state and breaks deterministic task execution.
+
+## Split task startup into bounded stages with timeout guards - 2026-03-06
+
+- **Why**: A single `setupAndExecute` action could accumulate sandbox acquisition, repo preparation, callback launch, and transient retries until Convex hit the 600s action limit.
+- **Changes**:
+  1. Added split startup actions in `_daytona/execution.ts`: `acquireExecutionSandbox`, `prepareExecutionSandbox`, and `launchExecutionOnSandbox`, and wired `taskExecutionWorkflow` to call them in sequence.
+  2. Added shared `withTimeout` helper in `_daytona/helpers.ts` and applied explicit SDK timeouts to `daytona.create`, `daytona.get`, `sandbox.start`, and sandbox file uploads.
+  3. Added wall-clock guard (`SETUP_WALL_CLOCK_TIMEOUT_MS`) and reduced transient setup retries to 3 attempts to avoid hitting hard function limits.
+  4. Added stage-scoped error labels and timing logs across acquire/prepare/launch paths for faster diagnosis.
+  5. Updated task-workflow cleanup to delete startup sandboxes on failure when the sandbox was newly created, including project-task startup failures.
+- **Reason for change (architectural)**: Breaking startup into bounded stages keeps each action below platform limits and makes failure handling deterministic and observable.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

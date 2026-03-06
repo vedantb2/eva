@@ -11,6 +11,9 @@ export {
   runSandboxCommand,
   getPreviewUrl,
   setupAndExecute,
+  acquireExecutionSandbox,
+  prepareExecutionSandbox,
+  launchExecutionOnSandbox,
   launchOnExistingSandbox,
 } from "./_daytona/execution";
 

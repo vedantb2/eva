@@ -29,6 +29,7 @@ export const taskExecutionWorkflow = workflow.define({
     let runCompletionRecorded = false;
     let runFinalized = false;
     let sandboxDeleted = false;
+    let deleteSandboxOnFailure = false;
 
     try {
       await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
@@ -45,33 +46,49 @@ export const taskExecutionWorkflow = workflow.define({
       });
       hasSubtasks = data.hasSubtasks;
 
-      const setupResult = await step.runAction(
-        internal.daytona.setupAndExecute,
+      const acquireResult = await step.runAction(
+        internal.daytona.acquireExecutionSandbox,
         {
-          entityId: String(args.taskId),
           existingSandboxId: data.projectSandboxId,
           installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          prompt: data.prompt,
-          userId: args.userId,
-          completionMutation: "taskWorkflow:handleCompletion",
-          entityIdField: "taskId",
-          model: args.model ?? "sonnet",
-          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-          branchName: data.branchName,
-          baseBranch: args.baseBranch,
-          ephemeral: !args.projectId,
           repoId: args.repoId,
+          ephemeral: !args.projectId,
           attachRunId: args.runId,
+          entityIdField: "taskId",
         },
         { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );
-      sandboxId = setupResult.sandboxId;
+      sandboxId = acquireResult.sandboxId;
+      deleteSandboxOnFailure = acquireResult.deleteSandboxOnFailure;
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.runId,
         sandboxId,
+      });
+
+      await step.runAction(internal.daytona.prepareExecutionSandbox, {
+        sandboxId,
+        isNewSandbox: acquireResult.isNewSandbox,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        repoId: args.repoId,
+        snapshotName: acquireResult.snapshotName,
+        branchName: data.branchName,
+        baseBranch: args.baseBranch,
+      });
+
+      await step.runAction(internal.daytona.launchExecutionOnSandbox, {
+        sandboxId,
+        repoId: args.repoId,
+        prompt: data.prompt,
+        completionMutation: "taskWorkflow:handleCompletion",
+        entityIdField: "taskId",
+        userId: args.userId,
+        entityId: String(args.taskId),
+        model: args.model ?? "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        attachRunId: args.runId,
       });
 
       if (args.projectId) {
@@ -287,10 +304,17 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      if (!args.projectId && sandboxId && !sandboxDeleted) {
+      const sandboxIdForCleanup =
+        sandboxId &&
+        !sandboxDeleted &&
+        (!args.projectId ||
+          (deleteSandboxOnFailure && completionSuccess === undefined))
+          ? sandboxId
+          : undefined;
+      if (sandboxIdForCleanup) {
         try {
           await step.runAction(internal.daytona.deleteSandbox, {
-            sandboxId,
+            sandboxId: sandboxIdForCleanup,
             repoId: args.repoId,
           });
         } catch {}

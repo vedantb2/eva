@@ -1,5 +1,15 @@
 # Changelog
 
+## Mobile responsiveness audit for Quick Tasks page - 2026-03-06
+
+- **Why**: Quick Tasks page components were not optimized for mobile viewports, leading to cramped layouts, poor touch targets, and usability issues on small screens.
+- **Changes**:
+  1. KanbanBoard: Added snap scrolling on mobile for smooth horizontal column navigation, increased min column width from 240px to 280px for better readability.
+  2. QuickTasksClient: Added safe-area-inset-bottom padding to floating selection bar, improved padding and backdrop blur for mobile touch comfort.
+  3. QuickTaskModal: Reduced textarea from 12 rows to 6 with responsive min-height, made dialog footer stack vertically on mobile.
+  4. QuickTaskCard: Increased vertical padding on mobile for better touch targets.
+  5. QuickTasksListView: Added bottom padding for scroll comfort and improved sticky header spacing.
+  6. GroupTasksModal: Added responsive max-width to prevent overflow on very small screens.
 ## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
 
 - **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.

@@ -91,7 +91,7 @@ export function GroupTasksModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             Group {selectedTaskIds.size} task

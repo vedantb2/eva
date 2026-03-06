@@ -1,5 +1,14 @@
 # Changelog
 
+## Consolidate duplicated Daytona operational logic - 2026-03-06
+
+- **Why**: The "sign JWT token + launch script on sandbox" pattern was duplicated across 4 call sites (`execution.ts` 2x, `audit.ts` 2x). A bug fix or enhancement to this flow required changes in 4 places. Additionally, `getDaytona()` and `WORKSPACE_DIR` were redefined in `pty.ts` and `snapshotActions.ts` instead of importing from the canonical `_daytona/helpers.ts`.
+- **Changes**:
+  1. Added `signAndLaunchScript()` helper in `_daytona/helpers.ts` that composes token signing + script launch into a single call.
+  2. Updated `_daytona/execution.ts` (`setupAndExecute`, `launchOnExistingSandbox`) and `_daytona/audit.ts` (`launchAudit`, `runSessionAudit`) to use the new helper.
+  3. Removed local `getDaytona()` and `WORKSPACE_DIR` from `pty.ts` and `snapshotActions.ts`, importing from `_daytona/helpers.ts` instead.
+- **Reason for change (architectural)**: Service layer consolidation — reusable operational mechanics should live in one place so bug fixes propagate to all callers.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

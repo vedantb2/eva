@@ -5,6 +5,7 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
+import { launchScript } from "./launch";
 
 export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
@@ -102,4 +103,35 @@ export async function getSandbox(
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
   const daytona = getDaytona(daytonaApiKey);
   return daytona.get(sandboxId);
+}
+
+export async function signAndLaunchScript(
+  ctx: GenericActionCtx<DataModel>,
+  sandbox: Sandbox,
+  userId: Id<"users">,
+  prompt: string,
+  completionMutation: string,
+  entityIdField: string,
+  entityId: string,
+  opts: {
+    model?: string;
+    allowedTools?: string;
+    systemPrompt?: string;
+    extraEnvVars?: Record<string, string>;
+    claudeSessionId?: string;
+  } = {},
+): Promise<void> {
+  const sandboxToken = await ctx.runAction(
+    internal.sandboxJwt.signSandboxToken,
+    { userId },
+  );
+  await launchScript(
+    sandbox,
+    prompt,
+    completionMutation,
+    entityIdField,
+    sandboxToken,
+    entityId,
+    opts,
+  );
 }

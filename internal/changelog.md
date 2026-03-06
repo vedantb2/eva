@@ -8,6 +8,14 @@
   2. Added `GeistSans` import and CSS variable (`--font-geist-sans`) to `apps/web/app/layout.tsx`.
   3. Extended `FontFamily` type and `FONT_FAMILIES` map in `ThemeContext.tsx` with the `"geist"` entry.
   4. Added `v.literal("geist")` to `fontFamilyValidator` in `packages/backend/convex/validators.ts`.
+## Correlate quick-task callbacks and streaming by run id - 2026-03-05
+
+- **Why**: Quick-task callbacks and streaming were keyed by `taskId`, so a stale sandbox from an older run could write activity or completion data into a newer retry. That made watchdog diagnosis noisy and created a path for cross-run interference.
+- **Changes**:
+  1. Task execution and task audit callback paths now pass `runId` through the sandbox environment and back into the completion mutations.
+  2. Quick-task streaming is now written and read from run-scoped entity ids (`task-run-*` and `task-audit-run-*`) instead of a task-wide key.
+  3. Task completion, audit completion, cancellation, stale-run cleanup, and task detail UI now all resolve activity against the active run id, while still clearing the legacy task-wide keys for compatibility cleanup.
+- **Reason for change (architectural)**: A task can have multiple historical runs but only one active run. Runtime orchestration needs run-scoped correlation so retries and stale sandboxes cannot race through the same logical channel.
 
 ## Finalize evaluation workflow failures immediately - 2026-03-05
 

@@ -155,6 +155,7 @@ export const taskExecutionWorkflow = workflow.define({
               sandboxId,
               prompt: buildAuditPrompt(diffRaw),
               taskId: String(args.taskId),
+              runId: args.runId,
               userId: args.userId,
               repoId: args.repoId,
             });

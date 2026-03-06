@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import type { WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
-import { clearStreamingActivity } from "./helpers";
+import { clearStreamingActivity, getTaskRunStreamingEntityId } from "./helpers";
 
 const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
 const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
@@ -126,5 +126,6 @@ export async function cleanUpStaleRun(
     );
   }
 
+  await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(params.runId));
   await clearStreamingActivity(ctx, String(params.taskId));
 }

@@ -83,16 +83,19 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
   const hasActiveRun = runs?.some(
-    (r) => r.status === "queued" || r.status === "running",
+    (run) => run.status === "queued" || run.status === "running",
   );
+  const activeRun = runs?.find((run) => run.status === "running");
   const streaming = useQuery(
     api.streaming.get,
-    hasActiveRun ? { entityId: taskId } : "skip",
+    activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const audit = useQuery(api.taskAudits.getByTask, { taskId });
   const auditStreaming = useQuery(
     api.streaming.get,
-    audit?.status === "running" ? { entityId: `audit-${taskId}` } : "skip",
+    audit?.status === "running"
+      ? { entityId: `task-audit-run-${audit.runId}` }
+      : "skip",
   );
   const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);

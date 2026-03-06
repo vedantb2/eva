@@ -11,6 +11,7 @@ import { buildTaskDoneEvent } from "./events";
 import { STALE_CHECK_DELAY_MS } from "./recovery";
 import {
   clearStreamingActivity,
+  getTaskRunStreamingEntityId,
   upsertStreamingActivity,
   upsertActivityLog,
   finalizeRunStatus,
@@ -37,7 +38,7 @@ export const updateRunToRunning = internalMutation({
     });
     await upsertStreamingActivity(
       ctx,
-      String(args.taskId),
+      getTaskRunStreamingEntityId(args.runId),
       JSON.stringify([
         {
           type: "thinking",
@@ -150,6 +151,7 @@ export const finalizeRunStreamingPhase = internalMutation({
     if (args.activityLog) {
       await upsertActivityLog(ctx, args.runId, args.activityLog);
     }
+    await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
     return null;
   },
@@ -215,6 +217,7 @@ export const completeRun = internalMutation({
       }
     }
 
+    await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
 
     if (task) {

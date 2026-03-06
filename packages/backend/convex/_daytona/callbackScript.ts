@@ -24,6 +24,7 @@ const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
+const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_TYPE = "${entityIdField}";
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
@@ -520,6 +521,7 @@ try {
 
   const completionArgs = {
     ${entityIdField}: ENTITY_ID,
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
@@ -537,6 +539,7 @@ try {
   clearInterval(heartbeatInterval);
   const errorArgs = {
     ${entityIdField}: ENTITY_ID,
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",

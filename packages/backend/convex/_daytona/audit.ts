@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import { exec, WORKSPACE_DIR, getSandbox, errorMessage } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { launchScript } from "./launch";
+import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
 function buildSessionAuditPrompt(diff: string): string {
   return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
@@ -34,6 +35,7 @@ export const launchAudit = internalAction({
     sandboxId: v.string(),
     prompt: v.string(),
     taskId: v.string(),
+    runId: v.id("agentRuns"),
     userId: v.id("users"),
     repoId: v.id("githubRepos"),
   },
@@ -54,7 +56,10 @@ export const launchAudit = internalAction({
       args.taskId,
       {
         model: "haiku",
-        extraEnvVars: { STREAMING_ENTITY_ID: `audit-${args.taskId}` },
+        extraEnvVars: {
+          STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
+          RUN_ID: String(args.runId),
+        },
       },
     );
 

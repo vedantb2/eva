@@ -1,5 +1,14 @@
 # Changelog
 
+## Add Geist font to theme settings - 2026-03-06
+
+- **Why**: Users wanted Geist (Vercel's font) as an option in the theme font picker alongside the existing Google Fonts.
+- **Changes**:
+  1. Installed `geist` npm package for Next.js-compatible local font loading.
+  2. Added `GeistSans` import and CSS variable (`--font-geist-sans`) to `apps/web/app/layout.tsx`.
+  3. Extended `FontFamily` type and `FONT_FAMILIES` map in `ThemeContext.tsx` with the `"geist"` entry.
+  4. Added `v.literal("geist")` to `fontFamilyValidator` in `packages/backend/convex/validators.ts`.
+
 ## Finalize evaluation workflow failures immediately - 2026-03-05
 
 - **Why**: Evaluation reports could stay in `running` until the 2-hour watchdog when workflow startup failed before the sandbox callback path ever fired.

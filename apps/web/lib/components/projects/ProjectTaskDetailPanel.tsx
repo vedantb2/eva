@@ -50,12 +50,10 @@ export function ProjectTaskDetailPanel({
   const task = useQuery(api.agentTasks.get, { id: taskId });
   const runs = useQuery(api.agentRuns.listByTask, { taskId });
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
-  const hasActiveRun = runs?.some(
-    (r) => r.status === "queued" || r.status === "running",
-  );
+  const activeRun = runs?.find((run) => run.status === "running");
   const streaming = useQuery(
     api.streaming.get,
-    hasActiveRun ? { entityId: taskId } : "skip",
+    activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const [showModal, setShowModal] = useState(false);
 

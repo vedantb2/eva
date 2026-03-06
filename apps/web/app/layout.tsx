@@ -7,6 +7,7 @@ import {
   DM_Sans,
   Space_Grotesk,
 } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -86,7 +87,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${poppins.variable} ${dmSans.variable} ${spaceGrotesk.variable}`}
+      className={`${inter.variable} ${roboto.variable} ${poppins.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${GeistSans.variable}`}
     >
       <body suppressHydrationWarning className="font-sans text-foreground">
         <ClerkProvider

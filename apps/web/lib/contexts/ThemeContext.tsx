@@ -29,8 +29,8 @@ export type FontFamily =
   | "roboto"
   | "poppins"
   | "dm-sans"
-  | "space-grotesk";
-export type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
+  | "space-grotesk"
+  | "geist";
 
 export interface CustomTheme {
   accentColor?: AccentColor;
@@ -78,6 +78,12 @@ export const FONT_FAMILIES: Record<
     variable: "--font-space-grotesk",
     stack:
       "var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  },
+  geist: {
+    label: "Geist",
+    variable: "--font-geist-sans",
+    stack:
+      "var(--font-geist-sans), 'Geist Sans', ui-sans-serif, system-ui, sans-serif",
   },
 };
 

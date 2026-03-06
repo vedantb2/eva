@@ -8,11 +8,12 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  Button,
 } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
-import { IconClock } from "@tabler/icons-react";
+import { IconClock, IconGitPullRequest } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
@@ -58,6 +59,7 @@ export function QuickTaskCard({
   const statusMeta = statusConfig[status];
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
+  const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
 
   const card = (
     <Card
@@ -139,6 +141,28 @@ export function QuickTaskCard({
                 </TooltipContent>
               </Tooltip>
             ) : null}
+            {latestPrUrl && (status === "code_review" || status === "done") && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="h-fit p-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      href={latestPrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <IconGitPullRequest size={14} />
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View PR</TooltipContent>
+              </Tooltip>
+            )}
             <SubtaskProgress taskId={id} />
           </div>
         </div>

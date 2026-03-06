@@ -194,7 +194,7 @@ export function QuickTasksListView({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1 pb-2">
           {TASK_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => {
               const cfg = statusConfig[status];
@@ -207,7 +207,7 @@ export function QuickTasksListView({
                   open={openSections.has(status)}
                   onOpenChange={() => toggleSection(status)}
                 >
-                  <div className="flex items-center sticky top-0 z-10 bg-background pb-2">
+                  <div className="flex items-center sticky top-0 z-10 bg-background pb-1.5 pt-0.5">
                     <CollapsibleTrigger asChild>
                       <button className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50">
                         <IconChevronRight

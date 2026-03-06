@@ -152,7 +152,8 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               placeholder="Add more details (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={12}
+              rows={6}
+              className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
             />
           </div>
           <div className="space-y-1.5">
@@ -167,7 +168,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             />
           </div>
         </div>
-        <DialogFooter className="sm:justify-between">
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <div>
             {drafts && drafts.length > 0 && (
               <Popover>

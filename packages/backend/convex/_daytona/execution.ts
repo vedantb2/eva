@@ -129,6 +129,7 @@ export const setupAndExecute = internalAction({
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
+    const maxSetupAttempts = 5;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {
@@ -236,14 +237,14 @@ export const setupAndExecute = internalAction({
           (hasDaytonaMarker && (hasTransientMarker || hasTransientStatus)) ||
           isSnapshotReadyTimeout;
 
-        if (!shouldRetry || attempt >= 3) {
+        if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
         }
 
         const delayMs =
-          1500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
+          2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] setupAndExecute transient failure (attempt ${attempt}/3), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] setupAndExecute transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
         attempt += 1;

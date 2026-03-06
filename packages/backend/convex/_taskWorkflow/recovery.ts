@@ -8,10 +8,10 @@ import { clearStreamingActivity, getTaskRunStreamingEntityId } from "./helpers";
 const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
 const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
 
-export const STALE_THRESHOLD_MS = 90_000;
+export const STALE_THRESHOLD_MS = 180_000;
 export const STALE_CHECK_DELAY_MS = 90_000;
 export const STALE_RECHECK_MS = 30_000;
-export const STALE_NO_SANDBOX_THRESHOLD_MS = 600_000;
+export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 
 export function isDaytonaNetworkIssue(errorMessage: string): boolean {
   const message = errorMessage.toLowerCase();

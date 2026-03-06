@@ -25,6 +25,7 @@ function isSandboxStartupActivity(
   return currentActivity.includes('"Starting sandbox..."');
 }
 
+const HEARTBEAT_STALE_SECONDS = Math.round(STALE_THRESHOLD_MS / 1000);
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -106,7 +107,7 @@ export const checkStaleRuns = internalMutation({
       isProjectTask: !!task.projectId,
       errorMessage: startupStillInProgress
         ? "Run killed by watchdog: sandbox startup stalled"
-        : "Run killed by watchdog: no heartbeat for 90s",
+        : `Run killed by watchdog: no heartbeat for ${HEARTBEAT_STALE_SECONDS}s`,
       exitReason: startupStillInProgress
         ? "watchdog_startup_stalled"
         : "watchdog_killed",

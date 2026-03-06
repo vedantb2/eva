@@ -1,5 +1,15 @@
 # Changelog
 
+## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
+
+- **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.
+- **Changes**:
+  1. `_daytona/callbackScript.ts` now keeps heartbeat/flush loops alive through finalization, adds an explicit `Finalizing response...` phase, and stops loops only after completion callback handling finishes.
+  2. `_taskWorkflow/recovery.ts` increases heartbeat stale threshold from 90s to 180s and startup stale threshold from 10m to 15m to better tolerate transient backend reload/control-plane jitter.
+  3. `_taskWorkflow/watchdog.ts` now formats heartbeat-kill error text from the configured threshold value so diagnostics stay accurate.
+  4. `_daytona/execution.ts` increases transient Daytona setup retry budget (5 attempts) with longer exponential backoff to reduce surfaced 408 setup failures.
+- **Reason for change (architectural)**: Finalization is a distinct lifecycle phase from active tool streaming; watchdogs should be strict enough to catch true hangs but tolerant of bounded callback/network jitter during shutdown paths.
+
 ## Add Geist font to theme settings - 2026-03-06
 
 - **Why**: Users wanted Geist (Vercel's font) as an option in the theme font picker alongside the existing Google Fonts.
@@ -8,6 +18,7 @@
   2. Added `GeistSans` import and CSS variable (`--font-geist-sans`) to `apps/web/app/layout.tsx`.
   3. Extended `FontFamily` type and `FONT_FAMILIES` map in `ThemeContext.tsx` with the `"geist"` entry.
   4. Added `v.literal("geist")` to `fontFamilyValidator` in `packages/backend/convex/validators.ts`.
+
 ## Add font spacing (letter-spacing) to theme settings - 2026-03-06
 
 - **Why**: Users had control over font family, accent color, border radius, and appearance mode but could not customize letter spacing, which significantly affects readability and visual feel.
@@ -15,6 +26,7 @@
   1. Added `letterSpacingValidator` and included it in `customThemeValidator` in Convex validators.
   2. Added `LetterSpacing` type and `LETTER_SPACING_VALUES` config to `ThemeContext.tsx`, applying the value to the `--tracking-normal` CSS variable.
   3. Added a "Font Spacing" section to the theme settings UI with five options: Tighter, Tight, Normal, Wide, Wider.
+
 ## Correlate quick-task callbacks and streaming by run id - 2026-03-05
 
 - **Why**: Quick-task callbacks and streaming were keyed by `taskId`, so a stale sandbox from an older run could write activity or completion data into a newer retry. That made watchdog diagnosis noisy and created a path for cross-run interference.

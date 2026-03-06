@@ -23,7 +23,11 @@ import {
   MessageContent,
   MessageResponse,
   ActivitySteps,
-  type ActivityStep,
+  Reasoning,
+  CollapsibleContent,
+  ReasoningTrigger,
+  Avatar,
+  AvatarFallback,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -38,35 +42,18 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
 } from "@tabler/icons-react";
+import { motion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
+import { UserInitials } from "@conductor/shared";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 
 type DesignMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
 type Variation = NonNullable<DesignMessage["variations"]>[number];
-
-const STARTING_STEPS: ActivityStep[] = [
-  { type: "thinking", label: "Starting...", status: "active" },
-];
-
-function parseActivitySteps(raw: string | undefined): ActivityStep[] {
-  if (!raw) return STARTING_STEPS;
-  try {
-    const parsed: Array<Record<string, string>> = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return STARTING_STEPS;
-    return parsed.map((s) => ({
-      type: (s.type ?? "tool") as ActivityStep["type"],
-      label: s.label ?? "",
-      detail: s.detail,
-      status: (s.status ?? "complete") as ActivityStep["status"],
-    }));
-  } catch {
-    return STARTING_STEPS;
-  }
-}
 
 const VARIATION_KEYS = ["a", "b", "c"] as const;
 
@@ -105,6 +92,16 @@ export function DesignDetailClient({
   });
   const activeTab = tab;
   const viewMode = view;
+
+  const evaIcon = (
+    <Image
+      src="/icon.png"
+      alt="Eva"
+      width={20}
+      height={20}
+      className="rounded-full"
+    />
+  );
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -254,8 +251,8 @@ export function DesignDetailClient({
             </>
           }
         >
-          <Conversation className="flex-1">
-            <ConversationContent className="gap-4 p-4">
+          <Conversation className="flex-1 min-h-0">
+            <ConversationContent className="gap-3 p-3">
               {messagesList.length === 0 ? (
                 <ConversationEmptyState
                   title={
@@ -266,71 +263,125 @@ export function DesignDetailClient({
                 />
               ) : (
                 messagesList.map((message) => (
-                  <AIMessage key={message._id} from={message.role}>
-                    {message.role === "assistant" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full overflow-hidden">
-                          <Image
-                            src="/icon.png"
-                            alt="Assistant"
-                            width={28}
-                            height={28}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Eva
-                        </span>
-                      </div>
-                    )}
-                    <MessageContent
-                      className={
-                        message.role === "user"
-                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
-                      }
-                    >
-                      {message.role === "assistant" && !message.content ? (
-                        <ActivitySteps
-                          steps={parseActivitySteps(streaming?.currentActivity)}
-                          isStreaming
-                        />
-                      ) : (
-                        <>
-                          {message.role === "assistant" ? (
-                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                              {message.content}
-                            </MessageResponse>
-                          ) : (
-                            <>
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
-                              </p>
-                              <div className="flex items-center justify-between gap-3">
-                                {message.personaId && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {personas?.find(
-                                      (p) => p._id === message.personaId,
-                                    )?.name ?? "Persona"}
-                                  </span>
-                                )}
-                                {message.timestamp && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {dayjs(message.timestamp).format("h:mm A")}
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
-                          {message.role === "assistant" &&
-                            message.activityLog && (
+                  <motion.div
+                    key={message._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <AIMessage from={message.role}>
+                      <MessageContent
+                        className={
+                          message.role === "user"
+                            ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                            : "px-1 py-2"
+                        }
+                      >
+                        {message.role === "assistant" && !message.content ? (
+                          (() => {
+                            const steps = parseActivitySteps(
+                              streaming?.currentActivity,
+                            );
+                            return steps ? (
                               <ActivitySteps
-                                steps={parseActivitySteps(message.activityLog)}
+                                steps={steps}
+                                isStreaming
+                                name="Eva"
+                                icon={evaIcon}
                               />
+                            ) : (
+                              <Reasoning isStreaming defaultOpen>
+                                <ReasoningTrigger
+                                  getThinkingMessage={(s) =>
+                                    s ? "Working..." : "Processing complete"
+                                  }
+                                />
+                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                  <pre className="whitespace-pre-wrap font-mono text-xs">
+                                    {streaming?.currentActivity ||
+                                      "Starting..."}
+                                  </pre>
+                                </CollapsibleContent>
+                              </Reasoning>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            {message.role === "assistant" ? (
+                              <>
+                                {message.activityLog &&
+                                  (() => {
+                                    const steps = parseActivitySteps(
+                                      message.activityLog,
+                                    );
+                                    return steps ? (
+                                      <ActivitySteps
+                                        steps={steps}
+                                        name="Eva"
+                                        icon={evaIcon}
+                                      />
+                                    ) : (
+                                      <Reasoning defaultOpen={false}>
+                                        <ReasoningTrigger
+                                          getThinkingMessage={() => "View logs"}
+                                        />
+                                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                          <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                            {message.activityLog}
+                                          </pre>
+                                        </CollapsibleContent>
+                                      </Reasoning>
+                                    );
+                                  })()}
+                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                  {message.content}
+                                </MessageResponse>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                  {message.content}
+                                </p>
+                                <div className="flex items-center justify-between gap-3">
+                                  {message.personaId && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {personas?.find(
+                                        (p) => p._id === message.personaId,
+                                      )?.name ?? "Persona"}
+                                    </span>
+                                  )}
+                                  {message.timestamp && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {dayjs(message.timestamp).format(
+                                        "h:mm A",
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
                             )}
-                        </>
+                          </>
+                        )}
+                      </MessageContent>
+                      {message.role === "user" && (
+                        <div className="mt-0.5 ml-auto">
+                          {message.userId ? (
+                            <UserInitials
+                              userId={message.userId}
+                              hideLastSeen
+                              size="md"
+                            />
+                          ) : (
+                            <Avatar className="h-7 w-7">
+                              <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                                U
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
                       )}
-                    </MessageContent>
-                  </AIMessage>
+                    </AIMessage>
+                  </motion.div>
                 ))
               )}
             </ConversationContent>

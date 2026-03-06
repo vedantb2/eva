@@ -1,5 +1,16 @@
 # Changelog
 
+## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
+
+- **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.
+- **Changes**:
+  1. **LogsClient**: Converted 4 stat cards from `flex` to `grid grid-cols-2 lg:grid-cols-4`. Made log entry rows stack vertically on mobile with `flex-wrap`.
+  2. **SnapshotsClient**: Made status grid responsive (`grid-cols-1 sm:grid-cols-2`), added horizontal scroll to builds table, made cron guide stack vertically on mobile, made config header and save row wrap properly.
+  3. **EnvVarsTable**: Added horizontal scroll wrapper to table, made header description + buttons stack on mobile.
+  4. **ThemeSettingsClient**: Tightened appearance mode grid spacing on small screens, made preview text smaller on mobile.
+  5. **TimeRangeFilter**: Shortened tab labels and reduced padding for mobile fit.
+  6. **InboxClient**: Collapsed "Mark all read" to icon-only on mobile, tightened notification item padding and gap.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

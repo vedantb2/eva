@@ -99,7 +99,7 @@ export function ThemeSettingsClient() {
         {/* Mode */}
         <section>
           <SectionLabel>Appearance</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {(["light", "dark", "system"] as const).map((mode) => {
               const isActive = currentMode === mode;
               const Icon =
@@ -120,7 +120,7 @@ export function ThemeSettingsClient() {
                   key={mode}
                   onClick={() => handleModeChange(mode)}
                   className={cn(
-                    "relative flex flex-col items-center gap-3 rounded-xl border p-4 text-sm font-medium transition-all",
+                    "relative flex flex-col items-center gap-2 rounded-xl border p-3 text-xs font-medium transition-all sm:gap-3 sm:p-4 sm:text-sm",
                     isActive
                       ? "border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/20"
                       : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
@@ -133,7 +133,7 @@ export function ThemeSettingsClient() {
                   )}
                   <div
                     className={cn(
-                      "flex h-16 w-full items-center justify-center rounded-lg border",
+                      "flex h-12 w-full items-center justify-center rounded-lg border sm:h-16",
                       mode === "light"
                         ? "border-border/60 bg-white"
                         : mode === "dark"
@@ -315,12 +315,12 @@ export function ThemeSettingsClient() {
         <section>
           <SectionLabel>Preview</SectionLabel>
           <div className="rounded-xl border border-border/70 bg-card/80 p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-4 flex items-start gap-2">
               <div
-                className="h-3 w-3 rounded-full"
+                className="mt-1 h-3 w-3 shrink-0 rounded-full"
                 style={{ backgroundColor: ACCENT_COLORS[accentColor].preview }}
               />
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-xs sm:text-sm font-semibold text-foreground">
                 {ACCENT_COLORS[accentColor].label} &middot;{" "}
                 {RADIUS_OPTIONS.find((r) => r.value === radius)?.label} radius
                 &middot; {FONT_FAMILIES[fontFamily].label} &middot;{" "}

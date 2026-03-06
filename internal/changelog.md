@@ -1,5 +1,14 @@
 # Changelog
 
+## Multi-select type filter on logs page - 2026-03-06
+
+- **Why**: The logs page type filter only allowed selecting one entity type at a time (radio buttons). Users needed to view multiple types simultaneously, matching the multi-select pattern already used on the quick tasks page.
+- **Changes**:
+  1. Replaced `logEntityTypeParser` (single string) with `logEntityTypesParser` (typed array) in search-params.
+  2. Switched `LogsClient.tsx` from `DropdownMenuRadioGroup` to `DropdownMenuCheckboxItem` for multi-select.
+  3. Updated backend `logs.listByRepo` to accept `entityTypes` (string array) instead of `entityType` (single string).
+- **Reason for change**: Consistency with quick tasks filter UX; multi-select is more practical for log analysis.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

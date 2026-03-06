@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQueryState } from "nuqs";
+import { useMemo, useCallback, useState } from "react";
+import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { timeRangeParser, logEntityTypeParser } from "@/lib/search-params";
+import { timeRangeParser, logEntityTypesParser } from "@/lib/search-params";
 import {
   TimeRangeFilter,
   getStartTime,
@@ -19,8 +19,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuCheckboxItem,
   Spinner,
 } from "@conductor/ui";
 import { IconChevronRight, IconFilter, IconCode } from "@tabler/icons-react";
@@ -164,9 +163,24 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
-  const [entityType, setEntityType] = useQueryState(
-    "type",
-    logEntityTypeParser,
+  const [{ entityTypes }, setEntityParams] = useQueryStates({
+    entityTypes: logEntityTypesParser,
+  });
+
+  const visibleTypes = useMemo(() => new Set(entityTypes), [entityTypes]);
+
+  const handleTypeToggle = useCallback(
+    (type: string) => {
+      const next = new Set(visibleTypes);
+      if (next.has(type)) {
+        if (next.size === 1) return;
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      void setEntityParams({ entityTypes: [...next] });
+    },
+    [visibleTypes, setEntityParams],
   );
 
   const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
@@ -174,7 +188,10 @@ export function LogsClient() {
   const logs = useQuery(api.logs.listByRepo, {
     repoId: repo._id,
     startTime: startTime ?? undefined,
-    entityType: entityType ?? undefined,
+    entityTypes:
+      entityTypes.length === Object.keys(ENTITY_TYPE_LABELS).length
+        ? undefined
+        : entityTypes,
   });
 
   const {
@@ -244,23 +261,22 @@ export function LogsClient() {
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm">
                 <IconFilter size={14} />
-                {entityType ? labelFor(entityType) : "All Types"}
+                {visibleTypes.size === availableTypes.length
+                  ? "All Types"
+                  : `${visibleTypes.size} Types`}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuRadioGroup
-                value={entityType ?? ""}
-                onValueChange={(v) => setEntityType(v || null)}
-              >
-                <DropdownMenuRadioItem value="">
-                  All Types
-                </DropdownMenuRadioItem>
-                {availableTypes.map((type) => (
-                  <DropdownMenuRadioItem key={type} value={type}>
-                    {labelFor(type)}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
+              {availableTypes.map((type) => (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={visibleTypes.has(type)}
+                  onCheckedChange={() => handleTypeToggle(type)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {labelFor(type)}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <TimeRangeFilter value={timeRange} onChange={setTimeRange} />

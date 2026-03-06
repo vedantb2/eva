@@ -22,6 +22,7 @@ import {
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
 import { launchScript } from "./launch";
 import { startDesktopWithChrome } from "./desktop";
+import { getTaskRunStreamingEntityId } from "../_taskWorkflow/helpers";
 
 export const runSandboxCommand = internalAction({
   args: {
@@ -117,6 +118,13 @@ export const setupAndExecute = internalAction({
     const claudeSessionId = args.sessionPersistenceId
       ? sessionClaudeUuid(args.sessionPersistenceId)
       : undefined;
+    const callbackEnvVars = { ...sandboxEnvVars };
+    if (args.attachRunId && args.entityIdField === "taskId") {
+      callbackEnvVars.STREAMING_ENTITY_ID = getTaskRunStreamingEntityId(
+        args.attachRunId,
+      );
+      callbackEnvVars.RUN_ID = String(args.attachRunId);
+    }
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
@@ -265,7 +273,7 @@ export const setupAndExecute = internalAction({
           model: args.model,
           allowedTools: args.allowedTools,
           systemPrompt: args.systemPrompt,
-          extraEnvVars: sandboxEnvVars,
+          extraEnvVars: callbackEnvVars,
           claudeSessionId,
         },
       );

@@ -10,7 +10,11 @@ import {
   STALE_RECHECK_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
 } from "./recovery";
-import { clearStreamingActivity } from "./helpers";
+import {
+  clearStreamingActivity,
+  getTaskAuditStreamingEntityId,
+  getTaskRunStreamingEntityId,
+} from "./helpers";
 
 function isSandboxStartupActivity(
   currentActivity: string | undefined,
@@ -72,7 +76,9 @@ export const checkStaleRuns = internalMutation({
 
     const streaming = await ctx.db
       .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .withIndex("by_entity", (q) =>
+        q.eq("entityId", getTaskRunStreamingEntityId(args.runId)),
+      )
       .first();
     const startupStillInProgress = isSandboxStartupActivity(
       streaming?.currentActivity,
@@ -169,7 +175,12 @@ export const handleStaleRun = internalMutation({
       }
     }
 
+    await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
+    await clearStreamingActivity(
+      ctx,
+      getTaskAuditStreamingEntityId(args.runId),
+    );
     await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     if (task.projectId) {

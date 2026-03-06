@@ -60,6 +60,8 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
+  IconEdit,
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -127,12 +129,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [editTitle, setEditTitle] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
-  const commentsEndRef = useRef<HTMLDivElement>(null);
+  const [viewingCommentForRun, setViewingCommentForRun] = useState<
+    string | null
+  >(null);
   const descriptionEditorRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [comments?.length]);
 
   useEffect(() => {
     setTagsInput((task?.tags ?? []).join(", "));
@@ -170,6 +170,36 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     projectOptions.some((project) => project._id === task.projectId);
   const selectedProjectValue = task?.projectId ?? NO_PROJECT_VALUE;
   const canEditTaskText = status === "todo" && !hasActiveRun;
+
+  const sortedRuns = [...(runs ?? [])].sort(
+    (a, b) =>
+      (a.startedAt ?? a._creationTime) - (b.startedAt ?? b._creationTime),
+  );
+  const firstRunId = sortedRuns.length > 0 ? sortedRuns[0]._id : null;
+
+  const runCommentMap = new Map<string, NonNullable<typeof comments>[number]>();
+  if (comments && runs) {
+    const sortedComments = [...comments].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
+    for (const run of sortedRuns) {
+      if (run._id === firstRunId) continue;
+      const runTime = run._creationTime;
+      let matchedComment: NonNullable<typeof comments>[number] | undefined;
+      for (const comment of sortedComments) {
+        if (comment.createdAt <= runTime) {
+          matchedComment = comment;
+        }
+      }
+      if (matchedComment) {
+        runCommentMap.set(run._id, matchedComment);
+      }
+    }
+  }
+
+  const viewingComment = viewingCommentForRun
+    ? runCommentMap.get(viewingCommentForRun)
+    : undefined;
 
   useEffect(() => {
     if (canEditTaskText) return;
@@ -489,10 +519,38 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const runsSection =
     activityItems.length > 0 ? (
       <div className="pt-4">
-        <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-          <IconTerminal2 size={16} />
-          Activity
-        </h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <IconTerminal2 size={16} />
+            Activity
+          </h4>
+          {hasActiveRun && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleStopExecution}
+                    disabled={isStopping || !isOwner}
+                  >
+                    {isStopping ? (
+                      <IconLoader2 size={16} className="animate-spin" />
+                    ) : (
+                      <IconPlayerStop size={16} />
+                    )}
+                    Stop
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isOwner && (
+                <TooltipContent>
+                  Only the task owner can stop execution
+                </TooltipContent>
+              )}
+            </Tooltip>
+          )}
+        </div>
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
           {activityItems.map((item) => {
             if (item.kind === "system") {
@@ -548,6 +606,29 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                         >
                           {run.status}
                         </Badge>
+                        {run._id !== firstRunId && (
+                          <IconEdit
+                            size={14}
+                            className="text-muted-foreground shrink-0"
+                          />
+                        )}
+                        {runCommentMap.has(run._id) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingCommentForRun(run._id);
+                                }}
+                              >
+                                <IconMessageCircle size={14} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>View user message</TooltipContent>
+                          </Tooltip>
+                        )}
                         <span className="text-xs text-muted-foreground truncate">
                           {run.startedAt
                             ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
@@ -1043,8 +1124,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     <>
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-medium text-foreground">
-          Ask Eva to make changes{" "}
-          {comments && comments.length > 0 && `(${comments.length})`}
+          Ask Eva to make changes
         </h4>
         <Button
           size="icon"
@@ -1054,34 +1134,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         >
           <IconX size={16} />
         </Button>
-      </div>
-      <div className="flex-1 overflow-y-auto scrollbar space-y-3 mb-3">
-        {(!comments || comments.length === 0) && (
-          <p className="text-sm text-muted-foreground">
-            No change requests yet.
-          </p>
-        )}
-        {comments?.map((comment) => (
-          <div key={comment._id} className="group rounded-lg bg-muted p-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">
-                {dayjs(comment.createdAt).fromNow()}
-              </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100"
-                onClick={() => removeComment({ id: comment._id })}
-              >
-                <IconTrash size={14} />
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {comment.content}
-            </p>
-          </div>
-        ))}
-        <div ref={commentsEndRef} />
       </div>
       <form
         onSubmit={handleAddComment}
@@ -1190,73 +1242,47 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               <span className="hidden sm:inline">Request Changes</span>
             </Button>
           )}
-        {hasActiveRun ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Button
-                  variant="destructive"
-                  onClick={handleStopExecution}
-                  disabled={isStopping || !isOwner}
-                >
-                  {isStopping ? (
-                    <IconLoader2 size={18} className="animate-spin" />
-                  ) : (
-                    <IconPlayerStop size={18} />
-                  )}
-                  Stop
-                </Button>
-              </div>
-            </TooltipTrigger>
-            {!isOwner && (
-              <TooltipContent>
-                Only the task owner can stop execution
-              </TooltipContent>
-            )}
-          </Tooltip>
-        ) : (
-          status === "todo" && (
-            <>
-              <SchedulePopover
-                taskId={taskId}
-                scheduledAt={task?.scheduledAt}
-                disabled={!isOwner || isBlocked}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Button
-                      onClick={handleStartExecution}
-                      disabled={
-                        isStarting ||
-                        isBlocked ||
-                        !isOwner ||
-                        task?.scheduledAt !== undefined
-                      }
-                    >
-                      {isStarting ? (
-                        <IconLoader2 size={18} className="animate-spin" />
-                      ) : (
-                        <IconPlayerPlay size={18} />
-                      )}
-                      Run Eva
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                {task?.scheduledAt !== undefined ? (
+        {!hasActiveRun && status === "todo" && (
+          <>
+            <SchedulePopover
+              taskId={taskId}
+              scheduledAt={task?.scheduledAt}
+              disabled={!isOwner || isBlocked}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    onClick={handleStartExecution}
+                    disabled={
+                      isStarting ||
+                      isBlocked ||
+                      !isOwner ||
+                      task?.scheduledAt !== undefined
+                    }
+                  >
+                    {isStarting ? (
+                      <IconLoader2 size={18} className="animate-spin" />
+                    ) : (
+                      <IconPlayerPlay size={18} />
+                    )}
+                    Run Eva
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {task?.scheduledAt !== undefined ? (
+                <TooltipContent>
+                  Task is scheduled — remove the schedule to run immediately
+                </TooltipContent>
+              ) : (
+                !isOwner && (
                   <TooltipContent>
-                    Task is scheduled — remove the schedule to run immediately
+                    Only the task owner can run Eva
                   </TooltipContent>
-                ) : (
-                  !isOwner && (
-                    <TooltipContent>
-                      Only the task owner can run Eva
-                    </TooltipContent>
-                  )
-                )}
-              </Tooltip>
-            </>
-          )
+                )
+              )}
+            </Tooltip>
+          </>
         )}
       </div>
     </>
@@ -1322,6 +1348,31 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </Dialog>
   );
 
+  const userMessageDialog = (
+    <Dialog
+      open={viewingCommentForRun !== null}
+      onOpenChange={(v) => {
+        if (!v) setViewingCommentForRun(null);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>User Message</DialogTitle>
+        </DialogHeader>
+        {viewingComment && (
+          <div className="space-y-2">
+            <span className="text-xs text-muted-foreground">
+              {dayjs(viewingComment.createdAt).fromNow()}
+            </span>
+            <p className="text-sm text-foreground whitespace-pre-wrap">
+              {viewingComment.content}
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+
   return {
     titleContent,
     scheduledBadge,
@@ -1333,6 +1384,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
+    userMessageDialog,
     audit,
     showProofSection,
     requestChangesPanel,

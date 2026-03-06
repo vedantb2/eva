@@ -1,5 +1,14 @@
 # Changelog
 
+## Improve task detail modal activity UX - 2026-03-06
+
+- **Why**: Stop button was buried in the footer far from the activity it controls. User change request messages cluttered the request changes panel when they belong contextually next to the run they triggered.
+- **Changes**:
+  1. Moved the stop button from the modal footer to the right end of the Activity section header for proximity to what it controls.
+  2. Added `IconEdit` indicator on agent runs triggered by user change requests (all runs after the first) to visually distinguish edits from initial runs.
+  3. Added `IconMessageCircle` button in accordion triggers that opens a modal showing the user message that triggered that run.
+  4. Removed user comment history from the request changes panel — messages are now accessible via the icon on each run.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

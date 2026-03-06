@@ -26,6 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -60,6 +64,7 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
+  IconDots,
   IconEdit,
   IconMessageCircle,
 } from "@tabler/icons-react";
@@ -347,6 +352,27 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           {task?.title}
         </span>
       )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconDots size={16} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <IconTrash size={16} />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 
@@ -1128,82 +1154,90 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   );
 
   const footerButtons = (
-    <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <IconTrash size={18} />
-              <span className="hidden sm:inline">Delete</span>
-            </Button>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="sm:hidden">Delete</TooltipContent>
-      </Tooltip>
-      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-        {latestPrUrl && (status === "code_review" || status === "done") && (
-          <Button asChild variant="outline">
-            <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-              <IconGitPullRequest size={18} />
-              <span className="hidden sm:inline">View PR</span>
-            </a>
+    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+      {latestPrUrl && (status === "code_review" || status === "done") && (
+        <Button asChild variant="outline">
+          <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
+            <IconGitPullRequest size={18} />
+            <span className="hidden sm:inline">View PR</span>
+          </a>
+        </Button>
+      )}
+      {latestDeployment?.deploymentStatus && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                asChild={
+                  latestDeployment.deploymentStatus === "deployed" &&
+                  !!latestDeployment.deploymentUrl
+                }
+                variant="outline"
+                disabled={latestDeployment.deploymentStatus !== "deployed"}
+              >
+                {latestDeployment.deploymentStatus === "deployed" &&
+                latestDeployment.deploymentUrl ? (
+                  <a
+                    href={latestDeployment.deploymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconBrandVercel size={18} />
+                    <span className="hidden sm:inline">View Preview</span>
+                  </a>
+                ) : (
+                  <>
+                    <IconBrandVercel size={18} />
+                    <span className="hidden sm:inline">View Preview</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            {latestDeployment.deploymentStatus === "deployed"
+              ? "Open preview deployment"
+              : latestDeployment.deploymentStatus === "error"
+                ? "Deployment failed"
+                : latestDeployment.deploymentStatus === "building"
+                  ? "Deployment is building..."
+                  : "Deployment is queued..."}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      {!requestChangesPanel &&
+        status !== "todo" &&
+        status !== "in_progress" && (
+          <Button
+            variant="secondary"
+            onClick={() => setRequestChangesPanel(true)}
+          >
+            <IconMessagePlus size={18} />
+            <span className="hidden sm:inline">Request Changes</span>
           </Button>
         )}
-        {latestDeployment?.deploymentStatus && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Button
-                  asChild={
-                    latestDeployment.deploymentStatus === "deployed" &&
-                    !!latestDeployment.deploymentUrl
-                  }
-                  variant="outline"
-                  disabled={latestDeployment.deploymentStatus !== "deployed"}
-                >
-                  {latestDeployment.deploymentStatus === "deployed" &&
-                  latestDeployment.deploymentUrl ? (
-                    <a
-                      href={latestDeployment.deploymentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <IconBrandVercel size={18} />
-                      <span className="hidden sm:inline">View Preview</span>
-                    </a>
-                  ) : (
-                    <>
-                      <IconBrandVercel size={18} />
-                      <span className="hidden sm:inline">View Preview</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </TooltipTrigger>
+      {hasActiveRun ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                variant="destructive"
+                onClick={handleStopExecution}
+                disabled={isStopping || !isOwner}
+              >
+                {isStopping ? (
+                  <IconLoader2 size={18} className="animate-spin" />
+                ) : (
+                  <IconPlayerStop size={18} />
+                )}
+                Stop
+              </Button>
+            </div>
+          </TooltipTrigger>
+          {!isOwner && (
             <TooltipContent>
-              {latestDeployment.deploymentStatus === "deployed"
-                ? "Open preview deployment"
-                : latestDeployment.deploymentStatus === "error"
-                  ? "Deployment failed"
-                  : latestDeployment.deploymentStatus === "building"
-                    ? "Deployment is building..."
-                    : "Deployment is queued..."}
+              Only the task owner can stop execution
             </TooltipContent>
-          </Tooltip>
-        )}
-        {!requestChangesPanel &&
-          status !== "todo" &&
-          status !== "in_progress" && (
-            <Button
-              variant="secondary"
-              onClick={() => setRequestChangesPanel(true)}
-            >
-              <IconMessagePlus size={18} />
-              <span className="hidden sm:inline">Request Changes</span>
-            </Button>
           )}
         {!hasActiveRun && status === "todo" && (
           <>

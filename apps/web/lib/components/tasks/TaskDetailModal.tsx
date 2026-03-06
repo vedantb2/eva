@@ -80,7 +80,7 @@ export function TaskDetailModal({
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center justify-between border-t border-border pt-4">
+          <div className="flex shrink-0 items-center justify-end border-t border-border pt-4">
             {footerButtons}
           </div>
         </DialogContent>

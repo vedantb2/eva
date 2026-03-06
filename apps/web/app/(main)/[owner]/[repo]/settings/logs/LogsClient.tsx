@@ -286,9 +286,6 @@ export function LogsClient() {
                   ~£{(totalCost * USD_TO_GBP).toFixed(4)}
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {logs.length} log{logs.length !== 1 ? "s" : ""}
-              </div>
             </div>
             <div className="flex-1 rounded-lg border bg-card p-4">
               <div className="text-sm text-muted-foreground">Ran For</div>

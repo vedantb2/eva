@@ -175,8 +175,17 @@ export const fontFamilyValidator = v.union(
   v.literal("geist"),
 );
 
+export const letterSpacingValidator = v.union(
+  v.literal("tighter"),
+  v.literal("tight"),
+  v.literal("normal"),
+  v.literal("wide"),
+  v.literal("wider"),
+);
+
 export const customThemeValidator = v.object({
   accentColor: v.optional(accentColorValidator),
   radius: v.optional(radiusValidator),
   fontFamily: v.optional(fontFamilyValidator),
+  letterSpacing: v.optional(letterSpacingValidator),
 });

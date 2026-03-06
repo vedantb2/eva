@@ -1130,7 +1130,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         <TooltipContent className="sm:hidden">Delete</TooltipContent>
       </Tooltip>
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-        {latestPrUrl && (
+        {latestPrUrl && (status === "code_review" || status === "done") && (
           <Button asChild variant="outline">
             <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
               <IconGitPullRequest size={18} />

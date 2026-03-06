@@ -1,5 +1,12 @@
 # Changelog
 
+## Add font spacing (letter-spacing) to theme settings - 2026-03-06
+
+- **Why**: Users had control over font family, accent color, border radius, and appearance mode but could not customize letter spacing, which significantly affects readability and visual feel.
+- **Changes**:
+  1. Added `letterSpacingValidator` and included it in `customThemeValidator` in Convex validators.
+  2. Added `LetterSpacing` type and `LETTER_SPACING_VALUES` config to `ThemeContext.tsx`, applying the value to the `--tracking-normal` CSS variable.
+  3. Added a "Font Spacing" section to the theme settings UI with five options: Tighter, Tight, Normal, Wide, Wider.
 ## Correlate quick-task callbacks and streaming by run id - 2026-03-05
 
 - **Why**: Quick-task callbacks and streaming were keyed by `taskId`, so a stale sandbox from an older run could write activity or completion data into a newer retry. That made watchdog diagnosis noisy and created a path for cross-run interference.

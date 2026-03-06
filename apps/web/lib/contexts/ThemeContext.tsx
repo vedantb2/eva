@@ -30,11 +30,13 @@ export type FontFamily =
   | "poppins"
   | "dm-sans"
   | "space-grotesk";
+export type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
 
 export interface CustomTheme {
   accentColor?: AccentColor;
   radius?: RadiusSize;
   fontFamily?: FontFamily;
+  letterSpacing?: LetterSpacing;
 }
 
 interface ThemeContextType {
@@ -286,18 +288,33 @@ const RADIUS_VALUES: Record<RadiusSize, string> = {
   xl: "1rem",
 };
 
+export const LETTER_SPACING_VALUES: Record<
+  LetterSpacing,
+  { label: string; value: string }
+> = {
+  tighter: { label: "Tighter", value: "-0.04em" },
+  tight: { label: "Tight", value: "-0.02em" },
+  normal: { label: "Normal", value: "-0.012em" },
+  wide: { label: "Wide", value: "0.01em" },
+  wider: { label: "Wider", value: "0.03em" },
+};
+
 function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "teal";
   const radius = customTheme.radius ?? "md";
   const fontFamily = customTheme.fontFamily ?? "inter";
+  const letterSpacing = customTheme.letterSpacing ?? "normal";
 
-  // Apply radius
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
 
-  // Apply font
   document.documentElement.style.setProperty(
     "--font-sans",
     FONT_FAMILIES[fontFamily].stack,
+  );
+
+  document.documentElement.style.setProperty(
+    "--tracking-normal",
+    LETTER_SPACING_VALUES[letterSpacing].value,
   );
 
   // If using default teal, remove any custom style element so defaults apply

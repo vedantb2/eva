@@ -26,10 +26,18 @@ export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as TimeRange)}>
       <TabsList>
-        <TabsTrigger value="7d">7 Days</TabsTrigger>
-        <TabsTrigger value="30d">30 Days</TabsTrigger>
-        <TabsTrigger value="90d">90 Days</TabsTrigger>
-        <TabsTrigger value="all">All Time</TabsTrigger>
+        <TabsTrigger value="7d" className="text-xs px-2 sm:text-sm sm:px-3">
+          7d
+        </TabsTrigger>
+        <TabsTrigger value="30d" className="text-xs px-2 sm:text-sm sm:px-3">
+          30d
+        </TabsTrigger>
+        <TabsTrigger value="90d" className="text-xs px-2 sm:text-sm sm:px-3">
+          90d
+        </TabsTrigger>
+        <TabsTrigger value="all" className="text-xs px-2 sm:text-sm sm:px-3">
+          All
+        </TabsTrigger>
       </TabsList>
     </Tabs>
   );

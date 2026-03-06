@@ -5,6 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 // --- Shared completion event ---
 
@@ -316,11 +317,7 @@ export const saveGenerateResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.queryId));
 
     const last = await ctx.db
       .query("messages")
@@ -371,11 +368,7 @@ export const saveConfirmResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.queryId));
 
     const patch: {
       content: string;

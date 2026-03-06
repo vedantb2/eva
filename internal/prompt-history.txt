@@ -17,6 +17,10 @@
 [x] add logs to see pricing per task execution
 [x] add vercel deployment status tracking
 [x] add "View preview" button to quick tasks/sessions
+[x] how to cancel task instead of kill claude code process
+[x] improve cmdk search modal
+[x] improve notifications like linear
+
 
 
 
@@ -32,14 +36,11 @@
 [] fix agent browser connecting to chrome
 [] explore whether we even need to delete sandboxes for sessions, can archive instead
 [] session branch not creating during sessions
-[] how to cancel task instead of kill claude code process
 [] see docs, use --continue
 [] add planning / think before execution
-[] improve cmdk search modal
 
 
 
-[] improve notifications like linear
 [] add human readable id's for the sessions etc
 [] add num of design options in design input
 [] add checkpoint in messages so you can rewind

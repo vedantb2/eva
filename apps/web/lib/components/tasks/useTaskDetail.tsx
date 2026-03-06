@@ -336,8 +336,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
 
   const descriptionSection = (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-foreground">Description</h4>
+      <div className="flex items-center justify-end mb-2">
         <span className="text-xs text-muted-foreground">
           {task?.createdAt ? dayjs(task.createdAt).format("MMM D, YYYY") : ""}
         </span>

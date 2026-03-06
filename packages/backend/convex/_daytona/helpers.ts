@@ -5,6 +5,7 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
+import { launchScript } from "./launch";
 
 export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
@@ -102,4 +103,83 @@ export async function getSandbox(
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
   const daytona = getDaytona(daytonaApiKey);
   return daytona.get(sandboxId);
+}
+
+export function isDaytonaNetworkIssue(errorMsg: string): boolean {
+  const message = errorMsg.toLowerCase();
+  const networkMarkers = [
+    "network",
+    "fetch failed",
+    "econnreset",
+    "econnrefused",
+    "etimedout",
+    "enotfound",
+    "getaddrinfo",
+    "socket hang up",
+    "timeout",
+    "timed out",
+    "aborted",
+  ];
+  const daytonaMarkers = ["daytona", "daytonaerror", "sandbox", "snapshot"];
+  const daytonaStatusMarkers = [
+    "status code 408",
+    "status code 429",
+    "status code 500",
+    "status code 502",
+    "status code 503",
+    "status code 504",
+  ];
+
+  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
+    message.includes(marker),
+  );
+  if (!hasDaytonaMarker) {
+    return false;
+  }
+
+  const hasNetworkMarker = networkMarkers.some((marker) =>
+    message.includes(marker),
+  );
+  const hasDaytonaStatusMarker = daytonaStatusMarkers.some((marker) =>
+    message.includes(marker),
+  );
+
+  if (
+    message.includes("sandbox failed to become ready within the timeout period")
+  ) {
+    return true;
+  }
+
+  return hasNetworkMarker || hasDaytonaStatusMarker;
+}
+
+export async function signAndLaunchScript(
+  ctx: GenericActionCtx<DataModel>,
+  sandbox: Sandbox,
+  userId: Id<"users">,
+  prompt: string,
+  completionMutation: string,
+  entityIdField: string,
+  entityId: string,
+  opts: {
+    model?: string;
+    allowedTools?: string;
+    systemPrompt?: string;
+    extraEnvVars?: Record<string, string>;
+    claudeSessionId?: string;
+  } = {},
+): Promise<void> {
+  const sandboxToken = await ctx.runAction(
+    internal.sandboxJwt.signSandboxToken,
+    { userId },
+  );
+  await launchScript(
+    sandbox,
+    prompt,
+    completionMutation,
+    entityIdField,
+    sandboxToken,
+    entityId,
+    opts,
+  );
 }

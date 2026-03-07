@@ -1,15 +1,16 @@
 # Changelog
 
-## Fix watchdog false kills + add heartbeat observability — 2026-03-07
+## Replace JWT auth with HMAC for sandbox streaming heartbeats — 2026-03-07
 
-- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s") because the callback script's heartbeat and streaming flush silently swallowed all errors. When `streaming:set` calls failed (auth, network, or any other reason), there was zero visibility into the cause, and no retry on the heartbeat path.
+- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s"). Root cause: the callback script's `streaming:set` calls used `authMutation` which requires JWT validation + user DB lookup on every call. Convex's auth layer intermittently fails (confirmed by `presence:disconnect` throwing "Not authenticated" every ~10s). Since heartbeat errors were silently swallowed, heartbeats died for 180s and the watchdog killed the run.
 - **Changes**:
-  1. Added 1-retry to `heartbeatPing` (matching the initial heartbeat call).
-  2. Added `consecutiveHeartbeatFailures` counter shared between heartbeat and flush paths.
-  3. All heartbeat/flush failures now log to stderr with the error message and consecutive failure count.
-  4. Recovery is logged when heartbeat succeeds after previous failures.
-  5. Fixed missing `customTheme` field in `getUserByClerkId` return validator (was causing `ReturnsValidationError` on user documents with custom themes set).
-- **Reason for change**: Heartbeat failures were invisible, making watchdog kills impossible to debug. The retry reduces false kills from transient failures.
+  1. Added `POST /api/streaming/heartbeat` HTTP endpoint in `http.ts` that validates via HMAC instead of JWT.
+  2. HMAC is computed server-side (`signAndLaunchScript`) as `HMAC-SHA256(ENCRYPTION_KEY, entityId)` — scoped to one streaming entity, unforgeable without the secret.
+  3. Callback script now calls the HMAC endpoint for all streaming writes (heartbeats, flush, finalization).
+  4. Falls back to old `streaming:set` authMutation if HMAC env vars aren't set.
+  5. Added retry + error logging to heartbeat/flush paths.
+  6. Fixed missing `customTheme` field in `getUserByClerkId` return validator.
+- **Reason for change**: JWT auth is inherently fragile for high-frequency calls from sandboxes. HMAC eliminates the entire auth chain (JWT parsing, signature verification, user DB lookup) from the heartbeat path.
 
 ## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
 

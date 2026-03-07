@@ -23,6 +23,8 @@ const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || 
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 const READY_FILE = "/tmp/run-design.ready";
+const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || "";
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -107,6 +109,22 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
+}
+
+async function callStreamingHeartbeat(entityId, currentActivity) {
+  if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
+    return await callMutation("streaming:set", { entityId, currentActivity });
+  }
+  const res = await fetchWithTimeout(CONVEX_SITE_URL + "/api/streaming/heartbeat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entityId, hmac: STREAMING_HMAC, currentActivity }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+  }
+  return res.json();
 }
 
 function shortenPath(p) {
@@ -221,10 +239,7 @@ async function flushStreaming() {
   }
   if (hasNew) {
     try {
-      await callMutation("streaming:set", {
-        entityId: STREAMING_ENTITY_ID,
-        currentActivity: JSON.stringify(accumulatedSteps),
-      });
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
       lastStreamingSentAt = Date.now();
       consecutiveHeartbeatFailures = 0;
     } catch (e) {
@@ -241,10 +256,7 @@ async function heartbeatPing() {
   let attempt = 0;
   while (attempt <= 1) {
     try {
-      await callMutation("streaming:set", {
-        entityId: STREAMING_ENTITY_ID,
-        currentActivity: JSON.stringify(accumulatedSteps),
-      });
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
       lastStreamingSentAt = Date.now();
       if (consecutiveHeartbeatFailures > 0) {
         console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
@@ -266,14 +278,20 @@ try { unlinkSync(READY_FILE); } catch {}
 accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
 
 let callbackReady = false;
-await callMutationWithRetry(
-  "streaming:set",
-  {
-    entityId: STREAMING_ENTITY_ID,
-    currentActivity: JSON.stringify(accumulatedSteps),
-  },
-  1,
-)
+async function initialHeartbeat() {
+  let attempt = 0;
+  while (attempt <= 1) {
+    try {
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      return;
+    } catch (e) {
+      attempt++;
+      if (attempt > 1) throw e;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+await initialHeartbeat()
   .then(() => {
     lastStreamingSentAt = Date.now();
     callbackReady = true;
@@ -310,10 +328,7 @@ async function setFinalizingState() {
   });
   lastStepType = "thinking";
   try {
-    await callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    });
+    await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
     lastStreamingSentAt = Date.now();
   } catch {}
 }
@@ -482,10 +497,7 @@ try {
       label: "Retrying without saved session...",
       status: "active",
     });
-    callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    }).catch(() => {});
+    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
 
     const secondAttempt = await runClaudeAttempt(false);
     await flushStreaming();

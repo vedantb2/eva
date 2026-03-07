@@ -1,5 +1,16 @@
 # Changelog
 
+## Hide/show repositories and monorepo apps — 2026-03-07
+
+- **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
+- **Changes**:
+  1. Added `hidden` optional boolean field to `githubRepos` schema and validator.
+  2. `list` query now accepts optional `includeHidden` arg — defaults to filtering out hidden repos. Management pages (monorepo settings, team detail) pass `includeHidden: true`.
+  3. Added `toggleHidden` mutation for setting visibility.
+  4. RepoCard dropdown now has a "Hide" option.
+  5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
+  6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+  7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
 ## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
 
 - **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.

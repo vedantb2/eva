@@ -112,7 +112,7 @@ export function Sidebar() {
   const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
     useState(0);
 
-  const repos = useQuery(api.githubRepos.list);
+  const repos = useQuery(api.githubRepos.list, {});
 
   const { repoBasePath, owner, repoName, appName, isRepoRoute } = useMemo((): {
     repoBasePath: string | null;

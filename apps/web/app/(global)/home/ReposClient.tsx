@@ -12,13 +12,14 @@ import { IconPlus, IconRefresh } from "@tabler/icons-react";
 import { WelcomeBanner } from "./_components/WelcomeBanner";
 import { EmptyOnboarding } from "./_components/EmptyOnboarding";
 import { RepoGroup } from "./_components/RepoGroup";
+import { HiddenReposSheet } from "./_components/HiddenReposSheet";
 
 const GITHUB_APP_NAME = "vb-eva-dev";
 const WELCOME_DISMISSED_KEY = "eva-welcome-dismissed";
 
 export function ReposClient() {
   const router = useRouter();
-  const repos = useQuery(api.githubRepos.list);
+  const repos = useQuery(api.githubRepos.list, {});
   const teams = useQuery(api.teams.list) ?? [];
   const syncRepos = useAction(api.github.syncRepos);
   const [syncing, setSyncing] = useState(false);
@@ -73,6 +74,7 @@ export function ReposClient() {
       title="Repositories"
       headerRight={
         <div className="flex items-center gap-2">
+          {hasRepos && <HiddenReposSheet />}
           {hasRepos && (
             <Button
               size="sm"

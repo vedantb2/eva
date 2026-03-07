@@ -161,21 +161,33 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: data.sandboxId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
+    let sandboxId: string;
+
+    if (data.sandboxId) {
+      sandboxId = data.sandboxId;
+    } else {
+      const prepared = await step.runAction(
+        internal.daytona.prepareSandbox,
+        {
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          repoId: data.repoId,
+          sessionPersistenceId: args.sessionId,
+          startDesktop: true,
+          streamingEntityId: args.sessionId,
+        },
+        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      );
+      sandboxId = prepared.sandboxId;
+
+      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
+        sessionId: args.sessionId,
+        sandboxId,
         branchName: data.branchName,
-        repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
-        startDesktop: true,
-        streamingEntityId: args.sessionId,
-      },
-      { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-    );
+      });
+    }
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
@@ -190,14 +202,6 @@ export const sessionExecuteWorkflow = workflow.define({
       sessionPersistenceId: args.sessionId,
       streamingEntityId: args.sessionId,
     });
-
-    if (sandboxId !== data.sandboxId) {
-      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
-        sessionId: args.sessionId,
-        sandboxId,
-        branchName: data.branchName,
-      });
-    }
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 

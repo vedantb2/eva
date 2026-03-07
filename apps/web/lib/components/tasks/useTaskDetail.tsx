@@ -125,6 +125,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [requestChangesPanel, setRequestChangesPanel] = useState(false);
@@ -560,7 +561,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                         >
                           {run.status}
                         </Badge>
-                        {run._id !== firstRunId && (
+                        {runCommentMap.has(run._id) && (
                           <IconEdit
                             size={14}
                             className="text-muted-foreground shrink-0"
@@ -615,7 +616,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                                   className="h-6 px-2 text-xs"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStopExecution();
+                                    setShowStopConfirm(true);
                                   }}
                                   disabled={isStopping || !isOwner}
                                 >
@@ -1216,74 +1217,45 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             <span className="hidden sm:inline">Request Changes</span>
           </Button>
         )}
-      {hasActiveRun ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                variant="destructive"
-                onClick={handleStopExecution}
-                disabled={isStopping || !isOwner}
-              >
-                {isStopping ? (
-                  <IconLoader2 size={18} className="animate-spin" />
-                ) : (
-                  <IconPlayerStop size={18} />
-                )}
-                Stop
-              </Button>
-            </div>
-          </TooltipTrigger>
-          {!isOwner && (
-            <TooltipContent>
-              Only the task owner can stop execution
-            </TooltipContent>
-          )}
-        </Tooltip>
-      ) : (
-        !hasActiveRun &&
-        status === "todo" && (
-          <>
-            <SchedulePopover
-              taskId={taskId}
-              scheduledAt={task?.scheduledAt}
-              disabled={!isOwner || isBlocked}
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    onClick={handleStartExecution}
-                    disabled={
-                      isStarting ||
-                      isBlocked ||
-                      !isOwner ||
-                      task?.scheduledAt !== undefined
-                    }
-                  >
-                    {isStarting ? (
-                      <IconLoader2 size={18} className="animate-spin" />
-                    ) : (
-                      <IconPlayerPlay size={18} />
-                    )}
-                    Run Eva
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {task?.scheduledAt !== undefined ? (
-                <TooltipContent>
-                  Task is scheduled — remove the schedule to run immediately
-                </TooltipContent>
-              ) : (
-                !isOwner && (
-                  <TooltipContent>
-                    Only the task owner can run Eva
-                  </TooltipContent>
-                )
-              )}
-            </Tooltip>
-          </>
-        )
+      {!hasActiveRun && status === "todo" && (
+        <>
+          <SchedulePopover
+            taskId={taskId}
+            scheduledAt={task?.scheduledAt}
+            disabled={!isOwner || isBlocked}
+          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Button
+                  onClick={handleStartExecution}
+                  disabled={
+                    isStarting ||
+                    isBlocked ||
+                    !isOwner ||
+                    task?.scheduledAt !== undefined
+                  }
+                >
+                  {isStarting ? (
+                    <IconLoader2 size={18} className="animate-spin" />
+                  ) : (
+                    <IconPlayerPlay size={18} />
+                  )}
+                  Run Eva
+                </Button>
+              </div>
+            </TooltipTrigger>
+            {task?.scheduledAt !== undefined ? (
+              <TooltipContent>
+                Task is scheduled — remove the schedule to run immediately
+              </TooltipContent>
+            ) : (
+              !isOwner && (
+                <TooltipContent>Only the task owner can run Eva</TooltipContent>
+              )
+            )}
+          </Tooltip>
+        </>
       )}
     </div>
   );
@@ -1348,6 +1320,41 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </Dialog>
   );
 
+  const stopConfirmDialog = (
+    <Dialog
+      open={showStopConfirm}
+      onOpenChange={(v) => {
+        if (!v) setShowStopConfirm(false);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Stop Execution</DialogTitle>
+        </DialogHeader>
+        <p className="text-muted-foreground">
+          This will stop the agent mid-execution. Any uncommitted progress on
+          this run will be lost.
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setShowStopConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setShowStopConfirm(false);
+              handleStopExecution();
+            }}
+            disabled={isStopping}
+          >
+            {isStopping && <IconLoader2 size={16} className="animate-spin" />}
+            Stop Execution
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const userMessageDialog = (
     <Dialog
       open={viewingCommentForRun !== null}
@@ -1384,6 +1391,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
+    stopConfirmDialog,
     userMessageDialog,
     audit,
     showProofSection,

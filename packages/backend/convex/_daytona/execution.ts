@@ -101,12 +101,22 @@ export const prepareSandbox = internalAction({
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
+    const completedSteps: Array<{
+      type: string;
+      label: string;
+      status: string;
+    }> = [];
     const emitProgress = async (label: string): Promise<void> => {
       if (!args.streamingEntityId) return;
+      const steps = [
+        ...completedSteps,
+        { type: "tool", label, status: "active" },
+      ];
       await ctx.runMutation(internal.streaming.internalSet, {
         entityId: args.streamingEntityId,
-        currentActivity: JSON.stringify({ steps: [{ label }] }),
+        currentActivity: JSON.stringify(steps),
       });
+      completedSteps.push({ type: "tool", label, status: "complete" });
     };
 
     const setupStartedAt = Date.now();
@@ -214,6 +224,8 @@ export const prepareSandbox = internalAction({
           `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
+        completedSteps.length = 0;
+        await emitProgress("Retrying sandbox setup...");
         attempt += 1;
         sandbox = undefined;
         deleteSandboxOnFailure = false;
@@ -251,6 +263,12 @@ export const launchOnExistingSandbox = internalAction({
     const extraEnvVars: Record<string, string> = {};
     if (args.streamingEntityId) {
       extraEnvVars.STREAMING_ENTITY_ID = args.streamingEntityId;
+      const existing = await ctx.runQuery(internal.streaming.internalGet, {
+        entityId: args.streamingEntityId,
+      });
+      if (existing) {
+        extraEnvVars.PRIOR_STEPS = existing.currentActivity;
+      }
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;

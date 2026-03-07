@@ -13,14 +13,16 @@
 
 ## Add granular streaming progress during sandbox setup — 2026-03-07
 
-- **Why**: When `prepareSandbox` runs (creating sandbox, cloning repo, installing deps, setting up branch), users saw "Starting sandbox..." for up to 5 minutes with no feedback. This made it impossible to tell what was happening or where time was being spent.
+## Streaming progress: setup steps + callback script continuity — 2026-03-07
+
+- **Why**: Three problems: (1) Users saw "Starting sandbox..." for up to 5 minutes with no feedback during `prepareSandbox`. (2) The progress format was `{steps:[{label}]}` which `parseActivitySteps` didn't recognize, so it rendered as raw JSON. (3) When the callback script started, it overwrote all setup progress with a fresh `["Starting Claude..."]`, losing the history.
 - **Changes**:
-  1. Added `streamingEntityId` arg to `prepareSandbox` action. When provided, emits progress updates to the `streamingActivity` table via `internalSet` mutation.
-  2. Added `onProgress` callbacks to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts` — milestones include "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Retrying sandbox creation...".
-  3. Added progress for branch setup ("Setting up branch...", "Fetching base branch...") and desktop start ("Starting desktop...") in `prepareSandbox`.
-  4. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
-  5. Added `internalSet` mutation to `streaming.ts` for server-side progress writes.
-- **Reason for change**: User experience. Granular progress during the slowest phase of task execution gives users visibility into what's happening and helps diagnose where time is spent.
+  1. **Setup progress** — Added `streamingEntityId` arg to `prepareSandbox`. Emits progress via `internalSet` mutation at each milestone: "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Fetching base branch...", "Setting up branch...", "Starting desktop...", "Retrying sandbox setup...".
+  2. **Correct format** — `emitProgress` now emits the `ActivityStep[]` format (`[{type, label, status}]`) that the frontend parser expects, with accumulated completed steps + one active step. On retry, the step history resets.
+  3. **Continuity with callback script** — `launchOnExistingSandbox` reads the current streaming activity via `internalGet` query and passes it as `PRIOR_STEPS` env var. The callback script reads `PRIOR_STEPS` on startup and initializes `accumulatedSteps` from it, so setup steps appear as completed before "Starting Claude..." begins.
+  4. **Supporting infrastructure** — Added `internalGet` query and `internalSet` mutation to `streaming.ts`. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
+  5. **`onProgress` callbacks** — Added to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts`.
+- **Reason for change**: Users now see one continuous chain of steps from sandbox creation through Claude execution, all rendered by the same `ActivitySteps` component.
 
 ## Split (main) into (global) + (repo) route groups — 2026-03-07
 

@@ -31,6 +31,7 @@ export function TaskDetailModal({
     requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
+    stopConfirmDialog,
     userMessageDialog,
     audit,
     showProofSection,
@@ -86,6 +87,7 @@ export function TaskDetailModal({
         </DialogContent>
       </Dialog>
       {deleteConfirmDialog}
+      {stopConfirmDialog}
       {userMessageDialog}
     </>
   );

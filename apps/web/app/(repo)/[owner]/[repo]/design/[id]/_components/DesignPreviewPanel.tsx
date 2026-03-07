@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
@@ -8,23 +8,18 @@ import { designTabParser, viewModeParser } from "@/lib/search-params";
 import {
   Button,
   Spinner,
-  Input,
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
 } from "@conductor/ui";
 import {
-  IconArrowLeft,
-  IconArrowRight,
   IconCheck,
   IconDeviceDesktop,
   IconDeviceMobile,
-  IconExternalLink,
-  IconMaximize,
   IconPlayerPlay,
-  IconRefresh,
 } from "@tabler/icons-react";
+import { PreviewNavBar } from "@/lib/components/PreviewNavBar";
 
 type DesignMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -38,31 +33,6 @@ export function getLatestVariations(messages: DesignMessage[]): Variation[] {
     .reverse()
     .find((m) => m.role === "assistant" && m.variations?.length);
   return lastWithVariations?.variations ?? [];
-}
-
-function NavButton({
-  tooltip,
-  onClick,
-  disabled,
-  children,
-}: {
-  tooltip: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      className="h-8 w-8 p-0 hover:text-foreground"
-      disabled={disabled}
-      onClick={onClick}
-      size="sm"
-      variant="ghost"
-      title={tooltip}
-    >
-      {children}
-    </Button>
-  );
 }
 
 interface DesignPreviewPanelProps {
@@ -92,58 +62,11 @@ export function DesignPreviewPanel({
     tab: designTabParser,
     view: viewModeParser,
   });
-  const activeTab = tab;
-  const viewMode = view;
+  const activeTabIndex = Number(tab);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
-  const [portInput, setPortInput] = useState("3000");
-  const [pathInput, setPathInput] = useState("/design-preview");
-
-  const activeIframe = iframeRefs.current.get(Number(activeTab));
-
-  function goBack() {
-    try {
-      activeIframe?.contentWindow?.history.back();
-    } catch {}
-  }
-
-  function goForward() {
-    try {
-      activeIframe?.contentWindow?.history.forward();
-    } catch {}
-  }
-
-  function reload() {
-    if (activeIframe) {
-      activeIframe.src = activeIframe.src;
-    }
-  }
-
-  function commitPath() {
-    if (!activeIframe || !previewUrl) return;
-    try {
-      const parsed = new URL(previewUrl);
-      const normalizedPath = pathInput.startsWith("/")
-        ? pathInput
-        : `/${pathInput}`;
-      parsed.pathname = normalizedPath;
-      activeIframe.src = parsed.toString();
-    } catch {}
-  }
-
-  function openInNewTab() {
-    if (activeIframe?.src) {
-      window.open(activeIframe.src, "_blank");
-    }
-  }
-
-  function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      containerRef.current?.requestFullscreen();
-    }
-  }
+  const activeIframeRef = useRef<HTMLIFrameElement | null>(null);
+  activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
 
   if (latestVariations.length === 0) {
     return (
@@ -162,7 +85,7 @@ export function DesignPreviewPanel({
   return (
     <div ref={containerRef} className="flex-1 flex flex-col min-w-0">
       <Tabs
-        value={activeTab}
+        value={tab}
         onValueChange={(v) => {
           if (v === "0" || v === "1" || v === "2") {
             setDesignParams({ tab: v });
@@ -170,9 +93,9 @@ export function DesignPreviewPanel({
         }}
         className="flex flex-col h-full"
       >
-        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
           <Tabs
-            value={viewMode}
+            value={view}
             onValueChange={(v) => {
               if (v === "desktop" || v === "mobile") {
                 setDesignParams({ view: v });
@@ -195,44 +118,13 @@ export function DesignPreviewPanel({
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="flex items-center gap-1">
-            <NavButton tooltip="Back" onClick={goBack}>
-              <IconArrowLeft className="w-3.5 h-3.5" />
-            </NavButton>
-            <NavButton tooltip="Forward" onClick={goForward}>
-              <IconArrowRight className="w-3.5 h-3.5" />
-            </NavButton>
-            <NavButton tooltip="Reload" onClick={reload}>
-              <IconRefresh className="w-3.5 h-3.5" />
-            </NavButton>
-            <Input
-              className="h-8 flex-1 text-xs max-w-64"
-              value={pathInput}
-              onChange={(e) => setPathInput(e.target.value)}
-              onBlur={commitPath}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitPath();
-              }}
-              placeholder="/"
-              aria-label="Preview path"
-            />
-            <Input
-              className="h-8 w-16 text-xs text-center px-1"
-              value={portInput}
-              onChange={(e) => setPortInput(e.target.value)}
-              aria-label="Preview port"
-            />
-            <NavButton
-              tooltip="Open in new tab"
-              onClick={openInNewTab}
-              disabled={!previewUrl}
-            >
-              <IconExternalLink className="w-3.5 h-3.5" />
-            </NavButton>
-            <NavButton tooltip="Fullscreen" onClick={toggleFullscreen}>
-              <IconMaximize className="w-3.5 h-3.5" />
-            </NavButton>
-          </div>
+          <PreviewNavBar
+            previewUrl={previewUrl}
+            iframeRef={activeIframeRef}
+            containerRef={containerRef}
+            port={3000}
+            defaultPath="/design-preview"
+          />
         </div>
         {latestVariations.map((variation, i) => (
           <TabsContent
@@ -241,7 +133,7 @@ export function DesignPreviewPanel({
             className="flex-1 m-0 min-h-0 relative bg-muted/30"
           >
             <div
-              className={`transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+              className={`transition-all duration-150 ${view === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
             >
               {previewUrl ? (
                 <iframe
@@ -295,17 +187,17 @@ export function DesignPreviewPanel({
               size="sm"
               variant="secondary"
               className="h-7 text-xs gap-1 shrink-0"
-              onClick={() => onSelectVariation(Number(activeTab))}
-              disabled={selectedVariationIndex === Number(activeTab)}
+              onClick={() => onSelectVariation(activeTabIndex)}
+              disabled={selectedVariationIndex === activeTabIndex}
             >
               <IconCheck size={14} />
-              {selectedVariationIndex === Number(activeTab)
+              {selectedVariationIndex === activeTabIndex
                 ? "Selected"
                 : "Use this design"}
             </Button>
           )}
           <p className="text-xs text-muted-foreground truncate">
-            {latestVariations[Number(activeTab)]?.label}
+            {latestVariations[activeTabIndex]?.label}
           </p>
         </div>
       </Tabs>

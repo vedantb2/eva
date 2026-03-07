@@ -31,12 +31,12 @@ export function QuickTasksSplitView({
   projectNames,
 }: QuickTasksSplitViewProps) {
   return (
-    <div className="flex min-w-0 flex-1 min-h-0">
+    <div className="flex min-w-0 flex-1 min-h-0 flex-col sm:flex-row">
       <div
         className={
           selectedTaskId
-            ? "hidden md:flex md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
-            : "flex flex-col min-w-0 min-h-0 flex-1 md:flex-none md:w-[20%] md:flex-shrink-0 md:overflow-hidden"
+            ? "hidden sm:flex sm:w-[30%] md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
+            : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[30%] md:w-[20%] sm:flex-shrink-0 sm:overflow-hidden"
         }
       >
         <QuickTasksListView
@@ -50,11 +50,11 @@ export function QuickTasksSplitView({
         />
       </div>
       {selectedTaskId ? (
-        <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden">
+        <div className="w-full sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden">
           <TaskDetailInline onClose={onCloseTask} taskId={selectedTaskId} />
         </div>
       ) : (
-        <div className="hidden md:flex md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+        <div className="hidden sm:flex sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
           <QuickTasksStatusSummary tasks={quickTasks} />
         </div>
       )}

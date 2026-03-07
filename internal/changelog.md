@@ -1,17 +1,17 @@
 # Changelog
 
-## Mobile responsiveness audit — 2026-03-07
+## Mobile responsiveness audit (deep pass) — 2026-03-07
 
 - **Why**: Many pages and components had fixed widths, missing responsive breakpoints, and overflow issues that made the platform difficult to use on phones and tablets.
 - **Changes**:
-  - Quick Tasks: Reduced filter dropdown max-width on mobile, smaller kanban column gaps, responsive bulk action bar sizing, tighter search input
-  - Sessions: Lowered panel min-widths for better tablet fit, hidden button text labels on mobile, adjusted input tab positioning
-  - Designs: Chat panel + preview panel now stack vertically on mobile instead of side-by-side
-  - Documents: Header buttons collapse to icon-only on mobile, responsive tab content padding, interview dialog width capped to viewport
-  - Testing Arena: Test run sidebar stacks on top on mobile with max-height, responsive header wrapping, smaller branch select
-  - Settings: Smaller table min-widths for better scroll on small screens, responsive padding
-  - Shared: EmptyState reduced padding on mobile, BranchSelect popover capped to viewport, TopNavBar smaller tabs on mobile, ChatPageWrapper responsive padding, SystemAlertMessage truncation, PreviewNavBar responsive input widths, MultipleChoiceQuestion single-column on mobile
-- **Reason for change**: Mobile-first accessibility for all major pages.
+  - Quick Tasks: Split view now uses sm breakpoint instead of md for earlier stacking, filter button max-width tightened, card padding reduced on mobile, kanban columns use 75vw snap width
+  - Sessions: Added useMediaQuery hook; mobile devices now get vertical stack layout instead of resizable horizontal panels; summary accordion and plan content padding responsive; prompt input area tighter on mobile
+  - Designs: Chat panel gets max-h-50vh on mobile to share space with preview, min-width reduced for medium screens, preview panel header wraps on small screens, footer gap/padding responsive, persona dialogs width-capped to viewport
+  - Testing Arena: Test run list max-height tuned for mobile, test detail padding responsive (px-4 → sm:px-10), header padding tighter, branch select narrower on small screens
+  - Settings: Config card padding responsive, snapshots table min-width reduced on mobile (360px), table cell padding tighter (px-2 → sm:px-4), logs summary grid gap responsive
+  - Shared: Main sidebar width capped to prevent overflow on very small screens (min of 16rem, 100vw-3rem), mobile header padding responsive, SidebarLayoutWrapper mobile drawer capped to 100vw-2rem, ChatPageWrapper header gap and wrap improved, KanbanBoard columns use 75vw for better mobile snapping, TaskDetailInline gap responsive, TaskDetailModal gets w-full for mobile constraint
+  - Added `useMediaQuery` hook for responsive layout switching
+- **Reason for change**: Mobile-first accessibility audit across quick tasks, sessions, designs, documents, testing arena, inbox, stats, and settings pages.
 
 ## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
 

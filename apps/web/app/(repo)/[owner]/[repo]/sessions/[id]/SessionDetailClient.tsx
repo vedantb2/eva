@@ -10,6 +10,7 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 
 const CHAT_DEFAULT_SIZE = "30%";
 const CHAT_MIN_EXPANDED_WIDTH_PX = 320;
@@ -91,6 +92,59 @@ export function SessionDetailClient({
   }
 
   const isSandboxActive = session.status === "active";
+  const isMobile = useMediaQuery("(max-width: 767px)");
+
+  const chatPanel = (
+    <ChatPanel
+      sessionId={sessionId}
+      title={session.title}
+      branchName={session.branchName}
+      prUrl={session.prUrl}
+      summary={session.summary}
+      messages={messages ?? []}
+      planContent={session.planContent}
+      streamingActivity={streaming?.currentActivity}
+      summaryStreamingActivity={summaryStreaming?.currentActivity}
+      isSandboxActive={isSandboxActive}
+      isSandboxToggling={isSandboxStarting || isStopPending}
+      onSandboxToggle={handleSandboxToggle}
+      isArchived={session.archived === true}
+      previewUrl={previewInfo?.url}
+      sandboxCollapsed={sandboxCollapsed}
+      onToggleSandbox={handleSandboxPanelToggle}
+    />
+  );
+
+  const sandboxPanel = (
+    <SandboxPanel
+      sessionId={sessionId}
+      sandboxId={session.sandboxId}
+      isActive={isSandboxActive}
+      repoId={session.repoId}
+      devPort={session.devPort}
+      devCommand={session.devCommand}
+      previewInfo={previewInfo}
+      onPreviewInfoChange={handlePreviewInfoChange}
+      vncEnabled={repo.sessionsVncEnabled !== false}
+      vscodeEnabled={repo.sessionsVscodeEnabled !== false}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className={sandboxCollapsed ? "flex-1 min-h-0" : "h-1/2 min-h-0"}>
+          {chatPanel}
+        </div>
+        {!sandboxCollapsed && (
+          <>
+            <div className="h-px bg-border shrink-0" />
+            <div className="h-1/2 min-h-0">{sandboxPanel}</div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Group orientation="horizontal" className="h-full">
@@ -98,24 +152,7 @@ export function SessionDetailClient({
         defaultSize={CHAT_DEFAULT_SIZE}
         minSize={CHAT_MIN_EXPANDED_WIDTH_PX}
       >
-        <ChatPanel
-          sessionId={sessionId}
-          title={session.title}
-          branchName={session.branchName}
-          prUrl={session.prUrl}
-          summary={session.summary}
-          messages={messages ?? []}
-          planContent={session.planContent}
-          streamingActivity={streaming?.currentActivity}
-          summaryStreamingActivity={summaryStreaming?.currentActivity}
-          isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxStarting || isStopPending}
-          onSandboxToggle={handleSandboxToggle}
-          isArchived={session.archived === true}
-          previewUrl={previewInfo?.url}
-          sandboxCollapsed={sandboxCollapsed}
-          onToggleSandbox={handleSandboxPanelToggle}
-        />
+        {chatPanel}
       </Panel>
       <Separator
         className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${sandboxCollapsed ? "hidden" : ""}`}
@@ -131,18 +168,7 @@ export function SessionDetailClient({
         minSize={SANDBOX_MIN_WIDTH_PX}
         panelRef={sandboxPanelRef}
       >
-        <SandboxPanel
-          sessionId={sessionId}
-          sandboxId={session.sandboxId}
-          isActive={isSandboxActive}
-          repoId={session.repoId}
-          devPort={session.devPort}
-          devCommand={session.devCommand}
-          previewInfo={previewInfo}
-          onPreviewInfoChange={handlePreviewInfoChange}
-          vncEnabled={repo.sessionsVncEnabled !== false}
-          vscodeEnabled={repo.sessionsVscodeEnabled !== false}
-        />
+        {sandboxPanel}
       </Panel>
     </Group>
   );

@@ -21,7 +21,7 @@ export function ConfigClient() {
   return (
     <PageWrapper title="Config">
       <div className="space-y-4">
-        <div className="rounded-lg border border-border/70 p-4 space-y-4">
+        <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Repository Configuration</h3>
 
           <div className="grid gap-4">
@@ -73,7 +73,7 @@ export function ConfigClient() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/70 p-4 space-y-4">
+        <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Feature Toggles</h3>
           <div className="grid gap-3">
             <div>

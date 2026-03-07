@@ -71,7 +71,7 @@ export function SidebarLayoutWrapper({
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="lg:hidden fixed inset-y-0 left-0 z-50 w-[19.5rem]"
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-[min(19.5rem,calc(100vw-2rem))]"
             initial={{ x: -24, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -24, opacity: 0 }}

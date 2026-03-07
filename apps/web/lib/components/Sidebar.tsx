@@ -344,7 +344,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-4  lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-3 sm:px-4 lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -394,7 +394,9 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-64 lg:w-20" : "w-64",
+          collapsed
+            ? "w-[min(16rem,calc(100vw-3rem))] lg:w-20"
+            : "w-[min(16rem,calc(100vw-3rem))]",
         )}
       >
         <div className="h-full">

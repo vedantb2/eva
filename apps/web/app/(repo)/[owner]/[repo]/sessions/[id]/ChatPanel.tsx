@@ -393,7 +393,7 @@ export function ChatPanel({
               type="single"
               collapsible
               defaultValue={showSummaryStreaming ? "summary" : undefined}
-              className="px-6 bg-secondary rounded-b-3xl"
+              className="px-3 sm:px-6 bg-secondary rounded-b-3xl"
             >
               <AccordionItem value="summary" className="border-b-0">
                 <AccordionTrigger className="py-2 text-sm">
@@ -533,7 +533,7 @@ export function ChatPanel({
         <ConversationScrollButton />
       </Conversation>
       {!isArchived && (
-        <div className="px-3 pb-4 pt-3">
+        <div className="px-2 pb-3 pt-2 sm:px-3 sm:pb-4 sm:pt-3">
           <AnimatePresence>
             {mode === "plan" && planContent && (
               <motion.div
@@ -547,7 +547,7 @@ export function ChatPanel({
                     <PlanTitle>Product Requirements</PlanTitle>
                     <PlanTrigger />
                   </PlanHeader>
-                  <PlanContent className="px-4 pb-4 pt-0 max-h-64 overflow-y-auto">
+                  <PlanContent className="px-3 pb-3 pt-0 max-h-40 overflow-y-auto sm:px-4 sm:pb-4 sm:max-h-64">
                     <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                       {planContent}
                     </MessageResponse>
@@ -574,7 +574,7 @@ export function ChatPanel({
                   setMode(v);
                 }
               }}
-              className="absolute left-2 top-4 z-20 -translate-y-1/2 sm:left-3"
+              className="absolute left-1.5 top-4 z-20 -translate-y-1/2 sm:left-3"
             >
               <TabsList className="h-8 rounded-full  p-0.5 shadow-sm">
                 <TabsTrigger

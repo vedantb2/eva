@@ -79,7 +79,7 @@ export function QuickTasksToolbar({
             <Button
               variant="secondary"
               size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[140px] sm:max-w-[180px]"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[120px] sm:max-w-[180px]"
             >
               <IconFolder size={16} />
               <span className="truncate">{filterLabel}</span>

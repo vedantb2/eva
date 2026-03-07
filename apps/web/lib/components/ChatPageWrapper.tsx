@@ -27,14 +27,18 @@ export function ChatPageWrapper({
           </span>
         </div>
       ) : (
-        <div className="flex items-center justify-between p-2 animate-in fade-in duration-300 sm:p-3">
+        <div className="flex items-center justify-between gap-1 p-2 animate-in fade-in duration-300 sm:gap-2 sm:p-3">
           {headerLeft ? (
-            <div className="flex items-center gap-2">{headerLeft}</div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {headerLeft}
+            </div>
           ) : (
             <div />
           )}
           {headerRight && (
-            <div className="flex items-center gap-2">{headerRight}</div>
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+              {headerRight}
+            </div>
           )}
         </div>
       )}

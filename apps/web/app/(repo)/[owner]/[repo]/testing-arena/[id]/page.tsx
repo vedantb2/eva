@@ -125,7 +125,7 @@ function ReportCard({
                   {failed.map((item, idx) => (
                     <div key={idx}>
                       <Test name={item.requirement} status="failed" />
-                      <p className="px-10 pb-2 text-xs text-muted-foreground">
+                      <p className="px-4 pb-2 text-xs text-muted-foreground sm:px-10">
                         {item.detail}
                       </p>
                     </div>
@@ -143,7 +143,7 @@ function ReportCard({
                   {passed.map((item, idx) => (
                     <div key={idx}>
                       <Test name={item.requirement} status="passed" />
-                      <p className="px-10 pb-2 text-xs text-muted-foreground">
+                      <p className="px-4 pb-2 text-xs text-muted-foreground sm:px-10">
                         {item.detail}
                       </p>
                     </div>
@@ -261,7 +261,7 @@ function CodeTestingContent({
 
   return (
     <div className="h-full flex flex-col overflow-hidden sm:flex-row">
-      <div className="w-full shrink-0 border-b overflow-y-auto scrollbar p-2 space-y-1 max-h-32 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
+      <div className="w-full shrink-0 border-b overflow-y-auto scrollbar p-2 space-y-1 max-h-28 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
         <p className="text-xs font-medium text-muted-foreground px-2 py-1">
           Test runs ({reports.length})
         </p>
@@ -344,7 +344,7 @@ export default function TestingArenaDocPage({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-3 py-2 flex flex-col gap-1 sm:px-4">
+      <div className="px-2 py-2 flex flex-col gap-1 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Tabs
             value={activeTab}
@@ -367,7 +367,7 @@ export default function TestingArenaDocPage({
             <BranchSelect
               value={branch}
               onValueChange={setBranch}
-              className="h-7 text-xs w-28 sm:w-36"
+              className="h-7 text-xs w-24 sm:w-36"
             />
             <Button
               size="sm"

@@ -6,6 +6,7 @@ import type { Id } from "@conductor/backend";
 import { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Spinner,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -30,17 +31,17 @@ import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
+import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 
 interface DesignChatPanelProps {
   designSessionId: Id<"designSessions">;
   title: string;
   isArchived: boolean;
-  sandboxRunning: boolean;
-  isSandboxStarting: boolean;
+  isSandboxActive: boolean;
+  isSandboxToggling: boolean;
   isExecuting: boolean;
-  onStartSandbox: () => void;
-  onStopSandbox: () => void;
+  onSandboxToggle: (action: "start" | "stop") => void;
   repoId: Id<"githubRepos">;
 }
 
@@ -48,11 +49,10 @@ export function DesignChatPanel({
   designSessionId,
   title,
   isArchived,
-  sandboxRunning,
-  isSandboxStarting,
+  isSandboxActive,
+  isSandboxToggling,
   isExecuting: parentIsExecuting,
-  onStartSandbox,
-  onStopSandbox,
+  onSandboxToggle,
   repoId,
 }: DesignChatPanelProps) {
   const messages = useQuery(api.messages.listByParent, {
@@ -96,7 +96,7 @@ export function DesignChatPanel({
     : undefined;
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || !sandboxRunning) return;
+    if (!text.trim() || !isSandboxActive) return;
     setIsSending(true);
     try {
       await executeMessage({
@@ -124,33 +124,28 @@ export function DesignChatPanel({
         isArchived={isArchived}
         headerRight={
           <>
-            {sandboxRunning ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={onStopSandbox}
-              >
-                <IconPlayerStop size={14} />
-                Stop
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={onStartSandbox}
-                disabled={isSandboxStarting}
-              >
-                <IconPlayerPlay size={14} />
-                {isSandboxStarting ? "Starting..." : "Start sandbox"}
-              </Button>
-            )}
             <ManagePersonasModal
               repoId={repoId}
               selectedPersonaId={selectedPersonaId}
               onClearPersona={() => setSelectedPersonaId(undefined)}
             />
+            <Button
+              size="icon"
+              variant={isSandboxActive ? "destructive" : "secondary"}
+              onClick={() =>
+                onSandboxToggle(isSandboxActive ? "stop" : "start")
+              }
+              disabled={isSandboxToggling}
+              className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+            >
+              {isSandboxToggling ? (
+                <Spinner size="sm" />
+              ) : isSandboxActive ? (
+                <IconPlayerStop className="w-4 h-4" />
+              ) : (
+                <IconPlayerPlay className="w-4 h-4" />
+              )}
+            </Button>
           </>
         }
       >
@@ -159,79 +154,89 @@ export function DesignChatPanel({
             {messagesList.length === 0 ? (
               <ConversationEmptyState
                 title={
-                  sandboxRunning
+                  isSandboxActive
                     ? "Describe the UI you want to design"
                     : "Start the sandbox to begin designing"
                 }
               />
             ) : (
-              messagesList.map((message) => (
-                <motion.div
-                  key={message._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <AIMessage from={message.role}>
-                    <MessageContent
-                      className={
-                        message.role === "user"
-                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
-                      }
-                    >
-                      {message.role === "assistant" && !message.content ? (
-                        <StreamingActivityDisplay
-                          activity={streaming?.currentActivity}
-                          name="Eva"
-                          icon={evaIcon}
-                        />
-                      ) : (
-                        <>
-                          {message.role === "assistant" ? (
-                            <>
-                              {message.activityLog && (
-                                <ActivityLogDisplay
-                                  activityLog={message.activityLog}
-                                  name="Eva"
-                                  icon={evaIcon}
-                                />
-                              )}
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                {message.content}
-                              </MessageResponse>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
-                              </p>
-                              <div className="flex items-center justify-between gap-3">
-                                {message.personaId && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {personaMap.get(message.personaId)?.name ??
-                                      "Persona"}
-                                  </span>
+              messagesList.map((message) =>
+                message.isSystemAlert ? (
+                  <SystemAlertMessage
+                    key={message._id}
+                    content={message.content ?? ""}
+                    errorDetail={message.errorDetail}
+                  />
+                ) : (
+                  <motion.div
+                    key={message._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <AIMessage from={message.role}>
+                      <MessageContent
+                        className={
+                          message.role === "user"
+                            ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                            : "px-1 py-2"
+                        }
+                      >
+                        {message.role === "assistant" && !message.content ? (
+                          <StreamingActivityDisplay
+                            activity={streaming?.currentActivity}
+                            name="Eva"
+                            icon={evaIcon}
+                          />
+                        ) : (
+                          <>
+                            {message.role === "assistant" ? (
+                              <>
+                                {message.activityLog && (
+                                  <ActivityLogDisplay
+                                    activityLog={message.activityLog}
+                                    name="Eva"
+                                    icon={evaIcon}
+                                  />
                                 )}
-                                {message.timestamp && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {dayjs(message.timestamp).format("h:mm A")}
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </>
+                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                  {message.content}
+                                </MessageResponse>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                  {message.content}
+                                </p>
+                                <div className="flex items-center justify-between gap-3">
+                                  {message.personaId && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {personaMap.get(message.personaId)
+                                        ?.name ?? "Persona"}
+                                    </span>
+                                  )}
+                                  {message.timestamp && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {dayjs(message.timestamp).format(
+                                        "h:mm A",
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </MessageContent>
+                      {message.role === "user" && (
+                        <div className="mt-0.5 ml-auto">
+                          <UserMessageAvatar userId={message.userId} />
+                        </div>
                       )}
-                    </MessageContent>
-                    {message.role === "user" && (
-                      <div className="mt-0.5 ml-auto">
-                        <UserMessageAvatar userId={message.userId} />
-                      </div>
-                    )}
-                  </AIMessage>
-                </motion.div>
-              ))
+                    </AIMessage>
+                  </motion.div>
+                ),
+              )
             )}
           </ConversationContent>
           <ConversationScrollButton />
@@ -241,11 +246,11 @@ export function DesignChatPanel({
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputTextarea
                 placeholder={
-                  !sandboxRunning
+                  !isSandboxActive
                     ? "Start the sandbox to begin designing..."
                     : "Describe the design you want..."
                 }
-                disabled={isExecuting || !sandboxRunning}
+                disabled={isExecuting || !isSandboxActive}
               />
               <PromptInputFooter>
                 <PersonaDropdown
@@ -255,12 +260,15 @@ export function DesignChatPanel({
                 />
                 <div className="flex items-center gap-1">
                   <PromptInputSpeech
-                    disabled={isExecuting || !sandboxRunning}
+                    disabled={isExecuting || !isSandboxActive}
                   />
                   <PromptInputSubmit
                     status={submitStatus}
                     onStop={handleCancel}
-                    disabled={isExecuting || !sandboxRunning}
+                    disabled={
+                      !submitStatus && (isExecuting || !isSandboxActive)
+                    }
+                    title={submitStatus ? "Stop Eva" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

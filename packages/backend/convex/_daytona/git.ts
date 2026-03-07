@@ -115,11 +115,13 @@ export async function syncRepo(
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
+  baseBranch: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
+  const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
     30,
   );
 }
@@ -161,20 +163,19 @@ export async function cloneAndSetupRepo(
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
+  baseBranch: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
   const quotedRemote = quote([`origin/${branchName}`]);
-  // Stash any local changes first
+  const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
     10,
   );
-  // Try to checkout the existing remote branch first (preserves previous commits),
-  // then fall back to creating a new branch from current HEAD
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -B ${quotedBranch})`,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
     10,
   );
   const currentBranch = (

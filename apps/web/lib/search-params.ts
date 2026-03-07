@@ -98,7 +98,7 @@ export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
   .withOptions(tabOptions);
 
 export const projectFilterParser = parseAsString
-  .withDefault("all")
+  .withDefault("none")
   .withOptions(searchOptions);
 
 export const previewPortParser = parseAsInteger

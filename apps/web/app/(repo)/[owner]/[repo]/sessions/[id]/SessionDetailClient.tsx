@@ -13,6 +13,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 
 const CHAT_DEFAULT_SIZE = "30%";
 const CHAT_MIN_EXPANDED_WIDTH_PX = 450;
+const SANDBOX_MIN_WIDTH_PX = 400;
 
 export function SessionDetailClient({
   sessionId,
@@ -30,9 +31,10 @@ export function SessionDetailClient({
   });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
-  const [isSandboxToggling, setIsSandboxToggling] = useState(false);
-  const chatPanelRef = usePanelRef();
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const isSandboxStarting = session?.status === "starting";
+  const [isStopPending, setIsStopPending] = useState(false);
+  const sandboxPanelRef = usePanelRef();
+  const [sandboxCollapsed, setSandboxCollapsed] = useState(false);
   const [previewInfo, setPreviewInfo] = useState<{
     url: string;
     port: number;
@@ -42,29 +44,29 @@ export function SessionDetailClient({
     [],
   );
 
-  const handleChatToggle = () => {
-    if (chatCollapsed) {
-      chatPanelRef.current?.expand();
-      setChatCollapsed(false);
+  const handleSandboxPanelToggle = () => {
+    if (sandboxCollapsed) {
+      sandboxPanelRef.current?.expand();
+      setSandboxCollapsed(false);
     } else {
-      chatPanelRef.current?.collapse();
-      setChatCollapsed(true);
+      sandboxPanelRef.current?.collapse();
+      setSandboxCollapsed(true);
     }
   };
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
-    setIsSandboxToggling(true);
-    try {
-      if (action === "start") {
-        await startSandboxMutation({
-          sessionId,
-          installationId,
-        });
-      } else {
+    if (action === "start") {
+      await startSandboxMutation({
+        sessionId,
+        installationId,
+      });
+    } else {
+      setIsStopPending(true);
+      try {
         await stopSandboxMutation({ sessionId });
+      } finally {
+        setIsStopPending(false);
       }
-    } finally {
-      setIsSandboxToggling(false);
     }
   };
 
@@ -93,11 +95,8 @@ export function SessionDetailClient({
   return (
     <Group orientation="horizontal" className="h-full">
       <Panel
-        collapsible
-        collapsedSize={0}
         defaultSize={CHAT_DEFAULT_SIZE}
         minSize={CHAT_MIN_EXPANDED_WIDTH_PX}
-        panelRef={chatPanelRef}
       >
         <ChatPanel
           sessionId={sessionId}
@@ -110,26 +109,32 @@ export function SessionDetailClient({
           streamingActivity={streaming?.currentActivity}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxToggling}
+          isSandboxToggling={isSandboxStarting || isStopPending}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
           previewUrl={previewInfo?.url}
+          sandboxCollapsed={sandboxCollapsed}
+          onToggleSandbox={handleSandboxPanelToggle}
         />
       </Panel>
       <Separator
-        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${chatCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${sandboxCollapsed ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />
         </div>
       </Separator>
-      <Panel defaultSize="60%" minSize={400}>
+      <Panel
+        collapsible
+        collapsedSize={0}
+        defaultSize="60%"
+        minSize={SANDBOX_MIN_WIDTH_PX}
+        panelRef={sandboxPanelRef}
+      >
         <SandboxPanel
           sessionId={sessionId}
           sandboxId={session.sandboxId}
           isActive={isSandboxActive}
-          chatVisible={!chatCollapsed}
-          onToggleChat={handleChatToggle}
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}

@@ -81,7 +81,6 @@ export function QueryMessageItem({
           <StreamingActivityDisplay
             activity={streamingActivity}
             thinkingLabel="Analysing..."
-            doneLabel="Analysis complete"
           />
         ) : message.role === "assistant" && message.status === "pending" ? (
           <>

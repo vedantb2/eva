@@ -50,7 +50,7 @@ import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { normalizePathname } from "@/lib/utils/repoUrl";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "design",
+  "designs",
   "docs",
   "sessions",
   "quick-tasks",
@@ -61,7 +61,7 @@ const KNOWN_SUB_PAGES = new Set([
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
-  Design: "design",
+  Designs: "designs",
   Sessions: "sessions",
   Analyse: "analyse",
   Settings: "settings",
@@ -71,7 +71,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
 
 type ContextSidebarMode =
   | "main"
-  | "design"
+  | "designs"
   | "sessions"
   | "analyse"
   | "settings"
@@ -83,7 +83,7 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   for (let i = 2; i < segments.length; i++) {
     const s = segments[i];
     if (
-      s === "design" ||
+      s === "designs" ||
       s === "sessions" ||
       s === "analyse" ||
       s === "settings" ||
@@ -112,7 +112,7 @@ export function Sidebar() {
   const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
     useState(0);
 
-  const repos = useQuery(api.githubRepos.list);
+  const repos = useQuery(api.githubRepos.list, {});
 
   const { repoBasePath, owner, repoName, appName, isRepoRoute } = useMemo((): {
     repoBasePath: string | null;
@@ -191,8 +191,8 @@ export function Sidebar() {
                   icon: IconLayoutKanban,
                 },
                 {
-                  name: "Design",
-                  href: `${repoBasePath}/design`,
+                  name: "Designs",
+                  href: `${repoBasePath}/designs`,
                   icon: IconPalette,
                 },
               ],
@@ -290,7 +290,7 @@ export function Sidebar() {
     );
 
   const contextSidebarTitle =
-    contextSidebarMode === "design"
+    contextSidebarMode === "designs"
       ? "Designs"
       : contextSidebarMode === "sessions"
         ? "Sessions"
@@ -306,7 +306,7 @@ export function Sidebar() {
 
   const showContextCreate = contextSidebarMode !== "settings";
   const contextCreateButtonTitle =
-    contextSidebarMode === "design"
+    contextSidebarMode === "designs"
       ? "New design session"
       : contextSidebarMode === "sessions"
         ? "New session"
@@ -319,7 +319,7 @@ export function Sidebar() {
               : "New item";
 
   const handleContextCreate = () => {
-    if (contextSidebarMode === "design") {
+    if (contextSidebarMode === "designs") {
       setDesignCreateRequestId((current) => current + 1);
       return;
     }
@@ -605,7 +605,7 @@ export function Sidebar() {
                             onNavigate={closeMobileSidebar}
                           />
                         ) : repo ? (
-                          contextSidebarMode === "design" ? (
+                          contextSidebarMode === "designs" ? (
                             <DesignSessionsSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}

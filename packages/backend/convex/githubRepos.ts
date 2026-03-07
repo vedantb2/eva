@@ -12,6 +12,7 @@ export {
   removeFromTeam,
   create,
   updateConfig,
+  toggleHidden,
   deleteInternal,
 } from "./_githubRepos/mutations";
 

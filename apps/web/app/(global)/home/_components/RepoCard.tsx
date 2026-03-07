@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMutation } from "convex/react";
 import { motion } from "motion/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -19,6 +20,7 @@ import {
   IconPlugConnectedX,
   IconDots,
   IconFolders,
+  IconEyeOff,
 } from "@tabler/icons-react";
 
 export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -32,6 +34,7 @@ export function RepoCard({
   index: number;
   onManageApps: () => void;
 }) {
+  const toggleHidden = useMutation(api.githubRepos.toggleHidden);
   return (
     <motion.div
       key={repo._id}
@@ -96,6 +99,12 @@ export function RepoCard({
               <DropdownMenuItem onClick={onManageApps}>
                 <IconFolders size={16} />
                 Manage apps
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => toggleHidden({ repoId: repo._id, hidden: true })}
+              >
+                <IconEyeOff size={16} />
+                Hide
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

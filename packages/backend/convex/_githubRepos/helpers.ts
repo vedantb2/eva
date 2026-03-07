@@ -20,4 +20,5 @@ export const githubRepoValidator = v.object({
   codeReviewAuditEnabled: v.optional(v.boolean()),
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
+  hidden: v.optional(v.boolean()),
 });

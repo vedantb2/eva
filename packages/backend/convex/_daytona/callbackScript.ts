@@ -546,7 +546,7 @@ try {
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
     activityLog,
-    rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
+    ...(finalResultEvent?.rawResultEvent ? { rawResultEvent: finalResultEvent.rawResultEvent } : {}),
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);
@@ -565,7 +565,6 @@ try {
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",
     activityLog: "[]",
-    rawResultEvent: null,
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, errorArgs);

@@ -10,6 +10,41 @@
   4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
   5. Task detail audit display filters out empty sections (disabled audits won't render).
 - **Reason for change**: Granular control over audit types, extensibility for future audit additions.
+## Hide/show repositories and monorepo apps — 2026-03-07
+
+- **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
+- **Changes**:
+  1. Added `hidden` optional boolean field to `githubRepos` schema and validator.
+  2. `list` query now accepts optional `includeHidden` arg — defaults to filtering out hidden repos. Management pages (monorepo settings, team detail) pass `includeHidden: true`.
+  3. Added `toggleHidden` mutation for setting visibility.
+  4. RepoCard dropdown now has a "Hide" option.
+  5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
+  6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+  7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
+## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
+
+- **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.
+- **Changes**: Made the sandbox (right) panel collapsible instead of the chat panel. Moved the collapse/expand button from the SandboxPanel tab switcher header to the ChatPanel header actions area. Uses right-sidebar collapse/expand icons to match the panel direction.
+
+## Dismiss Daytona preview warning for all iframes — 2026-03-07
+
+- **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.
+- **Changes**: Created `dismissDaytonaWarning` utility that sends a `HEAD` request with `X-Daytona-Skip-Preview-Warning: true` header before loading each iframe. Applied to all 4 preview surfaces: SandboxPanel (web), EditorPanel (VS Code), DesktopPanel (VNC), and DesignDetailClient (design). Uses an in-memory Set to avoid redundant requests per origin.
+
+## Fix: new sessions no longer auto-appear as sandbox running — 2026-03-07
+
+- **Why**: Creating a new session or design session set `status: "active"`, which the frontend interpreted as "sandbox is running". This caused the UI to show sandbox-active state (spinners, no "Start" button) even though no sandbox had been started.
+- **Changes**: Changed initial status from `"active"` to `"closed"` in both `_sessions/mutations.ts` (sessions) and `designSessions.ts` (design sessions) create mutations. Status only becomes `"active"` when `sandboxReady` is called after a real sandbox starts.
+
+## Instant sandbox start feedback + unified design/session button — 2026-03-07
+
+- **Why**: Clicking "Start" on a session or design sandbox gave no feedback for ~30 seconds until the sandbox was fully ready. The design page also used a different button pattern from sessions.
+- **Changes**:
+  1. Added `"starting"` to `sessionStatusValidator` — used by both `sessions` and `designSessions` tables.
+  2. `startSandbox` mutations (sessions + design) now set `status: "starting"` immediately before scheduling the background action, so the UI reflects the state change instantly.
+  3. Session UI derives `isSandboxStarting` from `session.status === "starting"` instead of local `useState` — the spinner is now driven by the database, surviving page refreshes.
+  4. Design page button replaced with the same icon-button pattern as sessions (play/stop icon, destructive variant when active, spinner when toggling).
+- **Reason for change**: Immediate visual feedback on start. Consistent button UX across sessions and design pages.
 
 ## Show all tasks on Quick Tasks page with project filter — 2026-03-07
 

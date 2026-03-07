@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
@@ -18,6 +19,7 @@ import {
   IconDeviceMobile,
   IconPlayerPlay,
 } from "@tabler/icons-react";
+import { PreviewNavBar } from "@/lib/components/PreviewNavBar";
 
 type DesignMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -60,8 +62,11 @@ export function DesignPreviewPanel({
     tab: designTabParser,
     view: viewModeParser,
   });
-  const activeTab = tab;
-  const viewMode = view;
+  const activeTabIndex = Number(tab);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
+  const activeIframeRef = useRef<HTMLIFrameElement | null>(null);
+  activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
 
   if (latestVariations.length === 0) {
     return (
@@ -78,9 +83,9 @@ export function DesignPreviewPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div ref={containerRef} className="flex-1 flex flex-col min-w-0">
       <Tabs
-        value={activeTab}
+        value={tab}
         onValueChange={(v) => {
           if (v === "0" || v === "1" || v === "2") {
             setDesignParams({ tab: v });
@@ -88,9 +93,9 @@ export function DesignPreviewPanel({
         }}
         className="flex flex-col h-full"
       >
-        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
           <Tabs
-            value={viewMode}
+            value={view}
             onValueChange={(v) => {
               if (v === "desktop" || v === "mobile") {
                 setDesignParams({ view: v });
@@ -113,7 +118,13 @@ export function DesignPreviewPanel({
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="w-16" />
+          <PreviewNavBar
+            previewUrl={previewUrl}
+            iframeRef={activeIframeRef}
+            containerRef={containerRef}
+            port={3000}
+            defaultPath="/design-preview"
+          />
         </div>
         {latestVariations.map((variation, i) => (
           <TabsContent
@@ -122,10 +133,17 @@ export function DesignPreviewPanel({
             className="flex-1 m-0 min-h-0 relative bg-muted/30"
           >
             <div
-              className={`transition-all duration-150 ${viewMode === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+              className={`transition-all duration-150 ${view === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
             >
               {previewUrl ? (
                 <iframe
+                  ref={(el) => {
+                    if (el) {
+                      iframeRefs.current.set(i, el);
+                    } else {
+                      iframeRefs.current.delete(i);
+                    }
+                  }}
                   src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
                   className="w-full h-full border-0"
                   title={variation.label}
@@ -169,17 +187,17 @@ export function DesignPreviewPanel({
               size="sm"
               variant="secondary"
               className="h-7 text-xs gap-1 shrink-0"
-              onClick={() => onSelectVariation(Number(activeTab))}
-              disabled={selectedVariationIndex === Number(activeTab)}
+              onClick={() => onSelectVariation(activeTabIndex)}
+              disabled={selectedVariationIndex === activeTabIndex}
             >
               <IconCheck size={14} />
-              {selectedVariationIndex === Number(activeTab)
+              {selectedVariationIndex === activeTabIndex
                 ? "Selected"
                 : "Use this design"}
             </Button>
           )}
           <p className="text-xs text-muted-foreground truncate">
-            {latestVariations[Number(activeTab)]?.label}
+            {latestVariations[activeTabIndex]?.label}
           </p>
         </div>
       </Tabs>

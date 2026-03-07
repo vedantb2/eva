@@ -13,6 +13,7 @@ import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
+import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { createSessionCache } from "@/lib/utils/sessionCache";
 
 type EditorState = "idle" | "starting" | "running" | "error";
@@ -62,6 +63,7 @@ export function EditorPanel({
           repoId,
         });
         if (data.ready) {
+          await dismissDaytonaWarning(data.url);
           setUrl(data.url);
           setEditorState("running");
           editorCache.set(sessionId, data.url);
@@ -98,6 +100,7 @@ export function EditorPanel({
         repoId,
       });
       if (existing.ready) {
+        await dismissDaytonaWarning(existing.url);
         setUrl(existing.url);
         setEditorState("running");
         editorCache.set(sessionId, existing.url);

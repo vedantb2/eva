@@ -21,6 +21,8 @@ import {
   IconTerminal2,
   IconAlertCircle,
   IconRefresh,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
 
 type DetectedApp = FunctionReturnType<
@@ -31,7 +33,8 @@ export function MonorepoClient() {
   const { repo } = useRepo();
   const detectApps = useAction(api.github.detectMonorepoApps);
   const createRepo = useMutation(api.githubRepos.create);
-  const allRepos = useQuery(api.githubRepos.list);
+  const toggleHidden = useMutation(api.githubRepos.toggleHidden);
+  const allRepos = useQuery(api.githubRepos.list, { includeHidden: true });
 
   const [detected, setDetected] = useState<ReadonlyArray<DetectedApp>>([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +42,11 @@ export function MonorepoClient() {
   const [addingPath, setAddingPath] = useState<string | null>(null);
   const [customPath, setCustomPath] = useState("");
 
-  const connectedPaths = new Set(
-    (allRepos ?? [])
-      .filter(
-        (r) =>
-          r.owner === repo.owner && r.name === repo.name && r.rootDirectory,
-      )
-      .map((r) => r.rootDirectory),
+  const connectedApps = (allRepos ?? []).filter(
+    (r) => r.owner === repo.owner && r.name === repo.name && r.rootDirectory,
   );
+
+  const connectedPaths = new Set(connectedApps.map((r) => r.rootDirectory));
 
   const runDetection = async () => {
     setLoading(true);
@@ -109,13 +109,72 @@ export function MonorepoClient() {
         </Button>
       }
     >
-      <p className="text-sm text-muted-foreground">
-        Detected workspace apps in{" "}
-        <span className="font-medium text-foreground">
-          {repo.owner}/{repo.name}
-        </span>
-        . Add them as separate repositories to work with each app individually.
-      </p>
+      {connectedApps.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground">
+            Connected Apps
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Toggle visibility to hide apps from the sidebar and home page
+            without removing them.
+          </p>
+          <div className="space-y-2">
+            {connectedApps.map((app) => (
+              <Card key={app._id} className="ui-surface-strong">
+                <CardContent className="flex items-center gap-3 p-3">
+                  <IconFolders size={18} className="text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {app.rootDirectory?.split("/").pop()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {app.rootDirectory}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={app.hidden ? "outline" : "ghost"}
+                    onClick={() =>
+                      toggleHidden({
+                        repoId: app._id,
+                        hidden: app.hidden !== true,
+                      })
+                    }
+                    className={
+                      app.hidden
+                        ? "motion-press gap-1.5 border-border text-muted-foreground"
+                        : "motion-press gap-1.5 text-muted-foreground hover:text-foreground"
+                    }
+                  >
+                    {app.hidden ? (
+                      <>
+                        <IconEyeOff size={14} />
+                        Hidden
+                      </>
+                    ) : (
+                      <>
+                        <IconEye size={14} />
+                        Visible
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-foreground">Detect Apps</h3>
+        <p className="text-xs text-muted-foreground">
+          Scan{" "}
+          <span className="font-medium text-foreground">
+            {repo.owner}/{repo.name}
+          </span>{" "}
+          for workspace apps and add them as separate repositories.
+        </p>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

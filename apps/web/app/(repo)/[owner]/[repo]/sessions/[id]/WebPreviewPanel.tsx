@@ -1,24 +1,16 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   Spinner,
   Button,
-  Input,
   WebPreview,
   WebPreviewNavigation,
-  WebPreviewNavigationButton,
   WebPreviewBody,
   useWebPreview,
 } from "@conductor/ui";
-import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconRefresh,
-  IconWorld,
-  IconExternalLink,
-  IconMaximize,
-} from "@tabler/icons-react";
+import { IconRefresh, IconWorld } from "@tabler/icons-react";
+import { PreviewNavBar } from "@/lib/components/PreviewNavBar";
 
 interface PreviewInfo {
   url: string;
@@ -38,27 +30,7 @@ interface WebPreviewPanelProps {
   onPortChange: (port: number) => void;
 }
 
-function getPathFromUrl(fullUrl: string): string {
-  try {
-    const parsed = new URL(fullUrl);
-    return parsed.pathname + parsed.search + parsed.hash;
-  } catch {
-    return "/";
-  }
-}
-
-function buildUrlWithPath(baseUrl: string, path: string): string {
-  try {
-    const parsed = new URL(baseUrl);
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    parsed.pathname = normalizedPath;
-    return parsed.toString();
-  } catch {
-    return baseUrl;
-  }
-}
-
-function NavigationButtons({
+function NavigationBar({
   previewInfo,
   isLoading,
   onRefresh,
@@ -75,94 +47,20 @@ function NavigationButtons({
   port: number;
   onPortChange: (port: number) => void;
 }) {
-  const { iframeRef, goBack, goForward, reload } = useWebPreview();
-  const [portInput, setPortInput] = useState(String(port));
-  const [pathInput, setPathInput] = useState("/");
-  const [prevPreviewUrl, setPrevPreviewUrl] = useState(previewInfo?.url);
-
-  if (previewInfo?.url !== prevPreviewUrl) {
-    setPrevPreviewUrl(previewInfo?.url);
-    setPathInput(getPathFromUrl(previewInfo?.url ?? "/"));
-  }
-
-  function commitPort() {
-    const parsed = parseInt(portInput, 10);
-    if (!isNaN(parsed) && parsed > 0 && parsed <= 65535) {
-      onPortChange(parsed);
-    } else {
-      setPortInput(String(port));
-    }
-  }
-
-  function commitPath() {
-    const baseUrl = previewInfo?.url;
-    if (!baseUrl || !iframeRef.current) return;
-    const newUrl = buildUrlWithPath(baseUrl, pathInput);
-    iframeRef.current.src = newUrl;
-  }
+  const { iframeRef } = useWebPreview();
 
   return (
     <WebPreviewNavigation>
-      {tabSwitcher}
-      <div className="ml-auto" />
-      <WebPreviewNavigationButton tooltip="Back" onClick={goBack}>
-        <IconArrowLeft className="w-3.5 h-3.5" />
-      </WebPreviewNavigationButton>
-      <WebPreviewNavigationButton tooltip="Forward" onClick={goForward}>
-        <IconArrowRight className="w-3.5 h-3.5" />
-      </WebPreviewNavigationButton>
-      <WebPreviewNavigationButton
-        tooltip="Reload"
-        onClick={isLoading ? onRefresh : reload}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconRefresh className="w-3.5 h-3.5" />
-        )}
-      </WebPreviewNavigationButton>
-      <Input
-        className="h-8 flex-1 text-xs max-w-64"
-        value={pathInput}
-        onChange={(e) => setPathInput(e.target.value)}
-        onBlur={commitPath}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitPath();
-        }}
-        placeholder="/"
-        aria-label="Preview path"
+      <PreviewNavBar
+        previewUrl={previewInfo?.url ?? null}
+        iframeRef={iframeRef}
+        containerRef={containerRef}
+        port={port}
+        onPortChange={onPortChange}
+        isLoading={isLoading}
+        onRefresh={onRefresh}
+        leading={tabSwitcher}
       />
-      <Input
-        className="h-8 w-16 text-xs text-center px-1"
-        value={portInput}
-        onChange={(e) => setPortInput(e.target.value)}
-        onBlur={commitPort}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitPort();
-        }}
-        aria-label="Preview port"
-      />
-      {previewInfo && (
-        <WebPreviewNavigationButton
-          tooltip="Open in new tab"
-          onClick={() => window.open(previewInfo.url, "_blank")}
-        >
-          <IconExternalLink className="w-3.5 h-3.5" />
-        </WebPreviewNavigationButton>
-      )}
-      <WebPreviewNavigationButton
-        tooltip="Fullscreen"
-        onClick={() => {
-          if (document.fullscreenElement) {
-            document.exitFullscreen();
-          } else {
-            containerRef.current?.requestFullscreen();
-          }
-        }}
-      >
-        <IconMaximize className="w-3.5 h-3.5" />
-      </WebPreviewNavigationButton>
     </WebPreviewNavigation>
   );
 }
@@ -205,7 +103,7 @@ export function WebPreviewPanel({
       defaultUrl={previewInfo?.url ?? ""}
       className="h-full rounded-none border-0"
     >
-      <NavigationButtons
+      <NavigationBar
         previewInfo={previewInfo}
         isLoading={isLoading}
         onRefresh={onRefresh}

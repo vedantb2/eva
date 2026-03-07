@@ -192,6 +192,17 @@ function parseStreamEvent(line) {
 }
 
 const accumulatedSteps = [];
+try {
+  const priorRaw = process.env.PRIOR_STEPS;
+  if (priorRaw) {
+    const prior = JSON.parse(priorRaw);
+    if (Array.isArray(prior)) {
+      for (const s of prior) {
+        if (s && s.label) accumulatedSteps.push({ ...s, status: "complete" });
+      }
+    }
+  }
+} catch {}
 let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();

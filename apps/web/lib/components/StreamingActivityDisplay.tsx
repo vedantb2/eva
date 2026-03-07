@@ -13,43 +13,24 @@ export function StreamingActivityDisplay({
   name,
   icon,
   thinkingLabel = "Working...",
-  doneLabel = "Processing complete",
 }: {
   activity: string | undefined;
   isStreaming?: boolean;
   name?: string;
   icon?: ReactNode;
   thinkingLabel?: string;
-  doneLabel?: string;
 }) {
   const steps = parseActivitySteps(activity);
 
-  if (steps) {
-    return (
-      <ActivitySteps
-        steps={steps}
-        isStreaming={isStreaming}
-        name={name}
-        icon={icon}
-      />
-    );
-  }
-
   return (
-    <Reasoning isStreaming={isStreaming} defaultOpen>
-      <ReasoningTrigger
-        getThinkingMessage={(streaming) =>
-          streaming ? thinkingLabel : doneLabel
-        }
-      />
-      {activity && (
-        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-          <pre className="whitespace-pre-wrap font-mono text-xs">
-            {activity}
-          </pre>
-        </CollapsibleContent>
-      )}
-    </Reasoning>
+    <ActivitySteps
+      steps={
+        steps ?? [{ type: "thinking", label: thinkingLabel, status: "active" }]
+      }
+      isStreaming={isStreaming}
+      name={name}
+      icon={icon}
+    />
   );
 }
 

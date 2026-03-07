@@ -166,7 +166,7 @@ export function ManagePersonasModal({
           <IconUsers size={14} />
           Personas
         </Button>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Manage Personas</DialogTitle>
           </DialogHeader>
@@ -230,7 +230,7 @@ export function ManagePersonasModal({
           if (!v) setDeletingId(null);
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete persona</DialogTitle>
           </DialogHeader>

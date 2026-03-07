@@ -15,7 +15,7 @@ export function LogsSummaryGrid({
   totalOutput,
 }: LogsSummaryGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       <div className="rounded-lg border bg-card p-3 sm:p-4">
         <div className="text-xs sm:text-sm text-muted-foreground">
           Total Cost

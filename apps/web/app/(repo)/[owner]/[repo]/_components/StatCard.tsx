@@ -17,11 +17,11 @@ export function StatCard({
 }) {
   return (
     <Card className="ui-surface-interactive h-full">
-      <CardContent className="flex h-full items-center justify-between gap-3 p-5">
-        <div className="flex items-center gap-3">
-          <Icon size={24} className="text-primary" />
+      <CardContent className="flex h-full items-center justify-between gap-2 p-3 sm:gap-3 sm:p-5">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Icon size={20} className="text-primary sm:size-6 shrink-0" />
           <div>
-            <p className="text-2xl font-semibold text-foreground tabular-nums">
+            <p className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
               {value}
             </p>
             <p className="text-sm text-muted-foreground mt-1">{label}</p>

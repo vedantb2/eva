@@ -305,14 +305,16 @@ export function SnapshotsClient() {
                 <h3 className="text-sm font-medium">Build History</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs min-w-[480px]">
+                <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
                     <tr className="border-b border-border/60 text-left text-muted-foreground">
-                      <th className="px-4 py-2 font-medium w-8" />
-                      <th className="px-4 py-2 font-medium">Date</th>
-                      <th className="px-4 py-2 font-medium">Duration</th>
-                      <th className="px-4 py-2 font-medium">Trigger</th>
-                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-2 py-2 font-medium w-8 sm:px-4" />
+                      <th className="px-2 py-2 font-medium sm:px-4">Date</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">
+                        Duration
+                      </th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -393,14 +395,14 @@ function BuildRow({
         className="border-b border-border/40 last:border-0 cursor-pointer hover:bg-muted/30"
         onClick={onToggle}
       >
-        <td className="px-4 py-2">
+        <td className="px-2 py-2 sm:px-4">
           {isExpanded ? (
             <IconChevronDown size={14} />
           ) : (
             <IconChevronRight size={14} />
           )}
         </td>
-        <td className="px-4 py-2">
+        <td className="px-2 py-2 sm:px-4">
           {new Date(build.startedAt).toLocaleDateString("en-GB", {
             day: "numeric",
             month: "short",
@@ -408,9 +410,9 @@ function BuildRow({
             minute: "2-digit",
           })}
         </td>
-        <td className="px-4 py-2">{duration}</td>
-        <td className="px-4 py-2 capitalize">{build.triggeredBy}</td>
-        <td className="px-4 py-2">
+        <td className="px-2 py-2 sm:px-4">{duration}</td>
+        <td className="px-2 py-2 capitalize sm:px-4">{build.triggeredBy}</td>
+        <td className="px-2 py-2 sm:px-4">
           <BuildStatusBadge status={build.status} />
         </td>
       </tr>
@@ -523,7 +525,7 @@ function CronGuide() {
         </p>
       </div>
       <div className="p-2 flex flex-col gap-3 sm:flex-row sm:gap-6 sm:p-3">
-        <pre className="overflow-x-auto font-mono text-[10px] text-muted-foreground leading-relaxed shrink-0 sm:text-[11px]">
+        <pre className="overflow-x-auto font-mono text-[11px] text-muted-foreground leading-relaxed shrink-0">
           {"┌─ minute (0-59)\n"}
           {"│ ┌─ hour (0-23)\n"}
           {"│ │ ┌─ day of month (1-31)\n"}
@@ -531,7 +533,7 @@ function CronGuide() {
           {"│ │ │ │ ┌─ day of week (0-6)\n"}
           {"* * * * *"}
         </pre>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] content-start sm:gap-x-4 sm:text-[11px]">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] content-start sm:gap-x-4">
           {[
             ["*", "any value"],
             [",", "list separator"],

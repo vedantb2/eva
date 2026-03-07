@@ -255,7 +255,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragCancel={handleDragCancel}
       >
         <div
-          className={`flex w-full items-stretch gap-3 pb-1 ${
+          className={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
             fillHeight
               ? "min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
               : ""
@@ -268,7 +268,7 @@ export function KanbanBoard<T extends BaseTask>({
               <motion.div
                 key={status}
                 layout
-                className="flex min-h-0 min-w-[280px] sm:min-w-0 flex-1 self-stretch snap-center"
+                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}

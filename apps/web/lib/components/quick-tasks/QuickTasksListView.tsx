@@ -151,8 +151,8 @@ export function QuickTasksListView({
 
   return (
     <>
-      <div className="flex flex-1 min-h-0 flex-col gap-3">
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+      <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0 px-1 sm:px-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

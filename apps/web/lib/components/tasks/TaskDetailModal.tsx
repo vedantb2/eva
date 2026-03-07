@@ -49,7 +49,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`${modalWidthClass} max-h-[90vh] overflow-hidden flex flex-col`}
+          className={`w-full ${modalWidthClass} max-h-[90vh] overflow-hidden flex flex-col`}
         >
           <DialogHeader>
             <DialogTitle>{titleContent}</DialogTitle>

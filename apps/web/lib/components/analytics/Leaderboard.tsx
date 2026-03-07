@@ -25,8 +25,8 @@ export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
       <Card className="border border-border shadow-none animate-in fade-in duration-300">
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4">
+        <CardContent className="p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
             Top Contributors
           </h3>
           <div className="py-8 text-center text-muted-foreground">
@@ -39,8 +39,8 @@ export function Leaderboard({ entries }: LeaderboardProps) {
 
   return (
     <Card className="border border-border shadow-none animate-in fade-in duration-300">
-      <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+      <CardContent className="p-3 sm:p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
           Top Contributors
         </h3>
         <div className="space-y-3">
@@ -56,8 +56,11 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   index + 1
                 )}
               </div>
-              <div className="hidden p-2 rounded-full bg-secondary sm:block">
-                <IconUser size={16} className="text-muted-foreground" />
+              <div className="p-1.5 rounded-full bg-secondary sm:p-2">
+                <IconUser
+                  size={14}
+                  className="text-muted-foreground sm:w-4 sm:h-4"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">

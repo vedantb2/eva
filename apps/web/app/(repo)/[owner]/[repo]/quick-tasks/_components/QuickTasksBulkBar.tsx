@@ -60,7 +60,7 @@ export function QuickTasksBulkBar({
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.18 }}
           >
-            <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm max-w-[calc(100vw-2rem)]">
               <Button
                 size="sm"
                 variant="secondary"
@@ -71,7 +71,7 @@ export function QuickTasksBulkBar({
               </Button>
               <Button
                 size="sm"
-                className="motion-press min-w-36 hover:scale-[1.01] active:scale-[0.99]"
+                className="motion-press min-w-28 hover:scale-[1.01] active:scale-[0.99] sm:min-w-36"
                 onClick={() => onSetBulkAction("actions")}
                 disabled={selectedCount === 0}
               >
@@ -89,7 +89,7 @@ export function QuickTasksBulkBar({
           if (!v) onSetBulkAction(null);
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Selected task actions</DialogTitle>
             <DialogDescription>

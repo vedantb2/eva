@@ -32,7 +32,7 @@ export function SystemAlertMessage({
         className="flex items-center gap-3 py-1"
       >
         <div className="h-px flex-1 bg-border" />
-        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap max-w-[60%] truncate sm:max-w-none sm:truncate-none">
           {content}
         </span>
         {errorDetail && (

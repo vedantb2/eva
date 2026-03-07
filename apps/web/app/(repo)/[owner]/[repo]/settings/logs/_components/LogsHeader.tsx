@@ -35,9 +35,16 @@ export function LogsHeader({
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="sm">
             <IconFilter size={14} />
-            {visibleTypes.size === 0
-              ? "All Types"
-              : `${visibleTypes.size} of ${availableTypes.length} Types`}
+            <span className="hidden sm:inline">
+              {visibleTypes.size === 0
+                ? "All Types"
+                : `${visibleTypes.size} of ${availableTypes.length} Types`}
+            </span>
+            <span className="sm:hidden">
+              {visibleTypes.size === 0
+                ? "All"
+                : `${visibleTypes.size}/${availableTypes.length}`}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>

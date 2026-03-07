@@ -42,11 +42,11 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
 
   return (
     <Card className="shadow-none border border-border">
-      <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+      <CardContent className="p-3 sm:p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
           PRs Shipped Over Time
         </h3>
-        <div className="h-64">
+        <div className="h-48 sm:h-64">
           <Bar data={chartData} options={options} />
         </div>
       </CardContent>

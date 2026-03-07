@@ -215,7 +215,7 @@ export function SessionsSidebar({
                               <Button
                                 size="icon-sm"
                                 variant="ghost"
-                                className="motion-press h-6 w-6 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:scale-105 active:scale-95"
+                                className="motion-press h-6 w-6 opacity-100 transition-all duration-150 lg:opacity-0 lg:group-hover:opacity-100 hover:scale-105 active:scale-95"
                               >
                                 <IconDotsVertical size={13} />
                               </Button>

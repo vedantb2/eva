@@ -7,14 +7,12 @@ import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
-import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
+import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import {
   IconWorld,
   IconCode,
   IconTerminal2,
   IconDeviceDesktop,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
@@ -54,8 +52,6 @@ interface SandboxPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
-  chatVisible?: boolean;
-  onToggleChat?: () => void;
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
@@ -69,8 +65,6 @@ export function SandboxPanel({
   sessionId,
   sandboxId,
   isActive,
-  chatVisible,
-  onToggleChat,
   repoId,
   devPort,
   devCommand,
@@ -170,20 +164,6 @@ export function SandboxPanel({
 
   const tabSwitcher = (
     <div className="flex items-center gap-2">
-      {onToggleChat && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-10 motion-press hover:scale-[1.03] active:scale-[0.97]"
-          onClick={onToggleChat}
-        >
-          {chatVisible ? (
-            <IconLayoutSidebarLeftCollapse className="size-4" />
-          ) : (
-            <IconLayoutSidebarLeftExpand className="size-4" />
-          )}
-        </Button>
-      )}
       <Tabs
         value={activeTab}
         onValueChange={(v) => {

@@ -123,6 +123,11 @@ export function DesignChatPanel({
         isArchived={isArchived}
         headerRight={
           <>
+            <ManagePersonasModal
+              repoId={repoId}
+              selectedPersonaId={selectedPersonaId}
+              onClearPersona={() => setSelectedPersonaId(undefined)}
+            />
             <Button
               size="icon"
               variant={isSandboxActive ? "destructive" : "secondary"}
@@ -140,11 +145,6 @@ export function DesignChatPanel({
                 <IconPlayerPlay className="w-4 h-4" />
               )}
             </Button>
-            <ManagePersonasModal
-              repoId={repoId}
-              selectedPersonaId={selectedPersonaId}
-              onClearPersona={() => setSelectedPersonaId(undefined)}
-            />
           </>
         }
       >

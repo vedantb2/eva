@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix: new sessions no longer auto-appear as sandbox running — 2026-03-07
+
+- **Why**: Creating a new session or design session set `status: "active"`, which the frontend interpreted as "sandbox is running". This caused the UI to show sandbox-active state (spinners, no "Start" button) even though no sandbox had been started.
+- **Changes**: Changed initial status from `"active"` to `"closed"` in both `_sessions/mutations.ts` (sessions) and `designSessions.ts` (design sessions) create mutations. Status only becomes `"active"` when `sandboxReady` is called after a real sandbox starts.
+
 ## Instant sandbox start feedback + unified design/session button — 2026-03-07
 
 - **Why**: Clicking "Start" on a session or design sandbox gave no feedback for ~30 seconds until the sandbox was fully ready. The design page also used a different button pattern from sessions.

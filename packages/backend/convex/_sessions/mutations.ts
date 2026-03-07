@@ -16,7 +16,7 @@ export const create = authMutation({
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
-      status: "active",
+      status: "closed",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
     });

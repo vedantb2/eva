@@ -12,8 +12,8 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 const CHAT_DEFAULT_SIZE = "30%";
-const CHAT_MIN_EXPANDED_WIDTH_PX = 450;
-const SANDBOX_MIN_WIDTH_PX = 400;
+const CHAT_MIN_EXPANDED_WIDTH_PX = 320;
+const SANDBOX_MIN_WIDTH_PX = 300;
 
 export function SessionDetailClient({
   sessionId,

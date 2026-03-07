@@ -106,7 +106,7 @@ export function DesignDetailClient({
   const isArchived = session.archived === true;
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full flex-col md:flex-row">
       <DesignChatPanel
         designSessionId={designSessionId}
         title={session.title}

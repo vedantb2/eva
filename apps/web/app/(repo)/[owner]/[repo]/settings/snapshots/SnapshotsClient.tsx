@@ -305,7 +305,7 @@ export function SnapshotsClient() {
                 <h3 className="text-sm font-medium">Build History</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs min-w-[480px]">
+                <table className="w-full text-xs min-w-[420px]">
                   <thead>
                     <tr className="border-b border-border/60 text-left text-muted-foreground">
                       <th className="px-4 py-2 font-medium w-8" />

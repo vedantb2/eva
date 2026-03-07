@@ -196,11 +196,11 @@ function DocEditor({ doc }: { doc: Doc }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <Input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-          className="max-w-md h-10 text-lg font-semibold"
+          className="h-10 w-full text-lg font-semibold sm:max-w-md sm:w-auto"
           placeholder="Document title"
         />
         <Button
@@ -209,24 +209,24 @@ function DocEditor({ doc }: { doc: Doc }) {
           onClick={() => setInterviewOpen(true)}
         >
           <IconMessageChatbot size={16} />
-          Interview Me
+          <span className="hidden sm:inline">Interview Me</span>
         </Button>
         {doc.testGenStatus === "completed" && doc.testPrUrl ? (
           <Button size="sm" variant="secondary" asChild>
             <a href={doc.testPrUrl} target="_blank" rel="noopener noreferrer">
               <IconExternalLink size={16} />
-              View Tests PR
+              <span className="hidden sm:inline">View Tests PR</span>
             </a>
           </Button>
         ) : isGeneratingTests ? (
           <Button size="sm" variant="secondary" disabled>
             <Spinner size="sm" />
-            Generating...
+            <span className="hidden sm:inline">Generating...</span>
           </Button>
         ) : (
           <Button size="sm" variant="secondary" onClick={handleGenerateTests}>
             <IconTestPipe size={16} />
-            Generate Tests
+            <span className="hidden sm:inline">Generate Tests</span>
           </Button>
         )}
         {(doc.interviewHistory ?? []).length > 0 && (
@@ -236,7 +236,7 @@ function DocEditor({ doc }: { doc: Doc }) {
             onClick={() => setHistoryOpen(true)}
           >
             <IconHistory size={16} />
-            View History
+            <span className="hidden sm:inline">View History</span>
           </Button>
         )}
         <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
@@ -291,7 +291,7 @@ function DocEditor({ doc }: { doc: Doc }) {
 
         <TabsContent
           value="requirements"
-          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+          className="flex-1 overflow-y-auto scrollbar p-3 space-y-4 mt-0 sm:p-6 sm:space-y-6"
         >
           <section>
             <label className="text-sm font-medium text-muted-foreground mb-2 block">
@@ -361,7 +361,7 @@ function DocEditor({ doc }: { doc: Doc }) {
 
         <TabsContent
           value="user-flows"
-          className="flex-1 overflow-y-auto scrollbar p-6 space-y-6 mt-0"
+          className="flex-1 overflow-y-auto scrollbar p-3 space-y-4 mt-0 sm:p-6 sm:space-y-6"
         >
           <section>
             <div className="flex items-center justify-between mb-2">

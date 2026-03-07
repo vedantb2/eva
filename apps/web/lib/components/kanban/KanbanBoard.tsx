@@ -255,7 +255,7 @@ export function KanbanBoard<T extends BaseTask>({
         onDragCancel={handleDragCancel}
       >
         <div
-          className={`flex w-full items-stretch gap-3 pb-1 ${
+          className={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
             fillHeight
               ? "min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
               : ""

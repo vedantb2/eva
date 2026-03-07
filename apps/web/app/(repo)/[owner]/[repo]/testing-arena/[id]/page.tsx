@@ -260,8 +260,8 @@ function CodeTestingContent({
   }
 
   return (
-    <div className="h-full flex overflow-hidden">
-      <div className="w-56 shrink-0 border-r overflow-y-auto scrollbar p-2 space-y-1">
+    <div className="h-full flex flex-col overflow-hidden sm:flex-row">
+      <div className="w-full shrink-0 border-b overflow-y-auto scrollbar p-2 space-y-1 max-h-32 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
         <p className="text-xs font-medium text-muted-foreground px-2 py-1">
           Test runs ({reports.length})
         </p>
@@ -344,8 +344,8 @@ export default function TestingArenaDocPage({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-4 py-2 flex flex-col gap-1">
-        <div className="flex items-center justify-between ">
+      <div className="px-3 py-2 flex flex-col gap-1 sm:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Tabs
             value={activeTab}
             onValueChange={(v) => {
@@ -367,7 +367,7 @@ export default function TestingArenaDocPage({
             <BranchSelect
               value={branch}
               onValueChange={setBranch}
-              className="h-7 text-xs w-36"
+              className="h-7 text-xs w-28 sm:w-36"
             />
             <Button
               size="sm"

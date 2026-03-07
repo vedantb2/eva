@@ -225,7 +225,7 @@ export function DocInterviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl w-full max-h-[95vh] flex flex-col">
+        <DialogContent className="max-w-[calc(100vw-2rem)] w-full max-h-[95vh] flex flex-col sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {readOnly ? "Interview History" : "Interview"}: {doc.title}

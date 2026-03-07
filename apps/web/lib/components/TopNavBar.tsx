@@ -28,7 +28,7 @@ export function TopNavBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/95">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <Link
             href="/home"
             className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5"
@@ -45,14 +45,14 @@ export function TopNavBar() {
             </span>
           </Link>
 
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
             {tabs.map((tab) => (
               <Link key={tab.href} href={tab.href}>
                 <Button
                   size="sm"
                   variant={tab.active ? "secondary" : "ghost"}
                   className={cn(
-                    "h-9",
+                    "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
                     tab.active
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground",

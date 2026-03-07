@@ -239,7 +239,7 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="rounded-lg border border-border/70 overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
+          <table className="w-full text-sm min-w-[420px]">
             <thead>
               <tr className="border-b border-border/60 text-left text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">Key</th>

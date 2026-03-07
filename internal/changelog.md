@@ -1,9 +1,23 @@
 # Changelog
 
+## Mobile responsiveness audit — 2026-03-07
+
+- **Why**: Many pages and components had fixed widths, missing responsive breakpoints, and overflow issues that made the platform difficult to use on phones and tablets.
+- **Changes**:
+  - Quick Tasks: Reduced filter dropdown max-width on mobile, smaller kanban column gaps, responsive bulk action bar sizing, tighter search input
+  - Sessions: Lowered panel min-widths for better tablet fit, hidden button text labels on mobile, adjusted input tab positioning
+  - Designs: Chat panel + preview panel now stack vertically on mobile instead of side-by-side
+  - Documents: Header buttons collapse to icon-only on mobile, responsive tab content padding, interview dialog width capped to viewport
+  - Testing Arena: Test run sidebar stacks on top on mobile with max-height, responsive header wrapping, smaller branch select
+  - Settings: Smaller table min-widths for better scroll on small screens, responsive padding
+  - Shared: EmptyState reduced padding on mobile, BranchSelect popover capped to viewport, TopNavBar smaller tabs on mobile, ChatPageWrapper responsive padding, SystemAlertMessage truncation, PreviewNavBar responsive input widths, MultipleChoiceQuestion single-column on mobile
+- **Reason for change**: Mobile-first accessibility for all major pages.
+
 ## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
 
 - **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
 - **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
+
 ## Split post-execution audit into 3 individual toggles — 2026-03-07
 
 - **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.
@@ -14,6 +28,7 @@
   4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
   5. Task detail audit display filters out empty sections (disabled audits won't render).
 - **Reason for change**: Granular control over audit types, extensibility for future audit additions.
+
 ## Hide/show repositories and monorepo apps — 2026-03-07
 
 - **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
@@ -25,6 +40,7 @@
   5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
   6. Hidden repos are automatically filtered from the sidebar RepoSelect.
   7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
+
 ## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
 
 - **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.

@@ -156,7 +156,7 @@ export function PreviewNavBar({
         )}
       </WebPreviewNavigationButton>
       <Input
-        className="h-8 flex-1 text-xs max-w-64"
+        className="h-8 flex-1 text-xs max-w-40 sm:max-w-64"
         value={pathInput}
         onChange={(e) => setPathInput(e.target.value)}
         onBlur={commitPath}
@@ -167,7 +167,7 @@ export function PreviewNavBar({
         aria-label="Preview path"
       />
       <Input
-        className="h-8 w-16 text-xs text-center px-1"
+        className="h-8 w-14 text-xs text-center px-1 sm:w-16"
         value={portInput}
         onChange={(e) => setPortInput(e.target.value)}
         onBlur={commitPort}

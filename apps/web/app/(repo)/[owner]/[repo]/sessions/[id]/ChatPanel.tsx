@@ -312,12 +312,12 @@ export function ChatPanel({
         {previewUrl ? (
           <a href={previewUrl} target="_blank" rel="noopener noreferrer">
             <IconBrandVercel size={14} />
-            View Preview
+            <span className="hidden sm:inline">View Preview</span>
           </a>
         ) : (
           <>
             <IconBrandVercel size={14} />
-            View Preview
+            <span className="hidden sm:inline">View Preview</span>
           </>
         )}
       </Button>
@@ -339,7 +339,7 @@ export function ChatPanel({
           onClick={() => setShowReviewModal(true)}
         >
           <IconSend size={12} />
-          Send for Review
+          <span className="hidden sm:inline">Send for Review</span>
         </Button>
       ) : null}
       <Button
@@ -574,7 +574,7 @@ export function ChatPanel({
                   setMode(v);
                 }
               }}
-              className="absolute left-3 top-4 z-20 -translate-y-1/2"
+              className="absolute left-2 top-4 z-20 -translate-y-1/2 sm:left-3"
             >
               <TabsList className="h-8 rounded-full  p-0.5 shadow-sm">
                 <TabsTrigger

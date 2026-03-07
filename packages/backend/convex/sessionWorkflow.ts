@@ -280,7 +280,7 @@ export const getSessionData = internalQuery({
     const branchName =
       args.mode === "ask"
         ? undefined
-        : session.branchName || `session/${args.sessionId}`;
+        : session.branchName || `eva/session-${args.sessionId}`;
 
     const messages = await ctx.db
       .query("messages")

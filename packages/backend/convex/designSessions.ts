@@ -202,7 +202,7 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Design session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName = session.branchName || `design/${args.id}`;
+    const branchName = session.branchName || `eva/design-${args.id}`;
     await ctx.db.patch(args.id, {
       status: "starting",
       updatedAt: Date.now(),

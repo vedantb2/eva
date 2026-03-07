@@ -57,7 +57,7 @@ export const startSandbox = authMutation({
     const branchName =
       session.branchName ||
       repo.defaultBaseBranch ||
-      `session/${args.sessionId}`;
+      `eva/session-${args.sessionId}`;
     await ctx.db.patch(args.sessionId, {
       status: "starting",
       updatedAt: Date.now(),

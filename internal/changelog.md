@@ -12,6 +12,17 @@
   - Shared: Main sidebar width capped to prevent overflow on very small screens (min of 16rem, 100vw-3rem), mobile header padding responsive, SidebarLayoutWrapper mobile drawer capped to 100vw-2rem, ChatPageWrapper header gap and wrap improved, KanbanBoard columns use 75vw for better mobile snapping, TaskDetailInline gap responsive, TaskDetailModal gets w-full for mobile constraint
   - Added `useMediaQuery` hook for responsive layout switching
 - **Reason for change**: Mobile-first accessibility audit across quick tasks, sessions, designs, documents, testing arena, inbox, stats, and settings pages.
+## Replace JWT auth with HMAC for sandbox streaming heartbeats — 2026-03-07
+
+- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s"). Root cause: the callback script's `streaming:set` calls used `authMutation` which requires JWT validation + user DB lookup on every call. Convex's auth layer intermittently fails (confirmed by `presence:disconnect` throwing "Not authenticated" every ~10s). Since heartbeat errors were silently swallowed, heartbeats died for 180s and the watchdog killed the run.
+- **Changes**:
+  1. Added `POST /api/streaming/heartbeat` HTTP endpoint in `http.ts` that validates via HMAC instead of JWT.
+  2. HMAC is computed server-side (`signAndLaunchScript`) as `HMAC-SHA256(ENCRYPTION_KEY, entityId)` — scoped to one streaming entity, unforgeable without the secret.
+  3. Callback script now calls the HMAC endpoint for all streaming writes (heartbeats, flush, finalization).
+  4. Falls back to old `streaming:set` authMutation if HMAC env vars aren't set.
+  5. Added retry + error logging to heartbeat/flush paths.
+  6. Fixed missing `customTheme` field in `getUserByClerkId` return validator.
+- **Reason for change**: JWT auth is inherently fragile for high-frequency calls from sandboxes. HMAC eliminates the entire auth chain (JWT parsing, signature verification, user DB lookup) from the heartbeat path.
 
 ## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
 

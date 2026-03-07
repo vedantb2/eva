@@ -4,6 +4,16 @@ import type { Id } from "./_generated/dataModel";
 import { notificationTypeValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
+function getRepoHref(
+  owner: string,
+  name: string,
+  rootDirectory?: string,
+): string {
+  if (!rootDirectory) return `/${owner}/${name}`;
+  const appName = rootDirectory.split("/").pop();
+  return `/${owner}/${name}/${appName}`;
+}
+
 export async function createNotification(
   ctx: MutationCtx,
   params: {
@@ -21,12 +31,13 @@ export async function createNotification(
   if (!href && params.repoId) {
     const repo = await ctx.db.get(params.repoId);
     if (repo) {
+      const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
       if (params.taskId && !params.projectId) {
-        href = `/${repo.owner}/${repo.name}/quick-tasks/${params.taskId}`;
+        href = `${baseHref}/quick-tasks/${params.taskId}`;
       } else if (params.projectId) {
-        href = `/${repo.owner}/${repo.name}/projects/${params.projectId}`;
+        href = `${baseHref}/projects/${params.projectId}`;
       } else {
-        href = `/${repo.owner}/${repo.name}/quick-tasks`;
+        href = `${baseHref}/quick-tasks`;
       }
     }
   }

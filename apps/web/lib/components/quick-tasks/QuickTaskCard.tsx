@@ -30,6 +30,7 @@ interface QuickTaskCardProps {
   tags?: string[];
   createdBy?: Id<"users">;
   createdAt: number;
+  projectName?: string;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -46,6 +47,7 @@ export function QuickTaskCard({
   tags,
   createdBy,
   createdAt,
+  projectName,
   onClick,
   isSelecting,
   isSelected,
@@ -124,6 +126,14 @@ export function QuickTaskCard({
               </div>
             ) : null}
           </div>
+          {projectName ? (
+            <Badge
+              variant="outline"
+              className="ml-auto shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
+            >
+              {projectName}
+            </Badge>
+          ) : null}
           <div className="flex shrink-0 items-center gap-0.5">
             {scheduledAt ? (
               <Tooltip>

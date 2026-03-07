@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -18,7 +18,11 @@ import {
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import { searchParser, quickTaskViewParser } from "@/lib/search-params";
+import {
+  searchParser,
+  quickTaskViewParser,
+  projectFilterParser,
+} from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
 import {
@@ -48,15 +52,33 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
-  const [{ q, view }, setParams] = useQueryStates({
+  const [{ q, view, project }, setParams] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
+    project: projectFilterParser,
   });
   const searchQuery = q;
   const quickTasksPath = `${basePath}/quick-tasks`;
   const quickTaskPathPrefix = `${quickTasksPath}/`;
 
-  const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
+  const projects = useQuery(api.projects.list, { repoId: repo._id });
+
+  const projectNames = useMemo(() => {
+    const map = new Map<string, string>();
+    if (projects) {
+      for (const p of projects) {
+        map.set(p._id, p.title);
+      }
+    }
+    return map;
+  }, [projects]);
+
+  const quickTasks = useMemo(() => {
+    if (!tasks) return [];
+    if (project === "all") return tasks;
+    if (project === "none") return tasks.filter((t) => !t.projectId);
+    return tasks.filter((t) => t.projectId === project);
+  }, [tasks, project]);
   const hasQuickTasks = quickTasks.length > 0;
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
@@ -148,6 +170,9 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             onStartSelecting={() => setIsSelecting(true)}
             onCreateTask={() => setIsCreating(true)}
             onImport={() => setIsImporting(true)}
+            projects={projects}
+            projectFilter={project}
+            onProjectFilterChange={(v) => setParams({ project: v })}
           />
         }
       >
@@ -195,7 +220,8 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksKanbanBoard
-                  repoId={repo._id}
+                  tasks={quickTasks}
+                  projectNames={projectNames}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
@@ -212,7 +238,6 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksSplitView
-                  repoId={repo._id}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
@@ -220,6 +245,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                   selectedTaskId={typedSelectedTaskId}
                   onCloseTask={handleTaskClose}
                   quickTasks={quickTasks}
+                  projectNames={projectNames}
                 />
               </motion.div>
             )}

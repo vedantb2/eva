@@ -115,4 +115,6 @@ export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
   .withDefault("members")
   .withOptions(tabOptions);
 
-export const logEntityTypeParser = parseAsString.withOptions(searchOptions);
+export const logEntityTypesParser = parseAsArrayOf(parseAsString)
+  .withDefault([])
+  .withOptions(searchOptions);

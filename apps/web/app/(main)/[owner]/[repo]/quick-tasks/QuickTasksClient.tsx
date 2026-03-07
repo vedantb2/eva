@@ -10,65 +10,23 @@ import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { normalizePathname } from "@/lib/utils/repoUrl";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Spinner,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@conductor/ui";
-import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
+import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import {
   QuickTaskModal,
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
-import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
-import { DeleteTasksModal } from "@/lib/components/quick-tasks/DeleteTasksModal";
-import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
-import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
-import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
-import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
-import { ScheduleTasksModal } from "@/lib/components/quick-tasks/ScheduleTasksModal";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
-import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { searchParser, quickTaskViewParser } from "@/lib/search-params";
+import { IconChecklist } from "@tabler/icons-react";
+import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
 import {
-  IconChecklist,
-  IconPlus,
-  IconCheckbox,
-  IconFolders,
-  IconLayoutKanban,
-  IconList,
-  IconFileImport,
-  IconBolt,
-  IconTrash,
-  IconTags,
-  IconUser,
-  IconUserCheck,
-  IconRefresh,
-  IconPlayerPlay,
-  IconCalendarClock,
-} from "@tabler/icons-react";
-
-type BulkAction =
-  | "actions"
-  | "group"
-  | "delete"
-  | "addLabels"
-  | "assign"
-  | "assignMe"
-  | "changeStatus"
-  | "run"
-  | "schedule";
+  QuickTasksBulkBar,
+  type BulkAction,
+} from "./_components/QuickTasksBulkBar";
+import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
+import { QuickTasksSplitView } from "./_components/QuickTasksSplitView";
 
 interface QuickTasksClientProps {
   initialTaskId?: string;
@@ -100,7 +58,6 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
 
   const quickTasks = tasks?.filter((t) => !t.projectId) ?? [];
   const hasQuickTasks = quickTasks.length > 0;
-
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
   useEffect(() => {
@@ -171,6 +128,9 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
     }
   };
 
+  const closeBulkAction = () => setActiveBulkAction(null);
+  const typedSelectedTaskId = selectedTaskId as Id<"agentTasks"> | null;
+
   return (
     <>
       <PageWrapper
@@ -178,100 +138,20 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         fillHeight
         childPadding={false}
         headerRight={
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <ToggleSearch
-              value={searchQuery}
-              onChange={(v) => setParams({ q: v })}
-              placeholder="Search tasks..."
-              tooltipLabel="Search tasks"
-              visible={hasQuickTasks}
-            />
-            {hasQuickTasks && (
-              <div className="flex items-center rounded-lg border border-border overflow-hidden">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={view === "kanban" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                      onClick={() => setParams({ view: "kanban" })}
-                    >
-                      <IconLayoutKanban size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Kanban view</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={view === "list" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                      onClick={() => setParams({ view: "list" })}
-                    >
-                      <IconList size={16} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>List view</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-            <AnimatePresence initial={false} mode="popLayout">
-              {hasQuickTasks && !isSelecting ? (
-                <motion.div
-                  key="quick-task-select-action"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                        onClick={() => setIsSelecting(true)}
-                      >
-                        <IconCheckbox size={16} />
-                        <span className="hidden sm:inline">Select</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="sm:hidden">
-                      Select
-                    </TooltipContent>
-                  </Tooltip>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                  onClick={() => setIsImporting(true)}
-                >
-                  <IconFileImport size={16} />
-                  <span className="hidden md:inline">Import from Linear</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="md:hidden">
-                Import from Linear
-              </TooltipContent>
-            </Tooltip>
-            <Button
-              size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setIsCreating(true)}
-            >
-              <IconPlus size={16} />
-              <span className="hidden sm:inline">New Task</span>
-            </Button>
-          </div>
+          <QuickTasksToolbar
+            view={view}
+            onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
+            searchQuery={searchQuery}
+            onSearchChange={(v) => setParams({ q: v })}
+            hasQuickTasks={hasQuickTasks}
+            isSelecting={isSelecting}
+            onStartSelecting={() => setIsSelecting(true)}
+            onCreateTask={() => setIsCreating(true)}
+            onImport={() => setIsImporting(true)}
+          />
         }
       >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
+        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-1.5 pb-2 pt-2 sm:px-2">
           <AnimatePresence mode="wait">
             {tasks === undefined ? (
               <motion.div
@@ -331,70 +211,28 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <div
-                  className={`flex min-w-0 flex-1 min-h-0 ${selectedTaskId ? "gap-0" : ""}`}
-                >
-                  <div
-                    className={
-                      selectedTaskId
-                        ? "hidden md:flex md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
-                        : "flex flex-col flex-1 min-w-0 min-h-0"
-                    }
-                  >
-                    <QuickTasksListView
-                      repoId={repo._id}
-                      isSelecting={isSelecting}
-                      selectedIds={selectedIds}
-                      onToggleSelect={toggleSelect}
-                      onOpenTask={handleOpenTask}
-                      selectedTaskId={selectedTaskId}
-                    />
-                  </div>
-                  {selectedTaskId && (
-                    <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
-                      <TaskDetailInline
-                        onClose={handleTaskClose}
-                        taskId={selectedTaskId as Id<"agentTasks">}
-                      />
-                    </div>
-                  )}
-                </div>
+                <QuickTasksSplitView
+                  repoId={repo._id}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onOpenTask={handleOpenTask}
+                  selectedTaskId={typedSelectedTaskId}
+                  onCloseTask={handleTaskClose}
+                  quickTasks={quickTasks}
+                />
               </motion.div>
             )}
           </AnimatePresence>
-          <AnimatePresence initial={false}>
-            {hasQuickTasks && isSelecting && (
-              <motion.div
-                key="quick-tasks-actions-bottom"
-                className="absolute inset-x-2 bottom-2 z-20 flex justify-center"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 16 }}
-                transition={{ duration: 0.18 }}
-              >
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={exitSelectMode}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="motion-press min-w-36 hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={() => setActiveBulkAction("actions")}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <IconBolt size={16} />
-                    Actions
-                    {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {hasQuickTasks && (
+            <QuickTasksBulkBar
+              isSelecting={isSelecting}
+              selectedCount={selectedIds.size}
+              onExitSelect={exitSelectMode}
+              activeBulkAction={activeBulkAction}
+              onSetBulkAction={setActiveBulkAction}
+            />
+          )}
         </div>
       </PageWrapper>
       <QuickTaskModal
@@ -405,159 +243,18 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
         isOpen={isImporting}
         onClose={() => setIsImporting(false)}
       />
-      <GroupTasksModal
-        isOpen={activeBulkAction === "group"}
-        onClose={() => setActiveBulkAction(null)}
+      <QuickTasksBulkModals
+        activeBulkAction={activeBulkAction}
+        onCloseBulkAction={closeBulkAction}
         selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-      />
-      <DeleteTasksModal
-        isOpen={activeBulkAction === "delete"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-      />
-      <AddLabelsModal
-        isOpen={activeBulkAction === "addLabels"}
-        onClose={() => setActiveBulkAction(null)}
         selectedTasks={selectedTasks}
         onSuccess={exitSelectMode}
       />
-      <AssignTasksModal
-        isOpen={activeBulkAction === "assign"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-        mode="pick"
-      />
-      <AssignTasksModal
-        isOpen={activeBulkAction === "assignMe"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-        mode="me"
-      />
-      <ChangeStatusModal
-        isOpen={activeBulkAction === "changeStatus"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-      />
-      <RunTasksModal
-        isOpen={activeBulkAction === "run"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-      />
-      <ScheduleTasksModal
-        isOpen={activeBulkAction === "schedule"}
-        onClose={() => setActiveBulkAction(null)}
-        selectedTaskIds={selectedIds}
-        onSuccess={exitSelectMode}
-      />
-      <Dialog
-        open={activeBulkAction === "actions"}
-        onOpenChange={(v) => {
-          if (!v) setActiveBulkAction(null);
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Selected task actions</DialogTitle>
-            <DialogDescription>
-              {selectedIds.size} task{selectedIds.size === 1 ? "" : "s"}{" "}
-              selected
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("group")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconFolders size={16} />
-              Group into Project
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("addLabels")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconTags size={16} />
-              Add Labels
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("assign")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconUser size={16} />
-              Assign to...
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("assignMe")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconUserCheck size={16} />
-              Assign to Me
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("changeStatus")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconRefresh size={16} />
-              Change Status
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("schedule")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconCalendarClock size={16} />
-              Schedule Run
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("run")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconPlayerPlay size={16} />
-              Run Tasks
-            </Button>
-            <Button
-              variant="destructive"
-              className="justify-start"
-              onClick={() => setActiveBulkAction("delete")}
-              disabled={selectedIds.size === 0}
-            >
-              <IconTrash size={16} />
-              Delete All
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setActiveBulkAction(null)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {selectedTaskId && view === "kanban" && (
+      {typedSelectedTaskId && view === "kanban" && (
         <TaskDetailModal
-          isOpen={!!selectedTaskId}
+          isOpen={!!typedSelectedTaskId}
           onClose={handleTaskClose}
-          taskId={selectedTaskId as Id<"agentTasks">}
+          taskId={typedSelectedTaskId}
         />
       )}
     </>

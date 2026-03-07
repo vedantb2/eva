@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import {
@@ -37,48 +38,37 @@ const messageValidator = v.object({
   videoUrl: v.optional(v.union(v.string(), v.null())),
 });
 
+async function resolveMessageUrls(
+  ctx: Pick<QueryCtx, "db" | "storage">,
+  parentId: typeof parentIdValidator.type,
+) {
+  const messages = await ctx.db
+    .query("messages")
+    .withIndex("by_parent", (q) => q.eq("parentId", parentId))
+    .collect();
+  return Promise.all(
+    messages.map(async (m) => ({
+      ...m,
+      imageUrl: m.imageStorageId
+        ? await ctx.storage.getUrl(m.imageStorageId)
+        : undefined,
+      videoUrl: m.videoStorageId
+        ? await ctx.storage.getUrl(m.videoStorageId)
+        : undefined,
+    })),
+  );
+}
+
 export const listByParent = authQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(messageValidator),
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
-      .collect();
-    return Promise.all(
-      messages.map(async (m) => ({
-        ...m,
-        imageUrl: m.imageStorageId
-          ? await ctx.storage.getUrl(m.imageStorageId)
-          : undefined,
-        videoUrl: m.videoStorageId
-          ? await ctx.storage.getUrl(m.videoStorageId)
-          : undefined,
-      })),
-    );
-  },
+  handler: async (ctx, args) => resolveMessageUrls(ctx, args.parentId),
 });
 
 export const listByParentInternal = internalQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(messageValidator),
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
-      .collect();
-    return Promise.all(
-      messages.map(async (m) => ({
-        ...m,
-        imageUrl: m.imageStorageId
-          ? await ctx.storage.getUrl(m.imageStorageId)
-          : undefined,
-        videoUrl: m.videoStorageId
-          ? await ctx.storage.getUrl(m.videoStorageId)
-          : undefined,
-      })),
-    );
-  },
+  handler: async (ctx, args) => resolveMessageUrls(ctx, args.parentId),
 });
 
 export const add = authMutation({

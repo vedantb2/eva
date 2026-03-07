@@ -8,9 +8,14 @@ import {
   cleanUpStaleRun,
   STALE_THRESHOLD_MS,
   STALE_RECHECK_MS,
+  STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
 } from "./recovery";
-import { clearStreamingActivity } from "./helpers";
+import {
+  clearStreamingActivity,
+  getTaskAuditStreamingEntityId,
+  getTaskRunStreamingEntityId,
+} from "./helpers";
 
 function isSandboxStartupActivity(
   currentActivity: string | undefined,
@@ -21,6 +26,12 @@ function isSandboxStartupActivity(
   return currentActivity.includes('"Starting sandbox..."');
 }
 
+function isFinalizingActivity(currentActivity: string | undefined): boolean {
+  if (!currentActivity) {
+    return false;
+  }
+  return currentActivity.includes('"Finalizing response..."');
+}
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -72,15 +83,23 @@ export const checkStaleRuns = internalMutation({
 
     const streaming = await ctx.db
       .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.taskId)))
+      .withIndex("by_entity", (q) =>
+        q.eq("entityId", getTaskRunStreamingEntityId(args.runId)),
+      )
       .first();
     const startupStillInProgress = isSandboxStartupActivity(
+      streaming?.currentActivity,
+    );
+    const finishingInProgress = isFinalizingActivity(
       streaming?.currentActivity,
     );
     const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
     const staleThresholdMs = startupStillInProgress
       ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : STALE_THRESHOLD_MS;
+      : finishingInProgress
+        ? STALE_FINISHING_THRESHOLD_MS
+        : STALE_THRESHOLD_MS;
+    const staleSeconds = Math.round(staleThresholdMs / 1000);
     const isStale = Date.now() - lastActivity > staleThresholdMs;
 
     if (!isStale) {
@@ -100,10 +119,14 @@ export const checkStaleRuns = internalMutation({
       isProjectTask: !!task.projectId,
       errorMessage: startupStillInProgress
         ? "Run killed by watchdog: sandbox startup stalled"
-        : "Run killed by watchdog: no heartbeat for 90s",
+        : finishingInProgress
+          ? `Run killed by watchdog: finalization stalled (no heartbeat for ${staleSeconds}s)`
+          : `Run killed by watchdog: no heartbeat for ${staleSeconds}s`,
       exitReason: startupStillInProgress
         ? "watchdog_startup_stalled"
-        : "watchdog_killed",
+        : finishingInProgress
+          ? "watchdog_finalizing_stalled"
+          : "watchdog_killed",
       activeWorkflowId: task.activeWorkflowId,
     });
     return null;
@@ -169,7 +192,12 @@ export const handleStaleRun = internalMutation({
       }
     }
 
+    await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
+    await clearStreamingActivity(
+      ctx,
+      getTaskAuditStreamingEntityId(args.runId),
+    );
     await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     if (task.projectId) {

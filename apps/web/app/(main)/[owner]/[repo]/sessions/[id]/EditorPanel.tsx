@@ -12,41 +12,12 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
 import { IconCode, IconRefresh } from "@tabler/icons-react";
+import { ensureHttps } from "@/lib/utils/ensureHttps";
+import { createSessionCache } from "@/lib/utils/sessionCache";
+
 type EditorState = "idle" | "starting" | "running" | "error";
 
-function ensureHttps(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "http:") {
-      parsed.protocol = "https:";
-    }
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
-function getCachedEditor(sessionId: string): string | null {
-  try {
-    const raw = sessionStorage.getItem(`conductor:editor:${sessionId}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.url;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedEditor(sessionId: string, url: string) {
-  sessionStorage.setItem(
-    `conductor:editor:${sessionId}`,
-    JSON.stringify({ url }),
-  );
-}
-
-function clearCachedEditor(sessionId: string) {
-  sessionStorage.removeItem(`conductor:editor:${sessionId}`);
-}
+const editorCache = createSessionCache("editor");
 
 interface EditorPanelProps {
   sessionId: string;
@@ -93,7 +64,7 @@ export function EditorPanel({
         if (data.ready) {
           setUrl(data.url);
           setEditorState("running");
-          setCachedEditor(sessionId, data.url);
+          editorCache.set(sessionId, data.url);
           return;
         }
         attempts.current += 1;
@@ -129,7 +100,7 @@ export function EditorPanel({
       if (existing.ready) {
         setUrl(existing.url);
         setEditorState("running");
-        setCachedEditor(sessionId, existing.url);
+        editorCache.set(sessionId, existing.url);
         return;
       }
       await toggleCodeServer({ sandboxId, repoId, action: "start" });
@@ -150,7 +121,7 @@ export function EditorPanel({
 
   useEffect(() => {
     if (isActive && sandboxId && editorState === "idle") {
-      const cached = getCachedEditor(sessionId);
+      const cached = editorCache.get(sessionId);
       if (cached) {
         setUrl(cached);
         setEditorState("running");
@@ -159,7 +130,7 @@ export function EditorPanel({
       startEditor();
     }
     if (!isActive) {
-      clearCachedEditor(sessionId);
+      editorCache.clear(sessionId);
     }
     return stopPolling;
   }, [isActive, sandboxId, editorState, startEditor, stopPolling, sessionId]);

@@ -3,18 +3,19 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import type { WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
-import { clearStreamingActivity } from "./helpers";
+import { clearStreamingActivity, getTaskRunStreamingEntityId } from "./helpers";
 
 const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
 const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
 
-export const STALE_THRESHOLD_MS = 90_000;
+export const STALE_THRESHOLD_MS = 180_000;
 export const STALE_CHECK_DELAY_MS = 90_000;
 export const STALE_RECHECK_MS = 30_000;
-export const STALE_NO_SANDBOX_THRESHOLD_MS = 600_000;
+export const STALE_FINISHING_THRESHOLD_MS = 300_000;
+export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 
-export function isDaytonaNetworkIssue(errorMessage: string): boolean {
-  const message = errorMessage.toLowerCase();
+export function isDaytonaNetworkIssue(errorMsg: string): boolean {
+  const message = errorMsg.toLowerCase();
   const networkMarkers = [
     "network",
     "fetch failed",
@@ -126,5 +127,6 @@ export async function cleanUpStaleRun(
     );
   }
 
+  await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(params.runId));
   await clearStreamingActivity(ctx, String(params.taskId));
 }

@@ -209,10 +209,10 @@ export function EnvVarsTable({
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">{description}</p>
         {!readOnly && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               size="sm"
               variant="outline"
@@ -238,8 +238,8 @@ export function EnvVarsTable({
           <p className="text-sm">No environment variables configured</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border/70">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-border/70 overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead>
               <tr className="border-b border-border/60 text-left text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">Key</th>

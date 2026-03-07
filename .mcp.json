@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "figma": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "figma-developer-mcp", "--stdio"],
+      "env": { "FIGMA_API_KEY": "${FIGMA_API_KEY}" }
+    },
+    "linear": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@emmett.deen/linear-mcp-server"],
+      "env": { "LINEAR_API_KEY": "${LINEAR_API_KEY}" }
+    }
+  }
+}

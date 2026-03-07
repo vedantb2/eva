@@ -63,7 +63,7 @@ export function QuickTaskCard({
     <Card
       className={`group relative overflow-hidden shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         showError
-          ? "border border-destructive/60 bg-destructive/5"
+          ? "border border-border/70 bg-card/88"
           : isInProgress
             ? "border-transparent bg-card/95"
             : isActive
@@ -91,7 +91,7 @@ export function QuickTaskCard({
       <div
         className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-1 px-2 py-1.5 pl-3">
+      <CardContent className="relative z-[1] space-y-1 px-2.5 py-2 pl-3 sm:py-1.5">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox

@@ -1,5 +1,176 @@
 # Changelog
 
+## Decompose monolithic client components into \_components/ + \_utils convention - 2026-03-07
+
+- **Why**: 10 route-level `*Client.tsx` files (300-568 lines each) mixed data fetching, state management, handlers, helper functions, and all JSX in a single file. This made them hard to read, maintain, and modify without risk of side effects.
+- **Changes**:
+  1. Established `_components/` + `_utils.ts` convention per route for co-located decomposition.
+  2. Refactored 10 files: RepoHomeClient (317→154), ThemeSettingsClient (349→95), LogsClient (383→150), RepoSetupClient (326→195), ReposClient (495→141), TeamDetailClient (422→79), ProjectsClient (435→250), QueryDetailClient (522→48), DesignDetailClient (500→137), QuickTasksClient (568→259).
+  3. Created ~30 extracted components across `_components/` folders and 3 `_utils.ts` files.
+  4. Added "Component Structure" rules to CLAUDE.md (~250 line max, orchestrator pattern, \_components/ convention).
+- **Reason for change**: Architectural. Monolithic client components violate single-responsibility and make it hard to reason about changes. The orchestrator + child component pattern keeps data flow clear and components maintainable.
+
+## Decompose DesignDetailClient into smaller components - 2026-03-07
+
+- **Why**: `DesignDetailClient.tsx` was 500 lines handling chat, preview, sandbox control, and tab state all in one component. This made it hard to reason about responsibilities and would only grow worse as features are added.
+- **Changes**:
+  1. Extracted `DesignChatPanel` — owns conversation rendering, message sending/cancelling, persona selection, and streaming display.
+  2. Extracted `DesignPreviewPanel` — owns iframe preview, variation tabs, desktop/mobile toggle (nuqs state), and variation selection UI.
+  3. Slimmed `DesignDetailClient` to an orchestrator: session query, sandbox lifecycle, preview URL fetching, and composing the two panels.
+- **Reason for change**: Single-responsibility decomposition. Each component now has a clear concern boundary, making future changes (e.g., swapping preview tech, adding chat features) isolated.
+
+## Backend simplification round 2: dead code removal and dedup - 2026-03-07
+
+- **Why**: Audit of 80+ Convex files found dead code paths, unused exports, and repeated patterns that added maintenance burden without providing value.
+- **Changes**:
+  1. Deleted dead PR creation chain in `testGenWorkflow.ts` — `createPr` → `createPrAction` was a no-op chain (empty handler). Removed scheduler call in `saveResult` too. (~45 lines)
+  2. Deleted 4 unused CRUD mutations from `evaluationReports.ts` (`updateEvalStatus`, `completeEval`, `failEval`, `updateEvalSummary`) — workflow handles all status transitions directly via `ctx.db.patch()`. (~79 lines)
+  3. Extracted `timeoutLastMessage` helper in `workflowWatchdog.ts` to deduplicate the "find last assistant message → patch content" pattern across 3 handlers. (~20 lines saved)
+  4. Extracted `updateLastHistoryEntry` in `docInterviewWorkflow.ts` and `updateLastConversationEntry` in `projectInterviewWorkflow.ts` to deduplicate the "clone history → update last entry → return" pattern (5 instances each). (~30 lines saved)
+- **Reason for change**: Dead code creates confusion about what's active. Duplicated patterns mean bugs fixed in one spot get missed in others.
+
+## Simplify chat panel, design page, analyse page - 2026-03-07
+
+- **Why**: ChatPanel, DesignDetailClient, and QueryDetailClient had significant code duplication — `ensureHttps()` copied in 2 files, session cache helpers copied in 2 files, IIFE+parseActivitySteps rendering pattern copy-pasted 6 times across 3 files, `evaIcon` JSX duplicated, user avatar block duplicated in 3 files. Also had `as` type assertions and a `!` non-null assertion violating project rules.
+- **Changes**:
+  1. Extracted `ensureHttps` to `lib/utils/ensureHttps.ts`, `createSessionCache` factory to `lib/utils/sessionCache.ts`
+  2. Created `EvaIcon`, `UserMessageAvatar`, `StreamingActivityDisplay`, and `ActivityLogDisplay` shared components
+  3. Fixed `as Id<>` cast in QueryDetailClient by typing page params correctly
+  4. Fixed `as "execute" | "ask" | "plan"` cast in ChatPanel with type guard
+  5. Fixed `sandboxId!` non-null assertion in DesktopPanel
+  6. Added `useMemo` for `filteredMessages`, `latestVariations`, and `personaMap` to avoid unnecessary recomputation
+  7. Replaced O(n\*m) persona `.find()` lookup with O(1) Map lookup in DesignDetailClient
+- **Reason for change**: Code duplication across chat-like pages made changes error-prone and increased maintenance burden. Type safety violations needed fixing.
+
+## Settings pages code structure cleanup - 2026-03-07
+
+- **Why**: Settings pages had duplicated `formatDuration` implementations (SnapshotsClient and LogsClient), `as` type assertion violations in ThemeSettingsClient and ThemeContext, and repeated button styling across 4 theme sections.
+- **Changes**:
+  1. Added `formatDurationMs` and `formatDurationMsShort` to shared `lib/utils/formatDuration.ts`. Removed local copies from SnapshotsClient and LogsClient.
+  2. Added `resolveCustomTheme` helper to ThemeContext to eliminate 4 `as` casts in ThemeSettingsClient. Fixed `as HTMLStyleElement` cast in ThemeContext with `instanceof` check.
+  3. Extracted `OptionButton` component in ThemeSettingsClient to deduplicate active/inactive button styling across Accent Color, Border Radius, Font, and Letter Spacing sections.
+  4. Deleted empty `[owner]/[repo]/settings/layout.tsx` (was just `<>{children}</>`).
+- **Reason for change**: Reduce duplication and fix rule violations found during code structure audit.
+
+## Deduplicate shared utilities across backend workflows - 2026-03-07
+
+- **Why**: 80+ Convex files had copy-pasted `extractJsonBlock` (3 copies), `new LlmJson(...)` (7 copies), and identical workflow completion event validators (10 copies). This duplication made changes error-prone — fixing a bug in one copy meant hunting down all others.
+- **Changes**:
+  1. Centralized `extractJsonBlock` and `llmJson` exports in `_taskWorkflow/helpers.ts`. Deleted local copies from `sessionAudits.ts` and `taskWorkflowActions.ts`.
+  2. Added `workflowCompleteValidator` to `validators.ts`. All 10 workflow files now import it instead of defining identical inline validators.
+  3. Extracted `resolveMessageUrls` helper in `messages.ts` to deduplicate `listByParent` and `listByParentInternal` handlers.
+  4. Removed `as const` assertions from `sessionAudits.ts` and `projectInterviewWorkflow.ts` (violates codebase rule against `as`).
+- **Reason for change**: Reduce duplication without adding abstraction layers. Only literal copy-paste was extracted.
+
+## Multi-select type filter on logs page - 2026-03-06
+
+- **Why**: The logs page type filter only allowed selecting one entity type at a time (radio buttons). Users needed to view multiple types simultaneously, matching the multi-select pattern already used on the quick tasks page.
+- **Changes**:
+  1. Replaced `logEntityTypeParser` (single string) with `logEntityTypesParser` (typed array) in search-params.
+  2. Switched `LogsClient.tsx` from `DropdownMenuRadioGroup` to `DropdownMenuCheckboxItem` for multi-select.
+  3. Updated backend `logs.listByRepo` to accept `entityTypes` (string array) instead of `entityType` (single string).
+- **Reason for change**: Consistency with quick tasks filter UX; multi-select is more practical for log analysis.
+
+## Change date filter from tabs to dropdown - 2026-03-06
+
+- **Why**: Tabs took up more horizontal space and didn't match the adjacent entity type filter's dropdown pattern. A dropdown is more consistent and compact.
+- **Changes**: Replaced `Tabs`/`TabsList`/`TabsTrigger` with `DropdownMenu`/`DropdownMenuRadioGroup` in `TimeRangeFilter`. Labels now show full text ("Last 7 days" etc.) instead of abbreviations. Affects both Logs and Stats pages.
+
+## Improve task detail modal activity UX - 2026-03-06
+
+- **Why**: Stop button was buried in the footer far from the activity it controls. User change request messages cluttered the request changes panel when they belong contextually next to the run they triggered.
+- **Changes**:
+  1. Moved the stop button from the modal footer to the right end of the Activity section header for proximity to what it controls.
+  2. Added `IconEdit` indicator on agent runs triggered by user change requests (all runs after the first) to visually distinguish edits from initial runs.
+  3. Added `IconMessageCircle` button in accordion triggers that opens a modal showing the user message that triggered that run.
+  4. Removed user comment history from the request changes panel — messages are now accessible via the icon on each run.
+
+## Mobile responsiveness audit for Quick Tasks page - 2026-03-06
+
+- **Why**: Quick Tasks page components were not optimized for mobile viewports, leading to cramped layouts, poor touch targets, and usability issues on small screens.
+- **Changes**:
+  1. KanbanBoard: Added snap scrolling on mobile for smooth horizontal column navigation, increased min column width from 240px to 280px for better readability.
+  2. QuickTasksClient: Added safe-area-inset-bottom padding to floating selection bar, improved padding and backdrop blur for mobile touch comfort.
+  3. QuickTaskModal: Reduced textarea from 12 rows to 6 with responsive min-height, made dialog footer stack vertically on mobile.
+  4. QuickTaskCard: Increased vertical padding on mobile for better touch targets.
+  5. QuickTasksListView: Added bottom padding for scroll comfort and improved sticky header spacing.
+  6. GroupTasksModal: Added responsive max-width to prevent overflow on very small screens.
+
+## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
+
+- **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.
+- **Changes**:
+  1. **LogsClient**: Converted 4 stat cards from `flex` to `grid grid-cols-2 lg:grid-cols-4`. Made log entry rows stack vertically on mobile with `flex-wrap`.
+  2. **SnapshotsClient**: Made status grid responsive (`grid-cols-1 sm:grid-cols-2`), added horizontal scroll to builds table, made cron guide stack vertically on mobile, made config header and save row wrap properly.
+  3. **EnvVarsTable**: Added horizontal scroll wrapper to table, made header description + buttons stack on mobile.
+  4. **ThemeSettingsClient**: Tightened appearance mode grid spacing on small screens, made preview text smaller on mobile.
+  5. **TimeRangeFilter**: Shortened tab labels and reduced padding for mobile fit.
+  6. **InboxClient**: Collapsed "Mark all read" to icon-only on mobile, tightened notification item padding and gap.
+
+## Watchdog consolidation + shared streaming cleanup - 2026-03-06
+
+- **Why**: `workflowWatchdog.ts` had 8 handlers with identical cancel-workflow + clear-streaming preambles (6 of 8 repeated the same 5-line inline streaming cleanup). Separately, 15+ workflow files inlined the same 4-line `query("streamingActivity").withIndex(...).first(); if (streaming) delete` pattern instead of using the existing `clearStreamingActivity` helper.
+- **Changes**:
+  1. Extracted `cancelStaleWorkflow(ctx, workflowId, streamingEntityIds)` helper in `workflowWatchdog.ts` that cancels the workflow + clears streaming for a list of entity IDs. All 6 handlers that had both operations now call this single function.
+  2. Replaced 15 inline streaming cleanup patterns across 10 workflow files (`sessionWorkflow`, `designWorkflow`, `designSessions`, `docInterviewWorkflow`, `docPrdWorkflow`, `evaluationWorkflow`, `projectInterviewWorkflow`, `researchQueryWorkflow`, `summarizeWorkflow`, `testGenWorkflow`) with `clearStreamingActivity()` imported from `_taskWorkflow/helpers.ts`.
+- **Reason for change (architectural)**: Single source of truth for streaming cleanup logic. Bug fixes to the cleanup pattern now propagate everywhere.
+
+## Simplify backend/convex: dedup error classification, consolidate sandbox reuse, fix N+1 queries - 2026-03-06
+
+- **Why**: Codebase had grown organically with duplicated error classification logic (inline in execution.ts vs function in recovery.ts), near-identical sandbox startup try-reuse blocks in sessions.ts, and sequential db.get/query loops (N+1) in analytics and agentTasks queries that hurt both readability and performance.
+- **Changes**:
+  1. Moved `isDaytonaNetworkIssue()` from `_taskWorkflow/recovery.ts` to `_daytona/helpers.ts` (canonical location). Replaced 30-line inline error marker logic in `execution.ts` with a single function call. Re-exported from recovery.ts to preserve existing imports.
+  2. Extracted `tryReuseSandbox()` helper in `_daytona/sessions.ts` to consolidate the duplicated "get existing sandbox → prepare → return or fall through" pattern shared by `startSessionSandbox` and `startDesignSandbox`.
+  3. Converted sequential `for` loops with `ctx.db.get()` / `ctx.db.query()` to `Promise.all` in `analytics.ts` (5 N+1 patterns across getImpactStats, getActiveUsers, getActivityTimeline, getLeaderboard) and `_agentTasks/queries.ts` (getDependentTasks, getStatusesByIds).
+- **Reason for change (architectural)**: Error classification is Daytona-specific and should live in the Daytona module. Sandbox reuse is a shared lifecycle pattern. N+1 queries cause unnecessary sequential round-trips in Convex queries.
+
+## Consolidate duplicated Daytona operational logic - 2026-03-06
+
+- **Why**: The "sign JWT token + launch script on sandbox" pattern was duplicated across 4 call sites (`execution.ts` 2x, `audit.ts` 2x). A bug fix or enhancement to this flow required changes in 4 places. Additionally, `getDaytona()` and `WORKSPACE_DIR` were redefined in `pty.ts` and `snapshotActions.ts` instead of importing from the canonical `_daytona/helpers.ts`.
+- **Changes**:
+  1. Added `signAndLaunchScript()` helper in `_daytona/helpers.ts` that composes token signing + script launch into a single call.
+  2. Updated `_daytona/execution.ts` (`setupAndExecute`, `launchOnExistingSandbox`) and `_daytona/audit.ts` (`launchAudit`, `runSessionAudit`) to use the new helper.
+  3. Removed local `getDaytona()` and `WORKSPACE_DIR` from `pty.ts` and `snapshotActions.ts`, importing from `_daytona/helpers.ts` instead.
+- **Reason for change (architectural)**: Service layer consolidation — reusable operational mechanics should live in one place so bug fixes propagate to all callers.
+
+## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
+
+- **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.
+- **Changes**:
+  1. `_daytona/callbackScript.ts` now keeps heartbeat/flush loops alive through finalization, adds an explicit `Finalizing response...` phase, and stops loops only after completion callback handling finishes.
+  2. `_taskWorkflow/recovery.ts` increases heartbeat stale threshold from 90s to 180s and startup stale threshold from 10m to 15m to better tolerate transient backend reload/control-plane jitter.
+  3. `_taskWorkflow/watchdog.ts` now formats heartbeat-kill error text from the configured threshold value so diagnostics stay accurate.
+  4. `_daytona/execution.ts` increases transient Daytona setup retry budget (5 attempts) with longer exponential backoff to reduce surfaced 408 setup failures.
+  5. `_taskWorkflow/watchdog.ts` now recognizes a streamed `"Finalizing response..."` phase and applies a longer stale threshold so completion/upload tail work is not killed prematurely.
+  6. `_taskWorkflow/recovery.ts` adds a dedicated finalization stale threshold used by the watchdog for clearer phase-aware behavior without adding new run-state fields.
+- **Reason for change (architectural)**: Finalization is a distinct lifecycle phase from active tool streaming; watchdogs should be strict enough to catch true hangs but tolerant of bounded callback/network jitter during shutdown paths.
+
+## Add Geist font to theme settings - 2026-03-06
+
+- **Why**: Users wanted Geist (Vercel's font) as an option in the theme font picker alongside the existing Google Fonts.
+- **Changes**:
+  1. Installed `geist` npm package for Next.js-compatible local font loading.
+  2. Added `GeistSans` import and CSS variable (`--font-geist-sans`) to `apps/web/app/layout.tsx`.
+  3. Extended `FontFamily` type and `FONT_FAMILIES` map in `ThemeContext.tsx` with the `"geist"` entry.
+  4. Added `v.literal("geist")` to `fontFamilyValidator` in `packages/backend/convex/validators.ts`.
+
+## Add font spacing (letter-spacing) to theme settings - 2026-03-06
+
+- **Why**: Users had control over font family, accent color, border radius, and appearance mode but could not customize letter spacing, which significantly affects readability and visual feel.
+- **Changes**:
+  1. Added `letterSpacingValidator` and included it in `customThemeValidator` in Convex validators.
+  2. Added `LetterSpacing` type and `LETTER_SPACING_VALUES` config to `ThemeContext.tsx`, applying the value to the `--tracking-normal` CSS variable.
+  3. Added a "Font Spacing" section to the theme settings UI with five options: Tighter, Tight, Normal, Wide, Wider.
+
+## Correlate quick-task callbacks and streaming by run id - 2026-03-05
+
+- **Why**: Quick-task callbacks and streaming were keyed by `taskId`, so a stale sandbox from an older run could write activity or completion data into a newer retry. That made watchdog diagnosis noisy and created a path for cross-run interference.
+- **Changes**:
+  1. Task execution and task audit callback paths now pass `runId` through the sandbox environment and back into the completion mutations.
+  2. Quick-task streaming is now written and read from run-scoped entity ids (`task-run-*` and `task-audit-run-*`) instead of a task-wide key.
+  3. Task completion, audit completion, cancellation, stale-run cleanup, and task detail UI now all resolve activity against the active run id, while still clearing the legacy task-wide keys for compatibility cleanup.
+- **Reason for change (architectural)**: A task can have multiple historical runs but only one active run. Runtime orchestration needs run-scoped correlation so retries and stale sandboxes cannot race through the same logical channel.
+
 ## Finalize evaluation workflow failures immediately - 2026-03-05
 
 - **Why**: Evaluation reports could stay in `running` until the 2-hour watchdog when workflow startup failed before the sandbox callback path ever fired.

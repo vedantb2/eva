@@ -5,11 +5,16 @@ import { workflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { claudeModelValidator } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { clearStreamingActivity } from "./helpers";
+import {
+  clearStreamingActivity,
+  getTaskAuditStreamingEntityId,
+  getTaskRunStreamingEntityId,
+} from "./helpers";
 
 export const handleCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
+    runId: v.optional(v.id("agentRuns")),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -25,10 +30,22 @@ export const handleCompletion = authMutation({
       .query("agentRuns")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
-    const latestRun = runs.sort(
-      (a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0),
-    )[0];
-    if (!latestRun || latestRun.status !== "running") return null;
+    const latestRunningRun = runs
+      .filter((run) => run.status === "running")
+      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
+    if (!latestRunningRun) return null;
+
+    if (args.runId) {
+      const callbackRun = await ctx.db.get(args.runId);
+      if (
+        !callbackRun ||
+        callbackRun.taskId !== args.taskId ||
+        callbackRun.status !== "running" ||
+        latestRunningRun._id !== args.runId
+      ) {
+        return null;
+      }
+    }
 
     await workflow.sendEvent(ctx, {
       ...taskCompleteEvent,
@@ -59,6 +76,7 @@ export const handleCompletion = authMutation({
 export const handleAuditCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
+    runId: v.optional(v.id("agentRuns")),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -69,6 +87,19 @@ export const handleAuditCompletion = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task?.activeWorkflowId) return null;
+
+    const audits = await ctx.db
+      .query("taskAudits")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const latestRunningAudit = audits
+      .filter((audit) => audit.status === "running")
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+    if (!latestRunningAudit) return null;
+
+    if (args.runId && latestRunningAudit.runId !== args.runId) {
+      return null;
+    }
 
     await workflow.sendEvent(ctx, {
       ...auditCompleteEvent,
@@ -101,8 +132,9 @@ export const cancelExecution = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
-    if (!(await hasTaskAccess(ctx.db, task, ctx.userId)))
+    if (!(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       throw new Error("Not authorized");
+    }
 
     if (task.activeWorkflowId) {
       try {
@@ -127,9 +159,12 @@ export const cancelExecution = authMutation({
         error: "Cancelled by user",
         finishedAt: Date.now(),
       });
+      await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(run._id));
+      await clearStreamingActivity(ctx, getTaskAuditStreamingEntityId(run._id));
     }
 
     await clearStreamingActivity(ctx, String(args.taskId));
+    await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     await ctx.db.patch(args.taskId, {
       status: "todo",

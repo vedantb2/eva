@@ -1,5 +1,16 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { LlmJson } from "@solvers-hub/llm-json";
+
+export const llmJson = new LlmJson({ attemptCorrection: true });
+
+export function getTaskRunStreamingEntityId(runId: Id<"agentRuns">): string {
+  return `task-run-${String(runId)}`;
+}
+
+export function getTaskAuditStreamingEntityId(runId: Id<"agentRuns">): string {
+  return `task-audit-run-${String(runId)}`;
+}
 
 export async function clearStreamingActivity(
   ctx: MutationCtx,

@@ -29,12 +29,38 @@ export type FontFamily =
   | "roboto"
   | "poppins"
   | "dm-sans"
-  | "space-grotesk";
+  | "space-grotesk"
+  | "geist";
+export type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
 
 export interface CustomTheme {
   accentColor?: AccentColor;
   radius?: RadiusSize;
   fontFamily?: FontFamily;
+  letterSpacing?: LetterSpacing;
+}
+
+export interface ResolvedCustomTheme {
+  accentColor: AccentColor;
+  radius: RadiusSize;
+  fontFamily: FontFamily;
+  letterSpacing: LetterSpacing;
+}
+
+const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
+  accentColor: "teal",
+  radius: "md",
+  fontFamily: "inter",
+  letterSpacing: "normal",
+};
+
+export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
+  return {
+    accentColor: custom.accentColor ?? CUSTOM_THEME_DEFAULTS.accentColor,
+    radius: custom.radius ?? CUSTOM_THEME_DEFAULTS.radius,
+    fontFamily: custom.fontFamily ?? CUSTOM_THEME_DEFAULTS.fontFamily,
+    letterSpacing: custom.letterSpacing ?? CUSTOM_THEME_DEFAULTS.letterSpacing,
+  };
 }
 
 interface ThemeContextType {
@@ -76,6 +102,12 @@ export const FONT_FAMILIES: Record<
     variable: "--font-space-grotesk",
     stack:
       "var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  },
+  geist: {
+    label: "Geist",
+    variable: "--font-geist-sans",
+    stack:
+      "var(--font-geist-sans), 'Geist Sans', ui-sans-serif, system-ui, sans-serif",
   },
 };
 
@@ -286,18 +318,33 @@ const RADIUS_VALUES: Record<RadiusSize, string> = {
   xl: "1rem",
 };
 
+export const LETTER_SPACING_VALUES: Record<
+  LetterSpacing,
+  { label: string; value: string }
+> = {
+  tighter: { label: "Tighter", value: "-0.04em" },
+  tight: { label: "Tight", value: "-0.02em" },
+  normal: { label: "Normal", value: "-0.012em" },
+  wide: { label: "Wide", value: "0.01em" },
+  wider: { label: "Wider", value: "0.03em" },
+};
+
 function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "teal";
   const radius = customTheme.radius ?? "md";
   const fontFamily = customTheme.fontFamily ?? "inter";
+  const letterSpacing = customTheme.letterSpacing ?? "normal";
 
-  // Apply radius
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
 
-  // Apply font
   document.documentElement.style.setProperty(
     "--font-sans",
     FONT_FAMILIES[fontFamily].stack,
+  );
+
+  document.documentElement.style.setProperty(
+    "--tracking-normal",
+    LETTER_SPACING_VALUES[letterSpacing].value,
   );
 
   // If using default teal, remove any custom style element so defaults apply
@@ -310,10 +357,11 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const colors = ACCENT_COLORS[accentColor];
   const mode = isDark ? colors.dark : colors.light;
 
-  let styleEl = document.getElementById(
-    "custom-theme-accent",
-  ) as HTMLStyleElement | null;
-  if (!styleEl) {
+  const existing = document.getElementById("custom-theme-accent");
+  let styleEl: HTMLStyleElement;
+  if (existing instanceof HTMLStyleElement) {
+    styleEl = existing;
+  } else {
     styleEl = document.createElement("style");
     styleEl.id = "custom-theme-accent";
     document.head.appendChild(styleEl);

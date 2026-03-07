@@ -17,20 +17,12 @@ import {
   IconMaximize,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { ensureHttps } from "@/lib/utils/ensureHttps";
+import { createSessionCache } from "@/lib/utils/sessionCache";
 
 type DesktopState = "idle" | "starting" | "running" | "error";
 
-function ensureHttps(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "http:") {
-      parsed.protocol = "https:";
-    }
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
+const desktopCache = createSessionCache("desktop");
 
 function appendNoVncParams(baseUrl: string): string {
   const url = new URL(baseUrl);
@@ -40,28 +32,6 @@ function appendNoVncParams(baseUrl: string): string {
   url.searchParams.set("quality", "6");
   url.searchParams.set("compression", "2");
   return url.toString();
-}
-
-function getCachedDesktop(sessionId: string): string | null {
-  try {
-    const raw = sessionStorage.getItem(`conductor:desktop:${sessionId}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.url;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedDesktop(sessionId: string, url: string) {
-  sessionStorage.setItem(
-    `conductor:desktop:${sessionId}`,
-    JSON.stringify({ url }),
-  );
-}
-
-function clearCachedDesktop(sessionId: string) {
-  sessionStorage.removeItem(`conductor:desktop:${sessionId}`);
 }
 
 interface DesktopPanelProps {
@@ -113,10 +83,8 @@ export function DesktopPanel({
           const noVncUrl = appendNoVncParams(data.url);
           setUrl(noVncUrl);
           setDesktopState("running");
-          setCachedDesktop(sessionId, noVncUrl);
-          launchChromeInDesktop({ sandboxId: sandboxId!, repoId }).catch(
-            () => {},
-          );
+          desktopCache.set(sessionId, noVncUrl);
+          launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
           return;
         }
         attempts.current += 1;
@@ -159,7 +127,7 @@ export function DesktopPanel({
         const noVncUrl = appendNoVncParams(existing.url);
         setUrl(noVncUrl);
         setDesktopState("running");
-        setCachedDesktop(sessionId, noVncUrl);
+        desktopCache.set(sessionId, noVncUrl);
         launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
         return;
       }
@@ -182,7 +150,7 @@ export function DesktopPanel({
 
   useEffect(() => {
     if (isActive && sandboxId && desktopState === "idle") {
-      const cached = getCachedDesktop(sessionId);
+      const cached = desktopCache.get(sessionId);
       if (cached) {
         setUrl(cached);
         setDesktopState("running");
@@ -191,7 +159,7 @@ export function DesktopPanel({
       startDesktop();
     }
     if (!isActive) {
-      clearCachedDesktop(sessionId);
+      desktopCache.clear(sessionId);
     }
     return stopPolling;
   }, [isActive, sandboxId, desktopState, startDesktop, stopPolling, sessionId]);

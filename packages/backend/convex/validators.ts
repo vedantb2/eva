@@ -1,5 +1,12 @@
 import { v } from "convex/values";
 
+export const workflowCompleteValidator = v.object({
+  success: v.boolean(),
+  result: v.union(v.string(), v.null()),
+  error: v.union(v.string(), v.null()),
+  activityLog: v.union(v.string(), v.null()),
+});
+
 export const taskStatusValidator = v.union(
   v.literal("draft"),
   v.literal("todo"),
@@ -172,10 +179,20 @@ export const fontFamilyValidator = v.union(
   v.literal("poppins"),
   v.literal("dm-sans"),
   v.literal("space-grotesk"),
+  v.literal("geist"),
+);
+
+export const letterSpacingValidator = v.union(
+  v.literal("tighter"),
+  v.literal("tight"),
+  v.literal("normal"),
+  v.literal("wide"),
+  v.literal("wider"),
 );
 
 export const customThemeValidator = v.object({
   accentColor: v.optional(accentColorValidator),
   radius: v.optional(radiusValidator),
   fontFamily: v.optional(fontFamilyValidator),
+  letterSpacing: v.optional(letterSpacingValidator),
 });

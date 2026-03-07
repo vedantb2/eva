@@ -4,20 +4,14 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PARSE_PROMPT } from "./prompts";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const prdCompleteEvent = defineEvent({
   name: "prdComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 interface ParsedDocFields {
@@ -161,12 +155,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.docId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.docId));
 
     const doc = await ctx.db.get(args.docId);
     if (!doc) return null;

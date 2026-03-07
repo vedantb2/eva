@@ -4,20 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
-import { evalResultValidator } from "./validators";
+import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Workflow definition ---
@@ -154,12 +147,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;
@@ -225,11 +213,7 @@ export const saveWorkflowFailure = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;

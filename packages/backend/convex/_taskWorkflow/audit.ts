@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import { extractJsonBlock, upsertStreamingActivity } from "./helpers";
+import {
+  clearStreamingActivity,
+  extractJsonBlock,
+  getTaskAuditStreamingEntityId,
+  upsertStreamingActivity,
+} from "./helpers";
 
 export const createAudit = internalMutation({
   args: {
@@ -21,7 +26,7 @@ export const createAudit = internalMutation({
 
     await upsertStreamingActivity(
       ctx,
-      `audit-${String(args.taskId)}`,
+      getTaskAuditStreamingEntityId(args.runId),
       JSON.stringify([
         {
           type: "thinking",
@@ -43,11 +48,25 @@ export const saveAuditResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const audit = await ctx.db.get(args.auditId);
+    if (!audit) {
+      return null;
+    }
+
+    const clearAuditStreaming = async (): Promise<void> => {
+      await clearStreamingActivity(
+        ctx,
+        getTaskAuditStreamingEntityId(audit.runId),
+      );
+      await clearStreamingActivity(ctx, `audit-${String(audit.taskId)}`);
+    };
+
     if (args.error || !args.result) {
       await ctx.db.patch(args.auditId, {
         status: "error",
         error: args.error ?? "Audit failed",
       });
+      await clearAuditStreaming();
       return null;
     }
 
@@ -86,6 +105,7 @@ export const saveAuditResult = internalMutation({
       });
     }
 
+    await clearAuditStreaming();
     return null;
   },
 });

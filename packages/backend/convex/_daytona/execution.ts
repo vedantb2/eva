@@ -12,7 +12,9 @@ import {
   getSandbox,
   sleep,
   errorMessage,
+  signAndLaunchScript,
 } from "./helpers";
+import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,
@@ -20,8 +22,8 @@ import {
   getOrCreateSandbox,
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
-import { launchScript } from "./launch";
 import { startDesktopWithChrome } from "./desktop";
+import { getTaskRunStreamingEntityId } from "../_taskWorkflow/helpers";
 
 export const runSandboxCommand = internalAction({
   args: {
@@ -117,10 +119,18 @@ export const setupAndExecute = internalAction({
     const claudeSessionId = args.sessionPersistenceId
       ? sessionClaudeUuid(args.sessionPersistenceId)
       : undefined;
+    const callbackEnvVars = { ...sandboxEnvVars };
+    if (args.attachRunId && args.entityIdField === "taskId") {
+      callbackEnvVars.STREAMING_ENTITY_ID = getTaskRunStreamingEntityId(
+        args.attachRunId,
+      );
+      callbackEnvVars.RUN_ID = String(args.attachRunId);
+    }
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
+    const maxSetupAttempts = 5;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {
@@ -196,46 +206,16 @@ export const setupAndExecute = internalAction({
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
-        const lowerMessage = message.toLowerCase();
-        const hasDaytonaMarker =
-          lowerMessage.includes("daytona") ||
-          lowerMessage.includes("daytonaerror") ||
-          lowerMessage.includes("sandbox") ||
-          lowerMessage.includes("snapshot");
-        const hasTransientMarker =
-          lowerMessage.includes("network") ||
-          lowerMessage.includes("fetch failed") ||
-          lowerMessage.includes("econnreset") ||
-          lowerMessage.includes("econnrefused") ||
-          lowerMessage.includes("etimedout") ||
-          lowerMessage.includes("enotfound") ||
-          lowerMessage.includes("getaddrinfo") ||
-          lowerMessage.includes("socket hang up") ||
-          lowerMessage.includes("timeout") ||
-          lowerMessage.includes("timed out") ||
-          lowerMessage.includes("aborted");
-        const hasTransientStatus =
-          lowerMessage.includes("status code 408") ||
-          lowerMessage.includes("status code 429") ||
-          lowerMessage.includes("status code 500") ||
-          lowerMessage.includes("status code 502") ||
-          lowerMessage.includes("status code 503") ||
-          lowerMessage.includes("status code 504");
-        const isSnapshotReadyTimeout = lowerMessage.includes(
-          "sandbox failed to become ready within the timeout period",
-        );
-        const shouldRetry =
-          (hasDaytonaMarker && (hasTransientMarker || hasTransientStatus)) ||
-          isSnapshotReadyTimeout;
+        const shouldRetry = isDaytonaNetworkIssue(message);
 
-        if (!shouldRetry || attempt >= 3) {
+        if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
         }
 
         const delayMs =
-          1500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
+          2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] setupAndExecute transient failure (attempt ${attempt}/3), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] setupAndExecute transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
         attempt += 1;
@@ -249,23 +229,19 @@ export const setupAndExecute = internalAction({
     }
 
     try {
-      const sandboxToken = await ctx.runAction(
-        internal.sandboxJwt.signSandboxToken,
-        { userId: args.userId },
-      );
-
-      await launchScript(
+      await signAndLaunchScript(
+        ctx,
         sandbox,
+        args.userId,
         args.prompt,
         args.completionMutation,
         args.entityIdField,
-        sandboxToken,
         args.entityId,
         {
           model: args.model,
           allowedTools: args.allowedTools,
           systemPrompt: args.systemPrompt,
-          extraEnvVars: sandboxEnvVars,
+          extraEnvVars: callbackEnvVars,
           claudeSessionId,
         },
       );
@@ -297,18 +273,15 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandboxToken = await ctx.runAction(
-      internal.sandboxJwt.signSandboxToken,
-      { userId: args.userId },
-    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
-    await launchScript(
+    await signAndLaunchScript(
+      ctx,
       sandbox,
+      args.userId,
       args.prompt,
       args.completionMutation,
       args.entityIdField,
-      sandboxToken,
       args.entityId,
       {
         model: args.model,

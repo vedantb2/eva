@@ -5,6 +5,7 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getInstallationOctokit } from "./githubAuth";
 import { deploymentStatusValidator } from "./validators";
+import { extractJsonBlock } from "./_taskWorkflow/helpers";
 
 type AuditRow = {
   requirement: string;
@@ -21,16 +22,6 @@ type ParsedAudit = {
 
 const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
-
-function extractJsonBlock(text: string): string {
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (codeBlockMatch?.[1]) return codeBlockMatch[1].trim();
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) return jsonMatch[0];
-
-  return text;
-}
 
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();

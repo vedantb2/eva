@@ -4,8 +4,9 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { sessionModeValidator } from "./validators";
+import { sessionModeValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import {
   buildRootDirectoryInstruction,
   getResponseLengthInstruction,
@@ -15,12 +16,7 @@ import {
 
 const sessionCompleteEvent = defineEvent({
   name: "sessionComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Mode config ---
@@ -367,11 +363,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     const last = await ctx.db
       .query("messages")
@@ -528,11 +520,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,

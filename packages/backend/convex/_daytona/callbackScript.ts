@@ -24,6 +24,7 @@ const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
+const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_TYPE = "${entityIdField}";
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
@@ -149,6 +150,7 @@ const completedLabels = {
   "Starting Claude...": "Started Claude",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
+  "Finalizing response...": "Finalized response",
   "Reading file...": "Read file",
   "Searching files...": "Searched files",
   "Searching code...": "Searched code",
@@ -273,7 +275,32 @@ if (!callbackReady) {
 
 const interval = setInterval(flushStreaming, 500);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
+let streamingLoopsStopped = false;
 
+async function stopStreamingLoops() {
+  if (streamingLoopsStopped) return;
+  streamingLoopsStopped = true;
+  clearInterval(interval);
+  clearInterval(heartbeatInterval);
+  await flushStreaming();
+}
+
+async function setFinalizingState() {
+  markLastComplete();
+  accumulatedSteps.push({
+    type: "thinking",
+    label: "Finalizing response...",
+    status: "active",
+  });
+  lastStepType = "thinking";
+  try {
+    await callMutation("streaming:set", {
+      entityId: STREAMING_ENTITY_ID,
+      currentActivity: JSON.stringify(accumulatedSteps),
+    });
+    lastStreamingSentAt = Date.now();
+  } catch {}
+}
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   if (existsSync(d)) {
     for (const f of readdirSync(d)) { try { unlinkSync(d + "/" + f); } catch {} }
@@ -452,12 +479,7 @@ try {
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
-  clearInterval(interval);
-  clearInterval(heartbeatInterval);
-  await flushStreaming();
-
-  for (const step of accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(accumulatedSteps);
+  await setFinalizingState();
 
   let videoStorageId = null;
   let imageStorageId = null;
@@ -518,8 +540,12 @@ try {
     if (stderrOutput) errorValue += "\\n" + stderrOutput.slice(-500);
   }
 
+  for (const step of accumulatedSteps) step.status = "complete";
+  const activityLog = JSON.stringify(accumulatedSteps);
+
   const completionArgs = {
     ${entityIdField}: ENTITY_ID,
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
@@ -528,15 +554,17 @@ try {
   };
   try {
     await callMutationWithRetry("${completionMutation}", completionArgs);
+    await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
+    await stopStreamingLoops();
     process.exit(1);
   }
 } catch (err) {
-  clearInterval(interval);
-  clearInterval(heartbeatInterval);
+  await stopStreamingLoops();
   const errorArgs = {
     ${entityIdField}: ENTITY_ID,
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",

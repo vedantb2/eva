@@ -69,6 +69,7 @@
     "cronstrue": "^3.13.0",
     "dayjs": "^1.11.13",
     "facehash": "^0.0.7",
+    "geist": "^1.7.0",
     "jspdf": "^3.0.0",
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.563.0",

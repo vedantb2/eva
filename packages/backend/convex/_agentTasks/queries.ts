@@ -88,18 +88,16 @@ export const getDependentTasks = authQuery({
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
       .collect();
-    const result = [];
-    for (const dep of dependents) {
-      const depTask = await ctx.db.get(dep.taskId);
-      if (depTask) {
-        result.push({
-          _id: depTask._id,
-          title: depTask.title,
-          taskNumber: depTask.taskNumber,
-        });
-      }
-    }
-    return result;
+    const depTasks = await Promise.all(
+      dependents.map((dep) => ctx.db.get(dep.taskId)),
+    );
+    return depTasks
+      .filter((t): t is Exclude<typeof t, null> => t !== null)
+      .map((t) => ({
+        _id: t._id,
+        title: t.title,
+        taskNumber: t.taskNumber,
+      }));
   },
 });
 
@@ -112,21 +110,9 @@ export const getStatusesByIds = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const results: {
-      id: Id<"agentTasks">;
-      status:
-        | "draft"
-        | "todo"
-        | "in_progress"
-        | "business_review"
-        | "code_review"
-        | "done"
-        | "cancelled";
-    }[] = [];
-    for (const id of args.ids) {
-      const task = await ctx.db.get(id);
-      if (task) results.push({ id: task._id, status: task.status });
-    }
-    return results;
+    const tasks = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+    return tasks
+      .filter((t): t is Exclude<typeof t, null> => t !== null)
+      .map((t) => ({ id: t._id, status: t.status }));
   },
 });

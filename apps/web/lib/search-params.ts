@@ -115,21 +115,6 @@ export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
   .withDefault("members")
   .withOptions(tabOptions);
 
-const logEntityTypes = [
-  "quickTask",
-  "session",
-  "designSession",
-  "researchQuery",
-  "project",
-  "doc",
-  "evaluation",
-  "sessionAudit",
-  "taskAudit",
-  "summarize",
-  "testGen",
-] as const;
-export const logEntityTypesParser = parseAsArrayOf(
-  parseAsStringLiteral(logEntityTypes),
-)
-  .withDefault([...logEntityTypes])
+export const logEntityTypesParser = parseAsArrayOf(parseAsString)
+  .withDefault([])
   .withOptions(searchOptions);

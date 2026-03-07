@@ -170,15 +170,16 @@ export function LogsClient() {
   const visibleTypes = useMemo(() => new Set(entityTypes), [entityTypes]);
 
   const handleTypeToggle = useCallback(
-    (type: string) => {
-      const next = new Set(visibleTypes);
+    (type: string, allTypes: string[]) => {
+      const next = new Set(visibleTypes.size === 0 ? allTypes : visibleTypes);
       if (next.has(type)) {
         if (next.size === 1) return;
         next.delete(type);
       } else {
         next.add(type);
       }
-      void setEntityParams({ entityTypes: [...next] });
+      const isAll = allTypes.every((t) => next.has(t));
+      void setEntityParams({ entityTypes: isAll ? [] : [...next] });
     },
     [visibleTypes, setEntityParams],
   );
@@ -188,10 +189,7 @@ export function LogsClient() {
   const logs = useQuery(api.logs.listByRepo, {
     repoId: repo._id,
     startTime: startTime ?? undefined,
-    entityTypes:
-      entityTypes.length === Object.keys(ENTITY_TYPE_LABELS).length
-        ? undefined
-        : entityTypes,
+    entityTypes: entityTypes.length > 0 ? entityTypes : undefined,
   });
 
   const {
@@ -261,17 +259,17 @@ export function LogsClient() {
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm">
                 <IconFilter size={14} />
-                {availableTypes.every((t) => visibleTypes.has(t))
+                {visibleTypes.size === 0
                   ? "All Types"
-                  : `${availableTypes.filter((t) => visibleTypes.has(t)).length} Types`}
+                  : `${visibleTypes.size} of ${availableTypes.length} Types`}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               {availableTypes.map((type) => (
                 <DropdownMenuCheckboxItem
                   key={type}
-                  checked={visibleTypes.has(type)}
-                  onCheckedChange={() => handleTypeToggle(type)}
+                  checked={visibleTypes.size === 0 || visibleTypes.has(type)}
+                  onCheckedChange={() => handleTypeToggle(type, availableTypes)}
                   onSelect={(e) => e.preventDefault()}
                 >
                   {labelFor(type)}

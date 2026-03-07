@@ -27,16 +27,11 @@ export function DesignDetailClient({
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
-  const [isSandboxStarting, setIsSandboxStarting] = useState(false);
+  const [isStopPending, setIsStopPending] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const sandboxRunning = !!session?.sandboxId;
-
-  useEffect(() => {
-    if (isSandboxStarting && session?.sandboxId) {
-      setIsSandboxStarting(false);
-    }
-  }, [isSandboxStarting, session?.sandboxId]);
+  const isSandboxStarting = session?.status === "starting";
+  const isSandboxActive = session?.status === "active";
 
   const fetchPreviewUrl = useCallback(async () => {
     if (!session?.sandboxId) {
@@ -69,21 +64,21 @@ export function DesignDetailClient({
     [messagesList],
   );
 
-  const handleStartSandbox = async () => {
-    setIsSandboxStarting(true);
-    try {
+  const handleSandboxToggle = async (action: "start" | "stop") => {
+    if (action === "start") {
       await startSandboxMutation({
         id: designSessionId,
         installationId: repo.installationId,
       });
-    } catch {
-      setIsSandboxStarting(false);
+    } else {
+      setIsStopPending(true);
+      try {
+        await stopSandboxMutation({ id: designSessionId });
+        setPreviewUrl(null);
+      } finally {
+        setIsStopPending(false);
+      }
     }
-  };
-
-  const handleStopSandbox = async () => {
-    await stopSandboxMutation({ id: designSessionId });
-    setPreviewUrl(null);
   };
 
   const handleSelectVariation = (index: number) => {
@@ -114,22 +109,21 @@ export function DesignDetailClient({
         designSessionId={designSessionId}
         title={session.title}
         isArchived={isArchived}
-        sandboxRunning={sandboxRunning}
-        isSandboxStarting={isSandboxStarting}
+        isSandboxActive={isSandboxActive}
+        isSandboxToggling={isSandboxStarting || isStopPending}
         isExecuting={lastAssistantHasNoContent}
-        onStartSandbox={handleStartSandbox}
-        onStopSandbox={handleStopSandbox}
+        onSandboxToggle={handleSandboxToggle}
         repoId={session.repoId}
       />
       <DesignPreviewPanel
         previewUrl={previewUrl}
-        sandboxRunning={sandboxRunning}
+        sandboxRunning={isSandboxActive}
         isArchived={isArchived}
         isExecuting={lastAssistantHasNoContent}
         latestVariations={latestVariations}
         selectedVariationIndex={session.selectedVariationIndex}
         isSandboxStarting={isSandboxStarting}
-        onStartSandbox={handleStartSandbox}
+        onStartSandbox={() => handleSandboxToggle("start")}
         onSelectVariation={handleSelectVariation}
       />
     </div>

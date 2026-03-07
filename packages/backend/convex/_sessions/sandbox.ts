@@ -58,6 +58,10 @@ export const startSandbox = authMutation({
       session.branchName ||
       repo.defaultBaseBranch ||
       `session/${args.sessionId}`;
+    await ctx.db.patch(args.sessionId, {
+      status: "starting",
+      updatedAt: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,

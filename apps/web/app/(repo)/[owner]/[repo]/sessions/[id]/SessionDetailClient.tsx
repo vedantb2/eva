@@ -30,7 +30,8 @@ export function SessionDetailClient({
   });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
-  const [isSandboxToggling, setIsSandboxToggling] = useState(false);
+  const isSandboxStarting = session?.status === "starting";
+  const [isStopPending, setIsStopPending] = useState(false);
   const chatPanelRef = usePanelRef();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [previewInfo, setPreviewInfo] = useState<{
@@ -53,18 +54,18 @@ export function SessionDetailClient({
   };
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
-    setIsSandboxToggling(true);
-    try {
-      if (action === "start") {
-        await startSandboxMutation({
-          sessionId,
-          installationId,
-        });
-      } else {
+    if (action === "start") {
+      await startSandboxMutation({
+        sessionId,
+        installationId,
+      });
+    } else {
+      setIsStopPending(true);
+      try {
         await stopSandboxMutation({ sessionId });
+      } finally {
+        setIsStopPending(false);
       }
-    } finally {
-      setIsSandboxToggling(false);
     }
   };
 
@@ -110,7 +111,7 @@ export function SessionDetailClient({
           streamingActivity={streaming?.currentActivity}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxToggling}
+          isSandboxToggling={isSandboxStarting || isStopPending}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
           previewUrl={previewInfo?.url}

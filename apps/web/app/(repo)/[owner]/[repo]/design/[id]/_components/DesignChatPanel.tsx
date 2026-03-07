@@ -6,6 +6,7 @@ import type { Id } from "@conductor/backend";
 import { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Spinner,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -36,11 +37,10 @@ interface DesignChatPanelProps {
   designSessionId: Id<"designSessions">;
   title: string;
   isArchived: boolean;
-  sandboxRunning: boolean;
-  isSandboxStarting: boolean;
+  isSandboxActive: boolean;
+  isSandboxToggling: boolean;
   isExecuting: boolean;
-  onStartSandbox: () => void;
-  onStopSandbox: () => void;
+  onSandboxToggle: (action: "start" | "stop") => void;
   repoId: Id<"githubRepos">;
 }
 
@@ -48,11 +48,10 @@ export function DesignChatPanel({
   designSessionId,
   title,
   isArchived,
-  sandboxRunning,
-  isSandboxStarting,
+  isSandboxActive,
+  isSandboxToggling,
   isExecuting: parentIsExecuting,
-  onStartSandbox,
-  onStopSandbox,
+  onSandboxToggle,
   repoId,
 }: DesignChatPanelProps) {
   const messages = useQuery(api.messages.listByParent, {
@@ -96,7 +95,7 @@ export function DesignChatPanel({
     : undefined;
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || !sandboxRunning) return;
+    if (!text.trim() || !isSandboxActive) return;
     setIsSending(true);
     try {
       await executeMessage({
@@ -124,28 +123,23 @@ export function DesignChatPanel({
         isArchived={isArchived}
         headerRight={
           <>
-            {sandboxRunning ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={onStopSandbox}
-              >
-                <IconPlayerStop size={14} />
-                Stop
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={onStartSandbox}
-                disabled={isSandboxStarting}
-              >
-                <IconPlayerPlay size={14} />
-                {isSandboxStarting ? "Starting..." : "Start sandbox"}
-              </Button>
-            )}
+            <Button
+              size="icon"
+              variant={isSandboxActive ? "destructive" : "secondary"}
+              onClick={() =>
+                onSandboxToggle(isSandboxActive ? "stop" : "start")
+              }
+              disabled={isSandboxToggling}
+              className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+            >
+              {isSandboxToggling ? (
+                <Spinner size="sm" />
+              ) : isSandboxActive ? (
+                <IconPlayerStop className="w-4 h-4" />
+              ) : (
+                <IconPlayerPlay className="w-4 h-4" />
+              )}
+            </Button>
             <ManagePersonasModal
               repoId={repoId}
               selectedPersonaId={selectedPersonaId}
@@ -159,7 +153,7 @@ export function DesignChatPanel({
             {messagesList.length === 0 ? (
               <ConversationEmptyState
                 title={
-                  sandboxRunning
+                  isSandboxActive
                     ? "Describe the UI you want to design"
                     : "Start the sandbox to begin designing"
                 }
@@ -241,11 +235,11 @@ export function DesignChatPanel({
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputTextarea
                 placeholder={
-                  !sandboxRunning
+                  !isSandboxActive
                     ? "Start the sandbox to begin designing..."
                     : "Describe the design you want..."
                 }
-                disabled={isExecuting || !sandboxRunning}
+                disabled={isExecuting || !isSandboxActive}
               />
               <PromptInputFooter>
                 <PersonaDropdown
@@ -255,12 +249,12 @@ export function DesignChatPanel({
                 />
                 <div className="flex items-center gap-1">
                   <PromptInputSpeech
-                    disabled={isExecuting || !sandboxRunning}
+                    disabled={isExecuting || !isSandboxActive}
                   />
                   <PromptInputSubmit
                     status={submitStatus}
                     onStop={handleCancel}
-                    disabled={isExecuting || !sandboxRunning}
+                    disabled={isExecuting || !isSandboxActive}
                   />
                 </div>
               </PromptInputFooter>

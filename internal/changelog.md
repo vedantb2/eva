@@ -1,5 +1,15 @@
 # Changelog
 
+## Instant sandbox start feedback + unified design/session button — 2026-03-07
+
+- **Why**: Clicking "Start" on a session or design sandbox gave no feedback for ~30 seconds until the sandbox was fully ready. The design page also used a different button pattern from sessions.
+- **Changes**:
+  1. Added `"starting"` to `sessionStatusValidator` — used by both `sessions` and `designSessions` tables.
+  2. `startSandbox` mutations (sessions + design) now set `status: "starting"` immediately before scheduling the background action, so the UI reflects the state change instantly.
+  3. Session UI derives `isSandboxStarting` from `session.status === "starting"` instead of local `useState` — the spinner is now driven by the database, surviving page refreshes.
+  4. Design page button replaced with the same icon-button pattern as sessions (play/stop icon, destructive variant when active, spinner when toggling).
+- **Reason for change**: Immediate visual feedback on start. Consistent button UX across sessions and design pages.
+
 ## Show all tasks on Quick Tasks page with project filter — 2026-03-07
 
 - **Why**: Quick Tasks page only showed orphan tasks (no project). Tasks assigned to projects were hidden, making it impossible to see all tasks in one place or filter by project.

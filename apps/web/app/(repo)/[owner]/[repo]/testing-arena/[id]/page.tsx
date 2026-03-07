@@ -261,7 +261,7 @@ function CodeTestingContent({
 
   return (
     <div className="h-full flex flex-col overflow-hidden sm:flex-row">
-      <div className="w-full shrink-0 border-b overflow-y-auto scrollbar p-2 space-y-1 max-h-28 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
+      <div className="w-full shrink-0 border-b overflow-y-auto scrollbar p-2 space-y-1 max-h-24 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
         <p className="text-xs font-medium text-muted-foreground px-2 py-1">
           Test runs ({reports.length})
         </p>

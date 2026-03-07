@@ -394,7 +394,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                 {(doc.userFlows ?? []).map((flow, flowIdx) => (
                   <div
                     key={flowIdx}
-                    className="border border-border rounded-lg p-4 bg-card"
+                    className="border border-border rounded-lg p-3 bg-card sm:p-4"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <Input

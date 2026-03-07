@@ -6,6 +6,8 @@ import type { FunctionReturnType } from "convex/server";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { QuickTasksStatusSummary } from "@/lib/components/quick-tasks/QuickTasksStatusSummary";
+import { Button } from "@conductor/ui";
+import { IconArrowLeft } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -50,8 +52,23 @@ export function QuickTasksSplitView({
         />
       </div>
       {selectedTaskId ? (
-        <div className="w-full sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden">
-          <TaskDetailInline onClose={onCloseTask} taskId={selectedTaskId} />
+        <div className="w-full sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden flex flex-col">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 sm:hidden">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={onCloseTask}
+              className="h-8 w-8"
+            >
+              <IconArrowLeft size={16} />
+            </Button>
+            <span className="text-sm font-medium text-muted-foreground">
+              Back to tasks
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <TaskDetailInline onClose={onCloseTask} taskId={selectedTaskId} />
+          </div>
         </div>
       ) : (
         <div className="hidden sm:flex sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">

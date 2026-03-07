@@ -268,7 +268,7 @@ export function KanbanBoard<T extends BaseTask>({
               <motion.div
                 key={status}
                 layout
-                className="flex min-h-0 min-w-[75vw] sm:min-w-0 flex-1 self-stretch snap-center"
+                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}

@@ -93,7 +93,7 @@ export function DesignPreviewPanel({
         }}
         className="flex flex-col h-full"
       >
-        <div className="flex items-center gap-1 px-2 py-2 border-b border-border sm:px-4 flex-wrap">
+        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border sm:px-4 sm:py-2 flex-wrap">
           <Tabs
             value={view}
             onValueChange={(v) => {

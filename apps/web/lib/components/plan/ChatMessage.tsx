@@ -4,21 +4,18 @@ import {
   ActivitySteps,
   Avatar,
   AvatarFallback,
-  Card,
-  CardContent,
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-  Spinner,
+  Message as AIMessage,
+  MessageContent,
+  MessageResponse,
+  Reasoning,
+  CollapsibleContent,
+  ReasoningTrigger,
 } from "@conductor/ui";
-import { IconUser } from "@tabler/icons-react";
 import Image from "next/image";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
 import { UserInitials } from "@conductor/shared";
 import type { Id } from "@conductor/backend";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { motion } from "motion/react";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -37,36 +34,55 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const isUser = role === "user";
 
+  const evaIcon = (
+    <Image
+      src="/icon.png"
+      alt="Eva"
+      width={20}
+      height={20}
+      className="rounded-full"
+    />
+  );
+
   return (
-    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
-      {!isUser && (
-        <div className="mb-1.5 flex items-center gap-2">
-          <Avatar className="flex-shrink-0 h-8 w-8 bg-secondary">
-            <Image
-              src="/icon.png"
-              alt="Assistant"
-              width={24}
-              height={24}
-              className="rounded-full"
-            />
-            <AvatarFallback className="bg-secondary text-muted-foreground">
-              E
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-xs font-medium text-muted-foreground">Eva</span>
-        </div>
-      )}
-      <Card
-        className={`shadow-none ${isUser ? "max-w-[85%] sm:max-w-[75%] bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-tl-none"}`}
-      >
-        <CardContent className="py-2 px-2 sm:px-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <AIMessage from={role}>
+        <MessageContent
+          className={
+            isUser
+              ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+              : "px-1 py-2"
+          }
+        >
           {isStreaming ? (
-            <>
-              <pre className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
-                {content}
-              </pre>
-              <Spinner size="sm" className="mt-2" />
-            </>
+            (() => {
+              const steps = parseActivitySteps(content);
+              return steps ? (
+                <ActivitySteps
+                  steps={steps}
+                  isStreaming
+                  name="Eva"
+                  icon={evaIcon}
+                />
+              ) : (
+                <Reasoning isStreaming defaultOpen>
+                  <ReasoningTrigger
+                    getThinkingMessage={(streaming) =>
+                      streaming ? "Working..." : "Processing complete"
+                    }
+                  />
+                  <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                    <pre className="whitespace-pre-wrap font-mono text-xs">
+                      {content || "Starting..."}
+                    </pre>
+                  </CollapsibleContent>
+                </Reasoning>
+              );
+            })()
           ) : (
             <>
               {isUser ? (
@@ -74,52 +90,51 @@ export function ChatMessage({
                   {content}
                 </p>
               ) : (
-                <Streamdown
-                  plugins={{ code }}
-                  className="prose prose-sm dark:prose-invert max-w-none"
-                >
-                  {content}
-                </Streamdown>
+                <>
+                  {logs &&
+                    (() => {
+                      const steps = parseActivitySteps(logs);
+                      return steps ? (
+                        <ActivitySteps
+                          steps={steps}
+                          name="Eva"
+                          icon={evaIcon}
+                        />
+                      ) : (
+                        <Reasoning defaultOpen={false}>
+                          <ReasoningTrigger
+                            getThinkingMessage={() => "View logs"}
+                          />
+                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                              {logs}
+                            </pre>
+                          </CollapsibleContent>
+                        </Reasoning>
+                      );
+                    })()}
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                    {content}
+                  </MessageResponse>
+                </>
               )}
-              {logs &&
-                (() => {
-                  const steps = parseActivitySteps(logs);
-                  return steps ? (
-                    <div className="mt-2">
-                      <ActivitySteps steps={steps} />
-                    </div>
-                  ) : (
-                    <Accordion type="single" collapsible className="mt-2 px-0">
-                      <AccordionItem value="logs" className="border-b-0">
-                        <AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline">
-                          View logs
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-0 overflow-hidden">
-                          <pre className="text-xs whitespace-pre-wrap break-all text-muted-foreground max-h-60 overflow-y-auto w-0 min-w-full">
-                            {logs}
-                          </pre>
-                        </AccordionContent>
-                      </AccordionItem>
-                    </Accordion>
-                  );
-                })()}
             </>
           )}
-        </CardContent>
-      </Card>
-      {isUser && (
-        <div className="mt-1.5">
-          {userId ? (
-            <UserInitials userId={userId} hideLastSeen size="md" />
-          ) : (
-            <Avatar className="flex-shrink-0 h-8 w-8 bg-primary">
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                <IconUser size={20} />
-              </AvatarFallback>
-            </Avatar>
-          )}
-        </div>
-      )}
-    </div>
+        </MessageContent>
+        {isUser && (
+          <div className="mt-0.5 ml-auto">
+            {userId ? (
+              <UserInitials userId={userId} hideLastSeen size="md" />
+            ) : (
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+                  U
+                </AvatarFallback>
+              </Avatar>
+            )}
+          </div>
+        )}
+      </AIMessage>
+    </motion.div>
   );
 }

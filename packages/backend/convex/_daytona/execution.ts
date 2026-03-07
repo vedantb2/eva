@@ -12,6 +12,8 @@ import {
   getSandbox,
   sleep,
   errorMessage,
+  isDaytonaNetworkIssue,
+  signAndLaunchScript,
 } from "./helpers";
 import {
   fetchOrigin,
@@ -20,7 +22,6 @@ import {
   getOrCreateSandbox,
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
-import { launchScript } from "./launch";
 import { startDesktopWithChrome } from "./desktop";
 import { getTaskRunStreamingEntityId } from "../_taskWorkflow/helpers";
 
@@ -205,37 +206,7 @@ export const setupAndExecute = internalAction({
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
-        const lowerMessage = message.toLowerCase();
-        const hasDaytonaMarker =
-          lowerMessage.includes("daytona") ||
-          lowerMessage.includes("daytonaerror") ||
-          lowerMessage.includes("sandbox") ||
-          lowerMessage.includes("snapshot");
-        const hasTransientMarker =
-          lowerMessage.includes("network") ||
-          lowerMessage.includes("fetch failed") ||
-          lowerMessage.includes("econnreset") ||
-          lowerMessage.includes("econnrefused") ||
-          lowerMessage.includes("etimedout") ||
-          lowerMessage.includes("enotfound") ||
-          lowerMessage.includes("getaddrinfo") ||
-          lowerMessage.includes("socket hang up") ||
-          lowerMessage.includes("timeout") ||
-          lowerMessage.includes("timed out") ||
-          lowerMessage.includes("aborted");
-        const hasTransientStatus =
-          lowerMessage.includes("status code 408") ||
-          lowerMessage.includes("status code 429") ||
-          lowerMessage.includes("status code 500") ||
-          lowerMessage.includes("status code 502") ||
-          lowerMessage.includes("status code 503") ||
-          lowerMessage.includes("status code 504");
-        const isSnapshotReadyTimeout = lowerMessage.includes(
-          "sandbox failed to become ready within the timeout period",
-        );
-        const shouldRetry =
-          (hasDaytonaMarker && (hasTransientMarker || hasTransientStatus)) ||
-          isSnapshotReadyTimeout;
+        const shouldRetry = isDaytonaNetworkIssue(message);
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
@@ -258,17 +229,13 @@ export const setupAndExecute = internalAction({
     }
 
     try {
-      const sandboxToken = await ctx.runAction(
-        internal.sandboxJwt.signSandboxToken,
-        { userId: args.userId },
-      );
-
-      await launchScript(
+      await signAndLaunchScript(
+        ctx,
         sandbox,
+        args.userId,
         args.prompt,
         args.completionMutation,
         args.entityIdField,
-        sandboxToken,
         args.entityId,
         {
           model: args.model,
@@ -306,18 +273,15 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandboxToken = await ctx.runAction(
-      internal.sandboxJwt.signSandboxToken,
-      { userId: args.userId },
-    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
-    await launchScript(
+    await signAndLaunchScript(
+      ctx,
       sandbox,
+      args.userId,
       args.prompt,
       args.completionMutation,
       args.entityIdField,
-      sandboxToken,
       args.entityId,
       {
         model: args.model,

@@ -47,7 +47,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
           {entries.map((entry, index) => (
             <div
               key={entry.clerkId}
-              className="motion-base flex items-center gap-3 rounded-lg p-2 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted"
+              className="motion-base flex items-center gap-2 rounded-lg p-1.5 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted sm:gap-3 sm:p-2"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
                 {index === 0 ? (
@@ -56,7 +56,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   index + 1
                 )}
               </div>
-              <div className="p-2 rounded-full bg-secondary">
+              <div className="hidden p-2 rounded-full bg-secondary sm:block">
                 <IconUser size={16} className="text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
@@ -64,7 +64,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   {entry.fullName || "Unknown User"}
                 </p>
               </div>
-              <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-2 text-xs sm:gap-4">
                 <div className="text-right">
                   <p className="font-semibold text-foreground">
                     {entry.prsCreated}

@@ -20,6 +20,22 @@ import {
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
+import type { Daytona, Sandbox } from "@daytonaio/sdk";
+
+async function tryReuseSandbox(
+  daytona: Daytona,
+  existingSandboxId: string | undefined,
+  prepareFn: (sandbox: Sandbox) => Promise<void>,
+): Promise<Sandbox | null> {
+  if (!existingSandboxId) return null;
+  try {
+    const sandbox = await daytona.get(existingSandboxId);
+    await prepareFn(sandbox);
+    return sandbox;
+  } catch {
+    return null;
+  }
+}
 
 export const startSessionSandbox = internalAction({
   args: {
@@ -46,9 +62,10 @@ export const startSessionSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      if (args.existingSandboxId) {
-        try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+      const reused = await tryReuseSandbox(
+        daytona,
+        args.existingSandboxId,
+        async (sandbox) => {
           await ensureSandboxRunning(sandbox);
           await syncRepo(
             sandbox,
@@ -63,17 +80,15 @@ export const startSessionSandbox = internalAction({
           );
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
-            sandboxId: args.existingSandboxId,
+            sandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: false,
             devPort,
             devCommand,
           });
-          return null;
-        } catch {
-          // Sandbox dead or unresponsive, create new
-        }
-      }
+        },
+      );
+      if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
         daytona,
@@ -147,9 +162,10 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      if (args.existingSandboxId) {
-        try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+      const reused = await tryReuseSandbox(
+        daytona,
+        args.existingSandboxId,
+        async (sandbox) => {
           await exec(sandbox, "echo 1", 5);
           await syncRepo(
             sandbox,
@@ -165,16 +181,14 @@ export const startDesignSandbox = internalAction({
           await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
-            sandboxId: args.existingSandboxId,
+            sandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: false,
             devPort,
           });
-          return null;
-        } catch {
-          // Sandbox dead or unresponsive, create new
-        }
-      }
+        },
+      );
+      if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
         daytona,

@@ -20,6 +20,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
+    userMessageDialog,
     audit,
     showProofSection,
     requestChangesPanel,
@@ -46,7 +47,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
               </div>
               <div className="md:pl-4 flex flex-col min-h-0 md:overflow-y-auto scrollbar">
                 <div className="space-y-4 flex-1">{statusFieldsSection}</div>
-                <div className="flex items-center justify-between pt-4 mt-4 pb-4 md:pb-0">
+                <div className="flex items-center justify-end pt-4 mt-4 pb-4 md:pb-0">
                   {footerButtons}
                 </div>
               </div>
@@ -55,6 +56,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
         </div>
       </div>
       {deleteConfirmDialog}
+      {userMessageDialog}
     </>
   );
 }

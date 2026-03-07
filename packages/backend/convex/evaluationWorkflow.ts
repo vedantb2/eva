@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { evalResultValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -154,12 +155,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;
@@ -225,11 +221,7 @@ export const saveWorkflowFailure = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;

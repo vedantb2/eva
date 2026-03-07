@@ -272,7 +272,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
           </div>
         }
       >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2">
+        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-1.5 pb-2 pt-2 sm:px-2">
           <AnimatePresence mode="wait">
             {tasks === undefined ? (
               <motion.div
@@ -350,7 +350,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
                     />
                   </div>
                   {selectedTaskId ? (
-                    <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+                    <div className="w-full md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden">
                       <TaskDetailInline
                         onClose={handleTaskClose}
                         taskId={selectedTaskId as Id<"agentTasks">}
@@ -369,13 +369,13 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             {hasQuickTasks && isSelecting && (
               <motion.div
                 key="quick-tasks-actions-bottom"
-                className="absolute inset-x-2 bottom-2 z-20 flex justify-center"
+                className="absolute inset-x-2 bottom-2 z-20 flex justify-center pb-[env(safe-area-inset-bottom)]"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 16 }}
                 transition={{ duration: 0.18 }}
               >
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-lg">
+                <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm">
                   <Button
                     size="sm"
                     variant="secondary"

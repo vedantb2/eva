@@ -40,6 +40,16 @@ Convex:
 - Run npx convex dev to start dev server/check for errors
 - Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
 
+Component Structure:
+
+- Max ~250 lines per client component
+- Route-level `*Client.tsx` = thin orchestrator (queries, top-level state, layout composition)
+- Route-local child components go in `_components/` folder
+- Pure helper functions go in `_utils.ts` at route level
+- Presentational components (no hooks, no `"use client"`) stay as plain function components
+- Only add `"use client"` to child components that use hooks/interactivity
+- Inline sub-components defined in the same file should be extracted to `_components/`
+
 Next.js:
 
 - Default to Server Components.

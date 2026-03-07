@@ -1,5 +1,15 @@
 # Changelog
 
+## Decompose monolithic client components into \_components/ + \_utils convention - 2026-03-07
+
+- **Why**: 10 route-level `*Client.tsx` files (300-568 lines each) mixed data fetching, state management, handlers, helper functions, and all JSX in a single file. This made them hard to read, maintain, and modify without risk of side effects.
+- **Changes**:
+  1. Established `_components/` + `_utils.ts` convention per route for co-located decomposition.
+  2. Refactored 10 files: RepoHomeClient (317→154), ThemeSettingsClient (349→95), LogsClient (383→150), RepoSetupClient (326→195), ReposClient (495→141), TeamDetailClient (422→79), ProjectsClient (435→250), QueryDetailClient (522→48), DesignDetailClient (500→137), QuickTasksClient (568→259).
+  3. Created ~30 extracted components across `_components/` folders and 3 `_utils.ts` files.
+  4. Added "Component Structure" rules to CLAUDE.md (~250 line max, orchestrator pattern, \_components/ convention).
+- **Reason for change**: Architectural. Monolithic client components violate single-responsibility and make it hard to reason about changes. The orchestrator + child component pattern keeps data flow clear and components maintainable.
+
 ## Decompose DesignDetailClient into smaller components - 2026-03-07
 
 - **Why**: `DesignDetailClient.tsx` was 500 lines handling chat, preview, sandbox control, and tab state all in one component. This made it hard to reason about responsibilities and would only grow worse as features are added.

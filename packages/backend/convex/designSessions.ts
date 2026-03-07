@@ -232,6 +232,14 @@ export const stopSandbox = authMutation({
         repoId: session.repoId,
       });
     }
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: "assistant",
+      content: "Sandbox stopped",
+      timestamp: Date.now(),
+      userId: ctx.userId,
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
       status: "closed",
@@ -253,6 +261,13 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
+    await ctx.db.insert("messages", {
+      parentId: args.designSessionId,
+      role: "assistant",
+      content: args.isNew ? "Sandbox started" : "Sandbox reconnected",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
       branchName: args.branchName,
@@ -276,8 +291,10 @@ export const sandboxError = internalMutation({
     await ctx.db.insert("messages", {
       parentId: args.designSessionId,
       role: "assistant",
-      content: `Failed to start sandbox: ${args.error}`,
+      content: "Failed to start sandbox",
       timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
     });
     await ctx.db.patch(args.designSessionId, {
       status: "closed",

@@ -31,6 +31,7 @@ import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
+import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 
 interface DesignChatPanelProps {
@@ -159,73 +160,83 @@ export function DesignChatPanel({
                 }
               />
             ) : (
-              messagesList.map((message) => (
-                <motion.div
-                  key={message._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <AIMessage from={message.role}>
-                    <MessageContent
-                      className={
-                        message.role === "user"
-                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
-                      }
-                    >
-                      {message.role === "assistant" && !message.content ? (
-                        <StreamingActivityDisplay
-                          activity={streaming?.currentActivity}
-                          name="Eva"
-                          icon={evaIcon}
-                        />
-                      ) : (
-                        <>
-                          {message.role === "assistant" ? (
-                            <>
-                              {message.activityLog && (
-                                <ActivityLogDisplay
-                                  activityLog={message.activityLog}
-                                  name="Eva"
-                                  icon={evaIcon}
-                                />
-                              )}
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                {message.content}
-                              </MessageResponse>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
-                              </p>
-                              <div className="flex items-center justify-between gap-3">
-                                {message.personaId && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {personaMap.get(message.personaId)?.name ??
-                                      "Persona"}
-                                  </span>
+              messagesList.map((message) =>
+                message.isSystemAlert ? (
+                  <SystemAlertMessage
+                    key={message._id}
+                    content={message.content ?? ""}
+                    errorDetail={message.errorDetail}
+                  />
+                ) : (
+                  <motion.div
+                    key={message._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <AIMessage from={message.role}>
+                      <MessageContent
+                        className={
+                          message.role === "user"
+                            ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                            : "px-1 py-2"
+                        }
+                      >
+                        {message.role === "assistant" && !message.content ? (
+                          <StreamingActivityDisplay
+                            activity={streaming?.currentActivity}
+                            name="Eva"
+                            icon={evaIcon}
+                          />
+                        ) : (
+                          <>
+                            {message.role === "assistant" ? (
+                              <>
+                                {message.activityLog && (
+                                  <ActivityLogDisplay
+                                    activityLog={message.activityLog}
+                                    name="Eva"
+                                    icon={evaIcon}
+                                  />
                                 )}
-                                {message.timestamp && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {dayjs(message.timestamp).format("h:mm A")}
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </>
+                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                                  {message.content}
+                                </MessageResponse>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                  {message.content}
+                                </p>
+                                <div className="flex items-center justify-between gap-3">
+                                  {message.personaId && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {personaMap.get(message.personaId)
+                                        ?.name ?? "Persona"}
+                                    </span>
+                                  )}
+                                  {message.timestamp && (
+                                    <span className="text-[11px] text-muted-foreground/60">
+                                      {dayjs(message.timestamp).format(
+                                        "h:mm A",
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </MessageContent>
+                      {message.role === "user" && (
+                        <div className="mt-0.5 ml-auto">
+                          <UserMessageAvatar userId={message.userId} />
+                        </div>
                       )}
-                    </MessageContent>
-                    {message.role === "user" && (
-                      <div className="mt-0.5 ml-auto">
-                        <UserMessageAvatar userId={message.userId} />
-                      </div>
-                    )}
-                  </AIMessage>
-                </motion.div>
-              ))
+                    </AIMessage>
+                  </motion.div>
+                ),
+              )
             )}
           </ConversationContent>
           <ConversationScrollButton />

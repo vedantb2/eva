@@ -49,7 +49,6 @@ import {
   IconSparkles,
   IconSend,
   IconCircleCheck,
-  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -71,6 +70,7 @@ import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
+import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -82,55 +82,6 @@ const REVIEW_AUDITS = [
   "Code testing audit",
   "Code review audit",
 ];
-
-function SystemAlertMessage({ message }: { message: SessionMessage }) {
-  const [showError, setShowError] = useState(false);
-
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
-        className="flex items-center gap-3 py-1"
-      >
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-          {message.content}
-        </span>
-        {message.errorDetail && (
-          <button
-            onClick={() => setShowError(true)}
-            className="text-xs font-medium text-destructive hover:underline whitespace-nowrap"
-          >
-            View error
-          </button>
-        )}
-        <div className="h-px flex-1 bg-border" />
-      </motion.div>
-      {message.errorDetail && (
-        <Dialog open={showError} onOpenChange={setShowError}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <IconAlertTriangle size={16} className="text-destructive" />
-                Sandbox Error
-              </DialogTitle>
-            </DialogHeader>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-lg p-4 max-h-64 overflow-y-auto">
-              {message.errorDetail}
-            </pre>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowError(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
-}
 
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
@@ -457,7 +408,11 @@ export function ChatPanel({
           ) : (
             filteredMessages.map((message) =>
               message.isSystemAlert ? (
-                <SystemAlertMessage key={message._id} message={message} />
+                <SystemAlertMessage
+                  key={message._id}
+                  content={message.content ?? ""}
+                  errorDetail={message.errorDetail}
+                />
               ) : (
                 <motion.div
                   key={message._id}

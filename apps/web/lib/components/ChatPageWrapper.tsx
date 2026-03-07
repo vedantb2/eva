@@ -4,6 +4,7 @@ import { IconArchive } from "@tabler/icons-react";
 
 interface ChatPageWrapperProps {
   title: string;
+  headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   isArchived?: boolean;
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ChatPageWrapperProps {
 
 export function ChatPageWrapper({
   title,
+  headerLeft,
   headerRight,
   isArchived,
   children,
@@ -26,7 +28,11 @@ export function ChatPageWrapper({
         </div>
       ) : (
         <div className="flex items-center justify-between p-3 animate-in fade-in duration-300">
-          <h2 className="text-sm font-medium truncate">{/* {title} */}</h2>
+          {headerLeft ? (
+            <div className="flex items-center gap-2">{headerLeft}</div>
+          ) : (
+            <div />
+          )}
           {headerRight && (
             <div className="flex items-center gap-2">{headerRight}</div>
           )}

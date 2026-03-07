@@ -282,23 +282,26 @@ export function ChatPanel({
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
-  const headerActions = (
-    <>
-      {onToggleSandbox && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
-          onClick={onToggleSandbox}
-          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
-        >
-          {sandboxCollapsed ? (
-            <IconLayoutSidebarRightExpand className="size-4" />
-          ) : (
-            <IconLayoutSidebarRightCollapse className="size-4" />
-          )}
-        </Button>
+  const headerLeft = (
+    <Button
+      size="icon"
+      variant={isSandboxActive ? "destructive" : "secondary"}
+      onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+      disabled={isSandboxToggling}
+      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+    >
+      {isSandboxToggling ? (
+        <Spinner size="sm" />
+      ) : isSandboxActive ? (
+        <IconPlayerStop className="w-4 h-4" />
+      ) : (
+        <IconPlayerPlay className="w-4 h-4" />
       )}
+    </Button>
+  );
+
+  const headerRight = (
+    <>
       <Button
         size="sm"
         variant="secondary"
@@ -353,21 +356,21 @@ export function ChatPanel({
           <IconSparkles className="w-4 h-4" />
         )}
       </Button>
-      <Button
-        size="icon"
-        variant={isSandboxActive ? "destructive" : "secondary"}
-        onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-        disabled={isSandboxToggling}
-        className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
-      >
-        {isSandboxToggling ? (
-          <Spinner size="sm" />
-        ) : isSandboxActive ? (
-          <IconPlayerStop className="w-4 h-4" />
-        ) : (
-          <IconPlayerPlay className="w-4 h-4" />
-        )}
-      </Button>
+      {onToggleSandbox && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          onClick={onToggleSandbox}
+          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
+        >
+          {sandboxCollapsed ? (
+            <IconLayoutSidebarRightExpand className="size-4" />
+          ) : (
+            <IconLayoutSidebarRightCollapse className="size-4" />
+          )}
+        </Button>
+      )}
     </>
   );
 
@@ -375,7 +378,8 @@ export function ChatPanel({
     <ChatPageWrapper
       title={title}
       isArchived={isArchived}
-      headerRight={headerActions}
+      headerLeft={headerLeft}
+      headerRight={headerRight}
     >
       <AnimatePresence>
         {(showSummaryStreaming || hasSummary) && (

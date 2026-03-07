@@ -122,31 +122,29 @@ export function DesignChatPanel({
       <ChatPageWrapper
         title={title}
         isArchived={isArchived}
+        headerLeft={
+          <Button
+            size="icon"
+            variant={isSandboxActive ? "destructive" : "secondary"}
+            onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+            disabled={isSandboxToggling}
+            className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+          >
+            {isSandboxToggling ? (
+              <Spinner size="sm" />
+            ) : isSandboxActive ? (
+              <IconPlayerStop className="w-4 h-4" />
+            ) : (
+              <IconPlayerPlay className="w-4 h-4" />
+            )}
+          </Button>
+        }
         headerRight={
-          <>
-            <ManagePersonasModal
-              repoId={repoId}
-              selectedPersonaId={selectedPersonaId}
-              onClearPersona={() => setSelectedPersonaId(undefined)}
-            />
-            <Button
-              size="icon"
-              variant={isSandboxActive ? "destructive" : "secondary"}
-              onClick={() =>
-                onSandboxToggle(isSandboxActive ? "stop" : "start")
-              }
-              disabled={isSandboxToggling}
-              className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
-            >
-              {isSandboxToggling ? (
-                <Spinner size="sm" />
-              ) : isSandboxActive ? (
-                <IconPlayerStop className="w-4 h-4" />
-              ) : (
-                <IconPlayerPlay className="w-4 h-4" />
-              )}
-            </Button>
-          </>
+          <ManagePersonasModal
+            repoId={repoId}
+            selectedPersonaId={selectedPersonaId}
+            onClearPersona={() => setSelectedPersonaId(undefined)}
+          />
         }
       >
         <Conversation className="flex-1 min-h-0">

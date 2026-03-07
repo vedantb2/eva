@@ -40,6 +40,29 @@ export interface CustomTheme {
   letterSpacing?: LetterSpacing;
 }
 
+export interface ResolvedCustomTheme {
+  accentColor: AccentColor;
+  radius: RadiusSize;
+  fontFamily: FontFamily;
+  letterSpacing: LetterSpacing;
+}
+
+const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
+  accentColor: "teal",
+  radius: "md",
+  fontFamily: "inter",
+  letterSpacing: "normal",
+};
+
+export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
+  return {
+    accentColor: custom.accentColor ?? CUSTOM_THEME_DEFAULTS.accentColor,
+    radius: custom.radius ?? CUSTOM_THEME_DEFAULTS.radius,
+    fontFamily: custom.fontFamily ?? CUSTOM_THEME_DEFAULTS.fontFamily,
+    letterSpacing: custom.letterSpacing ?? CUSTOM_THEME_DEFAULTS.letterSpacing,
+  };
+}
+
 interface ThemeContextType {
   theme: string;
   setTheme: (theme: string) => void;
@@ -334,10 +357,11 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const colors = ACCENT_COLORS[accentColor];
   const mode = isDark ? colors.dark : colors.light;
 
-  let styleEl = document.getElementById(
-    "custom-theme-accent",
-  ) as HTMLStyleElement | null;
-  if (!styleEl) {
+  const existing = document.getElementById("custom-theme-accent");
+  let styleEl: HTMLStyleElement;
+  if (existing instanceof HTMLStyleElement) {
+    styleEl = existing;
+  } else {
     styleEl = document.createElement("style");
     styleEl.id = "custom-theme-accent";
     document.head.appendChild(styleEl);

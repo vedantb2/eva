@@ -24,6 +24,10 @@ import {
 } from "@conductor/ui";
 import { IconChevronRight, IconFilter, IconCode } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import {
+  formatDurationMs,
+  formatDurationMsShort,
+} from "@/lib/utils/formatDuration";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",
@@ -54,23 +58,6 @@ function formatTokens(count: number): string {
   if (count >= 1e6) return `${(count / 1e6).toFixed(1)}M`;
   if (count >= 1e3) return `${(count / 1e3).toFixed(1)}k`;
   return String(count);
-}
-
-function formatDuration(ms: number): string {
-  if (ms === 0) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatTotalDuration(ms: number): string {
-  if (ms === 0) return "0s";
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
 }
 
 const USD_TO_GBP = 0.79;
@@ -308,7 +295,7 @@ export function LogsClient() {
                 Ran For
               </div>
               <div className="text-lg sm:text-2xl font-semibold">
-                {formatTotalDuration(totalDuration)}
+                {formatDurationMs(totalDuration)}
               </div>
             </div>
             <div className="rounded-lg border bg-card p-3 sm:p-4">
@@ -368,7 +355,7 @@ export function LogsClient() {
                               </span>
                               {evt.durationMs > 0 && (
                                 <span className="shrink-0 text-xs text-muted-foreground">
-                                  {formatDuration(evt.durationMs)}
+                                  {formatDurationMsShort(evt.durationMs)}
                                 </span>
                               )}
                               <span className="shrink-0 font-mono text-xs">

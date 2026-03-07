@@ -3,10 +3,13 @@
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   useThemeContext,
+  resolveCustomTheme,
   ACCENT_COLORS,
   RADIUS_VALUES,
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
+} from "@/lib/contexts/ThemeContext";
+import type {
   AccentColor,
   RadiusSize,
   FontFamily,
@@ -45,16 +48,43 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function OptionButton({
+  active,
+  onClick,
+  children,
+  className,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
+        active
+          ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function ThemeSettingsClient() {
   const { theme, setTheme, customTheme, setCustomTheme, mounted } =
     useThemeContext();
   const { setTheme: setNextTheme } = useTheme();
 
-  const accentColor = (customTheme.accentColor ?? "teal") as AccentColor;
-  const radius = (customTheme.radius ?? "md") as RadiusSize;
-  const fontFamily = (customTheme.fontFamily ?? "inter") as FontFamily;
-  const letterSpacing = (customTheme.letterSpacing ??
-    "normal") as LetterSpacing;
+  const resolved = resolveCustomTheme(customTheme);
+  const { accentColor, radius, fontFamily, letterSpacing } = resolved;
 
   const handleModeChange = (mode: "light" | "dark" | "system") => {
     if (mode === "system") {
@@ -171,16 +201,12 @@ export function ThemeSettingsClient() {
             ).map(([key, color]) => {
               const isActive = accentColor === key;
               return (
-                <button
+                <OptionButton
                   key={key}
+                  active={isActive}
                   onClick={() => handleAccentChange(key)}
                   title={color.label}
-                  className={cn(
-                    "group relative flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
-                    isActive
-                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
-                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
-                  )}
+                  className="group relative"
                 >
                   <span
                     className={cn(
@@ -198,7 +224,7 @@ export function ThemeSettingsClient() {
                     )}
                   </span>
                   {color.label}
-                </button>
+                </OptionButton>
               );
             })}
           </div>
@@ -209,7 +235,6 @@ export function ThemeSettingsClient() {
           <SectionLabel>Border Radius</SectionLabel>
           <div className="flex flex-wrap gap-2 sm:gap-3">
             {RADIUS_OPTIONS.map(({ value, label }) => {
-              const isActive = radius === value;
               const previewRadius =
                 value === "none"
                   ? "0px"
@@ -222,22 +247,17 @@ export function ThemeSettingsClient() {
                         : "14px";
 
               return (
-                <button
+                <OptionButton
                   key={value}
+                  active={radius === value}
                   onClick={() => handleRadiusChange(value)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
-                    isActive
-                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
-                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
-                  )}
                 >
                   <span
                     className="h-5 w-5 shrink-0 border-2 border-current"
                     style={{ borderRadius: previewRadius }}
                   />
                   {label}
-                </button>
+                </OptionButton>
               );
             })}
           </div>
@@ -255,15 +275,10 @@ export function ThemeSettingsClient() {
             ).map(([key, font]) => {
               const isActive = fontFamily === key;
               return (
-                <button
+                <OptionButton
                   key={key}
+                  active={isActive}
                   onClick={() => handleFontChange(key)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
-                    isActive
-                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
-                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
-                  )}
                 >
                   {isActive && (
                     <IconCheck
@@ -273,7 +288,7 @@ export function ThemeSettingsClient() {
                     />
                   )}
                   <span style={{ fontFamily: font.stack }}>{font.label}</span>
-                </button>
+                </OptionButton>
               );
             })}
           </div>
@@ -283,31 +298,23 @@ export function ThemeSettingsClient() {
         <section>
           <SectionLabel>Font Spacing</SectionLabel>
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            {LETTER_SPACING_OPTIONS.map(({ value, label }) => {
-              const isActive = letterSpacing === value;
-              return (
-                <button
-                  key={value}
-                  onClick={() => handleLetterSpacingChange(value)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-all sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
-                    isActive
-                      ? "border-primary/40 bg-primary/8 text-foreground shadow-sm ring-1 ring-primary/20"
-                      : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
-                  )}
+            {LETTER_SPACING_OPTIONS.map(({ value, label }) => (
+              <OptionButton
+                key={value}
+                active={letterSpacing === value}
+                onClick={() => handleLetterSpacingChange(value)}
+              >
+                <span
+                  className="text-xs font-semibold"
+                  style={{
+                    letterSpacing: LETTER_SPACING_VALUES[value].value,
+                  }}
                 >
-                  <span
-                    className="text-xs font-semibold"
-                    style={{
-                      letterSpacing: LETTER_SPACING_VALUES[value].value,
-                    }}
-                  >
-                    Aa
-                  </span>
-                  {label}
-                </button>
-              );
-            })}
+                  Aa
+                </span>
+                {label}
+              </OptionButton>
+            ))}
           </div>
         </section>
 

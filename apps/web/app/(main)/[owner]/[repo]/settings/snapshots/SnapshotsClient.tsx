@@ -29,6 +29,7 @@ import {
   IconClock,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { formatDurationMs } from "@/lib/utils/formatDuration";
 
 function describeCron(
   expression: string,
@@ -318,7 +319,7 @@ export function SnapshotsClient() {
                     {builds.map((build) => {
                       const isExpanded = expandedBuild === build._id;
                       const duration = build.completedAt
-                        ? formatDuration(build.completedAt - build.startedAt)
+                        ? formatDurationMs(build.completedAt - build.startedAt)
                         : build.status === "running"
                           ? "Running..."
                           : "-";
@@ -476,17 +477,6 @@ function BuildStatusBadge({
       Error
     </span>
   );
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
 }
 
 function CronPreview({ schedule }: { schedule: string }) {

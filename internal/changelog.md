@@ -1,5 +1,15 @@
 # Changelog
 
+## Settings pages code structure cleanup - 2026-03-07
+
+- **Why**: Settings pages had duplicated `formatDuration` implementations (SnapshotsClient and LogsClient), `as` type assertion violations in ThemeSettingsClient and ThemeContext, and repeated button styling across 4 theme sections.
+- **Changes**:
+  1. Added `formatDurationMs` and `formatDurationMsShort` to shared `lib/utils/formatDuration.ts`. Removed local copies from SnapshotsClient and LogsClient.
+  2. Added `resolveCustomTheme` helper to ThemeContext to eliminate 4 `as` casts in ThemeSettingsClient. Fixed `as HTMLStyleElement` cast in ThemeContext with `instanceof` check.
+  3. Extracted `OptionButton` component in ThemeSettingsClient to deduplicate active/inactive button styling across Accent Color, Border Radius, Font, and Letter Spacing sections.
+  4. Deleted empty `[owner]/[repo]/settings/layout.tsx` (was just `<>{children}</>`).
+- **Reason for change**: Reduce duplication and fix rule violations found during code structure audit.
+
 ## Deduplicate shared utilities across backend workflows - 2026-03-07
 
 - **Why**: 80+ Convex files had copy-pasted `extractJsonBlock` (3 copies), `new LlmJson(...)` (7 copies), and identical workflow completion event validators (10 copies). This duplication made changes error-prone — fixing a bug in one copy meant hunting down all others.

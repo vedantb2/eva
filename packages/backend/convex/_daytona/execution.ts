@@ -260,6 +260,12 @@ export const launchOnExistingSandbox = internalAction({
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
+    await exec(
+      sandbox,
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      10,
+    );
+
     const extraEnvVars: Record<string, string> = {};
     if (args.streamingEntityId) {
       extraEnvVars.STREAMING_ENTITY_ID = args.streamingEntityId;

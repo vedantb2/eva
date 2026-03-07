@@ -74,21 +74,28 @@ export const testGenWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    // Step 3: Setup ephemeral sandbox + fire test gen script
-    // Uses branch, Write/Edit/Bash tools, and git push
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        ephemeral: true,
+        branchName: docData.branchName,
+        repoId: docData.repoId,
+        streamingEntityId: args.docId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.docId,
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
       prompt: docData.prompt,
       userId: args.userId,
       completionMutation: "testGenWorkflow:handleCompletion",
       entityIdField: "docId",
       model: "sonnet",
       allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-      ephemeral: true,
-      branchName: docData.branchName,
       repoId: docData.repoId,
     });
 

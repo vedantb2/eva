@@ -1,22 +1,6 @@
 "use node";
 
-import { WORKSPACE_DIR } from "./helpers";
-
-/**
- * Generic callback handler script that runs inside the Daytona sandbox.
- * Spawns Claude CLI, parses stream-json output, streams activity updates
- * via Convex HTTP API, and calls the specified completion mutation when done.
- *
- * @param completionMutation - The Convex mutation path to call on completion
- *   (e.g. "designWorkflow:handleCompletion", "summarizeWorkflow:handleCompletion")
- * @param entityIdField - The field name for the entity ID in the completion args
- *   (e.g. "designSessionId", "sessionId", "docId")
- */
-export function buildCallbackScript(
-  completionMutation: string,
-  entityIdField: string,
-): string {
-  return `
+export const CALLBACK_SCRIPT = `
 import { spawn } from "child_process";
 import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
 
@@ -25,11 +9,12 @@ const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const RUN_ID = process.env.RUN_ID || null;
-const ENTITY_TYPE = "${entityIdField}";
+const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
-const WORK_DIR = "${WORKSPACE_DIR}";
+const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
@@ -516,7 +501,7 @@ try {
   }
   if (videoStorageId || imageStorageId) {
     try {
-      if (ENTITY_TYPE === "taskId") {
+      if (ENTITY_ID_FIELD === "taskId") {
         const storageId = videoStorageId || imageStorageId;
         await callMutationWithRetry("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName }, 3);
       } else {
@@ -526,7 +511,7 @@ try {
         await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
       }
     } catch {}
-  } else if (ENTITY_TYPE === "taskId") {
+  } else if (ENTITY_ID_FIELD === "taskId") {
     try {
       await callMutationWithRetry("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" }, 3);
     } catch {}
@@ -544,7 +529,7 @@ try {
   const activityLog = JSON.stringify(accumulatedSteps);
 
   const completionArgs = {
-    ${entityIdField}: ENTITY_ID,
+    [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
@@ -553,7 +538,7 @@ try {
     rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
   };
   try {
-    await callMutationWithRetry("${completionMutation}", completionArgs);
+    await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
@@ -563,7 +548,7 @@ try {
 } catch (err) {
   await stopStreamingLoops();
   const errorArgs = {
-    ${entityIdField}: ENTITY_ID,
+    [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
@@ -572,8 +557,7 @@ try {
     rawResultEvent: null,
   };
   try {
-    await callMutationWithRetry("${completionMutation}", errorArgs);
+    await callMutationWithRetry(COMPLETION_MUTATION, errorArgs);
   } catch {}
 }
 `.trim();
-}

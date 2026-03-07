@@ -144,9 +144,7 @@ export function QuickTaskCard({
         </div>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center">
-            {createdBy && (
-              <UserInitials userId={createdBy} size="sm" hideLastSeen />
-            )}
+            {createdBy && <UserInitials userId={createdBy} size="sm" />}
           </div>
           <span className="text-[10px] text-muted-foreground">
             {dayjs(createdAt).fromNow()}

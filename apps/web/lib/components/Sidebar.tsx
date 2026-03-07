@@ -246,7 +246,7 @@ export function Sidebar() {
               items: [
                 {
                   name: "Inbox",
-                  href: `/inbox`,
+                  href: `${repoBasePath}/inbox`,
                   icon: IconInbox,
                 },
                 {

@@ -1,5 +1,39 @@
 # Changelog
 
+## Add granular streaming progress during sandbox setup — 2026-03-07
+
+- **Why**: When `prepareSandbox` runs (creating sandbox, cloning repo, installing deps, setting up branch), users saw "Starting sandbox..." for up to 5 minutes with no feedback. This made it impossible to tell what was happening or where time was being spent.
+- **Changes**:
+  1. Added `streamingEntityId` arg to `prepareSandbox` action. When provided, emits progress updates to the `streamingActivity` table via `internalSet` mutation.
+  2. Added `onProgress` callbacks to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts` — milestones include "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Retrying sandbox creation...".
+  3. Added progress for branch setup ("Setting up branch...", "Fetching base branch...") and desktop start ("Starting desktop...") in `prepareSandbox`.
+  4. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
+  5. Added `internalSet` mutation to `streaming.ts` for server-side progress writes.
+- **Reason for change**: User experience. Granular progress during the slowest phase of task execution gives users visibility into what's happening and helps diagnose where time is spent.
+
+## Split (main) into (global) + (repo) route groups — 2026-03-07
+
+- **Why**: All pages (global home/teams/inbox/theme and repo-scoped pages) lived under a single `(main)` route group with a conditional `showTopNavBar` hack in the layout. This caused: inbox broke sidebar when clicked (navigated away from repo context), theme link in SettingsSidebar was dead (no page existed at repo-relative path), and no clear boundary between global and repo-scoped routes.
+- **Changes**:
+  1. Renamed `app/(main)/` to `app/(repo)/` — keeps repo layout (Sidebar + RepoProvider).
+  2. Created `app/(global)/` with a new layout — TopNavBar + max-w-7xl container, no conditional logic.
+  3. Moved global pages (`home/`, `teams/`, `setup/`, `settings/theme/`, `inbox/`) to `(global)/`.
+  4. Extracted `InboxClient` and `ThemeSettingsClient` + `_components/` to `lib/components/` so both route groups can import them.
+  5. Created thin repo-scoped pages at `(repo)/[owner]/[repo]/inbox/` and `(repo)/[owner]/[repo]/settings/theme/` that render the shared client components inside the repo layout with sidebar visible.
+  6. Updated Sidebar inbox href from `/inbox` to `${repoBasePath}/inbox` so it stays in repo context.
+  7. Added Inbox + Theme tabs to TopNavBar alongside Repositories and Teams.
+- **Reason for change**: Architectural. Clean separation between global pages (TopNavBar, no sidebar) and repo pages (Sidebar, RepoProvider) eliminates the conditional layout hack and fixes broken navigation paths.
+
+## Split setupAndExecute into prepareSandbox + launchOnExistingSandbox — 2026-03-07
+
+- **Why**: The `setupAndExecute` Convex action bundled sandbox creation (with up to 5 internal retries), repo cloning, branch setup, AND script launch into a single action. For repos without snapshots, this could exceed Convex's 10-minute action timeout — especially when retries compounded cold clone + npm install times.
+- **Changes**:
+  1. Split `setupAndExecute` into `prepareSandbox` (sandbox creation + repo setup) and reuse `launchOnExistingSandbox` (script upload + launch). Each gets its own 10-minute budget as separate workflow steps.
+  2. Reduced `maxSetupAttempts` from 5 to 2 and added a 7-minute elapsed time guard to prevent retry loops from exceeding action limits.
+  3. Updated all 12 workflow callers across 10 files to use the two-step pattern.
+  4. Converted callback script from template-interpolated function to static constant — `completionMutation` and `entityIdField` are now passed as environment variables instead of string interpolation.
+- **Reason for change**: Architectural. A single action doing too much work risked Convex function timeouts. Splitting into workflow steps gives each operation its own timeout budget and makes failures more granular.
+
 ## Decompose monolithic client components into \_components/ + \_utils convention - 2026-03-07
 
 - **Why**: 10 route-level `*Client.tsx` files (300-568 lines each) mixed data fetching, state management, handlers, helper functions, and all JSX in a single file. This made them hard to read, maintain, and modify without risk of side effects.

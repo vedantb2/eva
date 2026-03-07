@@ -102,13 +102,21 @@ export const projectInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
 
-    // Step 3: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.projectId,
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
       prompt: fullPrompt,
       userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleCompletion",
@@ -357,12 +365,21 @@ Generate an implementation spec with 2-5 tasks. Each task should represent a com
 
 Output ONLY valid JSON.`;
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.projectId,
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
       prompt,
       userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleSpecCompletion",

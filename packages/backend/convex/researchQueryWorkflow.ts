@@ -118,21 +118,27 @@ export const generateQueryWorkflow = workflow.define({
     );
 
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.daytona.prepareSandbox,
       {
-        entityId: String(args.queryId),
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "researchQueryWorkflow:handleCompletion",
-        entityIdField: "queryId",
-        model: args.model || "sonnet",
-        allowedTools: "Bash",
         repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
       },
     );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
+      entityId: String(args.queryId),
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "researchQueryWorkflow:handleCompletion",
+      entityIdField: "queryId",
+      model: args.model || "sonnet",
+      allowedTools: "Bash",
+      repoId: args.repoId,
+    });
 
     const result = await step.awaitEvent(queryCompleteEvent);
 
@@ -174,12 +180,21 @@ export const confirmQueryWorkflow = workflow.define({
       },
     );
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId: confirmSandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: data.sandboxId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId: confirmSandboxId,
       entityId: String(args.queryId),
-      existingSandboxId: data.sandboxId,
-      installationId: args.installationId,
-      repoOwner: data.repoOwner,
-      repoName: data.repoName,
       prompt: data.prompt,
       userId: args.userId,
       completionMutation: "researchQueryWorkflow:handleCompletion",

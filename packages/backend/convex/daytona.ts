@@ -10,7 +10,7 @@ export {
 export {
   runSandboxCommand,
   getPreviewUrl,
-  setupAndExecute,
+  prepareSandbox,
   launchOnExistingSandbox,
 } from "./_daytona/execution";
 

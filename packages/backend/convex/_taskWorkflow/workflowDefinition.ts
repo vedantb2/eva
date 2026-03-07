@@ -5,6 +5,7 @@ import { claudeModelValidator } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt, WORKSPACE_DIR } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
+import { getTaskRunStreamingEntityId } from "./helpers";
 
 export const taskExecutionWorkflow = workflow.define({
   args: {
@@ -46,28 +47,36 @@ export const taskExecutionWorkflow = workflow.define({
       hasSubtasks = data.hasSubtasks;
 
       const setupResult = await step.runAction(
-        internal.daytona.setupAndExecute,
+        internal.daytona.prepareSandbox,
         {
-          entityId: String(args.taskId),
           existingSandboxId: data.projectSandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
-          prompt: data.prompt,
-          userId: args.userId,
-          completionMutation: "taskWorkflow:handleCompletion",
-          entityIdField: "taskId",
-          model: args.model ?? "sonnet",
-          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
           branchName: data.branchName,
           baseBranch: args.baseBranch,
           ephemeral: !args.projectId,
           repoId: args.repoId,
           attachRunId: args.runId,
+          streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         },
         { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );
       sandboxId = setupResult.sandboxId;
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: String(args.taskId),
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "taskWorkflow:handleCompletion",
+        entityIdField: "taskId",
+        model: args.model ?? "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        repoId: args.repoId,
+        streamingEntityId: getTaskRunStreamingEntityId(args.runId),
+        runId: String(args.runId),
+      });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.runId,

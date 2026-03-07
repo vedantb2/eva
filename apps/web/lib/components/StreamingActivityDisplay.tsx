@@ -14,7 +14,6 @@ export function StreamingActivityDisplay({
   icon,
   thinkingLabel = "Working...",
   doneLabel = "Processing complete",
-  fallbackLabel = "Starting...",
 }: {
   activity: string | undefined;
   isStreaming?: boolean;
@@ -22,7 +21,6 @@ export function StreamingActivityDisplay({
   icon?: ReactNode;
   thinkingLabel?: string;
   doneLabel?: string;
-  fallbackLabel?: string;
 }) {
   const steps = parseActivitySteps(activity);
 
@@ -44,11 +42,13 @@ export function StreamingActivityDisplay({
           streaming ? thinkingLabel : doneLabel
         }
       />
-      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-        <pre className="whitespace-pre-wrap font-mono text-xs">
-          {activity || fallbackLabel}
-        </pre>
-      </CollapsibleContent>
+      {activity && (
+        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+          <pre className="whitespace-pre-wrap font-mono text-xs">
+            {activity}
+          </pre>
+        </CollapsibleContent>
+      )}
     </Reasoning>
   );
 }

@@ -132,6 +132,7 @@ function toolCallToStep(name, input) {
 let lastStepType = "";
 
 const completedLabels = {
+  "Starting Claude...": "Started Claude",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
   "Finalizing response...": "Finalized response",
@@ -241,6 +242,8 @@ async function heartbeatPing() {
 }
 
 try { unlinkSync(READY_FILE); } catch {}
+
+accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
 
 let callbackReady = false;
 await callMutationWithRetry(

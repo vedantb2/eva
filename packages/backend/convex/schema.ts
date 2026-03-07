@@ -161,6 +161,7 @@ const schema = defineSchema({
     postAuditEnabled: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
+    hidden: v.optional(v.boolean()),
   })
     .index("by_github_id", ["githubId"])
     .index("by_owner_name", ["owner", "name"])

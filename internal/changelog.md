@@ -1,5 +1,16 @@
 # Changelog
 
+## Hide/show repositories and monorepo apps — 2026-03-07
+
+- **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
+- **Changes**:
+  1. Added `hidden` optional boolean field to `githubRepos` schema and validator.
+  2. `list` query now accepts optional `includeHidden` arg — defaults to filtering out hidden repos. Management pages (monorepo settings, team detail) pass `includeHidden: true`.
+  3. Added `toggleHidden` mutation for setting visibility.
+  4. RepoCard dropdown now has a "Hide" option.
+  5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
+  6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+
 ## Dismiss Daytona preview warning for all iframes — 2026-03-07
 
 - **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.

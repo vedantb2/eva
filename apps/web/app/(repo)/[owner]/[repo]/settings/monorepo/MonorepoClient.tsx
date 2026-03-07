@@ -31,7 +31,7 @@ export function MonorepoClient() {
   const { repo } = useRepo();
   const detectApps = useAction(api.github.detectMonorepoApps);
   const createRepo = useMutation(api.githubRepos.create);
-  const allRepos = useQuery(api.githubRepos.list);
+  const allRepos = useQuery(api.githubRepos.list, { includeHidden: true });
 
   const [detected, setDetected] = useState<ReadonlyArray<DetectedApp>>([]);
   const [loading, setLoading] = useState(true);

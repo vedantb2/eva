@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { sessionModeValidator } from "./validators";
+import { sessionModeValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import {
@@ -16,12 +16,7 @@ import {
 
 const sessionCompleteEvent = defineEvent({
   name: "sessionComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Mode config ---

@@ -4,21 +4,14 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 interface PreviousAnswer {
@@ -159,7 +152,7 @@ export const addEmptyAssistant = internalMutation({
     await ctx.db.patch(args.projectId, {
       conversationHistory: [
         ...project.conversationHistory,
-        { role: "assistant" as const, content: "", activityLog: "" },
+        { role: "assistant", content: "", activityLog: "" },
       ],
     });
     return null;

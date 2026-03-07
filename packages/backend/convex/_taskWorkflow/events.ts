@@ -1,14 +1,10 @@
 import { v } from "convex/values";
 import { defineEvent } from "@convex-dev/workflow";
+import { workflowCompleteValidator } from "../validators";
 
 export const taskCompleteEvent = defineEvent({
   name: "taskComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 export const buildTaskDoneEvent = defineEvent({

@@ -1,5 +1,15 @@
 # Changelog
 
+## Deduplicate shared utilities across backend workflows - 2026-03-07
+
+- **Why**: 80+ Convex files had copy-pasted `extractJsonBlock` (3 copies), `new LlmJson(...)` (7 copies), and identical workflow completion event validators (10 copies). This duplication made changes error-prone — fixing a bug in one copy meant hunting down all others.
+- **Changes**:
+  1. Centralized `extractJsonBlock` and `llmJson` exports in `_taskWorkflow/helpers.ts`. Deleted local copies from `sessionAudits.ts` and `taskWorkflowActions.ts`.
+  2. Added `workflowCompleteValidator` to `validators.ts`. All 10 workflow files now import it instead of defining identical inline validators.
+  3. Extracted `resolveMessageUrls` helper in `messages.ts` to deduplicate `listByParent` and `listByParentInternal` handlers.
+  4. Removed `as const` assertions from `sessionAudits.ts` and `projectInterviewWorkflow.ts` (violates codebase rule against `as`).
+- **Reason for change**: Reduce duplication without adding abstraction layers. Only literal copy-paste was extracted.
+
 ## Multi-select type filter on logs page - 2026-03-06
 
 - **Why**: The logs page type filter only allowed selecting one entity type at a time (radio buttons). Users needed to view multiple types simultaneously, matching the multi-select pattern already used on the quick tasks page.
@@ -8,6 +18,7 @@
   2. Switched `LogsClient.tsx` from `DropdownMenuRadioGroup` to `DropdownMenuCheckboxItem` for multi-select.
   3. Updated backend `logs.listByRepo` to accept `entityTypes` (string array) instead of `entityType` (single string).
 - **Reason for change**: Consistency with quick tasks filter UX; multi-select is more practical for log analysis.
+
 ## Change date filter from tabs to dropdown - 2026-03-06
 
 - **Why**: Tabs took up more horizontal space and didn't match the adjacent entity type filter's dropdown pattern. A dropdown is more consistent and compact.

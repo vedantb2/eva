@@ -4,20 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
-const llmJson = new LlmJson({ attemptCorrection: true });
-
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 function slugify(text: string): string {

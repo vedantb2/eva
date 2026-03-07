@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { evaluationStatusValidator, evalResultValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { extractJsonBlock } from "./_taskWorkflow/helpers";
 
 export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
@@ -68,14 +69,6 @@ export const startAudit = authMutation({
   },
 });
 
-function extractJsonBlock(text: string): string {
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (codeBlockMatch && codeBlockMatch[1]) return codeBlockMatch[1].trim();
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) return jsonMatch[0];
-  return text;
-}
-
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -96,7 +89,7 @@ export const handleCompletion = authMutation({
 
     if (!args.success || !args.result) {
       await ctx.db.patch(audit._id, {
-        status: "error" as const,
+        status: "error",
         error: args.error ?? "Audit failed",
       });
       return null;
@@ -124,7 +117,7 @@ export const handleCompletion = authMutation({
       } = JSON.parse(jsonStr);
 
       await ctx.db.patch(audit._id, {
-        status: "completed" as const,
+        status: "completed",
         accessibility: parsed.accessibility || [],
         testing: parsed.testing || [],
         codeReview: parsed.codeReview || [],
@@ -132,7 +125,7 @@ export const handleCompletion = authMutation({
       });
     } catch {
       await ctx.db.patch(audit._id, {
-        status: "error" as const,
+        status: "error",
         error: "Failed to parse audit JSON",
       });
     }
@@ -163,7 +156,7 @@ export const fail = internalMutation({
     const audit = await ctx.db.get(args.id);
     if (!audit) return null;
     await ctx.db.patch(args.id, {
-      status: "error" as const,
+      status: "error",
       error: args.error,
     });
     return null;

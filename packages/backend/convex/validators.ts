@@ -1,5 +1,12 @@
 import { v } from "convex/values";
 
+export const workflowCompleteValidator = v.object({
+  success: v.boolean(),
+  result: v.union(v.string(), v.null()),
+  error: v.union(v.string(), v.null()),
+  activityLog: v.union(v.string(), v.null()),
+});
+
 export const taskStatusValidator = v.union(
   v.literal("draft"),
   v.literal("todo"),

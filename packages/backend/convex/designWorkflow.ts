@@ -4,21 +4,14 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const designCompleteEvent = defineEvent({
   name: "designComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
-
-const llmJson = new LlmJson({ attemptCorrection: true });
 
 function buildDesignPrompt(
   repo: { owner: string; name: string },

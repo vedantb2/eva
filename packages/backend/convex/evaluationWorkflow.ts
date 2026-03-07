@@ -4,21 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
-import { evalResultValidator } from "./validators";
+import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Workflow definition ---

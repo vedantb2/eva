@@ -291,7 +291,7 @@ export function ChatPanel({
   const lastMessage = messages[messages.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isStreaming = Boolean(streamingActivity);
+  const isStreaming = isSandboxActive && Boolean(streamingActivity);
   const isExecuting = isSending || lastAssistantHasNoContent || isStreaming;
 
   useEffect(() => {

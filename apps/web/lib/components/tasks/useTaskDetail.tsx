@@ -65,8 +65,6 @@ import {
   IconClock,
   IconBrandVercel,
   IconDots,
-  IconEdit,
-  IconMessageCircle,
 } from "@tabler/icons-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -562,12 +560,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                           {run.status}
                         </Badge>
                         {runCommentMap.has(run._id) && (
-                          <IconEdit
-                            size={14}
-                            className="text-muted-foreground shrink-0"
-                          />
-                        )}
-                        {runCommentMap.has(run._id) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
@@ -578,7 +570,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                                   setViewingCommentForRun(run._id);
                                 }}
                               >
-                                <IconMessageCircle size={14} />
+                                <IconMessagePlus size={14} />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent>View user message</TooltipContent>

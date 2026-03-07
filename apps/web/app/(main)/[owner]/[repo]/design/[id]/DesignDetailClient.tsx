@@ -4,10 +4,9 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { designTabParser, viewModeParser } from "@/lib/search-params";
-import Image from "next/image";
 import {
   Button,
   Spinner,
@@ -22,12 +21,6 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  ActivitySteps,
-  Reasoning,
-  CollapsibleContent,
-  ReasoningTrigger,
-  Avatar,
-  AvatarFallback,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -46,8 +39,12 @@ import { motion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
-import { UserInitials } from "@conductor/shared";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { EvaIcon } from "@/lib/components/EvaIcon";
+import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import {
+  StreamingActivityDisplay,
+  ActivityLogDisplay,
+} from "@/lib/components/StreamingActivityDisplay";
 import dayjs from "@conductor/shared/dates";
 
 type DesignMessage = NonNullable<
@@ -93,15 +90,7 @@ export function DesignDetailClient({
   const activeTab = tab;
   const viewMode = view;
 
-  const evaIcon = (
-    <Image
-      src="/icon.png"
-      alt="Eva"
-      width={20}
-      height={20}
-      className="rounded-full"
-    />
-  );
+  const evaIcon = <EvaIcon />;
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -144,7 +133,15 @@ export function DesignDetailClient({
     fetchPreviewUrl();
   }, [fetchPreviewUrl]);
 
-  const latestVariations = getLatestVariations(messagesList);
+  const personaMap = useMemo(
+    () => new Map(personas?.map((p) => [p._id, p]) ?? []),
+    [personas],
+  );
+
+  const latestVariations = useMemo(
+    () => getLatestVariations(messagesList),
+    [messagesList],
+  );
 
   const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
@@ -278,61 +275,22 @@ export function DesignDetailClient({
                         }
                       >
                         {message.role === "assistant" && !message.content ? (
-                          (() => {
-                            const steps = parseActivitySteps(
-                              streaming?.currentActivity,
-                            );
-                            return steps ? (
-                              <ActivitySteps
-                                steps={steps}
-                                isStreaming
-                                name="Eva"
-                                icon={evaIcon}
-                              />
-                            ) : (
-                              <Reasoning isStreaming defaultOpen>
-                                <ReasoningTrigger
-                                  getThinkingMessage={(s) =>
-                                    s ? "Working..." : "Processing complete"
-                                  }
-                                />
-                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                  <pre className="whitespace-pre-wrap font-mono text-xs">
-                                    {streaming?.currentActivity ||
-                                      "Starting..."}
-                                  </pre>
-                                </CollapsibleContent>
-                              </Reasoning>
-                            );
-                          })()
+                          <StreamingActivityDisplay
+                            activity={streaming?.currentActivity}
+                            name="Eva"
+                            icon={evaIcon}
+                          />
                         ) : (
                           <>
                             {message.role === "assistant" ? (
                               <>
-                                {message.activityLog &&
-                                  (() => {
-                                    const steps = parseActivitySteps(
-                                      message.activityLog,
-                                    );
-                                    return steps ? (
-                                      <ActivitySteps
-                                        steps={steps}
-                                        name="Eva"
-                                        icon={evaIcon}
-                                      />
-                                    ) : (
-                                      <Reasoning defaultOpen={false}>
-                                        <ReasoningTrigger
-                                          getThinkingMessage={() => "View logs"}
-                                        />
-                                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                          <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                            {message.activityLog}
-                                          </pre>
-                                        </CollapsibleContent>
-                                      </Reasoning>
-                                    );
-                                  })()}
+                                {message.activityLog && (
+                                  <ActivityLogDisplay
+                                    activityLog={message.activityLog}
+                                    name="Eva"
+                                    icon={evaIcon}
+                                  />
+                                )}
                                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                                   {message.content}
                                 </MessageResponse>
@@ -345,9 +303,8 @@ export function DesignDetailClient({
                                 <div className="flex items-center justify-between gap-3">
                                   {message.personaId && (
                                     <span className="text-[11px] text-muted-foreground/60">
-                                      {personas?.find(
-                                        (p) => p._id === message.personaId,
-                                      )?.name ?? "Persona"}
+                                      {personaMap.get(message.personaId)
+                                        ?.name ?? "Persona"}
                                     </span>
                                   )}
                                   {message.timestamp && (
@@ -365,19 +322,7 @@ export function DesignDetailClient({
                       </MessageContent>
                       {message.role === "user" && (
                         <div className="mt-0.5 ml-auto">
-                          {message.userId ? (
-                            <UserInitials
-                              userId={message.userId}
-                              hideLastSeen
-                              size="md"
-                            />
-                          ) : (
-                            <Avatar className="h-7 w-7">
-                              <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                                U
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
+                          <UserMessageAvatar userId={message.userId} />
                         </div>
                       )}
                     </AIMessage>

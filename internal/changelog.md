@@ -1,5 +1,18 @@
 # Changelog
 
+## Simplify chat panel, design page, analyse page - 2026-03-07
+
+- **Why**: ChatPanel, DesignDetailClient, and QueryDetailClient had significant code duplication — `ensureHttps()` copied in 2 files, session cache helpers copied in 2 files, IIFE+parseActivitySteps rendering pattern copy-pasted 6 times across 3 files, `evaIcon` JSX duplicated, user avatar block duplicated in 3 files. Also had `as` type assertions and a `!` non-null assertion violating project rules.
+- **Changes**:
+  1. Extracted `ensureHttps` to `lib/utils/ensureHttps.ts`, `createSessionCache` factory to `lib/utils/sessionCache.ts`
+  2. Created `EvaIcon`, `UserMessageAvatar`, `StreamingActivityDisplay`, and `ActivityLogDisplay` shared components
+  3. Fixed `as Id<>` cast in QueryDetailClient by typing page params correctly
+  4. Fixed `as "execute" | "ask" | "plan"` cast in ChatPanel with type guard
+  5. Fixed `sandboxId!` non-null assertion in DesktopPanel
+  6. Added `useMemo` for `filteredMessages`, `latestVariations`, and `personaMap` to avoid unnecessary recomputation
+  7. Replaced O(n\*m) persona `.find()` lookup with O(1) Map lookup in DesignDetailClient
+- **Reason for change**: Code duplication across chat-like pages made changes error-prone and increased maintenance burden. Type safety violations needed fixing.
+
 ## Settings pages code structure cleanup - 2026-03-07
 
 - **Why**: Settings pages had duplicated `formatDuration` implementations (SnapshotsClient and LogsClient), `as` type assertion violations in ThemeSettingsClient and ThemeContext, and repeated button styling across 4 theme sections.

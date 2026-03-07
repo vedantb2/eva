@@ -23,9 +23,6 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  Reasoning,
-  CollapsibleContent,
-  ReasoningTrigger,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -34,15 +31,12 @@ import {
   PromptInputSpeech,
   PromptInputSettings,
   type PromptInputMessage,
-  Avatar,
-  AvatarFallback,
   Plan,
   PlanHeader,
   PlanTitle,
   PlanContent,
   PlanFooter,
   PlanTrigger,
-  ActivitySteps,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -57,23 +51,26 @@ import {
   IconCircleCheck,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import Link from "next/link";
-import Image from "next/image";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
+import { EvaIcon } from "@/lib/components/EvaIcon";
+import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import {
+  StreamingActivityDisplay,
+  ActivityLogDisplay,
+} from "@/lib/components/StreamingActivityDisplay";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -183,15 +180,7 @@ export function ChatPanel({
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
 
-  const evaIcon = (
-    <Image
-      src="/icon.png"
-      alt="Eva"
-      width={20}
-      height={20}
-      className="rounded-full"
-    />
-  );
+  const evaIcon = <EvaIcon />;
 
   const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
@@ -330,7 +319,10 @@ export function ChatPanel({
     await handleSend(text);
   };
 
-  const filteredMessages = messages.filter((m) => m.mode !== "flag");
+  const filteredMessages = useMemo(
+    () => messages.filter((m) => m.mode !== "flag"),
+    [messages],
+  );
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
@@ -437,21 +429,9 @@ export function ChatPanel({
                 </AccordionTrigger>
                 <AccordionContent className="pb-2">
                   {showSummaryStreaming ? (
-                    (() => {
-                      const summarySteps = parseActivitySteps(
-                        summaryStreamingActivity,
-                      );
-                      return summarySteps ? (
-                        <ActivitySteps steps={summarySteps} isStreaming />
-                      ) : (
-                        <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                          <Spinner size="sm" />
-                          <span className="truncate">
-                            {summaryStreamingActivity}
-                          </span>
-                        </div>
-                      );
-                    })()
+                    <StreamingActivityDisplay
+                      activity={summaryStreamingActivity}
+                    />
                   ) : hasSummary ? (
                     <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
                       {summary?.map((item, i) => (
@@ -495,60 +475,22 @@ export function ChatPanel({
                       }
                     >
                       {message.role === "assistant" && !message.content ? (
-                        (() => {
-                          const steps = parseActivitySteps(streamingActivity);
-                          return steps ? (
-                            <ActivitySteps
-                              steps={steps}
-                              isStreaming
-                              name="Eva"
-                              icon={evaIcon}
-                            />
-                          ) : (
-                            <Reasoning isStreaming defaultOpen>
-                              <ReasoningTrigger
-                                getThinkingMessage={(streaming) =>
-                                  streaming
-                                    ? "Working..."
-                                    : "Processing complete"
-                                }
-                              />
-                              <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                <pre className="whitespace-pre-wrap font-mono text-xs">
-                                  {streamingActivity || "Starting..."}
-                                </pre>
-                              </CollapsibleContent>
-                            </Reasoning>
-                          );
-                        })()
+                        <StreamingActivityDisplay
+                          activity={streamingActivity}
+                          name="Eva"
+                          icon={evaIcon}
+                        />
                       ) : (
                         <>
                           {message.role === "assistant" ? (
                             <>
-                              {message.activityLog &&
-                                (() => {
-                                  const steps = parseActivitySteps(
-                                    message.activityLog,
-                                  );
-                                  return steps ? (
-                                    <ActivitySteps
-                                      steps={steps}
-                                      name="Eva"
-                                      icon={evaIcon}
-                                    />
-                                  ) : (
-                                    <Reasoning defaultOpen={false}>
-                                      <ReasoningTrigger
-                                        getThinkingMessage={() => "View logs"}
-                                      />
-                                      <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                        <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                          {message.activityLog}
-                                        </pre>
-                                      </CollapsibleContent>
-                                    </Reasoning>
-                                  );
-                                })()}
+                              {message.activityLog && (
+                                <ActivityLogDisplay
+                                  activityLog={message.activityLog}
+                                  name="Eva"
+                                  icon={evaIcon}
+                                />
+                              )}
                               <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                                 {message.content}
                               </MessageResponse>
@@ -600,19 +542,7 @@ export function ChatPanel({
                     </MessageContent>
                     {message.role === "user" && (
                       <div className="mt-0.5 ml-auto">
-                        {message.userId ? (
-                          <UserInitials
-                            userId={message.userId}
-                            hideLastSeen
-                            size="md"
-                          />
-                        ) : (
-                          <Avatar className="h-7 w-7">
-                            <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                              U
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
+                        <UserMessageAvatar userId={message.userId} />
                       </div>
                     )}
                   </AIMessage>
@@ -661,7 +591,9 @@ export function ChatPanel({
             <Tabs
               value={mode}
               onValueChange={(v) => {
-                setMode(v as "execute" | "ask" | "plan");
+                if (v === "execute" || v === "ask" || v === "plan") {
+                  setMode(v);
+                }
               }}
               className="absolute left-3 top-4 z-20 -translate-y-1/2"
             >

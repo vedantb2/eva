@@ -16,9 +16,9 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation } from "convex/react";
-import Image from "next/image";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@conductor/shared";
+import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   Button,
   Spinner,
@@ -29,9 +29,6 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  Reasoning,
-  ReasoningTrigger,
-  ReasoningContent,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -40,8 +37,6 @@ import {
   PromptInputSpeech,
   PromptInputSettings,
   type PromptInputMessage,
-  Avatar,
-  AvatarFallback,
   Confirmation,
   ConfirmationTitle,
   ConfirmationRequest,
@@ -65,6 +60,7 @@ import {
   ActivitySteps,
 } from "@conductor/ui";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import type { FunctionReturnType } from "convex/server";
 
 type QueryMessage = NonNullable<
@@ -72,17 +68,16 @@ type QueryMessage = NonNullable<
 >[number];
 
 interface QueryDetailClientProps {
-  queryId: string;
+  queryId: Id<"researchQueries">;
 }
 
 export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
   const { repo } = useRepo();
-  const typedQueryId = queryId as Id<"researchQueries">;
   const researchQuery = useQuery(api.researchQueries.get, {
-    id: typedQueryId,
+    id: queryId,
   });
   const messages = useQuery(api.messages.listByParent, {
-    parentId: typedQueryId,
+    parentId: queryId,
   });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
   const savedQueries = useQuery(api.savedQueries.list, { repoId: repo._id });
@@ -107,7 +102,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     setIsSending(true);
     try {
       await startGenerate({
-        queryId: typedQueryId,
+        queryId: queryId,
         question: text.trim(),
         repoId: repo._id,
         model,
@@ -124,7 +119,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
     question: string,
   ) => {
     await startConfirm({
-      queryId: typedQueryId,
+      queryId: queryId,
       queryCode,
       messageId,
       question,
@@ -135,7 +130,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
 
   const handleCancel = async (messageId: Id<"messages">) => {
     await updateMessageStatus({
-      id: typedQueryId,
+      id: queryId,
       messageId,
       status: "cancelled",
     });
@@ -149,7 +144,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
       repoId: repo._id,
       title: question,
       query: queryCode,
-      researchQueryId: typedQueryId,
+      researchQueryId: queryId,
     });
   };
 
@@ -210,14 +205,7 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                   <AIMessage from={message.role}>
                     {message.role === "assistant" && (
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full overflow-hidden">
-                          <Image
-                            src="/icon.png"
-                            alt="Assistant"
-                            width={32}
-                            height={32}
-                          />
-                        </div>
+                        <EvaIcon size={32} />
                         <span className="text-xs font-medium text-muted-foreground">
                           Eva
                         </span>
@@ -231,27 +219,11 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                       }
                     >
                       {message.role === "assistant" && !message.content ? (
-                        (() => {
-                          const steps = parseActivitySteps(
-                            streaming?.currentActivity,
-                          );
-                          return steps ? (
-                            <ActivitySteps steps={steps} isStreaming />
-                          ) : (
-                            <Reasoning isStreaming defaultOpen>
-                              <ReasoningTrigger
-                                getThinkingMessage={(isStreaming) =>
-                                  isStreaming
-                                    ? "Analysing..."
-                                    : "Analysis complete"
-                                }
-                              />
-                              <ReasoningContent>
-                                {streaming?.currentActivity || "Starting..."}
-                              </ReasoningContent>
-                            </Reasoning>
-                          );
-                        })()
+                        <StreamingActivityDisplay
+                          activity={streaming?.currentActivity}
+                          thinkingLabel="Analysing..."
+                          doneLabel="Analysis complete"
+                        />
                       ) : message.role === "assistant" &&
                         message.status === "pending" ? (
                         <>
@@ -414,19 +386,10 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
                     </MessageContent>
                     {message.role === "user" && (
                       <div className="mt-0.5 ml-auto">
-                        {message.userId ? (
-                          <UserInitials
-                            userId={message.userId}
-                            hideLastSeen
-                            size="md"
-                          />
-                        ) : (
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
-                              U
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
+                        <UserMessageAvatar
+                          userId={message.userId}
+                          className="h-8 w-8"
+                        />
                       </div>
                     )}
                   </AIMessage>

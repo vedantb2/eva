@@ -1,5 +1,9 @@
 # Changelog
 
+## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
+
+- **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
+- **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
 ## Split post-execution audit into 3 individual toggles — 2026-03-07
 
 - **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.

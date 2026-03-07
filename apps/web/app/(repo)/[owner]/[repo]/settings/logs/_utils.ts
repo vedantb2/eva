@@ -17,7 +17,7 @@ export function labelFor(entityType: string): string {
 }
 
 export function formatCost(cost: number): string {
-  return `$${cost.toFixed(4)}`;
+  return `${cost.toFixed(2)}`;
 }
 
 export function formatTokens(count: number): string {

@@ -21,10 +21,10 @@ export function LogsSummaryGrid({
           Total Cost
         </div>
         <div className="text-lg sm:text-2xl font-semibold">
-          {formatCost(totalCost)}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          ~£{(totalCost * USD_TO_GBP).toFixed(4)}
+          £{formatCost(totalCost * USD_TO_GBP)}{" "}
+          <span className="text-sm text-muted-foreground">
+            ${formatCost(totalCost)}
+          </span>
         </div>
       </div>
       <div className="rounded-lg border bg-card p-3 sm:p-4">

@@ -53,7 +53,10 @@ export function ActiveTasksPopover({
             </span>
           </Button>
         </HoverCardTrigger>
-        <HoverCardContent align="start" className="w-80">
+        <HoverCardContent
+          align="start"
+          className="w-[min(20rem,calc(100vw-2rem))]"
+        >
           <div className="space-y-1">
             <div className="mb-3 flex items-center gap-2">
               <IconListCheck size={16} className="text-primary" />

@@ -232,7 +232,7 @@ export function DocInterviewDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto scrollbar space-y-3 p-2">
+          <div className="flex-1 overflow-y-auto scrollbar space-y-3 p-2 sm:p-3">
             {messages.length === 0 && readOnly && (
               <p className="text-sm text-muted-foreground text-center py-8">
                 No interview history yet.
@@ -356,7 +356,7 @@ export function DocInterviewDialog({
                             variant={isListening ? "destructive" : "secondary"}
                             onClick={() => toggleSpeech(dictation)}
                             disabled={isLoading}
-                            className="h-8 w-8"
+                            className="h-9 w-9 sm:h-8 sm:w-8"
                           >
                             {isListening ? (
                               <IconPlayerStop size={14} />
@@ -369,7 +369,7 @@ export function DocInterviewDialog({
                             variant="default"
                             onClick={handleDictationSubmit}
                             disabled={isLoading || !dictation.trim()}
-                            className="h-8 w-8"
+                            className="h-9 w-9 sm:h-8 sm:w-8"
                           >
                             <IconArrowRight size={14} />
                           </Button>

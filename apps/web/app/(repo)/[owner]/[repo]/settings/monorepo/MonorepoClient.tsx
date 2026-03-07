@@ -121,7 +121,7 @@ export function MonorepoClient() {
           <div className="space-y-2">
             {connectedApps.map((app) => (
               <Card key={app._id} className="ui-surface-strong">
-                <CardContent className="flex items-center gap-3 p-3">
+                <CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
                   <IconFolders size={18} className="text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
@@ -218,7 +218,7 @@ export function MonorepoClient() {
 
             return (
               <Card key={app.path} className="ui-surface-strong">
-                <CardContent className="flex items-center gap-3 p-3">
+                <CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
                   <IconFolders size={18} className="text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

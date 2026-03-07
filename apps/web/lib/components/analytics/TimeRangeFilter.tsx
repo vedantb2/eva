@@ -48,9 +48,13 @@ export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="max-w-[160px] sm:max-w-none"
+        >
           <IconCalendar size={14} />
-          {TIME_RANGE_LABELS[value]}
+          <span className="truncate">{TIME_RANGE_LABELS[value]}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>

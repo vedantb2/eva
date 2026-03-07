@@ -56,8 +56,11 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   index + 1
                 )}
               </div>
-              <div className="hidden p-2 rounded-full bg-secondary sm:block">
-                <IconUser size={16} className="text-muted-foreground" />
+              <div className="p-1.5 rounded-full bg-secondary sm:p-2">
+                <IconUser
+                  size={14}
+                  className="text-muted-foreground sm:w-4 sm:h-4"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">

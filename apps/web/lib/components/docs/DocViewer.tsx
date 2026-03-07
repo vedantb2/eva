@@ -196,7 +196,7 @@ function DocEditor({ doc }: { doc: Doc }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <Input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}

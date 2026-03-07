@@ -67,13 +67,13 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-2 space-y-px sm:ml-5">
+        <div className="ml-1 space-y-px sm:ml-5">
           {logs.map((log) => {
             const evt = parseResultEvent(log.rawResultEvent);
             return (
               <div
                 key={log._id}
-                className="rounded-md px-3 py-2 hover:bg-accent/30"
+                className="rounded-md px-2 py-2 hover:bg-accent/30 sm:px-3"
               >
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3 text-xs sm:text-sm">
                   <span className="min-w-0 flex-1 truncate">

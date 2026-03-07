@@ -60,7 +60,7 @@ export function QuickTasksBulkBar({
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.18 }}
           >
-            <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm max-w-[calc(100vw-2rem)]">
               <Button
                 size="sm"
                 variant="secondary"

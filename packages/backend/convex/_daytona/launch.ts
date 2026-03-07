@@ -3,7 +3,7 @@
 import type { Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { exec, requireEnv } from "./helpers";
-import { buildCallbackScript } from "./callbackScript";
+import { CALLBACK_SCRIPT } from "./callbackScript";
 
 export async function launchScript(
   sandbox: Sandbox,
@@ -25,9 +25,8 @@ export async function launchScript(
     "/tmp/design-prompt.txt",
   );
 
-  const handlerScript = buildCallbackScript(completionMutation, entityIdField);
   await sandbox.fs.uploadFile(
-    Buffer.from(handlerScript, "utf-8"),
+    Buffer.from(CALLBACK_SCRIPT, "utf-8"),
     "/tmp/run-design.mjs",
   );
 
@@ -36,6 +35,8 @@ export async function launchScript(
     `CONVEX_URL=${quote([convexUrl])}`,
     `CONVEX_TOKEN=${quote([convexToken])}`,
     `ENTITY_ID=${quote([entityId])}`,
+    `COMPLETION_MUTATION=${quote([completionMutation])}`,
+    `ENTITY_ID_FIELD=${quote([entityIdField])}`,
     `CLAUDE_MODEL=${opts.model ?? "opus"}`,
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,

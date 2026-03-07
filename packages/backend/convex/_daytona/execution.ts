@@ -23,7 +23,6 @@ import {
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
-import { getTaskRunStreamingEntityId } from "../_taskWorkflow/helpers";
 
 export const runSandboxCommand = internalAction({
   args: {
@@ -83,54 +82,35 @@ export const getPreviewUrl = action({
   },
 });
 
-export const setupAndExecute = internalAction({
+const MAX_SETUP_ELAPSED_MS = 7 * 60 * 1000;
+
+export const prepareSandbox = internalAction({
   args: {
-    entityId: v.string(),
     existingSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
-    prompt: v.string(),
-    userId: v.id("users"),
-    completionMutation: v.string(),
-    entityIdField: v.string(),
-    model: v.optional(v.string()),
-    allowedTools: v.optional(v.string()),
-    systemPrompt: v.optional(v.string()),
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
-    repoId: v.optional(v.id("githubRepos")),
+    repoId: v.id("githubRepos"),
     attachRunId: v.optional(v.id("agentRuns")),
     sessionPersistenceId: v.optional(v.id("sessions")),
     startDesktop: v.optional(v.boolean()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
-    if (!args.repoId) {
-      throw new Error("repoId is required for setupAndExecute");
-    }
-
+    const setupStartedAt = Date.now();
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
-    const claudeSessionId = args.sessionPersistenceId
-      ? sessionClaudeUuid(args.sessionPersistenceId)
-      : undefined;
-    const callbackEnvVars = { ...sandboxEnvVars };
-    if (args.attachRunId && args.entityIdField === "taskId") {
-      callbackEnvVars.STREAMING_ENTITY_ID = getTaskRunStreamingEntityId(
-        args.attachRunId,
-      );
-      callbackEnvVars.RUN_ID = String(args.attachRunId);
-    }
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
-    const maxSetupAttempts = 5;
+    const maxSetupAttempts = 2;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {
@@ -206,7 +186,9 @@ export const setupAndExecute = internalAction({
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
-        const shouldRetry = isDaytonaNetworkIssue(message);
+        const elapsed = Date.now() - setupStartedAt;
+        const shouldRetry =
+          isDaytonaNetworkIssue(message) && elapsed < MAX_SETUP_ELAPSED_MS;
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
@@ -215,7 +197,7 @@ export const setupAndExecute = internalAction({
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] setupAndExecute transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
         attempt += 1;
@@ -228,33 +210,7 @@ export const setupAndExecute = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
-    try {
-      await signAndLaunchScript(
-        ctx,
-        sandbox,
-        args.userId,
-        args.prompt,
-        args.completionMutation,
-        args.entityIdField,
-        args.entityId,
-        {
-          model: args.model,
-          allowedTools: args.allowedTools,
-          systemPrompt: args.systemPrompt,
-          extraEnvVars: callbackEnvVars,
-          claudeSessionId,
-        },
-      );
-
-      return { sandboxId: sandbox.id };
-    } catch (error) {
-      if (deleteSandboxOnFailure) {
-        try {
-          await sandbox.delete();
-        } catch {}
-      }
-      throw error;
-    }
+    return { sandboxId: sandbox.id };
   },
 });
 
@@ -270,10 +226,25 @@ export const launchOnExistingSandbox = internalAction({
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    streamingEntityId: v.optional(v.string()),
+    runId: v.optional(v.string()),
+    sessionPersistenceId: v.optional(v.id("sessions")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    const extraEnvVars: Record<string, string> = {};
+    if (args.streamingEntityId) {
+      extraEnvVars.STREAMING_ENTITY_ID = args.streamingEntityId;
+    }
+    if (args.runId) {
+      extraEnvVars.RUN_ID = args.runId;
+    }
+
+    const claudeSessionId = args.sessionPersistenceId
+      ? sessionClaudeUuid(args.sessionPersistenceId)
+      : undefined;
 
     await signAndLaunchScript(
       ctx,
@@ -287,6 +258,9 @@ export const launchOnExistingSandbox = internalAction({
         model: args.model,
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
+        extraEnvVars:
+          Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
+        claudeSessionId,
       },
     );
 

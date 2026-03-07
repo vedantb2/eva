@@ -92,13 +92,20 @@ export const docInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${INTERVIEW_PROMPT} ${questionPrompt}`;
 
-    // Step 3: Setup sandbox + fire Claude CLI for the question
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: docData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        repoId: docData.repoId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.docId,
-      existingSandboxId: docData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
       prompt: fullPrompt,
       userId: args.userId,
       completionMutation: "docInterviewWorkflow:handleCompletion",
@@ -350,12 +357,20 @@ Generate a product description, acceptance criteria, and user journeys for this 
 
 Output ONLY valid JSON.`;
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: docData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        repoId: docData.repoId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.docId,
-      existingSandboxId: docData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
       prompt,
       userId: args.userId,
       completionMutation: "docInterviewWorkflow:handleGenerateCompletion",

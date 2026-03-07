@@ -27,12 +27,21 @@ export const summarizeSessionWorkflow = workflow.define({
       { sessionId: args.sessionId },
     );
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: sessionData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: sessionData.repoOwner,
+        repoName: sessionData.repoName,
+        repoId: sessionData.repoId,
+        sessionPersistenceId: args.sessionId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: `summary:${args.sessionId}`,
-      existingSandboxId: sessionData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: sessionData.repoOwner,
-      repoName: sessionData.repoName,
       prompt: sessionData.prompt,
       userId: args.userId,
       completionMutation: "summarizeWorkflow:handleCompletion",

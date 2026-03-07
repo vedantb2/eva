@@ -162,19 +162,12 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.daytona.prepareSandbox,
       {
-        entityId: args.sessionId,
         existingSandboxId: data.sandboxId,
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        allowedTools: data.allowedTools,
         branchName: data.branchName,
         repoId: data.repoId,
         sessionPersistenceId: args.sessionId,
@@ -182,6 +175,19 @@ export const sessionExecuteWorkflow = workflow.define({
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
+      entityId: args.sessionId,
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "sessionWorkflow:handleCompletion",
+      entityIdField: "sessionId",
+      model: data.model,
+      allowedTools: data.allowedTools,
+      repoId: data.repoId,
+      sessionPersistenceId: args.sessionId,
+    });
 
     if (sandboxId !== data.sandboxId) {
       await step.runMutation(internal.sessionWorkflow.updateSandboxId, {

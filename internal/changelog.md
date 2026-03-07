@@ -1,5 +1,15 @@
 # Changelog
 
+## Split setupAndExecute into prepareSandbox + launchOnExistingSandbox — 2026-03-07
+
+- **Why**: The `setupAndExecute` Convex action bundled sandbox creation (with up to 5 internal retries), repo cloning, branch setup, AND script launch into a single action. For repos without snapshots, this could exceed Convex's 10-minute action timeout — especially when retries compounded cold clone + npm install times.
+- **Changes**:
+  1. Split `setupAndExecute` into `prepareSandbox` (sandbox creation + repo setup) and reuse `launchOnExistingSandbox` (script upload + launch). Each gets its own 10-minute budget as separate workflow steps.
+  2. Reduced `maxSetupAttempts` from 5 to 2 and added a 7-minute elapsed time guard to prevent retry loops from exceeding action limits.
+  3. Updated all 12 workflow callers across 10 files to use the two-step pattern.
+  4. Converted callback script from template-interpolated function to static constant — `completionMutation` and `entityIdField` are now passed as environment variables instead of string interpolation.
+- **Reason for change**: Architectural. A single action doing too much work risked Convex function timeouts. Splitting into workflow steps gives each operation its own timeout budget and makes failures more granular.
+
 ## Decompose monolithic client components into \_components/ + \_utils convention - 2026-03-07
 
 - **Why**: 10 route-level `*Client.tsx` files (300-568 lines each) mixed data fetching, state management, handlers, helper functions, and all JSX in a single file. This made them hard to read, maintain, and modify without risk of side effects.

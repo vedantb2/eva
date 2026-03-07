@@ -34,19 +34,27 @@ export const evaluationWorkflow = workflow.define({
         { docId: args.docId },
       );
 
-      await step.runAction(internal.daytona.setupAndExecute, {
+      const { sandboxId } = await step.runAction(
+        internal.daytona.prepareSandbox,
+        {
+          installationId: args.installationId,
+          repoOwner: docData.repoOwner,
+          repoName: docData.repoName,
+          baseBranch: args.branchName,
+          ephemeral: true,
+          repoId: docData.repoId,
+        },
+      );
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
         entityId: String(args.reportId),
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
         prompt: docData.prompt,
         userId: args.userId,
         completionMutation: "evaluationWorkflow:handleCompletion",
         entityIdField: "reportId",
         model: "sonnet",
         allowedTools: "Read,Glob,Grep",
-        baseBranch: args.branchName,
-        ephemeral: true,
         repoId: docData.repoId,
       });
 

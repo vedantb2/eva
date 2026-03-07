@@ -73,13 +73,20 @@ export const docPrdWorkflow = workflow.define({
       prdContent: args.prdContent,
     });
 
-    // Step 2: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: docData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        repoId: docData.repoId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.docId,
-      existingSandboxId: docData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
       prompt: docData.prompt,
       userId: args.userId,
       completionMutation: "docPrdWorkflow:handleCompletion",

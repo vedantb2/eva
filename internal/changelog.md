@@ -1,9 +1,21 @@
 # Changelog
 
+## Fix watchdog false kills + add heartbeat observability — 2026-03-07
+
+- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s") because the callback script's heartbeat and streaming flush silently swallowed all errors. When `streaming:set` calls failed (auth, network, or any other reason), there was zero visibility into the cause, and no retry on the heartbeat path.
+- **Changes**:
+  1. Added 1-retry to `heartbeatPing` (matching the initial heartbeat call).
+  2. Added `consecutiveHeartbeatFailures` counter shared between heartbeat and flush paths.
+  3. All heartbeat/flush failures now log to stderr with the error message and consecutive failure count.
+  4. Recovery is logged when heartbeat succeeds after previous failures.
+  5. Fixed missing `customTheme` field in `getUserByClerkId` return validator (was causing `ReturnsValidationError` on user documents with custom themes set).
+- **Reason for change**: Heartbeat failures were invisible, making watchdog kills impossible to debug. The retry reduces false kills from transient failures.
+
 ## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
 
 - **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
 - **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
+
 ## Split post-execution audit into 3 individual toggles — 2026-03-07
 
 - **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.
@@ -14,6 +26,7 @@
   4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
   5. Task detail audit display filters out empty sections (disabled audits won't render).
 - **Reason for change**: Granular control over audit types, extensibility for future audit additions.
+
 ## Hide/show repositories and monorepo apps — 2026-03-07
 
 - **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
@@ -25,6 +38,7 @@
   5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
   6. Hidden repos are automatically filtered from the sidebar RepoSelect.
   7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
+
 ## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
 
 - **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.

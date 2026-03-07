@@ -226,19 +226,39 @@ async function flushStreaming() {
         currentActivity: JSON.stringify(accumulatedSteps),
       });
       lastStreamingSentAt = Date.now();
-    } catch {}
+      consecutiveHeartbeatFailures = 0;
+    } catch (e) {
+      consecutiveHeartbeatFailures++;
+      console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+    }
   }
 }
 
+let consecutiveHeartbeatFailures = 0;
+
 async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
-  try {
-    await callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    });
-    lastStreamingSentAt = Date.now();
-  } catch {}
+  let attempt = 0;
+  while (attempt <= 1) {
+    try {
+      await callMutation("streaming:set", {
+        entityId: STREAMING_ENTITY_ID,
+        currentActivity: JSON.stringify(accumulatedSteps),
+      });
+      lastStreamingSentAt = Date.now();
+      if (consecutiveHeartbeatFailures > 0) {
+        console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
+      }
+      consecutiveHeartbeatFailures = 0;
+      return;
+    } catch (e) {
+      attempt++;
+      if (attempt > 1) {
+        consecutiveHeartbeatFailures++;
+        console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+      }
+    }
+  }
 }
 
 try { unlinkSync(READY_FILE); } catch {}

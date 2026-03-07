@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
@@ -7,16 +8,22 @@ import { designTabParser, viewModeParser } from "@/lib/search-params";
 import {
   Button,
   Spinner,
+  Input,
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
 } from "@conductor/ui";
 import {
+  IconArrowLeft,
+  IconArrowRight,
   IconCheck,
   IconDeviceDesktop,
   IconDeviceMobile,
+  IconExternalLink,
+  IconMaximize,
   IconPlayerPlay,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 type DesignMessage = NonNullable<
@@ -31,6 +38,31 @@ export function getLatestVariations(messages: DesignMessage[]): Variation[] {
     .reverse()
     .find((m) => m.role === "assistant" && m.variations?.length);
   return lastWithVariations?.variations ?? [];
+}
+
+function NavButton({
+  tooltip,
+  onClick,
+  disabled,
+  children,
+}: {
+  tooltip: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      className="h-8 w-8 p-0 hover:text-foreground"
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      variant="ghost"
+      title={tooltip}
+    >
+      {children}
+    </Button>
+  );
 }
 
 interface DesignPreviewPanelProps {
@@ -62,6 +94,43 @@ export function DesignPreviewPanel({
   });
   const activeTab = tab;
   const viewMode = view;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
+  const [portInput, setPortInput] = useState("3000");
+
+  const activeIframe = iframeRefs.current.get(Number(activeTab));
+
+  function goBack() {
+    try {
+      activeIframe?.contentWindow?.history.back();
+    } catch {}
+  }
+
+  function goForward() {
+    try {
+      activeIframe?.contentWindow?.history.forward();
+    } catch {}
+  }
+
+  function reload() {
+    if (activeIframe) {
+      activeIframe.src = activeIframe.src;
+    }
+  }
+
+  function openInNewTab() {
+    if (activeIframe?.src) {
+      window.open(activeIframe.src, "_blank");
+    }
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current?.requestFullscreen();
+    }
+  }
 
   if (latestVariations.length === 0) {
     return (
@@ -78,7 +147,7 @@ export function DesignPreviewPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div ref={containerRef} className="flex-1 flex flex-col min-w-0">
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
@@ -113,7 +182,33 @@ export function DesignPreviewPanel({
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="w-16" />
+          <div className="flex items-center gap-1">
+            <NavButton tooltip="Back" onClick={goBack}>
+              <IconArrowLeft className="w-3.5 h-3.5" />
+            </NavButton>
+            <NavButton tooltip="Forward" onClick={goForward}>
+              <IconArrowRight className="w-3.5 h-3.5" />
+            </NavButton>
+            <NavButton tooltip="Reload" onClick={reload}>
+              <IconRefresh className="w-3.5 h-3.5" />
+            </NavButton>
+            <Input
+              className="h-8 w-16 text-xs text-center px-1"
+              value={portInput}
+              onChange={(e) => setPortInput(e.target.value)}
+              aria-label="Preview port"
+            />
+            <NavButton
+              tooltip="Open in new tab"
+              onClick={openInNewTab}
+              disabled={!previewUrl}
+            >
+              <IconExternalLink className="w-3.5 h-3.5" />
+            </NavButton>
+            <NavButton tooltip="Fullscreen" onClick={toggleFullscreen}>
+              <IconMaximize className="w-3.5 h-3.5" />
+            </NavButton>
+          </div>
         </div>
         {latestVariations.map((variation, i) => (
           <TabsContent
@@ -126,6 +221,13 @@ export function DesignPreviewPanel({
             >
               {previewUrl ? (
                 <iframe
+                  ref={(el) => {
+                    if (el) {
+                      iframeRefs.current.set(i, el);
+                    } else {
+                      iframeRefs.current.delete(i);
+                    }
+                  }}
                   src={`${previewUrl}/design-preview?v=${VARIATION_KEYS[i] ?? "a"}`}
                   className="w-full h-full border-0"
                   title={variation.label}

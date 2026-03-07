@@ -188,6 +188,7 @@ export const sessionExecuteWorkflow = workflow.define({
       allowedTools: data.allowedTools,
       repoId: data.repoId,
       sessionPersistenceId: args.sessionId,
+      streamingEntityId: args.sessionId,
     });
 
     if (sandboxId !== data.sandboxId) {

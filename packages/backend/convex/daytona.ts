@@ -4,7 +4,6 @@ export {
   warmSnapshotCache,
   killSandboxProcess,
   deleteSandbox,
-  stopSandbox,
 } from "./_daytona/lifecycle";
 
 export {

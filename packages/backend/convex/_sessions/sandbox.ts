@@ -81,8 +81,7 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
-        sessionId: args.sessionId,
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

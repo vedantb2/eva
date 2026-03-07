@@ -1,24 +1,8 @@
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-
-export const backfillDefaultBaseBranch = mutation({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    const repos = await ctx.db.query("githubRepos").collect();
-    let updated = 0;
-    for (const repo of repos) {
-      if (!repo.defaultBaseBranch) {
-        await ctx.db.patch(repo._id, { defaultBaseBranch: "main" });
-        updated++;
-      }
-    }
-    return updated;
-  },
-});
 
 export const cleanupStaleRuns = internalMutation({
   args: {},

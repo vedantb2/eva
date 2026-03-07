@@ -20,6 +20,9 @@ export const getTaskData = internalQuery({
     hasSubtasks: v.boolean(),
     appLabel: v.optional(v.string()),
     postAuditEnabled: v.boolean(),
+    accessibilityAuditEnabled: v.boolean(),
+    codeTestingAuditEnabled: v.boolean(),
+    codeReviewAuditEnabled: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -78,6 +81,9 @@ export const getTaskData = internalQuery({
       hasSubtasks: sortedSubtasks.length > 0,
       appLabel,
       postAuditEnabled: repo.postAuditEnabled !== false,
+      accessibilityAuditEnabled: repo.accessibilityAuditEnabled !== false,
+      codeTestingAuditEnabled: repo.codeTestingAuditEnabled !== false,
+      codeReviewAuditEnabled: repo.codeReviewAuditEnabled !== false,
     };
   },
 });

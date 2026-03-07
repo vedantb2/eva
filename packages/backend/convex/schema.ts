@@ -159,6 +159,9 @@ const schema = defineSchema({
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
     postAuditEnabled: v.optional(v.boolean()),
+    accessibilityAuditEnabled: v.optional(v.boolean()),
+    codeTestingAuditEnabled: v.optional(v.boolean()),
+    codeReviewAuditEnabled: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
   })

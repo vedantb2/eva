@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { claudeModelValidator } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt, WORKSPACE_DIR } from "./prompts";
+import { buildAuditPrompt, WORKSPACE_DIR, AuditFlags } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 
@@ -139,7 +139,15 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runCompletionRecorded = true;
 
-      if (result.success && sandboxId && data.postAuditEnabled) {
+      const auditFlags: AuditFlags = {
+        accessibility: data.accessibilityAuditEnabled,
+        testing: data.codeTestingAuditEnabled,
+        codeReview: data.codeReviewAuditEnabled,
+      };
+      const anyAuditEnabled =
+        auditFlags.accessibility || auditFlags.testing || auditFlags.codeReview;
+
+      if (result.success && sandboxId && anyAuditEnabled) {
         try {
           const diffRaw = await step.runAction(
             internal.daytona.runSandboxCommand,
@@ -162,7 +170,7 @@ export const taskExecutionWorkflow = workflow.define({
 
             await step.runAction(internal.daytona.launchAudit, {
               sandboxId,
-              prompt: buildAuditPrompt(diffRaw),
+              prompt: buildAuditPrompt(diffRaw, auditFlags),
               taskId: String(args.taskId),
               runId: args.runId,
               userId: args.userId,

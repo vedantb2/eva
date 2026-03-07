@@ -72,27 +72,3 @@ export const deleteSandbox = internalAction({
     return null;
   },
 });
-
-export const stopSandbox = internalAction({
-  args: {
-    sessionId: v.id("sessions"),
-    sandboxId: v.string(),
-    repoId: v.id("githubRepos"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) return null;
-    if (session.status !== "closed" || session.sandboxId !== args.sandboxId) {
-      return null;
-    }
-
-    try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await sandbox.stop();
-    } catch {}
-    return null;
-  },
-});

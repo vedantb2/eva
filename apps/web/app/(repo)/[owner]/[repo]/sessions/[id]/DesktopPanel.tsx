@@ -18,6 +18,7 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
+import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { createSessionCache } from "@/lib/utils/sessionCache";
 
 type DesktopState = "idle" | "starting" | "running" | "error";
@@ -80,6 +81,7 @@ export function DesktopPanel({
           repoId,
         });
         if (data.ready) {
+          await dismissDaytonaWarning(data.url);
           const noVncUrl = appendNoVncParams(data.url);
           setUrl(noVncUrl);
           setDesktopState("running");
@@ -124,6 +126,7 @@ export function DesktopPanel({
         repoId,
       });
       if (existing.ready) {
+        await dismissDaytonaWarning(existing.url);
         const noVncUrl = appendNoVncParams(existing.url);
         setUrl(noVncUrl);
         setDesktopState("running");

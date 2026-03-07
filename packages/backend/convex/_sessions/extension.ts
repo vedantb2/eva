@@ -53,7 +53,7 @@ export const getOrCreateExtensionSession = authMutation({
       updatedAt: Date.now(),
     });
     await ctx.db.patch(sessionId, {
-      branchName: `session/${sessionId}`,
+      branchName: `eva/session-${sessionId}`,
     });
 
     return {

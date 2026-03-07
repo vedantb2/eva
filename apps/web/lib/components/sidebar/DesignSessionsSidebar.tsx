@@ -66,7 +66,7 @@ export function DesignSessionsSidebar({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
-  const baseUrl = `${basePath}/design`;
+  const baseUrl = `${basePath}/designs`;
   const currentSessionId = pathname.startsWith(`${baseUrl}/`)
     ? pathname.slice(baseUrl.length + 1).split("/")[0]
     : null;

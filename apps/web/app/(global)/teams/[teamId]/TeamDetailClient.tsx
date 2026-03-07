@@ -21,7 +21,8 @@ export function TeamDetailClient({ teamId }: { teamId: string }) {
       api.githubRepos.listByTeam,
       team ? { teamId: team._id } : "skip",
     ) ?? [];
-  const allRepos = useQuery(api.githubRepos.list) ?? [];
+  const allRepos =
+    useQuery(api.githubRepos.list, { includeHidden: true }) ?? [];
   const teamEnvVars = useQuery(
     api.teamEnvVars.list,
     team ? { teamId: team._id } : "skip",

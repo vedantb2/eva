@@ -49,7 +49,8 @@ import {
   IconSparkles,
   IconSend,
   IconCircleCheck,
-  IconAlertTriangle,
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -71,6 +72,7 @@ import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
+import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -82,55 +84,6 @@ const REVIEW_AUDITS = [
   "Code testing audit",
   "Code review audit",
 ];
-
-function SystemAlertMessage({ message }: { message: SessionMessage }) {
-  const [showError, setShowError] = useState(false);
-
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
-        className="flex items-center gap-3 py-1"
-      >
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-          {message.content}
-        </span>
-        {message.errorDetail && (
-          <button
-            onClick={() => setShowError(true)}
-            className="text-xs font-medium text-destructive hover:underline whitespace-nowrap"
-          >
-            View error
-          </button>
-        )}
-        <div className="h-px flex-1 bg-border" />
-      </motion.div>
-      {message.errorDetail && (
-        <Dialog open={showError} onOpenChange={setShowError}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <IconAlertTriangle size={16} className="text-destructive" />
-                Sandbox Error
-              </DialogTitle>
-            </DialogHeader>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-lg p-4 max-h-64 overflow-y-auto">
-              {message.errorDetail}
-            </pre>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowError(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
-}
 
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
@@ -147,6 +100,8 @@ interface ChatPanelProps {
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
   previewUrl?: string;
+  sandboxCollapsed?: boolean;
+  onToggleSandbox?: () => void;
 }
 
 export function ChatPanel({
@@ -164,6 +119,8 @@ export function ChatPanel({
   onSandboxToggle,
   isArchived,
   previewUrl,
+  sandboxCollapsed,
+  onToggleSandbox,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
@@ -291,8 +248,7 @@ export function ChatPanel({
   const lastMessage = messages[messages.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isStreaming = Boolean(streamingActivity);
-  const isExecuting = isSending || lastAssistantHasNoContent || isStreaming;
+  const isExecuting = isSending || lastAssistantHasNoContent;
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -326,7 +282,25 @@ export function ChatPanel({
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
-  const headerActions = (
+  const headerLeft = (
+    <Button
+      size="icon"
+      variant={isSandboxActive ? "destructive" : "secondary"}
+      onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+      disabled={isSandboxToggling}
+      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+    >
+      {isSandboxToggling ? (
+        <Spinner size="sm" />
+      ) : isSandboxActive ? (
+        <IconPlayerStop className="w-4 h-4" />
+      ) : (
+        <IconPlayerPlay className="w-4 h-4" />
+      )}
+    </Button>
+  );
+
+  const headerRight = (
     <>
       <Button
         size="sm"
@@ -382,21 +356,21 @@ export function ChatPanel({
           <IconSparkles className="w-4 h-4" />
         )}
       </Button>
-      <Button
-        size="icon"
-        variant={isSandboxActive ? "destructive" : "secondary"}
-        onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-        disabled={isSandboxToggling}
-        className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
-      >
-        {isSandboxToggling ? (
-          <Spinner size="sm" />
-        ) : isSandboxActive ? (
-          <IconPlayerStop className="w-4 h-4" />
-        ) : (
-          <IconPlayerPlay className="w-4 h-4" />
-        )}
-      </Button>
+      {onToggleSandbox && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          onClick={onToggleSandbox}
+          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
+        >
+          {sandboxCollapsed ? (
+            <IconLayoutSidebarRightExpand className="size-4" />
+          ) : (
+            <IconLayoutSidebarRightCollapse className="size-4" />
+          )}
+        </Button>
+      )}
     </>
   );
 
@@ -404,7 +378,8 @@ export function ChatPanel({
     <ChatPageWrapper
       title={title}
       isArchived={isArchived}
-      headerRight={headerActions}
+      headerLeft={headerLeft}
+      headerRight={headerRight}
     >
       <AnimatePresence>
         {(showSummaryStreaming || hasSummary) && (
@@ -458,7 +433,11 @@ export function ChatPanel({
           ) : (
             filteredMessages.map((message) =>
               message.isSystemAlert ? (
-                <SystemAlertMessage key={message._id} message={message} />
+                <SystemAlertMessage
+                  key={message._id}
+                  content={message.content ?? ""}
+                  errorDetail={message.errorDetail}
+                />
               ) : (
                 <motion.div
                   key={message._id}
@@ -651,7 +630,8 @@ export function ChatPanel({
                     status={submitStatus}
                     variant={submitStatus ? "destructive" : "default"}
                     onStop={handleCancel}
-                    disabled={isInputDisabled}
+                    disabled={!submitStatus && isInputDisabled}
+                    title={submitStatus ? "Stop Eva" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

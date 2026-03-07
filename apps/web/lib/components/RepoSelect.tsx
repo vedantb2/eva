@@ -78,7 +78,7 @@ export function RepoSelect({
           <DropdownMenuGroup key={group.owner}>
             {index > 0 && <DropdownMenuSeparator />}
             <DropdownMenuLabel>{group.owner}</DropdownMenuLabel>
-            {group.repoGroups.map((rg) => {
+            {group.repoGroups.map((rg, rgIndex) => {
               const isMonorepo = rg.entries.some((r) => r.rootDirectory);
 
               if (!isMonorepo) {
@@ -89,22 +89,29 @@ export function RepoSelect({
                   repo.rootDirectory,
                 );
                 return (
-                  <DropdownMenuItem
-                    key={repo._id}
-                    className={href === value ? "bg-accent/80" : ""}
-                    onSelect={() => onValueChange(href)}
-                  >
-                    <IconBrandGithub
-                      size={16}
-                      className="text-muted-foreground"
-                    />
-                    {repo.name}
-                  </DropdownMenuItem>
+                  <div key={repo._id}>
+                    {rgIndex > 0 && group.repoGroups.length > 1 && (
+                      <DropdownMenuSeparator />
+                    )}
+                    <DropdownMenuItem
+                      className={href === value ? "bg-accent/80" : ""}
+                      onSelect={() => onValueChange(href)}
+                    >
+                      <IconBrandGithub
+                        size={16}
+                        className="text-muted-foreground"
+                      />
+                      {repo.name}
+                    </DropdownMenuItem>
+                  </div>
                 );
               }
 
               return (
                 <div key={rg.name}>
+                  {rgIndex > 0 && group.repoGroups.length > 1 && (
+                    <DropdownMenuSeparator />
+                  )}
                   <DropdownMenuLabel className="text-[10px] font-normal text-muted-foreground/70 pl-3">
                     {rg.name}
                   </DropdownMenuLabel>

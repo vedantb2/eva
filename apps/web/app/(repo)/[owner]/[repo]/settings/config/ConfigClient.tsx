@@ -76,20 +76,68 @@ export function ConfigClient() {
         <div className="rounded-lg border border-border/70 p-4 space-y-4">
           <h3 className="text-sm font-medium">Feature Toggles</h3>
           <div className="grid gap-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={repo.postAuditEnabled !== false}
-                onCheckedChange={(checked) =>
-                  updateConfig({ repoId, postAuditEnabled: checked === true })
-                }
-              />
-              <div>
-                <p className="text-xs font-medium">Post-execution Audit</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Run an automated code audit after each task completes.
-                </p>
+            <div>
+              <p className="text-xs font-medium">Post-execution Audits</p>
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Run automated code audits after each task completes.
+              </p>
+              <div className="grid gap-2 pl-1">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <Checkbox
+                    checked={repo.accessibilityAuditEnabled !== false}
+                    onCheckedChange={(checked) =>
+                      updateConfig({
+                        repoId,
+                        accessibilityAuditEnabled: checked === true,
+                      })
+                    }
+                  />
+                  <div>
+                    <p className="text-xs font-medium">Accessibility Audit</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      WCAG compliance checks — alt text, ARIA, keyboard nav,
+                      color contrast.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <Checkbox
+                    checked={repo.codeTestingAuditEnabled !== false}
+                    onCheckedChange={(checked) =>
+                      updateConfig({
+                        repoId,
+                        codeTestingAuditEnabled: checked === true,
+                      })
+                    }
+                  />
+                  <div>
+                    <p className="text-xs font-medium">Code Testing Audit</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Checks whether tests were added or are needed for the
+                      changes.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <Checkbox
+                    checked={repo.codeReviewAuditEnabled !== false}
+                    onCheckedChange={(checked) =>
+                      updateConfig({
+                        repoId,
+                        codeReviewAuditEnabled: checked === true,
+                      })
+                    }
+                  />
+                  <div>
+                    <p className="text-xs font-medium">Code Review Audit</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Implementation quality — correctness, security, error
+                      handling, code style.
+                    </p>
+                  </div>
+                </label>
               </div>
-            </label>
+            </div>
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
                 checked={repo.sessionsVncEnabled !== false}

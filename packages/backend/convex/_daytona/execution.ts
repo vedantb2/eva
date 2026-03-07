@@ -193,7 +193,11 @@ export const prepareSandbox = internalAction({
 
         if (args.branchName) {
           await emitProgress("Setting up branch...");
-          await setupBranch(sandbox, args.branchName);
+          await setupBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch ?? "main",
+          );
         }
 
         if (args.startDesktop) {
@@ -259,6 +263,12 @@ export const launchOnExistingSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    await exec(
+      sandbox,
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      10,
+    );
 
     const extraEnvVars: Record<string, string> = {};
     if (args.streamingEntityId) {

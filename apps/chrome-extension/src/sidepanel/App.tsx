@@ -71,7 +71,7 @@ const isAllowedUrl = (url: string) => {
 function AuthenticatedApp() {
   const { user } = useUser();
   const { theme, toggleTheme } = useTheme();
-  const repos = useQuery(api.githubRepos.list) ?? [];
+  const repos = useQuery(api.githubRepos.list, {}) ?? [];
   const isLoadingRepos = repos === undefined;
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(

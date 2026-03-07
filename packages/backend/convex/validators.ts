@@ -41,6 +41,7 @@ export const sessionModeValidator = v.union(
 
 export const sessionStatusValidator = v.union(
   v.literal("active"),
+  v.literal("starting"),
   v.literal("closed"),
 );
 

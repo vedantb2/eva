@@ -70,14 +70,11 @@ export function TerminalPanel({
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
-  const disconnectPtyAction = useAction(api.pty.disconnectPty);
 
   const typedSessionId = sessionId as Id<"sessions">;
 
   const resizePtyRef = useRef(resizePtyAction);
   resizePtyRef.current = resizePtyAction;
-  const disconnectPtyRef = useRef(disconnectPtyAction);
-  disconnectPtyRef.current = disconnectPtyAction;
 
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
@@ -228,11 +225,19 @@ export function TerminalPanel({
         terminal.loadAddon(webLinksAddon);
         terminal.open(terminalRef.current!);
 
-        setTimeout(() => fitAddon.fit(), 0);
-
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
 
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            fitAddon.fit();
+            resolve();
+          }, 0);
+        });
+
+        for (let i = 0; i < terminal.rows - 1; i++) {
+          terminal.writeln("");
+        }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
         await connectWebSocket(terminal, mounted);
@@ -264,7 +269,6 @@ export function TerminalPanel({
         terminalInstanceRef.current.dispose();
         terminalInstanceRef.current = null;
       }
-      disconnectPtyRef.current({ sessionId: typedSessionId }).catch(() => {});
     };
   }, [isActive, sandboxId, typedSessionId, retryCount, connectWebSocket]);
 

@@ -55,11 +55,26 @@ export const connectPty = action({
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(session.sandboxId);
 
-    let ptyId: string | undefined = session.ptySessionId;
+    const ptyId =
+      session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
     let isNewPty = false;
 
-    if (!ptyId) {
-      ptyId = `pty-${String(args.sessionId).slice(-8)}`;
+    if (session.ptySessionId) {
+      try {
+        await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
+      } catch {
+        const handle = await sandbox.process.createPty({
+          id: ptyId,
+          cols: args.cols,
+          rows: args.rows,
+          cwd: WORKSPACE_DIR,
+          envs: { TERM: "xterm-256color" },
+          onData: () => {},
+        });
+        await handle.disconnect();
+        isNewPty = true;
+      }
+    } else {
       try {
         const handle = await sandbox.process.createPty({
           id: ptyId,
@@ -73,21 +88,11 @@ export const connectPty = action({
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         if (errMsg.includes("already exists")) {
-          await sandbox.process.killPtySession(ptyId);
-          const handle = await sandbox.process.createPty({
-            id: ptyId,
-            cols: args.cols,
-            rows: args.rows,
-            cwd: WORKSPACE_DIR,
-            envs: { TERM: "xterm-256color" },
-            onData: () => {},
-          });
-          await handle.disconnect();
+          await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
         } else {
           throw e;
         }
       }
-
       await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
         id: args.sessionId,
         ptySessionId: ptyId,

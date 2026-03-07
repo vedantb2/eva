@@ -130,7 +130,8 @@ export function ReposClient() {
                 repos={groupedRepos[groupName]}
                 onManageApps={(repo) =>
                   router.push(
-                    repoHref(repo.owner, repo.name) + "/settings/monorepo",
+                    repoHref(repo.owner, repo.name, repo.rootDirectory) +
+                      "/settings/monorepo",
                   )
                 }
               />

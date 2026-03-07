@@ -97,6 +97,7 @@ export function DesignPreviewPanel({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
   const [portInput, setPortInput] = useState("3000");
+  const [pathInput, setPathInput] = useState("/design-preview");
 
   const activeIframe = iframeRefs.current.get(Number(activeTab));
 
@@ -116,6 +117,18 @@ export function DesignPreviewPanel({
     if (activeIframe) {
       activeIframe.src = activeIframe.src;
     }
+  }
+
+  function commitPath() {
+    if (!activeIframe || !previewUrl) return;
+    try {
+      const parsed = new URL(previewUrl);
+      const normalizedPath = pathInput.startsWith("/")
+        ? pathInput
+        : `/${pathInput}`;
+      parsed.pathname = normalizedPath;
+      activeIframe.src = parsed.toString();
+    } catch {}
   }
 
   function openInNewTab() {
@@ -192,6 +205,17 @@ export function DesignPreviewPanel({
             <NavButton tooltip="Reload" onClick={reload}>
               <IconRefresh className="w-3.5 h-3.5" />
             </NavButton>
+            <Input
+              className="h-8 flex-1 text-xs max-w-64"
+              value={pathInput}
+              onChange={(e) => setPathInput(e.target.value)}
+              onBlur={commitPath}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitPath();
+              }}
+              placeholder="/"
+              aria-label="Preview path"
+            />
             <Input
               className="h-8 w-16 text-xs text-center px-1"
               value={portInput}

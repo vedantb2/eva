@@ -172,6 +172,7 @@ export const sessionExecuteWorkflow = workflow.define({
         repoId: data.repoId,
         sessionPersistenceId: args.sessionId,
         startDesktop: true,
+        streamingEntityId: args.sessionId,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );

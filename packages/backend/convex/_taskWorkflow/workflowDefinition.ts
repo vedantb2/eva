@@ -58,6 +58,7 @@ export const taskExecutionWorkflow = workflow.define({
           ephemeral: !args.projectId,
           repoId: args.repoId,
           attachRunId: args.runId,
+          streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         },
         { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );

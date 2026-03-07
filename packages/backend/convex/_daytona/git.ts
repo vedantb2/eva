@@ -143,7 +143,9 @@ export async function cloneAndSetupRepo(
   installationId: number,
   owner: string,
   name: string,
+  onProgress?: (label: string) => Promise<void>,
 ): Promise<void> {
+  if (onProgress) await onProgress("Cloning repository...");
   const githubToken = await getInstallationToken(installationId);
   const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
   await exec(
@@ -151,6 +153,7 @@ export async function cloneAndSetupRepo(
     `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
     120,
   );
+  if (onProgress) await onProgress("Installing dependencies...");
   const pm = await detectPackageManager(sandbox);
   await installDependencies(sandbox, pm);
 }
@@ -198,9 +201,11 @@ export async function createSandboxAndPrepareRepo(
   snapshotName?: string,
   volumes?: VolumeMount[],
   onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
+  onProgress?: (label: string) => Promise<void>,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let initialSandbox: Sandbox | undefined;
   try {
+    if (onProgress) await onProgress("Creating sandbox...");
     initialSandbox = await createSandbox(
       daytona,
       installationId,
@@ -212,10 +217,17 @@ export async function createSandboxAndPrepareRepo(
       await onSandboxAcquired(initialSandbox);
     }
     if (snapshotName) {
+      if (onProgress) await onProgress("Syncing repository...");
       await syncRepo(initialSandbox, installationId, owner, name);
       return { sandbox: initialSandbox, usedSnapshot: true };
     }
-    await cloneAndSetupRepo(initialSandbox, installationId, owner, name);
+    await cloneAndSetupRepo(
+      initialSandbox,
+      installationId,
+      owner,
+      name,
+      onProgress,
+    );
     return { sandbox: initialSandbox, usedSnapshot: false };
   } catch (error) {
     if (initialSandbox) {
@@ -231,6 +243,7 @@ export async function createSandboxAndPrepareRepo(
     console.warn(
       `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying with same snapshot`,
     );
+    if (onProgress) await onProgress("Retrying sandbox creation...");
     const sandbox = await createSandbox(
       daytona,
       installationId,
@@ -242,6 +255,7 @@ export async function createSandboxAndPrepareRepo(
       if (onSandboxAcquired) {
         await onSandboxAcquired(sandbox);
       }
+      if (onProgress) await onProgress("Syncing repository...");
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, usedSnapshot: true };
     } catch (retryError) {
@@ -262,11 +276,14 @@ export async function getOrCreateSandbox(
   sandboxEnvVars: Record<string, string>,
   snapshotName?: string,
   volumes?: VolumeMount[],
+  onProgress?: (label: string) => Promise<void>,
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
   if (existingSandboxId) {
     try {
+      if (onProgress) await onProgress("Resuming sandbox...");
       const sandbox = await daytona.get(existingSandboxId);
       await ensureSandboxRunning(sandbox);
+      if (onProgress) await onProgress("Syncing repository...");
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, isNew: false };
     } catch {
@@ -281,6 +298,8 @@ export async function getOrCreateSandbox(
     sandboxEnvVars,
     snapshotName,
     volumes,
+    undefined,
+    onProgress,
   );
   return { sandbox, isNew: true };
 }

@@ -100,6 +100,7 @@ export const docInterviewWorkflow = workflow.define({
         repoOwner: docData.repoOwner,
         repoName: docData.repoName,
         repoId: docData.repoId,
+        streamingEntityId: args.docId,
       },
     );
 
@@ -365,6 +366,7 @@ Output ONLY valid JSON.`;
         repoOwner: docData.repoOwner,
         repoName: docData.repoName,
         repoId: docData.repoId,
+        streamingEntityId: args.docId,
       },
     );
 

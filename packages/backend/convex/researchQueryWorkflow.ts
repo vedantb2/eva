@@ -124,6 +124,7 @@ export const generateQueryWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
       },
     );
 
@@ -187,6 +188,7 @@ export const confirmQueryWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
       },
     );
 

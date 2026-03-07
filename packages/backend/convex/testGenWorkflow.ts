@@ -83,6 +83,7 @@ export const testGenWorkflow = workflow.define({
         ephemeral: true,
         branchName: docData.branchName,
         repoId: docData.repoId,
+        streamingEntityId: args.docId,
       },
     );
 

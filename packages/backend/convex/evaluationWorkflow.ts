@@ -43,6 +43,7 @@ export const evaluationWorkflow = workflow.define({
           baseBranch: args.branchName,
           ephemeral: true,
           repoId: docData.repoId,
+          streamingEntityId: String(args.reportId),
         },
       );
 

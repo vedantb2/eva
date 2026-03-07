@@ -97,9 +97,18 @@ export const prepareSandbox = internalAction({
     attachRunId: v.optional(v.id("agentRuns")),
     sessionPersistenceId: v.optional(v.id("sessions")),
     startDesktop: v.optional(v.boolean()),
+    streamingEntityId: v.optional(v.string()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
+    const emitProgress = async (label: string): Promise<void> => {
+      if (!args.streamingEntityId) return;
+      await ctx.runMutation(internal.streaming.internalSet, {
+        entityId: args.streamingEntityId,
+        currentActivity: JSON.stringify({ steps: [{ label }] }),
+      });
+    };
+
     const setupStartedAt = Date.now();
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
@@ -135,6 +144,7 @@ export const prepareSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             attachRunSandbox,
+            emitProgress,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -148,12 +158,14 @@ export const prepareSandbox = internalAction({
             sandboxEnvVars,
             snapshotName,
             sessionVolumeMounts,
+            emitProgress,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
         }
 
         if (args.baseBranch) {
+          await emitProgress("Fetching base branch...");
           await fetchOrigin(
             sandbox,
             args.installationId,
@@ -170,10 +182,12 @@ export const prepareSandbox = internalAction({
         }
 
         if (args.branchName) {
+          await emitProgress("Setting up branch...");
           await setupBranch(sandbox, args.branchName);
         }
 
         if (args.startDesktop) {
+          await emitProgress("Starting desktop...");
           await startDesktopWithChrome(sandbox);
         }
 

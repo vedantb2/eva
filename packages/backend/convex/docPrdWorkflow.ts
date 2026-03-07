@@ -81,6 +81,7 @@ export const docPrdWorkflow = workflow.define({
         repoOwner: docData.repoOwner,
         repoName: docData.repoName,
         repoId: docData.repoId,
+        streamingEntityId: args.docId,
       },
     );
 

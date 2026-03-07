@@ -110,6 +110,7 @@ export const projectInterviewWorkflow = workflow.define({
         repoOwner: projectData.repoOwner,
         repoName: projectData.repoName,
         repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
       },
     );
 
@@ -372,6 +373,7 @@ Output ONLY valid JSON.`;
         repoOwner: projectData.repoOwner,
         repoName: projectData.repoName,
         repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
       },
     );
 

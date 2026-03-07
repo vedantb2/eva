@@ -110,13 +110,8 @@ export const startSessionSandbox = internalAction({
         args.installationId,
         args.repoOwner,
         args.repoName,
-        args.baseBranch,
-        { prune: false, timeoutSeconds: 30 },
-      );
-      await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} 2>/dev/null; git pull --ff-only origin ${quote([args.baseBranch])} 2>/dev/null || true`,
-        30,
+        undefined,
+        { prune: false, timeoutSeconds: 60 },
       );
       await checkoutSessionBranch(sandbox, args.branchName, args.baseBranch);
       const { port: devPort, devCommand } = await startSessionServices(

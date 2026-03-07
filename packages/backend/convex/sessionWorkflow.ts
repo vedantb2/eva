@@ -336,7 +336,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
-      baseBranch: repo.defaultBaseBranch || "main",
+      baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
       model: args.model,
     };

@@ -145,6 +145,7 @@ export const create = authMutation({
       connectedBy: ctx.userId,
       teamId,
       rootDirectory: normalizedRoot,
+      defaultBaseBranch: "main",
     });
   },
 });

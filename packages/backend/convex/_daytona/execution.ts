@@ -196,7 +196,7 @@ export const prepareSandbox = internalAction({
           await setupBranch(
             sandbox,
             args.branchName,
-            args.baseBranch || "main",
+            args.baseBranch ?? "main",
           );
         }
 

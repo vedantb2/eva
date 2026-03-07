@@ -71,6 +71,7 @@ export const upsert = internalMutation({
       connected: true,
       teamId: args.teamId,
       rootDirectory: normalizedRoot,
+      defaultBaseBranch: "main",
     });
   },
 });

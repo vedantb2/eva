@@ -10,6 +10,7 @@
   4. RepoCard dropdown now has a "Hide" option.
   5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
   6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+  7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
 
 ## Dismiss Daytona preview warning for all iframes — 2026-03-07
 

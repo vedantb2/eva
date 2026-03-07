@@ -225,11 +225,19 @@ export function TerminalPanel({
         terminal.loadAddon(webLinksAddon);
         terminal.open(terminalRef.current!);
 
-        setTimeout(() => fitAddon.fit(), 0);
-
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
 
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            fitAddon.fit();
+            resolve();
+          }, 0);
+        });
+
+        for (let i = 0; i < terminal.rows - 1; i++) {
+          terminal.writeln("");
+        }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
         await connectWebSocket(terminal, mounted);

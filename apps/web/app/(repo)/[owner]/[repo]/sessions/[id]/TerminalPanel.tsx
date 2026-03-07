@@ -70,14 +70,11 @@ export function TerminalPanel({
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
-  const disconnectPtyAction = useAction(api.pty.disconnectPty);
 
   const typedSessionId = sessionId as Id<"sessions">;
 
   const resizePtyRef = useRef(resizePtyAction);
   resizePtyRef.current = resizePtyAction;
-  const disconnectPtyRef = useRef(disconnectPtyAction);
-  disconnectPtyRef.current = disconnectPtyAction;
 
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
@@ -264,7 +261,6 @@ export function TerminalPanel({
         terminalInstanceRef.current.dispose();
         terminalInstanceRef.current = null;
       }
-      disconnectPtyRef.current({ sessionId: typedSessionId }).catch(() => {});
     };
   }, [isActive, sandboxId, typedSessionId, retryCount, connectWebSocket]);
 

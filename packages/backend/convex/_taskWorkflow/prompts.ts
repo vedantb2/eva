@@ -62,8 +62,9 @@ ${subtasksList}${changeRequestSection}
 1. Read CLAUDE.md to understand the codebase
 2. Implement changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
+6. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
@@ -84,7 +85,7 @@ Skip entirely if your changes are backend-only with no UI impact. Do NOT mention
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 
 ## Rules:
-- Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build step above and dev server for proof)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`

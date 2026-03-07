@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { InboxClient } from "./InboxClient";
+import { InboxClient } from "@/lib/components/inbox/InboxClient";
 
 export default function InboxPage() {
   return (

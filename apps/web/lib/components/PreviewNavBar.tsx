@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type ReactNode, type RefObject } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { Input, Spinner } from "@conductor/ui";
 import { WebPreviewNavigationButton } from "@conductor/ui";
 import {
@@ -62,15 +68,35 @@ export function PreviewNavBar({
     setPathInput(getPathFromUrl(previewUrl ?? defaultPath));
   }
 
+  const syncPathFromIframe = useCallback(() => {
+    try {
+      const href = iframeRef.current?.contentWindow?.location.href;
+      if (href) {
+        setPathInput(getPathFromUrl(href));
+      }
+    } catch {
+      // cross-origin — cannot read iframe location
+    }
+  }, [iframeRef]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    iframe.addEventListener("load", syncPathFromIframe);
+    return () => iframe.removeEventListener("load", syncPathFromIframe);
+  }, [iframeRef, syncPathFromIframe]);
+
   function goBack() {
     try {
       iframeRef.current?.contentWindow?.history.back();
+      setTimeout(syncPathFromIframe, 200);
     } catch {}
   }
 
   function goForward() {
     try {
       iframeRef.current?.contentWindow?.history.forward();
+      setTimeout(syncPathFromIframe, 200);
     } catch {}
   }
 

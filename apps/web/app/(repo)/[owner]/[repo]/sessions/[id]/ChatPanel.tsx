@@ -49,6 +49,8 @@ import {
   IconSparkles,
   IconSend,
   IconCircleCheck,
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -98,6 +100,8 @@ interface ChatPanelProps {
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
   previewUrl?: string;
+  sandboxCollapsed?: boolean;
+  onToggleSandbox?: () => void;
 }
 
 export function ChatPanel({
@@ -115,6 +119,8 @@ export function ChatPanel({
   onSandboxToggle,
   isArchived,
   previewUrl,
+  sandboxCollapsed,
+  onToggleSandbox,
 }: ChatPanelProps) {
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
@@ -278,6 +284,21 @@ export function ChatPanel({
 
   const headerActions = (
     <>
+      {onToggleSandbox && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          onClick={onToggleSandbox}
+          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
+        >
+          {sandboxCollapsed ? (
+            <IconLayoutSidebarRightExpand className="size-4" />
+          ) : (
+            <IconLayoutSidebarRightCollapse className="size-4" />
+          )}
+        </Button>
+      )}
       <Button
         size="sm"
         variant="secondary"

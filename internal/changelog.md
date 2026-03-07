@@ -1,5 +1,10 @@
 # Changelog
 
+## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
+
+- **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.
+- **Changes**: Made the sandbox (right) panel collapsible instead of the chat panel. Moved the collapse/expand button from the SandboxPanel tab switcher header to the ChatPanel header actions area. Uses right-sidebar collapse/expand icons to match the panel direction.
+
 ## Dismiss Daytona preview warning for all iframes — 2026-03-07
 
 - **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.

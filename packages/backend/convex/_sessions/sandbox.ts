@@ -54,10 +54,8 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName =
-      session.branchName ||
-      repo.defaultBaseBranch ||
-      `eva/session-${args.sessionId}`;
+    const branchName = session.branchName || `eva/session-${args.sessionId}`;
+    const baseBranch = repo.defaultBaseBranch || "main";
     await ctx.db.patch(args.sessionId, {
       status: "starting",
       updatedAt: Date.now(),
@@ -69,6 +67,7 @@ export const startSandbox = authMutation({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
+      baseBranch,
       repoId: session.repoId,
     });
     return null;

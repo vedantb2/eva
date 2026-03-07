@@ -193,7 +193,11 @@ export const prepareSandbox = internalAction({
 
         if (args.branchName) {
           await emitProgress("Setting up branch...");
-          await setupBranch(sandbox, args.branchName);
+          await setupBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch || "main",
+          );
         }
 
         if (args.startDesktop) {

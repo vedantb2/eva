@@ -605,7 +605,8 @@ export function ChatPanel({
                     status={submitStatus}
                     variant={submitStatus ? "destructive" : "default"}
                     onStop={handleCancel}
-                    disabled={isInputDisabled}
+                    disabled={!submitStatus && isInputDisabled}
+                    title={submitStatus ? "Stop Eva" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

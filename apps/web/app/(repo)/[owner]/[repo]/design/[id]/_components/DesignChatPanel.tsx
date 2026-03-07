@@ -265,7 +265,10 @@ export function DesignChatPanel({
                   <PromptInputSubmit
                     status={submitStatus}
                     onStop={handleCancel}
-                    disabled={isExecuting || !isSandboxActive}
+                    disabled={
+                      !submitStatus && (isExecuting || !isSandboxActive)
+                    }
+                    title={submitStatus ? "Stop Eva" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

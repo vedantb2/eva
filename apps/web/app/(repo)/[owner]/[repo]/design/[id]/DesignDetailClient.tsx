@@ -6,6 +6,7 @@ import type { Id } from "@conductor/backend";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
 import {
   DesignPreviewPanel,
@@ -44,6 +45,7 @@ export function DesignDetailClient({
         port: session.devPort ?? 3000,
         repoId: session.repoId,
       });
+      await dismissDaytonaWarning(data.url);
       setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);

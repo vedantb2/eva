@@ -1,5 +1,10 @@
 # Changelog
 
+## Dismiss Daytona preview warning for all iframes — 2026-03-07
+
+- **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.
+- **Changes**: Created `dismissDaytonaWarning` utility that sends a `HEAD` request with `X-Daytona-Skip-Preview-Warning: true` header before loading each iframe. Applied to all 4 preview surfaces: SandboxPanel (web), EditorPanel (VS Code), DesktopPanel (VNC), and DesignDetailClient (design). Uses an in-memory Set to avoid redundant requests per origin.
+
 ## Fix: new sessions no longer auto-appear as sandbox running — 2026-03-07
 
 - **Why**: Creating a new session or design session set `status: "active"`, which the frontend interpreted as "sandbox is running". This caused the UI to show sandbox-active state (spinners, no "Start" button) even though no sandbox had been started.

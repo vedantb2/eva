@@ -6,6 +6,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
+import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { Tabs, TabsList, TabsTrigger, Button } from "@conductor/ui";
 import {
   IconWorld,
@@ -107,6 +108,7 @@ export function SandboxPanel({
         repoId,
       });
       if (data.ready) {
+        await dismissDaytonaWarning(data.url);
         onPreviewInfoChange(data);
         setCachedPreview(sessionId, data);
         setIframeKey((k) => k + 1);

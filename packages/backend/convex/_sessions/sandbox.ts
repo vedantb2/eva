@@ -97,7 +97,7 @@ export const stopSandbox = authMutation({
       isSystemAlert: true,
     });
     await ctx.db.patch(args.sessionId, {
-      sandboxId: session.sandboxId,
+      sandboxId: undefined,
       ptySessionId: undefined,
       status: "closed",
       updatedAt: Date.now(),

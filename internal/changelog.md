@@ -1,5 +1,24 @@
 # Changelog
 
+## Decompose DesignDetailClient into smaller components - 2026-03-07
+
+- **Why**: `DesignDetailClient.tsx` was 500 lines handling chat, preview, sandbox control, and tab state all in one component. This made it hard to reason about responsibilities and would only grow worse as features are added.
+- **Changes**:
+  1. Extracted `DesignChatPanel` — owns conversation rendering, message sending/cancelling, persona selection, and streaming display.
+  2. Extracted `DesignPreviewPanel` — owns iframe preview, variation tabs, desktop/mobile toggle (nuqs state), and variation selection UI.
+  3. Slimmed `DesignDetailClient` to an orchestrator: session query, sandbox lifecycle, preview URL fetching, and composing the two panels.
+- **Reason for change**: Single-responsibility decomposition. Each component now has a clear concern boundary, making future changes (e.g., swapping preview tech, adding chat features) isolated.
+
+## Backend simplification round 2: dead code removal and dedup - 2026-03-07
+
+- **Why**: Audit of 80+ Convex files found dead code paths, unused exports, and repeated patterns that added maintenance burden without providing value.
+- **Changes**:
+  1. Deleted dead PR creation chain in `testGenWorkflow.ts` — `createPr` → `createPrAction` was a no-op chain (empty handler). Removed scheduler call in `saveResult` too. (~45 lines)
+  2. Deleted 4 unused CRUD mutations from `evaluationReports.ts` (`updateEvalStatus`, `completeEval`, `failEval`, `updateEvalSummary`) — workflow handles all status transitions directly via `ctx.db.patch()`. (~79 lines)
+  3. Extracted `timeoutLastMessage` helper in `workflowWatchdog.ts` to deduplicate the "find last assistant message → patch content" pattern across 3 handlers. (~20 lines saved)
+  4. Extracted `updateLastHistoryEntry` in `docInterviewWorkflow.ts` and `updateLastConversationEntry` in `projectInterviewWorkflow.ts` to deduplicate the "clone history → update last entry → return" pattern (5 instances each). (~30 lines saved)
+- **Reason for change**: Dead code creates confusion about what's active. Duplicated patterns mean bugs fixed in one spot get missed in others.
+
 ## Simplify chat panel, design page, analyse page - 2026-03-07
 
 - **Why**: ChatPanel, DesignDetailClient, and QueryDetailClient had significant code duplication — `ensureHttps()` copied in 2 files, session cache helpers copied in 2 files, IIFE+parseActivitySteps rendering pattern copy-pasted 6 times across 3 files, `evaIcon` JSX duplicated, user avatar block duplicated in 3 files. Also had `as` type assertions and a `!` non-null assertion violating project rules.

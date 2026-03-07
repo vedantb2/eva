@@ -53,6 +53,22 @@ OR
   return prompt;
 }
 
+function updateLastConversationEntry<
+  T extends {
+    role: "user" | "assistant";
+    content: string;
+    activityLog?: string;
+  },
+>(history: T[], content: string, activityLog: string | null | undefined): T[] {
+  const updated = [...history];
+  const last = updated[updated.length - 1];
+  if (last) {
+    last.content = content;
+    last.activityLog = activityLog || undefined;
+  }
+  return updated;
+}
+
 // --- Workflow definition ---
 
 export const projectInterviewWorkflow = workflow.define({
@@ -175,12 +191,11 @@ export const saveResult = internalMutation({
     if (!project) return null;
 
     if (!args.success || !args.result) {
-      const messages = [...project.conversationHistory];
-      const last = messages[messages.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const messages = updateLastConversationEntry(
+        project.conversationHistory,
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
       await ctx.db.patch(args.projectId, {
         conversationHistory: messages,
         activeWorkflowId: undefined,
@@ -191,12 +206,11 @@ export const saveResult = internalMutation({
 
     const { json } = llmJson.extract(args.result);
     if (json.length === 0) {
-      const messages = [...project.conversationHistory];
-      const last = messages[messages.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const messages = updateLastConversationEntry(
+        project.conversationHistory,
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
       await ctx.db.patch(args.projectId, {
         conversationHistory: messages,
         activeWorkflowId: undefined,
@@ -205,13 +219,11 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    const jsonStr = JSON.stringify(json[0]);
-    const messages = [...project.conversationHistory];
-    const last = messages[messages.length - 1];
-    if (last) {
-      last.content = jsonStr;
-      last.activityLog = args.activityLog || undefined;
-    }
+    const messages = updateLastConversationEntry(
+      project.conversationHistory,
+      JSON.stringify(json[0]),
+      args.activityLog,
+    );
     await ctx.db.patch(args.projectId, {
       conversationHistory: messages,
       activeWorkflowId: undefined,
@@ -427,12 +439,11 @@ export const saveSpecResult = internalMutation({
       const { json } = llmJson.extract(args.result);
       if (json.length > 0) {
         const specJson = JSON.stringify(json[0]);
-        const messages = [...project.conversationHistory];
-        const last = messages[messages.length - 1];
-        if (last) {
-          last.content = specJson;
-          last.activityLog = args.activityLog || undefined;
-        }
+        const messages = updateLastConversationEntry(
+          project.conversationHistory,
+          specJson,
+          args.activityLog,
+        );
         await ctx.db.patch(args.projectId, {
           conversationHistory: messages,
           generatedSpec: specJson,
@@ -444,13 +455,11 @@ export const saveSpecResult = internalMutation({
       }
     }
 
-    // On failure
-    const messages = [...project.conversationHistory];
-    const last = messages[messages.length - 1];
-    if (last) {
-      last.content = JSON.stringify({ error: true });
-      last.activityLog = args.activityLog || undefined;
-    }
+    const messages = updateLastConversationEntry(
+      project.conversationHistory,
+      JSON.stringify({ error: true }),
+      args.activityLog,
+    );
     await ctx.db.patch(args.projectId, {
       conversationHistory: messages,
       activeWorkflowId: undefined,

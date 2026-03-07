@@ -46,6 +46,22 @@ OR
   return prompt;
 }
 
+function updateLastHistoryEntry<
+  T extends {
+    role: "user" | "assistant";
+    content: string;
+    activityLog?: string;
+  },
+>(history: T[], content: string, activityLog: string | null | undefined): T[] {
+  const updated = [...history];
+  const last = updated[updated.length - 1];
+  if (last) {
+    last.content = content;
+    last.activityLog = activityLog || undefined;
+  }
+  return updated;
+}
+
 // --- Workflow definition ---
 
 export const docInterviewWorkflow = workflow.define({
@@ -172,13 +188,11 @@ export const saveResult = internalMutation({
     if (!doc) return null;
 
     if (!args.success || !args.result) {
-      // Update last interview message with error
-      const history = [...(doc.interviewHistory ?? [])];
-      const last = history[history.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const history = updateLastHistoryEntry(
+        doc.interviewHistory ?? [],
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
       await ctx.db.patch(args.docId, {
         interviewHistory: history,
         activeWorkflowId: undefined,
@@ -188,12 +202,11 @@ export const saveResult = internalMutation({
 
     const { json } = llmJson.extract(args.result);
     if (json.length === 0) {
-      const history = [...(doc.interviewHistory ?? [])];
-      const last = history[history.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const history = updateLastHistoryEntry(
+        doc.interviewHistory ?? [],
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
       await ctx.db.patch(args.docId, {
         interviewHistory: history,
         activeWorkflowId: undefined,
@@ -201,37 +214,15 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    const parsed = json[0] as { ready?: boolean; question?: string };
-    const jsonStr = JSON.stringify(json[0]);
-
-    if (parsed.ready === true) {
-      // The interview is complete — need to generate content
-      // For now, save the ready signal. The generate phase will run
-      // as a separate workflow invocation triggered by the frontend.
-      // This keeps the workflow simple and avoids a second sandbox call.
-      const history = [...(doc.interviewHistory ?? [])];
-      const last = history[history.length - 1];
-      if (last) {
-        last.content = jsonStr;
-        last.activityLog = args.activityLog || undefined;
-      }
-      await ctx.db.patch(args.docId, {
-        interviewHistory: history,
-        activeWorkflowId: undefined,
-      });
-    } else {
-      // Save the question to interview history
-      const history = [...(doc.interviewHistory ?? [])];
-      const last = history[history.length - 1];
-      if (last) {
-        last.content = jsonStr;
-        last.activityLog = args.activityLog || undefined;
-      }
-      await ctx.db.patch(args.docId, {
-        interviewHistory: history,
-        activeWorkflowId: undefined,
-      });
-    }
+    const history = updateLastHistoryEntry(
+      doc.interviewHistory ?? [],
+      JSON.stringify(json[0]),
+      args.activityLog,
+    );
+    await ctx.db.patch(args.docId, {
+      interviewHistory: history,
+      activeWorkflowId: undefined,
+    });
 
     return null;
   },
@@ -454,13 +445,11 @@ export const saveGenerateResult = internalMutation({
           updatedAt: Date.now(),
         });
 
-        // Update last interview message
-        const history = [...(doc.interviewHistory ?? [])];
-        const last = history[history.length - 1];
-        if (last) {
-          last.content = JSON.stringify(json[0]);
-          last.activityLog = args.activityLog || undefined;
-        }
+        const history = updateLastHistoryEntry(
+          doc.interviewHistory ?? [],
+          JSON.stringify(json[0]),
+          args.activityLog,
+        );
         await ctx.db.patch(args.docId, {
           interviewHistory: history,
           activeWorkflowId: undefined,
@@ -469,13 +458,11 @@ export const saveGenerateResult = internalMutation({
       }
     }
 
-    // On failure
-    const history = [...(doc.interviewHistory ?? [])];
-    const last = history[history.length - 1];
-    if (last) {
-      last.content = JSON.stringify({ error: true });
-      last.activityLog = args.activityLog || undefined;
-    }
+    const history = updateLastHistoryEntry(
+      doc.interviewHistory ?? [],
+      JSON.stringify({ error: true }),
+      args.activityLog,
+    );
     await ctx.db.patch(args.docId, {
       interviewHistory: history,
       activeWorkflowId: undefined,

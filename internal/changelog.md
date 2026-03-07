@@ -1,5 +1,10 @@
 # Changelog
 
+## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
+
+- **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
+- **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
+
 ## Show all tasks on Quick Tasks page with project filter — 2026-03-07
 
 - **Why**: Quick Tasks page only showed orphan tasks (no project). Tasks assigned to projects were hidden, making it impossible to see all tasks in one place or filter by project.

@@ -12,7 +12,7 @@ import {
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
-import { IconClock } from "@tabler/icons-react";
+import { IconClock, IconFolder, IconTag } from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
@@ -112,6 +112,17 @@ export function QuickTaskCard({
                 {description}
               </p>
             ) : null}
+            {projectName ? (
+              <Badge
+                variant="default"
+                className="ml-auto shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
+              >
+                <div className="flex flex-row gap-0.5 items-center">
+                  <IconFolder size={10} />
+                  {projectName}
+                </div>
+              </Badge>
+            ) : null}
             {tags && tags.length > 0 ? (
               <div className="mt-1 flex flex-wrap gap-1">
                 {tags.map((tag) => (
@@ -120,20 +131,16 @@ export function QuickTaskCard({
                     variant="secondary"
                     className="px-1.5 py-0 text-[10px] font-medium leading-4"
                   >
-                    {tag}
+                    <div className="flex flex-row gap-0.5 items-center">
+                      <IconTag size={10} />
+                      {tag}
+                    </div>
                   </Badge>
                 ))}
               </div>
             ) : null}
           </div>
-          {projectName ? (
-            <Badge
-              variant="outline"
-              className="ml-auto shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
-            >
-              {projectName}
-            </Badge>
-          ) : null}
+
           <div className="flex shrink-0 items-center gap-0.5">
             {scheduledAt ? (
               <Tooltip>
@@ -152,6 +159,7 @@ export function QuickTaskCard({
             <SubtaskProgress taskId={id} />
           </div>
         </div>
+
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center">
             {createdBy && <UserInitials userId={createdBy} size="sm" />}

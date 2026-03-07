@@ -79,6 +79,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
     if (project === "none") return tasks.filter((t) => !t.projectId);
     return tasks.filter((t) => t.projectId === project);
   }, [tasks, project]);
+  const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
@@ -165,7 +166,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
             onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
             searchQuery={searchQuery}
             onSearchChange={(v) => setParams({ q: v })}
-            hasQuickTasks={hasQuickTasks}
+            hasQuickTasks={hasAnyTasks}
             isSelecting={isSelecting}
             onStartSelecting={() => setIsSelecting(true)}
             onCreateTask={() => setIsCreating(true)}

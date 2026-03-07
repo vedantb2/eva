@@ -1,5 +1,15 @@
 # Changelog
 
+## Split post-execution audit into 3 individual toggles — 2026-03-07
+
+- **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.
+- **Changes**:
+  1. Added `accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled` fields to `githubRepos` schema (all default to true via `!== false`).
+  2. Updated `updateConfig` mutation, `getTaskData` query, and workflow definition to pass individual flags.
+  3. `buildAuditPrompt` now dynamically builds the prompt based on which audits are enabled.
+  4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
+  5. Task detail audit display filters out empty sections (disabled audits won't render).
+- **Reason for change**: Granular control over audit types, extensibility for future audit additions.
 ## Hide/show repositories and monorepo apps — 2026-03-07
 
 - **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.

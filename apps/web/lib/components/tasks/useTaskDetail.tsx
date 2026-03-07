@@ -798,59 +798,61 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                     label: "Code Review",
                     items: audit.codeReview,
                   },
-                ].map((section) => (
-                  <AccordionItem
-                    key={section.key}
-                    value={section.key}
-                    className="border rounded-lg px-3"
-                  >
-                    <AccordionTrigger>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{section.label}</span>
-                        <Badge
-                          variant={
-                            section.items.every((i) => i.passed)
-                              ? "success"
-                              : "destructive"
-                          }
-                        >
-                          {section.items.filter((i) => i.passed).length}/
-                          {section.items.length}
-                        </Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2">
-                        {section.items.map((item, i) => (
-                          <div
-                            key={i}
-                            className="flex items-start gap-2 text-sm"
+                ]
+                  .filter((section) => section.items.length > 0)
+                  .map((section) => (
+                    <AccordionItem
+                      key={section.key}
+                      value={section.key}
+                      className="border rounded-lg px-3"
+                    >
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{section.label}</span>
+                          <Badge
+                            variant={
+                              section.items.every((i) => i.passed)
+                                ? "success"
+                                : "destructive"
+                            }
                           >
-                            {item.passed ? (
-                              <IconCheck
-                                size={16}
-                                className="text-success mt-0.5 flex-shrink-0"
-                              />
-                            ) : (
-                              <IconAlertTriangle
-                                size={16}
-                                className="text-destructive mt-0.5 flex-shrink-0"
-                              />
-                            )}
-                            <div>
-                              <span className="font-medium">
-                                {item.requirement}
-                              </span>
-                              <p className="text-muted-foreground">
-                                {item.detail}
-                              </p>
+                            {section.items.filter((i) => i.passed).length}/
+                            {section.items.length}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2">
+                          {section.items.map((item, i) => (
+                            <div
+                              key={i}
+                              className="flex items-start gap-2 text-sm"
+                            >
+                              {item.passed ? (
+                                <IconCheck
+                                  size={16}
+                                  className="text-success mt-0.5 flex-shrink-0"
+                                />
+                              ) : (
+                                <IconAlertTriangle
+                                  size={16}
+                                  className="text-destructive mt-0.5 flex-shrink-0"
+                                />
+                              )}
+                              <div>
+                                <span className="font-medium">
+                                  {item.requirement}
+                                </span>
+                                <p className="text-muted-foreground">
+                                  {item.detail}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
               </Accordion>
             </>
           )}

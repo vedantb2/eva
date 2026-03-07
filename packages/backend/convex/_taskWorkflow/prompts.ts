@@ -92,22 +92,59 @@ If dev server fails or page errors, screenshot the error state with \`agent-brow
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-export function buildAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+export type AuditFlags = {
+  accessibility: boolean;
+  testing: boolean;
+  codeReview: boolean;
+};
+
+export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
+  const sections: string[] = [];
+  const jsonKeys: string[] = [];
+  let sectionNum = 1;
+
+  if (flags.accessibility) {
+    sections.push(
+      `${sectionNum}. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.`,
+    );
+    jsonKeys.push(
+      `  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  if (flags.testing) {
+    sections.push(
+      `${sectionNum}. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.`,
+    );
+    jsonKeys.push(
+      `  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  if (flags.codeReview) {
+    sections.push(
+      `${sectionNum}. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.`,
+    );
+    jsonKeys.push(
+      `  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  jsonKeys.push(`  "summary": "1-2 sentence overall assessment"`);
+
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit with ${sections.length} section${sections.length === 1 ? "" : "s"}.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
 ## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+${sections.join("\n")}
 
 Return ONLY valid JSON in this exact format:
 {
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "summary": "1-2 sentence overall assessment"
+${jsonKeys.join(",\n")}
 }
 
 ## Git Diff:

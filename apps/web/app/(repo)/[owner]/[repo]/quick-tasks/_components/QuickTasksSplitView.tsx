@@ -10,7 +10,6 @@ import { QuickTasksStatusSummary } from "@/lib/components/quick-tasks/QuickTasks
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
 interface QuickTasksSplitViewProps {
-  repoId: Id<"githubRepos">;
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
@@ -18,10 +17,10 @@ interface QuickTasksSplitViewProps {
   selectedTaskId: Id<"agentTasks"> | null;
   onCloseTask: () => void;
   quickTasks: Task[];
+  projectNames: Map<string, string>;
 }
 
 export function QuickTasksSplitView({
-  repoId,
   isSelecting,
   selectedIds,
   onToggleSelect,
@@ -29,6 +28,7 @@ export function QuickTasksSplitView({
   selectedTaskId,
   onCloseTask,
   quickTasks,
+  projectNames,
 }: QuickTasksSplitViewProps) {
   return (
     <div className="flex min-w-0 flex-1 min-h-0">
@@ -40,7 +40,8 @@ export function QuickTasksSplitView({
         }
       >
         <QuickTasksListView
-          repoId={repoId}
+          tasks={quickTasks}
+          projectNames={projectNames}
           isSelecting={isSelecting}
           selectedIds={selectedIds}
           onToggleSelect={onToggleSelect}

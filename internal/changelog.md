@@ -1,5 +1,18 @@
 # Changelog
 
+## Show all tasks on Quick Tasks page with project filter — 2026-03-07
+
+- **Why**: Quick Tasks page only showed orphan tasks (no project). Tasks assigned to projects were hidden, making it impossible to see all tasks in one place or filter by project.
+- **Changes**:
+  1. Removed `!t.projectId` filter from QuickTasksClient, QuickTasksListView, and QuickTasksKanbanBoard — all tasks now show by default.
+  2. Added `projectFilterParser` nuqs param with values: "all" (default), "none" (orphan tasks only), or a specific project ID.
+  3. Added project filter dropdown to QuickTasksToolbar showing all repo projects.
+  4. Added `projectName` badge on QuickTaskCard for tasks belonging to a project.
+  5. Centralized task filtering in QuickTasksClient — child views now receive pre-filtered tasks as props instead of re-querying.
+- **Reason for change**: Visibility. Users need to see all tasks regardless of project membership, with the ability to filter by project.
+
+## Add granular streaming progress during sandbox setup — 2026-03-07
+
 ## Streaming progress: setup steps + callback script continuity — 2026-03-07
 
 - **Why**: Three problems: (1) Users saw "Starting sandbox..." for up to 5 minutes with no feedback during `prepareSandbox`. (2) The progress format was `{steps:[{label}]}` which `parseActivitySteps` didn't recognize, so it rendered as raw JSON. (3) When the callback script started, it overwrote all setup progress with a fresh `["Starting Claude..."]`, losing the history.

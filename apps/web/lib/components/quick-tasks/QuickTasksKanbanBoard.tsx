@@ -15,7 +15,8 @@ type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
 
 interface QuickTasksKanbanBoardProps {
-  repoId: Id<"githubRepos">;
+  tasks: Task[];
+  projectNames: Map<string, string>;
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
@@ -23,30 +24,20 @@ interface QuickTasksKanbanBoardProps {
 }
 
 export function QuickTasksKanbanBoard({
-  repoId,
+  tasks: externalTasks,
+  projectNames,
   isSelecting,
   selectedIds,
   onToggleSelect,
   onOpenTask,
 }: QuickTasksKanbanBoardProps) {
-  const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const tasks = (allTasks?.filter((t) => !t.projectId) ?? []).sort(
-    (a, b) => b.updatedAt - a.updatedAt,
-  );
-
-  if (allTasks === undefined) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  const tasks = [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt);
 
   if (tasks.length === 0) {
     return null;
@@ -127,6 +118,9 @@ export function QuickTasksKanbanBoard({
             tags={task.tags}
             createdBy={task.createdBy}
             createdAt={task.createdAt}
+            projectName={
+              task.projectId ? projectNames.get(task.projectId) : undefined
+            }
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -142,6 +136,9 @@ export function QuickTasksKanbanBoard({
             tags={task.tags}
             createdBy={task.createdBy}
             createdAt={task.createdAt}
+            projectName={
+              task.projectId ? projectNames.get(task.projectId) : undefined
+            }
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
           />

@@ -44,6 +44,7 @@ export function SessionDetailClient({
     (info: { url: string; port: number } | null) => setPreviewInfo(info),
     [],
   );
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
   const handleSandboxPanelToggle = () => {
     if (sandboxCollapsed) {
@@ -92,7 +93,6 @@ export function SessionDetailClient({
   }
 
   const isSandboxActive = session.status === "active";
-  const isMobile = useMediaQuery("(max-width: 767px)");
 
   const chatPanel = (
     <ChatPanel

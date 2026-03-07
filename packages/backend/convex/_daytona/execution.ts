@@ -12,9 +12,9 @@ import {
   getSandbox,
   sleep,
   errorMessage,
-  isDaytonaNetworkIssue,
   signAndLaunchScript,
 } from "./helpers";
+import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,

@@ -167,7 +167,7 @@ export function TeamReposTab({
       <div className="space-y-2">
         {repos.map((repo) => (
           <Card key={repo._id}>
-            <CardContent className="flex items-center justify-between p-4">
+            <CardContent className="flex items-center justify-between p-3 sm:p-4">
               <div className="flex items-center gap-2">
                 <IconGitBranch size={16} className="text-muted-foreground" />
                 <div>

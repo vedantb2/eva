@@ -66,7 +66,7 @@ export function DesignSessionsSidebar({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
-  const baseUrl = `${basePath}/design`;
+  const baseUrl = `${basePath}/designs`;
   const currentSessionId = pathname.startsWith(`${baseUrl}/`)
     ? pathname.slice(baseUrl.length + 1).split("/")[0]
     : null;
@@ -207,7 +207,7 @@ export function DesignSessionsSidebar({
                               <Button
                                 size="icon-sm"
                                 variant="ghost"
-                                className="motion-press h-6 w-6 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:scale-105 active:scale-95"
+                                className="motion-press h-6 w-6 opacity-100 transition-all duration-150 lg:opacity-0 lg:group-hover:opacity-100 hover:scale-105 active:scale-95"
                               >
                                 <IconDotsVertical size={13} />
                               </Button>

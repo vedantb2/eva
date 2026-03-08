@@ -40,6 +40,8 @@ interface ProjectCardProps {
   createdAt: number;
   projectUrl: string;
   accentColor: string;
+  members?: Array<Id<"users">>;
+  projectLead?: Id<"users">;
   onDelete: () => void;
 }
 
@@ -54,6 +56,8 @@ export function ProjectCard({
   createdAt,
   projectUrl,
   accentColor,
+  members,
+  projectLead,
   onDelete,
 }: ProjectCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -62,12 +66,11 @@ export function ProjectCard({
   const [editDescription, setEditDescription] = useState(description ?? "");
   const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
-  const project = useQuery(api.projects.get, { id: projectId });
-  const participantIds = [
+  const memberIds = [
     ...new Set(
-      (project?.conversationHistory ?? [])
-        .filter((m) => m.userId)
-        .map((m) => m.userId),
+      [projectLead, ...(members ?? [])].filter(
+        (id): id is Id<"users"> => id !== undefined,
+      ),
     ),
   ];
   const isOwner = currentUserId === userId;
@@ -77,8 +80,7 @@ export function ProjectCard({
   const previewText = description ?? rawInput;
 
   const MAX_AVATARS = 3;
-  const allAvatarIds =
-    participantIds.length > 0 ? participantIds : [userId as string | undefined];
+  const allAvatarIds = memberIds.length > 0 ? memberIds : [userId];
   const shownAvatarIds = allAvatarIds.slice(0, MAX_AVATARS);
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
@@ -180,15 +182,9 @@ export function ProjectCard({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="flex min-w-0 items-center">
             <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
-              {shownAvatarIds.map((id) =>
-                id ? (
-                  <UserInitials
-                    key={id}
-                    userId={id as Id<"users">}
-                    hideLastSeen
-                  />
-                ) : null,
-              )}
+              {shownAvatarIds.map((id) => (
+                <UserInitials key={id} userId={id} hideLastSeen />
+              ))}
               {hiddenCount > 0 && (
                 <div className="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-semibold text-muted-foreground">
                   +{hiddenCount}

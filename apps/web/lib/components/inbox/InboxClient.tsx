@@ -172,12 +172,12 @@ export function InboxClient() {
                           )}
                         </div>
                         <NotificationIcon type={n.type} size="sm" />
-                        <div className="flex-1 min-w-0 flex items-center gap-2">
-                          <span className="text-xs font-medium truncate sm:text-sm">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium truncate block sm:text-sm">
                             {n.title}
                           </span>
                           {n.message && (
-                            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                            <span className="text-[11px] text-muted-foreground truncate block sm:text-xs">
                               {n.message}
                             </span>
                           )}

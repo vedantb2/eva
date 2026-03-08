@@ -54,10 +54,12 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName =
-      session.branchName ||
-      repo.defaultBaseBranch ||
-      `session/${args.sessionId}`;
+    const branchName = session.branchName || `eva/session-${args.sessionId}`;
+    const baseBranch = repo.defaultBaseBranch ?? "main";
+    await ctx.db.patch(args.sessionId, {
+      status: "starting",
+      updatedAt: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,
@@ -65,6 +67,7 @@ export const startSandbox = authMutation({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
+      baseBranch,
       repoId: session.repoId,
     });
     return null;
@@ -78,8 +81,7 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
-        sessionId: args.sessionId,
+      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });
@@ -93,7 +95,7 @@ export const stopSandbox = authMutation({
       isSystemAlert: true,
     });
     await ctx.db.patch(args.sessionId, {
-      sandboxId: session.sandboxId,
+      sandboxId: undefined,
       ptySessionId: undefined,
       status: "closed",
       updatedAt: Date.now(),

@@ -15,16 +15,16 @@ export function LogsSummaryGrid({
   totalOutput,
 }: LogsSummaryGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       <div className="rounded-lg border bg-card p-3 sm:p-4">
         <div className="text-xs sm:text-sm text-muted-foreground">
           Total Cost
         </div>
         <div className="text-lg sm:text-2xl font-semibold">
-          {formatCost(totalCost)}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          ~£{(totalCost * USD_TO_GBP).toFixed(4)}
+          £{formatCost(totalCost * USD_TO_GBP)}{" "}
+          <span className="text-sm text-muted-foreground">
+            ${formatCost(totalCost)}
+          </span>
         </div>
       </div>
       <div className="rounded-lg border bg-card p-3 sm:p-4">

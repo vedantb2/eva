@@ -17,6 +17,7 @@ import {
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
@@ -45,6 +46,7 @@ export const startSessionSandbox = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    baseBranch: v.string(),
     repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.null(),
@@ -73,7 +75,11 @@ export const startSessionSandbox = internalAction({
             args.repoOwner,
             args.repoName,
           );
-          await checkoutSessionBranch(sandbox, args.branchName);
+          await checkoutSessionBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch,
+          );
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
@@ -96,6 +102,7 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
         await ensureSessionClaudeVolume(daytona, args.sessionId),
       );
@@ -105,14 +112,10 @@ export const startSessionSandbox = internalAction({
         args.installationId,
         args.repoOwner,
         args.repoName,
-        args.branchName,
-        { prune: false, timeoutSeconds: 30 },
+        undefined,
+        { prune: false, timeoutSeconds: 60 },
       );
-      await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && (git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} 2>/dev/null || git checkout -b ${quote([args.branchName])}) && (git pull --ff-only origin ${quote([args.branchName])} 2>/dev/null || true)`,
-        30,
-      );
+      await checkoutSessionBranch(sandbox, args.branchName, args.baseBranch);
       const { port: devPort, devCommand } = await startSessionServices(
         sandbox,
         rootDir,
@@ -145,6 +148,7 @@ export const startDesignSandbox = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    baseBranch: v.string(),
     repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.null(),
@@ -162,6 +166,11 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
+      const designVolumeMounts = await ensureSessionClaudeVolume(
+        daytona,
+        args.designSessionId,
+      );
+
       const reused = await tryReuseSandbox(
         daytona,
         args.existingSandboxId,
@@ -173,7 +182,7 @@ export const startDesignSandbox = internalAction({
             args.repoOwner,
             args.repoName,
           );
-          await setupBranch(sandbox, args.branchName);
+          await setupBranch(sandbox, args.branchName, args.baseBranch);
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
@@ -196,10 +205,12 @@ export const startDesignSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
+        designVolumeMounts,
       );
       const sandbox = prepared.sandbox;
-      await setupBranch(sandbox, args.branchName);
+      await setupBranch(sandbox, args.branchName, args.baseBranch);
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }

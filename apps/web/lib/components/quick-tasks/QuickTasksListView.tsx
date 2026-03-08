@@ -35,7 +35,8 @@ import { FixAllDialog } from "./FixAllDialog";
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
 interface QuickTasksListViewProps {
-  repoId: Id<"githubRepos">;
+  tasks: Task[];
+  projectNames: Map<string, string>;
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
@@ -44,14 +45,14 @@ interface QuickTasksListViewProps {
 }
 
 export function QuickTasksListView({
-  repoId,
+  tasks: externalTasks,
+  projectNames,
   isSelecting,
   selectedIds,
   onToggleSelect,
   onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
-  const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
@@ -69,11 +70,8 @@ export function QuickTasksListView({
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const tasks = useMemo(
-    () =>
-      (allTasks?.filter((t) => !t.projectId) ?? []).sort(
-        (a, b) => b.updatedAt - a.updatedAt,
-      ),
-    [allTasks],
+    () => [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt),
+    [externalTasks],
   );
 
   const filteredTasks = useMemo(() => {
@@ -151,18 +149,10 @@ export function QuickTasksListView({
     }
   };
 
-  if (allTasks === undefined) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="flex flex-1 min-h-0 flex-col gap-3">
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+      <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0 px-1 sm:px-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -259,6 +249,11 @@ export function QuickTasksListView({
                             tags={task.tags}
                             createdBy={task.createdBy}
                             createdAt={task.createdAt}
+                            projectName={
+                              task.projectId
+                                ? projectNames.get(task.projectId)
+                                : undefined
+                            }
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);

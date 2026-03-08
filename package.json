@@ -39,5 +39,9 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1"
+  },
+  "dependencies": {
+    "@tanstack/react-hotkeys": "^0.3.2",
+    "embla-carousel-react": "^8.6.0"
   }
 }

@@ -1,5 +1,11 @@
 import { v } from "convex/values";
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+} from "convex/server";
 import { roleValidator, phaseValidator } from "../validators";
+import type { DataModel } from "../_generated/dataModel";
+import type { Id, Doc } from "../_generated/dataModel";
 
 export const conversationMessageValidator = v.object({
   role: roleValidator,
@@ -8,7 +14,9 @@ export const conversationMessageValidator = v.object({
   userId: v.optional(v.id("users")),
 });
 
-export const projectValidator = v.object({
+type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
+
+export const projectWithDetailsValidator = v.object({
   _id: v.id("projects"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
@@ -39,8 +47,83 @@ const {
   conversationHistory: _ch,
   generatedSpec: _gs,
   ...projectSummaryFields
-} = projectValidator.fields;
+} = projectWithDetailsValidator.fields;
 export const projectSummaryValidator = v.object(projectSummaryFields);
+
+export async function getProjectDetails(
+  db: GenericDatabaseReader<DataModel>,
+  projectId: Id<"projects">,
+): Promise<Doc<"projectDetails"> | null> {
+  return await db
+    .query("projectDetails")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .first();
+}
+
+export async function getProjectConversation(
+  db: GenericDatabaseReader<DataModel>,
+  projectId: Id<"projects">,
+): Promise<Array<ConversationMessage>> {
+  const details = await getProjectDetails(db, projectId);
+  return details?.conversationHistory ?? [];
+}
+
+export async function getProjectGeneratedSpec(
+  db: GenericDatabaseReader<DataModel>,
+  projectId: Id<"projects">,
+): Promise<string | undefined> {
+  const details = await getProjectDetails(db, projectId);
+  return details?.generatedSpec;
+}
+
+export async function setProjectConversation(
+  db: GenericDatabaseWriter<DataModel>,
+  projectId: Id<"projects">,
+  conversationHistory: Array<ConversationMessage>,
+): Promise<void> {
+  const existing = await db
+    .query("projectDetails")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .first();
+  if (existing) {
+    await db.patch(existing._id, { conversationHistory });
+  } else {
+    await db.insert("projectDetails", { projectId, conversationHistory });
+  }
+}
+
+export async function setProjectGeneratedSpec(
+  db: GenericDatabaseWriter<DataModel>,
+  projectId: Id<"projects">,
+  generatedSpec: string,
+): Promise<void> {
+  const existing = await db
+    .query("projectDetails")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .first();
+  if (existing) {
+    await db.patch(existing._id, { generatedSpec });
+  } else {
+    await db.insert("projectDetails", {
+      projectId,
+      conversationHistory: [],
+      generatedSpec,
+    });
+  }
+}
+
+export async function deleteProjectDetails(
+  db: GenericDatabaseWriter<DataModel>,
+  projectId: Id<"projects">,
+): Promise<void> {
+  const existing = await db
+    .query("projectDetails")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .first();
+  if (existing) {
+    await db.delete(existing._id);
+  }
+}
 
 export const AUDIT_TASKS = [
   {

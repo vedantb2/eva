@@ -12,15 +12,36 @@ import {
   WORKSPACE_DIR,
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
-  isSnapshotReadyTimeoutError,
+  DAYTONA_CREATE_TIMEOUT_MS,
   ensureSandboxRunning,
+  withTimeout,
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
+
+export type SandboxLifecycle = {
+  autoStopInterval: number;
+  autoDeleteInterval: number;
+  ephemeral?: boolean;
+};
+
+const SESSION_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 30,
+  autoDeleteInterval: 30,
+};
+
+const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 0,
+  autoDeleteInterval: 0,
+  ephemeral: true,
+};
+
+export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE };
 
 export async function createSandbox(
   daytona: Daytona,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
 ): Promise<Sandbox> {
@@ -30,21 +51,26 @@ export async function createSandbox(
 
   const githubToken = await getInstallationToken(installationId);
 
-  const sandbox = await daytona.create(
-    {
-      ...(snapshotName
-        ? { snapshot: snapshotName }
-        : { language: "typescript" }),
-      ...(volumes ? { volumes } : {}),
-      envVars: {
-        ...sandboxEnvVars,
-        GITHUB_TOKEN: githubToken,
-        INSTALLATION_ID: String(installationId),
+  const sandbox = await withTimeout(
+    daytona.create(
+      {
+        ...(snapshotName
+          ? { snapshot: snapshotName }
+          : { language: "typescript" }),
+        ...(volumes ? { volumes } : {}),
+        envVars: {
+          ...sandboxEnvVars,
+          GITHUB_TOKEN: githubToken,
+          INSTALLATION_ID: String(installationId),
+        },
+        autoStopInterval: lifecycle.autoStopInterval,
+        autoDeleteInterval: lifecycle.autoDeleteInterval,
+        ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
       },
-      autoStopInterval: 15,
-      autoDeleteInterval: 30,
-    },
-    { timeout: timeoutSeconds },
+      { timeout: timeoutSeconds },
+    ),
+    DAYTONA_CREATE_TIMEOUT_MS,
+    "create",
   );
   await exec(
     sandbox,
@@ -115,11 +141,18 @@ export async function syncRepo(
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
+  baseBranch: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
+  const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch})`,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+    10,
+  );
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
     30,
   );
 }
@@ -161,20 +194,19 @@ export async function cloneAndSetupRepo(
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
+  baseBranch: string,
 ): Promise<void> {
   const quotedBranch = quote([branchName]);
   const quotedRemote = quote([`origin/${branchName}`]);
-  // Stash any local changes first
+  const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
     10,
   );
-  // Try to checkout the existing remote branch first (preserves previous commits),
-  // then fall back to creating a new branch from current HEAD
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -B ${quotedBranch})`,
+    `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
     10,
   );
   const currentBranch = (
@@ -185,6 +217,16 @@ export async function setupBranch(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git merge --ff-only ${quotedRemote} 2>/dev/null || true`,
+    10,
+  );
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit`,
+    30,
+  );
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
@@ -198,72 +240,40 @@ export async function createSandboxAndPrepareRepo(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
   onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
   onProgress?: (label: string) => Promise<void>,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
-  let initialSandbox: Sandbox | undefined;
+  let sandbox: Sandbox | undefined;
   try {
     if (onProgress) await onProgress("Creating sandbox...");
-    initialSandbox = await createSandbox(
+    sandbox = await createSandbox(
       daytona,
       installationId,
       sandboxEnvVars,
+      lifecycle,
       snapshotName,
       volumes,
     );
     if (onSandboxAcquired) {
-      await onSandboxAcquired(initialSandbox);
+      await onSandboxAcquired(sandbox);
     }
     if (snapshotName) {
       if (onProgress) await onProgress("Syncing repository...");
-      await syncRepo(initialSandbox, installationId, owner, name);
-      return { sandbox: initialSandbox, usedSnapshot: true };
-    }
-    await cloneAndSetupRepo(
-      initialSandbox,
-      installationId,
-      owner,
-      name,
-      onProgress,
-    );
-    return { sandbox: initialSandbox, usedSnapshot: false };
-  } catch (error) {
-    if (initialSandbox) {
-      try {
-        await initialSandbox.delete();
-      } catch {}
-    }
-
-    if (!snapshotName || !isSnapshotReadyTimeoutError(error)) {
-      throw error;
-    }
-
-    console.warn(
-      `[daytona] Snapshot "${snapshotName}" not ready after ${SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS}s for ${owner}/${name}; retrying with same snapshot`,
-    );
-    if (onProgress) await onProgress("Retrying sandbox creation...");
-    const sandbox = await createSandbox(
-      daytona,
-      installationId,
-      sandboxEnvVars,
-      snapshotName,
-      volumes,
-    );
-    try {
-      if (onSandboxAcquired) {
-        await onSandboxAcquired(sandbox);
-      }
-      if (onProgress) await onProgress("Syncing repository...");
       await syncRepo(sandbox, installationId, owner, name);
       return { sandbox, usedSnapshot: true };
-    } catch (retryError) {
+    }
+    await cloneAndSetupRepo(sandbox, installationId, owner, name, onProgress);
+    return { sandbox, usedSnapshot: false };
+  } catch (error) {
+    if (sandbox) {
       try {
         await sandbox.delete();
       } catch {}
-      throw retryError;
     }
+    throw error;
   }
 }
 
@@ -274,6 +284,7 @@ export async function getOrCreateSandbox(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
   onProgress?: (label: string) => Promise<void>,
@@ -296,6 +307,7 @@ export async function getOrCreateSandbox(
     owner,
     name,
     sandboxEnvVars,
+    lifecycle,
     snapshotName,
     volumes,
     undefined,

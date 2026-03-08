@@ -1,5 +1,6 @@
 "use node";
 
+import { createHmac } from "node:crypto";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
@@ -7,22 +8,27 @@ import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
 import { launchScript } from "./launch";
 
+function computeStreamingHmac(entityId: string): string {
+  const secret = process.env.ENCRYPTION_KEY ?? "";
+  return createHmac("sha256", secret).update(entityId).digest("hex");
+}
+
 export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
-export const SNAPSHOT_READY_TIMEOUT_ERROR =
-  "Sandbox failed to become ready within the timeout period";
+
+const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
 export async function exec(
   sandbox: Sandbox,
   cmd: string,
   timeout = 30,
 ): Promise<string> {
-  const resp = await sandbox.process.executeCommand(
-    cmd,
-    "/",
-    undefined,
-    timeout,
+  const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
+  const resp = await withTimeout(
+    sandbox.process.executeCommand(cmd, "/", undefined, timeout),
+    clientTimeoutMs,
+    `exec (${timeout}s)`,
   );
   if (resp.exitCode !== 0) {
     const output = resp.result?.trim();
@@ -64,9 +70,25 @@ export async function sleep(ms: number): Promise<void> {
   });
 }
 
-export function isSnapshotReadyTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes(SNAPSHOT_READY_TIMEOUT_ERROR);
+export const DAYTONA_CREATE_TIMEOUT_MS = 90_000;
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Sandbox ${label} timed out after ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 export function errorMessage(error: unknown, fallback: string): string {
@@ -125,6 +147,9 @@ export async function signAndLaunchScript(
     internal.sandboxJwt.signSandboxToken,
     { userId },
   );
+  const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
+  const streamingHmac = computeStreamingHmac(streamingEntityId);
+  const convexSiteUrl = process.env.CONVEX_SITE_URL ?? "";
   await launchScript(
     sandbox,
     prompt,
@@ -132,6 +157,13 @@ export async function signAndLaunchScript(
     entityIdField,
     sandboxToken,
     entityId,
-    opts,
+    {
+      ...opts,
+      extraEnvVars: {
+        ...opts.extraEnvVars,
+        STREAMING_HMAC: streamingHmac,
+        CONVEX_SITE_URL: convexSiteUrl,
+      },
+    },
   );
 }

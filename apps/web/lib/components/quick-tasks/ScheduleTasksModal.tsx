@@ -12,10 +12,13 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-  Calendar,
   Spinner,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
+import {
+  ScheduleDateTimePicker,
+  useScheduleDateTime,
+} from "@/lib/components/ScheduleDateTimePicker";
 
 interface ScheduleTasksModalProps {
   isOpen: boolean;
@@ -34,29 +37,13 @@ export function ScheduleTasksModal({
   const updateSchedule = useMutation(api.agentTasks.updateScheduledExecution);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date(),
-  );
-  const [time, setTime] = useState(dayjs().format("HH:mm"));
+  const { selectedDate, setSelectedDate, time, setTime, timestamp, reset } =
+    useScheduleDateTime();
 
   const count = selectedTaskIds.size;
 
-  function getTimestamp(): number | null {
-    if (!selectedDate) return null;
-    const [hours, minutes] = time.split(":").map(Number);
-    const combined = dayjs(selectedDate)
-      .hour(hours)
-      .minute(minutes)
-      .second(0)
-      .millisecond(0);
-    if (combined.valueOf() <= Date.now()) return null;
-    return combined.valueOf();
-  }
-
-  const ts = getTimestamp();
-
   const handleSchedule = async () => {
-    if (!ts) return;
+    if (!timestamp) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -64,12 +51,11 @@ export function ScheduleTasksModal({
       const results = await Promise.all(
         taskIds.map(async (id) => {
           try {
-            await schedule({ id, scheduledAt: ts });
+            await schedule({ id, scheduledAt: timestamp });
             return true;
           } catch {
-            // Task might already be scheduled, try updating instead
             try {
-              await updateSchedule({ id, scheduledAt: ts });
+              await updateSchedule({ id, scheduledAt: timestamp });
               return true;
             } catch (updateErr) {
               console.error(`Failed to schedule task ${id}:`, updateErr);
@@ -103,8 +89,7 @@ export function ScheduleTasksModal({
 
   function handleClose() {
     setError(null);
-    setSelectedDate(new Date());
-    setTime(dayjs().format("HH:mm"));
+    reset();
     onClose();
   }
 
@@ -125,29 +110,20 @@ export function ScheduleTasksModal({
             {count === 1 ? "" : "s"}.
           </DialogDescription>
         </DialogHeader>
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={setSelectedDate}
-          disabled={{ before: new Date() }}
-          className="border rounded-md shadow-none mx-auto"
+        <ScheduleDateTimePicker
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          time={time}
+          onTimeChange={setTime}
+          timestamp={timestamp}
+          calendarClassName="border rounded-md shadow-none mx-auto"
+          showPreview={false}
         />
-        <div className="px-1">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            Time
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="flex-1 rounded-md border bg-background px-2 py-1 text-sm"
-            />
-          </label>
-        </div>
-        {ts && (
+        {timestamp && (
           <p className="text-sm text-muted-foreground px-1">
             Tasks will run at{" "}
             <span className="font-medium text-foreground">
-              {dayjs(ts).format("MMM D, h:mm A")}
+              {dayjs(timestamp).format("MMM D, h:mm A")}
             </span>
           </p>
         )}
@@ -160,7 +136,7 @@ export function ScheduleTasksModal({
           >
             Cancel
           </Button>
-          <Button onClick={handleSchedule} disabled={isLoading || !ts}>
+          <Button onClick={handleSchedule} disabled={isLoading || !timestamp}>
             {isLoading && <Spinner size="sm" />}
             Schedule {count} task{count === 1 ? "" : "s"}
           </Button>

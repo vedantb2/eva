@@ -62,8 +62,9 @@ ${subtasksList}${changeRequestSection}
 1. Read CLAUDE.md to understand the codebase
 2. Implement changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
+6. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
@@ -84,29 +85,66 @@ Skip entirely if your changes are backend-only with no UI impact. Do NOT mention
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 
 ## Rules:
-- Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build step above and dev server for proof)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-export function buildAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+export type AuditFlags = {
+  accessibility: boolean;
+  testing: boolean;
+  codeReview: boolean;
+};
+
+export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
+  const sections: string[] = [];
+  const jsonKeys: string[] = [];
+  let sectionNum = 1;
+
+  if (flags.accessibility) {
+    sections.push(
+      `${sectionNum}. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.`,
+    );
+    jsonKeys.push(
+      `  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  if (flags.testing) {
+    sections.push(
+      `${sectionNum}. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.`,
+    );
+    jsonKeys.push(
+      `  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  if (flags.codeReview) {
+    sections.push(
+      `${sectionNum}. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.`,
+    );
+    jsonKeys.push(
+      `  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
+    );
+    sectionNum++;
+  }
+
+  jsonKeys.push(`  "summary": "1-2 sentence overall assessment"`);
+
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit with ${sections.length} section${sections.length === 1 ? "" : "s"}.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
 ## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+${sections.join("\n")}
 
 Return ONLY valid JSON in this exact format:
 {
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "summary": "1-2 sentence overall assessment"
+${jsonKeys.join(",\n")}
 }
 
 ## Git Diff:

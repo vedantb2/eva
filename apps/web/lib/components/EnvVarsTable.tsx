@@ -239,18 +239,20 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="rounded-lg border border-border/70 overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
+          <table className="w-full text-sm min-w-[360px]">
             <thead>
               <tr className="border-b border-border/60 text-left text-muted-foreground">
-                <th className="px-4 py-2.5 font-medium">Key</th>
-                <th className="px-4 py-2.5 font-medium">Value</th>
-                <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+                <th className="px-2.5 py-2.5 font-medium sm:px-4">Key</th>
+                <th className="px-2.5 py-2.5 font-medium sm:px-4">Value</th>
+                <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {adding && (
                 <tr className="border-b border-border/40">
-                  <td className="px-4 py-2.5">
+                  <td className="px-2.5 py-2.5 sm:px-4">
                     <Input
                       value={keyInput}
                       onChange={(e) => setKeyInput(e.target.value)}
@@ -263,7 +265,7 @@ export function EnvVarsTable({
                       }}
                     />
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-2.5 py-2.5 sm:px-4">
                     <Input
                       value={valueInput}
                       onChange={(e) => setValueInput(e.target.value)}
@@ -275,7 +277,7 @@ export function EnvVarsTable({
                       }}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-2.5 py-2.5 text-right sm:px-4">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         size="icon-sm"
@@ -306,8 +308,10 @@ export function EnvVarsTable({
                   key={v.key}
                   className="border-b border-border/40 last:border-0"
                 >
-                  <td className="px-4 py-2.5 font-mono text-xs">{v.key}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-2.5 py-2.5 font-mono text-xs sm:px-4">
+                    {v.key}
+                  </td>
+                  <td className="px-2.5 py-2.5 sm:px-4">
                     {editingKey === v.key ? (
                       <Input
                         value={editValue}
@@ -326,7 +330,7 @@ export function EnvVarsTable({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-2.5 py-2.5 text-right sm:px-4">
                     {editingKey === v.key ? (
                       <div className="flex items-center justify-end gap-1">
                         <Button

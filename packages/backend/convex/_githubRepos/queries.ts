@@ -4,9 +4,11 @@ import { authQuery } from "../functions";
 import { githubRepoValidator } from "./helpers";
 
 export const list = authQuery({
-  args: {},
+  args: {
+    includeHidden: v.optional(v.boolean()),
+  },
   returns: v.array(githubRepoValidator),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userTeamMemberships = await ctx.db
       .query("teamMembers")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -17,9 +19,12 @@ export const list = authQuery({
     const allRepos = await ctx.db.query("githubRepos").collect();
 
     return allRepos.filter((repo) => {
-      if (repo.connectedBy === ctx.userId) return true;
-      if (repo.teamId && userTeamIds.has(repo.teamId)) return true;
-      return false;
+      const hasAccess =
+        repo.connectedBy === ctx.userId ||
+        (repo.teamId !== undefined && userTeamIds.has(repo.teamId));
+      if (!hasAccess) return false;
+      if (!args.includeHidden && repo.hidden === true) return false;
+      return true;
     });
   },
 });
@@ -58,7 +63,7 @@ export const getByOwnerAndName = authQuery({
   handler: async (ctx, args) => {
     const candidates = await ctx.db
       .query("githubRepos")
-      .withIndex("by_owner_name", (q) =>
+      .withIndex("by_owner_and_name", (q) =>
         q.eq("owner", args.owner).eq("name", args.name),
       )
       .collect();

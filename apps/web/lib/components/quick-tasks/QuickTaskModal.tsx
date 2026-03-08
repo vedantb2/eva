@@ -21,6 +21,7 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -122,6 +123,19 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
       resetForm();
     }
   };
+
+  const canSubmit = !isLoading && !!title.trim() && !!baseBranch;
+
+  useHotkey(
+    "Mod+Enter",
+    (e) => {
+      e.preventDefault();
+      if (canSubmit) {
+        handleSubmit();
+      }
+    },
+    { enabled: isOpen },
+  );
 
   return (
     <Dialog
@@ -249,12 +263,10 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             <Button variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading || !title.trim() || !baseBranch}
-            >
+            <Button onClick={handleSubmit} disabled={!canSubmit}>
               {isLoading && <Spinner size="sm" />}
               Create Task
+              <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
             </Button>
           </div>
         </DialogFooter>

@@ -1,7 +1,18 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import {
+  Button,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from "@conductor/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import {
   IconPlus,
@@ -9,9 +20,13 @@ import {
   IconLayoutKanban,
   IconList,
   IconFileImport,
+  IconFolder,
 } from "@tabler/icons-react";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@conductor/backend";
 
 type QuickTaskView = "kanban" | "list";
+type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 interface QuickTasksToolbarProps {
   view: QuickTaskView;
@@ -23,6 +38,9 @@ interface QuickTasksToolbarProps {
   onStartSelecting: () => void;
   onCreateTask: () => void;
   onImport: () => void;
+  projects: Project[] | undefined;
+  projectFilter: string;
+  onProjectFilterChange: (v: string) => void;
 }
 
 export function QuickTasksToolbar({
@@ -35,7 +53,17 @@ export function QuickTasksToolbar({
   onStartSelecting,
   onCreateTask,
   onImport,
+  projects,
+  projectFilter,
+  onProjectFilterChange,
 }: QuickTasksToolbarProps) {
+  const filterLabel =
+    projectFilter === "all"
+      ? "All Tasks"
+      : projectFilter === "none"
+        ? "No Project"
+        : (projects?.find((p) => p._id === projectFilter)?.title ?? "Project");
+
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <ToggleSearch
@@ -45,6 +73,43 @@ export function QuickTasksToolbar({
         tooltipLabel="Search tasks"
         visible={hasQuickTasks}
       />
+      {hasQuickTasks && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[120px] sm:max-w-[180px]"
+            >
+              <IconFolder size={16} />
+              <span className="truncate">{filterLabel}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup
+              value={projectFilter}
+              onValueChange={onProjectFilterChange}
+            >
+              <DropdownMenuRadioItem value="all">
+                All Tasks
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="none">
+                No Project
+              </DropdownMenuRadioItem>
+              {projects && projects.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  {projects.map((p) => (
+                    <DropdownMenuRadioItem key={p._id} value={p._id}>
+                      {p.title}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {hasQuickTasks && (
         <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <Tooltip>

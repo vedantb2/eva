@@ -101,7 +101,10 @@ export function BranchSelect({
           <IconChevronDown size={14} className="ml-2 opacity-60 shrink-0" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[min(320px,calc(100vw-2rem))] p-0"
+        align="start"
+      >
         <Command>
           <CommandInput
             placeholder="Search branches..."

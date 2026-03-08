@@ -20,6 +20,8 @@ import {
   setupBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  EPHEMERAL_LIFECYCLE,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
@@ -82,7 +84,7 @@ export const getPreviewUrl = action({
   },
 });
 
-const MAX_SETUP_ELAPSED_MS = 7 * 60 * 1000;
+const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 
 export const prepareSandbox = internalAction({
   args: {
@@ -101,12 +103,22 @@ export const prepareSandbox = internalAction({
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
+    const completedSteps: Array<{
+      type: string;
+      label: string;
+      status: string;
+    }> = [];
     const emitProgress = async (label: string): Promise<void> => {
       if (!args.streamingEntityId) return;
+      const steps = [
+        ...completedSteps,
+        { type: "tool", label, status: "active" },
+      ];
       await ctx.runMutation(internal.streaming.internalSet, {
         entityId: args.streamingEntityId,
-        currentActivity: JSON.stringify({ steps: [{ label }] }),
+        currentActivity: JSON.stringify(steps),
       });
+      completedSteps.push({ type: "tool", label, status: "complete" });
     };
 
     const setupStartedAt = Date.now();
@@ -119,7 +131,7 @@ export const prepareSandbox = internalAction({
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
-    const maxSetupAttempts = 2;
+    const maxSetupAttempts = 3;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {
@@ -141,6 +153,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            EPHEMERAL_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
             attachRunSandbox,
@@ -156,6 +169,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            SESSION_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
@@ -176,6 +190,11 @@ export const prepareSandbox = internalAction({
           );
           await exec(
             sandbox,
+            `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+            10,
+          );
+          await exec(
+            sandbox,
             `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
             30,
           );
@@ -183,7 +202,11 @@ export const prepareSandbox = internalAction({
 
         if (args.branchName) {
           await emitProgress("Setting up branch...");
-          await setupBranch(sandbox, args.branchName);
+          await setupBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch ?? "main",
+          );
         }
 
         if (args.startDesktop) {
@@ -214,6 +237,8 @@ export const prepareSandbox = internalAction({
           `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
+        completedSteps.length = 0;
+        await emitProgress("Retrying sandbox setup...");
         attempt += 1;
         sandbox = undefined;
         deleteSandboxOnFailure = false;
@@ -248,9 +273,21 @@ export const launchOnExistingSandbox = internalAction({
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
+    await exec(
+      sandbox,
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      10,
+    );
+
     const extraEnvVars: Record<string, string> = {};
     if (args.streamingEntityId) {
       extraEnvVars.STREAMING_ENTITY_ID = args.streamingEntityId;
+      const existing = await ctx.runQuery(internal.streaming.internalGet, {
+        entityId: args.streamingEntityId,
+      });
+      if (existing) {
+        extraEnvVars.PRIOR_STEPS = existing.currentActivity;
+      }
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;

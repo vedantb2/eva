@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
-import { projectValidator, projectSummaryValidator } from "./helpers";
+import {
+  projectWithDetailsValidator,
+  projectSummaryValidator,
+  getProjectConversation,
+  getProjectGeneratedSpec,
+} from "./helpers";
 
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -11,22 +16,26 @@ export const list = authQuery({
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return projects.map(
-      ({ conversationHistory: _, generatedSpec: _g, ...rest }) => rest,
-    );
+    return projects;
   },
 });
 
 export const get = authQuery({
   args: { id: v.id("projects") },
-  returns: v.union(projectValidator, v.null()),
+  returns: v.union(projectWithDetailsValidator, v.null()),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.id);
     if (!project) {
       return null;
     }
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) return null;
-    return project;
+    const conversationHistory = await getProjectConversation(ctx.db, args.id);
+    const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.id);
+    return {
+      ...project,
+      conversationHistory,
+      ...(generatedSpec !== undefined ? { generatedSpec } : {}),
+    };
   },
 });
 

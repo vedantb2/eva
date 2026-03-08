@@ -71,10 +71,10 @@ export function buildRunResultSummary(
   projectId: Id<"projects"> | undefined,
 ): string | undefined {
   if (!success) return undefined;
-  if (prUrl) return "Created project PR";
+  if (prUrl) return projectId ? "Created project PR" : "Created task PR";
   return projectId
     ? "Pushed commit to project branch"
-    : "Pushed commit to branch";
+    : "Pushed commit to task branch";
 }
 
 export async function finalizeRunStatus(

@@ -181,6 +181,25 @@ export const appendAuditToPullRequest = internalAction({
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 60_000;
 
+function toBranchPreviewUrl(
+  perCommitUrl: string,
+  branchName: string,
+): string | undefined {
+  try {
+    const parsed = new URL(perCommitUrl);
+    const match = parsed.hostname.match(
+      /^(.+)-[a-z0-9]{7,12}-(.+)\.vercel\.app$/,
+    );
+    if (!match) return undefined;
+    const [, project, team] = match;
+    const sanitizedBranch = branchName.replace(/\//g, "-");
+    parsed.hostname = `${project}-git-${sanitizedBranch}-${team}.vercel.app`;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 type DeploymentStatus = typeof deploymentStatusValidator.type;
 
 function mapGitHubDeploymentState(state: string): DeploymentStatus {
@@ -276,8 +295,11 @@ export const pollDeploymentStatus = internalAction({
 
       const latestStatus = statuses[0];
       const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
-      const deploymentUrl =
+      const rawUrl =
         latestStatus.environment_url || latestStatus.target_url || undefined;
+      const deploymentUrl =
+        (rawUrl ? toBranchPreviewUrl(rawUrl, args.branchName) : undefined) ??
+        rawUrl;
       console.log(
         `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"}`,
       );

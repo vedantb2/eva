@@ -42,7 +42,7 @@ export function ToggleSearch({
           transition={{ duration: 0.2 }}
           className="overflow-hidden"
         >
-          <div className="relative w-32 sm:w-44">
+          <div className="relative w-28 sm:w-32 md:w-44">
             <IconSearch
               size={14}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"

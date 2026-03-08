@@ -50,9 +50,11 @@ Question: ${message}
 Use Glob, Grep, Read to find information.
 
 Response rules:
-- 2-4 sentences max, PLAIN TEXT only (no markdown, headers, bullets, or code blocks)
 - Write for someone who does NOT know programming
-- If you mention a file, just say the filename without the full path${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- If you mention a file, just say the filename without the full path
+- Use markdown formatting: headers, bullet points, tables where they aid clarity
+- When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
+- Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(
@@ -161,21 +163,34 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: data.sandboxId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
+    let sandboxId: string;
+
+    if (data.sandboxId) {
+      sandboxId = data.sandboxId;
+    } else {
+      const prepared = await step.runAction(
+        internal.daytona.prepareSandbox,
+        {
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          baseBranch: data.baseBranch,
+          repoId: data.repoId,
+          sessionPersistenceId: args.sessionId,
+          startDesktop: true,
+          streamingEntityId: args.sessionId,
+        },
+        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      );
+      sandboxId = prepared.sandboxId;
+
+      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
+        sessionId: args.sessionId,
+        sandboxId,
         branchName: data.branchName,
-        repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
-        startDesktop: true,
-        streamingEntityId: args.sessionId,
-      },
-      { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-    );
+      });
+    }
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
@@ -188,15 +203,8 @@ export const sessionExecuteWorkflow = workflow.define({
       allowedTools: data.allowedTools,
       repoId: data.repoId,
       sessionPersistenceId: args.sessionId,
+      streamingEntityId: args.sessionId,
     });
-
-    if (sandboxId !== data.sandboxId) {
-      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
-        sessionId: args.sessionId,
-        sandboxId,
-        branchName: data.branchName,
-      });
-    }
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -265,6 +273,7 @@ export const getSessionData = internalQuery({
     repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.optional(v.string()),
+    baseBranch: v.string(),
     allowedTools: v.string(),
     model: v.string(),
   }),
@@ -280,7 +289,7 @@ export const getSessionData = internalQuery({
     const branchName =
       args.mode === "ask"
         ? undefined
-        : session.branchName || `session/${args.sessionId}`;
+        : session.branchName || `eva/session-${args.sessionId}`;
 
     const messages = await ctx.db
       .query("messages")
@@ -329,6 +338,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
       model: args.model,
     };

@@ -7,8 +7,8 @@ import { resolveEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import { getDaytona } from "./_daytona/helpers";
 
-const POLL_INTERVAL_MS = 30000;
-const MAX_POLLS = 40;
+const POLL_INTERVAL_MS = 60000;
+const MAX_POLLS = 30;
 const MAX_FIND_ATTEMPTS = 5;
 const GITHUB_API = "https://api.github.com";
 
@@ -273,7 +273,7 @@ export const pollWorkflowRun = internalAction({
           status: "error",
           logs: `[Poll ${args.attempt}] Max poll attempts reached.\n`,
           error:
-            "Snapshot build did not complete within polling window (~20 minutes)",
+            "Snapshot build did not complete within polling window (~30 minutes)",
         });
         return null;
       }

@@ -8,6 +8,11 @@ import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  getProjectConversation,
+  setProjectConversation,
+  setProjectGeneratedSpec,
+} from "./_projects/helpers";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
@@ -173,12 +178,11 @@ export const addEmptyAssistant = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
-    await ctx.db.patch(args.projectId, {
-      conversationHistory: [
-        ...project.conversationHistory,
-        { role: "assistant", content: "", activityLog: "" },
-      ],
-    });
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+    await setProjectConversation(ctx.db, args.projectId, [
+      ...conversation,
+      { role: "assistant", content: "", activityLog: "" },
+    ]);
     return null;
   },
 });
@@ -198,14 +202,16 @@ export const saveResult = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+
     if (!args.success || !args.result) {
       const messages = updateLastConversationEntry(
-        project.conversationHistory,
+        conversation,
         JSON.stringify({ error: true }),
         args.activityLog,
       );
+      await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
-        conversationHistory: messages,
         activeWorkflowId: undefined,
         lastSandboxActivity: Date.now(),
       });
@@ -215,12 +221,12 @@ export const saveResult = internalMutation({
     const { json } = llmJson.extract(args.result);
     if (json.length === 0) {
       const messages = updateLastConversationEntry(
-        project.conversationHistory,
+        conversation,
         JSON.stringify({ error: true }),
         args.activityLog,
       );
+      await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
-        conversationHistory: messages,
         activeWorkflowId: undefined,
         lastSandboxActivity: Date.now(),
       });
@@ -228,12 +234,12 @@ export const saveResult = internalMutation({
     }
 
     const messages = updateLastConversationEntry(
-      project.conversationHistory,
+      conversation,
       JSON.stringify(json[0]),
       args.activityLog,
     );
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });
@@ -452,18 +458,20 @@ export const saveSpecResult = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+
     if (args.success && args.result) {
       const { json } = llmJson.extract(args.result);
       if (json.length > 0) {
         const specJson = JSON.stringify(json[0]);
         const messages = updateLastConversationEntry(
-          project.conversationHistory,
+          conversation,
           specJson,
           args.activityLog,
         );
+        await setProjectConversation(ctx.db, args.projectId, messages);
+        await setProjectGeneratedSpec(ctx.db, args.projectId, specJson);
         await ctx.db.patch(args.projectId, {
-          conversationHistory: messages,
-          generatedSpec: specJson,
           phase: "finalized",
           activeWorkflowId: undefined,
           lastSandboxActivity: Date.now(),
@@ -473,12 +481,12 @@ export const saveSpecResult = internalMutation({
     }
 
     const messages = updateLastConversationEntry(
-      project.conversationHistory,
+      conversation,
       JSON.stringify({ error: true }),
       args.activityLog,
     );
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });

@@ -10,9 +10,11 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 
 const CHAT_DEFAULT_SIZE = "30%";
-const CHAT_MIN_EXPANDED_WIDTH_PX = 450;
+const CHAT_MIN_EXPANDED_WIDTH_PX = 320;
+const SANDBOX_MIN_WIDTH_PX = 300;
 
 export function SessionDetailClient({
   sessionId,
@@ -30,9 +32,10 @@ export function SessionDetailClient({
   });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
-  const [isSandboxToggling, setIsSandboxToggling] = useState(false);
-  const chatPanelRef = usePanelRef();
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const isSandboxStarting = session?.status === "starting";
+  const [isStopPending, setIsStopPending] = useState(false);
+  const sandboxPanelRef = usePanelRef();
+  const [sandboxCollapsed, setSandboxCollapsed] = useState(false);
   const [previewInfo, setPreviewInfo] = useState<{
     url: string;
     port: number;
@@ -41,30 +44,31 @@ export function SessionDetailClient({
     (info: { url: string; port: number } | null) => setPreviewInfo(info),
     [],
   );
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
-  const handleChatToggle = () => {
-    if (chatCollapsed) {
-      chatPanelRef.current?.expand();
-      setChatCollapsed(false);
+  const handleSandboxPanelToggle = () => {
+    if (sandboxCollapsed) {
+      sandboxPanelRef.current?.expand();
+      setSandboxCollapsed(false);
     } else {
-      chatPanelRef.current?.collapse();
-      setChatCollapsed(true);
+      sandboxPanelRef.current?.collapse();
+      setSandboxCollapsed(true);
     }
   };
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
-    setIsSandboxToggling(true);
-    try {
-      if (action === "start") {
-        await startSandboxMutation({
-          sessionId,
-          installationId,
-        });
-      } else {
+    if (action === "start") {
+      await startSandboxMutation({
+        sessionId,
+        installationId,
+      });
+    } else {
+      setIsStopPending(true);
+      try {
         await stopSandboxMutation({ sessionId });
+      } finally {
+        setIsStopPending(false);
       }
-    } finally {
-      setIsSandboxToggling(false);
     }
   };
 
@@ -90,54 +94,81 @@ export function SessionDetailClient({
 
   const isSandboxActive = session.status === "active";
 
+  const chatPanel = (
+    <ChatPanel
+      sessionId={sessionId}
+      title={session.title}
+      branchName={session.branchName}
+      prUrl={session.prUrl}
+      summary={session.summary}
+      messages={messages ?? []}
+      planContent={session.planContent}
+      streamingActivity={streaming?.currentActivity}
+      summaryStreamingActivity={summaryStreaming?.currentActivity}
+      isSandboxActive={isSandboxActive}
+      isSandboxToggling={isSandboxStarting || isStopPending}
+      onSandboxToggle={handleSandboxToggle}
+      isArchived={session.archived === true}
+      previewUrl={previewInfo?.url}
+      sandboxCollapsed={sandboxCollapsed}
+      onToggleSandbox={handleSandboxPanelToggle}
+    />
+  );
+
+  const sandboxPanel = (
+    <SandboxPanel
+      sessionId={sessionId}
+      sandboxId={session.sandboxId}
+      isActive={isSandboxActive}
+      repoId={session.repoId}
+      devPort={session.devPort}
+      devCommand={session.devCommand}
+      previewInfo={previewInfo}
+      onPreviewInfoChange={handlePreviewInfoChange}
+      vncEnabled={repo.sessionsVncEnabled !== false}
+      vscodeEnabled={repo.sessionsVscodeEnabled !== false}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className={sandboxCollapsed ? "flex-1 min-h-0" : "h-1/2 min-h-0"}>
+          {chatPanel}
+        </div>
+        {!sandboxCollapsed && (
+          <>
+            <div className="h-px bg-border shrink-0" />
+            <div className="h-1/2 min-h-0">{sandboxPanel}</div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Group orientation="horizontal" className="h-full">
       <Panel
-        collapsible
-        collapsedSize={0}
         defaultSize={CHAT_DEFAULT_SIZE}
         minSize={CHAT_MIN_EXPANDED_WIDTH_PX}
-        panelRef={chatPanelRef}
       >
-        <ChatPanel
-          sessionId={sessionId}
-          title={session.title}
-          branchName={session.branchName}
-          prUrl={session.prUrl}
-          summary={session.summary}
-          messages={messages ?? []}
-          planContent={session.planContent}
-          streamingActivity={streaming?.currentActivity}
-          summaryStreamingActivity={summaryStreaming?.currentActivity}
-          isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxToggling}
-          onSandboxToggle={handleSandboxToggle}
-          isArchived={session.archived === true}
-          previewUrl={previewInfo?.url}
-        />
+        {chatPanel}
       </Panel>
       <Separator
-        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${chatCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${sandboxCollapsed ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />
         </div>
       </Separator>
-      <Panel defaultSize="60%" minSize={400}>
-        <SandboxPanel
-          sessionId={sessionId}
-          sandboxId={session.sandboxId}
-          isActive={isSandboxActive}
-          chatVisible={!chatCollapsed}
-          onToggleChat={handleChatToggle}
-          repoId={session.repoId}
-          devPort={session.devPort}
-          devCommand={session.devCommand}
-          previewInfo={previewInfo}
-          onPreviewInfoChange={handlePreviewInfoChange}
-          vncEnabled={repo.sessionsVncEnabled !== false}
-          vscodeEnabled={repo.sessionsVscodeEnabled !== false}
-        />
+      <Panel
+        collapsible
+        collapsedSize={0}
+        defaultSize="60%"
+        minSize={SANDBOX_MIN_WIDTH_PX}
+        panelRef={sandboxPanelRef}
+      >
+        {sandboxPanel}
       </Panel>
     </Group>
   );

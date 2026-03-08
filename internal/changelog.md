@@ -1,15 +1,219 @@
 # Changelog
 
+## Proof of completion carousel — 2026-03-08
+
+Added an Embla-based carousel (shadcn pattern) to the task detail proof section. When a task has multiple screenshots/videos, they are now shown in a swipeable carousel with prev/next buttons and dot indicators, instead of a vertical stack. Single media items render normally without carousel chrome.
+
+- New `Carousel` component in `packages/ui` (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, CarouselDots)
+- Updated `useTaskDetail.tsx` proof section to separate media vs message proofs and wrap media in the carousel
+## Move active tasks indicator from sidebar bottom to Quick Tasks tab badge — 2026-03-08
+
+- **Why**: The active tasks component at the bottom of the sidebar was disconnected from where tasks live. Moving it inline as a badge on the Quick Tasks nav item provides better context and discoverability.
+- **Changes**: Replaced the standalone `ActiveTasksPopover` at sidebar bottom with an `ActiveTasksBadge` that renders inline on the Quick Tasks nav item — shows a glowing green dot + "{count} live" text, with the same hover popover for task details.
+
+## Fix git checkout failures due to dirty working tree — 2026-03-08
+
+- **Why**: `git checkout` was aborting when auto-generated files (e.g. `next-env.d.ts`) existed as local changes in the sandbox, causing tasks and sessions to fail during branch setup.
+- **Changes**: Added `git stash --include-untracked` before checkout in `checkoutSessionBranch` and `prepareSandbox` base-branch checkout. The `setupBranch` function already had this — now all checkout paths are consistent.
+- **Reason**: Sandboxes that are reused across runs can accumulate untracked/modified files from previous executions. Stashing ensures branch switches always succeed.
+
+## Fix Build Project button disabled state & branch sync — 2026-03-08
+
+- **Why**: Build Project button stayed clickable after starting a build, and project branches fell behind their base branch (e.g. 80 commits behind main).
+- **Changes**:
+  - Build Project button now also disables when `activeBuildWorkflowId` is set (active build running), not just when a build is scheduled. Dialog button disables during mutation.
+  - `setupBranch` in git.ts now fast-forwards from `origin/{branch}` and merges `origin/{baseBranch}` after checkout. This ensures project branches incorporate latest base branch commits before each task execution — matching how quick tasks always branch from the latest base.
+- **Reason**: Button disabled condition was incomplete — only checked `scheduledBuildAt`, missing `activeBuildWorkflowId`. Branch sync only did `git fetch` + `git checkout` without merging base, so existing project branches never picked up new base commits.
+
+## Eva config: richer ask-mode responses + LSP tool enabled — 2026-03-08
+
+### Summary
+
+Two improvements to Eva's session configuration:
+
+1. **Ask mode now supports rich markdown and mermaid diagrams** — previously ask mode was restricted to plain text. Non-technical users benefit more from visual diagrams (flow charts, architecture diagrams) than prose, so the system prompt now encourages mermaid blocks for architecture/data flow explanations while keeping language jargon-free.
+
+2. **`ENABLE_LSP_TOOL=true` added to all sandbox launches** — Claude Code defaults to text-grep for code navigation. Setting this flag connects it to language servers (LSP), enabling "jump to definition"-style lookups that are significantly faster and more accurate for finding functions and symbols across the codebase.
+
+## Per-context sandbox lifecycle management — 2026-03-08
+
+Behavior per context:
+
+┌──────────────────┬───────────┬─────────────────────┬───────────┐
+│ Context │ autoStop │ autoDelete │ ephemeral │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Quick tasks │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Snapshot warming │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Design sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Project tasks │ 30 min │ 30 min │ false │
+└──────────────────┴───────────┴─────────────────────┴───────────┘
+
+- **Why**: Tasks running >15 minutes were killed by the watchdog ("no heartbeat for 180s"). Root cause: a single `autoStopInterval: 15` on all sandbox creation meant Daytona auto-stopped sandboxes after 15 min of no SDK API calls. Background scripts (`nohup`) don't count as activity per Daytona docs, so sandboxes appeared idle immediately after launch.
+- **Changes**: Introduced `SandboxLifecycle` type with two presets — `EPHEMERAL_LIFECYCLE` (autoStop=0, ephemeral=true for tasks/warming) and `SESSION_LIFECYCLE` (autoStop=30, autoDelete=30 for sessions/projects/design). Threaded lifecycle config through `createSandbox` → `createSandboxAndPrepareRepo` → `getOrCreateSandbox`. Also consolidated retry logic (90s per-call timeout on `daytona.create()`, 3 attempts/12min budget).
+- **Reason**: Different sandbox contexts have conflicting needs. Ephemeral tasks need no auto-stop (background script, cleaned up by our code). Sessions benefit from 30-min auto-stop since preview URL access resets the timer. Using Daytona's `ephemeral: true` flag auto-deletes ephemeral sandboxes on stop as a safety net.
+
+## Quick Tasks UI revamp (follow-up polish) — 2026-03-08
+
+- **Why**: Reviewer feedback on the tab-based task detail UI needed addressing.
+- **Changes**:
+  - Removed section titles inside each tab (Activity, Proof of Completion, etc.) — redundant with tab labels
+  - Added icons to tab triggers (Terminal, Photo, Shield, Message) reusing existing tabler icons
+  - Modal hides tabs column for "todo" status tasks unless content exists in any tab
+  - Comments textarea no longer sends on Enter — only the send button submits
+  - Reverted task card list width back to original 20%/30% split
+- **Reason**: Polish pass based on reviewer feedback to reduce redundancy and fix UX issues.
+
+## Quick Tasks UI revamp — 2026-03-08
+
+- **Why**: Task detail views stacked all content vertically (activity, proof, audit) making it hard to find specific sections. Request changes opened a 4th column in the modal which was awkward. Task cards showed redundant description text.
+- **Changes**:
+  - Removed description from task list cards (QuickTaskCard) — title is sufficient for scanning
+  - Added 4-tab system (Activity, Proof, Audit, Comments) to both inline and modal detail views — Activity is default tab
+  - In the modal, tabs appear in the 2nd column; in the inline view, tabs appear under the description/subtasks
+  - Request Changes button now switches to Comments tab instead of opening a separate panel/column
+  - Comments tab shows existing comments with delete option and a form that auto-runs Eva on submit when changes are requestable
+  - Bumped task card list width from 20%/30% to 28%/35% for better readability
+- **Reason**: Consolidating content into tabs reduces visual clutter and makes it easier to navigate between sections. Moving request changes into comments is more natural UX.
+
+## Extract shared ScheduleDateTimePicker component — 2026-03-08
+
+- **Why**: The schedule time input crashed with `TypeError: .second is not a function` when typing partial time values (e.g. "0"). The `SchedulePopover` had a fix for this (validating `parts.length` and `NaN`), but `ScheduleTasksModal` and `ScheduleBuildPopover` didn't, causing the error in the quick-tasks bulk schedule flow.
+- **Changes**:
+  - Created `ScheduleDateTimePicker` component with `useScheduleDateTime` hook and `ScheduleDateTimeActions` — shared calendar + time input with proper input validation
+  - Refactored `SchedulePopover`, `ScheduleBuildPopover`, and `ScheduleTasksModal` to use the shared component
+- **Reason**: Three components duplicated the same date-time picking logic. Extracting it ensures the validation fix is applied everywhere and prevents future drift.
+
+## Convex rules audit: index naming & filter cleanup — 2026-03-08
+
+- **Why**: Convex rules require index names to include all field names (with "and" for multi-field), and `.filter()` on queries should be replaced with `.withIndex()` for indexed lookups.
+- **Changes**:
+  - Renamed `by_owner_name` → `by_owner_and_name` on `githubRepos` (multi-field index missing "and")
+  - Renamed `by_repoId` → `by_repo` on `repoSnapshots` (consistency with codebase convention)
+  - Renamed `by_repoSnapshotId` → `by_repo_snapshot` on `snapshotBuilds` (consistency)
+  - Added composite index `by_repo_snapshot_and_status` on `snapshotBuilds` — eliminates `.filter()` in `getRepoSnapshotName`
+  - Added composite index `by_task_and_depends_on` on `taskDependencies` — eliminates `.filter()` in `add` and `removeByTasks`
+  - Added composite index `by_team_and_role` on `teamMembers` — eliminates `.filter()` in `remove` (last-owner check)
+  - Updated all 10 call sites referencing renamed indexes
+- **Reason**: Enforcing Convex best practices — indexed queries over `.filter()` for performance, consistent naming conventions.
+
+## Database bandwidth optimization — 2026-03-08
+
+- **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.
+- **Changes**:
+  - Added `by_repo_and_status` and `by_repo_and_updatedAt` indexes to `agentTasks` — eliminates full table scans in `getActiveTasks` and JS status filtering in `getAllTasks`
+  - `getActiveTasks` now queries per-repo per-status via compound index instead of scanning entire `agentTasks` table
+  - `getAllTasks` queries 6 non-draft statuses individually via compound index instead of collecting all and filtering
+  - `analytics.getImpactStats` uses `by_repo_and_updatedAt` range query for time-filtered tasks instead of JS filtering after full collect
+  - Removed `projects.get` subscription from `ProjectCard` — each card was fetching the full project doc (including heavy `conversationHistory`) just for participant avatars. Now uses `members`/`projectLead` from the lightweight list data
+  - Moved `conversationHistory` and `generatedSpec` from `projects` table to new `projectDetails` table — `projects.list` no longer reads these heavy fields from the DB. `projects.get` joins them back for detail views.
+- **Reason**: Convex rule "Do NOT use filter in queries — use withIndex instead" was violated in multiple high-traffic functions. The `projects` table carried unbounded conversation data that was read on every list query even though it was stripped before returning.
+
+## Mobile responsiveness audit (deep pass) — 2026-03-07
+
+- **Why**: Many pages and components had fixed widths, missing responsive breakpoints, and overflow issues that made the platform difficult to use on phones and tablets.
+- **Changes**:
+  - Quick Tasks: Split view now uses sm breakpoint instead of md for earlier stacking, filter button max-width tightened, card padding reduced on mobile, kanban columns use 75vw snap width
+  - Sessions: Added useMediaQuery hook; mobile devices now get vertical stack layout instead of resizable horizontal panels; summary accordion and plan content padding responsive; prompt input area tighter on mobile
+  - Designs: Chat panel gets max-h-50vh on mobile to share space with preview, min-width reduced for medium screens, preview panel header wraps on small screens, footer gap/padding responsive, persona dialogs width-capped to viewport
+  - Testing Arena: Test run list max-height tuned for mobile, test detail padding responsive (px-4 → sm:px-10), header padding tighter, branch select narrower on small screens
+  - Settings: Config card padding responsive, snapshots table min-width reduced on mobile (360px), table cell padding tighter (px-2 → sm:px-4), logs summary grid gap responsive
+  - Shared: Main sidebar width capped to prevent overflow on very small screens (min of 16rem, 100vw-3rem), mobile header padding responsive, SidebarLayoutWrapper mobile drawer capped to 100vw-2rem, ChatPageWrapper header gap and wrap improved, KanbanBoard columns use 75vw for better mobile snapping, TaskDetailInline gap responsive, TaskDetailModal gets w-full for mobile constraint
+  - Added `useMediaQuery` hook for responsive layout switching
+- **Reason for change**: Mobile-first accessibility audit across quick tasks, sessions, designs, documents, testing arena, inbox, stats, and settings pages.
+
+## Replace JWT auth with HMAC for sandbox streaming heartbeats — 2026-03-07
+
+- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s"). Root cause: the callback script's `streaming:set` calls used `authMutation` which requires JWT validation + user DB lookup on every call. Convex's auth layer intermittently fails (confirmed by `presence:disconnect` throwing "Not authenticated" every ~10s). Since heartbeat errors were silently swallowed, heartbeats died for 180s and the watchdog killed the run.
+- **Changes**:
+  1. Added `POST /api/streaming/heartbeat` HTTP endpoint in `http.ts` that validates via HMAC instead of JWT.
+  2. HMAC is computed server-side (`signAndLaunchScript`) as `HMAC-SHA256(ENCRYPTION_KEY, entityId)` — scoped to one streaming entity, unforgeable without the secret.
+  3. Callback script now calls the HMAC endpoint for all streaming writes (heartbeats, flush, finalization).
+  4. Falls back to old `streaming:set` authMutation if HMAC env vars aren't set.
+  5. Added retry + error logging to heartbeat/flush paths.
+  6. Fixed missing `customTheme` field in `getUserByClerkId` return validator.
+- **Reason for change**: JWT auth is inherently fragile for high-frequency calls from sandboxes. HMAC eliminates the entire auth chain (JWT parsing, signature verification, user DB lookup) from the heartbeat path.
+
+## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
+
+- **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
+- **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
+
+## Split post-execution audit into 3 individual toggles — 2026-03-07
+
+- **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.
+- **Changes**:
+  1. Added `accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled` fields to `githubRepos` schema (all default to true via `!== false`).
+  2. Updated `updateConfig` mutation, `getTaskData` query, and workflow definition to pass individual flags.
+  3. `buildAuditPrompt` now dynamically builds the prompt based on which audits are enabled.
+  4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
+  5. Task detail audit display filters out empty sections (disabled audits won't render).
+- **Reason for change**: Granular control over audit types, extensibility for future audit additions.
+
+## Hide/show repositories and monorepo apps — 2026-03-07
+
+- **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
+- **Changes**:
+  1. Added `hidden` optional boolean field to `githubRepos` schema and validator.
+  2. `list` query now accepts optional `includeHidden` arg — defaults to filtering out hidden repos. Management pages (monorepo settings, team detail) pass `includeHidden: true`.
+  3. Added `toggleHidden` mutation for setting visibility.
+  4. RepoCard dropdown now has a "Hide" option.
+  5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
+  6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+  7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
+
+## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
+
+- **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.
+- **Changes**: Made the sandbox (right) panel collapsible instead of the chat panel. Moved the collapse/expand button from the SandboxPanel tab switcher header to the ChatPanel header actions area. Uses right-sidebar collapse/expand icons to match the panel direction.
+
+## Dismiss Daytona preview warning for all iframes — 2026-03-07
+
+- **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.
+- **Changes**: Created `dismissDaytonaWarning` utility that sends a `HEAD` request with `X-Daytona-Skip-Preview-Warning: true` header before loading each iframe. Applied to all 4 preview surfaces: SandboxPanel (web), EditorPanel (VS Code), DesktopPanel (VNC), and DesignDetailClient (design). Uses an in-memory Set to avoid redundant requests per origin.
+
+## Fix: new sessions no longer auto-appear as sandbox running — 2026-03-07
+
+- **Why**: Creating a new session or design session set `status: "active"`, which the frontend interpreted as "sandbox is running". This caused the UI to show sandbox-active state (spinners, no "Start" button) even though no sandbox had been started.
+- **Changes**: Changed initial status from `"active"` to `"closed"` in both `_sessions/mutations.ts` (sessions) and `designSessions.ts` (design sessions) create mutations. Status only becomes `"active"` when `sandboxReady` is called after a real sandbox starts.
+
+## Instant sandbox start feedback + unified design/session button — 2026-03-07
+
+- **Why**: Clicking "Start" on a session or design sandbox gave no feedback for ~30 seconds until the sandbox was fully ready. The design page also used a different button pattern from sessions.
+- **Changes**:
+  1. Added `"starting"` to `sessionStatusValidator` — used by both `sessions` and `designSessions` tables.
+  2. `startSandbox` mutations (sessions + design) now set `status: "starting"` immediately before scheduling the background action, so the UI reflects the state change instantly.
+  3. Session UI derives `isSandboxStarting` from `session.status === "starting"` instead of local `useState` — the spinner is now driven by the database, surviving page refreshes.
+  4. Design page button replaced with the same icon-button pattern as sessions (play/stop icon, destructive variant when active, spinner when toggling).
+- **Reason for change**: Immediate visual feedback on start. Consistent button UX across sessions and design pages.
+
+## Show all tasks on Quick Tasks page with project filter — 2026-03-07
+
+- **Why**: Quick Tasks page only showed orphan tasks (no project). Tasks assigned to projects were hidden, making it impossible to see all tasks in one place or filter by project.
+- **Changes**:
+  1. Removed `!t.projectId` filter from QuickTasksClient, QuickTasksListView, and QuickTasksKanbanBoard — all tasks now show by default.
+  2. Added `projectFilterParser` nuqs param with values: "all" (default), "none" (orphan tasks only), or a specific project ID.
+  3. Added project filter dropdown to QuickTasksToolbar showing all repo projects.
+  4. Added `projectName` badge on QuickTaskCard for tasks belonging to a project.
+  5. Centralized task filtering in QuickTasksClient — child views now receive pre-filtered tasks as props instead of re-querying.
+- **Reason for change**: Visibility. Users need to see all tasks regardless of project membership, with the ability to filter by project.
+
 ## Add granular streaming progress during sandbox setup — 2026-03-07
 
-- **Why**: When `prepareSandbox` runs (creating sandbox, cloning repo, installing deps, setting up branch), users saw "Starting sandbox..." for up to 5 minutes with no feedback. This made it impossible to tell what was happening or where time was being spent.
+## Streaming progress: setup steps + callback script continuity — 2026-03-07
+
+- **Why**: Three problems: (1) Users saw "Starting sandbox..." for up to 5 minutes with no feedback during `prepareSandbox`. (2) The progress format was `{steps:[{label}]}` which `parseActivitySteps` didn't recognize, so it rendered as raw JSON. (3) When the callback script started, it overwrote all setup progress with a fresh `["Starting Claude..."]`, losing the history.
 - **Changes**:
-  1. Added `streamingEntityId` arg to `prepareSandbox` action. When provided, emits progress updates to the `streamingActivity` table via `internalSet` mutation.
-  2. Added `onProgress` callbacks to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts` — milestones include "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Retrying sandbox creation...".
-  3. Added progress for branch setup ("Setting up branch...", "Fetching base branch...") and desktop start ("Starting desktop...") in `prepareSandbox`.
-  4. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
-  5. Added `internalSet` mutation to `streaming.ts` for server-side progress writes.
-- **Reason for change**: User experience. Granular progress during the slowest phase of task execution gives users visibility into what's happening and helps diagnose where time is spent.
+  1. **Setup progress** — Added `streamingEntityId` arg to `prepareSandbox`. Emits progress via `internalSet` mutation at each milestone: "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Fetching base branch...", "Setting up branch...", "Starting desktop...", "Retrying sandbox setup...".
+  2. **Correct format** — `emitProgress` now emits the `ActivityStep[]` format (`[{type, label, status}]`) that the frontend parser expects, with accumulated completed steps + one active step. On retry, the step history resets.
+  3. **Continuity with callback script** — `launchOnExistingSandbox` reads the current streaming activity via `internalGet` query and passes it as `PRIOR_STEPS` env var. The callback script reads `PRIOR_STEPS` on startup and initializes `accumulatedSteps` from it, so setup steps appear as completed before "Starting Claude..." begins.
+  4. **Supporting infrastructure** — Added `internalGet` query and `internalSet` mutation to `streaming.ts`. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
+  5. **`onProgress` callbacks** — Added to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts`.
+- **Reason for change**: Users now see one continuous chain of steps from sandbox creation through Claude execution, all rendered by the same `ActivitySteps` component.
 
 ## Split (main) into (global) + (repo) route groups — 2026-03-07
 

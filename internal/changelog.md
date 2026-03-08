@@ -1,5 +1,15 @@
 # Changelog
 
+## Eva config: richer ask-mode responses + LSP tool enabled — 2026-03-08
+
+### Summary
+
+Two improvements to Eva's session configuration:
+
+1. **Ask mode now supports rich markdown and mermaid diagrams** — previously ask mode was restricted to plain text. Non-technical users benefit more from visual diagrams (flow charts, architecture diagrams) than prose, so the system prompt now encourages mermaid blocks for architecture/data flow explanations while keeping language jargon-free.
+
+2. **`ENABLE_LSP_TOOL=true` added to all sandbox launches** — Claude Code defaults to text-grep for code navigation. Setting this flag connects it to language servers (LSP), enabling "jump to definition"-style lookups that are significantly faster and more accurate for finding functions and symbols across the codebase.
+
 ## Per-context sandbox lifecycle management — 2026-03-08
 
 Behavior per context:

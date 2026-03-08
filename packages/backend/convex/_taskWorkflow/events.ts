@@ -23,3 +23,12 @@ export const auditCompleteEvent = defineEvent({
     error: v.union(v.string(), v.null()),
   }),
 });
+
+export const auditFixCompleteEvent = defineEvent({
+  name: "auditFixComplete",
+  validator: v.object({
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+  }),
+});

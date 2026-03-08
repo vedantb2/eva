@@ -112,3 +112,81 @@ Return ONLY valid JSON in this exact format:
 ## Git Diff:
 ${diff.slice(0, 30000)}`;
 }
+
+export type AuditFailure = {
+  section: string;
+  requirement: string;
+  detail: string;
+};
+
+export function getAuditFailures(resultStr: string): AuditFailure[] {
+  try {
+    const codeBlockMatch = resultStr.match(
+      /```(?:json)?\s*\n?([\s\S]*?)\n?```/,
+    );
+    const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : resultStr;
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+    const parsed = JSON.parse(jsonMatch[0]) as Record<
+      string,
+      Array<{ requirement: string; passed: boolean; detail: string }>
+    >;
+
+    const failures: AuditFailure[] = [];
+    const sections = ["accessibility", "testing", "codeReview"] as const;
+    for (const section of sections) {
+      const items = parsed[section];
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (
+          item &&
+          typeof item.passed === "boolean" &&
+          !item.passed &&
+          typeof item.requirement === "string" &&
+          typeof item.detail === "string"
+        ) {
+          failures.push({
+            section,
+            requirement: item.requirement,
+            detail: item.detail,
+          });
+        }
+      }
+    }
+    return failures;
+  } catch {
+    return [];
+  }
+}
+
+export function buildAuditFixPrompt(
+  failures: AuditFailure[],
+  branchName: string,
+): string {
+  const failureList = failures
+    .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
+    .join("\n");
+
+  const summary = failures.map((f) => f.requirement).join(", ");
+  const commitMsg = `audit: fix ${summary}`.slice(0, 120);
+
+  return `You are a code fixer. An automated audit found the following issues in the codebase. Fix ALL of them.
+
+## Failing Audit Items:
+${failureList}
+
+## Instructions:
+1. Read the relevant source files and fix each failing item listed above
+2. For accessibility issues: add missing ARIA attributes, alt text, keyboard handlers, form labels, etc.
+3. For testing issues: add or update tests as needed
+4. For code review issues: fix bugs, security issues, naming, error handling, etc.
+5. After fixing all issues, stage and commit:
+   cd ${WORKSPACE_DIR} && git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMsg}"
+6. Push: git push origin ${branchName}
+
+## Rules:
+- Only fix what the audit flagged — do not refactor unrelated code
+- Keep changes minimal and focused
+- Do NOT create new files unless absolutely necessary
+- Prefix shell commands with \`timeout <seconds>\``;
+}

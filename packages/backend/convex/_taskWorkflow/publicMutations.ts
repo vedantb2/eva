@@ -4,7 +4,11 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { claudeModelValidator } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  auditFixCompleteEvent,
+} from "./events";
 import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
@@ -116,6 +120,46 @@ export const handleAuditCompletion = authMutation({
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
+        rawResultEvent: args.rawResultEvent,
+        repoId: task.repoId,
+        createdAt: Date.now(),
+      });
+    }
+
+    return null;
+  },
+});
+
+export const handleAuditFixCompletion = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.optional(v.id("agentRuns")),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task?.activeWorkflowId) return null;
+
+    await workflow.sendEvent(ctx, {
+      ...auditFixCompleteEvent,
+      workflowId: task.activeWorkflowId as WorkflowId,
+      value: {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+      },
+    });
+
+    if (task.repoId) {
+      await ctx.db.insert("logs", {
+        entityType: "taskAudit",
+        entityId: String(args.taskId),
+        entityTitle: `Audit Fix: ${task.title}`,
         rawResultEvent: args.rawResultEvent,
         repoId: task.repoId,
         createdAt: Date.now(),

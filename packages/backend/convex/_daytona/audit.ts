@@ -69,6 +69,41 @@ export const launchAudit = internalAction({
   },
 });
 
+export const launchAuditFix = internalAction({
+  args: {
+    sandboxId: v.string(),
+    prompt: v.string(),
+    taskId: v.string(),
+    runId: v.id("agentRuns"),
+    userId: v.id("users"),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    await signAndLaunchScript(
+      ctx,
+      sandbox,
+      args.userId,
+      args.prompt,
+      "taskWorkflow:handleAuditFixCompletion",
+      "taskId",
+      args.taskId,
+      {
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        extraEnvVars: {
+          STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
+          RUN_ID: String(args.runId),
+        },
+      },
+    );
+
+    return null;
+  },
+});
+
 export const runSessionAudit = internalAction({
   args: {
     sessionId: v.id("sessions"),

@@ -20,6 +20,7 @@ export const getTaskData = internalQuery({
     hasSubtasks: v.boolean(),
     appLabel: v.optional(v.string()),
     postAuditEnabled: v.boolean(),
+    rootDirectory: v.string(),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -78,6 +79,7 @@ export const getTaskData = internalQuery({
       hasSubtasks: sortedSubtasks.length > 0,
       appLabel,
       postAuditEnabled: repo.postAuditEnabled !== false,
+      rootDirectory,
     };
   },
 });

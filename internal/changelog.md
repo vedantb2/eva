@@ -1,5 +1,18 @@
 # Changelog
 
+## Post-audit auto-fix: audit now fixes failing checks, commits, and pushes — 2026-03-08
+
+- **Why**: The post-execution audit previously only identified issues (accessibility, testing, code review) but didn't take action. Users had to manually fix audit failures, which defeated the purpose of automated quality checks.
+- **Changes**:
+  1. Added `auditFixCompleteEvent` workflow event for the fix step lifecycle.
+  2. Added `getAuditFailures()` helper to parse audit JSON and extract failing items.
+  3. Added `buildAuditFixPrompt()` that instructs Claude (sonnet) to fix each failing audit item, commit with `audit: fix <details>`, and push to the branch.
+  4. Added `launchAuditFix` action in `_daytona/audit.ts` — launches Claude with full edit tools (Read, Write, Edit, Bash, Glob, Grep) on the existing sandbox.
+  5. Added `handleAuditFixCompletion` callback handler in `publicMutations.ts`.
+  6. Updated `workflowDefinition.ts` to check audit results for failures and launch the fix step before appending audit results to the PR.
+  7. Added `rootDirectory` to `getTaskData` query return for future use.
+- **Reason for change**: Closes the loop on automated quality — audit issues are now automatically remediated instead of just reported.
+
 ## Carousel for multiple proof-of-completion screenshots/videos — 2026-03-08
 
 - **Why**: When tasks had multiple proof screenshots or videos, they were stacked vertically taking up excessive space. Users had no quick way to browse through proofs.

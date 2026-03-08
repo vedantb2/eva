@@ -40,7 +40,6 @@ export async function launchScript(
     `CLAUDE_MODEL=${opts.model ?? "opus"}`,
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
-    `ENABLE_LSP_TOOL=true`,
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

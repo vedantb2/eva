@@ -1,5 +1,13 @@
 # Changelog
 
+## Extract shared ScheduleDateTimePicker component — 2026-03-08
+
+- **Why**: The schedule time input crashed with `TypeError: .second is not a function` when typing partial time values (e.g. "0"). The `SchedulePopover` had a fix for this (validating `parts.length` and `NaN`), but `ScheduleTasksModal` and `ScheduleBuildPopover` didn't, causing the error in the quick-tasks bulk schedule flow.
+- **Changes**:
+  - Created `ScheduleDateTimePicker` component with `useScheduleDateTime` hook and `ScheduleDateTimeActions` — shared calendar + time input with proper input validation
+  - Refactored `SchedulePopover`, `ScheduleBuildPopover`, and `ScheduleTasksModal` to use the shared component
+- **Reason**: Three components duplicated the same date-time picking logic. Extracting it ensures the validation fix is applied everywhere and prevents future drift.
+
 ## Database bandwidth optimization — 2026-03-08
 
 - **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.

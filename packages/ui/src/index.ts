@@ -8,6 +8,7 @@ export * from "./ui/button";
 export * from "./ui/button-group";
 export * from "./ui/calendar";
 export * from "./ui/card";
+export * from "./ui/carousel";
 export * from "./ui/checkbox";
 export * from "./ui/collapsible";
 export * from "./ui/command";

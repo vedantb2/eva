@@ -30,6 +30,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+  CarouselDots,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -679,23 +685,48 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       </div>
     ) : null;
 
+  const mediaProofs = proofs?.filter(
+    (p) =>
+      p.url &&
+      (p.contentType?.startsWith("image/") ||
+        p.contentType?.startsWith("video/")),
+  );
+  const messageProofs = proofs?.filter((p) => p.message);
+
   const proofSection = showProofSection ? (
-    <div>
-      {proofs && proofs.length > 0 ? (
-        <div className="space-y-3">
-          {proofs.map((proof) => (
-            <div key={proof._id}>
-              {proof.message ? (
-                <p className="text-sm text-muted-foreground">{proof.message}</p>
-              ) : proof.url && proof.contentType?.startsWith("image/") ? (
-                <ScreenshotPreview url={proof.url} />
-              ) : proof.url && proof.contentType?.startsWith("video/") ? (
-                <VideoPreview url={proof.url} />
-              ) : null}
-            </div>
-          ))}
+    <div className="space-y-3">
+      {mediaProofs && mediaProofs.length > 0 ? (
+        <div className="px-6">
+          <Carousel opts={{ loop: mediaProofs.length > 1 }}>
+            <CarouselContent>
+              {mediaProofs.map((proof) => (
+                <CarouselItem key={proof._id}>
+                  {proof.url && proof.contentType?.startsWith("image/") ? (
+                    <ScreenshotPreview url={proof.url} />
+                  ) : proof.url && proof.contentType?.startsWith("video/") ? (
+                    <VideoPreview url={proof.url} />
+                  ) : null}
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {mediaProofs.length > 1 && (
+              <>
+                <CarouselPrevious />
+                <CarouselNext />
+                <CarouselDots />
+              </>
+            )}
+          </Carousel>
         </div>
-      ) : (
+      ) : null}
+      {messageProofs && messageProofs.length > 0
+        ? messageProofs.map((proof) => (
+            <p key={proof._id} className="text-sm text-muted-foreground">
+              {proof.message}
+            </p>
+          ))
+        : null}
+      {(!proofs || proofs.length === 0) && (
         <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
       )}
     </div>

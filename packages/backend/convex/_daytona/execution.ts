@@ -84,7 +84,7 @@ export const getPreviewUrl = action({
   },
 });
 
-const MAX_SETUP_ELAPSED_MS = 12 * 60 * 1000;
+const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 
 export const prepareSandbox = internalAction({
   args: {

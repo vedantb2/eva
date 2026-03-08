@@ -17,16 +17,18 @@ export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 
+const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
+
 export async function exec(
   sandbox: Sandbox,
   cmd: string,
   timeout = 30,
 ): Promise<string> {
-  const resp = await sandbox.process.executeCommand(
-    cmd,
-    "/",
-    undefined,
-    timeout,
+  const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
+  const resp = await withTimeout(
+    sandbox.process.executeCommand(cmd, "/", undefined, timeout),
+    clientTimeoutMs,
+    `exec (${timeout}s)`,
   );
   if (resp.exitCode !== 0) {
     const output = resp.result?.trim();

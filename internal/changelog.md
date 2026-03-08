@@ -1,5 +1,27 @@
 # Changelog
 
+## Per-context sandbox lifecycle management — 2026-03-08
+
+Behavior per context:
+
+┌──────────────────┬───────────┬─────────────────────┬───────────┐
+│ Context │ autoStop │ autoDelete │ ephemeral │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Quick tasks │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Snapshot warming │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Design sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Project tasks │ 30 min │ 30 min │ false │
+└──────────────────┴───────────┴─────────────────────┴───────────┘
+
+- **Why**: Tasks running >15 minutes were killed by the watchdog ("no heartbeat for 180s"). Root cause: a single `autoStopInterval: 15` on all sandbox creation meant Daytona auto-stopped sandboxes after 15 min of no SDK API calls. Background scripts (`nohup`) don't count as activity per Daytona docs, so sandboxes appeared idle immediately after launch.
+- **Changes**: Introduced `SandboxLifecycle` type with two presets — `EPHEMERAL_LIFECYCLE` (autoStop=0, ephemeral=true for tasks/warming) and `SESSION_LIFECYCLE` (autoStop=30, autoDelete=30 for sessions/projects/design). Threaded lifecycle config through `createSandbox` → `createSandboxAndPrepareRepo` → `getOrCreateSandbox`. Also consolidated retry logic (90s per-call timeout on `daytona.create()`, 3 attempts/12min budget).
+- **Reason**: Different sandbox contexts have conflicting needs. Ephemeral tasks need no auto-stop (background script, cleaned up by our code). Sessions benefit from 30-min auto-stop since preview URL access resets the timer. Using Daytona's `ephemeral: true` flag auto-deletes ephemeral sandboxes on stop as a safety net.
+
 ## Quick Tasks UI revamp (follow-up polish) — 2026-03-08
 
 - **Why**: Reviewer feedback on the tab-based task detail UI needed addressing.
@@ -22,6 +44,7 @@
   - Comments tab shows existing comments with delete option and a form that auto-runs Eva on submit when changes are requestable
   - Bumped task card list width from 20%/30% to 28%/35% for better readability
 - **Reason**: Consolidating content into tabs reduces visual clutter and makes it easier to navigate between sections. Moving request changes into comments is more natural UX.
+
 ## Extract shared ScheduleDateTimePicker component — 2026-03-08
 
 - **Why**: The schedule time input crashed with `TypeError: .second is not a function` when typing partial time values (e.g. "0"). The `SchedulePopover` had a fix for this (validating `parts.length` and `NaN`), but `ScheduleTasksModal` and `ScheduleBuildPopover` didn't, causing the error in the quick-tasks bulk schedule flow.

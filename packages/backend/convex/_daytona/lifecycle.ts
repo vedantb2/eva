@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { exec, resolveSandboxContext, getSandbox } from "./helpers";
-import { createSandbox } from "./git";
+import { createSandbox, EPHEMERAL_LIFECYCLE } from "./git";
 
 export const warmSnapshotCache = internalAction({
   args: { repoId: v.id("githubRepos") },
@@ -22,6 +22,7 @@ export const warmSnapshotCache = internalAction({
         daytona,
         repo.installationId,
         sandboxEnvVars,
+        EPHEMERAL_LIFECYCLE,
         snapshotName,
       );
       await sandbox.delete();

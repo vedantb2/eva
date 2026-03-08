@@ -20,6 +20,8 @@ import {
   setupBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  EPHEMERAL_LIFECYCLE,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
@@ -151,6 +153,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            EPHEMERAL_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
             attachRunSandbox,
@@ -166,6 +169,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            SESSION_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
             emitProgress,

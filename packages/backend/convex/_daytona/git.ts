@@ -18,10 +18,30 @@ import {
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 
+export type SandboxLifecycle = {
+  autoStopInterval: number;
+  autoDeleteInterval: number;
+  ephemeral?: boolean;
+};
+
+const SESSION_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 30,
+  autoDeleteInterval: 30,
+};
+
+const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 0,
+  autoDeleteInterval: 0,
+  ephemeral: true,
+};
+
+export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE };
+
 export async function createSandbox(
   daytona: Daytona,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
 ): Promise<Sandbox> {
@@ -43,8 +63,9 @@ export async function createSandbox(
           GITHUB_TOKEN: githubToken,
           INSTALLATION_ID: String(installationId),
         },
-        autoStopInterval: 15,
-        autoDeleteInterval: 30,
+        autoStopInterval: lifecycle.autoStopInterval,
+        autoDeleteInterval: lifecycle.autoDeleteInterval,
+        ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
       },
       { timeout: timeoutSeconds },
     ),
@@ -204,6 +225,7 @@ export async function createSandboxAndPrepareRepo(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
   onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
@@ -216,6 +238,7 @@ export async function createSandboxAndPrepareRepo(
       daytona,
       installationId,
       sandboxEnvVars,
+      lifecycle,
       snapshotName,
       volumes,
     );
@@ -246,6 +269,7 @@ export async function getOrCreateSandbox(
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
+  lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
   onProgress?: (label: string) => Promise<void>,
@@ -268,6 +292,7 @@ export async function getOrCreateSandbox(
     owner,
     name,
     sandboxEnvVars,
+    lifecycle,
     snapshotName,
     volumes,
     undefined,

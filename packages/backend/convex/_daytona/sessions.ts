@@ -17,6 +17,7 @@ import {
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
@@ -101,6 +102,7 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
         await ensureSessionClaudeVolume(daytona, args.sessionId),
       );
@@ -198,6 +200,7 @@ export const startDesignSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
       );
       const sandbox = prepared.sandbox;

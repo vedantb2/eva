@@ -272,6 +272,7 @@ export function ChatPanel({
     : undefined;
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+    if (isInputDisabled) return;
     await handleSend(text);
   };
 
@@ -458,6 +459,7 @@ export function ChatPanel({
                           activity={streamingActivity}
                           name="Eva"
                           icon={evaIcon}
+                          startedAt={message.timestamp}
                         />
                       ) : (
                         <>
@@ -468,6 +470,8 @@ export function ChatPanel({
                                   activityLog={message.activityLog}
                                   name="Eva"
                                   icon={evaIcon}
+                                  startedAt={message.timestamp}
+                                  finishedAt={message.finishedAt}
                                 />
                               )}
                               <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">

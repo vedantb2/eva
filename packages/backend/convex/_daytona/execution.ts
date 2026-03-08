@@ -26,6 +26,23 @@ import {
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
+export const validateSandbox = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({ healthy: v.boolean() }),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      await exec(sandbox, "echo ok", 10);
+      return { healthy: true };
+    } catch {
+      return { healthy: false };
+    }
+  },
+});
+
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),

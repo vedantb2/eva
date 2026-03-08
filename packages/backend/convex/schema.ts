@@ -210,6 +210,7 @@ const schema = defineSchema({
     role: roleValidator,
     content: v.string(),
     timestamp: v.number(),
+    finishedAt: v.optional(v.number()),
     activityLog: v.optional(v.string()),
     userId: v.optional(v.id("users")),
     parentId: v.union(

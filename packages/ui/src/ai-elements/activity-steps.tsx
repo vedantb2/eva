@@ -92,6 +92,31 @@ export interface ActivityStepsProps extends ComponentProps<"div"> {
   isStreaming?: boolean;
   name?: string;
   icon?: ReactNode;
+  startedAt?: number;
+  duration?: string;
+}
+
+function useElapsedSeconds(startedAt: number | undefined, active: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active || !startedAt) {
+      setElapsed(0);
+      return;
+    }
+    setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active, startedAt]);
+  return elapsed;
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
 export const ActivitySteps = memo(
@@ -101,10 +126,13 @@ export const ActivitySteps = memo(
     name,
     icon,
     className,
+    startedAt,
+    duration,
     ...props
   }: ActivityStepsProps) => {
     const [isOpen, setIsOpen] = useState(Boolean(isStreaming));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+    const elapsed = useElapsedSeconds(startedAt, Boolean(isStreaming));
 
     useEffect(() => {
       setIsOpen(Boolean(isStreaming));
@@ -120,13 +148,16 @@ export const ActivitySteps = memo(
     if (steps.length === 0) return null;
 
     const stepsText = `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;
+    const elapsedText =
+      isStreaming && startedAt ? ` · ${formatElapsed(elapsed)}` : "";
+    const durationText = !isStreaming && duration ? ` · ${duration}` : "";
     const headerLabel = isStreaming
       ? name
-        ? `${name} is working... (${stepsText})`
-        : `Working... (${stepsText})`
+        ? `${name} is working... (${stepsText}${elapsedText})`
+        : `Working... (${stepsText}${elapsedText})`
       : name
-        ? `${name} completed ${stepsText}`
-        : `${stepsText} completed`;
+        ? `${name} completed ${stepsText}${durationText}`
+        : `${stepsText} completed${durationText}`;
 
     return (
       <ChainOfThought

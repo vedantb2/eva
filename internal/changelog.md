@@ -5,6 +5,22 @@
 - **Why**: `git checkout` was aborting when auto-generated files (e.g. `next-env.d.ts`) existed as local changes in the sandbox, causing tasks and sessions to fail during branch setup.
 - **Changes**: Added `git stash --include-untracked` before checkout in `checkoutSessionBranch` and `prepareSandbox` base-branch checkout. The `setupBranch` function already had this — now all checkout paths are consistent.
 - **Reason**: Sandboxes that are reused across runs can accumulate untracked/modified files from previous executions. Stashing ensures branch switches always succeed.
+## Fix Build Project button disabled state & branch sync — 2026-03-08
+
+- **Why**: Build Project button stayed clickable after starting a build, and project branches fell behind their base branch (e.g. 80 commits behind main).
+- **Changes**:
+  - Build Project button now also disables when `activeBuildWorkflowId` is set (active build running), not just when a build is scheduled. Dialog button disables during mutation.
+  - `setupBranch` in git.ts now fast-forwards from `origin/{branch}` and merges `origin/{baseBranch}` after checkout. This ensures project branches incorporate latest base branch commits before each task execution — matching how quick tasks always branch from the latest base.
+- **Reason**: Button disabled condition was incomplete — only checked `scheduledBuildAt`, missing `activeBuildWorkflowId`. Branch sync only did `git fetch` + `git checkout` without merging base, so existing project branches never picked up new base commits.
+## Eva config: richer ask-mode responses + LSP tool enabled — 2026-03-08
+
+### Summary
+
+Two improvements to Eva's session configuration:
+
+1. **Ask mode now supports rich markdown and mermaid diagrams** — previously ask mode was restricted to plain text. Non-technical users benefit more from visual diagrams (flow charts, architecture diagrams) than prose, so the system prompt now encourages mermaid blocks for architecture/data flow explanations while keeping language jargon-free.
+
+2. **`ENABLE_LSP_TOOL=true` added to all sandbox launches** — Claude Code defaults to text-grep for code navigation. Setting this flag connects it to language servers (LSP), enabling "jump to definition"-style lookups that are significantly faster and more accurate for finding functions and symbols across the codebase.
 
 ## Per-context sandbox lifecycle management — 2026-03-08
 

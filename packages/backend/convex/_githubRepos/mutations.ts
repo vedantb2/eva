@@ -105,7 +105,7 @@ export const create = authMutation({
 
     const candidates = await ctx.db
       .query("githubRepos")
-      .withIndex("by_owner_name", (q) =>
+      .withIndex("by_owner_and_name", (q) =>
         q.eq("owner", args.owner).eq("name", args.name),
       )
       .collect();

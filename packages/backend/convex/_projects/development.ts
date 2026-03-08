@@ -26,7 +26,7 @@ export const startDevelopment = authMutation({
       throw new Error("Project has no generated spec");
     }
     const spec = parseSpec(generatedSpec);
-    const branchName = `project/${args.projectId}`;
+    const branchName = `eva/project-${args.projectId}`;
     const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
     for (let i = 0; i < spec.tasks.length; i++) {
@@ -125,7 +125,7 @@ export const createFromTasks = authMutation({
     });
     await setProjectConversation(ctx.db, projectId, []);
     await ctx.db.patch(projectId, {
-      branchName: `project/${projectId}`,
+      branchName: `eva/project-${projectId}`,
     });
     for (let i = 0; i < args.taskIds.length; i++) {
       const taskId = args.taskIds[i];

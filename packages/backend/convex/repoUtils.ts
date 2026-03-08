@@ -51,7 +51,7 @@ export async function hasRepoReferences(
       .first(),
     ctx.db
       .query("repoSnapshots")
-      .withIndex("by_repoId", (q) => q.eq("repoId", repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
       .first(),
     ctx.db
       .query("agentTasks")

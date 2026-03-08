@@ -134,7 +134,9 @@ export const executeScheduledTask = internalMutation({
         repoId: task.repoId,
         installationId: repo.installationId,
         projectId: task.projectId,
-        branchName: task.projectId ? `project/${task.projectId}` : undefined,
+        branchName: task.projectId
+          ? `eva/project-${task.projectId}`
+          : undefined,
         baseBranch: task.baseBranch,
         isFirstTaskOnBranch: firstOnBranch,
         model: task.model,

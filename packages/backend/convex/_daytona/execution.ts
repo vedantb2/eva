@@ -82,7 +82,7 @@ export const getPreviewUrl = action({
   },
 });
 
-const MAX_SETUP_ELAPSED_MS = 7 * 60 * 1000;
+const MAX_SETUP_ELAPSED_MS = 12 * 60 * 1000;
 
 export const prepareSandbox = internalAction({
   args: {
@@ -129,7 +129,7 @@ export const prepareSandbox = internalAction({
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
-    const maxSetupAttempts = 2;
+    const maxSetupAttempts = 3;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {

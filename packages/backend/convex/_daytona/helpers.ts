@@ -16,8 +16,6 @@ function computeStreamingHmac(entityId: string): string {
 export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
-export const SNAPSHOT_READY_TIMEOUT_ERROR =
-  "Sandbox failed to become ready within the timeout period";
 
 export async function exec(
   sandbox: Sandbox,
@@ -70,9 +68,25 @@ export async function sleep(ms: number): Promise<void> {
   });
 }
 
-export function isSnapshotReadyTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes(SNAPSHOT_READY_TIMEOUT_ERROR);
+export const DAYTONA_CREATE_TIMEOUT_MS = 90_000;
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Sandbox ${label} timed out after ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 export function errorMessage(error: unknown, fallback: string): string {

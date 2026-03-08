@@ -1,5 +1,16 @@
 # Changelog
 
+## Move status filter and import into Options dropdown in quick tasks header — 2026-03-08
+
+- **Why**: The "All Statuses" filter was buried inside the list/kanban views, making it inconsistent and hard to discover. The "Import from Linear" button was taking up header space as a standalone action.
+- **Changes**:
+  1. Added an "Options" dropdown button to the quick tasks page header toolbar.
+  2. Moved "Import from Linear" into the Options dropdown as a menu item.
+  3. Moved the status filter into the Options dropdown as a sub-menu with checkbox items.
+  4. Removed the duplicate status filter dropdowns from both `QuickTasksListView` and `KanbanBoard` — both views now react to the shared nuqs `statuses` param set from the header.
+  5. Added a badge indicator on the Options button when filters are active.
+- **Reason for change**: Consolidates page-level controls into a single dropdown, reducing header clutter and ensuring filter state is consistent across both views.
+
 ## Replace agent run status labels with icons + Alt+N hotkey for quick tasks — 2026-03-08
 
 - **Why**: Status labels (success/error/running) in the agent run accordion were noisy and took up space. Users also wanted a fast way to create quick tasks from anywhere in the repo.

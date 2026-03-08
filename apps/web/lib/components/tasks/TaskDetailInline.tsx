@@ -1,6 +1,7 @@
 "use client";
 
 import type { Id } from "@conductor/backend";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
 import { useTaskDetail } from "./useTaskDetail";
 
 interface TaskDetailInlineProps {
@@ -15,16 +16,16 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     descriptionSection,
     subtasksSection,
     runsSection,
-    auditProofSection,
+    proofSection,
+    auditSection,
+    commentsSection,
     statusFieldsSection,
-    requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
-    audit,
-    showProofSection,
-    requestChangesPanel,
+    activeTab,
+    setActiveTab,
   } = useTaskDetail(taskId, onClose);
 
   return (
@@ -40,11 +41,33 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
               <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-4">
                 {descriptionSection}
                 {subtasksSection}
-                {runsSection}
-                {(audit || showProofSection) && (
-                  <div className="space-y-4">{auditProofSection}</div>
-                )}
-                {requestChangesPanel && requestChangesSection}
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) =>
+                    setActiveTab(
+                      v as "activity" | "proof" | "audit" | "comments",
+                    )
+                  }
+                >
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
+                    <TabsTrigger value="proof">Proof</TabsTrigger>
+                    <TabsTrigger value="audit">Audit</TabsTrigger>
+                    <TabsTrigger value="comments">Comments</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="activity" className="mt-4">
+                    {runsSection}
+                  </TabsContent>
+                  <TabsContent value="proof" className="mt-4">
+                    {proofSection}
+                  </TabsContent>
+                  <TabsContent value="audit" className="mt-4">
+                    {auditSection}
+                  </TabsContent>
+                  <TabsContent value="comments" className="mt-4">
+                    {commentsSection}
+                  </TabsContent>
+                </Tabs>
               </div>
               <div className="md:pl-4 flex flex-col min-h-0 md:overflow-y-auto scrollbar">
                 <div className="space-y-4 flex-1">{statusFieldsSection}</div>

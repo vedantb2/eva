@@ -1,5 +1,17 @@
 # Changelog
 
+## Quick Tasks UI revamp — 2026-03-08
+
+- **Why**: Task detail views stacked all content vertically (activity, proof, audit) making it hard to find specific sections. Request changes opened a 4th column in the modal which was awkward. Task cards showed redundant description text.
+- **Changes**:
+  - Removed description from task list cards (QuickTaskCard) — title is sufficient for scanning
+  - Added 4-tab system (Activity, Proof, Audit, Comments) to both inline and modal detail views — Activity is default tab
+  - In the modal, tabs appear in the 2nd column; in the inline view, tabs appear under the description/subtasks
+  - Request Changes button now switches to Comments tab instead of opening a separate panel/column
+  - Comments tab shows existing comments with delete option and a form that auto-runs Eva on submit when changes are requestable
+  - Bumped task card list width from 20%/30% to 28%/35% for better readability
+- **Reason**: Consolidating content into tabs reduces visual clutter and makes it easier to navigate between sections. Moving request changes into comments is more natural UX.
+
 ## Database bandwidth optimization — 2026-03-08
 
 - **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.

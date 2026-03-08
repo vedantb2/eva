@@ -37,8 +37,8 @@ export function QuickTasksSplitView({
       <div
         className={
           selectedTaskId
-            ? "hidden sm:flex sm:w-[30%] md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
-            : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[30%] md:w-[20%] sm:flex-shrink-0 sm:overflow-hidden"
+            ? "hidden sm:flex sm:w-[35%] md:w-[28%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col"
+            : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[35%] md:w-[28%] sm:flex-shrink-0 sm:overflow-hidden"
         }
       >
         <QuickTasksListView
@@ -52,7 +52,7 @@ export function QuickTasksSplitView({
         />
       </div>
       {selectedTaskId ? (
-        <div className="w-full sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden flex flex-col">
+        <div className="w-full sm:w-[65%] md:w-[72%] min-w-0 flex-shrink-0 min-h-0 h-full overflow-hidden flex flex-col">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 sm:hidden">
             <Button
               size="icon-sm"
@@ -71,7 +71,7 @@ export function QuickTasksSplitView({
           </div>
         </div>
       ) : (
-        <div className="hidden sm:flex sm:w-[70%] md:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
+        <div className="hidden sm:flex sm:w-[65%] md:w-[72%] min-w-0 flex-shrink-0 min-h-0 h-full">
           <QuickTasksStatusSummary tasks={quickTasks} />
         </div>
       )}

@@ -21,6 +21,7 @@ import {
   ReasoningTrigger,
   ReasoningContent,
   ActivitySteps,
+  Spinner,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -63,6 +64,8 @@ import {
   IconInfoCircle,
   IconPlayerStop,
   IconClock,
+  IconCircleCheck,
+  IconCircleX,
   IconBrandVercel,
   IconDots,
   IconEdit,
@@ -534,11 +537,12 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
               run.status === "running" || run.status === "queued";
+            const isExpandedByDefault = isActiveRun || run.status === "error";
             return (
               <Accordion
                 key={run._id}
                 type="multiple"
-                defaultValue={isActiveRun ? [run._id] : []}
+                defaultValue={isExpandedByDefault ? [run._id] : []}
               >
                 <AccordionItem
                   value={run._id}
@@ -547,19 +551,24 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                   <AccordionTrigger>
                     <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <Badge
-                          variant={
-                            run.status === "success"
-                              ? "success"
-                              : run.status === "error"
-                                ? "destructive"
-                                : run.status === "running"
-                                  ? "warning"
-                                  : "outline"
-                          }
-                        >
-                          {run.status}
-                        </Badge>
+                        {run.status === "success" ? (
+                          <IconCircleCheck
+                            size={16}
+                            className="text-success shrink-0"
+                          />
+                        ) : run.status === "error" ? (
+                          <IconCircleX
+                            size={16}
+                            className="text-destructive shrink-0"
+                          />
+                        ) : run.status === "running" ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <IconClock
+                            size={16}
+                            className="text-muted-foreground shrink-0"
+                          />
+                        )}
                         {run._id !== firstRunId && (
                           <IconEdit
                             size={14}

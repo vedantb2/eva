@@ -43,14 +43,11 @@ import {
 import { SubtaskList } from "./SubtaskList";
 import {
   IconPlayerPlay,
-  IconTerminal2,
   IconTrash,
   IconGitPullRequest,
   IconArrowUp,
   IconMessagePlus,
-  IconPhoto,
   IconLoader2,
-  IconShieldCheck,
   IconCheck,
   IconAlertTriangle,
   IconCircleDot,
@@ -508,12 +505,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const runsSection =
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-            <IconTerminal2 size={16} />
-            Activity
-          </h4>
-        </div>
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
@@ -691,10 +682,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
 
   const proofSection = showProofSection ? (
     <div>
-      <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-        <IconPhoto size={14} />
-        Proof of Completion
-      </h4>
       {proofs && proofs.length > 0 ? (
         <div className="space-y-3">
           {proofs.map((proof) => (
@@ -719,21 +706,17 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
 
   const auditSection = audit ? (
     <div className="space-y-3">
-      <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-        <IconShieldCheck size={16} />
-        Post-Execution Audit
-        <Badge
-          variant={
-            audit.status === "completed"
-              ? "success"
-              : audit.status === "error"
-                ? "destructive"
-                : "warning"
-          }
-        >
-          {audit.status}
-        </Badge>
-      </h4>
+      <Badge
+        variant={
+          audit.status === "completed"
+            ? "success"
+            : audit.status === "error"
+              ? "destructive"
+              : "warning"
+        }
+      >
+        {audit.status}
+      </Badge>
       {audit.status === "running" &&
         auditStreaming?.currentActivity &&
         (() => {

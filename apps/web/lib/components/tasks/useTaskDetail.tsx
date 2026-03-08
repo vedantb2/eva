@@ -43,15 +43,11 @@ import {
 import { SubtaskList } from "./SubtaskList";
 import {
   IconPlayerPlay,
-  IconTerminal2,
   IconTrash,
   IconGitPullRequest,
   IconArrowUp,
   IconMessagePlus,
-  IconX,
-  IconPhoto,
   IconLoader2,
-  IconShieldCheck,
   IconCheck,
   IconAlertTriangle,
   IconCircleDot,
@@ -66,7 +62,7 @@ import {
   IconBrandVercel,
   IconDots,
 } from "@tabler/icons-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Streamdown } from "streamdown";
@@ -126,7 +122,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [requestChangesPanel, setRequestChangesPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "activity" | "proof" | "audit" | "comments"
+  >("activity");
   const [tagsInput, setTagsInput] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -145,15 +143,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
-  const handleAddComment = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleAddComment = async (requestChanges = false) => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
     await createComment({ taskId, content: text });
 
-    if (requestChangesPanel) {
-      setRequestChangesPanel(false);
+    if (requestChanges) {
       try {
         await startExecution({ id: taskId });
       } catch (err) {
@@ -285,23 +281,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     await updateTask({ id: taskId, tags: nextTags });
   };
 
-  const hasAudit = Boolean(audit);
-  const hasSecondColumn = hasAudit || showProofSection;
-  const modalWidthClass = hasSecondColumn
-    ? requestChangesPanel
-      ? "max-w-[84rem]"
-      : "max-w-[72rem]"
-    : requestChangesPanel
-      ? "max-w-[64rem]"
-      : "max-w-[52rem]";
-
-  const layoutGridClass = hasSecondColumn
-    ? requestChangesPanel
-      ? "grid-cols-1 md:grid-cols-[1fr_1fr_200px_1fr]"
-      : "grid-cols-1 md:grid-cols-[1fr_1fr_200px]"
-    : requestChangesPanel
-      ? "grid-cols-1 md:grid-cols-[1fr_200px_1fr]"
-      : "grid-cols-1 md:grid-cols-[1fr_200px]";
+  const modalWidthClass = "max-w-[72rem]";
+  const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
 
   const titleContent = (
     <div className="flex items-center gap-2">
@@ -523,12 +504,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const runsSection =
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-            <IconTerminal2 size={16} />
-            Activity
-          </h4>
-        </div>
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
@@ -704,153 +679,198 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       </div>
     ) : null;
 
-  const auditProofSection = (
-    <>
-      {showProofSection && (
-        <div>
-          <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-            <IconPhoto size={14} />
-            Proof of Completion
-          </h4>
-          {proofs && proofs.length > 0 ? (
-            <div className="space-y-3">
-              {proofs.map((proof) => (
-                <div key={proof._id}>
-                  {proof.message ? (
-                    <p className="text-sm text-muted-foreground">
-                      {proof.message}
-                    </p>
-                  ) : proof.url && proof.contentType?.startsWith("image/") ? (
-                    <ScreenshotPreview url={proof.url} />
-                  ) : proof.url && proof.contentType?.startsWith("video/") ? (
-                    <VideoPreview url={proof.url} />
-                  ) : null}
-                </div>
-              ))}
+  const proofSection = showProofSection ? (
+    <div>
+      {proofs && proofs.length > 0 ? (
+        <div className="space-y-3">
+          {proofs.map((proof) => (
+            <div key={proof._id}>
+              {proof.message ? (
+                <p className="text-sm text-muted-foreground">{proof.message}</p>
+              ) : proof.url && proof.contentType?.startsWith("image/") ? (
+                <ScreenshotPreview url={proof.url} />
+              ) : proof.url && proof.contentType?.startsWith("video/") ? (
+                <VideoPreview url={proof.url} />
+              ) : null}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No proof uploaded yet
-            </p>
-          )}
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground">No proof available</p>
+  );
+
+  const auditSection = audit ? (
+    <div className="space-y-3">
+      <Badge
+        variant={
+          audit.status === "completed"
+            ? "success"
+            : audit.status === "error"
+              ? "destructive"
+              : "warning"
+        }
+      >
+        {audit.status}
+      </Badge>
+      {audit.status === "running" &&
+        auditStreaming?.currentActivity &&
+        (() => {
+          const steps = parseActivitySteps(auditStreaming.currentActivity);
+          return steps ? (
+            <ActivitySteps steps={steps} isStreaming name="Auditing" />
+          ) : null;
+        })()}
+      {audit.status === "error" && audit.error && (
+        <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+          {audit.error}
         </div>
       )}
-
-      {audit && (
+      {audit.status === "completed" && (
         <>
-          <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-            <IconShieldCheck size={16} />
-            Post-Execution Audit
-            <Badge
-              variant={
-                audit.status === "completed"
-                  ? "success"
-                  : audit.status === "error"
-                    ? "destructive"
-                    : "warning"
-              }
-            >
-              {audit.status}
-            </Badge>
-          </h4>
-          {audit.status === "running" &&
-            auditStreaming?.currentActivity &&
-            (() => {
-              const steps = parseActivitySteps(auditStreaming.currentActivity);
-              return steps ? (
-                <ActivitySteps steps={steps} isStreaming name="Auditing" />
-              ) : null;
-            })()}
-          {audit.status === "error" && audit.error && (
-            <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-              {audit.error}
-            </div>
+          {audit.summary && (
+            <p className="text-sm text-muted-foreground mb-3">
+              {audit.summary}
+            </p>
           )}
-          {audit.status === "completed" && (
-            <>
-              {audit.summary && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  {audit.summary}
-                </p>
-              )}
-              <Accordion type="multiple" className="space-y-2">
-                {[
-                  {
-                    key: "accessibility",
-                    label: "Accessibility",
-                    items: audit.accessibility,
-                  },
-                  {
-                    key: "testing",
-                    label: "Code Testing",
-                    items: audit.testing,
-                  },
-                  {
-                    key: "codeReview",
-                    label: "Code Review",
-                    items: audit.codeReview,
-                  },
-                ]
-                  .filter((section) => section.items.length > 0)
-                  .map((section) => (
-                    <AccordionItem
-                      key={section.key}
-                      value={section.key}
-                      className="border rounded-lg px-3"
-                    >
-                      <AccordionTrigger>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{section.label}</span>
-                          <Badge
-                            variant={
-                              section.items.every((i) => i.passed)
-                                ? "success"
-                                : "destructive"
-                            }
-                          >
-                            {section.items.filter((i) => i.passed).length}/
-                            {section.items.length}
-                          </Badge>
+          <Accordion type="multiple" className="space-y-2">
+            {[
+              {
+                key: "accessibility",
+                label: "Accessibility",
+                items: audit.accessibility,
+              },
+              {
+                key: "testing",
+                label: "Code Testing",
+                items: audit.testing,
+              },
+              {
+                key: "codeReview",
+                label: "Code Review",
+                items: audit.codeReview,
+              },
+            ]
+              .filter((section) => section.items.length > 0)
+              .map((section) => (
+                <AccordionItem
+                  key={section.key}
+                  value={section.key}
+                  className="border rounded-lg px-3"
+                >
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{section.label}</span>
+                      <Badge
+                        variant={
+                          section.items.every((i) => i.passed)
+                            ? "success"
+                            : "destructive"
+                        }
+                      >
+                        {section.items.filter((i) => i.passed).length}/
+                        {section.items.length}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {section.items.map((item, i) => (
+                        <div key={i} className="flex items-start gap-2 text-sm">
+                          {item.passed ? (
+                            <IconCheck
+                              size={16}
+                              className="text-success mt-0.5 flex-shrink-0"
+                            />
+                          ) : (
+                            <IconAlertTriangle
+                              size={16}
+                              className="text-destructive mt-0.5 flex-shrink-0"
+                            />
+                          )}
+                          <div>
+                            <span className="font-medium">
+                              {item.requirement}
+                            </span>
+                            <p className="text-muted-foreground">
+                              {item.detail}
+                            </p>
+                          </div>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          {section.items.map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex items-start gap-2 text-sm"
-                            >
-                              {item.passed ? (
-                                <IconCheck
-                                  size={16}
-                                  className="text-success mt-0.5 flex-shrink-0"
-                                />
-                              ) : (
-                                <IconAlertTriangle
-                                  size={16}
-                                  className="text-destructive mt-0.5 flex-shrink-0"
-                                />
-                              )}
-                              <div>
-                                <span className="font-medium">
-                                  {item.requirement}
-                                </span>
-                                <p className="text-muted-foreground">
-                                  {item.detail}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-              </Accordion>
-            </>
-          )}
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+          </Accordion>
         </>
       )}
-    </>
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground">No audit available</p>
+  );
+
+  const canRequestChanges = status !== "todo" && status !== "in_progress";
+
+  const commentsSection = (
+    <div className="space-y-4">
+      {comments && comments.length > 0 && (
+        <div className="space-y-3">
+          {comments.map((comment) => (
+            <div
+              key={comment._id}
+              className="rounded-lg border border-border p-3 space-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {dayjs(comment.createdAt).fromNow()}
+                </span>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeComment({ id: comment._id })}
+                >
+                  <IconTrash size={12} />
+                </Button>
+              </div>
+              <p className="text-sm text-foreground whitespace-pre-wrap">
+                {comment.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2 items-end">
+        <Textarea
+          rows={3}
+          placeholder={
+            canRequestChanges
+              ? "Describe the changes you'd like Eva to make..."
+              : "Add a comment..."
+          }
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          className="flex-1"
+        />
+        <Button
+          size="icon"
+          className="rounded-full shrink-0"
+          disabled={!commentText.trim()}
+          onClick={() => handleAddComment(canRequestChanges)}
+        >
+          <IconArrowUp size={18} />
+        </Button>
+      </div>
+      {canRequestChanges && (
+        <p className="text-xs text-muted-foreground">
+          Submitting will create a comment and re-run Eva with your changes
+        </p>
+      )}
+    </div>
   );
 
   const statusFieldsSection = (
@@ -1104,50 +1124,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </>
   );
 
-  const requestChangesSection = (
-    <>
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-foreground">
-          Ask Eva to make changes
-        </h4>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
-          onClick={() => setRequestChangesPanel(false)}
-        >
-          <IconX size={16} />
-        </Button>
-      </div>
-      <form
-        onSubmit={handleAddComment}
-        className="flex gap-2 items-center bg-card rounded-lg"
-      >
-        <Textarea
-          rows={3}
-          placeholder="Describe the changes you'd like Eva to make..."
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          className="flex-1"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleAddComment(e);
-            }
-          }}
-        />
-        <Button
-          size="icon"
-          type="submit"
-          className="mt-auto mb-2 mr-2 rounded-full"
-          disabled={!commentText.trim()}
-        >
-          <IconArrowUp size={18} />
-        </Button>
-      </form>
-    </>
-  );
-
   const footerButtons = (
     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
       {latestPrUrl && (status === "code_review" || status === "done") && (
@@ -1200,17 +1176,12 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           </TooltipContent>
         </Tooltip>
       )}
-      {!requestChangesPanel &&
-        status !== "todo" &&
-        status !== "in_progress" && (
-          <Button
-            variant="secondary"
-            onClick={() => setRequestChangesPanel(true)}
-          >
-            <IconMessagePlus size={18} />
-            <span className="hidden sm:inline">Request Changes</span>
-          </Button>
-        )}
+      {status !== "todo" && status !== "in_progress" && (
+        <Button variant="secondary" onClick={() => setActiveTab("comments")}>
+          <IconMessagePlus size={18} />
+          <span className="hidden sm:inline">Request Changes</span>
+        </Button>
+      )}
       {!hasActiveRun && status === "todo" && (
         <>
           <SchedulePopover
@@ -1374,22 +1345,33 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </Dialog>
   );
 
+  const hasTabContent =
+    (runs !== undefined && runs.length > 0) ||
+    (proofs !== undefined && proofs.length > 0) ||
+    audit !== undefined ||
+    (comments !== undefined && comments.length > 0);
+
+  const showTabsColumn = status !== "todo" || hasTabContent;
+
   return {
     titleContent,
     scheduledBadge,
     descriptionSection,
     subtasksSection,
     runsSection,
-    auditProofSection,
+    proofSection,
+    auditSection,
+    commentsSection,
     statusFieldsSection,
-    requestChangesSection,
     footerButtons,
     deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     audit,
     showProofSection,
-    requestChangesPanel,
+    showTabsColumn,
+    activeTab,
+    setActiveTab,
     layoutGridClass,
     modalWidthClass,
   };

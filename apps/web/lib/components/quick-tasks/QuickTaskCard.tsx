@@ -107,11 +107,7 @@ export function QuickTaskCard({
             <h4 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground">
               {title}
             </h4>
-            {description ? (
-              <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
-                {description}
-              </p>
-            ) : null}
+
             {projectName ? (
               <Badge
                 variant="default"

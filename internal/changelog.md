@@ -1,5 +1,27 @@
 # Changelog
 
+## Quick Tasks UI revamp (follow-up polish) — 2026-03-08
+
+- **Why**: Reviewer feedback on the tab-based task detail UI needed addressing.
+- **Changes**:
+  - Removed section titles inside each tab (Activity, Proof of Completion, etc.) — redundant with tab labels
+  - Added icons to tab triggers (Terminal, Photo, Shield, Message) reusing existing tabler icons
+  - Modal hides tabs column for "todo" status tasks unless content exists in any tab
+  - Comments textarea no longer sends on Enter — only the send button submits
+  - Reverted task card list width back to original 20%/30% split
+- **Reason**: Polish pass based on reviewer feedback to reduce redundancy and fix UX issues.
+
+## Quick Tasks UI revamp — 2026-03-08
+
+- **Why**: Task detail views stacked all content vertically (activity, proof, audit) making it hard to find specific sections. Request changes opened a 4th column in the modal which was awkward. Task cards showed redundant description text.
+- **Changes**:
+  - Removed description from task list cards (QuickTaskCard) — title is sufficient for scanning
+  - Added 4-tab system (Activity, Proof, Audit, Comments) to both inline and modal detail views — Activity is default tab
+  - In the modal, tabs appear in the 2nd column; in the inline view, tabs appear under the description/subtasks
+  - Request Changes button now switches to Comments tab instead of opening a separate panel/column
+  - Comments tab shows existing comments with delete option and a form that auto-runs Eva on submit when changes are requestable
+  - Bumped task card list width from 20%/30% to 28%/35% for better readability
+- **Reason**: Consolidating content into tabs reduces visual clutter and makes it easier to navigate between sections. Moving request changes into comments is more natural UX.
 ## Extract shared ScheduleDateTimePicker component — 2026-03-08
 
 - **Why**: The schedule time input crashed with `TypeError: .second is not a function` when typing partial time values (e.g. "0"). The `SchedulePopover` had a fix for this (validating `parts.length` and `NaN`), but `ScheduleTasksModal` and `ScheduleBuildPopover` didn't, causing the error in the quick-tasks bulk schedule flow.

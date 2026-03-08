@@ -1,5 +1,11 @@
 # Changelog
 
+## Proof of completion carousel — 2026-03-08
+
+Added an Embla-based carousel (shadcn pattern) to the task detail proof section. When a task has multiple screenshots/videos, they are now shown in a swipeable carousel with prev/next buttons and dot indicators, instead of a vertical stack. Single media items render normally without carousel chrome.
+
+- New `Carousel` component in `packages/ui` (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, CarouselDots)
+- Updated `useTaskDetail.tsx` proof section to separate media vs message proofs and wrap media in the carousel
 ## Move active tasks indicator from sidebar bottom to Quick Tasks tab badge — 2026-03-08
 
 - **Why**: The active tasks component at the bottom of the sidebar was disconnected from where tasks live. Moving it inline as a badge on the Quick Tasks nav item provides better context and discoverability.

@@ -41,6 +41,7 @@
     "prettier": "^3.8.1"
   },
   "dependencies": {
-    "@tanstack/react-hotkeys": "^0.3.2"
+    "@tanstack/react-hotkeys": "^0.3.2",
+    "embla-carousel-react": "^8.6.0"
   }
 }

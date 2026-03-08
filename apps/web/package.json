@@ -69,6 +69,7 @@
     "cron-parser": "^5.5.0",
     "cronstrue": "^3.13.0",
     "dayjs": "^1.11.13",
+    "embla-carousel-react": "^8.6.0",
     "facehash": "^0.0.7",
     "geist": "^1.7.0",
     "jspdf": "^3.0.0",

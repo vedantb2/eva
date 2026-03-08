@@ -44,7 +44,7 @@ export const getRepoSnapshot = authQuery({
   handler: async (ctx, args) => {
     const doc = await ctx.db
       .query("repoSnapshots")
-      .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return null;
     return doc;
@@ -57,15 +57,16 @@ export const getRepoSnapshotName = internalQuery({
   handler: async (ctx, args) => {
     const doc = await ctx.db
       .query("repoSnapshots")
-      .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
     if (!doc) return null;
 
     const latestSuccessfulBuild = await ctx.db
       .query("snapshotBuilds")
-      .withIndex("by_repoSnapshotId", (q) => q.eq("repoSnapshotId", doc._id))
+      .withIndex("by_repo_snapshot_and_status", (q) =>
+        q.eq("repoSnapshotId", doc._id).eq("status", "success"),
+      )
       .order("desc")
-      .filter((q) => q.eq(q.field("status"), "success"))
       .first();
 
     if (!latestSuccessfulBuild) {
@@ -95,7 +96,7 @@ export const listBuilds = authQuery({
   handler: async (ctx, args) => {
     const builds = await ctx.db
       .query("snapshotBuilds")
-      .withIndex("by_repoSnapshotId", (q) =>
+      .withIndex("by_repo_snapshot", (q) =>
         q.eq("repoSnapshotId", args.repoSnapshotId),
       )
       .order("desc")
@@ -136,7 +137,7 @@ export const saveRepoSnapshot = authMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("repoSnapshots")
-      .withIndex("by_repoId", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .first();
 
     const cronName = `snapshot-rebuild-${args.repoId}`;
@@ -237,7 +238,7 @@ export const triggerScheduledBuild = internalMutation({
 
     const runningBuild = await ctx.db
       .query("snapshotBuilds")
-      .withIndex("by_repoSnapshotId", (q) =>
+      .withIndex("by_repo_snapshot", (q) =>
         q.eq("repoSnapshotId", args.repoSnapshotId),
       )
       .order("desc")
@@ -282,7 +283,7 @@ export const startBuild = authMutation({
 
     const runningBuild = await ctx.db
       .query("snapshotBuilds")
-      .withIndex("by_repoSnapshotId", (q) =>
+      .withIndex("by_repo_snapshot", (q) =>
         q.eq("repoSnapshotId", args.repoSnapshotId),
       )
       .order("desc")

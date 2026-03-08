@@ -8,6 +8,19 @@
   - Refactored `SchedulePopover`, `ScheduleBuildPopover`, and `ScheduleTasksModal` to use the shared component
 - **Reason**: Three components duplicated the same date-time picking logic. Extracting it ensures the validation fix is applied everywhere and prevents future drift.
 
+## Convex rules audit: index naming & filter cleanup — 2026-03-08
+
+- **Why**: Convex rules require index names to include all field names (with "and" for multi-field), and `.filter()` on queries should be replaced with `.withIndex()` for indexed lookups.
+- **Changes**:
+  - Renamed `by_owner_name` → `by_owner_and_name` on `githubRepos` (multi-field index missing "and")
+  - Renamed `by_repoId` → `by_repo` on `repoSnapshots` (consistency with codebase convention)
+  - Renamed `by_repoSnapshotId` → `by_repo_snapshot` on `snapshotBuilds` (consistency)
+  - Added composite index `by_repo_snapshot_and_status` on `snapshotBuilds` — eliminates `.filter()` in `getRepoSnapshotName`
+  - Added composite index `by_task_and_depends_on` on `taskDependencies` — eliminates `.filter()` in `add` and `removeByTasks`
+  - Added composite index `by_team_and_role` on `teamMembers` — eliminates `.filter()` in `remove` (last-owner check)
+  - Updated all 10 call sites referencing renamed indexes
+- **Reason**: Enforcing Convex best practices — indexed queries over `.filter()` for performance, consistent naming conventions.
+
 ## Database bandwidth optimization — 2026-03-08
 
 - **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.

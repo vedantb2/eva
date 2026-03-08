@@ -91,8 +91,9 @@ export const add = authMutation({
     }
     const existing = await ctx.db
       .query("taskDependencies")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .filter((q) => q.eq(q.field("dependsOnId"), args.dependsOnId))
+      .withIndex("by_task_and_depends_on", (q) =>
+        q.eq("taskId", args.taskId).eq("dependsOnId", args.dependsOnId),
+      )
       .first();
     if (existing) {
       throw new Error("Dependency already exists");
@@ -126,8 +127,9 @@ export const removeByTasks = authMutation({
   handler: async (ctx, args) => {
     const dep = await ctx.db
       .query("taskDependencies")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .filter((q) => q.eq(q.field("dependsOnId"), args.dependsOnId))
+      .withIndex("by_task_and_depends_on", (q) =>
+        q.eq("taskId", args.taskId).eq("dependsOnId", args.dependsOnId),
+      )
       .first();
     if (dep) {
       await ctx.db.delete(dep._id);

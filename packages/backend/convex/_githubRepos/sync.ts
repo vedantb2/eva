@@ -34,7 +34,7 @@ export const upsert = internalMutation({
     if (!existing) {
       const byOwnerName = await ctx.db
         .query("githubRepos")
-        .withIndex("by_owner_name", (q) =>
+        .withIndex("by_owner_and_name", (q) =>
           q.eq("owner", args.owner).eq("name", args.name),
         )
         .collect();
@@ -116,7 +116,7 @@ export const cleanupStaleSubApps = internalMutation({
 
       const rows = await ctx.db
         .query("githubRepos")
-        .withIndex("by_owner_name", (q) =>
+        .withIndex("by_owner_and_name", (q) =>
           q.eq("owner", entry.owner).eq("name", entry.name),
         )
         .collect();

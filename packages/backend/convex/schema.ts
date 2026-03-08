@@ -173,7 +173,7 @@ const schema = defineSchema({
     hidden: v.optional(v.boolean()),
   })
     .index("by_github_id", ["githubId"])
-    .index("by_owner_name", ["owner", "name"])
+    .index("by_owner_and_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
 
   subtasks: defineTable({
@@ -204,6 +204,7 @@ const schema = defineSchema({
     dependsOnId: v.id("agentTasks"),
   })
     .index("by_task", ["taskId"])
+    .index("by_task_and_depends_on", ["taskId", "dependsOnId"])
     .index("by_dependency", ["dependsOnId"]),
   messages: defineTable({
     role: roleValidator,
@@ -409,7 +410,7 @@ const schema = defineSchema({
     workflowRef: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_repoId", ["repoId"]),
+  }).index("by_repo", ["repoId"]),
   snapshotBuilds: defineTable({
     repoSnapshotId: v.id("repoSnapshots"),
     status: snapshotBuildStatusValidator,
@@ -420,7 +421,8 @@ const schema = defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_repoSnapshotId", ["repoSnapshotId"])
+    .index("by_repo_snapshot", ["repoSnapshotId"])
+    .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
     .index("by_status", ["status"]),
   teams: defineTable({
     name: v.string(),
@@ -435,6 +437,7 @@ const schema = defineSchema({
     joinedAt: v.number(),
   })
     .index("by_team", ["teamId"])
+    .index("by_team_and_role", ["teamId", "role"])
     .index("by_user", ["userId"])
     .index("by_team_and_user", ["teamId", "userId"]),
   githubWebhookEvents: defineTable({

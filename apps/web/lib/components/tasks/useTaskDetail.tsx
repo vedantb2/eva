@@ -77,7 +77,7 @@ import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { formatDuration } from "@/lib/utils/formatDuration";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
+import { ProofCarousel } from "./ProofCarousel";
 import { SchedulePopover } from "./SchedulePopover";
 import { RunActivityLog } from "./RunActivityLog";
 
@@ -720,21 +720,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             Proof of Completion
           </h4>
           {proofs && proofs.length > 0 ? (
-            <div className="space-y-3">
-              {proofs.map((proof) => (
-                <div key={proof._id}>
-                  {proof.message ? (
-                    <p className="text-sm text-muted-foreground">
-                      {proof.message}
-                    </p>
-                  ) : proof.url && proof.contentType?.startsWith("image/") ? (
-                    <ScreenshotPreview url={proof.url} />
-                  ) : proof.url && proof.contentType?.startsWith("video/") ? (
-                    <VideoPreview url={proof.url} />
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <ProofCarousel proofs={proofs} />
           ) : (
             <p className="text-sm text-muted-foreground">
               No proof uploaded yet

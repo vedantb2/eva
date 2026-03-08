@@ -1,5 +1,14 @@
 # Changelog
 
+## Carousel for multiple proof-of-completion screenshots/videos — 2026-03-08
+
+- **Why**: When tasks had multiple proof screenshots or videos, they were stacked vertically taking up excessive space. Users had no quick way to browse through proofs.
+- **Changes**:
+  1. Added Embla Carousel component to `packages/ui` (shadcn pattern with `embla-carousel-react`).
+  2. Created `ProofCarousel` component in `apps/web/lib/components/tasks/` that separates message proofs from media proofs, renders single media items normally, and wraps multiple media items in a swipeable carousel with dot indicators and prev/next buttons.
+  3. Updated `useTaskDetail.tsx` to use `ProofCarousel` instead of inline proof rendering.
+- **Reason for change**: UX improvement. Carousel provides a compact, navigable view for multiple proofs instead of a long vertical scroll.
+
 ## Add granular streaming progress during sandbox setup — 2026-03-07
 
 - **Why**: When `prepareSandbox` runs (creating sandbox, cloning repo, installing deps, setting up branch), users saw "Starting sandbox..." for up to 5 minutes with no feedback. This made it impossible to tell what was happening or where time was being spent.

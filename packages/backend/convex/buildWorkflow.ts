@@ -152,7 +152,7 @@ export const startTaskForBuild = internalMutation({
         repoId: task.repoId,
         installationId: args.installationId,
         projectId: args.projectId,
-        branchName: `project/${args.projectId}`,
+        branchName: `eva/project-${args.projectId}`,
         baseBranch: project.baseBranch,
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,

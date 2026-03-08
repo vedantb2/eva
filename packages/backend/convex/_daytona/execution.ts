@@ -190,6 +190,11 @@ export const prepareSandbox = internalAction({
           );
           await exec(
             sandbox,
+            `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+            10,
+          );
+          await exec(
+            sandbox,
             `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
             30,
           );

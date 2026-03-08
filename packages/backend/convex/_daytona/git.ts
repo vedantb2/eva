@@ -147,6 +147,11 @@ export async function checkoutSessionBranch(
   const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+    10,
+  );
+  await exec(
+    sandbox,
     `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
     30,
   );

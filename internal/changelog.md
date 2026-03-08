@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix git checkout failures due to dirty working tree — 2026-03-08
+
+- **Why**: `git checkout` was aborting when auto-generated files (e.g. `next-env.d.ts`) existed as local changes in the sandbox, causing tasks and sessions to fail during branch setup.
+- **Changes**: Added `git stash --include-untracked` before checkout in `checkoutSessionBranch` and `prepareSandbox` base-branch checkout. The `setupBranch` function already had this — now all checkout paths are consistent.
+- **Reason**: Sandboxes that are reused across runs can accumulate untracked/modified files from previous executions. Stashing ensures branch switches always succeed.
 ## Fix Build Project button disabled state & branch sync — 2026-03-08
 
 - **Why**: Build Project button stayed clickable after starting a build, and project branches fell behind their base branch (e.g. 80 commits behind main).

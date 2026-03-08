@@ -859,12 +859,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
           className="flex-1"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleAddComment(e, canRequestChanges);
-            }
-          }}
         />
         <Button
           size="icon"
@@ -1355,6 +1349,14 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </Dialog>
   );
 
+  const hasTabContent =
+    (runs !== undefined && runs.length > 0) ||
+    (proofs !== undefined && proofs.length > 0) ||
+    audit !== undefined ||
+    (comments !== undefined && comments.length > 0);
+
+  const showTabsColumn = status !== "todo" || hasTabContent;
+
   return {
     titleContent,
     scheduledBadge,
@@ -1371,6 +1373,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     userMessageDialog,
     audit,
     showProofSection,
+    showTabsColumn,
     activeTab,
     setActiveTab,
     layoutGridClass,

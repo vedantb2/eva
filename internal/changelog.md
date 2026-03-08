@@ -1,5 +1,16 @@
 # Changelog
 
+## Quick Tasks UI revamp (follow-up polish) — 2026-03-08
+
+- **Why**: Reviewer feedback on the tab-based task detail UI needed addressing.
+- **Changes**:
+  - Removed section titles inside each tab (Activity, Proof of Completion, etc.) — redundant with tab labels
+  - Added icons to tab triggers (Terminal, Photo, Shield, Message) reusing existing tabler icons
+  - Modal hides tabs column for "todo" status tasks unless content exists in any tab
+  - Comments textarea no longer sends on Enter — only the send button submits
+  - Reverted task card list width back to original 20%/30% split
+- **Reason**: Polish pass based on reviewer feedback to reduce redundancy and fix UX issues.
+
 ## Quick Tasks UI revamp — 2026-03-08
 
 - **Why**: Task detail views stacked all content vertically (activity, proof, audit) making it hard to find specific sections. Request changes opened a 4th column in the modal which was awkward. Task cards showed redundant description text.

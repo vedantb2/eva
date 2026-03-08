@@ -2,6 +2,12 @@
 
 import type { Id } from "@conductor/backend";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
+import {
+  IconTerminal2,
+  IconPhoto,
+  IconShieldCheck,
+  IconMessagePlus,
+} from "@tabler/icons-react";
 import { useTaskDetail } from "./useTaskDetail";
 
 interface TaskDetailInlineProps {
@@ -50,10 +56,22 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                   }
                 >
                   <TabsList className="w-full justify-start">
-                    <TabsTrigger value="activity">Activity</TabsTrigger>
-                    <TabsTrigger value="proof">Proof</TabsTrigger>
-                    <TabsTrigger value="audit">Audit</TabsTrigger>
-                    <TabsTrigger value="comments">Comments</TabsTrigger>
+                    <TabsTrigger value="activity">
+                      <IconTerminal2 size={14} />
+                      Activity
+                    </TabsTrigger>
+                    <TabsTrigger value="proof">
+                      <IconPhoto size={14} />
+                      Proof
+                    </TabsTrigger>
+                    <TabsTrigger value="audit">
+                      <IconShieldCheck size={14} />
+                      Audit
+                    </TabsTrigger>
+                    <TabsTrigger value="comments">
+                      <IconMessagePlus size={14} />
+                      Comments
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="activity" className="mt-4">
                     {runsSection}

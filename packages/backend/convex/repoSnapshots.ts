@@ -23,7 +23,7 @@ function resolveCronspec(schedule: string): string | null {
   return LEGACY_SCHEDULE_TO_CRON[schedule] ?? schedule;
 }
 
-const STALE_BUILD_MS = 20 * 60 * 1000;
+const STALE_BUILD_MS = 30 * 60 * 1000;
 
 export const getRepoSnapshot = authQuery({
   args: { repoId: v.id("githubRepos") },

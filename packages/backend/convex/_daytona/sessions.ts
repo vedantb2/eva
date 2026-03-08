@@ -166,6 +166,11 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
+      const designVolumeMounts = await ensureSessionClaudeVolume(
+        daytona,
+        args.designSessionId,
+      );
+
       const reused = await tryReuseSandbox(
         daytona,
         args.existingSandboxId,
@@ -202,6 +207,7 @@ export const startDesignSandbox = internalAction({
         sandboxEnvVars,
         SESSION_LIFECYCLE,
         snapshotName,
+        designVolumeMounts,
       );
       const sandbox = prepared.sandbox;
       await setupBranch(sandbox, args.branchName, args.baseBranch);

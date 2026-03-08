@@ -3,6 +3,7 @@
 import { use } from "react";
 import { RepoProvider } from "@/lib/contexts/RepoContext";
 import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
+import { QuickTaskHotkey } from "@/lib/components/quick-tasks/QuickTaskHotkey";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
@@ -44,6 +45,7 @@ export default function RepoLayout({
           <Sidebar />
           <MainContent>{children}</MainContent>
           <SpotlightSearch />
+          <QuickTaskHotkey />
         </RepoProvider>
       </SearchProvider>
     </SidebarProvider>

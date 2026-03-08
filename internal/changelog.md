@@ -1,5 +1,14 @@
 # Changelog
 
+## Replace agent run status labels with icons + Alt+N hotkey for quick tasks — 2026-03-08
+
+- **Why**: Status labels (success/error/running) in the agent run accordion were noisy and took up space. Users also wanted a fast way to create quick tasks from anywhere in the repo.
+- **Changes**:
+  1. Replaced text badges in agent run accordion triggers with compact icons: green check (success), red X (error), spinner (running), clock (queued).
+  2. Error runs now default-open so users can immediately see both the activity log and error message for easier debugging.
+  3. Added global `Alt+N` hotkey that opens the Quick Task creation modal from any page within a repo.
+- **Reason for change**: UX polish — reduce visual noise in run list, improve error traceability, and speed up task creation workflow.
+
 ## Post-audit auto-fix: audit now fixes failing checks, commits, and pushes — 2026-03-08
 
 - **Why**: The post-execution audit previously only identified issues (accessibility, testing, code review) but didn't take action. Users had to manually fix audit failures, which defeated the purpose of automated quality checks.

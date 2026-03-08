@@ -31,6 +31,9 @@ import {
   IconGitPullRequest,
   IconExternalLink,
   IconMessageCircle,
+  IconCircleCheck,
+  IconCircleX,
+  IconClock,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -145,7 +148,9 @@ export function ProjectTaskDetailPanel({
                 defaultValue={runs
                   .filter(
                     (run) =>
-                      run.status === "running" || run.status === "queued",
+                      run.status === "running" ||
+                      run.status === "queued" ||
+                      run.status === "error",
                   )
                   .map((run) => run._id)}
                 className="space-y-2"
@@ -159,19 +164,24 @@ export function ProjectTaskDetailPanel({
                     <AccordionTrigger>
                       <div className="flex flex-1 items-center justify-between mr-2">
                         <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              run.status === "success"
-                                ? "success"
-                                : run.status === "error"
-                                  ? "destructive"
-                                  : run.status === "running"
-                                    ? "warning"
-                                    : "outline"
-                            }
-                          >
-                            {run.status}
-                          </Badge>
+                          {run.status === "success" ? (
+                            <IconCircleCheck
+                              size={16}
+                              className="text-success"
+                            />
+                          ) : run.status === "error" ? (
+                            <IconCircleX
+                              size={16}
+                              className="text-destructive"
+                            />
+                          ) : run.status === "running" ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <IconClock
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {run.startedAt
                               ? dayjs(run.startedAt).format(

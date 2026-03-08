@@ -1,43 +1,46 @@
 # Eva
 
-> Run AI coding agents inside real cloud development environments.
+> Manage coding agents inside cloud development environments connected to your repositories
 
-Eva runs AI coding agents inside real cloud sandboxes connected to your repositories. Instead of editing code locally or inside limited LLM sandboxes, Eva provisions full development environments where agents can run commands, install dependencies, execute tests, and open pull requests.
+Instead of editing code locally or inside restricted LLM sandboxes, Eva provisions full development environments where agents can:
 
-Think of it as infrastructure for AI agents that work against real codebases.
+• run shell commands
+• install dependencies
+• execute tests
+• build and preview apps
+• open pull requests
 
 ```
-GitHub Repo
-     ↓
-   Eva
-     ↓
+GitHub Repository
+        ↓
+       Eva
+        ↓
 Cloud Sandbox (Daytona)
-     ↓
+        ↓
 AI Agent (Claude)
-     ↓
-Diff / PR / Preview
+        ↓
+Code Changes → Diff → Pull Request → Preview
 ```
 
-## How It Works
-
-1. **Connect a repo** — Link your GitHub repository and configure environment variables.
-2. **Build a snapshot** — Create a sandbox snapshot with your dependencies pre-installed (automate via GitHub Actions).
-3. **Run tasks** — Eva provisions a cloud sandbox from your snapshot, runs the AI agent, and streams results back.
-4. **Review and merge** — View diffs, live previews, and test results. Merge when ready.
+## Quick Start
+1. Connect your GitHub repository
+2. Build a sandbox snapshot with your dependencies
+3. Run a task (e.g. “fix failing tests”)
+4. Review the diff and open a pull request
 
 ## Features
 
 ### Quick Tasks
 
-Describe a bug or a small change, and Eva spins up an isolated sandbox to execute it. Each task runs independently — launch batches without worrying about one blocking another.
+Describe a bug or change and Eva spins up an isolated sandbox to execute it. Tasks run independently so you can launch multiple in parallel.
 
 ### Sessions
 
-Cloud-hosted development environments with live previews. A collaborative workspace where you and the AI agent iterate together in real-time.
+Persistent cloud development environments with live previews where you and the agent collaborate in real time.
 
 ### Projects
 
-Structured workflows for larger changes. Projects give the agent a way to plan, implement, and verify features end-to-end across your codebase.
+Structured workflows for larger changes. Agents can plan, implement, and verify features across your codebase.
 
 ### Documents
 

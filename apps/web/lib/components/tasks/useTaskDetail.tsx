@@ -62,7 +62,7 @@ import {
   IconBrandVercel,
   IconDots,
 } from "@tabler/icons-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Streamdown } from "streamdown";
@@ -143,8 +143,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
-  const handleAddComment = async (e: FormEvent, requestChanges = false) => {
-    e.preventDefault();
+  const handleAddComment = async (requestChanges = false) => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
@@ -845,10 +844,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           ))}
         </div>
       )}
-      <form
-        onSubmit={(e) => handleAddComment(e, canRequestChanges)}
-        className="flex gap-2 items-end"
-      >
+      <div className="flex gap-2 items-end">
         <Textarea
           rows={3}
           placeholder={
@@ -858,22 +854,17 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           }
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.stopPropagation();
-            }
-          }}
           className="flex-1"
         />
         <Button
           size="icon"
-          type="submit"
           className="rounded-full shrink-0"
           disabled={!commentText.trim()}
+          onClick={() => handleAddComment(canRequestChanges)}
         >
           <IconArrowUp size={18} />
         </Button>
-      </form>
+      </div>
       {canRequestChanges && (
         <p className="text-xs text-muted-foreground">
           Submitting will create a comment and re-run Eva with your changes

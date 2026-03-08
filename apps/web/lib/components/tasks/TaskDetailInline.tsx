@@ -56,19 +56,19 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                   }
                 >
                   <TabsList className="w-full justify-start">
-                    <TabsTrigger value="activity">
+                    <TabsTrigger value="activity" className="gap-1.5">
                       <IconTerminal2 size={14} />
                       Activity
                     </TabsTrigger>
-                    <TabsTrigger value="proof">
+                    <TabsTrigger value="proof" className="gap-1.5">
                       <IconPhoto size={14} />
                       Proof
                     </TabsTrigger>
-                    <TabsTrigger value="audit">
+                    <TabsTrigger value="audit" className="gap-1.5">
                       <IconShieldCheck size={14} />
                       Audit
                     </TabsTrigger>
-                    <TabsTrigger value="comments">
+                    <TabsTrigger value="comments" className="gap-1.5">
                       <IconMessagePlus size={14} />
                       Comments
                     </TabsTrigger>

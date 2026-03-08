@@ -858,6 +858,11 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           }
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.stopPropagation();
+            }
+          }}
           className="flex-1"
         />
         <Button

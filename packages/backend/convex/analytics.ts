@@ -41,14 +41,18 @@ export const getImpactStats = authQuery({
         prUrls.add(s.prUrl);
       }
     }
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
     const filteredTasks =
       startTime !== undefined
-        ? tasks.filter((t) => t.updatedAt >= startTime)
-        : tasks;
+        ? await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo_and_updatedAt", (q) =>
+              q.eq("repoId", args.repoId).gte("updatedAt", startTime),
+            )
+            .collect()
+        : await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+            .collect();
     const tasksCompleted = filteredTasks.filter(
       (t) => t.status === "done",
     ).length;

@@ -67,15 +67,6 @@ const schema = defineSchema({
     lastSandboxActivity: v.optional(v.number()),
     phase: phaseValidator,
     rawInput: v.string(),
-    generatedSpec: v.optional(v.string()),
-    conversationHistory: v.array(
-      v.object({
-        role: roleValidator,
-        content: v.string(),
-        activityLog: v.optional(v.string()),
-        userId: v.optional(v.id("users")),
-      }),
-    ),
     projectLead: v.optional(v.id("users")),
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
@@ -89,6 +80,19 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_phase", ["repoId", "phase"]),
+
+  projectDetails: defineTable({
+    projectId: v.id("projects"),
+    conversationHistory: v.array(
+      v.object({
+        role: roleValidator,
+        content: v.string(),
+        activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+      }),
+    ),
+    generatedSpec: v.optional(v.string()),
+  }).index("by_project", ["projectId"]),
 
   agentTasks: defineTable({
     title: v.string(),
@@ -110,6 +114,8 @@ const schema = defineSchema({
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
+    .index("by_repo_and_status", ["repoId", "status"])
+    .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
 

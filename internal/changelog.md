@@ -1,5 +1,17 @@
 # Changelog
 
+## Database bandwidth optimization — 2026-03-08
+
+- **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.
+- **Changes**:
+  - Added `by_repo_and_status` and `by_repo_and_updatedAt` indexes to `agentTasks` — eliminates full table scans in `getActiveTasks` and JS status filtering in `getAllTasks`
+  - `getActiveTasks` now queries per-repo per-status via compound index instead of scanning entire `agentTasks` table
+  - `getAllTasks` queries 6 non-draft statuses individually via compound index instead of collecting all and filtering
+  - `analytics.getImpactStats` uses `by_repo_and_updatedAt` range query for time-filtered tasks instead of JS filtering after full collect
+  - Removed `projects.get` subscription from `ProjectCard` — each card was fetching the full project doc (including heavy `conversationHistory`) just for participant avatars. Now uses `members`/`projectLead` from the lightweight list data
+  - Moved `conversationHistory` and `generatedSpec` from `projects` table to new `projectDetails` table — `projects.list` no longer reads these heavy fields from the DB. `projects.get` joins them back for detail views.
+- **Reason**: Convex rule "Do NOT use filter in queries — use withIndex instead" was violated in multiple high-traffic functions. The `projects` table carried unbounded conversation data that was read on every list query even though it was stripped before returning.
+
 ## Mobile responsiveness audit (deep pass) — 2026-03-07
 
 - **Why**: Many pages and components had fixed widths, missing responsive breakpoints, and overflow issues that made the platform difficult to use on phones and tablets.
@@ -12,6 +24,7 @@
   - Shared: Main sidebar width capped to prevent overflow on very small screens (min of 16rem, 100vw-3rem), mobile header padding responsive, SidebarLayoutWrapper mobile drawer capped to 100vw-2rem, ChatPageWrapper header gap and wrap improved, KanbanBoard columns use 75vw for better mobile snapping, TaskDetailInline gap responsive, TaskDetailModal gets w-full for mobile constraint
   - Added `useMediaQuery` hook for responsive layout switching
 - **Reason for change**: Mobile-first accessibility audit across quick tasks, sessions, designs, documents, testing arena, inbox, stats, and settings pages.
+
 ## Replace JWT auth with HMAC for sandbox streaming heartbeats — 2026-03-07
 
 - **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s"). Root cause: the callback script's `streaming:set` calls used `authMutation` which requires JWT validation + user DB lookup on every call. Convex's auth layer intermittently fails (confirmed by `presence:disconnect` throwing "Not authenticated" every ~10s). Since heartbeat errors were silently swallowed, heartbeats died for 180s and the watchdog killed the run.

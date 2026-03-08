@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
-import { AUDIT_TASKS, parseSpec } from "./helpers";
+import {
+  AUDIT_TASKS,
+  parseSpec,
+  getProjectGeneratedSpec,
+  setProjectConversation,
+} from "./helpers";
 
 export const startDevelopment = authMutation({
   args: {
@@ -16,10 +21,11 @@ export const startDevelopment = authMutation({
     if (project.phase !== "finalized") {
       throw new Error("Project must be finalized before starting development");
     }
-    if (!project.generatedSpec) {
+    const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
+    if (!generatedSpec) {
       throw new Error("Project has no generated spec");
     }
-    const spec = parseSpec(project.generatedSpec);
+    const spec = parseSpec(generatedSpec);
     const branchName = `project/${args.projectId}`;
     const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
@@ -116,8 +122,8 @@ export const createFromTasks = authMutation({
       rawInput: args.title,
       phase: "active",
       projectStartDate: Date.now(),
-      conversationHistory: [],
     });
+    await setProjectConversation(ctx.db, projectId, []);
     await ctx.db.patch(projectId, {
       branchName: `project/${projectId}`,
     });

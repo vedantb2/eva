@@ -4,6 +4,10 @@ import { type WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "./_generated/dataModel";
 import { workflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  getProjectConversation,
+  setProjectConversation,
+} from "./_projects/helpers";
 
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -184,14 +188,15 @@ export const handleStaleProject = internalMutation({
 
     await cancelStaleWorkflow(ctx, args.workflowId, [String(args.projectId)]);
 
-    const messages = [...project.conversationHistory];
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+    const messages = [...conversation];
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && !last.content) {
       last.content = JSON.stringify({ error: true });
     }
 
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });

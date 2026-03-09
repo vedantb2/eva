@@ -41,8 +41,14 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
           className="ml-auto cursor-default gap-1.5 border-sidebar-border/70 bg-sidebar/70 px-1.5 py-0.5"
         >
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+              style={{ backgroundColor: "rgb(var(--status-progress-bar))" }}
+            />
+            <span
+              className="relative inline-flex h-2 w-2 rounded-full"
+              style={{ backgroundColor: "rgb(var(--status-progress-bar))" }}
+            />
           </span>
           <span className="text-[11px] font-medium text-muted-foreground">
             {tasks.length} live

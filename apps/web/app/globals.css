@@ -325,7 +325,7 @@
   }
 }
 
-/* Animated border for in-progress quick task cards */
+/* Animated border for in-progress issue cards */
 @property --qt-border-angle {
   syntax: "<angle>";
   inherits: false;

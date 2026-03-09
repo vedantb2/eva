@@ -9,13 +9,11 @@ import {
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-interface QuickTasksStatusSummaryProps {
+interface IssuesStatusSummaryProps {
   tasks: Task[];
 }
 
-export function QuickTasksStatusSummary({
-  tasks,
-}: QuickTasksStatusSummaryProps) {
+export function IssuesStatusSummary({ tasks }: IssuesStatusSummaryProps) {
   const counts = new Map<string, number>();
   for (const task of tasks) {
     counts.set(task.status, (counts.get(task.status) ?? 0) + 1);

@@ -11,28 +11,22 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import {
-  QuickTaskModal,
-  ImportLinearModal,
-} from "@/lib/components/quick-tasks";
-import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
+import { IssueModal, ImportLinearModal } from "@/lib/components/issues";
+import { IssuesKanbanBoard } from "@/lib/components/issues/IssuesKanbanBoard";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
 import {
   searchParser,
-  quickTaskViewParser,
+  issueViewParser,
   projectFilterParser,
   taskIdParser,
 } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
-import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
-import {
-  QuickTasksBulkBar,
-  type BulkAction,
-} from "./_components/QuickTasksBulkBar";
-import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
-import { QuickTasksSplitView } from "./_components/QuickTasksSplitView";
+import { IssuesToolbar } from "./_components/IssuesToolbar";
+import { IssuesBulkBar, type BulkAction } from "./_components/IssuesBulkBar";
+import { IssuesBulkModals } from "./_components/IssuesBulkModals";
+import { IssuesSplitView } from "./_components/IssuesSplitView";
 
-export function QuickTasksClient() {
+export function IssuesClient() {
   const { repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
@@ -46,7 +40,7 @@ export function QuickTasksClient() {
   );
   const [{ q, view, project, taskId }, setParams] = useQueryStates({
     q: searchParser,
-    view: quickTaskViewParser,
+    view: issueViewParser,
     project: projectFilterParser,
     taskId: taskIdParser,
   });
@@ -64,15 +58,15 @@ export function QuickTasksClient() {
     return map;
   }, [projects]);
 
-  const quickTasks = useMemo(() => {
+  const issues = useMemo(() => {
     if (!tasks) return [];
     if (project === "all") return tasks;
     if (project === "none") return tasks.filter((t) => !t.projectId);
     return tasks.filter((t) => t.projectId === project);
   }, [tasks, project]);
   const hasAnyTasks = (tasks ?? []).length > 0;
-  const hasQuickTasks = quickTasks.length > 0;
-  const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
+  const hasIssues = issues.length > 0;
+  const selectedTasks = issues.filter((t) => selectedIds.has(t._id));
 
   const toggleSelect = (id: Id<"agentTasks">) => {
     setSelectedIds((prev) => {
@@ -111,16 +105,16 @@ export function QuickTasksClient() {
   return (
     <>
       <PageWrapper
-        title="Quick Tasks"
+        title="Issues"
         fillHeight
         childPadding={false}
         headerRight={
-          <QuickTasksToolbar
+          <IssuesToolbar
             view={view}
             onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
             searchQuery={searchQuery}
             onSearchChange={(v) => setParams({ q: v })}
-            hasQuickTasks={hasAnyTasks}
+            hasIssues={hasAnyTasks}
             isSelecting={isSelecting}
             onStartSelecting={() => setIsSelecting(true)}
             onCreateTask={() => setIsCreating(true)}
@@ -135,7 +129,7 @@ export function QuickTasksClient() {
           <AnimatePresence mode="wait">
             {tasks === undefined ? (
               <motion.div
-                key="quick-tasks-loading"
+                key="issues-loading"
                 className="flex flex-1 items-center justify-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -144,9 +138,9 @@ export function QuickTasksClient() {
               >
                 <Spinner />
               </motion.div>
-            ) : !hasQuickTasks ? (
+            ) : !hasIssues ? (
               <motion.div
-                key="quick-tasks-empty"
+                key="issues-empty"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
@@ -159,23 +153,23 @@ export function QuickTasksClient() {
                       className="text-muted-foreground"
                     />
                   }
-                  title="No quick tasks"
-                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-                  actionLabel="Create Quick Task"
+                  title="No issues"
+                  description="Issues are standalone tasks not tied to a feature. Create one for small, one-off work."
+                  actionLabel="Create Issue"
                   onAction={() => setIsCreating(true)}
                 />
               </motion.div>
             ) : view === "kanban" ? (
               <motion.div
-                key="quick-tasks-board"
+                key="issues-board"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksKanbanBoard
-                  tasks={quickTasks}
+                <IssuesKanbanBoard
+                  tasks={issues}
                   projectNames={projectNames}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
@@ -185,28 +179,28 @@ export function QuickTasksClient() {
               </motion.div>
             ) : (
               <motion.div
-                key="quick-tasks-list"
+                key="issues-list"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksSplitView
+                <IssuesSplitView
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                   selectedTaskId={typedSelectedTaskId}
                   onCloseTask={handleTaskClose}
-                  quickTasks={quickTasks}
+                  issues={issues}
                   projectNames={projectNames}
                 />
               </motion.div>
             )}
           </AnimatePresence>
-          {hasQuickTasks && (
-            <QuickTasksBulkBar
+          {hasIssues && (
+            <IssuesBulkBar
               isSelecting={isSelecting}
               selectedCount={selectedIds.size}
               onExitSelect={exitSelectMode}
@@ -216,15 +210,12 @@ export function QuickTasksClient() {
           )}
         </div>
       </PageWrapper>
-      <QuickTaskModal
-        isOpen={isCreating}
-        onClose={() => setIsCreating(false)}
-      />
+      <IssueModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
       <ImportLinearModal
         isOpen={isImporting}
         onClose={() => setIsImporting(false)}
       />
-      <QuickTasksBulkModals
+      <IssuesBulkModals
         activeBulkAction={activeBulkAction}
         onCloseBulkAction={closeBulkAction}
         selectedTaskIds={selectedIds}

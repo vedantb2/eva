@@ -26,7 +26,7 @@ export const PLATFORM_SECTIONS = [
   },
   {
     icon: IconCode,
-    label: "Quick Tasks",
+    label: "Issues",
     shortDesc: "Small fixes & changes",
     longDesc:
       "Ship one-off fixes and small changes without spinning up a full project or session.",

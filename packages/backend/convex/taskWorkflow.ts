@@ -16,7 +16,7 @@ export { createAudit, saveAuditResult } from "./_taskWorkflow/audit";
 export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
 
 export {
-  maybeScheduleQuickTaskRetry,
+  maybeScheduleIssueRetry,
   executeScheduledTask,
   clearActiveWorkflow,
 } from "./_taskWorkflow/scheduling";

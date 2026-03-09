@@ -10,7 +10,7 @@ export function buildWorkflowRunNotificationMessage(params: {
   error: string | null;
   prUrl: string | null;
 }): string {
-  const scopeLabel = params.projectId ? "project task" : "quick task";
+  const scopeLabel = params.projectId ? "project task" : "issue";
   if (params.success) {
     if (params.prUrl) {
       return `Run succeeded for this ${scopeLabel}. Pull request: ${params.prUrl}`;
@@ -32,7 +32,7 @@ export function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   subtasks: Array<{ title: string }>,
   branchName: string,
-  isQuickTask: boolean,
+  isIssue: boolean,
   rootDirectory: string,
   changeRequests?: string[],
 ): string {
@@ -41,7 +41,7 @@ export function buildImplementationPrompt(
       ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
       : "";
 
-  const commitScope = isQuickTask
+  const commitScope = isIssue
     ? "feat"
     : `feat(task-${task.taskNumber ?? task.title})`;
 

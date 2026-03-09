@@ -11,8 +11,8 @@ export {
   update,
   updateStatus,
   remove,
-  createQuickTask,
-  createQuickTasksBatch,
+  createIssue,
+  createIssuesBatch,
   assignToProject,
   deleteCascade,
 } from "./_agentTasks/mutations";

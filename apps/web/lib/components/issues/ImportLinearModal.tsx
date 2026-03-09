@@ -51,9 +51,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchIssues = useAction(api.linearActions.fetchIssues);
-  const createQuickTasksBatch = useMutation(
-    api.agentTasks.createQuickTasksBatch,
-  );
+  const createIssuesBatch = useMutation(api.agentTasks.createIssuesBatch);
 
   const identifiers = useMemo(() => parseLinearIdentifiers(input), [input]);
 
@@ -80,7 +78,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
         description: issue.description || undefined,
       }));
 
-      await createQuickTasksBatch({
+      await createIssuesBatch({
         repoId: repo._id,
         tasks,
       });

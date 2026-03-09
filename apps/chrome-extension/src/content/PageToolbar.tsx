@@ -60,10 +60,7 @@ function getPageUrl(): string {
 }
 
 function sendPins(
-  type:
-    | "TOOLBAR_ADD_QUICK_TASKS"
-    | "TOOLBAR_ADD_TO_PROJECT"
-    | "RUN_ALL_ANNOTATIONS",
+  type: "TOOLBAR_ADD_ISSUES" | "TOOLBAR_ADD_TO_PROJECT" | "RUN_ALL_ANNOTATIONS",
   pins: Record<string, StoredPin>,
 ) {
   _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };

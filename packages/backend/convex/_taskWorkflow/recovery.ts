@@ -5,8 +5,8 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { clearStreamingActivity, getTaskRunStreamingEntityId } from "./helpers";
 
-const QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS = 20_000;
-const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
+const ISSUE_AUTO_RETRY_BASE_DELAY_MS = 20_000;
+const ISSUE_AUTO_RETRY_JITTER_MS = 20_000;
 
 export const STALE_THRESHOLD_MS = 180_000;
 export const STALE_CHECK_DELAY_MS = 90_000;
@@ -62,10 +62,10 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   return hasNetworkMarker || hasDaytonaStatusMarker;
 }
 
-export function buildQuickTaskRetryDelayMs(): number {
+export function buildIssueRetryDelayMs(): number {
   return (
-    QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS +
-    Math.floor(Math.random() * QUICK_TASK_AUTO_RETRY_JITTER_MS)
+    ISSUE_AUTO_RETRY_BASE_DELAY_MS +
+    Math.floor(Math.random() * ISSUE_AUTO_RETRY_JITTER_MS)
   );
 }
 
@@ -117,12 +117,12 @@ export async function cleanUpStaleRun(
   if (!params.isProjectTask) {
     await ctx.scheduler.runAfter(
       0,
-      internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+      internal.taskWorkflow.maybeScheduleIssueRetry,
       {
         taskId: params.taskId,
         runId: params.runId,
         error: params.errorMessage,
-        delayMs: buildQuickTaskRetryDelayMs(),
+        delayMs: buildIssueRetryDelayMs(),
       },
     );
   }

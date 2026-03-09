@@ -92,8 +92,8 @@ export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
 
-const quickTaskViews = ["kanban", "list"] as const;
-export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
+const issueViews = ["kanban", "list"] as const;
+export const issueViewParser = parseAsStringLiteral(issueViews)
   .withDefault("list")
   .withOptions(tabOptions);
 

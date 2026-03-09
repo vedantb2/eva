@@ -100,7 +100,7 @@ export function ChatPanel({
     null,
   );
 
-  const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const createIssue = useMutation(api.agentTasks.createIssue);
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const selectedRepo = useQuery(
     api.githubRepos.get,
@@ -194,7 +194,7 @@ Please review all components and files used on this page before implementing the
           }
         }
 
-        await createQuickTask({
+        await createIssue({
           repoId: selectedRepoId as Id<"githubRepos">,
           title: text.slice(0, 100),
           description: fullDescription,
@@ -290,7 +290,7 @@ Please review all components and files used on this page before implementing the
           }
         }
 
-        const taskId = await createQuickTask({
+        const taskId = await createIssue({
           repoId: selectedRepoId as Id<"githubRepos">,
           title: payload.title.slice(0, 100),
           description,
@@ -312,7 +312,7 @@ Please review all components and files used on this page before implementing the
         console.error("Failed to create annotation task:", error);
       }
     },
-    [selectedRepoId, createQuickTask, convexUserId, creatorInitials],
+    [selectedRepoId, createIssue, convexUserId, creatorInitials],
   );
 
   const handleSelectionActiveChange = useCallback((active: boolean) => {

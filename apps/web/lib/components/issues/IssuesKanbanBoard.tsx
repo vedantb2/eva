@@ -6,7 +6,7 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
-import { QuickTaskCard } from "./QuickTaskCard";
+import { IssueCard } from "./IssueCard";
 import { FixAllDialog } from "./FixAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
@@ -14,7 +14,7 @@ import { IconPlayerPlay } from "@tabler/icons-react";
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
 
-interface QuickTasksKanbanBoardProps {
+interface IssuesKanbanBoardProps {
   tasks: Task[];
   projectNames: Map<string, string>;
   isSelecting: boolean;
@@ -23,14 +23,14 @@ interface QuickTasksKanbanBoardProps {
   onOpenTask: (id: Id<"agentTasks">) => void;
 }
 
-export function QuickTasksKanbanBoard({
+export function IssuesKanbanBoard({
   tasks: externalTasks,
   projectNames,
   isSelecting,
   selectedIds,
   onToggleSelect,
   onOpenTask,
-}: QuickTasksKanbanBoardProps) {
+}: IssuesKanbanBoardProps) {
   const currentUserId = useQuery(api.auth.me);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
@@ -109,7 +109,7 @@ export function QuickTasksKanbanBoard({
           ) : null
         }
         renderCard={(task) => (
-          <QuickTaskCard
+          <IssueCard
             id={task._id}
             title={task.title}
             description={task.description}
@@ -127,7 +127,7 @@ export function QuickTasksKanbanBoard({
           />
         )}
         renderOverlay={(task) => (
-          <QuickTaskCard
+          <IssueCard
             id={task._id}
             title={task.title}
             description={task.description}

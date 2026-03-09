@@ -33,11 +33,11 @@ export async function createNotification(
     if (repo) {
       const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
       if (params.taskId && !params.projectId) {
-        href = `${baseHref}/quick-tasks/${params.taskId}`;
+        href = `${baseHref}/issues/${params.taskId}`;
       } else if (params.projectId) {
         href = `${baseHref}/projects/${params.projectId}`;
       } else {
-        href = `${baseHref}/quick-tasks`;
+        href = `${baseHref}/issues`;
       }
     }
   }
@@ -66,14 +66,14 @@ function buildNotificationMessage(
   if (!taskId || projectId) {
     return message;
   }
-  const quickTaskIdMessage = `Quick task ID: ${taskId}`;
+  const issueIdMessage = `Issue ID: ${taskId}`;
   if (!message) {
-    return quickTaskIdMessage;
+    return issueIdMessage;
   }
-  if (message.includes(quickTaskIdMessage)) {
+  if (message.includes(issueIdMessage)) {
     return message;
   }
-  return `${message} ${quickTaskIdMessage}`;
+  return `${message} ${issueIdMessage}`;
 }
 
 const notificationValidator = v.object({

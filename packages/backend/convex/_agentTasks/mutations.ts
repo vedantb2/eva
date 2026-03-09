@@ -150,7 +150,7 @@ export const remove = authMutation({
   },
 });
 
-export const createQuickTask = authMutation({
+export const createIssue = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
@@ -179,7 +179,7 @@ export const createQuickTask = authMutation({
   },
 });
 
-export const createQuickTasksBatch = authMutation({
+export const createIssuesBatch = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     tasks: v.array(

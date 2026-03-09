@@ -85,12 +85,12 @@ export function SpotlightSearch() {
                 <span className="text-xs text-muted-foreground">Build</span>
               </Command.Item>
               <Command.Item
-                value="Quick Tasks"
+                value="Issues"
                 className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
+                onSelect={() => handleSelect(`${basePath}/issues`)}
               >
                 <IconChecklist size={16} className="flex-shrink-0" />
-                <span className="flex-1">Quick Tasks</span>
+                <span className="flex-1">Issues</span>
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
               <Command.Item
@@ -177,7 +177,7 @@ export function SpotlightSearch() {
                     key={t._id}
                     value={t.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
+                    onSelect={() => handleSelect(`${basePath}/issues`)}
                   >
                     <IconChecklist size={16} className="flex-shrink-0" />
                     <span className="flex-1 truncate">{t.title}</span>

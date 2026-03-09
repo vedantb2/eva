@@ -13,7 +13,7 @@ import {
   extractAuditFailures,
   WORKSPACE_DIR,
 } from "./prompts";
-import { buildQuickTaskRetryDelayMs } from "./recovery";
+import { buildIssueRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 
 export const taskExecutionWorkflow = workflow.define({
@@ -130,7 +130,7 @@ export const taskExecutionWorkflow = workflow.define({
             description: data.taskDescription,
             labels: [
               "eva",
-              args.projectId ? "project" : "quick-task",
+              args.projectId ? "project" : "issue",
               ...(data.appLabel ? [data.appLabel] : []),
             ],
           },
@@ -252,19 +252,16 @@ export const taskExecutionWorkflow = workflow.define({
       if (!args.projectId && !result.success) {
         try {
           await step.runMutation(
-            internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+            internal.taskWorkflow.maybeScheduleIssueRetry,
             {
               taskId: args.taskId,
               runId: args.runId,
               error: result.error ?? undefined,
-              delayMs: buildQuickTaskRetryDelayMs(),
+              delayMs: buildIssueRetryDelayMs(),
             },
           );
         } catch (retryError) {
-          console.error(
-            "Failed to schedule quick-task auto-retry:",
-            retryError,
-          );
+          console.error("Failed to schedule issue auto-retry:", retryError);
         }
       }
 
@@ -317,19 +314,16 @@ export const taskExecutionWorkflow = workflow.define({
       if (!args.projectId) {
         try {
           await step.runMutation(
-            internal.taskWorkflow.maybeScheduleQuickTaskRetry,
+            internal.taskWorkflow.maybeScheduleIssueRetry,
             {
               taskId: args.taskId,
               runId: args.runId,
               error: fallbackError ?? undefined,
-              delayMs: buildQuickTaskRetryDelayMs(),
+              delayMs: buildIssueRetryDelayMs(),
             },
           );
         } catch (retryError) {
-          console.error(
-            "Failed to schedule quick-task auto-retry:",
-            retryError,
-          );
+          console.error("Failed to schedule issue auto-retry:", retryError);
         }
       }
 

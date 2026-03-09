@@ -21,12 +21,12 @@ import {
   type TaskStatus,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { QuickTaskCard } from "./QuickTaskCard";
+import { IssueCard } from "./IssueCard";
 import { FixAllDialog } from "./FixAllDialog";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-interface QuickTasksListViewProps {
+interface IssuesListViewProps {
   tasks: Task[];
   projectNames: Map<string, string>;
   isSelecting: boolean;
@@ -36,7 +36,7 @@ interface QuickTasksListViewProps {
   selectedTaskId?: string | null;
 }
 
-export function QuickTasksListView({
+export function IssuesListView({
   tasks: externalTasks,
   projectNames,
   isSelecting,
@@ -44,7 +44,7 @@ export function QuickTasksListView({
   onToggleSelect,
   onOpenTask,
   selectedTaskId,
-}: QuickTasksListViewProps) {
+}: IssuesListViewProps) {
   const currentUserId = useQuery(api.auth.me);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
@@ -199,7 +199,7 @@ export function QuickTasksListView({
                     ) : (
                       <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
                         {items.map((task) => (
-                          <QuickTaskCard
+                          <IssueCard
                             key={task._id}
                             id={task._id}
                             title={task.title}

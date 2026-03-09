@@ -29,7 +29,7 @@ export function ActiveTasksAccordion({
     if (task.projectId) {
       return `${basePath}/projects/${task.projectId}`;
     }
-    return `${basePath}/quick-tasks`;
+    return `${basePath}/issues`;
   };
 
   if (tasks.length === 0) {

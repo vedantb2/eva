@@ -40,15 +40,15 @@ import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { statusesParser } from "@/lib/search-params";
 
-type QuickTaskView = "kanban" | "list";
+type IssueView = "kanban" | "list";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
-interface QuickTasksToolbarProps {
-  view: QuickTaskView;
-  onViewChange: (v: QuickTaskView) => void;
+interface IssuesToolbarProps {
+  view: IssueView;
+  onViewChange: (v: IssueView) => void;
   searchQuery: string;
   onSearchChange: (v: string | null) => void;
-  hasQuickTasks: boolean;
+  hasIssues: boolean;
   isSelecting: boolean;
   onStartSelecting: () => void;
   onCreateTask: () => void;
@@ -58,12 +58,12 @@ interface QuickTasksToolbarProps {
   onProjectFilterChange: (v: string) => void;
 }
 
-export function QuickTasksToolbar({
+export function IssuesToolbar({
   view,
   onViewChange,
   searchQuery,
   onSearchChange,
-  hasQuickTasks,
+  hasIssues,
   isSelecting,
   onStartSelecting,
   onCreateTask,
@@ -71,7 +71,7 @@ export function QuickTasksToolbar({
   projects,
   projectFilter,
   onProjectFilterChange,
-}: QuickTasksToolbarProps) {
+}: IssuesToolbarProps) {
   const filterLabel =
     projectFilter === "all"
       ? "All Tasks"
@@ -102,9 +102,9 @@ export function QuickTasksToolbar({
         onChange={onSearchChange}
         placeholder="Search tasks..."
         tooltipLabel="Search tasks"
-        visible={hasQuickTasks}
+        visible={hasIssues}
       />
-      {hasQuickTasks && (
+      {hasIssues && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -141,7 +141,7 @@ export function QuickTasksToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      {hasQuickTasks && (
+      {hasIssues && (
         <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -172,9 +172,9 @@ export function QuickTasksToolbar({
         </div>
       )}
       <AnimatePresence initial={false} mode="popLayout">
-        {hasQuickTasks && !isSelecting ? (
+        {hasIssues && !isSelecting ? (
           <motion.div
-            key="quick-task-select-action"
+            key="issue-select-action"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -197,7 +197,7 @@ export function QuickTasksToolbar({
           </motion.div>
         ) : null}
       </AnimatePresence>
-      {hasQuickTasks && (
+      {hasIssues && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

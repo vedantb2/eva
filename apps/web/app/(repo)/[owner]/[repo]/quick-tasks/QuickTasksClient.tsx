@@ -155,7 +155,7 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const closeBulkAction = () => setActiveBulkAction(null);
   const typedSelectedTaskId = selectedTaskId as Id<"agentTasks"> | null;
 
-  useHotkey("Alt+n", (e) => {
+  useHotkey("Alt+N", (e) => {
     e.preventDefault();
     setIsCreating(true);
   });

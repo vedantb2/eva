@@ -10,26 +10,21 @@ import { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import {
   Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
   SearchInput,
   Spinner,
   cn,
 } from "@conductor/ui";
-import {
-  IconArchive,
-  IconChevronDown,
-  IconDotsVertical,
-  IconPalette,
-} from "@tabler/icons-react";
+import { IconArchive, IconChevronDown, IconPalette } from "@tabler/icons-react";
 
 interface DesignSessionsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -167,75 +162,60 @@ export function DesignSessionsSidebar({
               {filteredSessions.map((session) => {
                 const isSelected = currentSessionId === session._id;
                 return (
-                  <motion.div
-                    key={session._id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
-                    className={cn(
-                      "group mx-1 rounded-md px-3 py-2 transition-all duration-200",
-                      isSelected
-                        ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                    )}
-                  >
-                    <Link
-                      href={`${baseUrl}/${session._id}`}
-                      onClick={onNavigate}
-                      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <h3
-                          className={cn(
-                            "truncate text-sm font-medium transition-colors duration-200",
-                            isSelected
-                              ? "text-sidebar-primary"
-                              : "text-sidebar-foreground",
-                          )}
+                  <ContextMenu key={session._id}>
+                    <ContextMenuTrigger asChild>
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.18 }}
+                        className={cn(
+                          "group mx-1 rounded-md px-3 py-2 transition-all duration-200",
+                          isSelected
+                            ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/70",
+                        )}
+                      >
+                        <Link
+                          href={`${baseUrl}/${session._id}`}
+                          onClick={onNavigate}
+                          className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                         >
-                          {session.title}
-                        </h3>
-                        <div
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="icon-sm"
-                                variant="ghost"
-                                className="motion-press h-6 w-6 opacity-100 transition-all duration-150 lg:opacity-0 lg:group-hover:opacity-100 hover:scale-105 active:scale-95"
-                              >
-                                <IconDotsVertical size={13} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem
-                                className="text-warning"
-                                onClick={() =>
-                                  setSessionToArchive({
-                                    id: session._id,
-                                    title: session.title,
-                                  })
-                                }
-                              >
-                                <IconArchive size={16} />
-                                Archive
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {dayjs(
-                          session.updatedAt ?? session._creationTime,
-                        ).fromNow()}
-                      </span>
-                    </Link>
-                  </motion.div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h3
+                              className={cn(
+                                "truncate text-sm font-medium transition-colors duration-200",
+                                isSelected
+                                  ? "text-sidebar-primary"
+                                  : "text-sidebar-foreground",
+                              )}
+                            >
+                              {session.title}
+                            </h3>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {dayjs(
+                              session.updatedAt ?? session._creationTime,
+                            ).fromNow()}
+                          </span>
+                        </Link>
+                      </motion.div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem
+                        className="text-warning"
+                        onClick={() =>
+                          setSessionToArchive({
+                            id: session._id,
+                            title: session.title,
+                          })
+                        }
+                      >
+                        <IconArchive size={16} />
+                        Archive
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 );
               })}
             </AnimatePresence>

@@ -12,6 +12,7 @@ export * from "./ui/carousel";
 export * from "./ui/checkbox";
 export * from "./ui/collapsible";
 export * from "./ui/command";
+export * from "./ui/context-menu";
 export * from "./ui/dialog";
 export * from "./ui/dropdown-menu";
 export * from "./ui/hover-card";

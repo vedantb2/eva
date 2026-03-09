@@ -7,6 +7,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { usePathname } from "next/navigation";
 import { useQueryStates } from "nuqs";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { normalizePathname } from "@/lib/utils/repoUrl";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -153,6 +154,11 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
 
   const closeBulkAction = () => setActiveBulkAction(null);
   const typedSelectedTaskId = selectedTaskId as Id<"agentTasks"> | null;
+
+  useHotkey("Alt+n", (e) => {
+    e.preventDefault();
+    setIsCreating(true);
+  });
 
   return (
     <>

@@ -527,19 +527,24 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                   <AccordionTrigger>
                     <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <Badge
-                          variant={
-                            run.status === "success"
-                              ? "success"
-                              : run.status === "error"
-                                ? "destructive"
-                                : run.status === "running"
-                                  ? "warning"
-                                  : "outline"
-                          }
-                        >
-                          {run.status}
-                        </Badge>
+                        {run.status === "running" ? (
+                          <IconLoader2
+                            size={16}
+                            className="animate-spin text-warning"
+                          />
+                        ) : run.status === "error" ? (
+                          <IconAlertTriangle
+                            size={16}
+                            className="text-destructive"
+                          />
+                        ) : run.status === "success" ? (
+                          <IconCheck size={16} className="text-success" />
+                        ) : (
+                          <IconCircleDot
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                        )}
                         {runCommentMap.has(run._id) && (
                           <Tooltip>
                             <TooltipTrigger asChild>

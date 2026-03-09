@@ -131,7 +131,7 @@ export function QuickTasksClient() {
           />
         }
       >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden px-2 pb-2 pt-2 sm:px-3">
+        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3">
           <AnimatePresence mode="wait">
             {tasks === undefined ? (
               <motion.div

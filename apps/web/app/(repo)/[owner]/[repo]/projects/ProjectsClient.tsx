@@ -274,7 +274,7 @@ export function ProjectsClient() {
           </div>
         }
       >
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-4">
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-3">
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />

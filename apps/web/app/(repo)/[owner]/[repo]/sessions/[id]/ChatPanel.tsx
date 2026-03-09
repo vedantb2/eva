@@ -537,7 +537,7 @@ export function ChatPanel({
         <ConversationScrollButton />
       </Conversation>
       {!isArchived && (
-        <div className="px-2 pb-3 pt-2 sm:px-3 sm:pb-4 sm:pt-3">
+        <div className="p-2 md:p-3">
           <AnimatePresence>
             {mode === "plan" && planContent && (
               <motion.div

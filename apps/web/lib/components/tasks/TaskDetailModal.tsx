@@ -41,7 +41,6 @@ export function TaskDetailModal({
     commentsSection,
     statusFieldsSection,
     footerButtons,
-    deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     activeTab,
@@ -135,7 +134,6 @@ export function TaskDetailModal({
           </div>
         </DialogContent>
       </Dialog>
-      {deleteConfirmDialog}
       {stopConfirmDialog}
       {userMessageDialog}
     </>

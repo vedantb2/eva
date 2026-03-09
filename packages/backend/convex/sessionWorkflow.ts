@@ -163,10 +163,21 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    let sandboxId: string;
+    let validatedSandboxId: string | null = null;
 
     if (data.sandboxId) {
-      sandboxId = data.sandboxId;
+      const validation = await step.runAction(
+        internal.daytona.validateSandbox,
+        { sandboxId: data.sandboxId, repoId: data.repoId },
+        { retry: false },
+      );
+      validatedSandboxId = validation.healthy ? data.sandboxId : null;
+    }
+
+    let sandboxId: string;
+
+    if (validatedSandboxId) {
+      sandboxId = validatedSandboxId;
     } else {
       const prepared = await step.runAction(
         internal.daytona.prepareSandbox,
@@ -389,10 +400,15 @@ export const saveResult = internalMutation({
       .first();
     if (!last) return null;
 
-    const patch: { content: string; activityLog?: string } = {
+    const patch: {
+      content: string;
+      activityLog?: string;
+      finishedAt?: number;
+    } = {
       content: args.success
         ? args.result || "I couldn't process your message."
         : `Error: ${args.error || "Unknown error during execution."}`,
+      finishedAt: Date.now(),
     };
     if (args.activityLog) {
       patch.activityLog = args.activityLog;

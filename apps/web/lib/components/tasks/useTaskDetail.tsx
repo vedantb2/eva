@@ -21,6 +21,8 @@ import {
   ReasoningTrigger,
   ReasoningContent,
   ActivitySteps,
+  useElapsedSeconds,
+  formatElapsed,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -88,6 +90,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     (run) => run.status === "queued" || run.status === "running",
   );
   const activeRun = runs?.find((run) => run.status === "running");
+  const activeRunElapsed = useElapsedSeconds(
+    activeRun?.startedAt,
+    Boolean(activeRun),
+  );
   const streaming = useQuery(
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
@@ -538,7 +544,11 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {run.startedAt && run.finishedAt && (
+                        {isActiveRun && run.startedAt ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatElapsed(activeRunElapsed)}
+                          </span>
+                        ) : run.startedAt && run.finishedAt ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="text-xs text-muted-foreground">
@@ -552,7 +562,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                               )}
                             </TooltipContent>
                           </Tooltip>
-                        )}
+                        ) : null}
                         {isActiveRun && (
                           <Tooltip>
                             <TooltipTrigger asChild>

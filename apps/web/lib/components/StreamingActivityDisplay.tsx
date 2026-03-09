@@ -6,6 +6,7 @@ import {
   CollapsibleContent,
 } from "@conductor/ui";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { formatDuration } from "@/lib/utils/formatDuration";
 
 export function StreamingActivityDisplay({
   activity,
@@ -13,12 +14,14 @@ export function StreamingActivityDisplay({
   name,
   icon,
   thinkingLabel = "Working...",
+  startedAt,
 }: {
   activity: string | undefined;
   isStreaming?: boolean;
   name?: string;
   icon?: ReactNode;
   thinkingLabel?: string;
+  startedAt?: number;
 }) {
   const steps = parseActivitySteps(activity);
 
@@ -30,6 +33,7 @@ export function StreamingActivityDisplay({
       isStreaming={isStreaming}
       name={name}
       icon={icon}
+      startedAt={startedAt}
     />
   );
 }
@@ -38,15 +42,28 @@ export function ActivityLogDisplay({
   activityLog,
   name,
   icon,
+  startedAt,
+  finishedAt,
 }: {
   activityLog: string;
   name?: string;
   icon?: ReactNode;
+  startedAt?: number;
+  finishedAt?: number;
 }) {
   const steps = parseActivitySteps(activityLog);
+  const duration =
+    startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
 
   if (steps) {
-    return <ActivitySteps steps={steps} name={name} icon={icon} />;
+    return (
+      <ActivitySteps
+        steps={steps}
+        name={name}
+        icon={icon}
+        duration={duration}
+      />
+    );
   }
 
   return (

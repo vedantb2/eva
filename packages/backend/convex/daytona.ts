@@ -11,6 +11,7 @@ export {
   getPreviewUrl,
   prepareSandbox,
   launchOnExistingSandbox,
+  validateSandbox,
 } from "./_daytona/execution";
 
 export {

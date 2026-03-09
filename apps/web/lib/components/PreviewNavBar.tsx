@@ -120,11 +120,9 @@ export function PreviewNavBar({
     }
   }
 
-  function openInNewTab() {
-    if (iframeRef.current?.src) {
-      window.open(iframeRef.current.src, "_blank");
-    }
-  }
+  const openInNewTabHref = previewUrl
+    ? buildUrlWithPath(previewUrl, pathInput)
+    : undefined;
 
   function toggleFullscreen() {
     if (document.fullscreenElement) {
@@ -178,10 +176,12 @@ export function PreviewNavBar({
       />
       <WebPreviewNavigationButton
         tooltip="Open in new tab"
-        onClick={openInNewTab}
         disabled={!previewUrl}
+        asChild
       >
-        <IconExternalLink className="w-3.5 h-3.5" />
+        <a href={openInNewTabHref} target="_blank" rel="noopener noreferrer">
+          <IconExternalLink className="w-3.5 h-3.5" />
+        </a>
       </WebPreviewNavigationButton>
       <WebPreviewNavigationButton
         tooltip="Fullscreen"

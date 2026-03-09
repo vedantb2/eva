@@ -197,16 +197,15 @@ export function ProjectCard({
       <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
       <ContextMenuContent>
         {branchName ? (
-          <ContextMenuItem
-            onClick={() =>
-              window.open(
-                `https://github.com/${repoFullName}/tree/${branchName}`,
-                "_blank",
-              )
-            }
-          >
-            <IconGitBranch size={16} />
-            View Branch
+          <ContextMenuItem asChild>
+            <a
+              href={`https://github.com/${repoFullName}/tree/${branchName}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <IconGitBranch size={16} />
+              View Branch
+            </a>
           </ContextMenuItem>
         ) : null}
         <ContextMenuItem

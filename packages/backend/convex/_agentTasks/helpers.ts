@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { taskStatusValidator, claudeModelValidator } from "../validators";
+import { agentTaskFields } from "../validators";
 
 export function normalizeTaskTags(
   tags: string[] | undefined,
@@ -49,20 +49,5 @@ export function buildTaskNotificationMessage(
 export const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),
   _creationTime: v.number(),
-  title: v.string(),
-  description: v.optional(v.string()),
-  repoId: v.optional(v.id("githubRepos")),
-  projectId: v.optional(v.id("projects")),
-  tags: v.optional(v.array(v.string())),
-  taskNumber: v.optional(v.number()),
-  status: taskStatusValidator,
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  createdBy: v.optional(v.id("users")),
-  assignedTo: v.optional(v.id("users")),
-  model: v.optional(claudeModelValidator),
-  baseBranch: v.optional(v.string()),
-  activeWorkflowId: v.optional(v.string()),
-  scheduledAt: v.optional(v.number()),
-  scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
+  ...agentTaskFields,
 });

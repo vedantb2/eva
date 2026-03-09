@@ -39,6 +39,7 @@ Convex:
 - Never duplicate schema types manually.
 - To typecheck Convex: `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
 - Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
+- Single source of truth for table fields: Define table fields as exported `const xxxFields = { ... }` in `validators.ts`. Use in both `schema.ts` (`defineTable(xxxFields)`) and return validators (`v.object({ _id: v.id("table"), _creationTime: v.number(), ...xxxFields })`). Never duplicate field definitions between schema and return validators.
 
 Component Structure:
 

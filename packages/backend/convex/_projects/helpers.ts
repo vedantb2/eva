@@ -3,44 +3,18 @@ import type {
   GenericDatabaseReader,
   GenericDatabaseWriter,
 } from "convex/server";
-import { roleValidator, phaseValidator } from "../validators";
+import { projectFields, conversationMessageValidator } from "../validators";
 import type { DataModel } from "../_generated/dataModel";
 import type { Id, Doc } from "../_generated/dataModel";
-
-export const conversationMessageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-});
 
 type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
 
 export const projectWithDetailsValidator = v.object({
   _id: v.id("projects"),
   _creationTime: v.number(),
-  repoId: v.id("githubRepos"),
-  userId: v.id("users"),
-  title: v.string(),
-  description: v.optional(v.string()),
-  branchName: v.optional(v.string()),
-  baseBranch: v.optional(v.string()),
-  prUrl: v.optional(v.string()),
-  sandboxId: v.optional(v.string()),
-  lastSandboxActivity: v.optional(v.number()),
-  phase: phaseValidator,
-  rawInput: v.string(),
+  ...projectFields,
   generatedSpec: v.optional(v.string()),
   conversationHistory: v.array(conversationMessageValidator),
-  projectLead: v.optional(v.id("users")),
-  members: v.optional(v.array(v.id("users"))),
-  projectStartDate: v.optional(v.number()),
-  projectEndDate: v.optional(v.number()),
-  deadline: v.optional(v.number()),
-  activeWorkflowId: v.optional(v.string()),
-  activeBuildWorkflowId: v.optional(v.string()),
-  scheduledBuildAt: v.optional(v.number()),
-  scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
 });
 
 const {

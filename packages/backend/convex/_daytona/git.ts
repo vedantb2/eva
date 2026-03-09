@@ -183,7 +183,7 @@ export async function cloneAndSetupRepo(
   const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
   await exec(
     sandbox,
-    `rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
+    `mkdir -p $(dirname ${WORKSPACE_DIR}) && rm -rf ${WORKSPACE_DIR} && git clone ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
     120,
   );
   if (onProgress) await onProgress("Installing dependencies...");

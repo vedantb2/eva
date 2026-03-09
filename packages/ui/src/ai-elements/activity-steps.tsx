@@ -96,7 +96,10 @@ export interface ActivityStepsProps extends ComponentProps<"div"> {
   duration?: string;
 }
 
-function useElapsedSeconds(startedAt: number | undefined, active: boolean) {
+export function useElapsedSeconds(
+  startedAt: number | undefined,
+  active: boolean,
+) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!active || !startedAt) {
@@ -112,7 +115,7 @@ function useElapsedSeconds(startedAt: number | undefined, active: boolean) {
   return elapsed;
 }
 
-function formatElapsed(seconds: number): string {
+export function formatElapsed(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;

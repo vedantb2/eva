@@ -22,6 +22,7 @@ export async function createBotSandbox(githubToken: string): Promise<Sandbox> {
       CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN!,
     },
     autoStopInterval: 60,
+    autoDeleteInterval: 60,
   });
 }
 

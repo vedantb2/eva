@@ -35,7 +35,13 @@ const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
   ephemeral: true,
 };
 
-export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE };
+const WARMING_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 5,
+  autoDeleteInterval: 0,
+  ephemeral: true,
+};
+
+export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
 
 export async function createSandbox(
   daytona: Daytona,

@@ -108,11 +108,19 @@ export async function cleanUpStaleRun(
     exitReason: params.exitReason,
   });
 
-  await ctx.db.patch(params.taskId, {
-    status: "todo",
+  const task = await ctx.db.get(params.taskId);
+  const taskPatch: {
+    activeWorkflowId?: undefined;
+    updatedAt: number;
+    status?: "todo";
+  } = {
     activeWorkflowId: undefined,
     updatedAt: Date.now(),
-  });
+  };
+  if (task && task.status === "in_progress") {
+    taskPatch.status = "todo";
+  }
+  await ctx.db.patch(params.taskId, taskPatch);
 
   if (!params.isProjectTask) {
     await ctx.scheduler.runAfter(

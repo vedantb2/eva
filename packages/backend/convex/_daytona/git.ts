@@ -224,7 +224,7 @@ export async function setupBranch(
   );
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit`,
+    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true`,
     30,
   );
   await exec(

@@ -122,6 +122,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [activeTab, setActiveTab] = useState<
     "activity" | "proof" | "audit" | "comments"
   >("activity");
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [requestingChanges, setRequestingChanges] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -144,13 +146,16 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
+    setRequestingChanges(false);
     await createComment({ taskId, content: text });
 
     if (requestChanges) {
       try {
         await startExecution({ id: taskId });
       } catch (err) {
-        console.error("Failed to start execution for change request:", err);
+        const message =
+          err instanceof Error ? err.message : "Failed to start execution";
+        setExecutionError(message);
       }
     }
   };
@@ -790,8 +795,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     <p className="text-sm text-muted-foreground">No audit available</p>
   );
 
-  const canRequestChanges = status !== "todo" && status !== "in_progress";
-
   const commentsSection = (
     <div className="space-y-4">
       {comments && comments.length > 0 && (
@@ -825,24 +828,30 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         <Textarea
           rows={3}
           placeholder={
-            canRequestChanges
+            requestingChanges
               ? "Describe the changes you'd like Eva to make..."
               : "Add a comment..."
           }
           value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
+          onChange={(e) => {
+            setCommentText(e.target.value);
+            if (executionError) setExecutionError(null);
+          }}
           className="flex-1"
         />
         <Button
           size="icon"
           className="rounded-full shrink-0"
           disabled={!commentText.trim()}
-          onClick={() => handleAddComment(canRequestChanges)}
+          onClick={() => handleAddComment(requestingChanges)}
         >
           <IconArrowUp size={18} />
         </Button>
       </div>
-      {canRequestChanges && (
+      {executionError && (
+        <p className="text-xs text-destructive">{executionError}</p>
+      )}
+      {requestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">
           Submitting will create a comment and re-run Eva with your changes
         </p>
@@ -1154,7 +1163,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         </Tooltip>
       )}
       {status !== "todo" && status !== "in_progress" && (
-        <Button variant="secondary" onClick={() => setActiveTab("comments")}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setRequestingChanges(true);
+            setActiveTab("comments");
+          }}
+        >
           <IconMessagePlus size={18} />
           <span className="hidden sm:inline">Request Changes</span>
         </Button>

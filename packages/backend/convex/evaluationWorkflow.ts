@@ -307,7 +307,16 @@ export const saveWorkflowFailure = internalMutation({
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;
-    if (report.status === "completed") return null;
+    if (report.status === "completed") {
+      if (report.fixStatus === "fixing") {
+        await ctx.db.patch(args.reportId, {
+          fixStatus: "fix_error",
+          activeWorkflowId: undefined,
+          updatedAt: Date.now(),
+        });
+      }
+      return null;
+    }
     if (report.status === "error" && report.activeWorkflowId === undefined) {
       return null;
     }

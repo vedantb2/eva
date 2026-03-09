@@ -233,13 +233,10 @@ export function DesktopPanel({
               >
                 <IconMaximize className="w-4 h-4" />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-8"
-                onClick={() => window.open(url, "_blank")}
-              >
-                <IconExternalLink className="w-4 h-4" />
+              <Button size="icon" variant="ghost" className="size-8" asChild>
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  <IconExternalLink className="w-4 h-4" />
+                </a>
               </Button>
             </>
           )}

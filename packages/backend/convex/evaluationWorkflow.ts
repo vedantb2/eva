@@ -94,20 +94,29 @@ export const evaluationWorkflow = workflow.define({
           fixBranchName,
         });
 
-        await step.runAction(internal.daytona.setupAndExecute, {
+        const { sandboxId: fixSandboxId } = await step.runAction(
+          internal.daytona.prepareSandbox,
+          {
+            installationId: args.installationId,
+            repoOwner: fixData.repoOwner,
+            repoName: fixData.repoName,
+            branchName: fixBranchName,
+            baseBranch: args.branchName ?? "main",
+            ephemeral: true,
+            repoId: fixData.repoId,
+            streamingEntityId: String(args.reportId),
+          },
+        );
+
+        await step.runAction(internal.daytona.launchOnExistingSandbox, {
+          sandboxId: fixSandboxId,
           entityId: String(args.reportId),
-          installationId: args.installationId,
-          repoOwner: fixData.repoOwner,
-          repoName: fixData.repoName,
           prompt: fixData.prompt,
           userId: args.userId,
           completionMutation: "evaluationWorkflow:handleFixCompletion",
           entityIdField: "reportId",
           model: "sonnet",
           allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-          branchName: fixBranchName,
-          baseBranch: args.branchName ?? "main",
-          ephemeral: true,
           repoId: fixData.repoId,
         });
 

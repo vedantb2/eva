@@ -2,8 +2,18 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { claudeModelValidator } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt, WORKSPACE_DIR, AuditFlags } from "./prompts";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  auditFixCompleteEvent,
+} from "./events";
+import {
+  buildAuditPrompt,
+  buildAuditFixPrompt,
+  extractAuditFailures,
+  WORKSPACE_DIR,
+  AuditFlags,
+} from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 
@@ -186,6 +196,32 @@ export const taskExecutionWorkflow = workflow.define({
                 ? undefined
                 : (auditResult.error ?? "Audit failed"),
             });
+
+            if (auditResult.success && auditResult.result) {
+              const failures = extractAuditFailures(auditResult.result);
+              if (failures.length > 0) {
+                try {
+                  const fixPrompt = buildAuditFixPrompt(
+                    failures,
+                    data.branchName,
+                    data.rootDirectory,
+                  );
+
+                  await step.runAction(internal.daytona.launchAuditFix, {
+                    sandboxId,
+                    prompt: fixPrompt,
+                    taskId: String(args.taskId),
+                    runId: args.runId,
+                    userId: args.userId,
+                    repoId: args.repoId,
+                  });
+
+                  await step.awaitEvent(auditFixCompleteEvent);
+                } catch (fixErr) {
+                  console.error("Audit fix step failed:", fixErr);
+                }
+              }
+            }
 
             if (completionPrUrl) {
               await step.runAction(

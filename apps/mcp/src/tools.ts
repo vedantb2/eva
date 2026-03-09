@@ -10,6 +10,7 @@ import {
   getDeployKey,
   listRepos,
   getRepoConvexCredentials,
+  runMutation,
 } from "./convex-api.js";
 
 export function registerTools(
@@ -280,6 +281,104 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           {
             type: "text" as const,
             text: JSON.stringify({ table, count: result.value }, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    "create_and_run_task",
+    "Create a task on the Eva platform and immediately start execution. Use this to send plans, prompts, or instructions to Eva for autonomous execution against a repo.",
+    {
+      title: z.string().describe("Short task title"),
+      description: z
+        .string()
+        .describe(
+          "The full prompt, plan, or instructions for the task (plain text or markdown)",
+        ),
+      repoName: z
+        .string()
+        .describe(
+          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against connected repos.',
+        ),
+      model: z
+        .enum(["opus", "sonnet", "haiku"])
+        .optional()
+        .describe(
+          "Claude model to use. If omitted, uses the repo's default model.",
+        ),
+      baseBranch: z
+        .string()
+        .optional()
+        .describe(
+          "Branch to base work off of. If omitted, uses the repo's default base branch.",
+        ),
+    },
+    async ({ title, description, repoName, model, baseBranch }) => {
+      const deployKey = await getDeployKey(convexUrl);
+      const repos = await listRepos(convexUrl, deployKey);
+
+      const normalizedInput = repoName.toLowerCase();
+      const repo = repos.find((r) => {
+        const fullName = `${r.owner}/${r.name}`.toLowerCase();
+        return (
+          fullName === normalizedInput ||
+          r.name.toLowerCase() === normalizedInput
+        );
+      });
+
+      if (!repo) {
+        const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Repo "${repoName}" not found. Available repos: ${available}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const mutationArgs: Record<string, string> = {
+        repoId: repo.id,
+        title,
+        description,
+      };
+      if (model) mutationArgs.model = model;
+      if (baseBranch) mutationArgs.baseBranch = baseBranch;
+
+      const taskId = await runMutation(
+        convexUrl,
+        deployKey,
+        "_agentTasks/mutations:createQuickTask",
+        mutationArgs,
+      );
+
+      await runMutation(
+        convexUrl,
+        deployKey,
+        "_agentTasks/execution:startExecution",
+        {
+          id: taskId as string,
+        },
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                taskId,
+                repo: `${repo.owner}/${repo.name}`,
+                title,
+                status: "execution_started",
+              },
+              null,
+              2,
+            ),
           },
         ],
       };

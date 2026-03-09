@@ -3,6 +3,8 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { components } from "./_generated/api";
 import { Crons } from "@convex-dev/crons";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
@@ -42,38 +44,59 @@ export const getRepoSnapshot = authQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoSnapshots")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
-    if (!doc) return null;
-    return doc;
+    return await findSnapshotForRepo(ctx.db, args.repoId);
   },
 });
+
+async function findSnapshotForRepo(
+  db: GenericDatabaseReader<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<Doc<"repoSnapshots"> | null> {
+  const direct = await db
+    .query("repoSnapshots")
+    .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+    .first();
+  if (direct) return direct;
+
+  const repo = await db.get(repoId);
+  if (!repo) return null;
+
+  const siblings = await db
+    .query("githubRepos")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", repo.owner).eq("name", repo.name),
+    )
+    .collect();
+
+  for (const sibling of siblings) {
+    if (sibling._id === repoId) continue;
+    const siblingSnapshot = await db
+      .query("repoSnapshots")
+      .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+      .first();
+    if (siblingSnapshot) return siblingSnapshot;
+  }
+
+  return null;
+}
 
 export const getRepoSnapshotName = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(v.object({ snapshotName: v.string() }), v.null()),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoSnapshots")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
-    if (!doc) return null;
+    const snapshot = await findSnapshotForRepo(ctx.db, args.repoId);
+    if (!snapshot) return null;
 
     const latestSuccessfulBuild = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repo_snapshot_and_status", (q) =>
-        q.eq("repoSnapshotId", doc._id).eq("status", "success"),
+        q.eq("repoSnapshotId", snapshot._id).eq("status", "success"),
       )
       .order("desc")
       .first();
 
-    if (!latestSuccessfulBuild) {
-      return null;
-    }
-
-    return { snapshotName: doc.snapshotName };
+    if (!latestSuccessfulBuild) return null;
+    return { snapshotName: snapshot.snapshotName };
   },
 });
 
@@ -135,15 +158,13 @@ export const saveRepoSnapshot = authMutation({
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("repoSnapshots")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const existing = await findSnapshotForRepo(ctx.db, args.repoId);
 
-    const cronName = `snapshot-rebuild-${args.repoId}`;
+    const canonicalRepoId = existing ? existing.repoId : args.repoId;
+    const cronName = `snapshot-rebuild-${canonicalRepoId}`;
     const snapshotName = existing
       ? existing.snapshotName
-      : `snapshot-${args.repoId}`;
+      : `snapshot-${canonicalRepoId}`;
 
     if (existing) {
       if (existing.cronJobId) {
@@ -178,7 +199,7 @@ export const saveRepoSnapshot = authMutation({
 
     const now = Date.now();
     const id = await ctx.db.insert("repoSnapshots", {
-      repoId: args.repoId,
+      repoId: canonicalRepoId,
       snapshotName,
       schedule: args.schedule,
       workflowRef: args.workflowRef,

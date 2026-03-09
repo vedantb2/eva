@@ -3,6 +3,7 @@ import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { normalizePath } from "../repoUtils";
 import { claudeModelValidator } from "../validators";
+import { findAllSiblingRepoIds } from "./helpers";
 
 export const assignToTeam = authMutation({
   args: {
@@ -187,7 +188,10 @@ export const updateConfig = authMutation({
     if (args.sessionsVscodeEnabled !== undefined)
       patch.sessionsVscodeEnabled = args.sessionsVscodeEnabled;
 
-    await ctx.db.patch(args.repoId, patch);
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    for (const siblingId of siblingIds) {
+      await ctx.db.patch(siblingId, patch);
+    }
     return null;
   },
 });

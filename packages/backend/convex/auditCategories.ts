@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import { internalQuery } from "./_generated/server";
+import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
 
 const SYSTEM_DEFAULTS = [
   {
@@ -35,9 +36,10 @@ export const listByRepo = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     return await ctx.db
       .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
       .collect();
   },
 });
@@ -51,9 +53,10 @@ export const listEnabledByRepo = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     const categories = await ctx.db
       .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
       .collect();
     return categories
       .filter((c) => c.enabled)
@@ -65,9 +68,10 @@ export const seedDefaults = authMutation({
   args: { repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     const existing = await ctx.db
       .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
       .collect();
 
     const existingNames = new Set(existing.map((c) => c.name));
@@ -75,7 +79,7 @@ export const seedDefaults = authMutation({
     for (const def of SYSTEM_DEFAULTS) {
       if (!existingNames.has(def.name)) {
         await ctx.db.insert("auditCategories", {
-          repoId: args.repoId,
+          repoId: canonicalId,
           name: def.name,
           description: def.description,
           enabled: true,
@@ -97,8 +101,9 @@ export const create = authMutation({
   },
   returns: v.id("auditCategories"),
   handler: async (ctx, args) => {
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     return await ctx.db.insert("auditCategories", {
-      repoId: args.repoId,
+      repoId: canonicalId,
       name: args.name,
       description: args.description,
       enabled: true,

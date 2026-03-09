@@ -38,7 +38,7 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { useState } from "react";
 
-interface QuickTaskCardProps {
+interface IssueCardProps {
   id: Id<"agentTasks">;
   title: string;
   description?: string;
@@ -55,7 +55,7 @@ interface QuickTaskCardProps {
   onToggleSelect?: () => void;
 }
 
-export function QuickTaskCard({
+export function IssueCard({
   id,
   title,
   description,
@@ -70,7 +70,7 @@ export function QuickTaskCard({
   isSelected,
   isActive,
   onToggleSelect,
-}: QuickTaskCardProps) {
+}: IssueCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const hasError = runs?.[0]?.status === "error";
   const showError = hasError && status !== "done";

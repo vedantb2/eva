@@ -53,7 +53,7 @@ const KNOWN_SUB_PAGES = new Set([
   "designs",
   "docs",
   "sessions",
-  "quick-tasks",
+  "issues",
   "analyse",
   "settings",
   "testing-arena",
@@ -202,8 +202,8 @@ export function Sidebar() {
               groupIcon: IconTool,
               items: [
                 {
-                  name: "Quick Tasks",
-                  href: `${repoBasePath}/quick-tasks`,
+                  name: "Issues",
+                  href: `${repoBasePath}/issues`,
                   icon: IconChecklist,
                 },
                 {
@@ -776,7 +776,7 @@ export function Sidebar() {
                                             {item.name}
                                           </span>
                                         )}
-                                        {item.name === "Quick Tasks" &&
+                                        {item.name === "Issues" &&
                                           !collapsed &&
                                           repo &&
                                           repoBasePath && (

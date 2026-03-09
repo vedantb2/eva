@@ -33,7 +33,7 @@ export type BulkAction =
   | "run"
   | "schedule";
 
-interface QuickTasksBulkBarProps {
+interface IssuesBulkBarProps {
   isSelecting: boolean;
   selectedCount: number;
   onExitSelect: () => void;
@@ -41,19 +41,19 @@ interface QuickTasksBulkBarProps {
   onSetBulkAction: (action: BulkAction | null) => void;
 }
 
-export function QuickTasksBulkBar({
+export function IssuesBulkBar({
   isSelecting,
   selectedCount,
   onExitSelect,
   activeBulkAction,
   onSetBulkAction,
-}: QuickTasksBulkBarProps) {
+}: IssuesBulkBarProps) {
   return (
     <>
       <AnimatePresence initial={false}>
         {isSelecting && (
           <motion.div
-            key="quick-tasks-actions-bottom"
+            key="issues-actions-bottom"
             className="absolute inset-x-2 bottom-2 z-20 flex justify-center pb-[env(safe-area-inset-bottom)]"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

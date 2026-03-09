@@ -30,7 +30,7 @@ export function buildTaskNotificationMessage(
   },
   action: "assigned" | "done",
 ): string {
-  const scopeLabel = task.projectId ? "Project task" : "Quick task";
+  const scopeLabel = task.projectId ? "Project task" : "Issue";
   const taskNumberLabel =
     task.taskNumber === undefined ? "" : `Task #${task.taskNumber}. `;
   const description = task.description?.trim();

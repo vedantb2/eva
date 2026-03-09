@@ -23,12 +23,12 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 
-interface QuickTaskModalProps {
+interface IssueModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
+export function IssueModal({ isOpen, onClose }: IssueModalProps) {
   const { repo } = useRepo();
   const defaultBranch = repo.defaultBaseBranch ?? "main";
   const [title, setTitle] = useState("");
@@ -41,7 +41,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
 
-  const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const createIssue = useMutation(api.agentTasks.createIssue);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
@@ -94,7 +94,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
           model: repo.defaultModel,
         });
       } else {
-        await createQuickTask({
+        await createIssue({
           repoId: repo._id,
           title: title.trim(),
           description: description.trim() || undefined,
@@ -147,7 +147,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {activeDraftId ? "Continue Draft" : "New Quick Task"}
+            {activeDraftId ? "Continue Draft" : "New Issue"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">

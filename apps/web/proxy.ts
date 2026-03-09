@@ -14,7 +14,7 @@ const KNOWN_SUB_PAGES = new Set([
   "designs",
   "docs",
   "sessions",
-  "quick-tasks",
+  "issues",
   "analyse",
   "settings",
   "testing-arena",

@@ -3,18 +3,18 @@
 import type { Id } from "@conductor/backend";
 import type { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { GroupTasksModal } from "@/lib/components/quick-tasks/GroupTasksModal";
-import { DeleteTasksModal } from "@/lib/components/quick-tasks/DeleteTasksModal";
-import { AddLabelsModal } from "@/lib/components/quick-tasks/AddLabelsModal";
-import { AssignTasksModal } from "@/lib/components/quick-tasks/AssignTasksModal";
-import { ChangeStatusModal } from "@/lib/components/quick-tasks/ChangeStatusModal";
-import { RunTasksModal } from "@/lib/components/quick-tasks/RunTasksModal";
-import { ScheduleTasksModal } from "@/lib/components/quick-tasks/ScheduleTasksModal";
-import type { BulkAction } from "./QuickTasksBulkBar";
+import { GroupTasksModal } from "@/lib/components/issues/GroupTasksModal";
+import { DeleteTasksModal } from "@/lib/components/issues/DeleteTasksModal";
+import { AddLabelsModal } from "@/lib/components/issues/AddLabelsModal";
+import { AssignTasksModal } from "@/lib/components/issues/AssignTasksModal";
+import { ChangeStatusModal } from "@/lib/components/issues/ChangeStatusModal";
+import { RunTasksModal } from "@/lib/components/issues/RunTasksModal";
+import { ScheduleTasksModal } from "@/lib/components/issues/ScheduleTasksModal";
+import type { BulkAction } from "./IssuesBulkBar";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-interface QuickTasksBulkModalsProps {
+interface IssuesBulkModalsProps {
   activeBulkAction: BulkAction | null;
   onCloseBulkAction: () => void;
   selectedTaskIds: Set<Id<"agentTasks">>;
@@ -22,13 +22,13 @@ interface QuickTasksBulkModalsProps {
   onSuccess: () => void;
 }
 
-export function QuickTasksBulkModals({
+export function IssuesBulkModals({
   activeBulkAction,
   onCloseBulkAction,
   selectedTaskIds,
   selectedTasks,
   onSuccess,
-}: QuickTasksBulkModalsProps) {
+}: IssuesBulkModalsProps) {
   return (
     <>
       <GroupTasksModal

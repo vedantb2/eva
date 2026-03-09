@@ -79,7 +79,7 @@ chrome.runtime.onMessage.addListener(
       }
 
       case "REQUEST_TOOLBAR_STATE":
-      case "TOOLBAR_ADD_QUICK_TASKS":
+      case "TOOLBAR_ADD_ISSUES":
       case "TOOLBAR_ADD_TO_PROJECT":
       case "RUN_ALL_ANNOTATIONS": {
         chrome.runtime.sendMessage({

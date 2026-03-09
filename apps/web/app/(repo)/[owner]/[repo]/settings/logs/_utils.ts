@@ -1,5 +1,5 @@
 const ENTITY_TYPE_LABELS: Record<string, string> = {
-  quickTask: "Quick Tasks",
+  quickTask: "Issues",
   session: "Sessions",
   designSession: "Design Sessions",
   researchQuery: "Research Queries",

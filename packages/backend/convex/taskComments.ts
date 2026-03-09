@@ -17,7 +17,7 @@ function buildCommentNotificationMessage(
   content: string,
   projectId: Id<"projects"> | undefined,
 ): string {
-  const scopeLabel = projectId ? "project task" : "quick task";
+  const scopeLabel = projectId ? "project task" : "issue";
   const trimmedContent = content.trim();
   if (!trimmedContent) {
     return `New comment added on this ${scopeLabel}.`;

@@ -38,7 +38,7 @@ export function ConfigClient() {
                 placeholder="Select a branch"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                The default branch used when creating quick tasks. Defaults to{" "}
+                The default branch used when creating issues. Defaults to{" "}
                 <code>main</code> if not set.
               </p>
             </div>

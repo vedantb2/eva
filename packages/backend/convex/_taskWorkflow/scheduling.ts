@@ -3,9 +3,9 @@ import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
-import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
+import { isDaytonaNetworkIssue, buildIssueRetryDelayMs } from "./recovery";
 
-export const maybeScheduleQuickTaskRetry = internalMutation({
+export const maybeScheduleIssueRetry = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),
@@ -51,7 +51,7 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
     );
     if (hasOtherActiveRun) return null;
 
-    const delayMs = args.delayMs ?? buildQuickTaskRetryDelayMs();
+    const delayMs = args.delayMs ?? buildIssueRetryDelayMs();
     const functionId = await ctx.scheduler.runAfter(
       delayMs,
       internal.taskWorkflow.executeScheduledTask,

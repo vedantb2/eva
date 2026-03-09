@@ -50,7 +50,7 @@ function buildRunNotificationMessage(params: {
   error: string | undefined;
   prUrl: string | undefined;
 }): string {
-  const scopeLabel = params.projectId ? "project task" : "quick task";
+  const scopeLabel = params.projectId ? "project task" : "issue";
   if (params.success) {
     if (params.prUrl) {
       return `Run succeeded for this ${scopeLabel}. Pull request: ${params.prUrl}`;

@@ -3,35 +3,35 @@
 import type { Id } from "@conductor/backend";
 import type { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
+import { IssuesListView } from "@/lib/components/issues/IssuesListView";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
-import { QuickTasksStatusSummary } from "@/lib/components/quick-tasks/QuickTasksStatusSummary";
+import { IssuesStatusSummary } from "@/lib/components/issues/IssuesStatusSummary";
 import { Button } from "@conductor/ui";
 import { IconArrowLeft } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-interface QuickTasksSplitViewProps {
+interface IssuesSplitViewProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (id: Id<"agentTasks">) => void;
   selectedTaskId: Id<"agentTasks"> | null;
   onCloseTask: () => void;
-  quickTasks: Task[];
+  issues: Task[];
   projectNames: Map<string, string>;
 }
 
-export function QuickTasksSplitView({
+export function IssuesSplitView({
   isSelecting,
   selectedIds,
   onToggleSelect,
   onOpenTask,
   selectedTaskId,
   onCloseTask,
-  quickTasks,
+  issues,
   projectNames,
-}: QuickTasksSplitViewProps) {
+}: IssuesSplitViewProps) {
   return (
     <div className="flex min-w-0 flex-1 min-h-0 flex-col sm:flex-row">
       <div
@@ -41,8 +41,8 @@ export function QuickTasksSplitView({
             : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[20%] sm:flex-shrink-0 sm:overflow-hidden"
         }
       >
-        <QuickTasksListView
-          tasks={quickTasks}
+        <IssuesListView
+          tasks={issues}
           projectNames={projectNames}
           isSelecting={isSelecting}
           selectedIds={selectedIds}
@@ -72,7 +72,7 @@ export function QuickTasksSplitView({
         </div>
       ) : (
         <div className="hidden sm:flex sm:w-[80%] min-w-0 flex-shrink-0 min-h-0 h-full">
-          <QuickTasksStatusSummary tasks={quickTasks} />
+          <IssuesStatusSummary tasks={issues} />
         </div>
       )}
     </div>

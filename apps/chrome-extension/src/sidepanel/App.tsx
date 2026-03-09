@@ -103,7 +103,7 @@ function AuthenticatedApp() {
   const getOrCreateExtensionSession = useMutation(
     api.sessions.getOrCreateExtensionSession,
   );
-  const createQuickTask = useMutation(api.agentTasks.createQuickTask);
+  const createIssue = useMutation(api.agentTasks.createIssue);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
@@ -158,14 +158,14 @@ function AuthenticatedApp() {
     return desc;
   }, []);
 
-  const handleAddAllQuickTasks = useCallback(
+  const handleAddAllIssues = useCallback(
     async (pageUrl: string, pins: Record<string, StoredPin>) => {
       if (!selectedRepoId) return;
       const entries = Object.values(pins);
       let created = 0;
       for (const pin of entries) {
         try {
-          await createQuickTask({
+          await createIssue({
             repoId: selectedRepoId as Id<"githubRepos">,
             title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
             description: buildDescription(pin, pageUrl),
@@ -180,7 +180,7 @@ function AuthenticatedApp() {
         `Created ${created} task${created !== 1 ? "s" : ""}`,
       );
     },
-    [selectedRepoId, createQuickTask, buildDescription, sendToolbarResult],
+    [selectedRepoId, createIssue, buildDescription, sendToolbarResult],
   );
 
   const sendRunAllResult = useCallback((success: boolean, message: string) => {
@@ -201,7 +201,7 @@ function AuthenticatedApp() {
       let created = 0;
       for (const [pinId, pin] of entries) {
         try {
-          const taskId = await createQuickTask({
+          const taskId = await createIssue({
             repoId: selectedRepoId as Id<"githubRepos">,
             title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
             description: buildDescription(pin, pageUrl),
@@ -235,7 +235,7 @@ function AuthenticatedApp() {
     },
     [
       selectedRepoId,
-      createQuickTask,
+      createIssue,
       startExecution,
       executeTaskWorkflow,
       buildDescription,
@@ -251,7 +251,7 @@ function AuthenticatedApp() {
     const taskIds: Id<"agentTasks">[] = [];
     for (const pin of entries) {
       try {
-        const id = await createQuickTask({
+        const id = await createIssue({
           repoId: selectedRepoId as Id<"githubRepos">,
           title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
           description: buildDescription(pin, pageUrl),
@@ -293,7 +293,7 @@ function AuthenticatedApp() {
     selectedRepoId,
     selectedProjectId,
     newProjectTitle,
-    createQuickTask,
+    createIssue,
     assignToProject,
     createFromTasks,
     buildDescription,
@@ -376,12 +376,12 @@ function AuthenticatedApp() {
           }
         });
       }
-      if (message.type === "TOOLBAR_ADD_QUICK_TASKS" && message.payload) {
+      if (message.type === "TOOLBAR_ADD_ISSUES" && message.payload) {
         const { pageUrl, pins } = message.payload as unknown as {
           pageUrl: string;
           pins: Record<string, StoredPin>;
         };
-        handleAddAllQuickTasks(pageUrl, pins);
+        handleAddAllIssues(pageUrl, pins);
       }
       if (message.type === "TOOLBAR_ADD_TO_PROJECT" && message.payload) {
         setPendingProjectPins(
@@ -416,7 +416,7 @@ function AuthenticatedApp() {
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, [
-    handleAddAllQuickTasks,
+    handleAddAllIssues,
     handleRunAll,
     startExecution,
     executeTaskWorkflow,

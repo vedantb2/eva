@@ -27,7 +27,7 @@ export type MessageType =
   | "ANNOTATIONS_CHANGED"
   | "SHOW_TOOLBAR"
   | "HIDE_TOOLBAR"
-  | "TOOLBAR_ADD_QUICK_TASKS"
+  | "TOOLBAR_ADD_ISSUES"
   | "TOOLBAR_ADD_TO_PROJECT"
   | "TOOLBAR_RESULT"
   | "RUN_ALL_ANNOTATIONS"
@@ -204,8 +204,8 @@ export interface HideToolbarMessage {
   type: "HIDE_TOOLBAR";
 }
 
-export interface ToolbarAddQuickTasksMessage {
-  type: "TOOLBAR_ADD_QUICK_TASKS";
+export interface ToolbarAddIssuesMessage {
+  type: "TOOLBAR_ADD_ISSUES";
   payload: {
     pageUrl: string;
     pins: Record<string, StoredPin>;
@@ -264,7 +264,7 @@ export type ExtensionMessage =
   | AnnotationsChangedMessage
   | ShowToolbarMessage
   | HideToolbarMessage
-  | ToolbarAddQuickTasksMessage
+  | ToolbarAddIssuesMessage
   | ToolbarAddToProjectMessage
   | ToolbarResultMessage
   | RunAllAnnotationsMessage

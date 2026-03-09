@@ -37,7 +37,8 @@ export const validateSandbox = internalAction({
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
       await exec(sandbox, "echo ok", 10);
       return { healthy: true };
-    } catch {
+    } catch (e) {
+      console.error("Sandbox validation failed:", e);
       return { healthy: false };
     }
   },

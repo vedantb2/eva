@@ -161,7 +161,7 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    let sandboxId: string;
+    let validatedSandboxId: string | null = null;
 
     if (data.sandboxId) {
       const validation = await step.runAction(
@@ -169,12 +169,14 @@ export const sessionExecuteWorkflow = workflow.define({
         { sandboxId: data.sandboxId, repoId: data.repoId },
         { retry: false },
       );
-      sandboxId = validation.healthy ? data.sandboxId : "";
-    } else {
-      sandboxId = "";
+      validatedSandboxId = validation.healthy ? data.sandboxId : null;
     }
 
-    if (!sandboxId) {
+    let sandboxId: string;
+
+    if (validatedSandboxId) {
+      sandboxId = validatedSandboxId;
+    } else {
       const prepared = await step.runAction(
         internal.daytona.prepareSandbox,
         {

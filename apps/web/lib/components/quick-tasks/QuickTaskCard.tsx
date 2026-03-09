@@ -9,6 +9,9 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
   Dialog,
   DialogContent,
@@ -23,6 +26,7 @@ import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
 import {
+  IconArrowMoveRight,
   IconClock,
   IconFolder,
   IconLoader2,
@@ -37,6 +41,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs from "@conductor/shared/dates";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -71,7 +76,9 @@ export function QuickTaskCard({
   isActive,
   onToggleSelect,
 }: QuickTaskCardProps) {
+  const { repoId } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const hasError = runs?.[0]?.status === "error";
   const showError = hasError && status !== "done";
   const statusMeta = statusConfig[status];
@@ -79,8 +86,14 @@ export function QuickTaskCard({
   const isInProgress = status === "in_progress" && !hasError;
 
   const deleteTask = useMutation(api.agentTasks.deleteCascade);
+  const updateTask = useMutation(api.agentTasks.update);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<{
+    id: Id<"githubRepos">;
+    appName: string;
+  } | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -91,6 +104,19 @@ export function QuickTaskCard({
       console.error("Failed to delete task:", err);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleMove = async () => {
+    if (!moveTarget) return;
+    setIsMoving(true);
+    try {
+      await updateTask({ id, repoId: moveTarget.id });
+      setMoveTarget(null);
+    } catch (err) {
+      console.error("Failed to move task:", err);
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -212,6 +238,26 @@ export function QuickTaskCard({
       <ContextMenu>
         <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
         <ContextMenuContent>
+          {siblingApps && siblingApps.length > 0 && (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <IconArrowMoveRight size={16} />
+                Move to app
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                {siblingApps.map((app) => (
+                  <ContextMenuItem
+                    key={app._id}
+                    onClick={() =>
+                      setMoveTarget({ id: app._id, appName: app.appName })
+                    }
+                  >
+                    {app.appName}
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          )}
           <ContextMenuItem
             className="text-destructive focus:text-destructive"
             onClick={() => setShowDeleteConfirm(true)}
@@ -251,6 +297,37 @@ export function QuickTaskCard({
             >
               {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={moveTarget !== null}
+        onOpenChange={(v) => {
+          if (!v) setMoveTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move Task</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-muted-foreground">
+              Move <strong>{title}</strong> to{" "}
+              <strong>{moveTarget?.appName}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground mt-3">
+              The task will appear in the other app&apos;s quick tasks.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMoveTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleMove} disabled={isMoving}>
+              {isMoving && <IconLoader2 size={16} className="animate-spin" />}
+              Move
             </Button>
           </DialogFooter>
         </DialogContent>

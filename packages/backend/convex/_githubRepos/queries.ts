@@ -129,6 +129,34 @@ export const listByTeam = authQuery({
   },
 });
 
+export const listSiblingApps = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(
+    v.object({
+      _id: v.id("githubRepos"),
+      appName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return [];
+
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", repo.owner).eq("name", repo.name),
+      )
+      .collect();
+
+    return siblings
+      .filter((s) => s._id !== args.repoId && s.rootDirectory)
+      .map((s) => ({
+        _id: s._id,
+        appName: s.rootDirectory?.split("/").pop() ?? "",
+      }));
+  },
+});
+
 export const getInternal = internalQuery({
   args: { id: v.id("githubRepos") },
   returns: v.union(githubRepoValidator, v.null()),

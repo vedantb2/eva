@@ -911,7 +911,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       <div>
         <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
           <IconFolder size={12} />
-          Add to Project
+          Project
         </p>
         <Select
           value={selectedProjectValue}
@@ -942,7 +942,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       <div>
         <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
           <IconUserPlus size={12} />
-          Assign to ___ for Code Review
+          Assign for Code Review
         </p>
         <Select
           value={task?.assignedTo ?? ""}

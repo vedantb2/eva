@@ -6,7 +6,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button, Checkbox } from "@conductor/ui";
 import { IconTrash } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend/convex/_generated/dataModel";
+import type { Id } from "@conductor/backend";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
 export function AuditsClient() {

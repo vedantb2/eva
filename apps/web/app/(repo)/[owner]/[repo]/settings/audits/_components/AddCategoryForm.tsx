@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { Button, Input, Textarea } from "@conductor/ui";
 import { IconPlus } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend/convex/_generated/dataModel";
+import type { Id } from "@conductor/backend";
 import { useCallback, useState } from "react";
 
 export function AddCategoryForm(props: { repoId: Id<"githubRepos"> }) {

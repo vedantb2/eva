@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { usePathname } from "next/navigation";
 import { useQueryStates } from "nuqs";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { normalizePathname } from "@/lib/utils/repoUrl";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
@@ -23,6 +21,7 @@ import {
   searchParser,
   quickTaskViewParser,
   projectFilterParser,
+  taskIdParser,
 } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -33,34 +32,25 @@ import {
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { QuickTasksSplitView } from "./_components/QuickTasksSplitView";
 
-interface QuickTasksClientProps {
-  initialTaskId?: string;
-}
-
-export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
-  const { repo, basePath } = useRepo();
-  const pathname = normalizePathname(usePathname());
+export function QuickTasksClient() {
+  const { repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
-    initialTaskId ?? null,
-  );
   const [selectedIds, setSelectedIds] = useState<Set<Id<"agentTasks">>>(
     new Set(),
   );
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
-  const [{ q, view, project }, setParams] = useQueryStates({
+  const [{ q, view, project, taskId }, setParams] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
     project: projectFilterParser,
+    taskId: taskIdParser,
   });
   const searchQuery = q;
-  const quickTasksPath = `${basePath}/quick-tasks`;
-  const quickTaskPathPrefix = `${quickTasksPath}/`;
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
 
@@ -84,28 +74,6 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
   const hasQuickTasks = quickTasks.length > 0;
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
-  useEffect(() => {
-    setSelectedTaskId(initialTaskId ?? null);
-  }, [initialTaskId]);
-
-  useEffect(() => {
-    if (pathname === quickTasksPath) {
-      setSelectedTaskId((prev) => (prev === null ? prev : null));
-      return;
-    }
-
-    if (!pathname.startsWith(quickTaskPathPrefix)) {
-      return;
-    }
-
-    const pathTaskId = pathname.slice(quickTaskPathPrefix.length);
-    if (!pathTaskId || pathTaskId.includes("/")) {
-      return;
-    }
-
-    setSelectedTaskId((prev) => (prev === pathTaskId ? prev : pathTaskId));
-  }, [pathname, quickTaskPathPrefix, quickTasksPath]);
-
   const toggleSelect = (id: Id<"agentTasks">) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -124,36 +92,16 @@ export function QuickTasksClient({ initialTaskId }: QuickTasksClientProps) {
     setActiveBulkAction(null);
   };
 
-  const handleOpenTask = (taskId: string) => {
-    const taskPath = `${quickTaskPathPrefix}${taskId}`;
-    const isSameTaskOpen = selectedTaskId === taskId;
-    if (!isSameTaskOpen) {
-      setSelectedTaskId(taskId);
-    }
-    if (
-      typeof window !== "undefined" &&
-      window.location.pathname !== taskPath
-    ) {
-      window.history.pushState(null, "", taskPath + window.location.search);
-    }
+  const handleOpenTask = (id: string) => {
+    setParams({ taskId: id });
   };
 
   const handleTaskClose = () => {
-    setSelectedTaskId(null);
-    if (
-      typeof window !== "undefined" &&
-      window.location.pathname.startsWith(quickTaskPathPrefix)
-    ) {
-      window.history.replaceState(
-        null,
-        "",
-        quickTasksPath + window.location.search,
-      );
-    }
+    setParams({ taskId: null });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
-  const typedSelectedTaskId = selectedTaskId as Id<"agentTasks"> | null;
+  const typedSelectedTaskId = taskId as Id<"agentTasks"> | null;
 
   useHotkey("Alt+N", (e) => {
     e.preventDefault();

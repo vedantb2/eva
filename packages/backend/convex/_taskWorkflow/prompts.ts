@@ -92,6 +92,94 @@ If dev server fails or page errors, screenshot the error state with \`agent-brow
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+type AuditFailure = {
+  section: string;
+  requirement: string;
+  detail: string;
+};
+
+export function extractAuditFailures(rawResult: string): AuditFailure[] {
+  try {
+    const jsonStr =
+      rawResult.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)?.[1]?.trim() ??
+      rawResult.match(/\{[\s\S]*\}/)?.[0] ??
+      rawResult;
+
+    const parsed: {
+      accessibility?: Array<{
+        requirement: string;
+        passed: boolean;
+        detail: string;
+      }>;
+      testing?: Array<{ requirement: string; passed: boolean; detail: string }>;
+      codeReview?: Array<{
+        requirement: string;
+        passed: boolean;
+        detail: string;
+      }>;
+    } = JSON.parse(jsonStr);
+
+    const failures: AuditFailure[] = [];
+    for (const item of parsed.accessibility ?? []) {
+      if (!item.passed)
+        failures.push({
+          section: "Accessibility",
+          requirement: item.requirement,
+          detail: item.detail,
+        });
+    }
+    for (const item of parsed.testing ?? []) {
+      if (!item.passed)
+        failures.push({
+          section: "Testing",
+          requirement: item.requirement,
+          detail: item.detail,
+        });
+    }
+    for (const item of parsed.codeReview ?? []) {
+      if (!item.passed)
+        failures.push({
+          section: "Code Review",
+          requirement: item.requirement,
+          detail: item.detail,
+        });
+    }
+    return failures;
+  } catch {
+    return [];
+  }
+}
+
+export function buildAuditFixPrompt(
+  failures: AuditFailure[],
+  branchName: string,
+  rootDirectory: string,
+): string {
+  const failureList = failures
+    .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
+    .join("\n");
+
+  return `You are fixing audit failures found in a post-implementation code audit. Fix ALL of the following issues to get all audit scores to 100%.
+
+## Failed Audit Items:
+${failureList}
+
+## Instructions:
+1. Read the CLAUDE.md file to understand the codebase
+2. Read the relevant files to understand context around each failure
+3. Fix each issue listed above with minimal, focused changes
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
+6. Run: git push origin ${branchName}
+
+## Rules:
+- Only fix the specific issues listed above — do NOT refactor or change unrelated code
+- Keep changes minimal and focused
+- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
 export type AuditFlags = {
   accessibility: boolean;
   testing: boolean;

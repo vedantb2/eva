@@ -23,3 +23,8 @@ export const auditCompleteEvent = defineEvent({
     error: v.union(v.string(), v.null()),
   }),
 });
+
+export const auditFixCompleteEvent = defineEvent({
+  name: "auditFixComplete",
+  validator: workflowCompleteValidator,
+});

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { claudeModelValidator } from "../validators";
+import { claudeModelValidator, runModeValidator } from "../validators";
 import {
   taskCompleteEvent,
   auditCompleteEvent,
@@ -28,6 +28,7 @@ export const taskExecutionWorkflow = workflow.define({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
     userId: v.id("users"),
+    mode: v.optional(runModeValidator),
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
@@ -52,6 +53,7 @@ export const taskExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         projectId: args.projectId,
         branchName: args.branchName,
+        mode: args.mode,
       });
       hasSubtasks = data.hasSubtasks;
 
@@ -246,6 +248,7 @@ export const taskExecutionWorkflow = workflow.define({
         prUrl: completionPrUrl,
         hasSubtasks: data.hasSubtasks,
         activityLog: result.activityLog,
+        mode: args.mode,
       });
       runFinalized = true;
 
@@ -311,6 +314,7 @@ export const taskExecutionWorkflow = workflow.define({
           hasSubtasks,
           activityLog: completionActivityLog,
           exitReason: fallbackExitReason,
+          mode: args.mode,
         });
       }
 

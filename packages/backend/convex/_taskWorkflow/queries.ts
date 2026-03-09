@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import { buildImplementationPrompt } from "./prompts";
+import { runModeValidator } from "../validators";
+import {
+  buildImplementationPrompt,
+  buildConflictResolutionPrompt,
+} from "./prompts";
 
 export const getTaskData = internalQuery({
   args: {
@@ -8,6 +12,7 @@ export const getTaskData = internalQuery({
     repoId: v.id("githubRepos"),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
+    mode: v.optional(runModeValidator),
   },
   returns: v.object({
     prompt: v.string(),
@@ -57,14 +62,21 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const prompt = buildImplementationPrompt(
-      task,
-      sortedSubtasks,
-      branchName,
-      !args.projectId,
-      rootDirectory,
-      changeRequests.length > 0 ? changeRequests : undefined,
-    );
+    const prompt =
+      args.mode === "resolve_conflicts"
+        ? buildConflictResolutionPrompt(
+            branchName,
+            task.baseBranch ?? "main",
+            rootDirectory,
+          )
+        : buildImplementationPrompt(
+            task,
+            sortedSubtasks,
+            branchName,
+            !args.projectId,
+            rootDirectory,
+            changeRequests.length > 0 ? changeRequests : undefined,
+          );
 
     const appLabel = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop() || undefined

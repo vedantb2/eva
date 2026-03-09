@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import {
   taskStatusValidator,
   runStatusValidator,
+  runModeValidator,
   logLevelValidator,
   roleValidator,
   sessionModeValidator,
@@ -142,6 +143,7 @@ const schema = defineSchema({
     repoId: v.optional(v.id("githubRepos")),
     deploymentStatus: v.optional(deploymentStatusValidator),
     deploymentUrl: v.optional(v.string()),
+    mode: v.optional(runModeValidator),
   })
     .index("by_task", ["taskId"])
     .index("by_task_and_status", ["taskId", "status"])

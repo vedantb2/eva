@@ -145,6 +145,11 @@ export const teamMemberRoleValidator = v.union(
   v.literal("member"),
 );
 
+export const runModeValidator = v.union(
+  v.literal("implementation"),
+  v.literal("resolve_conflicts"),
+);
+
 export const webhookEventStatusValidator = v.union(
   v.literal("pending"),
   v.literal("completed"),

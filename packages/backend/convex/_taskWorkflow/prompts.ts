@@ -93,6 +93,29 @@ If dev server fails or page errors, screenshot the error state with \`agent-brow
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+export function buildConflictResolutionPrompt(
+  branchName: string,
+  baseBranch: string,
+  rootDirectory: string,
+): string {
+  return `You are resolving merge conflicts. Do NOT re-implement or change any feature — only resolve conflicts and ensure compatibility with the latest base branch.
+
+## Steps:
+1. Run: git fetch origin
+2. Run: git merge origin/${baseBranch}
+3. If there are merge conflicts, resolve them — keep the task branch's implementation intent intact but adapt it to work with the latest base branch changes
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
+6. Run: git push origin ${branchName}
+
+## Rules:
+- Do NOT re-implement or change the feature — only resolve conflicts and ensure compatibility
+- Keep the task's implementation intent intact
+- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
 type AuditFailure = {
   section: string;
   requirement: string;

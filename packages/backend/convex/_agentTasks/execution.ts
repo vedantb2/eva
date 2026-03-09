@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { claudeModelValidator } from "../validators";
+import { claudeModelValidator, runModeValidator } from "../validators";
 import {
   authMutation,
   hasTaskAccess,
@@ -10,7 +10,7 @@ import {
 import { workflow } from "../workflowManager";
 
 export const startExecution = authMutation({
-  args: { id: v.id("agentTasks") },
+  args: { id: v.id("agentTasks"), mode: v.optional(runModeValidator) },
   returns: v.object({
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
@@ -82,6 +82,7 @@ export const startExecution = authMutation({
       status: "queued",
       logs: [],
       startedAt: Date.now(),
+      mode: args.mode,
     });
     await ctx.db.patch(args.id, {
       status: "in_progress",
@@ -105,6 +106,7 @@ export const startExecution = authMutation({
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           userId: ctx.userId,
+          mode: args.mode,
         },
       );
       workflowIdString = String(workflowId);

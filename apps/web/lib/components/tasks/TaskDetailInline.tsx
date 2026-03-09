@@ -27,7 +27,6 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     commentsSection,
     statusFieldsSection,
     footerButtons,
-    deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     activeTab,
@@ -97,7 +96,6 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
           </div>
         </div>
       </div>
-      {deleteConfirmDialog}
       {stopConfirmDialog}
       {userMessageDialog}
     </>

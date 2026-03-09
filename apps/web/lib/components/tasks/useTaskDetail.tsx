@@ -26,10 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -66,7 +62,6 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
-  IconDots,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -104,7 +99,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       ? { entityId: `task-audit-run-${audit.runId}` }
       : "skip",
   );
-  const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
   const projects = useQuery(
     api.projects.list,
@@ -114,7 +108,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
-  const deleteTask = useMutation(api.agentTasks.deleteCascade);
   const allComments = useQuery(api.taskComments.listByTask, { taskId });
   const comments = allComments?.filter((c) => c.authorId);
   const createComment = useMutation(api.taskComments.create);
@@ -124,9 +117,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState<
     "activity" | "proof" | "audit" | "comments"
@@ -254,19 +245,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     }
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteTask({ id: taskId });
-      setShowDeleteConfirm(false);
-      onClose();
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleSaveTags = async () => {
     if (!task) return;
     const nextTags = Array.from(
@@ -338,27 +316,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           {task?.title}
         </span>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <IconDots size={16} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <IconTrash size={16} />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 
@@ -1261,66 +1218,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     </div>
   );
 
-  const deleteConfirmDialog = (
-    <Dialog
-      open={showDeleteConfirm}
-      onOpenChange={(v) => {
-        if (!v) setShowDeleteConfirm(false);
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete Task</DialogTitle>
-        </DialogHeader>
-        <div>
-          <p className="text-muted-foreground">
-            Are you sure you want to delete{" "}
-            <strong>
-              {task?.taskNumber ? `#${task.taskNumber} ` : ""}
-              {task?.title}
-            </strong>
-            ?
-          </p>
-          {dependentTasks && dependentTasks.length > 0 && (
-            <div className="mt-3 p-3 bg-warning-bg rounded-lg">
-              <p className="text-sm font-medium text-warning mb-2">
-                The following tasks depend on this task and will also be
-                deleted:
-              </p>
-              <ul className="text-sm text-warning space-y-1">
-                {dependentTasks.map((t) => (
-                  <li key={t._id}>
-                    {t.taskNumber ? `#${t.taskNumber} ` : ""}
-                    {t.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground mt-3">
-            This action cannot be undone.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
-            Delete
-            {dependentTasks && dependentTasks.length > 0
-              ? ` ${dependentTasks.length + 1} Tasks`
-              : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   const stopConfirmDialog = (
     <Dialog
       open={showStopConfirm}
@@ -1400,7 +1297,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     commentsSection,
     statusFieldsSection,
     footerButtons,
-    deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     audit,

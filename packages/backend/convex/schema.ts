@@ -164,6 +164,7 @@ const schema = defineSchema({
     connectedBy: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
+    parentRepoId: v.optional(v.id("githubRepos")),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),

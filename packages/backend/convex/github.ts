@@ -358,6 +358,7 @@ export const syncRepos = action({
                 githubId: repo.id,
                 teamId: personalTeamId,
                 rootDirectory: app.path,
+                parentRepoId: id,
               },
             );
             connectedIds.push(subAppId);

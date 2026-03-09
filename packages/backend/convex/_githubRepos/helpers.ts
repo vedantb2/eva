@@ -8,17 +8,8 @@ export async function resolveCanonicalRepoId(
   repoId: Id<"githubRepos">,
 ): Promise<Id<"githubRepos">> {
   const repo = await db.get(repoId);
-  if (!repo || !repo.rootDirectory) return repoId;
-
-  const siblings = await db
-    .query("githubRepos")
-    .withIndex("by_owner_and_name", (q) =>
-      q.eq("owner", repo.owner).eq("name", repo.name),
-    )
-    .collect();
-
-  const root = siblings.find((s) => !s.rootDirectory);
-  return root ? root._id : repoId;
+  if (!repo) return repoId;
+  return repo.parentRepoId ?? repoId;
 }
 
 export async function findAllSiblingRepoIds(
@@ -49,6 +40,7 @@ export const githubRepoValidator = v.object({
   connectedBy: v.optional(v.id("users")),
   teamId: v.optional(v.id("teams")),
   rootDirectory: v.optional(v.string()),
+  parentRepoId: v.optional(v.id("githubRepos")),
   defaultBaseBranch: v.optional(v.string()),
   defaultModel: v.optional(claudeModelValidator),
   sessionsVncEnabled: v.optional(v.boolean()),

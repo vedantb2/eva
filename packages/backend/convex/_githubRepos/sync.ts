@@ -12,6 +12,7 @@ export const upsert = internalMutation({
     githubId: v.optional(v.number()),
     teamId: v.optional(v.id("teams")),
     rootDirectory: v.optional(v.string()),
+    parentRepoId: v.optional(v.id("githubRepos")),
   },
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
@@ -44,7 +45,10 @@ export const upsert = internalMutation({
     }
 
     if (existing) {
-      const updates: Record<string, string | number | boolean | Id<"teams">> = {
+      const updates: Record<
+        string,
+        string | number | boolean | Id<"teams"> | Id<"githubRepos">
+      > = {
         connected: true,
       };
       if (args.teamId && !existing.teamId) {
@@ -59,6 +63,12 @@ export const upsert = internalMutation({
       if (args.githubId !== undefined && existing.githubId === undefined) {
         updates.githubId = args.githubId;
       }
+      if (
+        args.parentRepoId !== undefined &&
+        existing.parentRepoId === undefined
+      ) {
+        updates.parentRepoId = args.parentRepoId;
+      }
       await ctx.db.patch(existing._id, updates);
       return existing._id;
     }
@@ -71,6 +81,7 @@ export const upsert = internalMutation({
       connected: true,
       teamId: args.teamId,
       rootDirectory: normalizedRoot,
+      parentRepoId: args.parentRepoId,
       defaultBaseBranch: "main",
     });
   },

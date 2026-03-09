@@ -59,25 +59,13 @@ async function findSnapshotForRepo(
   if (direct) return direct;
 
   const repo = await db.get(repoId);
-  if (!repo) return null;
+  if (!repo || !repo.parentRepoId) return null;
 
-  const siblings = await db
-    .query("githubRepos")
-    .withIndex("by_owner_and_name", (q) =>
-      q.eq("owner", repo.owner).eq("name", repo.name),
-    )
-    .collect();
-
-  for (const sibling of siblings) {
-    if (sibling._id === repoId) continue;
-    const siblingSnapshot = await db
-      .query("repoSnapshots")
-      .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
-      .first();
-    if (siblingSnapshot) return siblingSnapshot;
-  }
-
-  return null;
+  const parentId = repo.parentRepoId;
+  return await db
+    .query("repoSnapshots")
+    .withIndex("by_repo", (q) => q.eq("repoId", parentId))
+    .first();
 }
 
 export const getRepoSnapshotName = internalQuery({

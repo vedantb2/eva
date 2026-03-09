@@ -231,10 +231,30 @@ export async function runTestQuery(
   };
 }
 
+export async function runMutation(
+  convexUrl: string,
+  deployKey: string,
+  path: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const response = await fetch(`${convexUrl}/api/mutation`, {
+    method: "POST",
+    headers: authHeaders(deployKey),
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
+}
+
 export interface Repo {
   id: string;
   owner: string;
   name: string;
+  fullName: string;
 }
 
 export async function listRepos(
@@ -243,11 +263,18 @@ export async function listRepos(
 ): Promise<Repo[]> {
   const source = wrapQueryHandler(
     `const repos = await ctx.db.query("githubRepos").collect();
-    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name }));`,
+    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name, fullName: r.fullName ?? (r.owner + "/" + r.name) }));`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z
-    .array(z.object({ id: z.string(), owner: z.string(), name: z.string() }))
+    .array(
+      z.object({
+        id: z.string(),
+        owner: z.string(),
+        name: z.string(),
+        fullName: z.string(),
+      }),
+    )
     .parse(result.value);
 }
 

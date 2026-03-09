@@ -10,6 +10,7 @@ import {
   getDeployKey,
   listRepos,
   getRepoConvexCredentials,
+  runMutation,
 } from "./convex-api.js";
 
 export function registerTools(
@@ -280,6 +281,119 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           {
             type: "text" as const,
             text: JSON.stringify({ table, count: result.value }, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    "create_and_run_task",
+    `Create a task on the Eva platform and immediately start execution. Use this to send plans, prompts, or instructions to Eva for autonomous execution.
+
+Examples:
+- "send this plan to eva and run it" — uses repo defaults
+- "run this on eva with sonnet: refactor X to do Y" — overrides model
+- "create this as a task on eva on staging" — overrides baseBranch`,
+    {
+      title: z.string().describe("Short task title"),
+      description: z
+        .string()
+        .describe(
+          "The full prompt/plan/instructions for the task (plain text or markdown)",
+        ),
+      repoName: z
+        .string()
+        .describe(
+          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved to a Convex ID by matching against repo name or fullName.',
+        ),
+      model: z
+        .enum(["opus", "sonnet", "haiku"])
+        .optional()
+        .describe("Model to use. If omitted, uses the repo's defaultModel."),
+      baseBranch: z
+        .string()
+        .optional()
+        .describe(
+          "Branch to base work off of. If omitted, uses the repo's defaultBaseBranch.",
+        ),
+    },
+    async ({ title, description, repoName, model, baseBranch }) => {
+      const deployKey = await getDeployKey(convexUrl);
+
+      const repos = await listRepos(convexUrl, deployKey);
+      const normalizedInput = repoName.toLowerCase();
+      const repo = repos.find(
+        (r) =>
+          r.name.toLowerCase() === normalizedInput ||
+          r.fullName.toLowerCase() === normalizedInput,
+      );
+
+      if (!repo) {
+        const available = repos.map((r) => r.fullName).join(", ");
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Repo "${repoName}" not found. Available repos: ${available}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const mutationArgs: Record<string, string> = {
+        repoId: repo.id,
+        title,
+        description,
+      };
+      if (model !== undefined) {
+        mutationArgs.model = model;
+      }
+      if (baseBranch !== undefined) {
+        mutationArgs.baseBranch = baseBranch;
+      }
+
+      const taskId = await runMutation(
+        convexUrl,
+        deployKey,
+        "agentTasks/mutations:createQuickTask",
+        mutationArgs,
+      );
+
+      if (typeof taskId !== "string") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Failed to create task: unexpected response from createQuickTask.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const executionResult = await runMutation(
+        convexUrl,
+        deployKey,
+        "agentTasks/execution:startExecution",
+        { id: taskId },
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                taskId,
+                status: "started",
+                execution: executionResult,
+                message: `Task "${title}" created and execution started on ${repo.fullName}.`,
+              },
+              null,
+              2,
+            ),
           },
         ],
       };

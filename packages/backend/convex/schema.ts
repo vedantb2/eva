@@ -9,6 +9,7 @@ import {
   sessionStatusValidator,
   phaseValidator,
   evaluationStatusValidator,
+  evalFixStatusValidator,
   themeValidator,
   evalResultValidator,
   auditSectionValidator,
@@ -326,6 +327,9 @@ const schema = defineSchema({
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
     activeWorkflowId: v.optional(v.string()),
+    fixStatus: v.optional(evalFixStatusValidator),
+    fixBranchName: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

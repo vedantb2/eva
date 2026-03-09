@@ -129,12 +129,20 @@ export const handleStaleEvaluation = internalMutation({
 
     await cancelStaleWorkflow(ctx, args.workflowId, [String(args.reportId)]);
 
-    await ctx.db.patch(args.reportId, {
-      status: "error",
-      error: "Evaluation timed out",
-      activeWorkflowId: undefined,
-      updatedAt: Date.now(),
-    });
+    if (report.status === "completed" && report.fixStatus === "fixing") {
+      await ctx.db.patch(args.reportId, {
+        fixStatus: "fix_error",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(args.reportId, {
+        status: "error",
+        error: "Evaluation timed out",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+    }
 
     return null;
   },

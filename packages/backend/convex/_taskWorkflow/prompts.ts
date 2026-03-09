@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import { buildRootDirectoryInstruction } from "../prompts";
+import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/workspace/repo";
 
@@ -105,46 +106,8 @@ export function extractAuditFailures(rawResult: string): AuditFailure[] {
       rawResult.match(/\{[\s\S]*\}/)?.[0] ??
       rawResult;
 
-    const parsed: {
-      accessibility?: Array<{
-        requirement: string;
-        passed: boolean;
-        detail: string;
-      }>;
-      testing?: Array<{ requirement: string; passed: boolean; detail: string }>;
-      codeReview?: Array<{
-        requirement: string;
-        passed: boolean;
-        detail: string;
-      }>;
-    } = JSON.parse(jsonStr);
-
-    const failures: AuditFailure[] = [];
-    for (const item of parsed.accessibility ?? []) {
-      if (!item.passed)
-        failures.push({
-          section: "Accessibility",
-          requirement: item.requirement,
-          detail: item.detail,
-        });
-    }
-    for (const item of parsed.testing ?? []) {
-      if (!item.passed)
-        failures.push({
-          section: "Testing",
-          requirement: item.requirement,
-          detail: item.detail,
-        });
-    }
-    for (const item of parsed.codeReview ?? []) {
-      if (!item.passed)
-        failures.push({
-          section: "Code Review",
-          requirement: item.requirement,
-          detail: item.detail,
-        });
-    }
-    return failures;
+    const raw: unknown = JSON.parse(jsonStr);
+    return extractFailuresFromJson(raw);
   } catch {
     return [];
   }
@@ -186,53 +149,64 @@ export type AuditFlags = {
   codeReview: boolean;
 };
 
-export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
-  const sections: string[] = [];
-  const jsonKeys: string[] = [];
-  let sectionNum = 1;
+type AuditSectionDefinition = {
+  name: string;
+  description: string;
+};
 
+function getEnabledSections(flags: AuditFlags): AuditSectionDefinition[] {
+  const sections: AuditSectionDefinition[] = [];
   if (flags.accessibility) {
-    sections.push(
-      `${sectionNum}. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.`,
-    );
-    jsonKeys.push(
-      `  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
+    sections.push({
+      name: "Accessibility",
+      description:
+        'WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.',
+    });
   }
-
   if (flags.testing) {
-    sections.push(
-      `${sectionNum}. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.`,
-    );
-    jsonKeys.push(
-      `  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
+    sections.push({
+      name: "Testing",
+      description:
+        'Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.',
+    });
   }
-
   if (flags.codeReview) {
-    sections.push(
-      `${sectionNum}. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.`,
-    );
-    jsonKeys.push(
-      `  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
+    sections.push({
+      name: "Code Review",
+      description:
+        "Implementation quality — correctness, bugs, security, error handling, naming, code style.",
+    });
   }
+  return sections;
+}
 
-  jsonKeys.push(`  "summary": "1-2 sentence overall assessment"`);
+export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
+  const sections = getEnabledSections(flags);
 
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with ${sections.length} section${sections.length === 1 ? "" : "s"}.
+  const sectionDescriptions = sections
+    .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)
+    .join("\n");
+
+  const sectionJson = sections
+    .map(
+      (s) =>
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+    )
+    .join(",\n");
+
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
 ## Sections:
-${sections.join("\n")}
+${sectionDescriptions}
 
 Return ONLY valid JSON in this exact format:
 {
-${jsonKeys.join(",\n")}
+  "sections": [
+${sectionJson}
+  ],
+  "summary": "1-2 sentence overall assessment"
 }
 
 ## Git Diff:

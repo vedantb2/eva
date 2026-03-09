@@ -14,20 +14,22 @@ import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
 function buildSessionAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
-## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+## Default Sections:
+1. **Accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
+2. **Testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
+3. **Code Review**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
 
 Return ONLY valid JSON in this exact format:
 {
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "sections": [
+    { "name": "Accessibility", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] },
+    { "name": "Testing", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] },
+    { "name": "Code Review", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }
+  ],
   "summary": "1-2 sentence overall assessment"
 }
 
@@ -108,7 +110,7 @@ export const runSessionAudit = internalAction({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
-    auditId: v.id("sessionAudits"),
+    auditId: v.id("audits"),
     userId: v.id("users"),
   },
   returns: v.null(),
@@ -130,7 +132,7 @@ export const runSessionAudit = internalAction({
       );
 
       if (!diffRaw.trim()) {
-        await ctx.runMutation(internal.sessionAudits.fail, {
+        await ctx.runMutation(internal.audits.fail, {
           id: args.auditId,
           error: "No changes detected",
         });
@@ -142,7 +144,7 @@ export const runSessionAudit = internalAction({
         sandbox,
         args.userId,
         buildSessionAuditPrompt(diffRaw),
-        "sessionAudits:handleCompletion",
+        "audits:handleSessionCompletion",
         "sessionId",
         String(args.sessionId),
         {
@@ -151,7 +153,7 @@ export const runSessionAudit = internalAction({
         },
       );
     } catch (err) {
-      await ctx.runMutation(internal.sessionAudits.fail, {
+      await ctx.runMutation(internal.audits.fail, {
         id: args.auditId,
         error: errorMessage(err, "Audit failed"),
       });

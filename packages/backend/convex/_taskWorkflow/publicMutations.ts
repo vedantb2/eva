@@ -93,8 +93,8 @@ export const handleAuditCompletion = authMutation({
     if (!task?.activeWorkflowId) return null;
 
     const audits = await ctx.db
-      .query("taskAudits")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
     const latestRunningAudit = audits
       .filter((audit) => audit.status === "running")

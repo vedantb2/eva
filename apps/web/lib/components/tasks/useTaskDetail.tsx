@@ -92,10 +92,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
-  const audit = useQuery(api.taskAudits.getByTask, { taskId });
+  const audit = useQuery(api.audits.getByTask, { taskId });
   const auditStreaming = useQuery(
     api.streaming.get,
-    audit?.status === "running"
+    audit?.status === "running" && audit.runId
       ? { entityId: `task-audit-run-${audit.runId}` }
       : "skip",
   );
@@ -730,48 +730,32 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             </p>
           )}
           <Accordion type="multiple" className="space-y-2">
-            {[
-              {
-                key: "accessibility",
-                label: "Accessibility",
-                items: audit.accessibility,
-              },
-              {
-                key: "testing",
-                label: "Code Testing",
-                items: audit.testing,
-              },
-              {
-                key: "codeReview",
-                label: "Code Review",
-                items: audit.codeReview,
-              },
-            ]
-              .filter((section) => section.items.length > 0)
+            {audit.sections
+              .filter((section) => section.results.length > 0)
               .map((section) => (
                 <AccordionItem
-                  key={section.key}
-                  value={section.key}
+                  key={section.name}
+                  value={section.name}
                   className="border rounded-lg px-3"
                 >
                   <AccordionTrigger>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{section.label}</span>
+                      <span className="text-sm">{section.name}</span>
                       <Badge
                         variant={
-                          section.items.every((i) => i.passed)
+                          section.results.every((i) => i.passed)
                             ? "success"
                             : "destructive"
                         }
                       >
-                        {section.items.filter((i) => i.passed).length}/
-                        {section.items.length}
+                        {section.results.filter((i) => i.passed).length}/
+                        {section.results.length}
                       </Badge>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-2">
-                      {section.items.map((item, i) => (
+                      {section.results.map((item, i) => (
                         <div key={i} className="flex items-start gap-2 text-sm">
                           {item.passed ? (
                             <IconCheck

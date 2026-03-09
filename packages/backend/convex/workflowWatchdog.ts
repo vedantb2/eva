@@ -205,9 +205,9 @@ export const handleStaleProject = internalMutation({
   },
 });
 
-export const handleStaleSessionAudit = internalMutation({
+export const handleStaleAudit = internalMutation({
   args: {
-    auditId: v.id("sessionAudits"),
+    auditId: v.id("audits"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

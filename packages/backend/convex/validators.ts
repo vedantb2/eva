@@ -74,6 +74,11 @@ export const evalResultValidator = v.object({
   detail: v.string(),
 });
 
+export const auditSectionValidator = v.object({
+  name: v.string(),
+  results: v.array(evalResultValidator),
+});
+
 export const userFlowValidator = v.object({
   name: v.string(),
   steps: v.array(v.string()),

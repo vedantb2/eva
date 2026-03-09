@@ -10,15 +10,15 @@ import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import {
   Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
   SearchInput,
   Spinner,
@@ -27,7 +27,6 @@ import {
 import {
   IconBookmark,
   IconBrain,
-  IconDotsVertical,
   IconFolder,
   IconRefresh,
   IconTrash,
@@ -160,74 +159,59 @@ export function AnalyseSidebar({
                   {filteredQueries.map((query) => {
                     const isSelected = currentQueryId === query._id;
                     return (
-                      <div
-                        key={query._id}
-                        className={cn(
-                          "group mx-1 rounded-md px-3 py-2 transition-colors",
-                          isSelected
-                            ? "bg-sidebar-accent text-sidebar-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                        )}
-                      >
-                        <Link
-                          href={`${baseUrl}/query/${query._id}`}
-                          onClick={onNavigate}
-                          className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <h3
-                              className={cn(
-                                "truncate text-sm font-medium",
-                                isSelected
-                                  ? "text-sidebar-primary"
-                                  : "text-sidebar-foreground",
-                              )}
+                      <ContextMenu key={query._id}>
+                        <ContextMenuTrigger asChild>
+                          <div
+                            className={cn(
+                              "group mx-1 rounded-md px-3 py-2 transition-colors",
+                              isSelected
+                                ? "bg-sidebar-accent text-sidebar-primary"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent/70",
+                            )}
+                          >
+                            <Link
+                              href={`${baseUrl}/query/${query._id}`}
+                              onClick={onNavigate}
+                              className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                             >
-                              {query.title}
-                            </h3>
-                            <div
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                              }}
-                            >
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                  >
-                                    <IconDotsVertical size={13} />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() =>
-                                      setQueryToDelete({
-                                        id: query._id,
-                                        title: query.title,
-                                      })
-                                    }
-                                  >
-                                    <IconTrash size={16} />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <h3
+                                  className={cn(
+                                    "truncate text-sm font-medium",
+                                    isSelected
+                                      ? "text-sidebar-primary"
+                                      : "text-sidebar-foreground",
+                                  )}
+                                >
+                                  {query.title}
+                                </h3>
+                              </div>
+                              <div className="mt-2 flex items-center">
+                                <div className="flex -space-x-1">
+                                  <UserInitials userId={query.userId} />
+                                </div>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  {dayjs(query.updatedAt).fromNow()}
+                                </span>
+                              </div>
+                            </Link>
                           </div>
-                          <div className="mt-2 flex items-center">
-                            <div className="flex -space-x-1">
-                              <UserInitials userId={query.userId} />
-                            </div>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {dayjs(query.updatedAt).fromNow()}
-                            </span>
-                          </div>
-                        </Link>
-                      </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem
+                            className="text-destructive"
+                            onClick={() =>
+                              setQueryToDelete({
+                                id: query._id,
+                                title: query.title,
+                              })
+                            }
+                          >
+                            <IconTrash size={16} />
+                            Delete
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     );
                   })}
                 </div>

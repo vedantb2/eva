@@ -1,5 +1,81 @@
 # Changelog
 
+## Auto-generate fix PRs from testing arena evaluation failures - 2026-03-06
+
+- **Why**: When the testing arena evaluation found failing requirements, users had to manually create tasks to fix them. Now the system automatically spins up a sandbox, fixes the issues, and creates a PR — closing the feedback loop without leaving the testing arena.
+- **Changes**:
+  1. Added `fixStatus`, `fixBranchName`, and `prUrl` fields to the `evaluationReports` schema and validators.
+  2. Extended `evaluationWorkflow` to continue after evaluation completes with failures: spins up a write-enabled sandbox, gives Claude the failing requirements to fix, creates a branch and PR via `createPullRequest`, stores the PR URL on the report.
+  3. Added `fixCompleteEvent`, `handleFixCompletion`, `getFixData`, `setFixing`, `saveFixResult`, `saveFixError` functions to support the fix workflow lifecycle.
+  4. Updated the frontend testing arena page to display fix status (fixing indicator, streaming activity during fix), and a "View Fix PR" link button on the report card header.
+- **Reason for change (architectural)**: Evaluation and fix are a natural continuation — keeping them in the same workflow simplifies state management and avoids orphaned fix attempts.
+
+## Dynamic audit categories — 2026-03-09
+
+Replaced hardcoded audit toggle fields (`accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled`, `postAuditEnabled`) on `githubRepos` with a dedicated `auditCategories` table. Categories are per-repo, user-manageable, and the prompt builder reads enabled categories dynamically.
+
+- New `auditCategories` table: `repoId`, `name`, `description`, `enabled`, `isSystem`, `createdAt`
+- CRUD mutations: `listByRepo`, `listEnabledByRepo`, `seedDefaults`, `create`, `update`, `toggleEnabled`, `remove`
+- System defaults (Accessibility, Testing, Code Review) are seeded via "Get defaults" button, marked `isSystem: true`, non-deletable
+- Users can add custom audit categories with name + description (sent as AI instructions)
+- `buildAuditPrompt` and `buildSessionAuditPrompt` now accept `categories[]` instead of `AuditFlags`
+- `getTaskData` returns `auditCategories` instead of 4 boolean flags
+- Session audit (`_daytona/audit.ts`) queries enabled categories before running
+- New `/settings/audits` page with category list, enable/disable toggles, and add form
+- Added "Audits" nav item to `SettingsSidebar`
+- Removed old fields from schema, helpers, mutations, and ConfigClient
+- Migration: `removeOldAuditFieldsFromRepos` strips old fields via `ctx.db.replace()`
+
+## Unified audits table + flexible sections — 2026-03-09
+
+Merged `taskAudits` and `sessionAudits` into a single `audits` table with `entityId: v.union(v.id("agentTasks"), v.id("sessions"))`. Reduces table sprawl — audit data is identical regardless of context, only the foreign key differs.
+
+Also replaced hardcoded 3-field audit schema (`accessibility`, `testing`, `codeReview`) with flexible `sections: Array<{ name, results }>` format. New audit categories can be added without schema/frontend changes.
+
+- New `audits` table with polymorphic `entityId` and `by_entity` index
+- `auditSectionValidator` for dynamic sections
+- Shared audit JSON parser in `_taskWorkflow/auditParser.ts` (eliminates duplication, no `as` casts)
+- Frontend dynamically maps `sections` array
+- Prompt builders output `sections` format
+- `/audit` skill system: router + `/audit-accessibility`, `/audit-code-review`, `/audit-testing`
+- Migration: `migrations/mergeAuditTables.ts` moves data from old tables to unified table
+
+## Proof of completion carousel — 2026-03-08
+
+Added an Embla-based carousel (shadcn pattern) to the task detail proof section. When a task has multiple screenshots/videos, they are now shown in a swipeable carousel with prev/next buttons and dot indicators, instead of a vertical stack. Single media items render normally without carousel chrome.
+
+- New `Carousel` component in `packages/ui` (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, CarouselDots)
+- Updated `useTaskDetail.tsx` proof section to separate media vs message proofs and wrap media in the carousel
+
+## Move active tasks indicator from sidebar bottom to Quick Tasks tab badge — 2026-03-08
+
+- **Why**: The active tasks component at the bottom of the sidebar was disconnected from where tasks live. Moving it inline as a badge on the Quick Tasks nav item provides better context and discoverability.
+- **Changes**: Replaced the standalone `ActiveTasksPopover` at sidebar bottom with an `ActiveTasksBadge` that renders inline on the Quick Tasks nav item — shows a glowing green dot + "{count} live" text, with the same hover popover for task details.
+
+## Fix git checkout failures due to dirty working tree — 2026-03-08
+
+- **Why**: `git checkout` was aborting when auto-generated files (e.g. `next-env.d.ts`) existed as local changes in the sandbox, causing tasks and sessions to fail during branch setup.
+- **Changes**: Added `git stash --include-untracked` before checkout in `checkoutSessionBranch` and `prepareSandbox` base-branch checkout. The `setupBranch` function already had this — now all checkout paths are consistent.
+- **Reason**: Sandboxes that are reused across runs can accumulate untracked/modified files from previous executions. Stashing ensures branch switches always succeed.
+
+## Fix Build Project button disabled state & branch sync — 2026-03-08
+
+- **Why**: Build Project button stayed clickable after starting a build, and project branches fell behind their base branch (e.g. 80 commits behind main).
+- **Changes**:
+  - Build Project button now also disables when `activeBuildWorkflowId` is set (active build running), not just when a build is scheduled. Dialog button disables during mutation.
+  - `setupBranch` in git.ts now fast-forwards from `origin/{branch}` and merges `origin/{baseBranch}` after checkout. This ensures project branches incorporate latest base branch commits before each task execution — matching how quick tasks always branch from the latest base.
+- **Reason**: Button disabled condition was incomplete — only checked `scheduledBuildAt`, missing `activeBuildWorkflowId`. Branch sync only did `git fetch` + `git checkout` without merging base, so existing project branches never picked up new base commits.
+
+## Eva config: richer ask-mode responses + LSP tool enabled — 2026-03-08
+
+### Summary
+
+Two improvements to Eva's session configuration:
+
+1. **Ask mode now supports rich markdown and mermaid diagrams** — previously ask mode was restricted to plain text. Non-technical users benefit more from visual diagrams (flow charts, architecture diagrams) than prose, so the system prompt now encourages mermaid blocks for architecture/data flow explanations while keeping language jargon-free.
+
+2. **`ENABLE_LSP_TOOL=true` added to all sandbox launches** — Claude Code defaults to text-grep for code navigation. Setting this flag connects it to language servers (LSP), enabling "jump to definition"-style lookups that are significantly faster and more accurate for finding functions and symbols across the codebase.
+
 ## Per-context sandbox lifecycle management — 2026-03-08
 
 Behavior per context:

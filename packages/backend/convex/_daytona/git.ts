@@ -147,6 +147,11 @@ export async function checkoutSessionBranch(
   const quotedBase = quote([`origin/${baseBranch}`]);
   await exec(
     sandbox,
+    `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+    10,
+  );
+  await exec(
+    sandbox,
     `cd ${WORKSPACE_DIR} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
     30,
   );
@@ -212,6 +217,16 @@ export async function setupBranch(
       `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
     );
   }
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git merge --ff-only ${quotedRemote} 2>/dev/null || true`,
+    10,
+  );
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true`,
+    30,
+  );
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,

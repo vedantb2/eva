@@ -6,21 +6,20 @@ import {
   getTaskAuditStreamingEntityId,
   upsertStreamingActivity,
 } from "./helpers";
+import { parseSectionsFromJson, extractSummaryFromJson } from "./auditParser";
 
 export const createAudit = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),
   },
-  returns: v.id("taskAudits"),
+  returns: v.id("audits"),
   handler: async (ctx, args) => {
-    const auditId = await ctx.db.insert("taskAudits", {
-      taskId: args.taskId,
+    const auditId = await ctx.db.insert("audits", {
+      entityId: args.taskId,
       runId: args.runId,
       status: "running",
-      accessibility: [],
-      testing: [],
-      codeReview: [],
+      sections: [],
       createdAt: Date.now(),
     });
 
@@ -42,7 +41,7 @@ export const createAudit = internalMutation({
 
 export const saveAuditResult = internalMutation({
   args: {
-    auditId: v.id("taskAudits"),
+    auditId: v.id("audits"),
     result: v.union(v.string(), v.null()),
     error: v.optional(v.string()),
   },
@@ -53,12 +52,12 @@ export const saveAuditResult = internalMutation({
       return null;
     }
 
+    const runId = audit.runId;
     const clearAuditStreaming = async (): Promise<void> => {
-      await clearStreamingActivity(
-        ctx,
-        getTaskAuditStreamingEntityId(audit.runId),
-      );
-      await clearStreamingActivity(ctx, `audit-${String(audit.taskId)}`);
+      if (runId) {
+        await clearStreamingActivity(ctx, getTaskAuditStreamingEntityId(runId));
+      }
+      await clearStreamingActivity(ctx, `audit-${String(audit.entityId)}`);
     };
 
     if (args.error || !args.result) {
@@ -72,31 +71,12 @@ export const saveAuditResult = internalMutation({
 
     try {
       const jsonStr = extractJsonBlock(args.result);
-      const parsed: {
-        accessibility: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        testing: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        codeReview: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        summary: string;
-      } = JSON.parse(jsonStr);
+      const raw: unknown = JSON.parse(jsonStr);
 
       await ctx.db.patch(args.auditId, {
         status: "completed",
-        accessibility: parsed.accessibility || [],
-        testing: parsed.testing || [],
-        codeReview: parsed.codeReview || [],
-        summary: parsed.summary || "Audit completed",
+        sections: parseSectionsFromJson(raw),
+        summary: extractSummaryFromJson(raw),
       });
     } catch {
       await ctx.db.patch(args.auditId, {

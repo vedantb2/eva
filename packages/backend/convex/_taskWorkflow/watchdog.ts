@@ -52,6 +52,7 @@ export const checkStaleRuns = internalMutation({
         isProjectTask: !!task.projectId,
         errorMessage: "Run killed by watchdog: workflow tracking lost",
         exitReason: "workflow_tracking_lost",
+        taskStatus: task.status,
       });
       return null;
     }
@@ -77,6 +78,7 @@ export const checkStaleRuns = internalMutation({
         errorMessage: "Run killed by watchdog: sandbox was never attached",
         exitReason: "watchdog_no_sandbox",
         activeWorkflowId: task.activeWorkflowId,
+        taskStatus: task.status,
       });
       return null;
     }
@@ -128,6 +130,7 @@ export const checkStaleRuns = internalMutation({
           ? "watchdog_finalizing_stalled"
           : "watchdog_killed",
       activeWorkflowId: task.activeWorkflowId,
+      taskStatus: task.status,
     });
     return null;
   },
@@ -168,6 +171,7 @@ export const handleStaleRun = internalMutation({
         isProjectTask: !!task.projectId,
         errorMessage: "Run timed out after 2 hours",
         exitReason: "run_timeout",
+        taskStatus: task.status,
       });
     } else {
       const taskStatus =
@@ -180,8 +184,8 @@ export const handleStaleRun = internalMutation({
     }
 
     const audits = await ctx.db
-      .query("taskAudits")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
     for (const audit of audits) {
       if (audit.status === "running") {

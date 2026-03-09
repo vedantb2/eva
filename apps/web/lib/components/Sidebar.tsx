@@ -36,7 +36,7 @@ import {
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
-import { ActiveTasksPopover } from "@/lib/components/sidebar/ActiveTasksPopover";
+import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
@@ -776,6 +776,15 @@ export function Sidebar() {
                                             {item.name}
                                           </span>
                                         )}
+                                        {item.name === "Quick Tasks" &&
+                                          !collapsed &&
+                                          repo &&
+                                          repoBasePath && (
+                                            <ActiveTasksBadge
+                                              repoId={repo._id}
+                                              basePath={repoBasePath}
+                                            />
+                                          )}
                                       </Link>
                                     );
                                   })}
@@ -789,17 +798,6 @@ export function Sidebar() {
                   </AnimatePresence>
                 )}
               </div>
-
-              {isRepoRoute &&
-                !collapsed &&
-                repo &&
-                repoBasePath &&
-                !showContextSidebar && (
-                  <ActiveTasksPopover
-                    repoId={repo._id}
-                    basePath={repoBasePath}
-                  />
-                )}
             </nav>
 
             <div

@@ -50,9 +50,11 @@ Question: ${message}
 Use Glob, Grep, Read to find information.
 
 Response rules:
-- 2-4 sentences max, PLAIN TEXT only (no markdown, headers, bullets, or code blocks)
 - Write for someone who does NOT know programming
-- If you mention a file, just say the filename without the full path${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- If you mention a file, just say the filename without the full path
+- Use markdown formatting: headers, bullet points, tables where they aid clarity
+- When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
+- Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(

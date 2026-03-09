@@ -22,13 +22,8 @@ import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 
-import {
-  IconGitBranch,
-  IconGitPullRequest,
-  IconHammer,
-} from "@tabler/icons-react";
+import { IconGitBranch, IconHammer } from "@tabler/icons-react";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
-import Link from "next/link";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -38,6 +33,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { basePath, repo, installationId } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+  const [isStartingBuild, setIsStartingBuild] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
@@ -99,7 +95,11 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                   <Button
                     size="sm"
                     onClick={() => setIsBuildModalOpen(true)}
-                    disabled={!isOwner || !!project.scheduledBuildAt}
+                    disabled={
+                      !isOwner ||
+                      !!project.scheduledBuildAt ||
+                      !!project.activeBuildWorkflowId
+                    }
                   >
                     <IconHammer size={16} />
                     Build Project
@@ -110,6 +110,8 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 <TooltipContent>
                   Only the project owner can build
                 </TooltipContent>
+              ) : project.activeBuildWorkflowId ? (
+                <TooltipContent>Build is currently running</TooltipContent>
               ) : project.scheduledBuildAt ? (
                 <TooltipContent>Build is already scheduled</TooltipContent>
               ) : null}
@@ -169,17 +171,22 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
               Cancel
             </Button>
             <Button
-              disabled={false}
+              disabled={isStartingBuild}
               onClick={async () => {
-                await startBuild({
-                  projectId: typedProjectId,
-                  installationId: repo.installationId,
-                });
-                setIsBuildModalOpen(false);
+                setIsStartingBuild(true);
+                try {
+                  await startBuild({
+                    projectId: typedProjectId,
+                    installationId: repo.installationId,
+                  });
+                  setIsBuildModalOpen(false);
+                } finally {
+                  setIsStartingBuild(false);
+                }
               }}
             >
               <IconHammer size={16} />
-              Start cooking
+              {isStartingBuild ? "Starting..." : "Start cooking"}
             </Button>
           </DialogFooter>
         </DialogContent>

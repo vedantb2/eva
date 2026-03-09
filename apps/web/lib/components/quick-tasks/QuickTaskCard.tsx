@@ -2,9 +2,19 @@
 
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Checkbox,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -12,14 +22,21 @@ import {
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
-import { IconClock, IconFolder, IconTag } from "@tabler/icons-react";
-import { useQuery } from "convex/react";
+import {
+  IconClock,
+  IconFolder,
+  IconLoader2,
+  IconTag,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs from "@conductor/shared/dates";
+import { useState } from "react";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -60,6 +77,22 @@ export function QuickTaskCard({
   const statusMeta = statusConfig[status];
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
+
+  const deleteTask = useMutation(api.agentTasks.deleteCascade);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteTask({ id });
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const card = (
     <Card
@@ -168,9 +201,60 @@ export function QuickTaskCard({
     </Card>
   );
 
-  if (isInProgress) {
-    return <div className="qt-in-progress-border rounded-lg p-px">{card}</div>;
-  }
+  const wrappedCard = isInProgress ? (
+    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+  ) : (
+    card
+  );
 
-  return card;
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <IconTrash size={16} />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(v) => {
+          if (!v) setShowDeleteConfirm(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-muted-foreground">
+              Are you sure you want to delete <strong>{title}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground mt-3">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

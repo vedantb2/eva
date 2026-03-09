@@ -155,10 +155,6 @@ export const updateConfig = authMutation({
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
-    postAuditEnabled: v.optional(v.boolean()),
-    accessibilityAuditEnabled: v.optional(v.boolean()),
-    codeTestingAuditEnabled: v.optional(v.boolean()),
-    codeReviewAuditEnabled: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
   },
@@ -186,14 +182,6 @@ export const updateConfig = authMutation({
     if (args.defaultBaseBranch !== undefined)
       patch.defaultBaseBranch = args.defaultBaseBranch;
     if (args.defaultModel !== undefined) patch.defaultModel = args.defaultModel;
-    if (args.postAuditEnabled !== undefined)
-      patch.postAuditEnabled = args.postAuditEnabled;
-    if (args.accessibilityAuditEnabled !== undefined)
-      patch.accessibilityAuditEnabled = args.accessibilityAuditEnabled;
-    if (args.codeTestingAuditEnabled !== undefined)
-      patch.codeTestingAuditEnabled = args.codeTestingAuditEnabled;
-    if (args.codeReviewAuditEnabled !== undefined)
-      patch.codeReviewAuditEnabled = args.codeReviewAuditEnabled;
     if (args.sessionsVncEnabled !== undefined)
       patch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)

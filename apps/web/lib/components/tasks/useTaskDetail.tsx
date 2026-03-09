@@ -26,10 +26,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+  CarouselDots,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -60,7 +62,6 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
-  IconDots,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -91,14 +92,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
-  const audit = useQuery(api.taskAudits.getByTask, { taskId });
+  const audit = useQuery(api.audits.getByTask, { taskId });
   const auditStreaming = useQuery(
     api.streaming.get,
-    audit?.status === "running"
+    audit?.status === "running" && audit.runId
       ? { entityId: `task-audit-run-${audit.runId}` }
       : "skip",
   );
-  const dependentTasks = useQuery(api.agentTasks.getDependentTasks, { taskId });
   const users = useQuery(api.users.listAll);
   const projects = useQuery(
     api.projects.list,
@@ -108,7 +108,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
-  const deleteTask = useMutation(api.agentTasks.deleteCascade);
   const allComments = useQuery(api.taskComments.listByTask, { taskId });
   const comments = allComments?.filter((c) => c.authorId);
   const createComment = useMutation(api.taskComments.create);
@@ -118,13 +117,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState<
     "activity" | "proof" | "audit" | "comments"
   >("activity");
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [requestingChanges, setRequestingChanges] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -143,18 +142,28 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
+  useEffect(() => {
+    setExecutionError(null);
+  }, [activeTab]);
+
   const handleAddComment = async (requestChanges = false) => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
-    await createComment({ taskId, content: text });
+    try {
+      await createComment({ taskId, content: text });
 
-    if (requestChanges) {
-      try {
-        await startExecution({ id: taskId });
-      } catch (err) {
-        console.error("Failed to start execution for change request:", err);
+      if (requestChanges) {
+        try {
+          await startExecution({ id: taskId });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Failed to start execution";
+          setExecutionError(message);
+        }
       }
+    } finally {
+      setRequestingChanges(false);
     }
   };
 
@@ -248,19 +257,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     }
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteTask({ id: taskId });
-      setShowDeleteConfirm(false);
-      onClose();
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleSaveTags = async () => {
     if (!task) return;
     const nextTags = Array.from(
@@ -310,7 +306,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             }
           }}
           autoFocus
-          className="flex-1"
+          className="flex-1 text-base font-semibold h-auto px-1 -mx-1 py-0 border-none shadow-none focus-visible:ring-0 bg-muted/50 rounded"
         />
       ) : (
         <span
@@ -332,27 +328,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
           {task?.title}
         </span>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <IconDots size={16} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <IconTrash size={16} />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 
@@ -399,7 +374,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               setIsEditingDescription(false);
             }
           }}
-          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-6 text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
+          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
         />
       ) : task?.description ? (
         (() => {
@@ -521,19 +496,24 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
                   <AccordionTrigger>
                     <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <Badge
-                          variant={
-                            run.status === "success"
-                              ? "success"
-                              : run.status === "error"
-                                ? "destructive"
-                                : run.status === "running"
-                                  ? "warning"
-                                  : "outline"
-                          }
-                        >
-                          {run.status}
-                        </Badge>
+                        {run.status === "running" ? (
+                          <IconLoader2
+                            size={16}
+                            className="animate-spin text-warning"
+                          />
+                        ) : run.status === "error" ? (
+                          <IconAlertTriangle
+                            size={16}
+                            className="text-destructive"
+                          />
+                        ) : run.status === "success" ? (
+                          <IconCheck size={16} className="text-success" />
+                        ) : (
+                          <IconCircleDot
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                        )}
                         {runCommentMap.has(run._id) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -679,23 +659,48 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       </div>
     ) : null;
 
+  const mediaProofs = proofs?.filter(
+    (p) =>
+      p.url &&
+      (p.contentType?.startsWith("image/") ||
+        p.contentType?.startsWith("video/")),
+  );
+  const messageProofs = proofs?.filter((p) => p.message);
+
   const proofSection = showProofSection ? (
-    <div>
-      {proofs && proofs.length > 0 ? (
-        <div className="space-y-3">
-          {proofs.map((proof) => (
-            <div key={proof._id}>
-              {proof.message ? (
-                <p className="text-sm text-muted-foreground">{proof.message}</p>
-              ) : proof.url && proof.contentType?.startsWith("image/") ? (
-                <ScreenshotPreview url={proof.url} />
-              ) : proof.url && proof.contentType?.startsWith("video/") ? (
-                <VideoPreview url={proof.url} />
-              ) : null}
-            </div>
-          ))}
+    <div className="space-y-3">
+      {mediaProofs && mediaProofs.length > 0 ? (
+        <div className="px-6">
+          <Carousel opts={{ loop: mediaProofs.length > 1 }}>
+            <CarouselContent>
+              {mediaProofs.map((proof) => (
+                <CarouselItem key={proof._id}>
+                  {proof.url && proof.contentType?.startsWith("image/") ? (
+                    <ScreenshotPreview url={proof.url} />
+                  ) : proof.url && proof.contentType?.startsWith("video/") ? (
+                    <VideoPreview url={proof.url} />
+                  ) : null}
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {mediaProofs.length > 1 && (
+              <>
+                <CarouselPrevious />
+                <CarouselNext />
+                <CarouselDots />
+              </>
+            )}
+          </Carousel>
         </div>
-      ) : (
+      ) : null}
+      {messageProofs && messageProofs.length > 0
+        ? messageProofs.map((proof) => (
+            <p key={proof._id} className="text-sm text-muted-foreground">
+              {proof.message}
+            </p>
+          ))
+        : null}
+      {(!proofs || proofs.length === 0) && (
         <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
       )}
     </div>
@@ -737,48 +742,32 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             </p>
           )}
           <Accordion type="multiple" className="space-y-2">
-            {[
-              {
-                key: "accessibility",
-                label: "Accessibility",
-                items: audit.accessibility,
-              },
-              {
-                key: "testing",
-                label: "Code Testing",
-                items: audit.testing,
-              },
-              {
-                key: "codeReview",
-                label: "Code Review",
-                items: audit.codeReview,
-              },
-            ]
-              .filter((section) => section.items.length > 0)
+            {audit.sections
+              .filter((section) => section.results.length > 0)
               .map((section) => (
                 <AccordionItem
-                  key={section.key}
-                  value={section.key}
+                  key={section.name}
+                  value={section.name}
                   className="border rounded-lg px-3"
                 >
                   <AccordionTrigger>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{section.label}</span>
+                      <span className="text-sm">{section.name}</span>
                       <Badge
                         variant={
-                          section.items.every((i) => i.passed)
+                          section.results.every((i) => i.passed)
                             ? "success"
                             : "destructive"
                         }
                       >
-                        {section.items.filter((i) => i.passed).length}/
-                        {section.items.length}
+                        {section.results.filter((i) => i.passed).length}/
+                        {section.results.length}
                       </Badge>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-2">
-                      {section.items.map((item, i) => (
+                      {section.results.map((item, i) => (
                         <div key={i} className="flex items-start gap-2 text-sm">
                           {item.passed ? (
                             <IconCheck
@@ -813,8 +802,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     <p className="text-sm text-muted-foreground">No audit available</p>
   );
 
-  const canRequestChanges = status !== "todo" && status !== "in_progress";
-
   const commentsSection = (
     <div className="space-y-4">
       {comments && comments.length > 0 && (
@@ -848,24 +835,30 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         <Textarea
           rows={3}
           placeholder={
-            canRequestChanges
+            requestingChanges
               ? "Describe the changes you'd like Eva to make..."
               : "Add a comment..."
           }
           value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
+          onChange={(e) => {
+            setCommentText(e.target.value);
+            if (executionError) setExecutionError(null);
+          }}
           className="flex-1"
         />
         <Button
           size="icon"
           className="rounded-full shrink-0"
           disabled={!commentText.trim()}
-          onClick={() => handleAddComment(canRequestChanges)}
+          onClick={() => handleAddComment(requestingChanges)}
         >
           <IconArrowUp size={18} />
         </Button>
       </div>
-      {canRequestChanges && (
+      {executionError && (
+        <p className="text-xs text-destructive">{executionError}</p>
+      )}
+      {requestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">
           Submitting will create a comment and re-run Eva with your changes
         </p>
@@ -934,7 +927,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       <div>
         <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
           <IconFolder size={12} />
-          Add to Project
+          Project
         </p>
         <Select
           value={selectedProjectValue}
@@ -965,7 +958,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
       <div>
         <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
           <IconUserPlus size={12} />
-          Assign to ___ for Code Review
+          Assign for Code Review
         </p>
         <Select
           value={task?.assignedTo ?? ""}
@@ -1177,7 +1170,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         </Tooltip>
       )}
       {status !== "todo" && status !== "in_progress" && (
-        <Button variant="secondary" onClick={() => setActiveTab("comments")}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setRequestingChanges(true);
+            setActiveTab("comments");
+          }}
+        >
           <IconMessagePlus size={18} />
           <span className="hidden sm:inline">Request Changes</span>
         </Button>
@@ -1223,66 +1222,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
         </>
       )}
     </div>
-  );
-
-  const deleteConfirmDialog = (
-    <Dialog
-      open={showDeleteConfirm}
-      onOpenChange={(v) => {
-        if (!v) setShowDeleteConfirm(false);
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete Task</DialogTitle>
-        </DialogHeader>
-        <div>
-          <p className="text-muted-foreground">
-            Are you sure you want to delete{" "}
-            <strong>
-              {task?.taskNumber ? `#${task.taskNumber} ` : ""}
-              {task?.title}
-            </strong>
-            ?
-          </p>
-          {dependentTasks && dependentTasks.length > 0 && (
-            <div className="mt-3 p-3 bg-warning-bg rounded-lg">
-              <p className="text-sm font-medium text-warning mb-2">
-                The following tasks depend on this task and will also be
-                deleted:
-              </p>
-              <ul className="text-sm text-warning space-y-1">
-                {dependentTasks.map((t) => (
-                  <li key={t._id}>
-                    {t.taskNumber ? `#${t.taskNumber} ` : ""}
-                    {t.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground mt-3">
-            This action cannot be undone.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
-            Delete
-            {dependentTasks && dependentTasks.length > 0
-              ? ` ${dependentTasks.length + 1} Tasks`
-              : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 
   const stopConfirmDialog = (
@@ -1364,7 +1303,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     commentsSection,
     statusFieldsSection,
     footerButtons,
-    deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     audit,

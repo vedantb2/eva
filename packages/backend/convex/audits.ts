@@ -1,22 +1,25 @@
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { evaluationStatusValidator, evalResultValidator } from "./validators";
+import { evaluationStatusValidator, auditSectionValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
+import {
+  parseSectionsFromJson,
+  extractSummaryFromJson,
+} from "./_taskWorkflow/auditParser";
 
-export const getBySession = authQuery({
-  args: { sessionId: v.id("sessions") },
+export const getByTask = authQuery({
+  args: { taskId: v.id("agentTasks") },
   returns: v.union(
     v.object({
-      _id: v.id("sessionAudits"),
+      _id: v.id("audits"),
       _creationTime: v.number(),
-      sessionId: v.id("sessions"),
+      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+      runId: v.optional(v.id("agentRuns")),
       status: evaluationStatusValidator,
-      accessibility: v.array(evalResultValidator),
-      testing: v.array(evalResultValidator),
-      codeReview: v.array(evalResultValidator),
+      sections: v.array(auditSectionValidator),
       summary: v.optional(v.string()),
       error: v.optional(v.string()),
       createdAt: v.number(),
@@ -25,30 +28,78 @@ export const getBySession = authQuery({
   ),
   handler: async (ctx, args) => {
     const audits = await ctx.db
-      .query("sessionAudits")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
     if (audits.length === 0) return null;
-    return audits.sort((a, b) => b.createdAt - a.createdAt)[0];
+    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
+
+    return {
+      _id: latest._id,
+      _creationTime: latest._creationTime,
+      entityId: latest.entityId,
+      runId: latest.runId,
+      status: latest.status,
+      sections: latest.sections ?? [],
+      summary: latest.summary,
+      error: latest.error,
+      createdAt: latest.createdAt,
+    };
   },
 });
 
-export const startAudit = authMutation({
+export const getBySession = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(
+    v.object({
+      _id: v.id("audits"),
+      _creationTime: v.number(),
+      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+      runId: v.optional(v.id("agentRuns")),
+      status: evaluationStatusValidator,
+      sections: v.array(auditSectionValidator),
+      summary: v.optional(v.string()),
+      error: v.optional(v.string()),
+      createdAt: v.number(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const audits = await ctx.db
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.sessionId))
+      .collect();
+    if (audits.length === 0) return null;
+    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
+
+    return {
+      _id: latest._id,
+      _creationTime: latest._creationTime,
+      entityId: latest.entityId,
+      runId: latest.runId,
+      status: latest.status,
+      sections: latest.sections ?? [],
+      summary: latest.summary,
+      error: latest.error,
+      createdAt: latest.createdAt,
+    };
+  },
+});
+
+export const startSessionAudit = authMutation({
   args: {
     sessionId: v.id("sessions"),
   },
-  returns: v.id("sessionAudits"),
+  returns: v.id("audits"),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (!session.sandboxId) throw new Error("No sandbox available");
 
-    const auditId = await ctx.db.insert("sessionAudits", {
-      sessionId: args.sessionId,
+    const auditId = await ctx.db.insert("audits", {
+      entityId: args.sessionId,
       status: "running",
-      accessibility: [],
-      testing: [],
-      codeReview: [],
+      sections: [],
       createdAt: Date.now(),
     });
 
@@ -61,7 +112,7 @@ export const startAudit = authMutation({
 
     await ctx.scheduler.runAfter(
       RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleSessionAudit,
+      internal.workflowWatchdog.handleStaleAudit,
       { auditId },
     );
 
@@ -69,7 +120,7 @@ export const startAudit = authMutation({
   },
 });
 
-export const handleCompletion = authMutation({
+export const handleSessionCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
     success: v.boolean(),
@@ -81,8 +132,8 @@ export const handleCompletion = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const audits = await ctx.db
-      .query("sessionAudits")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.sessionId))
       .collect();
     const audit = audits.find((a) => a.status === "running");
     if (!audit) return null;
@@ -97,31 +148,12 @@ export const handleCompletion = authMutation({
 
     try {
       const jsonStr = extractJsonBlock(args.result);
-      const parsed: {
-        accessibility: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        testing: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        codeReview: Array<{
-          requirement: string;
-          passed: boolean;
-          detail: string;
-        }>;
-        summary: string;
-      } = JSON.parse(jsonStr);
+      const raw: unknown = JSON.parse(jsonStr);
 
       await ctx.db.patch(audit._id, {
         status: "completed",
-        accessibility: parsed.accessibility || [],
-        testing: parsed.testing || [],
-        codeReview: parsed.codeReview || [],
-        summary: parsed.summary || "Audit completed",
+        sections: parseSectionsFromJson(raw),
+        summary: extractSummaryFromJson(raw),
       });
     } catch {
       await ctx.db.patch(audit._id, {
@@ -148,7 +180,7 @@ export const handleCompletion = authMutation({
 
 export const fail = internalMutation({
   args: {
-    id: v.id("sessionAudits"),
+    id: v.id("audits"),
     error: v.string(),
   },
   returns: v.null(),

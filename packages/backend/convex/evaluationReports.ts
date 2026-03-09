@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
-import { evaluationStatusValidator, evalResultValidator } from "./validators";
+import {
+  evaluationStatusValidator,
+  evalResultValidator,
+  evalFixStatusValidator,
+} from "./validators";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
@@ -12,6 +16,9 @@ const reportValidator = v.object({
   summary: v.optional(v.string()),
   error: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  fixStatus: v.optional(evalFixStatusValidator),
+  fixBranchName: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });

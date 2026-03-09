@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import { buildRootDirectoryInstruction } from "../prompts";
+import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/workspace/repo";
 
@@ -92,59 +93,91 @@ If dev server fails or page errors, screenshot the error state with \`agent-brow
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-export type AuditFlags = {
-  accessibility: boolean;
-  testing: boolean;
-  codeReview: boolean;
+type AuditFailure = {
+  section: string;
+  requirement: string;
+  detail: string;
 };
 
-export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
-  const sections: string[] = [];
-  const jsonKeys: string[] = [];
-  let sectionNum = 1;
+export function extractAuditFailures(rawResult: string): AuditFailure[] {
+  try {
+    const jsonStr =
+      rawResult.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)?.[1]?.trim() ??
+      rawResult.match(/\{[\s\S]*\}/)?.[0] ??
+      rawResult;
 
-  if (flags.accessibility) {
-    sections.push(
-      `${sectionNum}. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.`,
-    );
-    jsonKeys.push(
-      `  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
+    const raw: unknown = JSON.parse(jsonStr);
+    return extractFailuresFromJson(raw);
+  } catch {
+    return [];
   }
+}
 
-  if (flags.testing) {
-    sections.push(
-      `${sectionNum}. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.`,
-    );
-    jsonKeys.push(
-      `  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
-  }
+export function buildAuditFixPrompt(
+  failures: AuditFailure[],
+  branchName: string,
+  rootDirectory: string,
+): string {
+  const failureList = failures
+    .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
+    .join("\n");
 
-  if (flags.codeReview) {
-    sections.push(
-      `${sectionNum}. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.`,
-    );
-    jsonKeys.push(
-      `  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }]`,
-    );
-    sectionNum++;
-  }
+  return `You are fixing audit failures found in a post-implementation code audit. Fix ALL of the following issues to get all audit scores to 100%.
 
-  jsonKeys.push(`  "summary": "1-2 sentence overall assessment"`);
+## Failed Audit Items:
+${failureList}
 
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with ${sections.length} section${sections.length === 1 ? "" : "s"}.
+## Instructions:
+1. Read the CLAUDE.md file to understand the codebase
+2. Read the relevant files to understand context around each failure
+3. Fix each issue listed above with minimal, focused changes
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
+6. Run: git push origin ${branchName}
+
+## Rules:
+- Only fix the specific issues listed above — do NOT refactor or change unrelated code
+- Keep changes minimal and focused
+- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
+type AuditCategory = {
+  name: string;
+  description: string;
+};
+
+export function buildAuditPrompt(
+  diff: string,
+  categories: AuditCategory[],
+): string {
+  const sections = categories;
+
+  const sectionDescriptions = sections
+    .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)
+    .join("\n");
+
+  const sectionJson = sections
+    .map(
+      (s) =>
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+    )
+    .join(",\n");
+
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
 ## Sections:
-${sections.join("\n")}
+${sectionDescriptions}
 
 Return ONLY valid JSON in this exact format:
 {
-${jsonKeys.join(",\n")}
+  "sections": [
+${sectionJson}
+  ],
+  "summary": "1-2 sentence overall assessment"
 }
 
 ## Git Diff:

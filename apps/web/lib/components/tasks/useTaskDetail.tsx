@@ -306,7 +306,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
             }
           }}
           autoFocus
-          className="flex-1"
+          className="flex-1 text-base font-semibold h-auto px-1 -mx-1 py-0 border-none shadow-none focus-visible:ring-0 bg-muted/50 rounded"
         />
       ) : (
         <span
@@ -374,7 +374,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
               setIsEditingDescription(false);
             }
           }}
-          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-6 text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
+          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
         />
       ) : task?.description ? (
         (() => {

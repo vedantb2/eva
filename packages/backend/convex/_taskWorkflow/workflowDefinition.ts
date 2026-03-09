@@ -13,6 +13,7 @@ import {
   extractAuditFailures,
   WORKSPACE_DIR,
 } from "./prompts";
+import { buildPrBody } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 
@@ -127,7 +128,12 @@ export const taskExecutionWorkflow = workflow.define({
             branchName: data.branchName,
             baseBranch: args.baseBranch,
             title: data.taskTitle,
-            description: data.taskDescription,
+            body: buildPrBody([
+              {
+                heading: "Task",
+                content: data.taskDescription ?? "No description",
+              },
+            ]),
             labels: [
               "eva",
               args.projectId ? "project" : "quick-task",

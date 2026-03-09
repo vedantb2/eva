@@ -172,6 +172,24 @@ export const handleSessionCompletion = authMutation({
         repoId: session.repoId,
         createdAt: Date.now(),
       });
+
+      if (session.prUrl && session.branchName) {
+        const repo = await ctx.db.get(session.repoId);
+        if (repo) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.appendAuditToPullRequest,
+            {
+              installationId: repo.installationId,
+              repoOwner: repo.owner,
+              repoName: repo.name,
+              branchName: session.branchName,
+              auditResult: args.result,
+              auditError: args.error,
+            },
+          );
+        }
+      }
     }
 
     return null;

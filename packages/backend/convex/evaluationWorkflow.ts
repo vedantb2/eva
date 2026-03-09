@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import { buildPrBody } from "./taskWorkflowActions";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
@@ -132,7 +133,12 @@ export const evaluationWorkflow = workflow.define({
               branchName: fixBranchName,
               baseBranch: args.branchName ?? "main",
               title: `Fix: ${fixData.docTitle}`,
-              description: fixData.prDescription,
+              body: buildPrBody([
+                {
+                  heading: "Fix",
+                  content: fixData.prDescription ?? "No description",
+                },
+              ]),
               labels: ["eva", "eval-fix"],
             },
           );

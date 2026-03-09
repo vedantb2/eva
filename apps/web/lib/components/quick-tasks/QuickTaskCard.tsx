@@ -2,9 +2,19 @@
 
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Checkbox,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -12,14 +22,21 @@ import {
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
-import { IconClock } from "@tabler/icons-react";
-import { useQuery } from "convex/react";
+import {
+  IconClock,
+  IconFolder,
+  IconLoader2,
+  IconTag,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs from "@conductor/shared/dates";
+import { useState } from "react";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -30,6 +47,7 @@ interface QuickTaskCardProps {
   tags?: string[];
   createdBy?: Id<"users">;
   createdAt: number;
+  projectName?: string;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -46,6 +64,7 @@ export function QuickTaskCard({
   tags,
   createdBy,
   createdAt,
+  projectName,
   onClick,
   isSelecting,
   isSelected,
@@ -59,11 +78,27 @@ export function QuickTaskCard({
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
 
+  const deleteTask = useMutation(api.agentTasks.deleteCascade);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteTask({ id });
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const card = (
     <Card
       className={`group relative overflow-hidden shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 ${
         showError
-          ? "border border-destructive/60 bg-destructive/5"
+          ? "border border-border/70 bg-card/88"
           : isInProgress
             ? "border-transparent bg-card/95"
             : isActive
@@ -91,7 +126,7 @@ export function QuickTaskCard({
       <div
         className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-1 px-2 py-1.5 pl-3">
+      <CardContent className="relative z-[1] space-y-1 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
@@ -105,10 +140,17 @@ export function QuickTaskCard({
             <h4 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground">
               {title}
             </h4>
-            {description ? (
-              <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
-                {description}
-              </p>
+
+            {projectName ? (
+              <Badge
+                variant="default"
+                className="ml-auto shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
+              >
+                <div className="flex flex-row gap-0.5 items-center">
+                  <IconFolder size={10} />
+                  {projectName}
+                </div>
+              </Badge>
             ) : null}
             {tags && tags.length > 0 ? (
               <div className="mt-1 flex flex-wrap gap-1">
@@ -118,12 +160,16 @@ export function QuickTaskCard({
                     variant="secondary"
                     className="px-1.5 py-0 text-[10px] font-medium leading-4"
                   >
-                    {tag}
+                    <div className="flex flex-row gap-0.5 items-center">
+                      <IconTag size={10} />
+                      {tag}
+                    </div>
                   </Badge>
                 ))}
               </div>
             ) : null}
           </div>
+
           <div className="flex shrink-0 items-center gap-0.5">
             {scheduledAt ? (
               <Tooltip>
@@ -142,11 +188,10 @@ export function QuickTaskCard({
             <SubtaskProgress taskId={id} />
           </div>
         </div>
+
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center">
-            {createdBy && (
-              <UserInitials userId={createdBy} size="sm" hideLastSeen />
-            )}
+            {createdBy && <UserInitials userId={createdBy} size="sm" />}
           </div>
           <span className="text-[10px] text-muted-foreground">
             {dayjs(createdAt).fromNow()}
@@ -156,9 +201,60 @@ export function QuickTaskCard({
     </Card>
   );
 
-  if (isInProgress) {
-    return <div className="qt-in-progress-border rounded-lg p-px">{card}</div>;
-  }
+  const wrappedCard = isInProgress ? (
+    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+  ) : (
+    card
+  );
 
-  return card;
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <IconTrash size={16} />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(v) => {
+          if (!v) setShowDeleteConfirm(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-muted-foreground">
+              Are you sure you want to delete <strong>{title}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground mt-3">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

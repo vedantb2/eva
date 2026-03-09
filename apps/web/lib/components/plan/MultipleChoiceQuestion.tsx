@@ -55,7 +55,7 @@ export function MultipleChoiceQuestion({
         {question}
       </p>
 
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
         {options.map((option, idx) => {
           const isSelected = selected === option.label;
           const letter = optionLetters[idx] ?? String(idx + 1);

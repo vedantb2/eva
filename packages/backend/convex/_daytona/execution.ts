@@ -12,17 +12,19 @@ import {
   getSandbox,
   sleep,
   errorMessage,
+  signAndLaunchScript,
 } from "./helpers";
+import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  EPHEMERAL_LIFECYCLE,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
-import { launchScript } from "./launch";
 import { startDesktopWithChrome } from "./desktop";
-import { getTaskRunStreamingEntityId } from "../_taskWorkflow/helpers";
 
 export const runSandboxCommand = internalAction({
   args: {
@@ -82,54 +84,54 @@ export const getPreviewUrl = action({
   },
 });
 
-export const setupAndExecute = internalAction({
+const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
+
+export const prepareSandbox = internalAction({
   args: {
-    entityId: v.string(),
     existingSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
-    prompt: v.string(),
-    userId: v.id("users"),
-    completionMutation: v.string(),
-    entityIdField: v.string(),
-    model: v.optional(v.string()),
-    allowedTools: v.optional(v.string()),
-    systemPrompt: v.optional(v.string()),
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
-    repoId: v.optional(v.id("githubRepos")),
+    repoId: v.id("githubRepos"),
     attachRunId: v.optional(v.id("agentRuns")),
     sessionPersistenceId: v.optional(v.id("sessions")),
     startDesktop: v.optional(v.boolean()),
+    streamingEntityId: v.optional(v.string()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
-    if (!args.repoId) {
-      throw new Error("repoId is required for setupAndExecute");
-    }
+    const completedSteps: Array<{
+      type: string;
+      label: string;
+      status: string;
+    }> = [];
+    const emitProgress = async (label: string): Promise<void> => {
+      if (!args.streamingEntityId) return;
+      const steps = [
+        ...completedSteps,
+        { type: "tool", label, status: "active" },
+      ];
+      await ctx.runMutation(internal.streaming.internalSet, {
+        entityId: args.streamingEntityId,
+        currentActivity: JSON.stringify(steps),
+      });
+      completedSteps.push({ type: "tool", label, status: "complete" });
+    };
 
+    const setupStartedAt = Date.now();
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
-    const claudeSessionId = args.sessionPersistenceId
-      ? sessionClaudeUuid(args.sessionPersistenceId)
-      : undefined;
-    const callbackEnvVars = { ...sandboxEnvVars };
-    if (args.attachRunId && args.entityIdField === "taskId") {
-      callbackEnvVars.STREAMING_ENTITY_ID = getTaskRunStreamingEntityId(
-        args.attachRunId,
-      );
-      callbackEnvVars.RUN_ID = String(args.attachRunId);
-    }
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
-    const maxSetupAttempts = 5;
+    const maxSetupAttempts = 3;
     const attachRunSandbox = async (
       sandboxToAttach: Sandbox,
     ): Promise<void> => {
@@ -151,9 +153,11 @@ export const setupAndExecute = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            EPHEMERAL_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
             attachRunSandbox,
+            emitProgress,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -165,14 +169,17 @@ export const setupAndExecute = internalAction({
             args.repoOwner,
             args.repoName,
             sandboxEnvVars,
+            SESSION_LIFECYCLE,
             snapshotName,
             sessionVolumeMounts,
+            emitProgress,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
         }
 
         if (args.baseBranch) {
+          await emitProgress("Fetching base branch...");
           await fetchOrigin(
             sandbox,
             args.installationId,
@@ -183,16 +190,27 @@ export const setupAndExecute = internalAction({
           );
           await exec(
             sandbox,
+            `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+            10,
+          );
+          await exec(
+            sandbox,
             `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
             30,
           );
         }
 
         if (args.branchName) {
-          await setupBranch(sandbox, args.branchName);
+          await emitProgress("Setting up branch...");
+          await setupBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch ?? "main",
+          );
         }
 
         if (args.startDesktop) {
+          await emitProgress("Starting desktop...");
           await startDesktopWithChrome(sandbox);
         }
 
@@ -205,37 +223,9 @@ export const setupAndExecute = internalAction({
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
-        const lowerMessage = message.toLowerCase();
-        const hasDaytonaMarker =
-          lowerMessage.includes("daytona") ||
-          lowerMessage.includes("daytonaerror") ||
-          lowerMessage.includes("sandbox") ||
-          lowerMessage.includes("snapshot");
-        const hasTransientMarker =
-          lowerMessage.includes("network") ||
-          lowerMessage.includes("fetch failed") ||
-          lowerMessage.includes("econnreset") ||
-          lowerMessage.includes("econnrefused") ||
-          lowerMessage.includes("etimedout") ||
-          lowerMessage.includes("enotfound") ||
-          lowerMessage.includes("getaddrinfo") ||
-          lowerMessage.includes("socket hang up") ||
-          lowerMessage.includes("timeout") ||
-          lowerMessage.includes("timed out") ||
-          lowerMessage.includes("aborted");
-        const hasTransientStatus =
-          lowerMessage.includes("status code 408") ||
-          lowerMessage.includes("status code 429") ||
-          lowerMessage.includes("status code 500") ||
-          lowerMessage.includes("status code 502") ||
-          lowerMessage.includes("status code 503") ||
-          lowerMessage.includes("status code 504");
-        const isSnapshotReadyTimeout = lowerMessage.includes(
-          "sandbox failed to become ready within the timeout period",
-        );
+        const elapsed = Date.now() - setupStartedAt;
         const shouldRetry =
-          (hasDaytonaMarker && (hasTransientMarker || hasTransientStatus)) ||
-          isSnapshotReadyTimeout;
+          isDaytonaNetworkIssue(message) && elapsed < MAX_SETUP_ELAPSED_MS;
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
@@ -244,9 +234,11 @@ export const setupAndExecute = internalAction({
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] setupAndExecute transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
         );
         await sleep(delayMs);
+        completedSteps.length = 0;
+        await emitProgress("Retrying sandbox setup...");
         attempt += 1;
         sandbox = undefined;
         deleteSandboxOnFailure = false;
@@ -257,37 +249,7 @@ export const setupAndExecute = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
-    try {
-      const sandboxToken = await ctx.runAction(
-        internal.sandboxJwt.signSandboxToken,
-        { userId: args.userId },
-      );
-
-      await launchScript(
-        sandbox,
-        args.prompt,
-        args.completionMutation,
-        args.entityIdField,
-        sandboxToken,
-        args.entityId,
-        {
-          model: args.model,
-          allowedTools: args.allowedTools,
-          systemPrompt: args.systemPrompt,
-          extraEnvVars: callbackEnvVars,
-          claudeSessionId,
-        },
-      );
-
-      return { sandboxId: sandbox.id };
-    } catch (error) {
-      if (deleteSandboxOnFailure) {
-        try {
-          await sandbox.delete();
-        } catch {}
-      }
-      throw error;
-    }
+    return { sandboxId: sandbox.id };
   },
 });
 
@@ -303,26 +265,53 @@ export const launchOnExistingSandbox = internalAction({
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    streamingEntityId: v.optional(v.string()),
+    runId: v.optional(v.string()),
+    sessionPersistenceId: v.optional(v.id("sessions")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandboxToken = await ctx.runAction(
-      internal.sandboxJwt.signSandboxToken,
-      { userId: args.userId },
-    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
-    await launchScript(
+    await exec(
       sandbox,
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      10,
+    );
+
+    const extraEnvVars: Record<string, string> = {};
+    if (args.streamingEntityId) {
+      extraEnvVars.STREAMING_ENTITY_ID = args.streamingEntityId;
+      const existing = await ctx.runQuery(internal.streaming.internalGet, {
+        entityId: args.streamingEntityId,
+      });
+      if (existing) {
+        extraEnvVars.PRIOR_STEPS = existing.currentActivity;
+      }
+    }
+    if (args.runId) {
+      extraEnvVars.RUN_ID = args.runId;
+    }
+
+    const claudeSessionId = args.sessionPersistenceId
+      ? sessionClaudeUuid(args.sessionPersistenceId)
+      : undefined;
+
+    await signAndLaunchScript(
+      ctx,
+      sandbox,
+      args.userId,
       args.prompt,
       args.completionMutation,
       args.entityIdField,
-      sandboxToken,
       args.entityId,
       {
         model: args.model,
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
+        extraEnvVars:
+          Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
+        claudeSessionId,
       },
     );
 

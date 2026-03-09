@@ -21,6 +21,7 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -123,6 +124,19 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
     }
   };
 
+  const canSubmit = !isLoading && !!title.trim() && !!baseBranch;
+
+  useHotkey(
+    "Mod+Enter",
+    (e) => {
+      e.preventDefault();
+      if (canSubmit) {
+        handleSubmit();
+      }
+    },
+    { enabled: isOpen },
+  );
+
   return (
     <Dialog
       open={isOpen}
@@ -152,7 +166,8 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
               placeholder="Add more details (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={12}
+              rows={6}
+              className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
             />
           </div>
           <div className="space-y-1.5">
@@ -167,7 +182,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             />
           </div>
         </div>
-        <DialogFooter className="sm:justify-between">
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <div>
             {drafts && drafts.length > 0 && (
               <Popover>
@@ -248,12 +263,10 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
             <Button variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading || !title.trim() || !baseBranch}
-            >
+            <Button onClick={handleSubmit} disabled={!canSubmit}>
               {isLoading && <Spinner size="sm" />}
               Create Task
+              <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
             </Button>
           </div>
         </DialogFooter>

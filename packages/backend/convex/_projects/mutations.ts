@@ -7,6 +7,12 @@ import {
   getProjectWithAccess,
   deleteTaskRelatedData,
 } from "../functions";
+import {
+  getProjectConversation,
+  setProjectConversation,
+  setProjectGeneratedSpec,
+  deleteProjectDetails,
+} from "./helpers";
 
 export const create = authMutation({
   args: {
@@ -20,7 +26,7 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    return await ctx.db.insert("projects", {
+    const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
@@ -28,14 +34,15 @@ export const create = authMutation({
       baseBranch: args.baseBranch,
       phase: "draft",
       projectStartDate: Date.now(),
-      conversationHistory: [
-        {
-          role: "user",
-          content: args.rawInput,
-          userId: ctx.userId,
-        },
-      ],
     });
+    await setProjectConversation(ctx.db, projectId, [
+      {
+        role: "user",
+        content: args.rawInput,
+        userId: ctx.userId,
+      },
+    ]);
+    return projectId;
   },
 });
 
@@ -56,12 +63,17 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const { id, ...fields } = args;
-    const updates: Record<string, unknown> = {};
+    const { id, generatedSpec, ...fields } = args;
+    const updates: Record<string, string | number | Array<string>> = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) updates[key] = value;
     }
-    await ctx.db.patch(args.id, updates);
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(args.id, updates);
+    }
+    if (generatedSpec !== undefined) {
+      await setProjectGeneratedSpec(ctx.db, args.id, generatedSpec);
+    }
     return null;
   },
 });
@@ -75,18 +87,17 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    await ctx.db.patch(args.id, {
-      conversationHistory: [
-        ...project.conversationHistory,
-        {
-          role: args.role,
-          content: args.content,
-          activityLog: args.activityLog,
-          userId: ctx.userId,
-        },
-      ],
-    });
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    const conversation = await getProjectConversation(ctx.db, args.id);
+    await setProjectConversation(ctx.db, args.id, [
+      ...conversation,
+      {
+        role: args.role,
+        content: args.content,
+        activityLog: args.activityLog,
+        userId: ctx.userId,
+      },
+    ]);
     return null;
   },
 });
@@ -96,6 +107,7 @@ export const remove = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await deleteProjectDetails(ctx.db, args.id);
     await ctx.db.delete(args.id);
     return null;
   },
@@ -113,6 +125,7 @@ export const deleteCascade = authMutation({
     for (const task of tasks) {
       await deleteTaskRelatedData(ctx, task._id);
     }
+    await deleteProjectDetails(ctx.db, args.id);
     await ctx.db.delete(args.id);
     return null;
   },
@@ -123,9 +136,7 @@ export const clearMessages = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    await ctx.db.patch(args.id, {
-      conversationHistory: [],
-    });
+    await setProjectConversation(ctx.db, args.id, []);
     return null;
   },
 });
@@ -196,13 +207,13 @@ export const updateLastConversationMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const messages = [...project.conversationHistory];
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    const messages = [...(await getProjectConversation(ctx.db, args.id))];
     const last = messages[messages.length - 1];
     if (!last) return null;
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
-    await ctx.db.patch(args.id, { conversationHistory: messages });
+    await setProjectConversation(ctx.db, args.id, messages);
     return null;
   },
 });

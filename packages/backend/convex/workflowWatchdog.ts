@@ -1,9 +1,43 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { type MutationCtx, internalMutation } from "./_generated/server";
 import { type WorkflowId } from "@convex-dev/workflow";
+import type { Id } from "./_generated/dataModel";
 import { workflow } from "./workflowManager";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  getProjectConversation,
+  setProjectConversation,
+} from "./_projects/helpers";
 
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+async function cancelStaleWorkflow(
+  ctx: MutationCtx,
+  workflowId: string,
+  streamingEntityIds: string[],
+): Promise<void> {
+  try {
+    await workflow.cancel(ctx, workflowId as WorkflowId);
+  } catch {}
+  for (const entityId of streamingEntityIds) {
+    await clearStreamingActivity(ctx, entityId);
+  }
+}
+
+async function timeoutLastMessage(
+  ctx: MutationCtx,
+  parentId: Id<"sessions"> | Id<"designSessions"> | Id<"researchQueries">,
+  content: string,
+): Promise<void> {
+  const last = await ctx.db
+    .query("messages")
+    .withIndex("by_parent", (q) => q.eq("parentId", parentId))
+    .order("desc")
+    .first();
+  if (last && last.role === "assistant" && !last.content) {
+    await ctx.db.patch(last._id, { content });
+  }
+}
 
 export const handleStaleSession = internalMutation({
   args: {
@@ -15,29 +49,12 @@ export const handleStaleSession = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session || session.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
-
-    for (const entityId of [
+    await cancelStaleWorkflow(ctx, args.workflowId, [
       String(args.sessionId),
       `summary:${String(args.sessionId)}`,
-    ]) {
-      const streaming = await ctx.db
-        .query("streamingActivity")
-        .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-        .first();
-      if (streaming) await ctx.db.delete(streaming._id);
-    }
+    ]);
 
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant" && !last.content) {
-      await ctx.db.patch(last._id, { content: "Execution timed out." });
-    }
+    await timeoutLastMessage(ctx, args.sessionId, "Execution timed out.");
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,
@@ -58,28 +75,15 @@ export const handleStaleDesignSession = internalMutation({
     const session = await ctx.db.get(args.designSessionId);
     if (!session || session.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
+    await cancelStaleWorkflow(ctx, args.workflowId, [
+      String(args.designSessionId),
+    ]);
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) =>
-        q.eq("entityId", String(args.designSessionId)),
-      )
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
-
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.designSessionId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant" && !last.content) {
-      await ctx.db.patch(last._id, {
-        content: "Error: Design generation timed out.",
-      });
-    }
+    await timeoutLastMessage(
+      ctx,
+      args.designSessionId,
+      "Error: Design generation timed out.",
+    );
 
     await ctx.db.patch(args.designSessionId, {
       activeWorkflowId: undefined,
@@ -100,26 +104,9 @@ export const handleStaleResearchQuery = internalMutation({
     const rq = await ctx.db.get(args.queryId);
     if (!rq || rq.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
+    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.queryId)]);
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
-
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.queryId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant" && !last.content) {
-      await ctx.db.patch(last._id, {
-        content: "Query execution timed out.",
-      });
-    }
+    await timeoutLastMessage(ctx, args.queryId, "Query execution timed out.");
 
     await ctx.db.patch(args.queryId, {
       activeWorkflowId: undefined,
@@ -140,15 +127,7 @@ export const handleStaleEvaluation = internalMutation({
     const report = await ctx.db.get(args.reportId);
     if (!report || report.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
-
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.reportId)]);
 
     await ctx.db.patch(args.reportId, {
       status: "error",
@@ -171,15 +150,7 @@ export const handleStaleDoc = internalMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc || doc.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
-
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.docId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.docId)]);
 
     const patch: Record<
       string,
@@ -215,24 +186,17 @@ export const handleStaleProject = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || project.activeWorkflowId !== args.workflowId) return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
+    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.projectId)]);
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.projectId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
-
-    const messages = [...project.conversationHistory];
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+    const messages = [...conversation];
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && !last.content) {
       last.content = JSON.stringify({ error: true });
     }
 
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });
@@ -241,9 +205,9 @@ export const handleStaleProject = internalMutation({
   },
 });
 
-export const handleStaleSessionAudit = internalMutation({
+export const handleStaleAudit = internalMutation({
   args: {
-    auditId: v.id("sessionAudits"),
+    auditId: v.id("audits"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

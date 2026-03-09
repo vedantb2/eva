@@ -4,19 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 function slugify(text: string): string {
@@ -80,21 +74,28 @@ export const testGenWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    // Step 3: Setup ephemeral sandbox + fire test gen script
-    // Uses branch, Write/Edit/Bash tools, and git push
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        ephemeral: true,
+        branchName: docData.branchName,
+        repoId: docData.repoId,
+        streamingEntityId: args.docId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.docId,
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
       prompt: docData.prompt,
       userId: args.userId,
       completionMutation: "testGenWorkflow:handleCompletion",
       entityIdField: "docId",
       model: "sonnet",
       allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-      ephemeral: true,
-      branchName: docData.branchName,
       repoId: docData.repoId,
     });
 
@@ -204,12 +205,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.docId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.docId));
 
     const doc = await ctx.db.get(args.docId);
     if (!doc) return null;
@@ -222,72 +218,11 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    // The Claude CLI already did git push inside the sandbox.
-    // We need to create the PR via a scheduled action since we
-    // can't call GitHub API from a mutation. Store result for now.
-    // The PR URL will be set by the createPr action if needed.
     await ctx.db.patch(args.docId, {
       testGenStatus: "completed",
       activeWorkflowId: undefined,
     });
 
-    // Schedule PR creation
-    const repo = await ctx.db.get(doc.repoId);
-    if (repo) {
-      await ctx.scheduler.runAfter(0, internal.testGenWorkflow.createPr, {
-        docId: args.docId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName: args.branchName,
-        docTitle: doc.title,
-        installationId: repo.installationId,
-      });
-    }
-
-    return null;
-  },
-});
-
-/**
- * Creates a GitHub PR after test generation is complete.
- * Runs as an internal action (has network access for GitHub API).
- */
-export const createPr = internalMutation({
-  args: {
-    docId: v.id("docs"),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    branchName: v.string(),
-    docTitle: v.string(),
-    installationId: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // PR creation needs GitHub API access, so schedule an action
-    await ctx.scheduler.runAfter(
-      0,
-      internal.testGenWorkflow.createPrAction,
-      args,
-    );
-    return null;
-  },
-});
-
-export const createPrAction = internalMutation({
-  args: {
-    docId: v.id("docs"),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    branchName: v.string(),
-    docTitle: v.string(),
-    installationId: v.number(),
-  },
-  returns: v.null(),
-  handler: async () => {
-    // PR creation is handled by the Claude CLI script which does git push.
-    // The PR itself needs to be created from a node action with GitHub token.
-    // For now, skip automated PR creation — the branch is pushed and user
-    // can create PR manually, or we can add a dedicated action later.
     return null;
   },
 });

@@ -143,11 +143,6 @@ export function NotificationToastStream() {
                       {dayjs(notification.createdAt).fromNow()}
                     </span>
                   </div>
-                  {notification.message && (
-                    <p className="mt-1 break-words text-xs text-muted-foreground">
-                      {notification.message}
-                    </p>
-                  )}
                   <div className="mt-2">
                     <Button
                       size="sm"

@@ -41,22 +41,30 @@ export const getImpactStats = authQuery({
         prUrls.add(s.prUrl);
       }
     }
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
     const filteredTasks =
       startTime !== undefined
-        ? tasks.filter((t) => t.updatedAt >= startTime)
-        : tasks;
+        ? await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo_and_updatedAt", (q) =>
+              q.eq("repoId", args.repoId).gte("updatedAt", startTime),
+            )
+            .collect()
+        : await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+            .collect();
     const tasksCompleted = filteredTasks.filter(
       (t) => t.status === "done",
     ).length;
-    for (const task of filteredTasks) {
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
-        .collect();
+    const taskRunResults = await Promise.all(
+      filteredTasks.map((task) =>
+        ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect(),
+      ),
+    );
+    for (const runs of taskRunResults) {
       for (const run of runs) {
         if (run.prUrl) prUrls.add(run.prUrl);
       }
@@ -106,17 +114,14 @@ export const getActiveUsers = authQuery({
       )
       .collect();
 
-    const repoUserIds = new Set<Id<"users">>(
-      activeSessions.map((session) => session.userId),
-    );
-    const activeUserIds = new Set<Id<"users">>();
-    for (const userId of repoUserIds) {
-      const user = await ctx.db.get(userId);
-      if (user?.lastSeenAt !== undefined && user.lastSeenAt >= fiveMinAgo) {
-        activeUserIds.add(userId);
-      }
-    }
-    return { count: activeUserIds.size };
+    const repoUserIds = [
+      ...new Set<Id<"users">>(activeSessions.map((session) => session.userId)),
+    ];
+    const users = await Promise.all(repoUserIds.map((id) => ctx.db.get(id)));
+    const activeCount = users.filter(
+      (u) => u?.lastSeenAt !== undefined && u.lastSeenAt >= fiveMinAgo,
+    ).length;
+    return { count: activeCount };
   },
 });
 
@@ -185,11 +190,15 @@ export const getActivityTimeline = authQuery({
         if (buckets[bucket]) buckets[bucket].tasksCompleted++;
       }
     }
-    for (const task of tasks) {
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
-        .collect();
+    const allTaskRuns = await Promise.all(
+      tasks.map((task) =>
+        ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect(),
+      ),
+    );
+    for (const runs of allTaskRuns) {
       for (const run of runs) {
         if (run.startedAt && run.startedAt >= args.startTime) {
           const bucket = getBucket(run.startedAt);
@@ -220,13 +229,17 @@ export const getActivityTimeline = authQuery({
         usersInActiveSessions.add(session.userId);
       }
     }
-    for (const userId of usersInActiveSessions) {
-      const user = await ctx.db.get(userId);
+    const activeSessionUserIds = [...usersInActiveSessions];
+    const activeSessionUsers = await Promise.all(
+      activeSessionUserIds.map((id) => ctx.db.get(id)),
+    );
+    for (let i = 0; i < activeSessionUserIds.length; i++) {
+      const user = activeSessionUsers[i];
       if (user?.lastSeenAt !== undefined && user.lastSeenAt >= args.startTime) {
         const bucket = getBucket(user.lastSeenAt);
-        const users = activeUsersByBucket[bucket];
-        if (users) {
-          users.add(userId);
+        const bucketUsers = activeUsersByBucket[bucket];
+        if (bucketUsers) {
+          bucketUsers.add(activeSessionUserIds[i]);
         }
       }
     }
@@ -269,25 +282,31 @@ export const getLeaderboard = authQuery({
       startTime !== undefined
         ? tasks.filter((t) => t.updatedAt >= startTime)
         : tasks;
-    for (const task of filteredTasks) {
-      if (task.createdBy) {
-        const cur = userStats.get(task.createdBy) ?? {
-          tasksCompleted: 0,
-          prsCreated: 0,
-          sessionsWithPr: 0,
-        };
-        if (task.status === "done") cur.tasksCompleted++;
-        const runs = await ctx.db
+    const tasksWithCreator = filteredTasks.filter((t) => t.createdBy);
+    const leaderboardRuns = await Promise.all(
+      tasksWithCreator.map((task) =>
+        ctx.db
           .query("agentRuns")
           .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .collect();
-        const filteredRuns =
-          startTime !== undefined
-            ? runs.filter((r) => r.finishedAt && r.finishedAt >= startTime)
-            : runs;
-        cur.prsCreated += filteredRuns.filter((r) => r.prUrl).length;
-        userStats.set(task.createdBy, cur);
-      }
+          .collect(),
+      ),
+    );
+    for (let i = 0; i < tasksWithCreator.length; i++) {
+      const task = tasksWithCreator[i];
+      if (!task.createdBy) continue;
+      const cur = userStats.get(task.createdBy) ?? {
+        tasksCompleted: 0,
+        prsCreated: 0,
+        sessionsWithPr: 0,
+      };
+      if (task.status === "done") cur.tasksCompleted++;
+      const runs = leaderboardRuns[i];
+      const filteredRuns =
+        startTime !== undefined
+          ? runs.filter((r) => r.finishedAt && r.finishedAt >= startTime)
+          : runs;
+      cur.prsCreated += filteredRuns.filter((r) => r.prUrl).length;
+      userStats.set(task.createdBy, cur);
     }
     const sessions = await ctx.db
       .query("sessions")
@@ -308,17 +327,22 @@ export const getLeaderboard = authQuery({
         userStats.set(session.userId, cur);
       }
     }
-    const leaderboard = [];
-    for (const [userId, stats] of userStats) {
-      const user = await ctx.db.get(userId);
-      const clerkId = user?.clerkId ?? "";
-      if (!clerkId) continue;
-      leaderboard.push({
-        clerkId,
-        fullName: user?.fullName ?? undefined,
-        ...stats,
-      });
-    }
+    const userStatEntries = [...userStats.entries()];
+    const leaderboardUsers = await Promise.all(
+      userStatEntries.map(([userId]) => ctx.db.get(userId)),
+    );
+    const leaderboard = userStatEntries
+      .map(([, stats], i) => {
+        const user = leaderboardUsers[i];
+        const clerkId = user?.clerkId ?? "";
+        if (!clerkId) return null;
+        return {
+          clerkId,
+          fullName: user?.fullName ?? undefined,
+          ...stats,
+        };
+      })
+      .filter((entry): entry is Exclude<typeof entry, null> => entry !== null);
     return leaderboard
       .sort(
         (a, b) =>

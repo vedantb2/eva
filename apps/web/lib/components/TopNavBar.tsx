@@ -13,13 +13,22 @@ export function TopNavBar() {
   const pathname = usePathname();
   const { theme, toggleTheme, mounted } = useThemeContext();
 
+  const isReposRoute = pathname === "/home" || pathname.startsWith("/setup");
   const isTeamsRoute = pathname.startsWith("/teams");
-  const isReposRoute = pathname === "/home" || pathname === "/setup";
+  const isInboxRoute = pathname.startsWith("/inbox");
+  const isThemeRoute = pathname.startsWith("/settings/theme");
+
+  const tabs = [
+    { label: "Repositories", href: "/home", active: isReposRoute },
+    { label: "Teams", href: "/teams", active: isTeamsRoute },
+    { label: "Inbox", href: "/inbox", active: isInboxRoute },
+    { label: "Theme", href: "/settings/theme", active: isThemeRoute },
+  ];
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/95">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <Link
             href="/home"
             className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5"
@@ -36,35 +45,23 @@ export function TopNavBar() {
             </span>
           </Link>
 
-          <nav className="flex items-center gap-2">
-            <Link href="/home">
-              <Button
-                size="sm"
-                variant={isReposRoute ? "secondary" : "ghost"}
-                className={cn(
-                  "h-9",
-                  isReposRoute
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Repositories
-              </Button>
-            </Link>
-            <Link href="/teams">
-              <Button
-                size="sm"
-                variant={isTeamsRoute ? "secondary" : "ghost"}
-                className={cn(
-                  "h-9",
-                  isTeamsRoute
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Teams
-              </Button>
-            </Link>
+          <nav className="flex items-center gap-1 sm:gap-2">
+            {tabs.map((tab) => (
+              <Link key={tab.href} href={tab.href}>
+                <Button
+                  size="sm"
+                  variant={tab.active ? "secondary" : "ghost"}
+                  className={cn(
+                    "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
+                    tab.active
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </Button>
+              </Link>
+            ))}
           </nav>
         </div>
 

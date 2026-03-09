@@ -1,5 +1,8 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { LlmJson } from "@solvers-hub/llm-json";
+
+export const llmJson = new LlmJson({ attemptCorrection: true });
 
 export function getTaskRunStreamingEntityId(runId: Id<"agentRuns">): string {
   return `task-run-${String(runId)}`;
@@ -68,10 +71,10 @@ export function buildRunResultSummary(
   projectId: Id<"projects"> | undefined,
 ): string | undefined {
   if (!success) return undefined;
-  if (prUrl) return "Created project PR";
+  if (prUrl) return projectId ? "Created project PR" : "Created task PR";
   return projectId
     ? "Pushed commit to project branch"
-    : "Pushed commit to branch";
+    : "Pushed commit to task branch";
 }
 
 export async function finalizeRunStatus(

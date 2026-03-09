@@ -55,6 +55,7 @@ export const getUserByClerkId = internalQuery({
       isAdmin: v.optional(v.boolean()),
       role: v.optional(roleUserValidator),
       theme: v.optional(themeValidator),
+      customTheme: v.optional(customThemeValidator),
       toolbarVisible: v.optional(v.boolean()),
       lastSeenAt: v.optional(v.number()),
     }),

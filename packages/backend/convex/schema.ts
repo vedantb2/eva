@@ -12,6 +12,7 @@ import {
   evalFixStatusValidator,
   themeValidator,
   evalResultValidator,
+  auditSectionValidator,
   userFlowValidator,
   notificationTypeValidator,
   roleUserValidator,
@@ -68,15 +69,6 @@ const schema = defineSchema({
     lastSandboxActivity: v.optional(v.number()),
     phase: phaseValidator,
     rawInput: v.string(),
-    generatedSpec: v.optional(v.string()),
-    conversationHistory: v.array(
-      v.object({
-        role: roleValidator,
-        content: v.string(),
-        activityLog: v.optional(v.string()),
-        userId: v.optional(v.id("users")),
-      }),
-    ),
     projectLead: v.optional(v.id("users")),
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
@@ -90,6 +82,19 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_phase", ["repoId", "phase"]),
+
+  projectDetails: defineTable({
+    projectId: v.id("projects"),
+    conversationHistory: v.array(
+      v.object({
+        role: roleValidator,
+        content: v.string(),
+        activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+      }),
+    ),
+    generatedSpec: v.optional(v.string()),
+  }).index("by_project", ["projectId"]),
 
   agentTasks: defineTable({
     title: v.string(),
@@ -111,6 +116,8 @@ const schema = defineSchema({
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_repo", ["repoId"])
+    .index("by_repo_and_status", ["repoId", "status"])
+    .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
 
@@ -159,12 +166,12 @@ const schema = defineSchema({
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
-    postAuditEnabled: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
+    hidden: v.optional(v.boolean()),
   })
     .index("by_github_id", ["githubId"])
-    .index("by_owner_name", ["owner", "name"])
+    .index("by_owner_and_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
 
   subtasks: defineTable({
@@ -195,6 +202,7 @@ const schema = defineSchema({
     dependsOnId: v.id("agentTasks"),
   })
     .index("by_task", ["taskId"])
+    .index("by_task_and_depends_on", ["taskId", "dependsOnId"])
     .index("by_dependency", ["dependsOnId"]),
   messages: defineTable({
     role: roleValidator,
@@ -348,29 +356,23 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
-  taskAudits: defineTable({
-    taskId: v.id("agentTasks"),
-    runId: v.id("agentRuns"),
+  auditCategories: defineTable({
+    repoId: v.id("githubRepos"),
+    name: v.string(),
+    description: v.string(),
+    enabled: v.boolean(),
+    isSystem: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_repo", ["repoId"]),
+  audits: defineTable({
+    entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+    runId: v.optional(v.id("agentRuns")),
     status: evaluationStatusValidator,
-    accessibility: v.array(evalResultValidator),
-    testing: v.array(evalResultValidator),
-    codeReview: v.array(evalResultValidator),
+    sections: v.optional(v.array(auditSectionValidator)),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index("by_task", ["taskId"])
-    .index("by_run", ["runId"]),
-  sessionAudits: defineTable({
-    sessionId: v.id("sessions"),
-    status: evaluationStatusValidator,
-    accessibility: v.array(evalResultValidator),
-    testing: v.array(evalResultValidator),
-    codeReview: v.array(evalResultValidator),
-    summary: v.optional(v.string()),
-    error: v.optional(v.string()),
-    createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
+  }).index("by_entity", ["entityId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,
@@ -403,7 +405,7 @@ const schema = defineSchema({
     workflowRef: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_repoId", ["repoId"]),
+  }).index("by_repo", ["repoId"]),
   snapshotBuilds: defineTable({
     repoSnapshotId: v.id("repoSnapshots"),
     status: snapshotBuildStatusValidator,
@@ -414,7 +416,8 @@ const schema = defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_repoSnapshotId", ["repoSnapshotId"])
+    .index("by_repo_snapshot", ["repoSnapshotId"])
+    .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
     .index("by_status", ["status"]),
   teams: defineTable({
     name: v.string(),
@@ -429,6 +432,7 @@ const schema = defineSchema({
     joinedAt: v.number(),
   })
     .index("by_team", ["teamId"])
+    .index("by_team_and_role", ["teamId", "role"])
     .index("by_user", ["userId"])
     .index("by_team_and_user", ["teamId", "userId"]),
   githubWebhookEvents: defineTable({

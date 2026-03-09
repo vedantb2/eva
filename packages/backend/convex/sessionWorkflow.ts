@@ -4,8 +4,9 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { sessionModeValidator } from "./validators";
+import { sessionModeValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import {
   buildRootDirectoryInstruction,
   getResponseLengthInstruction,
@@ -15,12 +16,7 @@ import {
 
 const sessionCompleteEvent = defineEvent({
   name: "sessionComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Mode config ---
@@ -54,9 +50,11 @@ Question: ${message}
 Use Glob, Grep, Read to find information.
 
 Response rules:
-- 2-4 sentences max, PLAIN TEXT only (no markdown, headers, bullets, or code blocks)
 - Write for someone who does NOT know programming
-- If you mention a file, just say the filename without the full path${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- If you mention a file, just say the filename without the full path
+- Use markdown formatting: headers, bullet points, tables where they aid clarity
+- When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
+- Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(
@@ -165,35 +163,48 @@ export const sessionExecuteWorkflow = workflow.define({
       responseLength: args.responseLength,
     });
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
-      {
-        entityId: args.sessionId,
-        existingSandboxId: data.sandboxId,
-        installationId: args.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        allowedTools: data.allowedTools,
-        branchName: data.branchName,
-        repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
-        startDesktop: true,
-      },
-      { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-    );
+    let sandboxId: string;
 
-    if (sandboxId !== data.sandboxId) {
+    if (data.sandboxId) {
+      sandboxId = data.sandboxId;
+    } else {
+      const prepared = await step.runAction(
+        internal.daytona.prepareSandbox,
+        {
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          baseBranch: data.baseBranch,
+          repoId: data.repoId,
+          sessionPersistenceId: args.sessionId,
+          startDesktop: true,
+          streamingEntityId: args.sessionId,
+        },
+        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      );
+      sandboxId = prepared.sandboxId;
+
       await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
         sessionId: args.sessionId,
         sandboxId,
         branchName: data.branchName,
       });
     }
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
+      entityId: args.sessionId,
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "sessionWorkflow:handleCompletion",
+      entityIdField: "sessionId",
+      model: data.model,
+      allowedTools: data.allowedTools,
+      repoId: data.repoId,
+      sessionPersistenceId: args.sessionId,
+      streamingEntityId: args.sessionId,
+    });
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -262,6 +273,7 @@ export const getSessionData = internalQuery({
     repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.optional(v.string()),
+    baseBranch: v.string(),
     allowedTools: v.string(),
     model: v.string(),
   }),
@@ -277,7 +289,7 @@ export const getSessionData = internalQuery({
     const branchName =
       args.mode === "ask"
         ? undefined
-        : session.branchName || `session/${args.sessionId}`;
+        : session.branchName || `eva/session-${args.sessionId}`;
 
     const messages = await ctx.db
       .query("messages")
@@ -326,6 +338,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
       model: args.model,
     };
@@ -367,11 +380,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     const last = await ctx.db
       .query("messages")
@@ -528,11 +537,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,

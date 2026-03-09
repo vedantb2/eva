@@ -32,28 +32,42 @@ export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
-    const allRepos = await ctx.db.query("githubRepos").collect();
-    const accessibleRepoIds = new Set(
-      (
+    const activeStatuses = [
+      "todo",
+      "in_progress",
+      "business_review",
+      "code_review",
+    ] as const;
+
+    let repoIds: Array<Id<"githubRepos">>;
+    if (args.repoId) {
+      if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+      repoIds = [args.repoId];
+    } else {
+      const allRepos = await ctx.db.query("githubRepos").collect();
+      repoIds = (
         await Promise.all(
           allRepos.map(async (r) =>
             (await hasRepoAccess(ctx.db, r._id, ctx.userId)) ? r._id : null,
           ),
         )
-      ).filter((id): id is Id<"githubRepos"> => id !== null),
+      ).filter((id): id is Id<"githubRepos"> => id !== null);
+    }
+
+    const taskArrays = await Promise.all(
+      repoIds.flatMap((repoId) =>
+        activeStatuses.map((status) =>
+          ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo_and_status", (q) =>
+              q.eq("repoId", repoId).eq("status", status),
+            )
+            .collect(),
+        ),
+      ),
     );
-    const tasks = await ctx.db.query("agentTasks").collect();
-    const active = tasks.filter(
-      (t) =>
-        t.repoId &&
-        accessibleRepoIds.has(t.repoId) &&
-        (!args.repoId || t.repoId === args.repoId) &&
-        (t.status === "todo" ||
-          t.status === "in_progress" ||
-          t.status === "business_review" ||
-          t.status === "code_review"),
-    );
-    return active.sort((a, b) => b.updatedAt - a.updatedAt);
+
+    return taskArrays.flat().sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
 
@@ -62,13 +76,25 @@ export const getAllTasks = authQuery({
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    return tasks
-      .filter((t) => t.status !== "draft")
-      .sort((a, b) => a.createdAt - b.createdAt);
+    const nonDraftStatuses = [
+      "todo",
+      "in_progress",
+      "business_review",
+      "code_review",
+      "done",
+      "cancelled",
+    ] as const;
+    const taskArrays = await Promise.all(
+      nonDraftStatuses.map((status) =>
+        ctx.db
+          .query("agentTasks")
+          .withIndex("by_repo_and_status", (q) =>
+            q.eq("repoId", args.repoId).eq("status", status),
+          )
+          .collect(),
+      ),
+    );
+    return taskArrays.flat().sort((a, b) => a.createdAt - b.createdAt);
   },
 });
 
@@ -88,18 +114,16 @@ export const getDependentTasks = authQuery({
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
       .collect();
-    const result = [];
-    for (const dep of dependents) {
-      const depTask = await ctx.db.get(dep.taskId);
-      if (depTask) {
-        result.push({
-          _id: depTask._id,
-          title: depTask.title,
-          taskNumber: depTask.taskNumber,
-        });
-      }
-    }
-    return result;
+    const depTasks = await Promise.all(
+      dependents.map((dep) => ctx.db.get(dep.taskId)),
+    );
+    return depTasks
+      .filter((t): t is Exclude<typeof t, null> => t !== null)
+      .map((t) => ({
+        _id: t._id,
+        title: t.title,
+        taskNumber: t.taskNumber,
+      }));
   },
 });
 
@@ -112,21 +136,9 @@ export const getStatusesByIds = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const results: {
-      id: Id<"agentTasks">;
-      status:
-        | "draft"
-        | "todo"
-        | "in_progress"
-        | "business_review"
-        | "code_review"
-        | "done"
-        | "cancelled";
-    }[] = [];
-    for (const id of args.ids) {
-      const task = await ctx.db.get(id);
-      if (task) results.push({ id: task._id, status: task.status });
-    }
-    return results;
+    const tasks = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+    return tasks
+      .filter((t): t is Exclude<typeof t, null> => t !== null)
+      .map((t) => ({ id: t._id, status: t.status }));
   },
 });

@@ -2,9 +2,19 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { claudeModelValidator } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt, WORKSPACE_DIR } from "./prompts";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  auditFixCompleteEvent,
+} from "./events";
+import {
+  buildAuditPrompt,
+  buildAuditFixPrompt,
+  extractAuditFailures,
+  WORKSPACE_DIR,
+} from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
+import { getTaskRunStreamingEntityId } from "./helpers";
 
 export const taskExecutionWorkflow = workflow.define({
   args: {
@@ -46,28 +56,36 @@ export const taskExecutionWorkflow = workflow.define({
       hasSubtasks = data.hasSubtasks;
 
       const setupResult = await step.runAction(
-        internal.daytona.setupAndExecute,
+        internal.daytona.prepareSandbox,
         {
-          entityId: String(args.taskId),
           existingSandboxId: data.projectSandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
-          prompt: data.prompt,
-          userId: args.userId,
-          completionMutation: "taskWorkflow:handleCompletion",
-          entityIdField: "taskId",
-          model: args.model ?? "sonnet",
-          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
           branchName: data.branchName,
           baseBranch: args.baseBranch,
           ephemeral: !args.projectId,
           repoId: args.repoId,
           attachRunId: args.runId,
+          streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         },
         { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
       );
       sandboxId = setupResult.sandboxId;
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: String(args.taskId),
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "taskWorkflow:handleCompletion",
+        entityIdField: "taskId",
+        model: args.model ?? "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        repoId: args.repoId,
+        streamingEntityId: getTaskRunStreamingEntityId(args.runId),
+        runId: String(args.runId),
+      });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.runId,
@@ -130,7 +148,9 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runCompletionRecorded = true;
 
-      if (result.success && sandboxId && data.postAuditEnabled) {
+      const auditCategories = data.auditCategories;
+
+      if (result.success && sandboxId && auditCategories.length > 0) {
         try {
           const diffRaw = await step.runAction(
             internal.daytona.runSandboxCommand,
@@ -153,7 +173,7 @@ export const taskExecutionWorkflow = workflow.define({
 
             await step.runAction(internal.daytona.launchAudit, {
               sandboxId,
-              prompt: buildAuditPrompt(diffRaw),
+              prompt: buildAuditPrompt(diffRaw, auditCategories),
               taskId: String(args.taskId),
               runId: args.runId,
               userId: args.userId,
@@ -169,6 +189,32 @@ export const taskExecutionWorkflow = workflow.define({
                 ? undefined
                 : (auditResult.error ?? "Audit failed"),
             });
+
+            if (auditResult.success && auditResult.result) {
+              const failures = extractAuditFailures(auditResult.result);
+              if (failures.length > 0) {
+                try {
+                  const fixPrompt = buildAuditFixPrompt(
+                    failures,
+                    data.branchName,
+                    data.rootDirectory,
+                  );
+
+                  await step.runAction(internal.daytona.launchAuditFix, {
+                    sandboxId,
+                    prompt: fixPrompt,
+                    taskId: String(args.taskId),
+                    runId: args.runId,
+                    userId: args.userId,
+                    repoId: args.repoId,
+                  });
+
+                  await step.awaitEvent(auditFixCompleteEvent);
+                } catch (fixErr) {
+                  console.error("Audit fix step failed:", fixErr);
+                }
+              }
+            }
 
             if (completionPrUrl) {
               await step.runAction(

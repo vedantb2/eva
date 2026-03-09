@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { exec, resolveSandboxContext, getSandbox } from "./helpers";
-import { createSandbox } from "./git";
+import { createSandbox, EPHEMERAL_LIFECYCLE } from "./git";
 
 export const warmSnapshotCache = internalAction({
   args: { repoId: v.id("githubRepos") },
@@ -22,6 +22,7 @@ export const warmSnapshotCache = internalAction({
         daytona,
         repo.installationId,
         sandboxEnvVars,
+        EPHEMERAL_LIFECYCLE,
         snapshotName,
       );
       await sandbox.delete();
@@ -69,30 +70,6 @@ export const deleteSandbox = internalAction({
     } catch {
       // Sandbox may already be deleted or expired
     }
-    return null;
-  },
-});
-
-export const stopSandbox = internalAction({
-  args: {
-    sessionId: v.id("sessions"),
-    sandboxId: v.string(),
-    repoId: v.id("githubRepos"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) return null;
-    if (session.status !== "closed" || session.sandboxId !== args.sandboxId) {
-      return null;
-    }
-
-    try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await sandbox.stop();
-    } catch {}
     return null;
   },
 });

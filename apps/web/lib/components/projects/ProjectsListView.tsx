@@ -105,6 +105,8 @@ export function ProjectsListView({
                         createdAt={project._creationTime}
                         projectUrl={`${basePath}/projects/${project._id}`}
                         accentColor={phaseConfig[phase].bar}
+                        members={project.members}
+                        projectLead={project.projectLead}
                         onDelete={() => onDelete(project._id, project.title)}
                       />
                     ))}

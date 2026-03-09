@@ -4,18 +4,15 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 // --- Shared completion event ---
 
 const queryCompleteEvent = defineEvent({
   name: "researchQueryComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Prompt builders ---
@@ -121,21 +118,27 @@ export const generateQueryWorkflow = workflow.define({
     );
 
     const { sandboxId } = await step.runAction(
-      internal.daytona.setupAndExecute,
+      internal.daytona.prepareSandbox,
       {
-        entityId: String(args.queryId),
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "researchQueryWorkflow:handleCompletion",
-        entityIdField: "queryId",
-        model: args.model || "sonnet",
-        allowedTools: "Bash",
         repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
       },
     );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
+      entityId: String(args.queryId),
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "researchQueryWorkflow:handleCompletion",
+      entityIdField: "queryId",
+      model: args.model || "sonnet",
+      allowedTools: "Bash",
+      repoId: args.repoId,
+    });
 
     const result = await step.awaitEvent(queryCompleteEvent);
 
@@ -177,12 +180,21 @@ export const confirmQueryWorkflow = workflow.define({
       },
     );
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId: confirmSandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: data.sandboxId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId: confirmSandboxId,
       entityId: String(args.queryId),
-      existingSandboxId: data.sandboxId,
-      installationId: args.installationId,
-      repoOwner: data.repoOwner,
-      repoName: data.repoName,
       prompt: data.prompt,
       userId: args.userId,
       completionMutation: "researchQueryWorkflow:handleCompletion",
@@ -316,11 +328,7 @@ export const saveGenerateResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.queryId));
 
     const last = await ctx.db
       .query("messages")
@@ -371,11 +379,7 @@ export const saveConfirmResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.queryId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.queryId));
 
     const patch: {
       content: string;

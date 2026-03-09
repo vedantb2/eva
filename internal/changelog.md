@@ -10,6 +10,408 @@
   4. Updated the frontend testing arena page to display fix status (fixing indicator, streaming activity during fix), and a "View Fix PR" link button on the report card header.
 - **Reason for change (architectural)**: Evaluation and fix are a natural continuation — keeping them in the same workflow simplifies state management and avoids orphaned fix attempts.
 
+## Dynamic audit categories — 2026-03-09
+
+Replaced hardcoded audit toggle fields (`accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled`, `postAuditEnabled`) on `githubRepos` with a dedicated `auditCategories` table. Categories are per-repo, user-manageable, and the prompt builder reads enabled categories dynamically.
+
+- New `auditCategories` table: `repoId`, `name`, `description`, `enabled`, `isSystem`, `createdAt`
+- CRUD mutations: `listByRepo`, `listEnabledByRepo`, `seedDefaults`, `create`, `update`, `toggleEnabled`, `remove`
+- System defaults (Accessibility, Testing, Code Review) are seeded via "Get defaults" button, marked `isSystem: true`, non-deletable
+- Users can add custom audit categories with name + description (sent as AI instructions)
+- `buildAuditPrompt` and `buildSessionAuditPrompt` now accept `categories[]` instead of `AuditFlags`
+- `getTaskData` returns `auditCategories` instead of 4 boolean flags
+- Session audit (`_daytona/audit.ts`) queries enabled categories before running
+- New `/settings/audits` page with category list, enable/disable toggles, and add form
+- Added "Audits" nav item to `SettingsSidebar`
+- Removed old fields from schema, helpers, mutations, and ConfigClient
+- Migration: `removeOldAuditFieldsFromRepos` strips old fields via `ctx.db.replace()`
+
+## Unified audits table + flexible sections — 2026-03-09
+
+Merged `taskAudits` and `sessionAudits` into a single `audits` table with `entityId: v.union(v.id("agentTasks"), v.id("sessions"))`. Reduces table sprawl — audit data is identical regardless of context, only the foreign key differs.
+
+Also replaced hardcoded 3-field audit schema (`accessibility`, `testing`, `codeReview`) with flexible `sections: Array<{ name, results }>` format. New audit categories can be added without schema/frontend changes.
+
+- New `audits` table with polymorphic `entityId` and `by_entity` index
+- `auditSectionValidator` for dynamic sections
+- Shared audit JSON parser in `_taskWorkflow/auditParser.ts` (eliminates duplication, no `as` casts)
+- Frontend dynamically maps `sections` array
+- Prompt builders output `sections` format
+- `/audit` skill system: router + `/audit-accessibility`, `/audit-code-review`, `/audit-testing`
+- Migration: `migrations/mergeAuditTables.ts` moves data from old tables to unified table
+
+## Proof of completion carousel — 2026-03-08
+
+Added an Embla-based carousel (shadcn pattern) to the task detail proof section. When a task has multiple screenshots/videos, they are now shown in a swipeable carousel with prev/next buttons and dot indicators, instead of a vertical stack. Single media items render normally without carousel chrome.
+
+- New `Carousel` component in `packages/ui` (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, CarouselDots)
+- Updated `useTaskDetail.tsx` proof section to separate media vs message proofs and wrap media in the carousel
+
+## Move active tasks indicator from sidebar bottom to Quick Tasks tab badge — 2026-03-08
+
+- **Why**: The active tasks component at the bottom of the sidebar was disconnected from where tasks live. Moving it inline as a badge on the Quick Tasks nav item provides better context and discoverability.
+- **Changes**: Replaced the standalone `ActiveTasksPopover` at sidebar bottom with an `ActiveTasksBadge` that renders inline on the Quick Tasks nav item — shows a glowing green dot + "{count} live" text, with the same hover popover for task details.
+
+## Fix git checkout failures due to dirty working tree — 2026-03-08
+
+- **Why**: `git checkout` was aborting when auto-generated files (e.g. `next-env.d.ts`) existed as local changes in the sandbox, causing tasks and sessions to fail during branch setup.
+- **Changes**: Added `git stash --include-untracked` before checkout in `checkoutSessionBranch` and `prepareSandbox` base-branch checkout. The `setupBranch` function already had this — now all checkout paths are consistent.
+- **Reason**: Sandboxes that are reused across runs can accumulate untracked/modified files from previous executions. Stashing ensures branch switches always succeed.
+
+## Fix Build Project button disabled state & branch sync — 2026-03-08
+
+- **Why**: Build Project button stayed clickable after starting a build, and project branches fell behind their base branch (e.g. 80 commits behind main).
+- **Changes**:
+  - Build Project button now also disables when `activeBuildWorkflowId` is set (active build running), not just when a build is scheduled. Dialog button disables during mutation.
+  - `setupBranch` in git.ts now fast-forwards from `origin/{branch}` and merges `origin/{baseBranch}` after checkout. This ensures project branches incorporate latest base branch commits before each task execution — matching how quick tasks always branch from the latest base.
+- **Reason**: Button disabled condition was incomplete — only checked `scheduledBuildAt`, missing `activeBuildWorkflowId`. Branch sync only did `git fetch` + `git checkout` without merging base, so existing project branches never picked up new base commits.
+
+## Eva config: richer ask-mode responses + LSP tool enabled — 2026-03-08
+
+### Summary
+
+Two improvements to Eva's session configuration:
+
+1. **Ask mode now supports rich markdown and mermaid diagrams** — previously ask mode was restricted to plain text. Non-technical users benefit more from visual diagrams (flow charts, architecture diagrams) than prose, so the system prompt now encourages mermaid blocks for architecture/data flow explanations while keeping language jargon-free.
+
+2. **`ENABLE_LSP_TOOL=true` added to all sandbox launches** — Claude Code defaults to text-grep for code navigation. Setting this flag connects it to language servers (LSP), enabling "jump to definition"-style lookups that are significantly faster and more accurate for finding functions and symbols across the codebase.
+
+## Per-context sandbox lifecycle management — 2026-03-08
+
+Behavior per context:
+
+┌──────────────────┬───────────┬─────────────────────┬───────────┐
+│ Context │ autoStop │ autoDelete │ ephemeral │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Quick tasks │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Snapshot warming │ 0 (never) │ 0 (instant on stop) │ true │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Design sessions │ 30 min │ 30 min │ false │
+├──────────────────┼───────────┼─────────────────────┼───────────┤
+│ Project tasks │ 30 min │ 30 min │ false │
+└──────────────────┴───────────┴─────────────────────┴───────────┘
+
+- **Why**: Tasks running >15 minutes were killed by the watchdog ("no heartbeat for 180s"). Root cause: a single `autoStopInterval: 15` on all sandbox creation meant Daytona auto-stopped sandboxes after 15 min of no SDK API calls. Background scripts (`nohup`) don't count as activity per Daytona docs, so sandboxes appeared idle immediately after launch.
+- **Changes**: Introduced `SandboxLifecycle` type with two presets — `EPHEMERAL_LIFECYCLE` (autoStop=0, ephemeral=true for tasks/warming) and `SESSION_LIFECYCLE` (autoStop=30, autoDelete=30 for sessions/projects/design). Threaded lifecycle config through `createSandbox` → `createSandboxAndPrepareRepo` → `getOrCreateSandbox`. Also consolidated retry logic (90s per-call timeout on `daytona.create()`, 3 attempts/12min budget).
+- **Reason**: Different sandbox contexts have conflicting needs. Ephemeral tasks need no auto-stop (background script, cleaned up by our code). Sessions benefit from 30-min auto-stop since preview URL access resets the timer. Using Daytona's `ephemeral: true` flag auto-deletes ephemeral sandboxes on stop as a safety net.
+
+## Quick Tasks UI revamp (follow-up polish) — 2026-03-08
+
+- **Why**: Reviewer feedback on the tab-based task detail UI needed addressing.
+- **Changes**:
+  - Removed section titles inside each tab (Activity, Proof of Completion, etc.) — redundant with tab labels
+  - Added icons to tab triggers (Terminal, Photo, Shield, Message) reusing existing tabler icons
+  - Modal hides tabs column for "todo" status tasks unless content exists in any tab
+  - Comments textarea no longer sends on Enter — only the send button submits
+  - Reverted task card list width back to original 20%/30% split
+- **Reason**: Polish pass based on reviewer feedback to reduce redundancy and fix UX issues.
+
+## Quick Tasks UI revamp — 2026-03-08
+
+- **Why**: Task detail views stacked all content vertically (activity, proof, audit) making it hard to find specific sections. Request changes opened a 4th column in the modal which was awkward. Task cards showed redundant description text.
+- **Changes**:
+  - Removed description from task list cards (QuickTaskCard) — title is sufficient for scanning
+  - Added 4-tab system (Activity, Proof, Audit, Comments) to both inline and modal detail views — Activity is default tab
+  - In the modal, tabs appear in the 2nd column; in the inline view, tabs appear under the description/subtasks
+  - Request Changes button now switches to Comments tab instead of opening a separate panel/column
+  - Comments tab shows existing comments with delete option and a form that auto-runs Eva on submit when changes are requestable
+  - Bumped task card list width from 20%/30% to 28%/35% for better readability
+- **Reason**: Consolidating content into tabs reduces visual clutter and makes it easier to navigate between sections. Moving request changes into comments is more natural UX.
+
+## Extract shared ScheduleDateTimePicker component — 2026-03-08
+
+- **Why**: The schedule time input crashed with `TypeError: .second is not a function` when typing partial time values (e.g. "0"). The `SchedulePopover` had a fix for this (validating `parts.length` and `NaN`), but `ScheduleTasksModal` and `ScheduleBuildPopover` didn't, causing the error in the quick-tasks bulk schedule flow.
+- **Changes**:
+  - Created `ScheduleDateTimePicker` component with `useScheduleDateTime` hook and `ScheduleDateTimeActions` — shared calendar + time input with proper input validation
+  - Refactored `SchedulePopover`, `ScheduleBuildPopover`, and `ScheduleTasksModal` to use the shared component
+- **Reason**: Three components duplicated the same date-time picking logic. Extracting it ensures the validation fix is applied everywhere and prevents future drift.
+
+## Convex rules audit: index naming & filter cleanup — 2026-03-08
+
+- **Why**: Convex rules require index names to include all field names (with "and" for multi-field), and `.filter()` on queries should be replaced with `.withIndex()` for indexed lookups.
+- **Changes**:
+  - Renamed `by_owner_name` → `by_owner_and_name` on `githubRepos` (multi-field index missing "and")
+  - Renamed `by_repoId` → `by_repo` on `repoSnapshots` (consistency with codebase convention)
+  - Renamed `by_repoSnapshotId` → `by_repo_snapshot` on `snapshotBuilds` (consistency)
+  - Added composite index `by_repo_snapshot_and_status` on `snapshotBuilds` — eliminates `.filter()` in `getRepoSnapshotName`
+  - Added composite index `by_task_and_depends_on` on `taskDependencies` — eliminates `.filter()` in `add` and `removeByTasks`
+  - Added composite index `by_team_and_role` on `teamMembers` — eliminates `.filter()` in `remove` (last-owner check)
+  - Updated all 10 call sites referencing renamed indexes
+- **Reason**: Enforcing Convex best practices — indexed queries over `.filter()` for performance, consistent naming conventions.
+
+## Database bandwidth optimization — 2026-03-08
+
+- **Why**: Top Convex functions by bandwidth were consuming excessive reads due to full table scans, missing indexes, JS filtering after collect, and heavy documents returned to clients unnecessarily.
+- **Changes**:
+  - Added `by_repo_and_status` and `by_repo_and_updatedAt` indexes to `agentTasks` — eliminates full table scans in `getActiveTasks` and JS status filtering in `getAllTasks`
+  - `getActiveTasks` now queries per-repo per-status via compound index instead of scanning entire `agentTasks` table
+  - `getAllTasks` queries 6 non-draft statuses individually via compound index instead of collecting all and filtering
+  - `analytics.getImpactStats` uses `by_repo_and_updatedAt` range query for time-filtered tasks instead of JS filtering after full collect
+  - Removed `projects.get` subscription from `ProjectCard` — each card was fetching the full project doc (including heavy `conversationHistory`) just for participant avatars. Now uses `members`/`projectLead` from the lightweight list data
+  - Moved `conversationHistory` and `generatedSpec` from `projects` table to new `projectDetails` table — `projects.list` no longer reads these heavy fields from the DB. `projects.get` joins them back for detail views.
+- **Reason**: Convex rule "Do NOT use filter in queries — use withIndex instead" was violated in multiple high-traffic functions. The `projects` table carried unbounded conversation data that was read on every list query even though it was stripped before returning.
+
+## Mobile responsiveness audit (deep pass) — 2026-03-07
+
+- **Why**: Many pages and components had fixed widths, missing responsive breakpoints, and overflow issues that made the platform difficult to use on phones and tablets.
+- **Changes**:
+  - Quick Tasks: Split view now uses sm breakpoint instead of md for earlier stacking, filter button max-width tightened, card padding reduced on mobile, kanban columns use 75vw snap width
+  - Sessions: Added useMediaQuery hook; mobile devices now get vertical stack layout instead of resizable horizontal panels; summary accordion and plan content padding responsive; prompt input area tighter on mobile
+  - Designs: Chat panel gets max-h-50vh on mobile to share space with preview, min-width reduced for medium screens, preview panel header wraps on small screens, footer gap/padding responsive, persona dialogs width-capped to viewport
+  - Testing Arena: Test run list max-height tuned for mobile, test detail padding responsive (px-4 → sm:px-10), header padding tighter, branch select narrower on small screens
+  - Settings: Config card padding responsive, snapshots table min-width reduced on mobile (360px), table cell padding tighter (px-2 → sm:px-4), logs summary grid gap responsive
+  - Shared: Main sidebar width capped to prevent overflow on very small screens (min of 16rem, 100vw-3rem), mobile header padding responsive, SidebarLayoutWrapper mobile drawer capped to 100vw-2rem, ChatPageWrapper header gap and wrap improved, KanbanBoard columns use 75vw for better mobile snapping, TaskDetailInline gap responsive, TaskDetailModal gets w-full for mobile constraint
+  - Added `useMediaQuery` hook for responsive layout switching
+- **Reason for change**: Mobile-first accessibility audit across quick tasks, sessions, designs, documents, testing arena, inbox, stats, and settings pages.
+
+## Replace JWT auth with HMAC for sandbox streaming heartbeats — 2026-03-07
+
+- **Why**: All task runs were being killed by the watchdog ("no heartbeat for 180s"). Root cause: the callback script's `streaming:set` calls used `authMutation` which requires JWT validation + user DB lookup on every call. Convex's auth layer intermittently fails (confirmed by `presence:disconnect` throwing "Not authenticated" every ~10s). Since heartbeat errors were silently swallowed, heartbeats died for 180s and the watchdog killed the run.
+- **Changes**:
+  1. Added `POST /api/streaming/heartbeat` HTTP endpoint in `http.ts` that validates via HMAC instead of JWT.
+  2. HMAC is computed server-side (`signAndLaunchScript`) as `HMAC-SHA256(ENCRYPTION_KEY, entityId)` — scoped to one streaming entity, unforgeable without the secret.
+  3. Callback script now calls the HMAC endpoint for all streaming writes (heartbeats, flush, finalization).
+  4. Falls back to old `streaming:set` authMutation if HMAC env vars aren't set.
+  5. Added retry + error logging to heartbeat/flush paths.
+  6. Fixed missing `customTheme` field in `getUserByClerkId` return validator.
+- **Reason for change**: JWT auth is inherently fragile for high-frequency calls from sandboxes. HMAC eliminates the entire auth chain (JWT parsing, signature verification, user DB lookup) from the heartbeat path.
+
+## Add Ctrl+Enter hotkey to Quick Task modal — 2026-03-07
+
+- **Why**: Creating a quick task required clicking the button. Power users expect keyboard shortcuts for common actions.
+- **Changes**: Added `@tanstack/react-hotkeys` and wired `Mod+Enter` (Ctrl+Enter / Cmd+Enter) to submit the quick task form. Added a `⌘↵` hint on the Create Task button.
+
+## Split post-execution audit into 3 individual toggles — 2026-03-07
+
+- **Why**: The single `postAuditEnabled` toggle was all-or-nothing. Users couldn't disable expensive/irrelevant audit sections (e.g. accessibility for backend-only repos) and there was no extensibility path for adding more audit types.
+- **Changes**:
+  1. Added `accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled` fields to `githubRepos` schema (all default to true via `!== false`).
+  2. Updated `updateConfig` mutation, `getTaskData` query, and workflow definition to pass individual flags.
+  3. `buildAuditPrompt` now dynamically builds the prompt based on which audits are enabled.
+  4. UI replaced single checkbox with 3 granular checkboxes under a "Post-execution Audits" heading.
+  5. Task detail audit display filters out empty sections (disabled audits won't render).
+- **Reason for change**: Granular control over audit types, extensibility for future audit additions.
+
+## Hide/show repositories and monorepo apps — 2026-03-07
+
+- **Why**: Some monorepo apps (e.g. MCP, Chrome extension) and codebases clutter the repo selector and home page but shouldn't be deleted. Users need a way to hide them from the UI without removing them from Eva.
+- **Changes**:
+  1. Added `hidden` optional boolean field to `githubRepos` schema and validator.
+  2. `list` query now accepts optional `includeHidden` arg — defaults to filtering out hidden repos. Management pages (monorepo settings, team detail) pass `includeHidden: true`.
+  3. Added `toggleHidden` mutation for setting visibility.
+  4. RepoCard dropdown now has a "Hide" option.
+  5. New `HiddenReposSheet` dialog on the home page header shows count of hidden repos and lets users unhide them.
+  6. Hidden repos are automatically filtered from the sidebar RepoSelect.
+  7. Monorepo settings page (`/settings/monorepo`) now shows a "Connected Apps" section with per-app visibility toggles (Visible/Hidden) so users can manage which monorepo apps appear in the sidebar and home page from one place.
+
+## Change session collapse to hide sandbox panel instead of chat — 2026-03-07
+
+- **Why**: The collapse button previously collapsed the chat panel (left side), which was counterintuitive — users want to expand the chat to focus on conversation, not hide it. Collapsing the sandbox panel (right side) makes more sense as users may want a full-width chat view.
+- **Changes**: Made the sandbox (right) panel collapsible instead of the chat panel. Moved the collapse/expand button from the SandboxPanel tab switcher header to the ChatPanel header actions area. Uses right-sidebar collapse/expand icons to match the panel direction.
+
+## Dismiss Daytona preview warning for all iframes — 2026-03-07
+
+- **Why**: Every iframe (web preview, VS Code, VNC desktop, design preview) showed a Daytona security warning page on first load, requiring manual dismissal.
+- **Changes**: Created `dismissDaytonaWarning` utility that sends a `HEAD` request with `X-Daytona-Skip-Preview-Warning: true` header before loading each iframe. Applied to all 4 preview surfaces: SandboxPanel (web), EditorPanel (VS Code), DesktopPanel (VNC), and DesignDetailClient (design). Uses an in-memory Set to avoid redundant requests per origin.
+
+## Fix: new sessions no longer auto-appear as sandbox running — 2026-03-07
+
+- **Why**: Creating a new session or design session set `status: "active"`, which the frontend interpreted as "sandbox is running". This caused the UI to show sandbox-active state (spinners, no "Start" button) even though no sandbox had been started.
+- **Changes**: Changed initial status from `"active"` to `"closed"` in both `_sessions/mutations.ts` (sessions) and `designSessions.ts` (design sessions) create mutations. Status only becomes `"active"` when `sandboxReady` is called after a real sandbox starts.
+
+## Instant sandbox start feedback + unified design/session button — 2026-03-07
+
+- **Why**: Clicking "Start" on a session or design sandbox gave no feedback for ~30 seconds until the sandbox was fully ready. The design page also used a different button pattern from sessions.
+- **Changes**:
+  1. Added `"starting"` to `sessionStatusValidator` — used by both `sessions` and `designSessions` tables.
+  2. `startSandbox` mutations (sessions + design) now set `status: "starting"` immediately before scheduling the background action, so the UI reflects the state change instantly.
+  3. Session UI derives `isSandboxStarting` from `session.status === "starting"` instead of local `useState` — the spinner is now driven by the database, surviving page refreshes.
+  4. Design page button replaced with the same icon-button pattern as sessions (play/stop icon, destructive variant when active, spinner when toggling).
+- **Reason for change**: Immediate visual feedback on start. Consistent button UX across sessions and design pages.
+
+## Show all tasks on Quick Tasks page with project filter — 2026-03-07
+
+- **Why**: Quick Tasks page only showed orphan tasks (no project). Tasks assigned to projects were hidden, making it impossible to see all tasks in one place or filter by project.
+- **Changes**:
+  1. Removed `!t.projectId` filter from QuickTasksClient, QuickTasksListView, and QuickTasksKanbanBoard — all tasks now show by default.
+  2. Added `projectFilterParser` nuqs param with values: "all" (default), "none" (orphan tasks only), or a specific project ID.
+  3. Added project filter dropdown to QuickTasksToolbar showing all repo projects.
+  4. Added `projectName` badge on QuickTaskCard for tasks belonging to a project.
+  5. Centralized task filtering in QuickTasksClient — child views now receive pre-filtered tasks as props instead of re-querying.
+- **Reason for change**: Visibility. Users need to see all tasks regardless of project membership, with the ability to filter by project.
+
+## Add granular streaming progress during sandbox setup — 2026-03-07
+
+## Streaming progress: setup steps + callback script continuity — 2026-03-07
+
+- **Why**: Three problems: (1) Users saw "Starting sandbox..." for up to 5 minutes with no feedback during `prepareSandbox`. (2) The progress format was `{steps:[{label}]}` which `parseActivitySteps` didn't recognize, so it rendered as raw JSON. (3) When the callback script started, it overwrote all setup progress with a fresh `["Starting Claude..."]`, losing the history.
+- **Changes**:
+  1. **Setup progress** — Added `streamingEntityId` arg to `prepareSandbox`. Emits progress via `internalSet` mutation at each milestone: "Creating sandbox...", "Cloning repository...", "Installing dependencies...", "Syncing repository...", "Resuming sandbox...", "Fetching base branch...", "Setting up branch...", "Starting desktop...", "Retrying sandbox setup...".
+  2. **Correct format** — `emitProgress` now emits the `ActivityStep[]` format (`[{type, label, status}]`) that the frontend parser expects, with accumulated completed steps + one active step. On retry, the step history resets.
+  3. **Continuity with callback script** — `launchOnExistingSandbox` reads the current streaming activity via `internalGet` query and passes it as `PRIOR_STEPS` env var. The callback script reads `PRIOR_STEPS` on startup and initializes `accumulatedSteps` from it, so setup steps appear as completed before "Starting Claude..." begins.
+  4. **Supporting infrastructure** — Added `internalGet` query and `internalSet` mutation to `streaming.ts`. Updated all 12 workflow callers across 10 files to pass `streamingEntityId`.
+  5. **`onProgress` callbacks** — Added to `cloneAndSetupRepo`, `createSandboxAndPrepareRepo`, and `getOrCreateSandbox` in `git.ts`.
+- **Reason for change**: Users now see one continuous chain of steps from sandbox creation through Claude execution, all rendered by the same `ActivitySteps` component.
+
+## Split (main) into (global) + (repo) route groups — 2026-03-07
+
+- **Why**: All pages (global home/teams/inbox/theme and repo-scoped pages) lived under a single `(main)` route group with a conditional `showTopNavBar` hack in the layout. This caused: inbox broke sidebar when clicked (navigated away from repo context), theme link in SettingsSidebar was dead (no page existed at repo-relative path), and no clear boundary between global and repo-scoped routes.
+- **Changes**:
+  1. Renamed `app/(main)/` to `app/(repo)/` — keeps repo layout (Sidebar + RepoProvider).
+  2. Created `app/(global)/` with a new layout — TopNavBar + max-w-7xl container, no conditional logic.
+  3. Moved global pages (`home/`, `teams/`, `setup/`, `settings/theme/`, `inbox/`) to `(global)/`.
+  4. Extracted `InboxClient` and `ThemeSettingsClient` + `_components/` to `lib/components/` so both route groups can import them.
+  5. Created thin repo-scoped pages at `(repo)/[owner]/[repo]/inbox/` and `(repo)/[owner]/[repo]/settings/theme/` that render the shared client components inside the repo layout with sidebar visible.
+  6. Updated Sidebar inbox href from `/inbox` to `${repoBasePath}/inbox` so it stays in repo context.
+  7. Added Inbox + Theme tabs to TopNavBar alongside Repositories and Teams.
+- **Reason for change**: Architectural. Clean separation between global pages (TopNavBar, no sidebar) and repo pages (Sidebar, RepoProvider) eliminates the conditional layout hack and fixes broken navigation paths.
+
+## Split setupAndExecute into prepareSandbox + launchOnExistingSandbox — 2026-03-07
+
+- **Why**: The `setupAndExecute` Convex action bundled sandbox creation (with up to 5 internal retries), repo cloning, branch setup, AND script launch into a single action. For repos without snapshots, this could exceed Convex's 10-minute action timeout — especially when retries compounded cold clone + npm install times.
+- **Changes**:
+  1. Split `setupAndExecute` into `prepareSandbox` (sandbox creation + repo setup) and reuse `launchOnExistingSandbox` (script upload + launch). Each gets its own 10-minute budget as separate workflow steps.
+  2. Reduced `maxSetupAttempts` from 5 to 2 and added a 7-minute elapsed time guard to prevent retry loops from exceeding action limits.
+  3. Updated all 12 workflow callers across 10 files to use the two-step pattern.
+  4. Converted callback script from template-interpolated function to static constant — `completionMutation` and `entityIdField` are now passed as environment variables instead of string interpolation.
+- **Reason for change**: Architectural. A single action doing too much work risked Convex function timeouts. Splitting into workflow steps gives each operation its own timeout budget and makes failures more granular.
+
+## Decompose monolithic client components into \_components/ + \_utils convention - 2026-03-07
+
+- **Why**: 10 route-level `*Client.tsx` files (300-568 lines each) mixed data fetching, state management, handlers, helper functions, and all JSX in a single file. This made them hard to read, maintain, and modify without risk of side effects.
+- **Changes**:
+  1. Established `_components/` + `_utils.ts` convention per route for co-located decomposition.
+  2. Refactored 10 files: RepoHomeClient (317→154), ThemeSettingsClient (349→95), LogsClient (383→150), RepoSetupClient (326→195), ReposClient (495→141), TeamDetailClient (422→79), ProjectsClient (435→250), QueryDetailClient (522→48), DesignDetailClient (500→137), QuickTasksClient (568→259).
+  3. Created ~30 extracted components across `_components/` folders and 3 `_utils.ts` files.
+  4. Added "Component Structure" rules to CLAUDE.md (~250 line max, orchestrator pattern, \_components/ convention).
+- **Reason for change**: Architectural. Monolithic client components violate single-responsibility and make it hard to reason about changes. The orchestrator + child component pattern keeps data flow clear and components maintainable.
+
+## Decompose DesignDetailClient into smaller components - 2026-03-07
+
+- **Why**: `DesignDetailClient.tsx` was 500 lines handling chat, preview, sandbox control, and tab state all in one component. This made it hard to reason about responsibilities and would only grow worse as features are added.
+- **Changes**:
+  1. Extracted `DesignChatPanel` — owns conversation rendering, message sending/cancelling, persona selection, and streaming display.
+  2. Extracted `DesignPreviewPanel` — owns iframe preview, variation tabs, desktop/mobile toggle (nuqs state), and variation selection UI.
+  3. Slimmed `DesignDetailClient` to an orchestrator: session query, sandbox lifecycle, preview URL fetching, and composing the two panels.
+- **Reason for change**: Single-responsibility decomposition. Each component now has a clear concern boundary, making future changes (e.g., swapping preview tech, adding chat features) isolated.
+
+## Backend simplification round 2: dead code removal and dedup - 2026-03-07
+
+- **Why**: Audit of 80+ Convex files found dead code paths, unused exports, and repeated patterns that added maintenance burden without providing value.
+- **Changes**:
+  1. Deleted dead PR creation chain in `testGenWorkflow.ts` — `createPr` → `createPrAction` was a no-op chain (empty handler). Removed scheduler call in `saveResult` too. (~45 lines)
+  2. Deleted 4 unused CRUD mutations from `evaluationReports.ts` (`updateEvalStatus`, `completeEval`, `failEval`, `updateEvalSummary`) — workflow handles all status transitions directly via `ctx.db.patch()`. (~79 lines)
+  3. Extracted `timeoutLastMessage` helper in `workflowWatchdog.ts` to deduplicate the "find last assistant message → patch content" pattern across 3 handlers. (~20 lines saved)
+  4. Extracted `updateLastHistoryEntry` in `docInterviewWorkflow.ts` and `updateLastConversationEntry` in `projectInterviewWorkflow.ts` to deduplicate the "clone history → update last entry → return" pattern (5 instances each). (~30 lines saved)
+- **Reason for change**: Dead code creates confusion about what's active. Duplicated patterns mean bugs fixed in one spot get missed in others.
+
+## Simplify chat panel, design page, analyse page - 2026-03-07
+
+- **Why**: ChatPanel, DesignDetailClient, and QueryDetailClient had significant code duplication — `ensureHttps()` copied in 2 files, session cache helpers copied in 2 files, IIFE+parseActivitySteps rendering pattern copy-pasted 6 times across 3 files, `evaIcon` JSX duplicated, user avatar block duplicated in 3 files. Also had `as` type assertions and a `!` non-null assertion violating project rules.
+- **Changes**:
+  1. Extracted `ensureHttps` to `lib/utils/ensureHttps.ts`, `createSessionCache` factory to `lib/utils/sessionCache.ts`
+  2. Created `EvaIcon`, `UserMessageAvatar`, `StreamingActivityDisplay`, and `ActivityLogDisplay` shared components
+  3. Fixed `as Id<>` cast in QueryDetailClient by typing page params correctly
+  4. Fixed `as "execute" | "ask" | "plan"` cast in ChatPanel with type guard
+  5. Fixed `sandboxId!` non-null assertion in DesktopPanel
+  6. Added `useMemo` for `filteredMessages`, `latestVariations`, and `personaMap` to avoid unnecessary recomputation
+  7. Replaced O(n\*m) persona `.find()` lookup with O(1) Map lookup in DesignDetailClient
+- **Reason for change**: Code duplication across chat-like pages made changes error-prone and increased maintenance burden. Type safety violations needed fixing.
+
+## Settings pages code structure cleanup - 2026-03-07
+
+- **Why**: Settings pages had duplicated `formatDuration` implementations (SnapshotsClient and LogsClient), `as` type assertion violations in ThemeSettingsClient and ThemeContext, and repeated button styling across 4 theme sections.
+- **Changes**:
+  1. Added `formatDurationMs` and `formatDurationMsShort` to shared `lib/utils/formatDuration.ts`. Removed local copies from SnapshotsClient and LogsClient.
+  2. Added `resolveCustomTheme` helper to ThemeContext to eliminate 4 `as` casts in ThemeSettingsClient. Fixed `as HTMLStyleElement` cast in ThemeContext with `instanceof` check.
+  3. Extracted `OptionButton` component in ThemeSettingsClient to deduplicate active/inactive button styling across Accent Color, Border Radius, Font, and Letter Spacing sections.
+  4. Deleted empty `[owner]/[repo]/settings/layout.tsx` (was just `<>{children}</>`).
+- **Reason for change**: Reduce duplication and fix rule violations found during code structure audit.
+
+## Deduplicate shared utilities across backend workflows - 2026-03-07
+
+- **Why**: 80+ Convex files had copy-pasted `extractJsonBlock` (3 copies), `new LlmJson(...)` (7 copies), and identical workflow completion event validators (10 copies). This duplication made changes error-prone — fixing a bug in one copy meant hunting down all others.
+- **Changes**:
+  1. Centralized `extractJsonBlock` and `llmJson` exports in `_taskWorkflow/helpers.ts`. Deleted local copies from `sessionAudits.ts` and `taskWorkflowActions.ts`.
+  2. Added `workflowCompleteValidator` to `validators.ts`. All 10 workflow files now import it instead of defining identical inline validators.
+  3. Extracted `resolveMessageUrls` helper in `messages.ts` to deduplicate `listByParent` and `listByParentInternal` handlers.
+  4. Removed `as const` assertions from `sessionAudits.ts` and `projectInterviewWorkflow.ts` (violates codebase rule against `as`).
+- **Reason for change**: Reduce duplication without adding abstraction layers. Only literal copy-paste was extracted.
+
+## Multi-select type filter on logs page - 2026-03-06
+
+- **Why**: The logs page type filter only allowed selecting one entity type at a time (radio buttons). Users needed to view multiple types simultaneously, matching the multi-select pattern already used on the quick tasks page.
+- **Changes**:
+  1. Replaced `logEntityTypeParser` (single string) with `logEntityTypesParser` (typed array) in search-params.
+  2. Switched `LogsClient.tsx` from `DropdownMenuRadioGroup` to `DropdownMenuCheckboxItem` for multi-select.
+  3. Updated backend `logs.listByRepo` to accept `entityTypes` (string array) instead of `entityType` (single string).
+- **Reason for change**: Consistency with quick tasks filter UX; multi-select is more practical for log analysis.
+
+## Change date filter from tabs to dropdown - 2026-03-06
+
+- **Why**: Tabs took up more horizontal space and didn't match the adjacent entity type filter's dropdown pattern. A dropdown is more consistent and compact.
+- **Changes**: Replaced `Tabs`/`TabsList`/`TabsTrigger` with `DropdownMenu`/`DropdownMenuRadioGroup` in `TimeRangeFilter`. Labels now show full text ("Last 7 days" etc.) instead of abbreviations. Affects both Logs and Stats pages.
+
+## Improve task detail modal activity UX - 2026-03-06
+
+- **Why**: Stop button was buried in the footer far from the activity it controls. User change request messages cluttered the request changes panel when they belong contextually next to the run they triggered.
+- **Changes**:
+  1. Moved the stop button from the modal footer to the right end of the Activity section header for proximity to what it controls.
+  2. Added `IconEdit` indicator on agent runs triggered by user change requests (all runs after the first) to visually distinguish edits from initial runs.
+  3. Added `IconMessageCircle` button in accordion triggers that opens a modal showing the user message that triggered that run.
+  4. Removed user comment history from the request changes panel — messages are now accessible via the icon on each run.
+
+## Mobile responsiveness audit for Quick Tasks page - 2026-03-06
+
+- **Why**: Quick Tasks page components were not optimized for mobile viewports, leading to cramped layouts, poor touch targets, and usability issues on small screens.
+- **Changes**:
+  1. KanbanBoard: Added snap scrolling on mobile for smooth horizontal column navigation, increased min column width from 240px to 280px for better readability.
+  2. QuickTasksClient: Added safe-area-inset-bottom padding to floating selection bar, improved padding and backdrop blur for mobile touch comfort.
+  3. QuickTaskModal: Reduced textarea from 12 rows to 6 with responsive min-height, made dialog footer stack vertically on mobile.
+  4. QuickTaskCard: Increased vertical padding on mobile for better touch targets.
+  5. QuickTasksListView: Added bottom padding for scroll comfort and improved sticky header spacing.
+  6. GroupTasksModal: Added responsive max-width to prevent overflow on very small screens.
+
+## Mobile responsiveness audit for settings, stats, and inbox pages - 2026-03-06
+
+- **Why**: Several pages had layouts that broke or overflowed on mobile viewports - horizontal flex rows with no wrapping, tables without scroll containers, and text/buttons that squeezed together.
+- **Changes**:
+  1. **LogsClient**: Converted 4 stat cards from `flex` to `grid grid-cols-2 lg:grid-cols-4`. Made log entry rows stack vertically on mobile with `flex-wrap`.
+  2. **SnapshotsClient**: Made status grid responsive (`grid-cols-1 sm:grid-cols-2`), added horizontal scroll to builds table, made cron guide stack vertically on mobile, made config header and save row wrap properly.
+  3. **EnvVarsTable**: Added horizontal scroll wrapper to table, made header description + buttons stack on mobile.
+  4. **ThemeSettingsClient**: Tightened appearance mode grid spacing on small screens, made preview text smaller on mobile.
+  5. **TimeRangeFilter**: Shortened tab labels and reduced padding for mobile fit.
+  6. **InboxClient**: Collapsed "Mark all read" to icon-only on mobile, tightened notification item padding and gap.
+
+## Watchdog consolidation + shared streaming cleanup - 2026-03-06
+
+- **Why**: `workflowWatchdog.ts` had 8 handlers with identical cancel-workflow + clear-streaming preambles (6 of 8 repeated the same 5-line inline streaming cleanup). Separately, 15+ workflow files inlined the same 4-line `query("streamingActivity").withIndex(...).first(); if (streaming) delete` pattern instead of using the existing `clearStreamingActivity` helper.
+- **Changes**:
+  1. Extracted `cancelStaleWorkflow(ctx, workflowId, streamingEntityIds)` helper in `workflowWatchdog.ts` that cancels the workflow + clears streaming for a list of entity IDs. All 6 handlers that had both operations now call this single function.
+  2. Replaced 15 inline streaming cleanup patterns across 10 workflow files (`sessionWorkflow`, `designWorkflow`, `designSessions`, `docInterviewWorkflow`, `docPrdWorkflow`, `evaluationWorkflow`, `projectInterviewWorkflow`, `researchQueryWorkflow`, `summarizeWorkflow`, `testGenWorkflow`) with `clearStreamingActivity()` imported from `_taskWorkflow/helpers.ts`.
+- **Reason for change (architectural)**: Single source of truth for streaming cleanup logic. Bug fixes to the cleanup pattern now propagate everywhere.
+
+## Simplify backend/convex: dedup error classification, consolidate sandbox reuse, fix N+1 queries - 2026-03-06
+
+- **Why**: Codebase had grown organically with duplicated error classification logic (inline in execution.ts vs function in recovery.ts), near-identical sandbox startup try-reuse blocks in sessions.ts, and sequential db.get/query loops (N+1) in analytics and agentTasks queries that hurt both readability and performance.
+- **Changes**:
+  1. Moved `isDaytonaNetworkIssue()` from `_taskWorkflow/recovery.ts` to `_daytona/helpers.ts` (canonical location). Replaced 30-line inline error marker logic in `execution.ts` with a single function call. Re-exported from recovery.ts to preserve existing imports.
+  2. Extracted `tryReuseSandbox()` helper in `_daytona/sessions.ts` to consolidate the duplicated "get existing sandbox → prepare → return or fall through" pattern shared by `startSessionSandbox` and `startDesignSandbox`.
+  3. Converted sequential `for` loops with `ctx.db.get()` / `ctx.db.query()` to `Promise.all` in `analytics.ts` (5 N+1 patterns across getImpactStats, getActiveUsers, getActivityTimeline, getLeaderboard) and `_agentTasks/queries.ts` (getDependentTasks, getStatusesByIds).
+- **Reason for change (architectural)**: Error classification is Daytona-specific and should live in the Daytona module. Sandbox reuse is a shared lifecycle pattern. N+1 queries cause unnecessary sequential round-trips in Convex queries.
+
+## Consolidate duplicated Daytona operational logic - 2026-03-06
+
+- **Why**: The "sign JWT token + launch script on sandbox" pattern was duplicated across 4 call sites (`execution.ts` 2x, `audit.ts` 2x). A bug fix or enhancement to this flow required changes in 4 places. Additionally, `getDaytona()` and `WORKSPACE_DIR` were redefined in `pty.ts` and `snapshotActions.ts` instead of importing from the canonical `_daytona/helpers.ts`.
+- **Changes**:
+  1. Added `signAndLaunchScript()` helper in `_daytona/helpers.ts` that composes token signing + script launch into a single call.
+  2. Updated `_daytona/execution.ts` (`setupAndExecute`, `launchOnExistingSandbox`) and `_daytona/audit.ts` (`launchAudit`, `runSessionAudit`) to use the new helper.
+  3. Removed local `getDaytona()` and `WORKSPACE_DIR` from `pty.ts` and `snapshotActions.ts`, importing from `_daytona/helpers.ts` instead.
+- **Reason for change (architectural)**: Service layer consolidation — reusable operational mechanics should live in one place so bug fixes propagate to all callers.
+
 ## Harden quick-task watchdog resilience during callback finalization - 2026-03-06
 
 - **Why**: Runs could emit `watchdog` heartbeat kills near the end of execution when callback finalization (media upload/completion mutation) outlived the previous heartbeat window, especially while Convex dev was reloading.

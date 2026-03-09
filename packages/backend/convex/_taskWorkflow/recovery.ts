@@ -14,8 +14,8 @@ export const STALE_RECHECK_MS = 30_000;
 export const STALE_FINISHING_THRESHOLD_MS = 300_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 
-export function isDaytonaNetworkIssue(errorMessage: string): boolean {
-  const message = errorMessage.toLowerCase();
+export function isDaytonaNetworkIssue(errorMsg: string): boolean {
+  const message = errorMsg.toLowerCase();
   const networkMarkers = [
     "network",
     "fetch failed",

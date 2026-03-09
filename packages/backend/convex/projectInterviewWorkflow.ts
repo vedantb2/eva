@@ -4,20 +4,19 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  getProjectConversation,
+  setProjectConversation,
+  setProjectGeneratedSpec,
+} from "./_projects/helpers";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 interface PreviousAnswer {
@@ -59,6 +58,22 @@ OR
   return prompt;
 }
 
+function updateLastConversationEntry<
+  T extends {
+    role: "user" | "assistant";
+    content: string;
+    activityLog?: string;
+  },
+>(history: T[], content: string, activityLog: string | null | undefined): T[] {
+  const updated = [...history];
+  const last = updated[updated.length - 1];
+  if (last) {
+    last.content = content;
+    last.activityLog = activityLog || undefined;
+  }
+  return updated;
+}
+
 // --- Workflow definition ---
 
 export const projectInterviewWorkflow = workflow.define({
@@ -92,13 +107,21 @@ export const projectInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
 
-    // Step 3: Setup sandbox + fire Claude CLI
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.projectId,
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
       prompt: fullPrompt,
       userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleCompletion",
@@ -155,12 +178,11 @@ export const addEmptyAssistant = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
-    await ctx.db.patch(args.projectId, {
-      conversationHistory: [
-        ...project.conversationHistory,
-        { role: "assistant" as const, content: "", activityLog: "" },
-      ],
-    });
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+    await setProjectConversation(ctx.db, args.projectId, [
+      ...conversation,
+      { role: "assistant", content: "", activityLog: "" },
+    ]);
     return null;
   },
 });
@@ -175,25 +197,21 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Clear streaming activity
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.projectId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.projectId));
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
+
     if (!args.success || !args.result) {
-      const messages = [...project.conversationHistory];
-      const last = messages[messages.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const messages = updateLastConversationEntry(
+        conversation,
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
+      await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
-        conversationHistory: messages,
         activeWorkflowId: undefined,
         lastSandboxActivity: Date.now(),
       });
@@ -202,29 +220,26 @@ export const saveResult = internalMutation({
 
     const { json } = llmJson.extract(args.result);
     if (json.length === 0) {
-      const messages = [...project.conversationHistory];
-      const last = messages[messages.length - 1];
-      if (last) {
-        last.content = JSON.stringify({ error: true });
-        last.activityLog = args.activityLog || undefined;
-      }
+      const messages = updateLastConversationEntry(
+        conversation,
+        JSON.stringify({ error: true }),
+        args.activityLog,
+      );
+      await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
-        conversationHistory: messages,
         activeWorkflowId: undefined,
         lastSandboxActivity: Date.now(),
       });
       return null;
     }
 
-    const jsonStr = JSON.stringify(json[0]);
-    const messages = [...project.conversationHistory];
-    const last = messages[messages.length - 1];
-    if (last) {
-      last.content = jsonStr;
-      last.activityLog = args.activityLog || undefined;
-    }
+    const messages = updateLastConversationEntry(
+      conversation,
+      JSON.stringify(json[0]),
+      args.activityLog,
+    );
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });
@@ -356,12 +371,21 @@ Generate an implementation spec with 2-5 tasks. Each task should represent a com
 
 Output ONLY valid JSON.`;
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        repoId: projectData.repoId,
+        streamingEntityId: args.projectId,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: args.projectId,
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
       prompt,
       userId: args.userId,
       completionMutation: "projectInterviewWorkflow:handleSpecCompletion",
@@ -429,28 +453,25 @@ export const saveSpecResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.projectId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.projectId));
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
+
+    const conversation = await getProjectConversation(ctx.db, args.projectId);
 
     if (args.success && args.result) {
       const { json } = llmJson.extract(args.result);
       if (json.length > 0) {
         const specJson = JSON.stringify(json[0]);
-        const messages = [...project.conversationHistory];
-        const last = messages[messages.length - 1];
-        if (last) {
-          last.content = specJson;
-          last.activityLog = args.activityLog || undefined;
-        }
+        const messages = updateLastConversationEntry(
+          conversation,
+          specJson,
+          args.activityLog,
+        );
+        await setProjectConversation(ctx.db, args.projectId, messages);
+        await setProjectGeneratedSpec(ctx.db, args.projectId, specJson);
         await ctx.db.patch(args.projectId, {
-          conversationHistory: messages,
-          generatedSpec: specJson,
           phase: "finalized",
           activeWorkflowId: undefined,
           lastSandboxActivity: Date.now(),
@@ -459,15 +480,13 @@ export const saveSpecResult = internalMutation({
       }
     }
 
-    // On failure
-    const messages = [...project.conversationHistory];
-    const last = messages[messages.length - 1];
-    if (last) {
-      last.content = JSON.stringify({ error: true });
-      last.activityLog = args.activityLog || undefined;
-    }
+    const messages = updateLastConversationEntry(
+      conversation,
+      JSON.stringify({ error: true }),
+      args.activityLog,
+    );
+    await setProjectConversation(ctx.db, args.projectId, messages);
     await ctx.db.patch(args.projectId, {
-      conversationHistory: messages,
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });

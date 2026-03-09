@@ -18,13 +18,15 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <Card className="motion-emphasized border border-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
-      <CardContent className="flex flex-row items-center gap-3 p-4">
-        <div className="motion-base rounded-lg bg-secondary p-2 text-muted-foreground">
-          <Icon size={20} />
+      <CardContent className="flex flex-row items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+        <div className="motion-base rounded-lg bg-secondary p-1.5 text-muted-foreground sm:p-2">
+          <Icon size={18} className="sm:h-5 sm:w-5" />
         </div>
-        <div>
-          <p className="text-2xl font-bold text-foreground">{value}</p>
-          <p className="text-sm text-muted-foreground">{label}</p>
+        <div className="min-w-0">
+          <p className="text-lg font-bold text-foreground sm:text-2xl">
+            {value}
+          </p>
+          <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}

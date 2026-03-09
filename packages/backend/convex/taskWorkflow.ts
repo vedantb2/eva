@@ -26,6 +26,7 @@ export { getTaskData } from "./_taskWorkflow/queries";
 export {
   handleCompletion,
   handleAuditCompletion,
+  handleAuditFixCompletion,
   cancelExecution,
   triggerExecution,
 } from "./_taskWorkflow/publicMutations";

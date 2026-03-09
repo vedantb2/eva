@@ -1,22 +1,6 @@
 "use node";
 
-import { WORKSPACE_DIR } from "./helpers";
-
-/**
- * Generic callback handler script that runs inside the Daytona sandbox.
- * Spawns Claude CLI, parses stream-json output, streams activity updates
- * via Convex HTTP API, and calls the specified completion mutation when done.
- *
- * @param completionMutation - The Convex mutation path to call on completion
- *   (e.g. "designWorkflow:handleCompletion", "summarizeWorkflow:handleCompletion")
- * @param entityIdField - The field name for the entity ID in the completion args
- *   (e.g. "designSessionId", "sessionId", "docId")
- */
-export function buildCallbackScript(
-  completionMutation: string,
-  entityIdField: string,
-): string {
-  return `
+export const CALLBACK_SCRIPT = `
 import { spawn } from "child_process";
 import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
 
@@ -25,11 +9,12 @@ const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const RUN_ID = process.env.RUN_ID || null;
-const ENTITY_TYPE = "${entityIdField}";
+const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
-const WORK_DIR = "${WORKSPACE_DIR}";
+const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
@@ -38,6 +23,8 @@ const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || 
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 const READY_FILE = "/tmp/run-design.ready";
+const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || "";
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -124,6 +111,22 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
+async function callStreamingHeartbeat(entityId, currentActivity) {
+  if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
+    return await callMutation("streaming:set", { entityId, currentActivity });
+  }
+  const res = await fetchWithTimeout(CONVEX_SITE_URL + "/api/streaming/heartbeat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entityId, hmac: STREAMING_HMAC, currentActivity }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+  }
+  return res.json();
+}
+
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
   if (parts.length <= 4) return parts.join("/");
@@ -207,6 +210,17 @@ function parseStreamEvent(line) {
 }
 
 const accumulatedSteps = [];
+try {
+  const priorRaw = process.env.PRIOR_STEPS;
+  if (priorRaw) {
+    const prior = JSON.parse(priorRaw);
+    if (Array.isArray(prior)) {
+      for (const s of prior) {
+        if (s && s.label) accumulatedSteps.push({ ...s, status: "complete" });
+      }
+    }
+  }
+} catch {}
 let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
@@ -225,24 +239,38 @@ async function flushStreaming() {
   }
   if (hasNew) {
     try {
-      await callMutation("streaming:set", {
-        entityId: STREAMING_ENTITY_ID,
-        currentActivity: JSON.stringify(accumulatedSteps),
-      });
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
       lastStreamingSentAt = Date.now();
-    } catch {}
+      consecutiveHeartbeatFailures = 0;
+    } catch (e) {
+      consecutiveHeartbeatFailures++;
+      console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+    }
   }
 }
 
+let consecutiveHeartbeatFailures = 0;
+
 async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
-  try {
-    await callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    });
-    lastStreamingSentAt = Date.now();
-  } catch {}
+  let attempt = 0;
+  while (attempt <= 1) {
+    try {
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      lastStreamingSentAt = Date.now();
+      if (consecutiveHeartbeatFailures > 0) {
+        console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
+      }
+      consecutiveHeartbeatFailures = 0;
+      return;
+    } catch (e) {
+      attempt++;
+      if (attempt > 1) {
+        consecutiveHeartbeatFailures++;
+        console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+      }
+    }
+  }
 }
 
 try { unlinkSync(READY_FILE); } catch {}
@@ -250,14 +278,20 @@ try { unlinkSync(READY_FILE); } catch {}
 accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
 
 let callbackReady = false;
-await callMutationWithRetry(
-  "streaming:set",
-  {
-    entityId: STREAMING_ENTITY_ID,
-    currentActivity: JSON.stringify(accumulatedSteps),
-  },
-  1,
-)
+async function initialHeartbeat() {
+  let attempt = 0;
+  while (attempt <= 1) {
+    try {
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      return;
+    } catch (e) {
+      attempt++;
+      if (attempt > 1) throw e;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+await initialHeartbeat()
   .then(() => {
     lastStreamingSentAt = Date.now();
     callbackReady = true;
@@ -294,10 +328,7 @@ async function setFinalizingState() {
   });
   lastStepType = "thinking";
   try {
-    await callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    });
+    await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
     lastStreamingSentAt = Date.now();
   } catch {}
 }
@@ -466,10 +497,7 @@ try {
       label: "Retrying without saved session...",
       status: "active",
     });
-    callMutation("streaming:set", {
-      entityId: STREAMING_ENTITY_ID,
-      currentActivity: JSON.stringify(accumulatedSteps),
-    }).catch(() => {});
+    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
 
     const secondAttempt = await runClaudeAttempt(false);
     await flushStreaming();
@@ -516,7 +544,7 @@ try {
   }
   if (videoStorageId || imageStorageId) {
     try {
-      if (ENTITY_TYPE === "taskId") {
+      if (ENTITY_ID_FIELD === "taskId") {
         const storageId = videoStorageId || imageStorageId;
         await callMutationWithRetry("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName }, 3);
       } else {
@@ -526,7 +554,7 @@ try {
         await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
       }
     } catch {}
-  } else if (ENTITY_TYPE === "taskId") {
+  } else if (ENTITY_ID_FIELD === "taskId") {
     try {
       await callMutationWithRetry("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" }, 3);
     } catch {}
@@ -544,16 +572,16 @@ try {
   const activityLog = JSON.stringify(accumulatedSteps);
 
   const completionArgs = {
-    ${entityIdField}: ENTITY_ID,
+    [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
     activityLog,
-    rawResultEvent: finalResultEvent?.rawResultEvent ?? null,
+    ...(finalResultEvent?.rawResultEvent ? { rawResultEvent: finalResultEvent.rawResultEvent } : {}),
   };
   try {
-    await callMutationWithRetry("${completionMutation}", completionArgs);
+    await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
@@ -563,17 +591,15 @@ try {
 } catch (err) {
   await stopStreamingLoops();
   const errorArgs = {
-    ${entityIdField}: ENTITY_ID,
+    [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
     error: err instanceof Error ? err.message : "Failed to run Claude CLI",
     activityLog: "[]",
-    rawResultEvent: null,
   };
   try {
-    await callMutationWithRetry("${completionMutation}", errorArgs);
+    await callMutationWithRetry(COMPLETION_MUTATION, errorArgs);
   } catch {}
 }
 `.trim();
-}

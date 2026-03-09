@@ -97,6 +97,10 @@ export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
   .withDefault("list")
   .withOptions(tabOptions);
 
+export const projectFilterParser = parseAsString
+  .withDefault("none")
+  .withOptions(searchOptions);
+
 export const previewPortParser = parseAsInteger
   .withDefault(3001)
   .withOptions(searchOptions);
@@ -115,4 +119,8 @@ export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
   .withDefault("members")
   .withOptions(tabOptions);
 
-export const logEntityTypeParser = parseAsString.withOptions(searchOptions);
+export const logEntityTypesParser = parseAsArrayOf(parseAsString)
+  .withDefault([])
+  .withOptions(searchOptions);
+
+export const taskIdParser = parseAsString.withOptions(tabOptions);

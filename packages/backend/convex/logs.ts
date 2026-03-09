@@ -28,7 +28,7 @@ export const listByRepo = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
-    entityType: v.optional(v.string()),
+    entityTypes: v.optional(v.array(v.string())),
   },
   returns: v.array(
     v.object({
@@ -56,8 +56,8 @@ export const listByRepo = authQuery({
         return false;
       }
       if (
-        args.entityType !== undefined &&
-        entry.entityType !== args.entityType
+        args.entityTypes !== undefined &&
+        !args.entityTypes.includes(entry.entityType)
       ) {
         return false;
       }

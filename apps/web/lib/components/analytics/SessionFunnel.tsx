@@ -15,7 +15,7 @@ export function SessionFunnel({
 }: SessionFunnelProps) {
   return (
     <Card className="shadow-none border border-border">
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-3 space-y-3 sm:p-4 sm:space-y-4">
         <h3 className="text-sm font-semibold text-foreground">
           Session to PR Funnel
         </h3>

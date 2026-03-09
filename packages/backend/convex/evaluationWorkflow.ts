@@ -4,20 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
-import { evalResultValidator } from "./validators";
+import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 const fixCompleteEvent = defineEvent({
@@ -51,19 +44,28 @@ export const evaluationWorkflow = workflow.define({
         { docId: args.docId },
       );
 
-      await step.runAction(internal.daytona.setupAndExecute, {
+      const { sandboxId } = await step.runAction(
+        internal.daytona.prepareSandbox,
+        {
+          installationId: args.installationId,
+          repoOwner: docData.repoOwner,
+          repoName: docData.repoName,
+          baseBranch: args.branchName,
+          ephemeral: true,
+          repoId: docData.repoId,
+          streamingEntityId: String(args.reportId),
+        },
+      );
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
         entityId: String(args.reportId),
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
         prompt: docData.prompt,
         userId: args.userId,
         completionMutation: "evaluationWorkflow:handleCompletion",
         entityIdField: "reportId",
         model: "sonnet",
         allowedTools: "Read,Glob,Grep",
-        baseBranch: args.branchName,
-        ephemeral: true,
         repoId: docData.repoId,
       });
 
@@ -226,11 +228,7 @@ export const saveResult = internalMutation({
   },
   returns: v.object({ hasFailures: v.boolean() }),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return { hasFailures: false };
@@ -296,11 +294,7 @@ export const saveWorkflowFailure = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;

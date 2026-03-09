@@ -5,17 +5,12 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
+import { IconGitBranch, IconTrash, IconPencil } from "@tabler/icons-react";
 import {
-  IconGitBranch,
-  IconDots,
-  IconTrash,
-  IconPencil,
-} from "@tabler/icons-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
   Button,
   Dialog,
   DialogContent,
@@ -40,6 +35,8 @@ interface ProjectCardProps {
   createdAt: number;
   projectUrl: string;
   accentColor: string;
+  members?: Array<Id<"users">>;
+  projectLead?: Id<"users">;
   onDelete: () => void;
 }
 
@@ -54,6 +51,8 @@ export function ProjectCard({
   createdAt,
   projectUrl,
   accentColor,
+  members,
+  projectLead,
   onDelete,
 }: ProjectCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -62,92 +61,30 @@ export function ProjectCard({
   const [editDescription, setEditDescription] = useState(description ?? "");
   const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
-  const project = useQuery(api.projects.get, { id: projectId });
-  const participantIds = [
+  const memberIds = [
     ...new Set(
-      (project?.conversationHistory ?? [])
-        .filter((m) => m.userId)
-        .map((m) => m.userId),
+      [projectLead, ...(members ?? [])].filter(
+        (id): id is Id<"users"> => id !== undefined,
+      ),
     ),
   ];
   const isOwner = currentUserId === userId;
 
-  const hasDropdownActions =
+  const hasContextActions =
     !!branchName || isOwner || currentUserId === undefined;
   const previewText = description ?? rawInput;
 
   const MAX_AVATARS = 3;
-  const allAvatarIds =
-    participantIds.length > 0 ? participantIds : [userId as string | undefined];
+  const allAvatarIds = memberIds.length > 0 ? memberIds : [userId];
   const shownAvatarIds = allAvatarIds.slice(0, MAX_AVATARS);
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
-  return (
+  const cardContent = (
     <div className="group relative shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
       />
-      {hasDropdownActions && (
-        <div className="absolute right-2 top-2 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="motion-press flex shrink-0 rounded-full border border-transparent bg-background/45 text-muted-foreground  hover:scale-105 hover:border-border/65 hover:bg-background/80 hover:text-foreground active:scale-95"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <IconDots size={14} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {branchName ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    window.open(
-                      `https://github.com/${repoFullName}/tree/${branchName}`,
-                      "_blank",
-                    )
-                  }
-                >
-                  <IconGitBranch size={16} />
-                  View Branch
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                disabled={!isOwner}
-                onClick={() => {
-                  setEditTitle(title);
-                  setEditDescription(description ?? "");
-                  setEditOpen(true);
-                }}
-              >
-                <IconPencil size={16} />
-                Edit Details
-                {!isOwner && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    Owner only
-                  </span>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                disabled={!isOwner}
-                onClick={onDelete}
-              >
-                <IconTrash size={16} />
-                Delete
-                {!isOwner && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    Owner only
-                  </span>
-                )}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
       <div
         role="button"
         tabIndex={0}
@@ -161,7 +98,7 @@ export function ProjectCard({
           }
         }}
       >
-        <div className="pr-8">
+        <div>
           <h3 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
@@ -180,15 +117,9 @@ export function ProjectCard({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="flex min-w-0 items-center">
             <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
-              {shownAvatarIds.map((id) =>
-                id ? (
-                  <UserInitials
-                    key={id}
-                    userId={id as Id<"users">}
-                    hideLastSeen
-                  />
-                ) : null,
-              )}
+              {shownAvatarIds.map((id) => (
+                <UserInitials key={id} userId={id} hideLastSeen />
+              ))}
               {hiddenCount > 0 && (
                 <div className="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-semibold text-muted-foreground">
                   +{hiddenCount}
@@ -255,5 +186,59 @@ export function ProjectCard({
         projectUrl={projectUrl}
       />
     </div>
+  );
+
+  if (!hasContextActions) {
+    return cardContent;
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
+      <ContextMenuContent>
+        {branchName ? (
+          <ContextMenuItem
+            onClick={() =>
+              window.open(
+                `https://github.com/${repoFullName}/tree/${branchName}`,
+                "_blank",
+              )
+            }
+          >
+            <IconGitBranch size={16} />
+            View Branch
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuItem
+          disabled={!isOwner}
+          onClick={() => {
+            setEditTitle(title);
+            setEditDescription(description ?? "");
+            setEditOpen(true);
+          }}
+        >
+          <IconPencil size={16} />
+          Edit Details
+          {!isOwner && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              Owner only
+            </span>
+          )}
+        </ContextMenuItem>
+        <ContextMenuItem
+          className="text-destructive"
+          disabled={!isOwner}
+          onClick={onDelete}
+        >
+          <IconTrash size={16} />
+          Delete
+          {!isOwner && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              Owner only
+            </span>
+          )}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

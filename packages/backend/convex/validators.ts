@@ -1,5 +1,12 @@
 import { v } from "convex/values";
 
+export const workflowCompleteValidator = v.object({
+  success: v.boolean(),
+  result: v.union(v.string(), v.null()),
+  error: v.union(v.string(), v.null()),
+  activityLog: v.union(v.string(), v.null()),
+});
+
 export const taskStatusValidator = v.union(
   v.literal("draft"),
   v.literal("todo"),
@@ -34,6 +41,7 @@ export const sessionModeValidator = v.union(
 
 export const sessionStatusValidator = v.union(
   v.literal("active"),
+  v.literal("starting"),
   v.literal("closed"),
 );
 
@@ -70,6 +78,11 @@ export const evalResultValidator = v.object({
   requirement: v.string(),
   passed: v.boolean(),
   detail: v.string(),
+});
+
+export const auditSectionValidator = v.object({
+  name: v.string(),
+  results: v.array(evalResultValidator),
 });
 
 export const userFlowValidator = v.object({

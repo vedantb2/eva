@@ -10,6 +10,7 @@ import {
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -88,7 +89,7 @@ export const create = authMutation({
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
-      status: "active",
+      status: "closed",
       updatedAt: Date.now(),
     });
   },
@@ -201,7 +202,12 @@ export const startSandbox = authMutation({
     if (!session) throw new Error("Design session not found");
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-    const branchName = session.branchName || `design/${args.id}`;
+    const branchName = session.branchName || `eva/design-${args.id}`;
+    const baseBranch = repo.defaultBaseBranch ?? "main";
+    await ctx.db.patch(args.id, {
+      status: "starting",
+      updatedAt: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
@@ -209,6 +215,7 @@ export const startSandbox = authMutation({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
+      baseBranch,
       repoId: session.repoId,
     });
     return null;
@@ -227,6 +234,14 @@ export const stopSandbox = authMutation({
         repoId: session.repoId,
       });
     }
+    await ctx.db.insert("messages", {
+      parentId: args.id,
+      role: "assistant",
+      content: "Sandbox stopped",
+      timestamp: Date.now(),
+      userId: ctx.userId,
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
       status: "closed",
@@ -248,6 +263,13 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
+    await ctx.db.insert("messages", {
+      parentId: args.designSessionId,
+      role: "assistant",
+      content: args.isNew ? "Sandbox started" : "Sandbox reconnected",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
       branchName: args.branchName,
@@ -271,8 +293,10 @@ export const sandboxError = internalMutation({
     await ctx.db.insert("messages", {
       parentId: args.designSessionId,
       role: "assistant",
-      content: `Failed to start sandbox: ${args.error}`,
+      content: "Failed to start sandbox",
       timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
     });
     await ctx.db.patch(args.designSessionId, {
       status: "closed",
@@ -362,11 +386,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.id)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.id));
 
     await ctx.db.patch(args.id, {
       activeWorkflowId: undefined,

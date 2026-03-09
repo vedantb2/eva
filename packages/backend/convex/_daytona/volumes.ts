@@ -16,15 +16,17 @@ const VOLUME_INVALID_STATES = new Set([
   "pending_delete",
 ]);
 
-function sessionHash(sessionId: Id<"sessions">): string {
+type PersistableSessionId = Id<"sessions"> | Id<"designSessions">;
+
+function sessionHash(sessionId: PersistableSessionId): string {
   return createHash("sha256").update(String(sessionId)).digest("hex");
 }
 
-export function sessionVolumeName(sessionId: Id<"sessions">): string {
+export function sessionVolumeName(sessionId: PersistableSessionId): string {
   return `claude-session-${sessionHash(sessionId).slice(0, 40)}`;
 }
 
-export function sessionClaudeUuid(sessionId: Id<"sessions">): string {
+export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   const hex = sessionHash(sessionId).slice(0, 32).split("");
   hex[12] = "4";
   const variantNibble = (parseInt(hex[16], 16) & 0x3) | 0x8;
@@ -40,7 +42,7 @@ export function sessionClaudeUuid(sessionId: Id<"sessions">): string {
 
 export async function ensureSessionClaudeVolume(
   daytona: Daytona,
-  sessionId: Id<"sessions">,
+  sessionId: PersistableSessionId,
 ): Promise<VolumeMount[]> {
   const volumeName = sessionVolumeName(sessionId);
   const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;

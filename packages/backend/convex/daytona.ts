@@ -4,13 +4,12 @@ export {
   warmSnapshotCache,
   killSandboxProcess,
   deleteSandbox,
-  stopSandbox,
 } from "./_daytona/lifecycle";
 
 export {
   runSandboxCommand,
   getPreviewUrl,
-  setupAndExecute,
+  prepareSandbox,
   launchOnExistingSandbox,
 } from "./_daytona/execution";
 
@@ -20,6 +19,6 @@ export {
   launchChromeInDesktop,
 } from "./_daytona/services";
 
-export { launchAudit, runSessionAudit } from "./_daytona/audit";
+export { launchAudit, launchAuditFix, runSessionAudit } from "./_daytona/audit";
 
 export { startSessionSandbox, startDesignSandbox } from "./_daytona/sessions";

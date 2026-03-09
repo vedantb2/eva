@@ -37,8 +37,18 @@ Convex:
 - Convex types are the single source of truth.
 - If the schema changes, all consumers must update automatically.
 - Never duplicate schema types manually.
-- Run npx convex dev to start dev server/check for errors
+- To typecheck Convex: `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
 - Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
+
+Component Structure:
+
+- Max ~250 lines per client component
+- Route-level `*Client.tsx` = thin orchestrator (queries, top-level state, layout composition)
+- Route-local child components go in `_components/` folder
+- Pure helper functions go in `_utils.ts` at route level
+- Presentational components (no hooks, no `"use client"`) stay as plain function components
+- Only add `"use client"` to child components that use hooks/interactivity
+- Inline sub-components defined in the same file should be extracted to `_components/`
 
 Next.js:
 
@@ -62,16 +72,6 @@ Husky:
 
 - If the codebase uses Nextjs/React, make sure husky is setup with the default prettier configuration to format code before it gets committed.
 
-Internal:
-
-- If an internal folder does not exist in the root, create it
-- Any time you make a big/medium/medium-small change, you should review the changes made in the conversation and add a new entry to internal/changelog.md in root. Basically you should add an entry until you are doing a refactor or like a very minor change.
-  Each changelog entry must include:
-- Title
-- Date (YYYY-MM-DD)
-- Summary of changes, focus on the WHY not the WHAT
-- Reason for change (if architectural)
-
 Verification Rules after implementation:
 
 - Ensure no `any`, `unknown`, or `as` exists.
@@ -86,8 +86,6 @@ Implementation Process:
 - Understand existing architecture before changing anything.
 - Identify the simplest possible solution.
 - Avoid adding new dependencies unless absolutely necessary.
-- Update CLAUDE.md of any new learnings.
-- Update internal/changelog.md for medium/large changes.
 
 Plan Mode
 
@@ -107,6 +105,14 @@ stop adding usestate's useref's for everything, this is the easy way out for eve
 
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
-you can only run npx convex dev, never deploy
+never run npx convex dev or npx convex deploy - use `npx convex codegen --typecheck enable` to typecheck
 
 if you are using the agent-browser skill, you will need to login as a user, you can go to /?agent to auto login as the Eva user. this must be done otherwise you won't have access to the platform
+
+Audit:
+
+- After committing, run `/audit` to check code quality, accessibility, and test coverage
+- If `/audit` makes any code changes (via /simplify), commit them with `audit: <description of changes>`
+- Audit output uses flexible `sections` format: `{ sections: [{ name: string, results: [{ requirement, passed, detail }] }], summary: string }`
+- Sections are dynamic — new audit categories can be added without schema changes
+- Individual audits can be run directly: `/audit-accessibility`, `/audit-code-review`, `/audit-testing`

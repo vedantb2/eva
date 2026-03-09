@@ -137,8 +137,9 @@ export const remove = authMutation({
     if (args.userId === ctx.userId) {
       const allOwners = await ctx.db
         .query("teamMembers")
-        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-        .filter((q) => q.eq(q.field("role"), "owner"))
+        .withIndex("by_team_and_role", (q) =>
+          q.eq("teamId", args.teamId).eq("role", "owner"),
+        )
         .collect();
 
       if (allOwners.length === 1) {

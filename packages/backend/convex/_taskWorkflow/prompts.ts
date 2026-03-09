@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import { buildRootDirectoryInstruction } from "../prompts";
+import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/workspace/repo";
 
@@ -62,8 +63,9 @@ ${subtasksList}${changeRequestSection}
 1. Read CLAUDE.md to understand the codebase
 2. Implement changes by editing source code files
 3. Update CLAUDE.md if you made major changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
-5. Run: git push -u origin ${branchName}
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
+6. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
@@ -84,28 +86,97 @@ Skip entirely if your changes are backend-only with no UI impact. Do NOT mention
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 
 ## Rules:
-- Do NOT create .md plan files or run build/lint/test/dev commands (except dev server for proof)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build step above and dev server for proof)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-export function buildAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+type AuditFailure = {
+  section: string;
+  requirement: string;
+  detail: string;
+};
+
+export function extractAuditFailures(rawResult: string): AuditFailure[] {
+  try {
+    const jsonStr =
+      rawResult.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)?.[1]?.trim() ??
+      rawResult.match(/\{[\s\S]*\}/)?.[0] ??
+      rawResult;
+
+    const raw: unknown = JSON.parse(jsonStr);
+    return extractFailuresFromJson(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function buildAuditFixPrompt(
+  failures: AuditFailure[],
+  branchName: string,
+  rootDirectory: string,
+): string {
+  const failureList = failures
+    .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
+    .join("\n");
+
+  return `You are fixing audit failures found in a post-implementation code audit. Fix ALL of the following issues to get all audit scores to 100%.
+
+## Failed Audit Items:
+${failureList}
+
+## Instructions:
+1. Read the CLAUDE.md file to understand the codebase
+2. Read the relevant files to understand context around each failure
+3. Fix each issue listed above with minimal, focused changes
+4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
+6. Run: git push origin ${branchName}
+
+## Rules:
+- Only fix the specific issues listed above — do NOT refactor or change unrelated code
+- Keep changes minimal and focused
+- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
+type AuditCategory = {
+  name: string;
+  description: string;
+};
+
+export function buildAuditPrompt(
+  diff: string,
+  categories: AuditCategory[],
+): string {
+  const sections = categories;
+
+  const sectionDescriptions = sections
+    .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)
+    .join("\n");
+
+  const sectionJson = sections
+    .map(
+      (s) =>
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+    )
+    .join(",\n");
+
+  return `You are a code auditor. Analyze this git diff and produce a JSON audit.
 
 For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
 
 ## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+${sectionDescriptions}
 
 Return ONLY valid JSON in this exact format:
 {
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "sections": [
+${sectionJson}
+  ],
   "summary": "1-2 sentence overall assessment"
 }
 

@@ -4,19 +4,13 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { LlmJson } from "@solvers-hub/llm-json";
+import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-
-const llmJson = new LlmJson({ attemptCorrection: true });
+import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 
 const summarizeCompleteEvent = defineEvent({
   name: "summarizeComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
+  validator: workflowCompleteValidator,
 });
 
 // --- Workflow definition ---
@@ -33,12 +27,22 @@ export const summarizeSessionWorkflow = workflow.define({
       { sessionId: args.sessionId },
     );
 
-    await step.runAction(internal.daytona.setupAndExecute, {
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: sessionData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: sessionData.repoOwner,
+        repoName: sessionData.repoName,
+        repoId: sessionData.repoId,
+        sessionPersistenceId: args.sessionId,
+        streamingEntityId: `summary:${args.sessionId}`,
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
       entityId: `summary:${args.sessionId}`,
-      existingSandboxId: sessionData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: sessionData.repoOwner,
-      repoName: sessionData.repoName,
       prompt: sessionData.prompt,
       userId: args.userId,
       completionMutation: "summarizeWorkflow:handleCompletion",
@@ -114,13 +118,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) =>
-        q.eq("entityId", `summary:${args.sessionId}`),
-      )
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, `summary:${args.sessionId}`);
 
     let summary: string[] = ["No summary available"];
 

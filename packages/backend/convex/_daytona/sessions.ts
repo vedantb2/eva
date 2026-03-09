@@ -17,9 +17,26 @@ import {
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
+import type { Daytona, Sandbox } from "@daytonaio/sdk";
+
+async function tryReuseSandbox(
+  daytona: Daytona,
+  existingSandboxId: string | undefined,
+  prepareFn: (sandbox: Sandbox) => Promise<void>,
+): Promise<Sandbox | null> {
+  if (!existingSandboxId) return null;
+  try {
+    const sandbox = await daytona.get(existingSandboxId);
+    await prepareFn(sandbox);
+    return sandbox;
+  } catch {
+    return null;
+  }
+}
 
 export const startSessionSandbox = internalAction({
   args: {
@@ -29,6 +46,7 @@ export const startSessionSandbox = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    baseBranch: v.string(),
     repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.null(),
@@ -46,9 +64,10 @@ export const startSessionSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      if (args.existingSandboxId) {
-        try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+      const reused = await tryReuseSandbox(
+        daytona,
+        args.existingSandboxId,
+        async (sandbox) => {
           await ensureSandboxRunning(sandbox);
           await syncRepo(
             sandbox,
@@ -56,24 +75,26 @@ export const startSessionSandbox = internalAction({
             args.repoOwner,
             args.repoName,
           );
-          await checkoutSessionBranch(sandbox, args.branchName);
+          await checkoutSessionBranch(
+            sandbox,
+            args.branchName,
+            args.baseBranch,
+          );
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
           );
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
-            sandboxId: args.existingSandboxId,
+            sandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: false,
             devPort,
             devCommand,
           });
-          return null;
-        } catch {
-          // Sandbox dead or unresponsive, create new
-        }
-      }
+        },
+      );
+      if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
         daytona,
@@ -81,6 +102,7 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
         await ensureSessionClaudeVolume(daytona, args.sessionId),
       );
@@ -90,14 +112,10 @@ export const startSessionSandbox = internalAction({
         args.installationId,
         args.repoOwner,
         args.repoName,
-        args.branchName,
-        { prune: false, timeoutSeconds: 30 },
+        undefined,
+        { prune: false, timeoutSeconds: 60 },
       );
-      await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && (git checkout ${quote([args.branchName])} 2>/dev/null || git checkout -b ${quote([args.branchName])} ${quote([`origin/${args.branchName}`])} 2>/dev/null || git checkout -b ${quote([args.branchName])}) && (git pull --ff-only origin ${quote([args.branchName])} 2>/dev/null || true)`,
-        30,
-      );
+      await checkoutSessionBranch(sandbox, args.branchName, args.baseBranch);
       const { port: devPort, devCommand } = await startSessionServices(
         sandbox,
         rootDir,
@@ -130,6 +148,7 @@ export const startDesignSandbox = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    baseBranch: v.string(),
     repoId: v.optional(v.id("githubRepos")),
   },
   returns: v.null(),
@@ -147,9 +166,15 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      if (args.existingSandboxId) {
-        try {
-          const sandbox = await daytona.get(args.existingSandboxId);
+      const designVolumeMounts = await ensureSessionClaudeVolume(
+        daytona,
+        args.designSessionId,
+      );
+
+      const reused = await tryReuseSandbox(
+        daytona,
+        args.existingSandboxId,
+        async (sandbox) => {
           await exec(sandbox, "echo 1", 5);
           await syncRepo(
             sandbox,
@@ -157,7 +182,7 @@ export const startDesignSandbox = internalAction({
             args.repoOwner,
             args.repoName,
           );
-          await setupBranch(sandbox, args.branchName);
+          await setupBranch(sandbox, args.branchName, args.baseBranch);
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
@@ -165,16 +190,14 @@ export const startDesignSandbox = internalAction({
           await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
-            sandboxId: args.existingSandboxId,
+            sandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: false,
             devPort,
           });
-          return null;
-        } catch {
-          // Sandbox dead or unresponsive, create new
-        }
-      }
+        },
+      );
+      if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
         daytona,
@@ -182,10 +205,12 @@ export const startDesignSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         sandboxEnvVars,
+        SESSION_LIFECYCLE,
         snapshotName,
+        designVolumeMounts,
       );
       const sandbox = prepared.sandbox;
-      await setupBranch(sandbox, args.branchName);
+      await setupBranch(sandbox, args.branchName, args.baseBranch);
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 120);
       }

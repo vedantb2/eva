@@ -11,7 +11,7 @@ const isPublicRoute = createRouteMatcher([
 
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "design",
+  "designs",
   "docs",
   "sessions",
   "quick-tasks",

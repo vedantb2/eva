@@ -16,12 +16,12 @@ export const create = authMutation({
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
-      status: "active",
+      status: "closed",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
     });
     await ctx.db.patch(sessionId, {
-      branchName: `session/${sessionId}`,
+      branchName: `eva/session-${sessionId}`,
     });
     return sessionId;
   },

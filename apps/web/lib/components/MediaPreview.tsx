@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@conductor/ui";
 
-const VIDEO_SPEEDS = [1, 2, 3, 5] as const;
+const VIDEO_SPEEDS = [1, 3, 5, 8] as const;
 
 export function VideoPreview({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);

@@ -4,6 +4,7 @@ import { IconArchive } from "@tabler/icons-react";
 
 interface ChatPageWrapperProps {
   title: string;
+  headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   isArchived?: boolean;
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ChatPageWrapperProps {
 
 export function ChatPageWrapper({
   title,
+  headerLeft,
   headerRight,
   isArchived,
   children,
@@ -18,17 +20,25 @@ export function ChatPageWrapper({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {isArchived ? (
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-border bg-muted/50 animate-in fade-in duration-300">
+        <div className="flex items-center gap-2 px-3 py-3 border-b border-border bg-muted/50 animate-in fade-in duration-300 sm:px-4 sm:py-5">
           <IconArchive size={16} className="text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
             This session is archived and read-only
           </span>
         </div>
       ) : (
-        <div className="flex items-center justify-between p-3 animate-in fade-in duration-300">
-          <h2 className="text-sm font-medium truncate">{/* {title} */}</h2>
+        <div className="flex items-center justify-between gap-1 p-2 animate-in fade-in duration-300 sm:gap-2 sm:p-3">
+          {headerLeft ? (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {headerLeft}
+            </div>
+          ) : (
+            <div />
+          )}
           {headerRight && (
-            <div className="flex items-center gap-2">{headerRight}</div>
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+              {headerRight}
+            </div>
           )}
         </div>
       )}

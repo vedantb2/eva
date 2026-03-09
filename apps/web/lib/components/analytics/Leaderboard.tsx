@@ -25,8 +25,8 @@ export function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
       <Card className="border border-border shadow-none animate-in fade-in duration-300">
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4">
+        <CardContent className="p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
             Top Contributors
           </h3>
           <div className="py-8 text-center text-muted-foreground">
@@ -39,15 +39,15 @@ export function Leaderboard({ entries }: LeaderboardProps) {
 
   return (
     <Card className="border border-border shadow-none animate-in fade-in duration-300">
-      <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+      <CardContent className="p-3 sm:p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
           Top Contributors
         </h3>
         <div className="space-y-3">
           {entries.map((entry, index) => (
             <div
               key={entry.clerkId}
-              className="motion-base flex items-center gap-3 rounded-lg p-2 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted"
+              className="motion-base flex items-center gap-2 rounded-lg p-1.5 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted sm:gap-3 sm:p-2"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
                 {index === 0 ? (
@@ -56,15 +56,18 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   index + 1
                 )}
               </div>
-              <div className="p-2 rounded-full bg-secondary">
-                <IconUser size={16} className="text-muted-foreground" />
+              <div className="p-1.5 rounded-full bg-secondary sm:p-2">
+                <IconUser
+                  size={14}
+                  className="text-muted-foreground sm:w-4 sm:h-4"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {entry.fullName || "Unknown User"}
                 </p>
               </div>
-              <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-2 text-xs sm:gap-4">
                 <div className="text-right">
                   <p className="font-semibold text-foreground">
                     {entry.prsCreated}

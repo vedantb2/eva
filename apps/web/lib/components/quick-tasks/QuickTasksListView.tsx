@@ -12,17 +12,9 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   Spinner,
 } from "@conductor/ui";
-import {
-  IconChevronRight,
-  IconFilter,
-  IconPlayerPlay,
-} from "@tabler/icons-react";
+import { IconChevronRight, IconPlayerPlay } from "@tabler/icons-react";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -35,7 +27,8 @@ import { FixAllDialog } from "./FixAllDialog";
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
 interface QuickTasksListViewProps {
-  repoId: Id<"githubRepos">;
+  tasks: Task[];
+  projectNames: Map<string, string>;
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
@@ -44,14 +37,14 @@ interface QuickTasksListViewProps {
 }
 
 export function QuickTasksListView({
-  repoId,
+  tasks: externalTasks,
+  projectNames,
   isSelecting,
   selectedIds,
   onToggleSelect,
   onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
-  const allTasks = useQuery(api.agentTasks.getAllTasks, { repoId });
   const currentUserId = useQuery(api.auth.me);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
@@ -69,11 +62,8 @@ export function QuickTasksListView({
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const tasks = useMemo(
-    () =>
-      (allTasks?.filter((t) => !t.projectId) ?? []).sort(
-        (a, b) => b.updatedAt - a.updatedAt,
-      ),
-    [allTasks],
+    () => [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt),
+    [externalTasks],
   );
 
   const filteredTasks = useMemo(() => {
@@ -151,50 +141,10 @@ export function QuickTasksListView({
     }
   };
 
-  if (allTasks === undefined) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="flex flex-1 min-h-0 flex-col gap-3">
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <IconFilter size={16} />
-                {visibleStatuses.size === TASK_STATUSES.length
-                  ? "All Statuses"
-                  : `${visibleStatuses.size} Statuses`}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {TASK_STATUSES.map((s) => {
-                const cfg = statusConfig[s];
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={s}
-                    checked={visibleStatuses.has(s)}
-                    onCheckedChange={() => handleStatusToggle(s)}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                    <span className={cfg.text}>{cfg.label}</span>
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1">
+      <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1 pb-2">
           {TASK_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => {
               const cfg = statusConfig[status];
@@ -207,7 +157,7 @@ export function QuickTasksListView({
                   open={openSections.has(status)}
                   onOpenChange={() => toggleSection(status)}
                 >
-                  <div className="flex items-center sticky top-0 z-10 bg-background pb-2">
+                  <div className="flex items-center sticky top-0 z-10 bg-background pb-1.5 pt-0.5">
                     <CollapsibleTrigger asChild>
                       <button className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50">
                         <IconChevronRight
@@ -259,6 +209,11 @@ export function QuickTasksListView({
                             tags={task.tags}
                             createdBy={task.createdBy}
                             createdAt={task.createdAt}
+                            projectName={
+                              task.projectId
+                                ? projectNames.get(task.projectId)
+                                : undefined
+                            }
                             onClick={() => {
                               if (isSelecting) {
                                 onToggleSelect(task._id);

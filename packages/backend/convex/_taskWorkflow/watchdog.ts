@@ -180,8 +180,8 @@ export const handleStaleRun = internalMutation({
     }
 
     const audits = await ctx.db
-      .query("taskAudits")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
     for (const audit of audits) {
       if (audit.status === "running") {

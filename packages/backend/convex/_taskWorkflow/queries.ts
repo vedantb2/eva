@@ -20,10 +20,9 @@ export const getTaskData = internalQuery({
     hasSubtasks: v.boolean(),
     appLabel: v.optional(v.string()),
     rootDirectory: v.string(),
-    postAuditEnabled: v.boolean(),
-    accessibilityAuditEnabled: v.boolean(),
-    codeTestingAuditEnabled: v.boolean(),
-    codeReviewAuditEnabled: v.boolean(),
+    auditCategories: v.array(
+      v.object({ name: v.string(), description: v.string() }),
+    ),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -71,6 +70,14 @@ export const getTaskData = internalQuery({
       ? repo.rootDirectory.split("/").pop() || undefined
       : undefined;
 
+    const categories = await ctx.db
+      .query("auditCategories")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    const enabledCategories = categories
+      .filter((c) => c.enabled)
+      .map((c) => ({ name: c.name, description: c.description }));
+
     return {
       prompt,
       repoOwner: repo.owner,
@@ -82,10 +89,7 @@ export const getTaskData = internalQuery({
       hasSubtasks: sortedSubtasks.length > 0,
       appLabel,
       rootDirectory,
-      postAuditEnabled: repo.postAuditEnabled !== false,
-      accessibilityAuditEnabled: repo.accessibilityAuditEnabled !== false,
-      codeTestingAuditEnabled: repo.codeTestingAuditEnabled !== false,
-      codeReviewAuditEnabled: repo.codeReviewAuditEnabled !== false,
+      auditCategories: enabledCategories,
     };
   },
 });

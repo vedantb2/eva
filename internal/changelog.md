@@ -1,5 +1,21 @@
 # Changelog
 
+## Dynamic audit categories — 2026-03-09
+
+Replaced hardcoded audit toggle fields (`accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled`, `postAuditEnabled`) on `githubRepos` with a dedicated `auditCategories` table. Categories are per-repo, user-manageable, and the prompt builder reads enabled categories dynamically.
+
+- New `auditCategories` table: `repoId`, `name`, `description`, `enabled`, `isSystem`, `createdAt`
+- CRUD mutations: `listByRepo`, `listEnabledByRepo`, `seedDefaults`, `create`, `update`, `toggleEnabled`, `remove`
+- System defaults (Accessibility, Testing, Code Review) are seeded via "Get defaults" button, marked `isSystem: true`, non-deletable
+- Users can add custom audit categories with name + description (sent as AI instructions)
+- `buildAuditPrompt` and `buildSessionAuditPrompt` now accept `categories[]` instead of `AuditFlags`
+- `getTaskData` returns `auditCategories` instead of 4 boolean flags
+- Session audit (`_daytona/audit.ts`) queries enabled categories before running
+- New `/settings/audits` page with category list, enable/disable toggles, and add form
+- Added "Audits" nav item to `SettingsSidebar`
+- Removed old fields from schema, helpers, mutations, and ConfigClient
+- Migration: `removeOldAuditFieldsFromRepos` strips old fields via `ctx.db.replace()`
+
 ## Unified audits table + flexible sections — 2026-03-09
 
 Merged `taskAudits` and `sessionAudits` into a single `audits` table with `entityId: v.union(v.id("agentTasks"), v.id("sessions"))`. Reduces table sprawl — audit data is identical regardless of context, only the foreign key differs.

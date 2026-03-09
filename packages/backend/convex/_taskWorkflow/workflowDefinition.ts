@@ -12,7 +12,6 @@ import {
   buildAuditFixPrompt,
   extractAuditFailures,
   WORKSPACE_DIR,
-  AuditFlags,
 } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
@@ -149,15 +148,9 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runCompletionRecorded = true;
 
-      const auditFlags: AuditFlags = {
-        accessibility: data.accessibilityAuditEnabled,
-        testing: data.codeTestingAuditEnabled,
-        codeReview: data.codeReviewAuditEnabled,
-      };
-      const anyAuditEnabled =
-        auditFlags.accessibility || auditFlags.testing || auditFlags.codeReview;
+      const auditCategories = data.auditCategories;
 
-      if (result.success && sandboxId && anyAuditEnabled) {
+      if (result.success && sandboxId && auditCategories.length > 0) {
         try {
           const diffRaw = await step.runAction(
             internal.daytona.runSandboxCommand,
@@ -180,7 +173,7 @@ export const taskExecutionWorkflow = workflow.define({
 
             await step.runAction(internal.daytona.launchAudit, {
               sandboxId,
-              prompt: buildAuditPrompt(diffRaw, auditFlags),
+              prompt: buildAuditPrompt(diffRaw, auditCategories),
               taskId: String(args.taskId),
               runId: args.runId,
               userId: args.userId,

@@ -165,10 +165,6 @@ const schema = defineSchema({
     rootDirectory: v.optional(v.string()),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(claudeModelValidator),
-    postAuditEnabled: v.optional(v.boolean()),
-    accessibilityAuditEnabled: v.optional(v.boolean()),
-    codeTestingAuditEnabled: v.optional(v.boolean()),
-    codeReviewAuditEnabled: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     hidden: v.optional(v.boolean()),
@@ -356,6 +352,14 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"]),
+  auditCategories: defineTable({
+    repoId: v.id("githubRepos"),
+    name: v.string(),
+    description: v.string(),
+    enabled: v.boolean(),
+    isSystem: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_repo", ["repoId"]),
   audits: defineTable({
     entityId: v.union(v.id("agentTasks"), v.id("sessions")),
     runId: v.optional(v.id("agentRuns")),

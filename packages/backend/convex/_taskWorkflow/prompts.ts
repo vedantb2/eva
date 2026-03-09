@@ -143,45 +143,16 @@ ${failureList}
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-export type AuditFlags = {
-  accessibility: boolean;
-  testing: boolean;
-  codeReview: boolean;
-};
-
-type AuditSectionDefinition = {
+type AuditCategory = {
   name: string;
   description: string;
 };
 
-function getEnabledSections(flags: AuditFlags): AuditSectionDefinition[] {
-  const sections: AuditSectionDefinition[] = [];
-  if (flags.accessibility) {
-    sections.push({
-      name: "Accessibility",
-      description:
-        'WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.',
-    });
-  }
-  if (flags.testing) {
-    sections.push({
-      name: "Testing",
-      description:
-        'Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.',
-    });
-  }
-  if (flags.codeReview) {
-    sections.push({
-      name: "Code Review",
-      description:
-        "Implementation quality — correctness, bugs, security, error handling, naming, code style.",
-    });
-  }
-  return sections;
-}
-
-export function buildAuditPrompt(diff: string, flags: AuditFlags): string {
-  const sections = getEnabledSections(flags);
+export function buildAuditPrompt(
+  diff: string,
+  categories: AuditCategory[],
+): string {
+  const sections = categories;
 
   const sectionDescriptions = sections
     .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)

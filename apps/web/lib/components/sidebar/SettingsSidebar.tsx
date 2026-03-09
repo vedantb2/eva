@@ -8,6 +8,7 @@ import {
   IconPalette,
   IconSettings2,
   IconReceipt2,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -26,6 +27,7 @@ export function SettingsSidebar({
 
   const navigation = [
     { name: "Config", href: `${baseUrl}/config`, icon: IconSettings2 },
+    { name: "Audits", href: `${baseUrl}/audits`, icon: IconShieldCheck },
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },

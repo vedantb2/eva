@@ -142,21 +142,28 @@ export function useTaskDetail(taskId: Id<"agentTasks">, onClose: () => void) {
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
+  useEffect(() => {
+    setExecutionError(null);
+  }, [activeTab]);
+
   const handleAddComment = async (requestChanges = false) => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
-    setRequestingChanges(false);
-    await createComment({ taskId, content: text });
+    try {
+      await createComment({ taskId, content: text });
 
-    if (requestChanges) {
-      try {
-        await startExecution({ id: taskId });
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to start execution";
-        setExecutionError(message);
+      if (requestChanges) {
+        try {
+          await startExecution({ id: taskId });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Failed to start execution";
+          setExecutionError(message);
+        }
       }
+    } finally {
+      setRequestingChanges(false);
     }
   };
 

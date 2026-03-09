@@ -80,6 +80,7 @@ export async function cleanUpStaleRun(
     errorMessage: string;
     exitReason: string;
     activeWorkflowId?: string;
+    taskStatus: string;
   },
 ): Promise<void> {
   if (params.activeWorkflowId) {
@@ -108,18 +109,11 @@ export async function cleanUpStaleRun(
     exitReason: params.exitReason,
   });
 
-  const task = await ctx.db.get(params.taskId);
-  const taskPatch: {
-    activeWorkflowId?: undefined;
-    updatedAt: number;
-    status?: "todo";
-  } = {
-    activeWorkflowId: undefined,
+  const taskPatch = {
+    activeWorkflowId: undefined as undefined,
     updatedAt: Date.now(),
+    ...(params.taskStatus === "in_progress" ? { status: "todo" as const } : {}),
   };
-  if (task && task.status === "in_progress") {
-    taskPatch.status = "todo";
-  }
   await ctx.db.patch(params.taskId, taskPatch);
 
   if (!params.isProjectTask) {

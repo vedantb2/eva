@@ -151,16 +151,19 @@ export const ActivitySteps = memo(
     if (steps.length === 0) return null;
 
     const stepsText = `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;
-    const elapsedText =
-      isStreaming && startedAt ? ` · ${formatElapsed(elapsed)}` : "";
-    const durationText = !isStreaming && duration ? ` · ${duration}` : "";
+    const timeText =
+      isStreaming && startedAt
+        ? formatElapsed(elapsed)
+        : !isStreaming && duration
+          ? duration
+          : null;
     const headerLabel = isStreaming
       ? name
-        ? `${name} is working... (${stepsText}${elapsedText})`
-        : `Working... (${stepsText}${elapsedText})`
+        ? `${name} is working... (${stepsText})`
+        : `Working... (${stepsText})`
       : name
-        ? `${name} completed ${stepsText}${durationText}`
-        : `${stepsText} completed${durationText}`;
+        ? `${name} completed ${stepsText}`
+        : `${stepsText} completed`;
 
     return (
       <ChainOfThought
@@ -169,7 +172,16 @@ export const ActivitySteps = memo(
         className={cn("text-sm", className)}
         {...props}
       >
-        <ChainOfThoughtHeader icon={icon}>{headerLabel}</ChainOfThoughtHeader>
+        <ChainOfThoughtHeader icon={icon}>
+          <span className="flex items-center justify-between w-full">
+            <span>{headerLabel}</span>
+            {timeText && (
+              <span className="text-xs text-muted-foreground mr-1">
+                {timeText}
+              </span>
+            )}
+          </span>
+        </ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
           <div
             ref={scrollContainerRef}

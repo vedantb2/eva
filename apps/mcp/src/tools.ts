@@ -349,19 +349,31 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       if (model) mutationArgs.model = model;
       if (baseBranch) mutationArgs.baseBranch = baseBranch;
 
-      const taskId = await runMutation(
+      const taskIdResult = await runMutation(
         convexUrl,
         deployKey,
         "_agentTasks/mutations:createQuickTask",
         mutationArgs,
       );
 
+      if (typeof taskIdResult !== "string") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Unexpected response from createQuickTask: expected a task ID string.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
       await runMutation(
         convexUrl,
         deployKey,
         "_agentTasks/execution:startExecution",
         {
-          id: taskId as string,
+          id: taskIdResult,
         },
       );
 
@@ -371,7 +383,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
             type: "text" as const,
             text: JSON.stringify(
               {
-                taskId,
+                taskId: taskIdResult,
                 repo: `${repo.owner}/${repo.name}`,
                 title,
                 status: "execution_started",

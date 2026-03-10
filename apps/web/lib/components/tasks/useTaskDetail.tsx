@@ -64,7 +64,6 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
-  IconHammer,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -503,11 +502,7 @@ export function useTaskDetail(
               >
                 <AccordionTrigger>
                   <div className="flex items-center gap-2">
-                    <IconLoader2
-                      size={16}
-                      className="animate-spin text-warning"
-                    />
-                    <span className="text-sm">Auditing</span>
+                    <Badge variant="warning">Auditing</Badge>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
@@ -536,11 +531,7 @@ export function useTaskDetail(
               >
                 <AccordionTrigger>
                   <div className="flex items-center gap-2">
-                    <IconHammer
-                      size={16}
-                      className="text-warning animate-pulse"
-                    />
-                    <span className="text-sm">Fixing audit failures</span>
+                    <Badge variant="warning">Fixing audit issues</Badge>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
@@ -577,24 +568,25 @@ export function useTaskDetail(
                   <AccordionTrigger>
                     <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        {run.status === "running" ? (
-                          <IconLoader2
-                            size={16}
-                            className="animate-spin text-warning"
-                          />
-                        ) : run.status === "error" ? (
-                          <IconAlertTriangle
-                            size={16}
-                            className="text-destructive"
-                          />
-                        ) : run.status === "success" ? (
-                          <IconCheck size={16} className="text-success" />
-                        ) : (
-                          <IconCircleDot
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                        )}
+                        <Badge
+                          variant={
+                            run.status === "running"
+                              ? "warning"
+                              : run.status === "error"
+                                ? "destructive"
+                                : run.status === "success"
+                                  ? "success"
+                                  : "secondary"
+                          }
+                        >
+                          {run.status === "running"
+                            ? "Making changes"
+                            : run.status === "success"
+                              ? "Made changes"
+                              : run.status === "error"
+                                ? "Error"
+                                : "Queued"}
+                        </Badge>
                         {runCommentMap.has(run._id) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -875,16 +867,14 @@ export function useTaskDetail(
               ))}
           </Accordion>
           {auditData.fixStatus === "fix_completed" && (
-            <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-success/10 border border-success/20">
-              <IconHammer size={14} className="text-success" />
-              <span className="text-xs text-success">Audit fixes applied</span>
-            </div>
+            <Badge variant="success" className="mt-3">
+              Fixed audit issues
+            </Badge>
           )}
           {auditData.fixStatus === "fix_error" && (
-            <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
-              <IconHammer size={14} className="text-destructive" />
-              <span className="text-xs text-destructive">Audit fix failed</span>
-            </div>
+            <Badge variant="destructive" className="mt-3">
+              Fix failed
+            </Badge>
           )}
         </>
       )}

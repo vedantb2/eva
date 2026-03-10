@@ -108,6 +108,14 @@ export function QuickTasksClient() {
     setIsCreating(true);
   });
 
+  if (tasks === undefined) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     <>
       <PageWrapper
@@ -133,18 +141,7 @@ export function QuickTasksClient() {
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3">
           <AnimatePresence mode="wait">
-            {tasks === undefined ? (
-              <motion.div
-                key="quick-tasks-loading"
-                className="flex flex-1 items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Spinner />
-              </motion.div>
-            ) : !hasQuickTasks ? (
+            {!hasQuickTasks ? (
               <motion.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}

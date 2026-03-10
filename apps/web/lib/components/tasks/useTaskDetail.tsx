@@ -64,6 +64,7 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
+  IconHammer,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -254,6 +255,19 @@ export function useTaskDetail(
       await startExecution({ id: taskId });
     } catch (err) {
       console.error("Failed to start execution:", err);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleResolveConflicts = async () => {
+    setIsStarting(true);
+    try {
+      await startExecution({ id: taskId, mode: "resolve_conflicts" });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to start execution";
+      setExecutionError(message);
     } finally {
       setIsStarting(false);
     }
@@ -1294,6 +1308,20 @@ export function useTaskDetail(
         >
           <IconMessagePlus size={18} />
           <span className="hidden sm:inline">Request Changes</span>
+        </Button>
+      )}
+      {!hasActiveRun && status === "code_review" && (
+        <Button
+          variant="secondary"
+          onClick={handleResolveConflicts}
+          disabled={isStarting}
+        >
+          {isStarting ? (
+            <IconLoader2 size={18} className="animate-spin" />
+          ) : (
+            <IconHammer size={18} />
+          )}
+          <span className="hidden sm:inline">Resolve Conflicts</span>
         </Button>
       )}
       {!hasActiveRun && status === "todo" && (

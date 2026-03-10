@@ -13,6 +13,36 @@ const designCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
+const VARIATION_STRATEGIES = [
+  "A: Clean/conventional — clarity, familiar patterns, straightforward navigation",
+  "B: Creative/bold — unconventional layout, striking hierarchy, unique interactions",
+  "C: Compact/efficient — high density, minimal chrome, space-efficient",
+  "D: Immersive/visual — full-screen imagery, rich motion, cinematic feel",
+  "E: Accessible/minimal — maximum legibility, highest contrast, simplified interactions",
+];
+
+function buildRouterScaffold(labels: string[]): string {
+  const entries = labels
+    .map((l) => `  ${l}: lazy(() => import('./variations/variation-${l}')),`)
+    .join("\n");
+  return `\`\`\`tsx
+'use client';
+import { lazy, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const variations: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+${entries}
+};
+
+export default function DesignPreview() {
+  const params = useSearchParams();
+  const v = params.get('v') || '${labels[0]}';
+  const Component = variations[v] || variations.${labels[0]};
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
+}
+\`\`\``;
+}
+
 function buildDesignPrompt(
   repo: { owner: string; name: string },
   message: string,
@@ -20,7 +50,13 @@ function buildDesignPrompt(
   selectedBase: { label: string; filePath: string } | null,
   persona: { name: string; prompt: string } | null,
   rootDirectory: string,
+  numDesigns: number,
 ): string {
+  const labels = Array.from({ length: numDesigns }, (_, i) =>
+    String.fromCharCode(97 + i),
+  );
+  const labelsBracketed = `{${labels.join(",")}}`;
+
   const history = conversationHistory
     .filter((m) => m.content)
     .slice(-6)
@@ -32,7 +68,7 @@ function buildDesignPrompt(
 The user selected "${selectedBase.label}" as the base.
 Read the file at: ${selectedBase.filePath}
 IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
-Only change what the user explicitly requests. Create 3 refined variations of THIS design.`
+Only change what the user explicitly requests. Create ${numDesigns} refined variations of THIS design.`
     : "";
 
   const personaContext = persona
@@ -43,10 +79,14 @@ ${persona.prompt}
 Design with this persona in mind — consider their goals, context, and preferences.`
     : "";
 
+  const strategies = VARIATION_STRATEGIES.slice(0, numDesigns)
+    .map((s) => `- ${s}`)
+    .join("\n");
+
   return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
 
 ## Your Task
-Read the codebase to understand the existing design system, then write 3 React component variation files based on the user's request.
+Read the codebase to understand the existing design system, then write ${numDesigns} React component variation files based on the user's request.
 
 ## Steps
 1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
@@ -56,34 +96,15 @@ Read the codebase to understand the existing design system, then write 3 React c
    - Read existing components to understand the styling approach, token naming, and visual patterns
    - Identify the CSS/styling framework in use and its semantic tokens
 3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
-4. Write 3 variation files to app/design-preview/variations/variation-{a,b,c}.tsx using ONLY the project's own design tokens
+4. Write ${numDesigns} variation files to app/design-preview/variations/variation-${labelsBracketed}.tsx using ONLY the project's own design tokens
 5. Commit: "design: ${message.slice(0, 60)}" and push
 6. Output ONLY the JSON
 
 ## Router Scaffold (create if missing)
-\`\`\`tsx
-'use client';
-import { lazy, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-
-const variations: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-  a: lazy(() => import('./variations/variation-a')),
-  b: lazy(() => import('./variations/variation-b')),
-  c: lazy(() => import('./variations/variation-c')),
-};
-
-export default function DesignPreview() {
-  const params = useSearchParams();
-  const v = params.get('v') || 'a';
-  const Component = variations[v] || variations.a;
-  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
-}
-\`\`\`
+${buildRouterScaffold(labels)}
 
 ## Variation Strategies
-- A: Clean/conventional — clarity, familiar patterns, straightforward navigation
-- B: Creative/bold — unconventional layout, striking hierarchy, unique interactions
-- C: Compact/efficient — high density, minimal chrome, space-efficient
+${strategies}
 
 ## Design System
 Use ONLY the project's own design tokens and theme system discovered in Step 2. NEVER use hardcoded colors, raw hex values, or default framework utility colors. Match the existing codebase's styling conventions exactly.
@@ -119,6 +140,7 @@ export const designSessionWorkflow = workflow.define({
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
     userId: v.id("users"),
+    numDesigns: v.optional(v.number()),
   },
   handler: async (step, args): Promise<void> => {
     const sessionData = await step.runQuery(
@@ -127,6 +149,7 @@ export const designSessionWorkflow = workflow.define({
         designSessionId: args.designSessionId,
         message: args.message,
         personaId: args.personaId,
+        numDesigns: args.numDesigns ?? 3,
       },
     );
 
@@ -177,6 +200,7 @@ export const getSessionDataAndPrompt = internalQuery({
     designSessionId: v.id("designSessions"),
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -236,6 +260,7 @@ export const getSessionDataAndPrompt = internalQuery({
       selectedBase,
       persona,
       rootDirectory,
+      args.numDesigns ?? 3,
     );
 
     return {
@@ -281,7 +306,7 @@ export const saveResult = internalMutation({
           }>;
         } = JSON.parse(jsonStr);
         await ctx.db.patch(last._id, {
-          content: parsed.summary || "Here are 3 design variations:",
+          content: parsed.summary || "Here are the design variations:",
           activityLog: args.activityLog || undefined,
           variations: parsed.variations?.map((variation) => ({
             label: variation.label,

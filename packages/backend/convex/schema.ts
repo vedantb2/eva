@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  activityLogTypeValidator,
   roleValidator,
   sessionStatusValidator,
   evaluationStatusValidator,
@@ -79,8 +80,11 @@ const schema = defineSchema({
   agentRunActivityLogs: defineTable({
     runId: v.id("agentRuns"),
     activityLog: v.string(),
+    type: v.optional(activityLogTypeValidator),
     updatedAt: v.number(),
-  }).index("by_run", ["runId"]),
+  })
+    .index("by_run", ["runId"])
+    .index("by_run_and_type", ["runId", "type"]),
 
   githubRepos: defineTable(githubRepoFields)
     .index("by_github_id", ["githubId"])

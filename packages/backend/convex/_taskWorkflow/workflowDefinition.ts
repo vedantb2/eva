@@ -184,6 +184,7 @@ export const taskExecutionWorkflow = workflow.define({
             error: auditResult.success
               ? undefined
               : (auditResult.error ?? "Audit failed"),
+            activityLog: auditResult.activityLog,
           });
 
           let finalAuditResult = auditResult;
@@ -212,11 +213,12 @@ export const taskExecutionWorkflow = workflow.define({
                   repoId: args.repoId,
                 });
 
-                await step.awaitEvent(auditFixCompleteEvent);
+                const fixResult = await step.awaitEvent(auditFixCompleteEvent);
 
                 await step.runMutation(internal.taskWorkflow.setFixStatus, {
                   auditId,
                   fixStatus: "fix_completed",
+                  activityLog: fixResult.activityLog,
                 });
 
                 const reAuditId = await step.runMutation(
@@ -244,6 +246,7 @@ export const taskExecutionWorkflow = workflow.define({
                   error: reAuditResult.success
                     ? undefined
                     : (reAuditResult.error ?? "Re-audit failed"),
+                  activityLog: reAuditResult.activityLog,
                 });
 
                 finalAuditResult = reAuditResult;

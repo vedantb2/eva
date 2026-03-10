@@ -78,6 +78,7 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
 import { RunActivityLog } from "./RunActivityLog";
+import { AuditActivityLog } from "./AuditActivityLog";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -508,60 +509,152 @@ export function useTaskDetail(
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
-          {latestAudit?.status === "running" && (
-            <Accordion type="multiple" defaultValue={["audit-streaming"]}>
-              <AccordionItem
-                value="audit-streaming"
-                className="border rounded-lg px-3"
-              >
-                <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="warning">Auditing</Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  {auditStreaming?.currentActivity &&
-                    (() => {
-                      const steps = parseActivitySteps(
-                        auditStreaming.currentActivity,
-                      );
-                      return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          isStreaming
-                          name="Auditing"
-                        />
-                      ) : null;
-                    })()}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
-          {latestAudit?.fixStatus === "fixing" && (
-            <Accordion type="multiple" defaultValue={["fix-streaming"]}>
+          {latestAudit && latestAudit.fixStatus && (
+            <Accordion
+              type="multiple"
+              defaultValue={
+                latestAudit.fixStatus === "fixing" ? ["fix-streaming"] : []
+              }
+            >
               <AccordionItem
                 value="fix-streaming"
                 className="border rounded-lg px-3"
               >
                 <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="warning">Fixing audit issues</Badge>
+                  <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <Badge
+                        variant={
+                          latestAudit.fixStatus === "fixing"
+                            ? "warning"
+                            : latestAudit.fixStatus === "fix_error"
+                              ? "destructive"
+                              : "success"
+                        }
+                      >
+                        {latestAudit.fixStatus === "fixing"
+                          ? "fixing audit issues"
+                          : latestAudit.fixStatus === "fix_error"
+                            ? "fix error"
+                            : "fixed audit issues"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {dayjs(latestAudit.createdAt).format(
+                          "M/D/YYYY, h:mm:ss A",
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  {auditStreaming?.currentActivity &&
-                    (() => {
-                      const steps = parseActivitySteps(
-                        auditStreaming.currentActivity,
-                      );
-                      return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          isStreaming
-                          name="Fixing"
+                  <div className="space-y-2">
+                    {latestAudit.fixStatus === "fixing" &&
+                      auditStreaming?.currentActivity &&
+                      (() => {
+                        const steps = parseActivitySteps(
+                          auditStreaming.currentActivity,
+                        );
+                        return steps ? (
+                          <ActivitySteps
+                            steps={steps}
+                            isStreaming
+                            name="Fixing"
+                          />
+                        ) : null;
+                      })()}
+                    {latestAudit.fixStatus !== "fixing" &&
+                      latestAudit.runId && (
+                        <AuditActivityLog
+                          runId={latestAudit.runId}
+                          type="fix"
                         />
-                      ) : null;
-                    })()}
+                      )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
+          {latestAudit && (
+            <Accordion
+              type="multiple"
+              defaultValue={
+                latestAudit.status === "running" ? ["audit-streaming"] : []
+              }
+            >
+              <AccordionItem
+                value="audit-streaming"
+                className="border rounded-lg px-3"
+              >
+                <AccordionTrigger>
+                  <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <Badge
+                        variant={
+                          latestAudit.status === "running"
+                            ? "warning"
+                            : latestAudit.status === "error"
+                              ? "destructive"
+                              : "success"
+                        }
+                      >
+                        {latestAudit.status === "running"
+                          ? "auditing"
+                          : latestAudit.status === "error"
+                            ? "audit error"
+                            : "audited"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {dayjs(latestAudit.createdAt).format(
+                          "M/D/YYYY, h:mm:ss A",
+                        )}
+                      </span>
+                    </div>
+                    {latestAudit.status === "completed" &&
+                      latestAudit.sections.length > 0 && (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {latestAudit.sections.reduce(
+                            (sum, s) =>
+                              sum + s.results.filter((r) => r.passed).length,
+                            0,
+                          )}
+                          /
+                          {latestAudit.sections.reduce(
+                            (sum, s) => sum + s.results.length,
+                            0,
+                          )}{" "}
+                          passed
+                        </span>
+                      )}
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-2">
+                    {latestAudit.status === "running" &&
+                      auditStreaming?.currentActivity &&
+                      (() => {
+                        const steps = parseActivitySteps(
+                          auditStreaming.currentActivity,
+                        );
+                        return steps ? (
+                          <ActivitySteps
+                            steps={steps}
+                            isStreaming
+                            name="Auditing"
+                          />
+                        ) : null;
+                      })()}
+                    {latestAudit.status !== "running" && latestAudit.runId && (
+                      <AuditActivityLog
+                        runId={latestAudit.runId}
+                        type="audit"
+                      />
+                    )}
+                    {latestAudit.status === "error" && (
+                      <p className="text-sm text-destructive">
+                        {latestAudit.error ?? "Audit failed"}
+                      </p>
+                    )}
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -593,13 +686,21 @@ export function useTaskDetail(
                                   : "secondary"
                           }
                         >
-                          {run.status === "running"
-                            ? "Making changes"
-                            : run.status === "success"
-                              ? "Made changes"
-                              : run.status === "error"
-                                ? "Error"
-                                : "Queued"}
+                          {run.mode === "resolve_conflicts"
+                            ? run.status === "running"
+                              ? "resolving conflicts"
+                              : run.status === "success"
+                                ? "resolved conflicts"
+                                : run.status === "error"
+                                  ? "error"
+                                  : "queued"
+                            : run.status === "running"
+                              ? "running"
+                              : run.status === "success"
+                                ? "completed"
+                                : run.status === "error"
+                                  ? "error"
+                                  : "queued"}
                         </Badge>
                         {runCommentMap.has(run._id) && (
                           <Tooltip>

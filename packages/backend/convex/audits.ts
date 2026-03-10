@@ -5,8 +5,9 @@ import {
   evaluationStatusValidator,
   auditSectionValidator,
   evalFixStatusValidator,
+  activityLogTypeValidator,
 } from "./validators";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
 import {
@@ -50,6 +51,28 @@ export const listByTask = authQuery({
         fixStatus: audit.fixStatus,
         createdAt: audit.createdAt,
       }));
+  },
+});
+
+export const getActivityLog = authQuery({
+  args: {
+    runId: v.id("agentRuns"),
+    type: activityLogTypeValidator,
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    const task = await ctx.db.get(run.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+
+    const log = await ctx.db
+      .query("agentRunActivityLogs")
+      .withIndex("by_run_and_type", (q) =>
+        q.eq("runId", args.runId).eq("type", args.type),
+      )
+      .first();
+    return log?.activityLog ?? null;
   },
 });
 

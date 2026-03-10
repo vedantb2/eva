@@ -4,6 +4,7 @@ import {
   clearStreamingActivity,
   extractJsonBlock,
   getTaskAuditStreamingEntityId,
+  upsertActivityLog,
   upsertStreamingActivity,
 } from "./helpers";
 import { parseSectionsFromJson, extractSummaryFromJson } from "./auditParser";
@@ -44,6 +45,7 @@ export const saveAuditResult = internalMutation({
     auditId: v.id("audits"),
     result: v.union(v.string(), v.null()),
     error: v.optional(v.string()),
+    activityLog: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -65,6 +67,9 @@ export const saveAuditResult = internalMutation({
         status: "error",
         error: args.error ?? "Audit failed",
       });
+      if (runId && args.activityLog) {
+        await upsertActivityLog(ctx, runId, args.activityLog, "audit");
+      }
       await clearAuditStreaming();
       return null;
     }
@@ -85,6 +90,10 @@ export const saveAuditResult = internalMutation({
       });
     }
 
+    if (runId && args.activityLog) {
+      await upsertActivityLog(ctx, runId, args.activityLog, "audit");
+    }
+
     await clearAuditStreaming();
     return null;
   },
@@ -98,6 +107,7 @@ export const setFixStatus = internalMutation({
       v.literal("fix_completed"),
       v.literal("fix_error"),
     ),
+    activityLog: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -105,6 +115,10 @@ export const setFixStatus = internalMutation({
     if (!audit) return null;
 
     await ctx.db.patch(args.auditId, { fixStatus: args.fixStatus });
+
+    if (audit.runId && args.activityLog) {
+      await upsertActivityLog(ctx, audit.runId, args.activityLog, "fix");
+    }
     return null;
   },
 });

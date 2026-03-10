@@ -21,6 +21,7 @@ export const auditCompleteEvent = defineEvent({
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
   }),
 });
 

@@ -7,6 +7,7 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Button,
   Collapsible,
@@ -45,7 +46,9 @@ export function QuickTasksListView({
   onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
+  const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const startExecution = useMutation(api.agentTasks.startExecution);
 
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -225,6 +228,7 @@ export function QuickTasksListView({
                             isSelected={selectedIds.has(task._id)}
                             isActive={selectedTaskId === task._id}
                             onToggleSelect={() => onToggleSelect(task._id)}
+                            siblingApps={siblingApps ?? undefined}
                           />
                         ))}
                       </div>

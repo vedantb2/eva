@@ -83,7 +83,7 @@ const NO_PROJECT_VALUE = "__none__";
 export function useTaskDetail(
   taskId: Id<"agentTasks">,
   onClose: () => void,
-  variant: "inline" | "modal" = "modal",
+  inline = false,
 ) {
   const task = useQuery(api.agentTasks.get, { id: taskId });
   const currentUserId = useQuery(api.auth.me);
@@ -410,7 +410,7 @@ export function useTaskDetail(
                     ? undefined
                     : "Description can only be edited in To Do"
                 }
-                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${variant === "inline" ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
+                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
                   !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
                 }`}
               >

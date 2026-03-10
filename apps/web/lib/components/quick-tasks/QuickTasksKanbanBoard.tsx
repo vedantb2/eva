@@ -10,6 +10,7 @@ import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
@@ -31,7 +32,9 @@ export function QuickTasksKanbanBoard({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksKanbanBoardProps) {
+  const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -121,6 +124,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
+            siblingApps={siblingApps ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -139,6 +143,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
+            siblingApps={siblingApps ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
           />

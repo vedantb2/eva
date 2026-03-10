@@ -14,6 +14,17 @@ import {
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
 } from "./helpers";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+
+async function getActiveWorkflowId(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<WorkflowId | null> {
+  const task = await ctx.db.get(taskId);
+  if (!task?.activeWorkflowId) return null;
+  return task.activeWorkflowId as WorkflowId;
+}
 
 export const handleCompletion = authMutation({
   args: {
@@ -89,8 +100,8 @@ export const handleAuditCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task?.activeWorkflowId) return null;
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
+    if (!workflowId) return null;
 
     const audits = await ctx.db
       .query("audits")
@@ -107,7 +118,7 @@ export const handleAuditCompletion = authMutation({
 
     await workflow.sendEvent(ctx, {
       ...auditCompleteEvent,
-      workflowId: task.activeWorkflowId as WorkflowId,
+      workflowId,
       value: {
         success: args.success,
         result: args.result,
@@ -115,7 +126,8 @@ export const handleAuditCompletion = authMutation({
       },
     });
 
-    if (task.repoId) {
+    const task = await ctx.db.get(args.taskId);
+    if (task?.repoId) {
       await ctx.db.insert("logs", {
         entityType: "taskAudit",
         entityId: String(args.taskId),
@@ -142,12 +154,12 @@ export const handleAuditFixCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task?.activeWorkflowId) return null;
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
+    if (!workflowId) return null;
 
     await workflow.sendEvent(ctx, {
       ...auditFixCompleteEvent,
-      workflowId: task.activeWorkflowId as WorkflowId,
+      workflowId,
       value: {
         success: args.success,
         result: args.result,

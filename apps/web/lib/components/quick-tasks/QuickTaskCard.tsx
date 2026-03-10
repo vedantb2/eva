@@ -41,7 +41,8 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs from "@conductor/shared/dates";
 import { useState } from "react";
-import { useRepo } from "@/lib/contexts/RepoContext";
+
+type SiblingApp = { _id: Id<"githubRepos">; appName: string };
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -53,6 +54,7 @@ interface QuickTaskCardProps {
   createdBy?: Id<"users">;
   createdAt: number;
   projectName?: string;
+  siblingApps?: SiblingApp[];
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -70,15 +72,14 @@ export function QuickTaskCard({
   createdBy,
   createdAt,
   projectName,
+  siblingApps,
   onClick,
   isSelecting,
   isSelected,
   isActive,
   onToggleSelect,
 }: QuickTaskCardProps) {
-  const { repoId } = useRepo();
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const hasError = runs?.[0]?.status === "error";
   const showError = hasError && status !== "done";
   const statusMeta = statusConfig[status];

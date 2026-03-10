@@ -47,9 +47,10 @@ export function AuditsClient() {
             <div className="grid gap-2">
               {repoCategories.map((category) =>
                 isApp ? (
-                  <InheritedCategoryRow
+                  <CategoryRow
                     key={category._id}
                     category={category}
+                    isInherited
                     appId={repoId}
                     onToggle={(disabled) =>
                       toggleDisabledForApp({
@@ -114,41 +115,37 @@ export function AuditsClient() {
   );
 }
 
-function InheritedCategoryRow(props: {
-  category: Category;
-  appId: Id<"githubRepos">;
-  onToggle: (disabled: boolean) => void;
-}) {
-  const isDisabled =
-    props.category.disabledForAppIds?.includes(props.appId) ?? false;
+type CategoryRowProps =
+  | {
+      isInherited: true;
+      category: Category;
+      appId: Id<"githubRepos">;
+      onToggle: (disabled: boolean) => void;
+      onRemove?: never;
+    }
+  | {
+      isInherited?: false;
+      category: Category;
+      onToggle: (enabled: boolean) => void;
+      onRemove: () => void;
+      appId?: never;
+    };
 
-  return (
-    <div className="flex items-center gap-3 rounded-md border border-border/50 p-3">
-      <Checkbox
-        checked={!isDisabled}
-        onCheckedChange={(checked) => props.onToggle(checked !== true)}
-        className="mt-0.5"
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium">{props.category.name}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-          {props.category.description}
-        </p>
-      </div>
-    </div>
-  );
-}
+function CategoryRow(props: CategoryRowProps) {
+  const isDisabled = props.isInherited
+    ? (props.category.disabledForAppIds?.includes(props.appId) ?? false)
+    : false;
+  const checked = props.isInherited ? !isDisabled : props.category.enabled;
 
-function CategoryRow(props: {
-  category: Category;
-  onToggle: (enabled: boolean) => void;
-  onRemove: () => void;
-}) {
   return (
     <div className="flex items-start gap-3 rounded-md border border-border/50 p-3">
       <Checkbox
-        checked={props.category.enabled}
-        onCheckedChange={(checked) => props.onToggle(checked === true)}
+        checked={checked}
+        onCheckedChange={(value) =>
+          props.isInherited
+            ? props.onToggle(value !== true)
+            : props.onToggle(value === true)
+        }
         className="mt-0.5"
       />
       <div className="flex-1 min-w-0">
@@ -157,12 +154,14 @@ function CategoryRow(props: {
           {props.category.description}
         </p>
       </div>
-      <button
-        onClick={props.onRemove}
-        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-      >
-        <IconTrash size={14} />
-      </button>
+      {!props.isInherited && (
+        <button
+          onClick={props.onRemove}
+          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+        >
+          <IconTrash size={14} />
+        </button>
+      )}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     userMessageDialog,
     activeTab,
     setActiveTab,
-  } = useTaskDetail(taskId, onClose, "inline");
+  } = useTaskDetail(taskId, onClose, true);
 
   return (
     <>

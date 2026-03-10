@@ -2,7 +2,6 @@
 
 import {
   Badge,
-  Button,
   Card,
   CardContent,
   Checkbox,
@@ -13,11 +12,6 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -29,11 +23,10 @@ import {
   IconArrowMoveRight,
   IconClock,
   IconFolder,
-  IconLoader2,
   IconTag,
   IconTrash,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   statusConfig,
@@ -42,6 +35,8 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { useState } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
+import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -85,40 +80,11 @@ export function QuickTaskCard({
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
 
-  const deleteTask = useMutation(api.agentTasks.deleteCascade);
-  const updateTask = useMutation(api.agentTasks.update);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [moveTarget, setMoveTarget] = useState<{
     id: Id<"githubRepos">;
     appName: string;
   } | null>(null);
-  const [isMoving, setIsMoving] = useState(false);
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteTask({ id });
-      setShowDeleteConfirm(false);
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleMove = async () => {
-    if (!moveTarget) return;
-    setIsMoving(true);
-    try {
-      await updateTask({ id, repoId: moveTarget.id });
-      setMoveTarget(null);
-    } catch (err) {
-      console.error("Failed to move task:", err);
-    } finally {
-      setIsMoving(false);
-    }
-  };
 
   const card = (
     <Card
@@ -268,70 +234,21 @@ export function QuickTaskCard({
         </ContextMenuContent>
       </ContextMenu>
 
-      <Dialog
+      <DeleteTaskDialog
+        taskId={id}
+        title={title}
         open={showDeleteConfirm}
-        onOpenChange={(v) => {
-          if (!v) setShowDeleteConfirm(false);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Task</DialogTitle>
-          </DialogHeader>
-          <div>
-            <p className="text-muted-foreground">
-              Are you sure you want to delete <strong>{title}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-3">
-              This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting && <IconLoader2 size={16} className="animate-spin" />}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setShowDeleteConfirm}
+      />
 
-      <Dialog
-        open={moveTarget !== null}
-        onOpenChange={(v) => {
-          if (!v) setMoveTarget(null);
+      <MoveTaskDialog
+        taskId={id}
+        title={title}
+        moveTarget={moveTarget}
+        onOpenChange={(open) => {
+          if (!open) setMoveTarget(null);
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Move Task</DialogTitle>
-          </DialogHeader>
-          <div>
-            <p className="text-muted-foreground">
-              Move <strong>{title}</strong> to{" "}
-              <strong>{moveTarget?.appName}</strong>?
-            </p>
-            <p className="text-sm text-muted-foreground mt-3">
-              The task will appear in the other app&apos;s quick tasks.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setMoveTarget(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleMove} disabled={isMoving}>
-              {isMoving && <IconLoader2 size={16} className="animate-spin" />}
-              Move
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
     </>
   );
 }

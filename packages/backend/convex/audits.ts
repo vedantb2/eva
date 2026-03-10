@@ -9,81 +9,57 @@ import {
   parseSectionsFromJson,
   extractSummaryFromJson,
 } from "./_taskWorkflow/auditParser";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Id } from "./_generated/dataModel";
+
+async function getLatestAuditByEntity(
+  db: GenericDatabaseReader<DataModel>,
+  entityId: Id<"agentTasks"> | Id<"sessions">,
+) {
+  const audits = await db
+    .query("audits")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .collect();
+  if (audits.length === 0) return null;
+  const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
+  return {
+    _id: latest._id,
+    _creationTime: latest._creationTime,
+    entityId: latest.entityId,
+    runId: latest.runId,
+    status: latest.status,
+    sections: latest.sections ?? [],
+    summary: latest.summary,
+    error: latest.error,
+    createdAt: latest.createdAt,
+  };
+}
+
+const auditReturnValidator = v.union(
+  v.object({
+    _id: v.id("audits"),
+    _creationTime: v.number(),
+    entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+    runId: v.optional(v.id("agentRuns")),
+    status: evaluationStatusValidator,
+    sections: v.array(auditSectionValidator),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  }),
+  v.null(),
+);
 
 export const getByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
-  returns: v.union(
-    v.object({
-      _id: v.id("audits"),
-      _creationTime: v.number(),
-      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
-      runId: v.optional(v.id("agentRuns")),
-      status: evaluationStatusValidator,
-      sections: v.array(auditSectionValidator),
-      summary: v.optional(v.string()),
-      error: v.optional(v.string()),
-      createdAt: v.number(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const audits = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
-      .collect();
-    if (audits.length === 0) return null;
-    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
-
-    return {
-      _id: latest._id,
-      _creationTime: latest._creationTime,
-      entityId: latest.entityId,
-      runId: latest.runId,
-      status: latest.status,
-      sections: latest.sections ?? [],
-      summary: latest.summary,
-      error: latest.error,
-      createdAt: latest.createdAt,
-    };
-  },
+  returns: auditReturnValidator,
+  handler: async (ctx, args) => getLatestAuditByEntity(ctx.db, args.taskId),
 });
 
 export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
-  returns: v.union(
-    v.object({
-      _id: v.id("audits"),
-      _creationTime: v.number(),
-      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
-      runId: v.optional(v.id("agentRuns")),
-      status: evaluationStatusValidator,
-      sections: v.array(auditSectionValidator),
-      summary: v.optional(v.string()),
-      error: v.optional(v.string()),
-      createdAt: v.number(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const audits = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.sessionId))
-      .collect();
-    if (audits.length === 0) return null;
-    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
-
-    return {
-      _id: latest._id,
-      _creationTime: latest._creationTime,
-      entityId: latest.entityId,
-      runId: latest.runId,
-      status: latest.status,
-      sections: latest.sections ?? [],
-      summary: latest.summary,
-      error: latest.error,
-      createdAt: latest.createdAt,
-    };
-  },
+  returns: auditReturnValidator,
+  handler: async (ctx, args) => getLatestAuditByEntity(ctx.db, args.sessionId),
 });
 
 export const startSessionAudit = authMutation({

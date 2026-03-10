@@ -103,12 +103,15 @@ export function useTaskDetail(
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
-  const audit = useQuery(api.audits.getByTask, { taskId });
+  const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const latestAudit = allAudits?.[0] ?? null;
+  const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
     api.streaming.get,
-    (audit?.status === "running" || audit?.fixStatus === "fixing") &&
-      audit?.runId
-      ? { entityId: `task-audit-run-${audit.runId}` }
+    (latestAudit?.status === "running" ||
+      latestAudit?.fixStatus === "fixing") &&
+      latestAudit?.runId
+      ? { entityId: `task-audit-run-${latestAudit.runId}` }
       : "skip",
   );
   const users = useQuery(api.users.listAll);
@@ -492,6 +495,72 @@ export function useTaskDetail(
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
+          {latestAudit?.status === "running" && (
+            <Accordion type="multiple" defaultValue={["audit-streaming"]}>
+              <AccordionItem
+                value="audit-streaming"
+                className="border rounded-lg px-3"
+              >
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconLoader2
+                      size={16}
+                      className="animate-spin text-warning"
+                    />
+                    <span className="text-sm">Auditing</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {auditStreaming?.currentActivity &&
+                    (() => {
+                      const steps = parseActivitySteps(
+                        auditStreaming.currentActivity,
+                      );
+                      return steps ? (
+                        <ActivitySteps
+                          steps={steps}
+                          isStreaming
+                          name="Auditing"
+                        />
+                      ) : null;
+                    })()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
+          {latestAudit?.fixStatus === "fixing" && (
+            <Accordion type="multiple" defaultValue={["fix-streaming"]}>
+              <AccordionItem
+                value="fix-streaming"
+                className="border rounded-lg px-3"
+              >
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconHammer
+                      size={16}
+                      className="text-warning animate-pulse"
+                    />
+                    <span className="text-sm">Fixing audit failures</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {auditStreaming?.currentActivity &&
+                    (() => {
+                      const steps = parseActivitySteps(
+                        auditStreaming.currentActivity,
+                      );
+                      return steps ? (
+                        <ActivitySteps
+                          steps={steps}
+                          isStreaming
+                          name="Fixing"
+                        />
+                      ) : null;
+                    })()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
               run.status === "running" || run.status === "queued";
@@ -724,41 +793,35 @@ export function useTaskDetail(
     <p className="text-sm text-muted-foreground">No proof available</p>
   );
 
-  const auditSection = audit ? (
+  const [showPastAudits, setShowPastAudits] = useState(false);
+
+  const renderAuditResults = (auditData: NonNullable<typeof latestAudit>) => (
     <div className="space-y-3">
       <Badge
         variant={
-          audit.status === "completed"
+          auditData.status === "completed"
             ? "success"
-            : audit.status === "error"
+            : auditData.status === "error"
               ? "destructive"
               : "warning"
         }
       >
-        {audit.status}
+        {auditData.status}
       </Badge>
-      {audit.status === "running" &&
-        auditStreaming?.currentActivity &&
-        (() => {
-          const steps = parseActivitySteps(auditStreaming.currentActivity);
-          return steps ? (
-            <ActivitySteps steps={steps} isStreaming name="Auditing" />
-          ) : null;
-        })()}
-      {audit.status === "error" && audit.error && (
+      {auditData.status === "error" && auditData.error && (
         <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-          {audit.error}
+          {auditData.error}
         </div>
       )}
-      {audit.status === "completed" && (
+      {auditData.status === "completed" && (
         <>
-          {audit.summary && (
+          {auditData.summary && (
             <p className="text-sm text-muted-foreground mb-3">
-              {audit.summary}
+              {auditData.summary}
             </p>
           )}
           <Accordion type="multiple" className="space-y-2">
-            {audit.sections
+            {auditData.sections
               .filter((section) => section.results.length > 0)
               .map((section) => (
                 <AccordionItem
@@ -811,38 +874,48 @@ export function useTaskDetail(
                 </AccordionItem>
               ))}
           </Accordion>
-          {audit.fixStatus === "fixing" && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 p-2.5 rounded-md bg-warning/10 border border-warning/20">
-                <IconHammer size={14} className="text-warning animate-pulse" />
-                <span className="text-xs text-warning">
-                  Fixing audit failures...
-                </span>
-              </div>
-              {auditStreaming?.currentActivity &&
-                (() => {
-                  const steps = parseActivitySteps(
-                    auditStreaming.currentActivity,
-                  );
-                  return steps ? (
-                    <ActivitySteps steps={steps} isStreaming name="Fixing" />
-                  ) : null;
-                })()}
-            </div>
-          )}
-          {audit.fixStatus === "fix_completed" && (
+          {auditData.fixStatus === "fix_completed" && (
             <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-success/10 border border-success/20">
               <IconHammer size={14} className="text-success" />
               <span className="text-xs text-success">Audit fixes applied</span>
             </div>
           )}
-          {audit.fixStatus === "fix_error" && (
+          {auditData.fixStatus === "fix_error" && (
             <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
               <IconHammer size={14} className="text-destructive" />
               <span className="text-xs text-destructive">Audit fix failed</span>
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+
+  const auditSection = latestAudit ? (
+    <div className="space-y-4">
+      {renderAuditResults(latestAudit)}
+      {pastAudits.length > 0 && (
+        <div>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowPastAudits((v) => !v)}
+          >
+            {showPastAudits ? "Hide" : "Show"} past audits ({pastAudits.length})
+          </button>
+          {showPastAudits && (
+            <div className="mt-3 space-y-4 border-t pt-3">
+              {pastAudits.map((pastAudit) => (
+                <div key={pastAudit._id} className="space-y-2">
+                  <span className="text-xs text-muted-foreground">
+                    {dayjs(pastAudit.createdAt).format("M/D/YYYY, h:mm:ss A")}
+                  </span>
+                  {renderAuditResults(pastAudit)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   ) : (
@@ -1334,7 +1407,7 @@ export function useTaskDetail(
   const hasTabContent =
     (runs !== undefined && runs.length > 0) ||
     (proofs !== undefined && proofs.length > 0) ||
-    audit !== undefined ||
+    latestAudit !== null ||
     (comments !== undefined && comments.length > 0);
 
   const showTabsColumn = status !== "todo" || hasTabContent;
@@ -1352,7 +1425,7 @@ export function useTaskDetail(
     footerButtons,
     stopConfirmDialog,
     userMessageDialog,
-    audit,
+    latestAudit,
     showProofSection,
     showTabsColumn,
     activeTab,

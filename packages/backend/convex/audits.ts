@@ -14,43 +14,42 @@ import {
   extractSummaryFromJson,
 } from "./_taskWorkflow/auditParser";
 
-export const getByTask = authQuery({
+const auditReturnValidator = v.object({
+  _id: v.id("audits"),
+  _creationTime: v.number(),
+  entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+  runId: v.optional(v.id("agentRuns")),
+  status: evaluationStatusValidator,
+  sections: v.array(auditSectionValidator),
+  summary: v.optional(v.string()),
+  error: v.optional(v.string()),
+  fixStatus: v.optional(evalFixStatusValidator),
+  createdAt: v.number(),
+});
+
+export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
-  returns: v.union(
-    v.object({
-      _id: v.id("audits"),
-      _creationTime: v.number(),
-      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
-      runId: v.optional(v.id("agentRuns")),
-      status: evaluationStatusValidator,
-      sections: v.array(auditSectionValidator),
-      summary: v.optional(v.string()),
-      error: v.optional(v.string()),
-      fixStatus: v.optional(evalFixStatusValidator),
-      createdAt: v.number(),
-    }),
-    v.null(),
-  ),
+  returns: v.array(auditReturnValidator),
   handler: async (ctx, args) => {
     const audits = await ctx.db
       .query("audits")
       .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
-    if (audits.length === 0) return null;
-    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
 
-    return {
-      _id: latest._id,
-      _creationTime: latest._creationTime,
-      entityId: latest.entityId,
-      runId: latest.runId,
-      status: latest.status,
-      sections: latest.sections ?? [],
-      summary: latest.summary,
-      error: latest.error,
-      fixStatus: latest.fixStatus,
-      createdAt: latest.createdAt,
-    };
+    return audits
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((audit) => ({
+        _id: audit._id,
+        _creationTime: audit._creationTime,
+        entityId: audit.entityId,
+        runId: audit.runId,
+        status: audit.status,
+        sections: audit.sections ?? [],
+        summary: audit.summary,
+        error: audit.error,
+        fixStatus: audit.fixStatus,
+        createdAt: audit.createdAt,
+      }));
   },
 });
 

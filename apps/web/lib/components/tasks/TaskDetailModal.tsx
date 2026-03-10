@@ -42,6 +42,7 @@ export function TaskDetailModal({
     statusFieldsSection,
     footerButtons,
     stopConfirmDialog,
+    resolveConfirmDialog,
     userMessageDialog,
     activeTab,
     setActiveTab,
@@ -135,6 +136,7 @@ export function TaskDetailModal({
         </DialogContent>
       </Dialog>
       {stopConfirmDialog}
+      {resolveConfirmDialog}
       {userMessageDialog}
     </>
   );

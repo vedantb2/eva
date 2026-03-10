@@ -133,6 +133,7 @@ export function useTaskDetail(
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState<
     "activity" | "proof" | "audit" | "comments"
@@ -1313,7 +1314,7 @@ export function useTaskDetail(
       {!hasActiveRun && status === "code_review" && (
         <Button
           variant="secondary"
-          onClick={handleResolveConflicts}
+          onClick={() => setShowResolveConfirm(true)}
           disabled={isStarting}
         >
           {isStarting ? (
@@ -1402,6 +1403,41 @@ export function useTaskDetail(
     </Dialog>
   );
 
+  const resolveConfirmDialog = (
+    <Dialog
+      open={showResolveConfirm}
+      onOpenChange={(v) => {
+        if (!v) setShowResolveConfirm(false);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Resolve Conflicts</DialogTitle>
+        </DialogHeader>
+        <p className="text-muted-foreground">
+          This will start the agent to merge the latest base branch changes and
+          resolve any conflicts. The task will remain in code review after
+          completion.
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setShowResolveConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              setShowResolveConfirm(false);
+              handleResolveConflicts();
+            }}
+            disabled={isStarting}
+          >
+            {isStarting && <IconLoader2 size={16} className="animate-spin" />}
+            Resolve Conflicts
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const userMessageDialog = (
     <Dialog
       open={viewingCommentForRun !== null}
@@ -1447,6 +1483,7 @@ export function useTaskDetail(
     statusFieldsSection,
     footerButtons,
     stopConfirmDialog,
+    resolveConfirmDialog,
     userMessageDialog,
     latestAudit,
     showProofSection,

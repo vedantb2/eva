@@ -2,24 +2,7 @@ import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import { internalQuery } from "./_generated/server";
 import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
-
-const SYSTEM_DEFAULTS = [
-  {
-    name: "Accessibility",
-    description:
-      'WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.',
-  },
-  {
-    name: "Testing",
-    description:
-      'Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.',
-  },
-  {
-    name: "Code Review",
-    description:
-      "Implementation quality — correctness, bugs, security, error handling, naming, code style.",
-  },
-];
+import type { Id } from "./_generated/dataModel";
 
 export const listByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -31,7 +14,8 @@ export const listByRepo = authQuery({
       name: v.string(),
       description: v.string(),
       enabled: v.boolean(),
-      isSystem: v.boolean(),
+      appId: v.optional(v.id("githubRepos")),
+      disabledForAppIds: v.optional(v.array(v.id("githubRepos"))),
       createdAt: v.number(),
     }),
   ),
@@ -44,8 +28,11 @@ export const listByRepo = authQuery({
   },
 });
 
-export const listEnabledByRepo = internalQuery({
-  args: { repoId: v.id("githubRepos") },
+export const listEnabledForContext = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    appId: v.optional(v.id("githubRepos")),
+  },
   returns: v.array(
     v.object({
       name: v.string(),
@@ -58,38 +45,27 @@ export const listEnabledByRepo = internalQuery({
       .query("auditCategories")
       .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
       .collect();
+
     return categories
-      .filter((c) => c.enabled)
+      .filter((c) => {
+        if (!c.enabled) return false;
+        const isRepoLevel = c.appId === undefined;
+        const isForThisApp = c.appId !== undefined && c.appId === args.appId;
+
+        if (isRepoLevel) {
+          if (
+            args.appId &&
+            c.disabledForAppIds &&
+            c.disabledForAppIds.includes(args.appId)
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        return isForThisApp;
+      })
       .map((c) => ({ name: c.name, description: c.description }));
-  },
-});
-
-export const seedDefaults = authMutation({
-  args: { repoId: v.id("githubRepos") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
-    const existing = await ctx.db
-      .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
-      .collect();
-
-    const existingNames = new Set(existing.map((c) => c.name));
-
-    for (const def of SYSTEM_DEFAULTS) {
-      if (!existingNames.has(def.name)) {
-        await ctx.db.insert("auditCategories", {
-          repoId: canonicalId,
-          name: def.name,
-          description: def.description,
-          enabled: true,
-          isSystem: true,
-          createdAt: Date.now(),
-        });
-      }
-    }
-
-    return null;
   },
 });
 
@@ -98,6 +74,7 @@ export const create = authMutation({
     repoId: v.id("githubRepos"),
     name: v.string(),
     description: v.string(),
+    appId: v.optional(v.id("githubRepos")),
   },
   returns: v.id("auditCategories"),
   handler: async (ctx, args) => {
@@ -107,7 +84,7 @@ export const create = authMutation({
       name: args.name,
       description: args.description,
       enabled: true,
-      isSystem: false,
+      appId: args.appId,
       createdAt: Date.now(),
     });
   },
@@ -123,7 +100,6 @@ export const update = authMutation({
   handler: async (ctx, args) => {
     const category = await ctx.db.get(args.id);
     if (!category) throw new Error("Category not found");
-    if (category.isSystem) throw new Error("Cannot edit system categories");
 
     await ctx.db.patch(args.id, {
       name: args.name,
@@ -148,13 +124,39 @@ export const toggleEnabled = authMutation({
   },
 });
 
+export const toggleDisabledForApp = authMutation({
+  args: {
+    id: v.id("auditCategories"),
+    appId: v.id("githubRepos"),
+    disabled: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const category = await ctx.db.get(args.id);
+    if (!category) throw new Error("Category not found");
+    if (category.appId !== undefined) {
+      throw new Error(
+        "Can only toggle app overrides for repo-level categories",
+      );
+    }
+
+    const current: Array<Id<"githubRepos">> = category.disabledForAppIds ?? [];
+
+    const updated = args.disabled
+      ? [...new Set([...current, args.appId])]
+      : current.filter((id) => id !== args.appId);
+
+    await ctx.db.patch(args.id, { disabledForAppIds: updated });
+    return null;
+  },
+});
+
 export const remove = authMutation({
   args: { id: v.id("auditCategories") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const category = await ctx.db.get(args.id);
     if (!category) throw new Error("Category not found");
-    if (category.isSystem) throw new Error("Cannot delete system categories");
 
     await ctx.db.delete(args.id);
     return null;

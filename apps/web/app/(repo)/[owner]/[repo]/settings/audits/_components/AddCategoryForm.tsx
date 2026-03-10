@@ -7,7 +7,10 @@ import { IconPlus } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { useCallback, useState } from "react";
 
-export function AddCategoryForm(props: { repoId: Id<"githubRepos"> }) {
+export function AddCategoryForm(props: {
+  repoId: Id<"githubRepos">;
+  appId?: Id<"githubRepos">;
+}) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const createCategory = useMutation(api.auditCategories.create);
@@ -18,10 +21,11 @@ export function AddCategoryForm(props: { repoId: Id<"githubRepos"> }) {
       repoId: props.repoId,
       name: name.trim(),
       description: description.trim(),
+      appId: props.appId,
     });
     setName("");
     setDescription("");
-  }, [name, description, createCategory, props.repoId]);
+  }, [name, description, createCategory, props.repoId, props.appId]);
 
   return (
     <div className="grid gap-3">

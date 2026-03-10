@@ -1,5 +1,19 @@
 # Changelog
 
+## Cleanup audit categories: remove system defaults, add per-app support - 2026-03-09
+
+- **Why**: System-seeded audit categories were inflexible and forced a specific set on users. Moving to fully user-defined categories gives more control. Per-app audit support lets monorepo users configure different audits for different apps.
+- **Changes**:
+  1. Removed `SYSTEM_DEFAULTS` and `seedDefaults` mutation — no more system-level categories.
+  2. Removed `isSystem` enforcement (edit/delete guards). All categories are now user-owned and fully editable/deletable.
+  3. Added `appId` field to `auditCategories` — `undefined` = repo-level, set = app-specific category.
+  4. Added `disabledForAppIds` field — repo-level categories can be disabled per-app without deleting them.
+  5. New `listEnabledForContext(repoId, appId?)` query replaces `listEnabledByRepo` — merges repo-level (minus disabled) + app-specific categories.
+  6. New `toggleDisabledForApp` mutation for per-app inheritance overrides.
+  7. UI: Two sections on audit settings page — "Repo-level Audits" and "Per-app Audits" (shown when monorepo has child apps). Removed "Get defaults" button and "System" badges.
+  8. Migration function `clearIsSystemFromAuditCategories` to clean up `isSystem` field from existing documents.
+- **Migration needed**: Run `clearIsSystemFromAuditCategories`, then remove `isSystem` from schema.
+
 ## Auto-generate fix PRs from testing arena evaluation failures - 2026-03-06
 
 - **Why**: When the testing arena evaluation found failing requirements, users had to manually create tasks to fix them. Now the system automatically spins up a sandbox, fixes the issues, and creates a PR — closing the feedback loop without leaving the testing arena.

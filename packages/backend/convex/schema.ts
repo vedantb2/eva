@@ -237,7 +237,8 @@ const schema = defineSchema({
     name: v.string(),
     description: v.string(),
     enabled: v.boolean(),
-    isSystem: v.boolean(),
+    appId: v.optional(v.id("githubRepos")),
+    disabledForAppIds: v.optional(v.array(v.id("githubRepos"))),
     createdAt: v.number(),
   }).index("by_repo", ["repoId"]),
   audits: defineTable({

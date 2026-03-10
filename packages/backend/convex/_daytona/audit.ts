@@ -136,7 +136,7 @@ export const runSessionAudit = internalAction({
       const sandbox = await getSandbox(ctx, session.repoId, args.sandboxId);
 
       const categories = await ctx.runQuery(
-        internal.auditCategories.listEnabledByRepo,
+        internal.auditCategories.listEnabledForContext,
         { repoId: session.repoId },
       );
 

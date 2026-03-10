@@ -4,8 +4,8 @@ import { internalMutation } from "./_generated/server";
 import {
   runStatusValidator,
   logLevelValidator,
-  errorTypeValidator,
   deploymentStatusValidator,
+  agentRunFields,
 } from "./validators";
 import { createNotification } from "./notifications";
 import {
@@ -15,30 +15,10 @@ import {
   recomputeProjectPhase,
 } from "./functions";
 
-const logEntryValidator = v.object({
-  timestamp: v.number(),
-  level: logLevelValidator,
-  message: v.string(),
-});
-
 const agentRunValidator = v.object({
   _id: v.id("agentRuns"),
   _creationTime: v.number(),
-  taskId: v.id("agentTasks"),
-  status: runStatusValidator,
-  logs: v.array(logEntryValidator),
-  startedAt: v.optional(v.number()),
-  finishedAt: v.optional(v.number()),
-  resultSummary: v.optional(v.string()),
-  prUrl: v.optional(v.string()),
-  error: v.optional(v.string()),
-  errorType: v.optional(errorTypeValidator),
-  limitResetAt: v.optional(v.number()),
-  exitReason: v.optional(v.string()),
-  sandboxId: v.optional(v.string()),
-  repoId: v.optional(v.id("githubRepos")),
-  deploymentStatus: v.optional(deploymentStatusValidator),
-  deploymentUrl: v.optional(v.string()),
+  ...agentRunFields,
 });
 
 const agentRunSummaryValidator = v.object(agentRunValidator.fields);

@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import { buildImplementationPrompt } from "./prompts";
+import { runModeValidator } from "../validators";
+import {
+  buildImplementationPrompt,
+  buildConflictResolutionPrompt,
+} from "./prompts";
 
 export const getTaskData = internalQuery({
   args: {
@@ -8,6 +12,7 @@ export const getTaskData = internalQuery({
     repoId: v.id("githubRepos"),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
+    mode: v.optional(runModeValidator),
   },
   returns: v.object({
     prompt: v.string(),
@@ -19,10 +24,10 @@ export const getTaskData = internalQuery({
     projectSandboxId: v.optional(v.string()),
     hasSubtasks: v.boolean(),
     appLabel: v.optional(v.string()),
-    postAuditEnabled: v.boolean(),
-    accessibilityAuditEnabled: v.boolean(),
-    codeTestingAuditEnabled: v.boolean(),
-    codeReviewAuditEnabled: v.boolean(),
+    rootDirectory: v.string(),
+    auditCategories: v.array(
+      v.object({ name: v.string(), description: v.string() }),
+    ),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -57,18 +62,54 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const prompt = buildImplementationPrompt(
-      task,
-      sortedSubtasks,
-      branchName,
-      !args.projectId,
-      rootDirectory,
-      changeRequests.length > 0 ? changeRequests : undefined,
-    );
+    const prompt =
+      args.mode === "resolve_conflicts"
+        ? buildConflictResolutionPrompt(
+            branchName,
+            task.baseBranch ?? "main",
+            rootDirectory,
+          )
+        : buildImplementationPrompt(
+            task,
+            sortedSubtasks,
+            branchName,
+            !args.projectId,
+            rootDirectory,
+            changeRequests.length > 0 ? changeRequests : undefined,
+          );
 
     const appLabel = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop() || undefined
       : undefined;
+
+    const canonicalRepoId = repo.parentRepoId ?? args.repoId;
+    const appId = repo.parentRepoId ? args.repoId : undefined;
+
+    const categories = await ctx.db
+      .query("auditCategories")
+      .withIndex("by_repo", (q) => q.eq("repoId", canonicalRepoId))
+      .collect();
+
+    const enabledCategories = categories
+      .filter((c) => {
+        if (!c.enabled) return false;
+        const isRepoLevel = c.appId === undefined;
+        const isForThisApp = c.appId !== undefined && c.appId === appId;
+
+        if (isRepoLevel) {
+          if (
+            appId &&
+            c.disabledForAppIds &&
+            c.disabledForAppIds.includes(appId)
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        return isForThisApp;
+      })
+      .map((c) => ({ name: c.name, description: c.description }));
 
     return {
       prompt,
@@ -80,10 +121,8 @@ export const getTaskData = internalQuery({
       projectSandboxId,
       hasSubtasks: sortedSubtasks.length > 0,
       appLabel,
-      postAuditEnabled: repo.postAuditEnabled !== false,
-      accessibilityAuditEnabled: repo.accessibilityAuditEnabled !== false,
-      codeTestingAuditEnabled: repo.codeTestingAuditEnabled !== false,
-      codeReviewAuditEnabled: repo.codeReviewAuditEnabled !== false,
+      rootDirectory,
+      auditCategories: enabledCategories,
     };
   },
 });

@@ -8,33 +8,16 @@ import {
   sessionModeValidator,
   queryConfirmationStatusValidator,
   variationValidator,
+  messageFields,
 } from "./validators";
 
-const parentIdValidator = v.union(
-  v.id("sessions"),
-  v.id("designSessions"),
-  v.id("researchQueries"),
-);
+const parentIdValidator = messageFields.parentId;
 
 const messageValidator = v.object({
   _id: v.id("messages"),
   _creationTime: v.number(),
-  role: roleValidator,
-  content: v.string(),
-  timestamp: v.number(),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-  parentId: parentIdValidator,
-  mode: v.optional(sessionModeValidator),
-  isSystemAlert: v.optional(v.boolean()),
-  errorDetail: v.optional(v.string()),
-  personaId: v.optional(v.id("designPersonas")),
-  variations: v.optional(v.array(variationValidator)),
-  queryCode: v.optional(v.string()),
-  status: v.optional(queryConfirmationStatusValidator),
-  imageStorageId: v.optional(v.id("_storage")),
+  ...messageFields,
   imageUrl: v.optional(v.union(v.string(), v.null())),
-  videoStorageId: v.optional(v.id("_storage")),
   videoUrl: v.optional(v.union(v.string(), v.null())),
 });
 

@@ -8,26 +8,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   SearchInput,
   Spinner,
   Textarea,
   cn,
 } from "@conductor/ui";
-import {
-  IconDotsVertical,
-  IconFile,
-  IconTrash,
-  IconUpload,
-} from "@tabler/icons-react";
+import { IconFile, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 
@@ -223,59 +218,44 @@ export function DocsSidebar({
               const href = `${basePath}/docs/${doc._id}`;
               const isSelected = pathname.startsWith(href);
               return (
-                <div
-                  key={doc._id}
-                  className={cn(
-                    "group mx-1 rounded-md px-3 py-2 transition-colors",
-                    isSelected
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                  )}
-                >
-                  <Link
-                    href={href}
-                    onClick={onNavigate}
-                    className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                  >
-                    <span
+                <ContextMenu key={doc._id}>
+                  <ContextMenuTrigger asChild>
+                    <div
                       className={cn(
-                        "flex-1 truncate text-sm",
-                        isSelected && "font-medium text-sidebar-primary",
+                        "group mx-1 rounded-md px-3 py-2 transition-colors",
+                        isSelected
+                          ? "bg-sidebar-accent text-sidebar-primary"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                       )}
                     >
-                      {doc.title}
-                    </span>
-                    <div
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                          >
-                            <IconDotsVertical size={13} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() =>
-                              setDocToDelete({ id: doc._id, title: doc.title })
-                            }
-                          >
-                            <IconTrash size={16} />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Link
+                        href={href}
+                        onClick={onNavigate}
+                        className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                      >
+                        <span
+                          className={cn(
+                            "flex-1 truncate text-sm",
+                            isSelected && "font-medium text-sidebar-primary",
+                          )}
+                        >
+                          {doc.title}
+                        </span>
+                      </Link>
                     </div>
-                  </Link>
-                </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      className="text-destructive"
+                      onClick={() =>
+                        setDocToDelete({ id: doc._id, title: doc.title })
+                      }
+                    >
+                      <IconTrash size={16} />
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </div>

@@ -4,6 +4,7 @@ export {
   getByOwnerAndName,
   getTeamIdForRepo,
   listByTeam,
+  listSiblingApps,
   getInternal,
 } from "./_githubRepos/queries";
 

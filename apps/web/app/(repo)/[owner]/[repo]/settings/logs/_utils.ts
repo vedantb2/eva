@@ -17,7 +17,7 @@ export function labelFor(entityType: string): string {
 }
 
 export function formatCost(cost: number): string {
-  return `${cost.toFixed(2)}`;
+  return `£${(cost * USD_TO_GBP).toFixed(2)}`;
 }
 
 export function formatTokens(count: number): string {
@@ -29,7 +29,8 @@ export function formatTokens(count: number): string {
   return String(count);
 }
 
-export const USD_TO_GBP = 0.79;
+export const USD_TO_GBP = 0.74;
+export const GBP_TO_USD = 1.34;
 
 export interface ParsedResultEvent {
   costUsd: number;

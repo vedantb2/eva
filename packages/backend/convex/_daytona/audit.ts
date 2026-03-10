@@ -3,36 +3,40 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import {
-  exec,
-  WORKSPACE_DIR,
-  getSandbox,
-  errorMessage,
-  signAndLaunchScript,
-} from "./helpers";
+import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
-function buildSessionAuditPrompt(diff: string): string {
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit with 3 sections.
+function buildSessionAuditPrompt(
+  categories: Array<{ name: string; description: string }>,
+): string {
+  const sectionDescriptions = categories
+    .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)
+    .join("\n");
 
-For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
+  const sectionJson = categories
+    .map(
+      (s) =>
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+    )
+    .join(",\n");
 
-## Sections:
-1. **accessibility**: WCAG checks (alt text, keyboard navigation, ARIA attributes, form labels, color contrast). If no frontend/UI code was changed, return a single item: { "requirement": "No UI changes", "passed": true, "detail": "No frontend code was modified" }.
-2. **testing**: Whether tests were added or needed. If changes are trivial config/docs, return: { "requirement": "Changes trivial", "passed": true, "detail": "No tests needed for this change" }.
-3. **codeReview**: Implementation quality — correctness, bugs, security, error handling, naming, code style.
+  return `You are a code auditor. Audit the changes made in this branch.
 
-Return ONLY valid JSON in this exact format:
+Focus ONLY on the changes in this branch — use git diff against the base branch to identify what was changed. You have full access to the repository, so read files, run skills, and use any tools you need to perform a thorough audit.
+
+## Audit categories:
+${sectionDescriptions}
+
+For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, and a 1-sentence explanation.
+
+When you are done, output ONLY valid JSON in this exact format:
 {
-  "accessibility": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "testing": [{ "requirement": "...", "passed": true, "detail": "..." }],
-  "codeReview": [{ "requirement": "...", "passed": true, "detail": "..." }],
+  "sections": [
+${sectionJson}
+  ],
   "summary": "1-2 sentence overall assessment"
-}
-
-## Git Diff:
-${diff.slice(0, 30000)}`;
+}`;
 }
 
 export const launchAudit = internalAction({
@@ -69,11 +73,46 @@ export const launchAudit = internalAction({
   },
 });
 
+export const launchAuditFix = internalAction({
+  args: {
+    sandboxId: v.string(),
+    prompt: v.string(),
+    taskId: v.string(),
+    runId: v.id("agentRuns"),
+    userId: v.id("users"),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    await signAndLaunchScript(
+      ctx,
+      sandbox,
+      args.userId,
+      args.prompt,
+      "taskWorkflow:handleAuditFixCompletion",
+      "taskId",
+      args.taskId,
+      {
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        extraEnvVars: {
+          STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
+          RUN_ID: String(args.runId),
+        },
+      },
+    );
+
+    return null;
+  },
+});
+
 export const runSessionAudit = internalAction({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
-    auditId: v.id("sessionAudits"),
+    auditId: v.id("audits"),
     userId: v.id("users"),
   },
   returns: v.null(),
@@ -88,16 +127,15 @@ export const runSessionAudit = internalAction({
 
       const sandbox = await getSandbox(ctx, session.repoId, args.sandboxId);
 
-      const diffRaw = await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-        30,
+      const categories = await ctx.runQuery(
+        internal.auditCategories.listEnabledForContext,
+        { repoId: session.repoId },
       );
 
-      if (!diffRaw.trim()) {
-        await ctx.runMutation(internal.sessionAudits.fail, {
+      if (categories.length === 0) {
+        await ctx.runMutation(internal.audits.fail, {
           id: args.auditId,
-          error: "No changes detected",
+          error: "No audit categories enabled",
         });
         return null;
       }
@@ -106,8 +144,8 @@ export const runSessionAudit = internalAction({
         ctx,
         sandbox,
         args.userId,
-        buildSessionAuditPrompt(diffRaw),
-        "sessionAudits:handleCompletion",
+        buildSessionAuditPrompt(categories),
+        "audits:handleSessionCompletion",
         "sessionId",
         String(args.sessionId),
         {
@@ -116,7 +154,7 @@ export const runSessionAudit = internalAction({
         },
       );
     } catch (err) {
-      await ctx.runMutation(internal.sessionAudits.fail, {
+      await ctx.runMutation(internal.audits.fail, {
         id: args.auditId,
         error: errorMessage(err, "Audit failed"),
       });

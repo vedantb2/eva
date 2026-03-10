@@ -39,6 +39,7 @@ Convex:
 - Never duplicate schema types manually.
 - To typecheck Convex: `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
 - Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
+- Single source of truth for table fields: Define table fields as exported `const xxxFields = { ... }` in `validators.ts`. Use in both `schema.ts` (`defineTable(xxxFields)`) and return validators (`v.object({ _id: v.id("table"), _creationTime: v.number(), ...xxxFields })`). Never duplicate field definitions between schema and return validators.
 
 Component Structure:
 
@@ -108,3 +109,11 @@ if the user asks you to run a migration, you need to add a migration function to
 never run npx convex dev or npx convex deploy - use `npx convex codegen --typecheck enable` to typecheck
 
 if you are using the agent-browser skill, you will need to login as a user, you can go to /?agent to auto login as the Eva user. this must be done otherwise you won't have access to the platform
+
+Audit:
+
+- After committing, run `/audit` to check code quality, accessibility, and test coverage
+- If `/audit` makes any code changes (via /simplify), commit them with `audit: <description of changes>`
+- Audit output uses flexible `sections` format: `{ sections: [{ name: string, results: [{ requirement, passed, detail }] }], summary: string }`
+- Sections are dynamic — new audit categories can be added without schema changes
+- Individual audits can be run directly: `/audit-accessibility`, `/audit-code-review`, `/audit-testing`

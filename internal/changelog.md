@@ -1,11 +1,66 @@
 # Changelog
 
+## Cleanup audit categories: remove system defaults, add per-app support - 2026-03-09
+
+- **Why**: System-seeded audit categories were inflexible and forced a specific set on users. Moving to fully user-defined categories gives more control. Per-app audit support lets monorepo users configure different audits for different apps.
+- **Changes**:
+  1. Removed `SYSTEM_DEFAULTS` and `seedDefaults` mutation — no more system-level categories.
+  2. Removed `isSystem` enforcement (edit/delete guards). All categories are now user-owned and fully editable/deletable.
+  3. Added `appId` field to `auditCategories` — `undefined` = repo-level, set = app-specific category.
+  4. Added `disabledForAppIds` field — repo-level categories can be disabled per-app without deleting them.
+  5. New `listEnabledForContext(repoId, appId?)` query replaces `listEnabledByRepo` — merges repo-level (minus disabled) + app-specific categories.
+  6. New `toggleDisabledForApp` mutation for per-app inheritance overrides.
+  7. UI: Two sections on audit settings page — "Repo-level Audits" and "Per-app Audits" (shown when monorepo has child apps). Removed "Get defaults" button and "System" badges.
+  8. Migration function `clearIsSystemFromAuditCategories` to clean up `isSystem` field from existing documents.
+- **Migration needed**: Run `clearIsSystemFromAuditCategories`, then remove `isSystem` from schema.
+
+## Auto-generate fix PRs from testing arena evaluation failures - 2026-03-06
+
+- **Why**: When the testing arena evaluation found failing requirements, users had to manually create tasks to fix them. Now the system automatically spins up a sandbox, fixes the issues, and creates a PR — closing the feedback loop without leaving the testing arena.
+- **Changes**:
+  1. Added `fixStatus`, `fixBranchName`, and `prUrl` fields to the `evaluationReports` schema and validators.
+  2. Extended `evaluationWorkflow` to continue after evaluation completes with failures: spins up a write-enabled sandbox, gives Claude the failing requirements to fix, creates a branch and PR via `createPullRequest`, stores the PR URL on the report.
+  3. Added `fixCompleteEvent`, `handleFixCompletion`, `getFixData`, `setFixing`, `saveFixResult`, `saveFixError` functions to support the fix workflow lifecycle.
+  4. Updated the frontend testing arena page to display fix status (fixing indicator, streaming activity during fix), and a "View Fix PR" link button on the report card header.
+- **Reason for change (architectural)**: Evaluation and fix are a natural continuation — keeping them in the same workflow simplifies state management and avoids orphaned fix attempts.
+
+## Dynamic audit categories — 2026-03-09
+
+Replaced hardcoded audit toggle fields (`accessibilityAuditEnabled`, `codeTestingAuditEnabled`, `codeReviewAuditEnabled`, `postAuditEnabled`) on `githubRepos` with a dedicated `auditCategories` table. Categories are per-repo, user-manageable, and the prompt builder reads enabled categories dynamically.
+
+- New `auditCategories` table: `repoId`, `name`, `description`, `enabled`, `isSystem`, `createdAt`
+- CRUD mutations: `listByRepo`, `listEnabledByRepo`, `seedDefaults`, `create`, `update`, `toggleEnabled`, `remove`
+- System defaults (Accessibility, Testing, Code Review) are seeded via "Get defaults" button, marked `isSystem: true`, non-deletable
+- Users can add custom audit categories with name + description (sent as AI instructions)
+- `buildAuditPrompt` and `buildSessionAuditPrompt` now accept `categories[]` instead of `AuditFlags`
+- `getTaskData` returns `auditCategories` instead of 4 boolean flags
+- Session audit (`_daytona/audit.ts`) queries enabled categories before running
+- New `/settings/audits` page with category list, enable/disable toggles, and add form
+- Added "Audits" nav item to `SettingsSidebar`
+- Removed old fields from schema, helpers, mutations, and ConfigClient
+- Migration: `removeOldAuditFieldsFromRepos` strips old fields via `ctx.db.replace()`
+
+## Unified audits table + flexible sections — 2026-03-09
+
+Merged `taskAudits` and `sessionAudits` into a single `audits` table with `entityId: v.union(v.id("agentTasks"), v.id("sessions"))`. Reduces table sprawl — audit data is identical regardless of context, only the foreign key differs.
+
+Also replaced hardcoded 3-field audit schema (`accessibility`, `testing`, `codeReview`) with flexible `sections: Array<{ name, results }>` format. New audit categories can be added without schema/frontend changes.
+
+- New `audits` table with polymorphic `entityId` and `by_entity` index
+- `auditSectionValidator` for dynamic sections
+- Shared audit JSON parser in `_taskWorkflow/auditParser.ts` (eliminates duplication, no `as` casts)
+- Frontend dynamically maps `sections` array
+- Prompt builders output `sections` format
+- `/audit` skill system: router + `/audit-accessibility`, `/audit-code-review`, `/audit-testing`
+- Migration: `migrations/mergeAuditTables.ts` moves data from old tables to unified table
+
 ## Proof of completion carousel — 2026-03-08
 
 Added an Embla-based carousel (shadcn pattern) to the task detail proof section. When a task has multiple screenshots/videos, they are now shown in a swipeable carousel with prev/next buttons and dot indicators, instead of a vertical stack. Single media items render normally without carousel chrome.
 
 - New `Carousel` component in `packages/ui` (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, CarouselDots)
 - Updated `useTaskDetail.tsx` proof section to separate media vs message proofs and wrap media in the carousel
+
 ## Move active tasks indicator from sidebar bottom to Quick Tasks tab badge — 2026-03-08
 
 - **Why**: The active tasks component at the bottom of the sidebar was disconnected from where tasks live. Moving it inline as a badge on the Quick Tasks nav item provides better context and discoverability.

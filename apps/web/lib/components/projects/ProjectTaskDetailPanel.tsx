@@ -31,6 +31,10 @@ import {
   IconGitPullRequest,
   IconExternalLink,
   IconMessageCircle,
+  IconLoader2,
+  IconAlertTriangle,
+  IconCheck,
+  IconCircleDot,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -159,19 +163,24 @@ export function ProjectTaskDetailPanel({
                     <AccordionTrigger>
                       <div className="flex flex-1 items-center justify-between mr-2">
                         <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              run.status === "success"
-                                ? "success"
-                                : run.status === "error"
-                                  ? "destructive"
-                                  : run.status === "running"
-                                    ? "warning"
-                                    : "outline"
-                            }
-                          >
-                            {run.status}
-                          </Badge>
+                          {run.status === "running" ? (
+                            <IconLoader2
+                              size={16}
+                              className="animate-spin text-warning"
+                            />
+                          ) : run.status === "error" ? (
+                            <IconAlertTriangle
+                              size={16}
+                              className="text-destructive"
+                            />
+                          ) : run.status === "success" ? (
+                            <IconCheck size={16} className="text-success" />
+                          ) : (
+                            <IconCircleDot
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {run.startedAt
                               ? dayjs(run.startedAt).format(

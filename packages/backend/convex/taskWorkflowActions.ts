@@ -13,7 +13,13 @@ type AuditRow = {
   detail: string;
 };
 
+type AuditSection = {
+  name: string;
+  results: AuditRow[];
+};
+
 type ParsedAudit = {
+  sections?: AuditSection[];
   accessibility?: AuditRow[];
   testing?: AuditRow[];
   codeReview?: AuditRow[];
@@ -52,10 +58,20 @@ function buildAuditSection(
   try {
     const parsed = JSON.parse(extractJsonBlock(result)) as ParsedAudit;
     const rows: Array<[string, AuditRow]> = [];
-    for (const row of parsed.accessibility ?? [])
-      rows.push(["Accessibility", row]);
-    for (const row of parsed.testing ?? []) rows.push(["Testing", row]);
-    for (const row of parsed.codeReview ?? []) rows.push(["Code Review", row]);
+
+    if (parsed.sections && Array.isArray(parsed.sections)) {
+      for (const section of parsed.sections) {
+        for (const row of section.results ?? []) {
+          rows.push([section.name, row]);
+        }
+      }
+    } else {
+      for (const row of parsed.accessibility ?? [])
+        rows.push(["Accessibility", row]);
+      for (const row of parsed.testing ?? []) rows.push(["Testing", row]);
+      for (const row of parsed.codeReview ?? [])
+        rows.push(["Code Review", row]);
+    }
 
     if (parsed.summary) {
       lines.push(`Summary: ${escapeTableCell(parsed.summary)}`);
@@ -91,6 +107,20 @@ function mergeBodyWithAuditSection(
   return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
 }
 
+export function buildPrBody(
+  sections: Array<{ heading: string; content: string }>,
+): string {
+  const parts: string[] = [];
+  for (const section of sections) {
+    parts.push(`## ${section.heading}`);
+    parts.push(section.content);
+    parts.push("");
+  }
+  parts.push("---");
+  parts.push("*Created by Eva AI Agent*");
+  return parts.join("\n");
+}
+
 export const createPullRequest = internalAction({
   args: {
     installationId: v.number(),
@@ -99,7 +129,7 @@ export const createPullRequest = internalAction({
     branchName: v.string(),
     baseBranch: v.optional(v.string()),
     title: v.string(),
-    description: v.optional(v.string()),
+    body: v.string(),
     labels: v.array(v.string()),
   },
   returns: v.union(v.string(), v.null()),
@@ -110,7 +140,7 @@ export const createPullRequest = internalAction({
         owner: args.repoOwner,
         repo: args.repoName,
         title: `Eva: ${args.title}`,
-        body: `## Task\n${args.description || "No description"}\n\n---\n*Implemented by Eva AI Agent*`,
+        body: args.body,
         head: args.branchName,
         base: args.baseBranch ?? "staging",
       });

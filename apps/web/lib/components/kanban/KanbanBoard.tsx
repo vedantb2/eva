@@ -27,14 +27,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from "@conductor/ui";
-import { IconFilter } from "@tabler/icons-react";
 
 interface BaseTask {
   _id: string;
@@ -208,45 +200,6 @@ export function KanbanBoard<T extends BaseTask>({
           : "space-y-3 animate-in fade-in duration-300"
       }
     >
-      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <IconFilter
-                size={16}
-                className={
-                  visibleStatuses.size < KANBAN_STATUSES.length
-                    ? "text-primary"
-                    : ""
-                }
-              />
-              {visibleStatuses.size === KANBAN_STATUSES.length
-                ? "All Columns"
-                : `${visibleStatuses.size} Columns`}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {KANBAN_STATUSES.map((s) => {
-              const cfg = statusConfig[s];
-              return (
-                <DropdownMenuCheckboxItem
-                  key={s}
-                  checked={visibleStatuses.has(s)}
-                  onCheckedChange={() => handleStatusToggle(s)}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                  <span className={cfg.text}>{cfg.label}</span>
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}

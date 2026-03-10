@@ -1,4 +1,4 @@
-import { formatCost, formatTokens, USD_TO_GBP } from "../_utils";
+import { formatCost, formatTokens, GBP_TO_USD } from "../_utils";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
 
 interface LogsSummaryGridProps {
@@ -21,9 +21,9 @@ export function LogsSummaryGrid({
           Total Cost
         </div>
         <div className="text-lg sm:text-2xl font-semibold">
-          £{formatCost(totalCost * USD_TO_GBP)}{" "}
+          {formatCost(totalCost)}{" "}
           <span className="text-sm text-muted-foreground">
-            ${formatCost(totalCost)}
+            ${formatCost(totalCost * GBP_TO_USD).slice(1)}
           </span>
         </div>
       </div>

@@ -7,22 +7,15 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Button,
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   Spinner,
 } from "@conductor/ui";
-import {
-  IconChevronRight,
-  IconFilter,
-  IconPlayerPlay,
-} from "@tabler/icons-react";
+import { IconChevronRight, IconPlayerPlay } from "@tabler/icons-react";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -53,7 +46,9 @@ export function QuickTasksListView({
   onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
+  const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const startExecution = useMutation(api.agentTasks.startExecution);
 
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -152,38 +147,6 @@ export function QuickTasksListView({
   return (
     <>
       <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0 px-1 sm:px-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <IconFilter size={16} />
-                {visibleStatuses.size === TASK_STATUSES.length
-                  ? "All Statuses"
-                  : `${visibleStatuses.size} Statuses`}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {TASK_STATUSES.map((s) => {
-                const cfg = statusConfig[s];
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={s}
-                    checked={visibleStatuses.has(s)}
-                    onCheckedChange={() => handleStatusToggle(s)}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                    <span className={cfg.text}>{cfg.label}</span>
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1 pb-2">
           {TASK_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => {
@@ -265,6 +228,7 @@ export function QuickTasksListView({
                             isSelected={selectedIds.has(task._id)}
                             isActive={selectedTaskId === task._id}
                             onToggleSelect={() => onToggleSelect(task._id)}
+                            siblingApps={siblingApps ?? undefined}
                           />
                         ))}
                       </div>

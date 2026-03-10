@@ -80,9 +80,9 @@ type SessionMessage = NonNullable<
 type SessionMode = NonNullable<SessionMessage["mode"]>;
 
 const REVIEW_AUDITS = [
-  "Accessibility audit",
-  "Code testing audit",
-  "Code review audit",
+  "Running code audits",
+  "Analyzing results",
+  "Generating report",
 ];
 
 interface ChatPanelProps {
@@ -145,9 +145,9 @@ export function ChatPanel({
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const createPr = useAction(api.github.createSessionPr);
-  const startAuditMutation = useMutation(api.sessionAudits.startAudit);
+  const startAuditMutation = useMutation(api.audits.startSessionAudit);
   const sessionAudit = useQuery(
-    api.sessionAudits.getBySession,
+    api.audits.getBySession,
     reviewStep === "auditing" ? { sessionId } : "skip",
   );
 
@@ -272,6 +272,7 @@ export function ChatPanel({
     : undefined;
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+    if (isInputDisabled) return;
     await handleSend(text);
   };
 
@@ -458,6 +459,7 @@ export function ChatPanel({
                           activity={streamingActivity}
                           name="Eva"
                           icon={evaIcon}
+                          startedAt={message.timestamp}
                         />
                       ) : (
                         <>
@@ -468,6 +470,8 @@ export function ChatPanel({
                                   activityLog={message.activityLog}
                                   name="Eva"
                                   icon={evaIcon}
+                                  startedAt={message.timestamp}
+                                  finishedAt={message.finishedAt}
                                 />
                               )}
                               <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -533,7 +537,7 @@ export function ChatPanel({
         <ConversationScrollButton />
       </Conversation>
       {!isArchived && (
-        <div className="px-2 pb-3 pt-2 sm:px-3 sm:pb-4 sm:pt-3">
+        <div className="p-2 md:p-3">
           <AnimatePresence>
             {mode === "plan" && planContent && (
               <motion.div
@@ -706,11 +710,10 @@ export function ChatPanel({
                     The following audits will also run automatically in the
                     background:
                   </p>
-                  <ul className="ml-5 list-disc space-y-1">
-                    <li>Accessibility audit</li>
-                    <li>Code testing audit</li>
-                    <li>Code review audit</li>
-                  </ul>
+                  <p>
+                    An automated code audit will run to check accessibility,
+                    testing, code quality, and other configured checks.
+                  </p>
                 </div>
                 <DialogFooter>
                   <Button variant="ghost" onClick={handleReviewModalClose}>

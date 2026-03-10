@@ -5,6 +5,13 @@ import {
   Card,
   CardContent,
   Checkbox,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -12,7 +19,13 @@ import {
 import type { Id } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
-import { IconClock, IconFolder, IconTag } from "@tabler/icons-react";
+import {
+  IconArrowMoveRight,
+  IconClock,
+  IconFolder,
+  IconTag,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import {
@@ -20,6 +33,12 @@ import {
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs from "@conductor/shared/dates";
+import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
+import { MoveTaskDialog } from "./_components/MoveTaskDialog";
+
+type SiblingApp = { _id: Id<"githubRepos">; appName: string };
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -31,6 +50,7 @@ interface QuickTaskCardProps {
   createdBy?: Id<"users">;
   createdAt: number;
   projectName?: string;
+  siblingApps?: SiblingApp[];
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -48,6 +68,7 @@ export function QuickTaskCard({
   createdBy,
   createdAt,
   projectName,
+  siblingApps,
   onClick,
   isSelecting,
   isSelected,
@@ -60,6 +81,12 @@ export function QuickTaskCard({
   const statusMeta = statusConfig[status];
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
   const isInProgress = status === "in_progress" && !hasError;
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
+
+  const moveTargetAppName =
+    siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";
 
   const card = (
     <Card
@@ -168,9 +195,59 @@ export function QuickTaskCard({
     </Card>
   );
 
-  if (isInProgress) {
-    return <div className="qt-in-progress-border rounded-lg p-px">{card}</div>;
-  }
+  const wrappedCard = isInProgress ? (
+    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+  ) : (
+    card
+  );
 
-  return card;
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
+        <ContextMenuContent>
+          {siblingApps && siblingApps.length > 0 && (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <IconArrowMoveRight size={16} />
+                Move to app
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                {siblingApps.map((app) => (
+                  <ContextMenuItem
+                    key={app._id}
+                    onClick={() => setMoveTarget(app._id)}
+                  >
+                    {app.appName}
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          )}
+          <ContextMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <IconTrash size={16} />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <DeleteTaskDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        taskId={id}
+        taskTitle={title}
+      />
+
+      <MoveTaskDialog
+        targetId={moveTarget}
+        targetAppName={moveTargetAppName}
+        onClose={() => setMoveTarget(null)}
+        taskId={id}
+        taskTitle={title}
+      />
+    </>
+  );
 }

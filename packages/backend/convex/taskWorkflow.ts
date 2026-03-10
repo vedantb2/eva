@@ -11,7 +11,11 @@ export {
   completeRun,
 } from "./_taskWorkflow/runLifecycle";
 
-export { createAudit, saveAuditResult } from "./_taskWorkflow/audit";
+export {
+  createAudit,
+  saveAuditResult,
+  setFixStatus,
+} from "./_taskWorkflow/audit";
 
 export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
 
@@ -26,6 +30,7 @@ export { getTaskData } from "./_taskWorkflow/queries";
 export {
   handleCompletion,
   handleAuditCompletion,
+  handleAuditFixCompletion,
   cancelExecution,
   triggerExecution,
 } from "./_taskWorkflow/publicMutations";

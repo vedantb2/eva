@@ -7,10 +7,40 @@
       "env": { "FIGMA_API_KEY": "${FIGMA_API_KEY}" }
     },
     "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp",
+      "headers": { "Authorization": "Bearer ${LINEAR_API_KEY}" }
+    },
+    "sentry": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@emmett.deen/linear-mcp-server"],
-      "env": { "LINEAR_API_KEY": "${LINEAR_API_KEY}" }
+      "args": [
+        "-y",
+        "@sentry/mcp-server",
+        "--access-token",
+        "${SENTRY_ACCESS_TOKEN}"
+      ]
+    },
+    "posthog": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.posthog.com/sse",
+        "--header",
+        "Authorization:Bearer ${POSTHOG_API_KEY}"
+      ]
+    },
+    "supabase-db": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "${SUPABASE_ACCESS_TOKEN}"
+      ]
     }
   }
 }

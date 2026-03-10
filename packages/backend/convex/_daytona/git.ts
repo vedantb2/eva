@@ -20,22 +20,26 @@ import { detectPackageManager } from "./devServer";
 
 export type SandboxLifecycle = {
   autoStopInterval: number;
-  autoDeleteInterval: number;
+  autoDeleteInterval?: number;
   ephemeral?: boolean;
 };
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 30,
-  autoDeleteInterval: 30,
+  autoStopInterval: 15,
+  autoDeleteInterval: 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 0,
-  autoDeleteInterval: 0,
+  autoStopInterval: 60,
   ephemeral: true,
 };
 
-export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE };
+const WARMING_LIFECYCLE: SandboxLifecycle = {
+  autoStopInterval: 5,
+  ephemeral: true,
+};
+
+export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
 
 export async function createSandbox(
   daytona: Daytona,
@@ -64,7 +68,9 @@ export async function createSandbox(
           INSTALLATION_ID: String(installationId),
         },
         autoStopInterval: lifecycle.autoStopInterval,
-        autoDeleteInterval: lifecycle.autoDeleteInterval,
+        ...(lifecycle.autoDeleteInterval !== undefined
+          ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
+          : {}),
         ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
       },
       { timeout: timeoutSeconds },
@@ -224,7 +230,7 @@ export async function setupBranch(
   );
   await exec(
     sandbox,
-    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit`,
+    `cd ${WORKSPACE_DIR} && git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true`,
     30,
   );
   await exec(

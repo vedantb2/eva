@@ -5,20 +5,41 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, Spinner } from "@conductor/ui";
+import {
+  Button,
+  Spinner,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@conductor/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
-import { IconLayoutKanban, IconPlus } from "@tabler/icons-react";
+import {
+  IconLayoutKanban,
+  IconPlus,
+  IconFilter,
+  IconSortAscending,
+  IconSortDescending,
+  IconTimeline,
+  IconList,
+} from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
+  phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
-import { ProjectsToolbar } from "./_components/ProjectsToolbar";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
+import { SORT_FIELDS, type SortField } from "./_components/ProjectsToolbar";
 
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -30,6 +51,22 @@ import {
   sortDirParser,
   projectViewParser,
 } from "@/lib/search-params";
+
+type ProjectView = "kanban" | "timeline" | "list";
+
+const VIEW_OPTIONS: {
+  key: ProjectView;
+  icon: typeof IconLayoutKanban;
+  label: string;
+}[] = [
+  { key: "kanban", icon: IconLayoutKanban, label: "Kanban view" },
+  { key: "timeline", icon: IconTimeline, label: "Timeline view" },
+  { key: "list", icon: IconList, label: "List view" },
+];
+
+function isSortField(value: string): value is SortField {
+  return SORT_FIELDS.some((f) => f.key === value);
+}
 
 export function ProjectsClient() {
   const { repo, basePath, owner, name } = useRepo();
@@ -52,6 +89,7 @@ export function ProjectsClient() {
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const hasProjects = projects !== undefined && projects.length > 0;
 
   const filteredSorted = useMemo(() => {
     if (!projects) return [];
@@ -122,14 +160,109 @@ export function ProjectsClient() {
         fillHeight
         childPadding={false}
         headerRight={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <ToggleSearch
               value={searchQuery}
               onChange={(v) => setParams({ q: v })}
               placeholder="Search projects..."
               tooltipLabel="Search projects"
-              visible={projects !== undefined && projects.length > 0}
+              visible={hasProjects}
             />
+            {hasProjects && (
+              <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                {VIEW_OPTIONS.map((opt) => (
+                  <Tooltip key={opt.key}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={view === opt.key ? "secondary" : "ghost"}
+                        size="icon"
+                        className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                        onClick={() => setParams({ view: opt.key })}
+                      >
+                        <opt.icon size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{opt.label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            )}
+            {hasProjects && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm">
+                    <IconFilter size={16} />
+                    {visiblePhases.size === PROJECT_PHASES.length
+                      ? "All Phases"
+                      : `${visiblePhases.size} Phases`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {PROJECT_PHASES.map((p) => {
+                    const cfg = phaseConfig[p];
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={p}
+                        checked={visiblePhases.has(p)}
+                        onCheckedChange={() => handlePhaseToggle(p)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                        <span className={cfg.text}>{cfg.label}</span>
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {hasProjects && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm">
+                    {sortField === "created" ? "Date" : "Title"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup
+                    value={sortField}
+                    onValueChange={(v) => {
+                      if (isSortField(v)) setParams({ sort: v });
+                    }}
+                  >
+                    {SORT_FIELDS.map((item) => (
+                      <DropdownMenuRadioItem key={item.key} value={item.key}>
+                        {item.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {hasProjects && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() =>
+                      setParams({ dir: dir === "asc" ? "desc" : "asc" })
+                    }
+                  >
+                    {sortDirection === "asc" ? (
+                      <IconSortAscending size={16} />
+                    ) : (
+                      <IconSortDescending size={16} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {sortDirection === "asc"
+                    ? "Ascending - click to reverse"
+                    : "Descending - click to reverse"}
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button
               size="sm"
               className="motion-press hover:scale-[1.01] active:scale-[0.99]"
@@ -141,7 +274,7 @@ export function ProjectsClient() {
           </div>
         }
       >
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-4">
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-3">
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />
@@ -158,18 +291,6 @@ export function ProjectsClient() {
             />
           ) : (
             <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-4">
-              <ProjectsToolbar
-                view={view}
-                onViewChange={(v) => setParams({ view: v })}
-                visiblePhases={visiblePhases}
-                onPhaseToggle={handlePhaseToggle}
-                sortField={sortField}
-                onSortChange={(v) => setParams({ sort: v })}
-                sortDirection={sortDirection}
-                onSortDirectionToggle={() =>
-                  setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                }
-              />
               <AnimatePresence initial={false} mode="wait">
                 {view === "kanban" ? (
                   <motion.div

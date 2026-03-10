@@ -27,12 +27,11 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     commentsSection,
     statusFieldsSection,
     footerButtons,
-    deleteConfirmDialog,
     stopConfirmDialog,
     userMessageDialog,
     activeTab,
     setActiveTab,
-  } = useTaskDetail(taskId, onClose);
+  } = useTaskDetail(taskId, onClose, true);
 
   return (
     <>
@@ -43,7 +42,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
         <div className="px-3 sm:px-4 md:px-6 flex-1 overflow-hidden flex flex-col">
           {scheduledBadge}
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[13fr_7fr] gap-3 sm:gap-4 md:gap-6 flex-1 min-h-0">
+            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] gap-3 sm:gap-4 md:gap-6 flex-1 min-h-0">
               <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-4">
                 {descriptionSection}
                 {subtasksSection}
@@ -97,7 +96,6 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
           </div>
         </div>
       </div>
-      {deleteConfirmDialog}
       {stopConfirmDialog}
       {userMessageDialog}
     </>

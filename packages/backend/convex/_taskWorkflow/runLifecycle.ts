@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { createNotification } from "../notifications";
+import { runModeValidator } from "../validators";
 import type { Id } from "../_generated/dataModel";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
@@ -168,6 +169,7 @@ export const completeRun = internalMutation({
     hasSubtasks: v.boolean(),
     activityLog: v.union(v.string(), v.null()),
     exitReason: v.optional(v.string()),
+    mode: v.optional(runModeValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -188,8 +190,10 @@ export const completeRun = internalMutation({
 
     const task = await ctx.db.get(args.taskId);
     if (task) {
+      const successStatus =
+        args.mode === "resolve_conflicts" ? "code_review" : "business_review";
       await ctx.db.patch(args.taskId, {
-        status: args.success ? "business_review" : "todo",
+        status: args.success ? successStatus : "todo",
         updatedAt: now,
       });
     }

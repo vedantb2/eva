@@ -63,8 +63,8 @@ export const cleanupStaleRuns = internalMutation({
       tasksFixed++;
 
       const audits = await ctx.db
-        .query("taskAudits")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .query("audits")
+        .withIndex("by_entity", (q) => q.eq("entityId", task._id))
         .collect();
       for (const audit of audits) {
         if (audit.status === "running") {

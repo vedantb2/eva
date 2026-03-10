@@ -66,12 +66,23 @@ export const evaluationStatusValidator = v.union(
   v.literal("error"),
 );
 
+export const evalFixStatusValidator = v.union(
+  v.literal("fixing"),
+  v.literal("fix_completed"),
+  v.literal("fix_error"),
+);
+
 export const themeValidator = v.union(v.literal("light"), v.literal("dark"));
 
 export const evalResultValidator = v.object({
   requirement: v.string(),
   passed: v.boolean(),
   detail: v.string(),
+});
+
+export const auditSectionValidator = v.object({
+  name: v.string(),
+  results: v.array(evalResultValidator),
 });
 
 export const userFlowValidator = v.object({
@@ -140,6 +151,11 @@ export const teamMemberRoleValidator = v.union(
   v.literal("member"),
 );
 
+export const runModeValidator = v.union(
+  v.literal("implementation"),
+  v.literal("resolve_conflicts"),
+);
+
 export const webhookEventStatusValidator = v.union(
   v.literal("pending"),
   v.literal("completed"),
@@ -197,3 +213,143 @@ export const customThemeValidator = v.object({
   fontFamily: v.optional(fontFamilyValidator),
   letterSpacing: v.optional(letterSpacingValidator),
 });
+
+export const logEntryValidator = v.object({
+  timestamp: v.number(),
+  level: logLevelValidator,
+  message: v.string(),
+});
+
+export const agentTaskFields = {
+  title: v.string(),
+  description: v.optional(v.string()),
+  repoId: v.optional(v.id("githubRepos")),
+  projectId: v.optional(v.id("projects")),
+  tags: v.optional(v.array(v.string())),
+  taskNumber: v.optional(v.number()),
+  status: taskStatusValidator,
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  createdBy: v.optional(v.id("users")),
+  assignedTo: v.optional(v.id("users")),
+  model: v.optional(claudeModelValidator),
+  baseBranch: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  scheduledRetryAt: v.optional(v.number()),
+  scheduledAt: v.optional(v.number()),
+  scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
+};
+
+export const agentRunFields = {
+  taskId: v.id("agentTasks"),
+  status: runStatusValidator,
+  logs: v.array(logEntryValidator),
+  startedAt: v.optional(v.number()),
+  finishedAt: v.optional(v.number()),
+  resultSummary: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  error: v.optional(v.string()),
+  errorType: v.optional(errorTypeValidator),
+  limitResetAt: v.optional(v.number()),
+  exitReason: v.optional(v.string()),
+  sandboxId: v.optional(v.string()),
+  repoId: v.optional(v.id("githubRepos")),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
+  mode: v.optional(runModeValidator),
+};
+
+export const sessionFields = {
+  repoId: v.id("githubRepos"),
+  userId: v.id("users"),
+  title: v.string(),
+  branchName: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  sandboxId: v.optional(v.string()),
+  ptySessionId: v.optional(v.string()),
+  updatedAt: v.optional(v.number()),
+  status: sessionStatusValidator,
+  archived: v.optional(v.boolean()),
+  summary: v.optional(v.array(v.string())),
+  createdBy: v.optional(v.id("users")),
+  planContent: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  devPort: v.optional(v.number()),
+  devCommand: v.optional(v.string()),
+};
+
+export const githubRepoFields = {
+  owner: v.string(),
+  name: v.string(),
+  installationId: v.number(),
+  githubId: v.optional(v.number()),
+  connected: v.optional(v.boolean()),
+  connectedBy: v.optional(v.id("users")),
+  teamId: v.optional(v.id("teams")),
+  rootDirectory: v.optional(v.string()),
+  parentRepoId: v.optional(v.id("githubRepos")),
+  defaultBaseBranch: v.optional(v.string()),
+  defaultModel: v.optional(claudeModelValidator),
+  sessionsVncEnabled: v.optional(v.boolean()),
+  sessionsVscodeEnabled: v.optional(v.boolean()),
+  hidden: v.optional(v.boolean()),
+};
+
+export const conversationMessageValidator = v.object({
+  role: roleValidator,
+  content: v.string(),
+  activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
+});
+
+export const projectFields = {
+  repoId: v.id("githubRepos"),
+  userId: v.id("users"),
+  title: v.string(),
+  description: v.optional(v.string()),
+  branchName: v.optional(v.string()),
+  baseBranch: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  sandboxId: v.optional(v.string()),
+  lastSandboxActivity: v.optional(v.number()),
+  phase: phaseValidator,
+  rawInput: v.string(),
+  projectLead: v.optional(v.id("users")),
+  members: v.optional(v.array(v.id("users"))),
+  projectStartDate: v.optional(v.number()),
+  projectEndDate: v.optional(v.number()),
+  deadline: v.optional(v.number()),
+  activeWorkflowId: v.optional(v.string()),
+  activeBuildWorkflowId: v.optional(v.string()),
+  scheduledBuildAt: v.optional(v.number()),
+  scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
+};
+
+export const projectDetailsFields = {
+  projectId: v.id("projects"),
+  conversationHistory: v.array(conversationMessageValidator),
+  generatedSpec: v.optional(v.string()),
+};
+
+export const messageFields = {
+  role: roleValidator,
+  content: v.string(),
+  timestamp: v.number(),
+  finishedAt: v.optional(v.number()),
+  activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("designSessions"),
+    v.id("researchQueries"),
+  ),
+  mode: v.optional(sessionModeValidator),
+  isSystemAlert: v.optional(v.boolean()),
+  errorDetail: v.optional(v.string()),
+  personaId: v.optional(v.id("designPersonas")),
+  variations: v.optional(v.array(variationValidator)),
+  queryCode: v.optional(v.string()),
+  status: v.optional(queryConfirmationStatusValidator),
+  imageStorageId: v.optional(v.id("_storage")),
+  videoStorageId: v.optional(v.id("_storage")),
+};

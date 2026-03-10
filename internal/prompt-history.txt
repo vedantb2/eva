@@ -1,4 +1,20 @@
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
+[] get chrome extension updated with new features
+[] fix chrome ext issues/errors/warnings
+[] figure out chrome distribution policy
+[] improve extension toolbar
+[x] add posted via Assist, store the origin of msg send
+
+[] auto open chrome in vnc
+[] fix agent browser connecting to chrome
+[] add planning / think before execution
+[] add human readable id's for the sessions etc
+[] add num of design options in design input
+[] add checkpoint in messages so you can rewind
+[] add state/version history for designs and sessions
+[] make app more interactive, so user icon on active page
+[] need a way to effectively rollback changes in a file post git commit, like undo
+[] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 
 [x] verify task grouped into project create just 1 pr
 [x] improve streaming log - add more detail
@@ -22,33 +38,12 @@
 [x] improve notifications like linear
 
 
-
-
-[] get chrome extension updated with new features
-[] fix chrome ext issues/errors/warnings
-[] add posted via Assist, store the origin of msg send
-[] figure out chrome distribution policy
-[] improve extension toolbar
-
-[] set env vars in platform repo env vars UI `FIGMA_API_KEY` `SENTRY_ACCESS_TOKEN` `LINEAR_API_KEY`
-[] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
-[] auto open chrome in vnc
-[] fix agent browser connecting to chrome
-[] explore whether we even need to delete sandboxes for sessions, can archive instead
-[] session branch not creating during sessions
-[] see docs, use --continue
-[] add planning / think before execution
-
-
-
-[] add human readable id's for the sessions etc
-[] add num of design options in design input
-[] add checkpoint in messages so you can rewind
-[] add state/version history for designs and sessions
-[] make app more interactive, so user icon on active page
-[] need a way to effectively rollback changes in a file post git commit, like undo
-[] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
-claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
+[x] session branch not creating during sessions
+[x] add tanstack hotkeys and use in quick tasks https://tanstack.com/hotkeys/latest
+[x] set env vars in platform repo env vars UI `FIGMA_API_KEY` `SENTRY_ACCESS_TOKEN` `LINEAR_API_KEY`
+[x] explore whether we even need to delete sandboxes for sessions, can archive instead
+[x] see docs, use --continue
+[x] claude --resume ce4beab4-8aea-47db-8c50-4ab43dcb4935
 
 [x] speed up video
 [x] fix stop btn colour

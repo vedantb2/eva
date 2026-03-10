@@ -12,6 +12,7 @@ import {
   getInstallationOctokit,
   getInstallationToken,
 } from "./githubAuth";
+import { buildPrBody } from "./taskWorkflowActions";
 
 function getAppOctokit(): Octokit {
   const creds = getGitHubCredentials();
@@ -115,33 +116,38 @@ export const createSessionPr = action({
     });
     if (!repo) throw new Error("Repository not found");
 
-    const octokit = await getInstallationOctokit(repo.installationId);
-    const pr = await octokit.rest.pulls.create({
-      owner: repo.owner,
-      repo: repo.name,
-      title: session.title,
-      body: `Session: ${session.title}\n\n---\n*Created by Eva AI Agent*`,
-      head: session.branchName,
-      base: "staging",
-    });
-
     const appLabel = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop()
       : undefined;
 
-    await octokit.rest.issues.addLabels({
-      owner: repo.owner,
-      repo: repo.name,
-      issue_number: pr.data.number,
-      labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
-    });
+    const summaryContent =
+      session.summary && session.summary.length > 0
+        ? session.summary.map((item) => `- ${item}`).join("\n")
+        : "No summary available";
+
+    const prUrl = await ctx.runAction(
+      internal.taskWorkflowActions.createPullRequest,
+      {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName: session.branchName,
+        title: session.title,
+        body: buildPrBody([{ heading: "Summary", content: summaryContent }]),
+        labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
+      },
+    );
+
+    if (!prUrl) {
+      throw new Error("Failed to create PR");
+    }
 
     await ctx.runMutation(internal.sessions.setPrUrl, {
       id: args.sessionId,
-      prUrl: pr.data.html_url,
+      prUrl,
     });
 
-    return { url: pr.data.html_url };
+    return { url: prUrl };
   },
 });
 
@@ -352,6 +358,7 @@ export const syncRepos = action({
                 githubId: repo.id,
                 teamId: personalTeamId,
                 rootDirectory: app.path,
+                parentRepoId: id,
               },
             );
             connectedIds.push(subAppId);

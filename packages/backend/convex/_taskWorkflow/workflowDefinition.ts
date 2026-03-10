@@ -1,9 +1,18 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { claudeModelValidator } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt, WORKSPACE_DIR, AuditFlags } from "./prompts";
+import { claudeModelValidator, runModeValidator } from "../validators";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  auditFixCompleteEvent,
+} from "./events";
+import {
+  buildAuditPrompt,
+  buildAuditFixPrompt,
+  extractAuditFailures,
+} from "./prompts";
+import { buildPrBody } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 
@@ -19,6 +28,7 @@ export const taskExecutionWorkflow = workflow.define({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(claudeModelValidator),
     userId: v.id("users"),
+    mode: v.optional(runModeValidator),
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
@@ -43,6 +53,7 @@ export const taskExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         projectId: args.projectId,
         branchName: args.branchName,
+        mode: args.mode,
       });
       hasSubtasks = data.hasSubtasks;
 
@@ -118,7 +129,12 @@ export const taskExecutionWorkflow = workflow.define({
             branchName: data.branchName,
             baseBranch: args.baseBranch,
             title: data.taskTitle,
-            description: data.taskDescription,
+            body: buildPrBody([
+              {
+                heading: "Task",
+                content: data.taskDescription ?? "No description",
+              },
+            ]),
             labels: [
               "eva",
               args.projectId ? "project" : "quick-task",
@@ -139,69 +155,122 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runCompletionRecorded = true;
 
-      const auditFlags: AuditFlags = {
-        accessibility: data.accessibilityAuditEnabled,
-        testing: data.codeTestingAuditEnabled,
-        codeReview: data.codeReviewAuditEnabled,
-      };
-      const anyAuditEnabled =
-        auditFlags.accessibility || auditFlags.testing || auditFlags.codeReview;
+      const auditCategories = data.auditCategories;
 
-      if (result.success && sandboxId && anyAuditEnabled) {
+      if (result.success && sandboxId && auditCategories.length > 0) {
         try {
-          const diffRaw = await step.runAction(
-            internal.daytona.runSandboxCommand,
+          const auditId = await step.runMutation(
+            internal.taskWorkflow.createAudit,
             {
-              sandboxId,
-              command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-              timeoutSeconds: 30,
-              repoId: args.repoId,
+              taskId: args.taskId,
+              runId: args.runId,
             },
           );
 
-          if (diffRaw.trim()) {
-            const auditId = await step.runMutation(
-              internal.taskWorkflow.createAudit,
+          await step.runAction(internal.daytona.launchAudit, {
+            sandboxId,
+            prompt: buildAuditPrompt(auditCategories),
+            taskId: String(args.taskId),
+            runId: args.runId,
+            userId: args.userId,
+            repoId: args.repoId,
+          });
+
+          const auditResult = await step.awaitEvent(auditCompleteEvent);
+
+          await step.runMutation(internal.taskWorkflow.saveAuditResult, {
+            auditId,
+            result: auditResult.result,
+            error: auditResult.success
+              ? undefined
+              : (auditResult.error ?? "Audit failed"),
+          });
+
+          let finalAuditResult = auditResult;
+
+          if (auditResult.success && auditResult.result) {
+            const failures = extractAuditFailures(auditResult.result);
+            if (failures.length > 0) {
+              try {
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fixing",
+                });
+
+                const fixPrompt = buildAuditFixPrompt(
+                  failures,
+                  data.branchName,
+                  data.rootDirectory,
+                );
+
+                await step.runAction(internal.daytona.launchAuditFix, {
+                  sandboxId,
+                  prompt: fixPrompt,
+                  taskId: String(args.taskId),
+                  runId: args.runId,
+                  userId: args.userId,
+                  repoId: args.repoId,
+                });
+
+                await step.awaitEvent(auditFixCompleteEvent);
+
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_completed",
+                });
+
+                const reAuditId = await step.runMutation(
+                  internal.taskWorkflow.createAudit,
+                  {
+                    taskId: args.taskId,
+                    runId: args.runId,
+                  },
+                );
+
+                await step.runAction(internal.daytona.launchAudit, {
+                  sandboxId,
+                  prompt: buildAuditPrompt(auditCategories),
+                  taskId: String(args.taskId),
+                  runId: args.runId,
+                  userId: args.userId,
+                  repoId: args.repoId,
+                });
+
+                const reAuditResult = await step.awaitEvent(auditCompleteEvent);
+
+                await step.runMutation(internal.taskWorkflow.saveAuditResult, {
+                  auditId: reAuditId,
+                  result: reAuditResult.result,
+                  error: reAuditResult.success
+                    ? undefined
+                    : (reAuditResult.error ?? "Re-audit failed"),
+                });
+
+                finalAuditResult = reAuditResult;
+              } catch (fixErr) {
+                console.error("Audit fix step failed:", fixErr);
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_error",
+                });
+              }
+            }
+          }
+
+          if (completionPrUrl) {
+            await step.runAction(
+              internal.taskWorkflowActions.appendAuditToPullRequest,
               {
-                taskId: args.taskId,
-                runId: args.runId,
+                installationId: args.installationId,
+                repoOwner: data.repoOwner,
+                repoName: data.repoName,
+                branchName: data.branchName,
+                auditResult: finalAuditResult.result,
+                auditError: finalAuditResult.success
+                  ? null
+                  : (finalAuditResult.error ?? "Audit failed"),
               },
             );
-
-            await step.runAction(internal.daytona.launchAudit, {
-              sandboxId,
-              prompt: buildAuditPrompt(diffRaw, auditFlags),
-              taskId: String(args.taskId),
-              runId: args.runId,
-              userId: args.userId,
-              repoId: args.repoId,
-            });
-
-            const auditResult = await step.awaitEvent(auditCompleteEvent);
-
-            await step.runMutation(internal.taskWorkflow.saveAuditResult, {
-              auditId,
-              result: auditResult.result,
-              error: auditResult.success
-                ? undefined
-                : (auditResult.error ?? "Audit failed"),
-            });
-
-            if (completionPrUrl) {
-              await step.runAction(
-                internal.taskWorkflowActions.appendAuditToPullRequest,
-                {
-                  installationId: args.installationId,
-                  repoOwner: data.repoOwner,
-                  repoName: data.repoName,
-                  branchName: data.branchName,
-                  auditResult: auditResult.result,
-                  auditError: auditResult.success
-                    ? null
-                    : (auditResult.error ?? "Audit failed"),
-                },
-              );
-            }
           }
         } catch (err) {
           console.error("Audit step failed:", err);
@@ -217,6 +286,7 @@ export const taskExecutionWorkflow = workflow.define({
         prUrl: completionPrUrl,
         hasSubtasks: data.hasSubtasks,
         activityLog: result.activityLog,
+        mode: args.mode,
       });
       runFinalized = true;
 
@@ -282,6 +352,7 @@ export const taskExecutionWorkflow = workflow.define({
           hasSubtasks,
           activityLog: completionActivityLog,
           exitReason: fallbackExitReason,
+          mode: args.mode,
         });
       }
 

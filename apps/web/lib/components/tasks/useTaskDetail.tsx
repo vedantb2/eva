@@ -1603,5 +1603,12 @@ export function useTaskDetail(
     setActiveTab,
     layoutGridClass,
     modalWidthClass,
+    isActivityBusy:
+      Boolean(hasActiveRun) ||
+      latestAudit?.status === "running" ||
+      latestAudit?.fixStatus === "fixing",
+    isProofBusy: status === "in_progress",
+    isAuditBusy:
+      latestAudit?.status === "running" || latestAudit?.fixStatus === "fixing",
   };
 }

@@ -68,6 +68,7 @@ export function DesignChatPanel({
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
+  const [numDesigns, setNumDesigns] = useState(3);
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -103,6 +104,7 @@ export function DesignChatPanel({
         id: designSessionId,
         message: text.trim(),
         personaId: selectedPersonaId,
+        numDesigns,
       });
     } catch {
       setIsSending(false);
@@ -256,6 +258,24 @@ export function DesignChatPanel({
                   value={selectedPersonaId}
                   onChange={setSelectedPersonaId}
                 />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Designs:</span>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setNumDesigns(n)}
+                      disabled={isExecuting || !isSandboxActive}
+                      className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
+                        numDesigns === n
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center gap-1">
                   <PromptInputSpeech
                     disabled={isExecuting || !isSandboxActive}

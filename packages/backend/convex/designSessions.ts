@@ -311,6 +311,7 @@ export const executeMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -343,6 +344,7 @@ export const executeMessage = authMutation({
         message: args.message,
         personaId: args.personaId,
         userId: ctx.userId,
+        numDesigns: args.numDesigns ?? 3,
       },
     );
 

@@ -89,3 +89,22 @@ export const saveAuditResult = internalMutation({
     return null;
   },
 });
+
+export const setFixStatus = internalMutation({
+  args: {
+    auditId: v.id("audits"),
+    fixStatus: v.union(
+      v.literal("fixing"),
+      v.literal("fix_completed"),
+      v.literal("fix_error"),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const audit = await ctx.db.get(args.auditId);
+    if (!audit) return null;
+
+    await ctx.db.patch(args.auditId, { fixStatus: args.fixStatus });
+    return null;
+  },
+});

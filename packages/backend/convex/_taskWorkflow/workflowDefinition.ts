@@ -188,6 +188,11 @@ export const taskExecutionWorkflow = workflow.define({
             const failures = extractAuditFailures(auditResult.result);
             if (failures.length > 0) {
               try {
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fixing",
+                });
+
                 const fixPrompt = buildAuditFixPrompt(
                   failures,
                   data.branchName,
@@ -204,8 +209,17 @@ export const taskExecutionWorkflow = workflow.define({
                 });
 
                 await step.awaitEvent(auditFixCompleteEvent);
+
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_completed",
+                });
               } catch (fixErr) {
                 console.error("Audit fix step failed:", fixErr);
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_error",
+                });
               }
             }
           }

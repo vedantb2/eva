@@ -64,6 +64,7 @@ import {
   IconPlayerStop,
   IconClock,
   IconBrandVercel,
+  IconHammer,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -105,7 +106,8 @@ export function useTaskDetail(
   const audit = useQuery(api.audits.getByTask, { taskId });
   const auditStreaming = useQuery(
     api.streaming.get,
-    audit?.status === "running" && audit.runId
+    (audit?.status === "running" || audit?.fixStatus === "fixing") &&
+      audit?.runId
       ? { entityId: `task-audit-run-${audit.runId}` }
       : "skip",
   );
@@ -809,6 +811,37 @@ export function useTaskDetail(
                 </AccordionItem>
               ))}
           </Accordion>
+          {audit.fixStatus === "fixing" && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2 p-2.5 rounded-md bg-warning/10 border border-warning/20">
+                <IconHammer size={14} className="text-warning animate-pulse" />
+                <span className="text-xs text-warning">
+                  Fixing audit failures...
+                </span>
+              </div>
+              {auditStreaming?.currentActivity &&
+                (() => {
+                  const steps = parseActivitySteps(
+                    auditStreaming.currentActivity,
+                  );
+                  return steps ? (
+                    <ActivitySteps steps={steps} isStreaming name="Fixing" />
+                  ) : null;
+                })()}
+            </div>
+          )}
+          {audit.fixStatus === "fix_completed" && (
+            <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-success/10 border border-success/20">
+              <IconHammer size={14} className="text-success" />
+              <span className="text-xs text-success">Audit fixes applied</span>
+            </div>
+          )}
+          {audit.fixStatus === "fix_error" && (
+            <div className="flex items-center gap-2 mt-3 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
+              <IconHammer size={14} className="text-destructive" />
+              <span className="text-xs text-destructive">Audit fix failed</span>
+            </div>
+          )}
         </>
       )}
     </div>

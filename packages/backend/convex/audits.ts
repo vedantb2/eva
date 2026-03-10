@@ -1,7 +1,11 @@
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { evaluationStatusValidator, auditSectionValidator } from "./validators";
+import {
+  evaluationStatusValidator,
+  auditSectionValidator,
+  evalFixStatusValidator,
+} from "./validators";
 import { authQuery, authMutation } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
@@ -22,6 +26,7 @@ export const getByTask = authQuery({
       sections: v.array(auditSectionValidator),
       summary: v.optional(v.string()),
       error: v.optional(v.string()),
+      fixStatus: v.optional(evalFixStatusValidator),
       createdAt: v.number(),
     }),
     v.null(),
@@ -43,6 +48,7 @@ export const getByTask = authQuery({
       sections: latest.sections ?? [],
       summary: latest.summary,
       error: latest.error,
+      fixStatus: latest.fixStatus,
       createdAt: latest.createdAt,
     };
   },

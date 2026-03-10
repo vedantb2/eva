@@ -248,6 +248,7 @@ const schema = defineSchema({
     sections: v.optional(v.array(auditSectionValidator)),
     summary: v.optional(v.string()),
     error: v.optional(v.string()),
+    fixStatus: v.optional(evalFixStatusValidator),
     createdAt: v.number(),
   }).index("by_entity", ["entityId"]),
   notifications: defineTable({

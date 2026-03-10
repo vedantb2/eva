@@ -32,20 +32,7 @@ export function parseSectionsFromJson(raw: unknown): AuditSection[] {
       }));
   }
 
-  const legacyKeys: Record<string, string> = {
-    accessibility: "Accessibility",
-    testing: "Testing",
-    codeReview: "Code Review",
-  };
-
-  const sections: AuditSection[] = [];
-  for (const [key, label] of Object.entries(legacyKeys)) {
-    const results = parseResultsArray(raw[key]);
-    if (results.length > 0) {
-      sections.push({ name: label, results });
-    }
-  }
-  return sections;
+  return [];
 }
 
 export function extractSummaryFromJson(raw: unknown): string {

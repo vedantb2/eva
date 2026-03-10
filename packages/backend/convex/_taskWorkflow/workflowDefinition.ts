@@ -11,7 +11,6 @@ import {
   buildAuditPrompt,
   buildAuditFixPrompt,
   extractAuditFailures,
-  WORKSPACE_DIR,
 } from "./prompts";
 import { buildPrBody } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
@@ -158,85 +157,73 @@ export const taskExecutionWorkflow = workflow.define({
 
       if (result.success && sandboxId && auditCategories.length > 0) {
         try {
-          const diffRaw = await step.runAction(
-            internal.daytona.runSandboxCommand,
+          const auditId = await step.runMutation(
+            internal.taskWorkflow.createAudit,
             {
-              sandboxId,
-              command: `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-              timeoutSeconds: 30,
-              repoId: args.repoId,
+              taskId: args.taskId,
+              runId: args.runId,
             },
           );
 
-          if (diffRaw.trim()) {
-            const auditId = await step.runMutation(
-              internal.taskWorkflow.createAudit,
-              {
-                taskId: args.taskId,
-                runId: args.runId,
-              },
-            );
+          await step.runAction(internal.daytona.launchAudit, {
+            sandboxId,
+            prompt: buildAuditPrompt(auditCategories),
+            taskId: String(args.taskId),
+            runId: args.runId,
+            userId: args.userId,
+            repoId: args.repoId,
+          });
 
-            await step.runAction(internal.daytona.launchAudit, {
-              sandboxId,
-              prompt: buildAuditPrompt(diffRaw, auditCategories),
-              taskId: String(args.taskId),
-              runId: args.runId,
-              userId: args.userId,
-              repoId: args.repoId,
-            });
+          const auditResult = await step.awaitEvent(auditCompleteEvent);
 
-            const auditResult = await step.awaitEvent(auditCompleteEvent);
+          await step.runMutation(internal.taskWorkflow.saveAuditResult, {
+            auditId,
+            result: auditResult.result,
+            error: auditResult.success
+              ? undefined
+              : (auditResult.error ?? "Audit failed"),
+          });
 
-            await step.runMutation(internal.taskWorkflow.saveAuditResult, {
-              auditId,
-              result: auditResult.result,
-              error: auditResult.success
-                ? undefined
-                : (auditResult.error ?? "Audit failed"),
-            });
+          if (auditResult.success && auditResult.result) {
+            const failures = extractAuditFailures(auditResult.result);
+            if (failures.length > 0) {
+              try {
+                const fixPrompt = buildAuditFixPrompt(
+                  failures,
+                  data.branchName,
+                  data.rootDirectory,
+                );
 
-            if (auditResult.success && auditResult.result) {
-              const failures = extractAuditFailures(auditResult.result);
-              if (failures.length > 0) {
-                try {
-                  const fixPrompt = buildAuditFixPrompt(
-                    failures,
-                    data.branchName,
-                    data.rootDirectory,
-                  );
+                await step.runAction(internal.daytona.launchAuditFix, {
+                  sandboxId,
+                  prompt: fixPrompt,
+                  taskId: String(args.taskId),
+                  runId: args.runId,
+                  userId: args.userId,
+                  repoId: args.repoId,
+                });
 
-                  await step.runAction(internal.daytona.launchAuditFix, {
-                    sandboxId,
-                    prompt: fixPrompt,
-                    taskId: String(args.taskId),
-                    runId: args.runId,
-                    userId: args.userId,
-                    repoId: args.repoId,
-                  });
-
-                  await step.awaitEvent(auditFixCompleteEvent);
-                } catch (fixErr) {
-                  console.error("Audit fix step failed:", fixErr);
-                }
+                await step.awaitEvent(auditFixCompleteEvent);
+              } catch (fixErr) {
+                console.error("Audit fix step failed:", fixErr);
               }
             }
+          }
 
-            if (completionPrUrl) {
-              await step.runAction(
-                internal.taskWorkflowActions.appendAuditToPullRequest,
-                {
-                  installationId: args.installationId,
-                  repoOwner: data.repoOwner,
-                  repoName: data.repoName,
-                  branchName: data.branchName,
-                  auditResult: auditResult.result,
-                  auditError: auditResult.success
-                    ? null
-                    : (auditResult.error ?? "Audit failed"),
-                },
-              );
-            }
+          if (completionPrUrl) {
+            await step.runAction(
+              internal.taskWorkflowActions.appendAuditToPullRequest,
+              {
+                installationId: args.installationId,
+                repoOwner: data.repoOwner,
+                repoName: data.repoName,
+                branchName: data.branchName,
+                auditResult: auditResult.result,
+                auditError: auditResult.success
+                  ? null
+                  : (auditResult.error ?? "Audit failed"),
+              },
+            );
           }
         } catch (err) {
           console.error("Audit step failed:", err);

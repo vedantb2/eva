@@ -3,18 +3,11 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import {
-  exec,
-  WORKSPACE_DIR,
-  getSandbox,
-  errorMessage,
-  signAndLaunchScript,
-} from "./helpers";
+import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
 function buildSessionAuditPrompt(
-  diff: string,
   categories: Array<{ name: string; description: string }>,
 ): string {
   const sectionDescriptions = categories
@@ -28,23 +21,22 @@ function buildSessionAuditPrompt(
     )
     .join(",\n");
 
-  return `You are a code auditor. Analyze this git diff and produce a JSON audit.
+  return `You are a code auditor. Audit the changes made in this branch.
 
-For each check, return { "requirement": "<check name>", "passed": true/false, "detail": "<1 sentence explanation>" }.
+Focus ONLY on the changes in this branch — use git diff against the base branch to identify what was changed. You have full access to the repository, so read files, run skills, and use any tools you need to perform a thorough audit.
 
-## Sections:
+## Audit categories:
 ${sectionDescriptions}
 
-Return ONLY valid JSON in this exact format:
+For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, and a 1-sentence explanation.
+
+When you are done, output ONLY valid JSON in this exact format:
 {
   "sections": [
 ${sectionJson}
   ],
   "summary": "1-2 sentence overall assessment"
-}
-
-## Git Diff:
-${diff.slice(0, 30000)}`;
+}`;
 }
 
 export const launchAudit = internalAction({
@@ -148,25 +140,11 @@ export const runSessionAudit = internalAction({
         return null;
       }
 
-      const diffRaw = await exec(
-        sandbox,
-        `cd ${WORKSPACE_DIR} && git diff HEAD~1..HEAD 2>/dev/null || echo ""`,
-        30,
-      );
-
-      if (!diffRaw.trim()) {
-        await ctx.runMutation(internal.audits.fail, {
-          id: args.auditId,
-          error: "No changes detected",
-        });
-        return null;
-      }
-
       await signAndLaunchScript(
         ctx,
         sandbox,
         args.userId,
-        buildSessionAuditPrompt(diffRaw, categories),
+        buildSessionAuditPrompt(categories),
         "audits:handleSessionCompletion",
         "sessionId",
         String(args.sessionId),

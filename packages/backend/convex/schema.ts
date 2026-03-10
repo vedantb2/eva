@@ -250,7 +250,9 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     fixStatus: v.optional(evalFixStatusValidator),
     createdAt: v.number(),
-  }).index("by_entity", ["entityId"]),
+  })
+    .index("by_entity", ["entityId"])
+    .index("by_entity_created", ["entityId", "createdAt"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

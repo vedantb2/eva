@@ -469,11 +469,7 @@ export const saveFixResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     await ctx.db.patch(args.reportId, {
       fixStatus: "fix_completed",
@@ -492,11 +488,7 @@ export const saveFixError = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", String(args.reportId)))
-      .first();
-    if (streaming) await ctx.db.delete(streaming._id);
+    await clearStreamingActivity(ctx, String(args.reportId));
 
     await ctx.db.patch(args.reportId, {
       fixStatus: "fix_error",

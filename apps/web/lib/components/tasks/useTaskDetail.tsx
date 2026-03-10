@@ -83,7 +83,7 @@ const NO_PROJECT_VALUE = "__none__";
 export function useTaskDetail(
   taskId: Id<"agentTasks">,
   onClose: () => void,
-  variant: "inline" | "modal" = "modal",
+  inline = false,
 ) {
   const task = useQuery(api.agentTasks.get, { id: taskId });
   const currentUserId = useQuery(api.auth.me);
@@ -413,7 +413,7 @@ export function useTaskDetail(
                     ? undefined
                     : "Description can only be edited in To Do"
                 }
-                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${variant === "inline" ? "max-h-[30vh] overflow-y-auto scrollbar" : ""} ${
+                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
                   !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
                 }`}
               >
@@ -614,57 +614,78 @@ export function useTaskDetail(
                           <span className="text-xs text-muted-foreground">
                             {formatElapsed(activeRunElapsed)}
                           </span>
-                        ) : run.startedAt && run.finishedAt ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDuration(run.startedAt, run.finishedAt)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Completed{" "}
-                              {dayjs(run.finishedAt).format(
-                                "M/D/YYYY, h:mm:ss A",
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : null}
-                        {isActiveRun && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowStopConfirm(true);
-                                  }}
-                                  disabled={isStopping || !isOwner}
-                                >
-                                  {isStopping ? (
-                                    <IconLoader2
-                                      size={14}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <IconPlayerStop size={14} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isActiveRun && run.startedAt ? (
+                            <span className="text-xs text-muted-foreground">
+                              {formatElapsed(activeRunElapsed)}
+                            </span>
+                          ) : run.startedAt && run.finishedAt ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDuration(
+                                    run.startedAt,
+                                    run.finishedAt,
                                   )}
-                                  Stop
-                                </Button>
-                              </div>
-                            </TooltipTrigger>
-                            {!isOwner && (
+                                </span>
+                              </TooltipTrigger>
                               <TooltipContent>
-                                Only the task owner can stop execution
+                                Completed{" "}
+                                {dayjs(run.finishedAt).format(
+                                  "M/D/YYYY, h:mm:ss A",
+                                )}
                               </TooltipContent>
-                            )}
-                          </Tooltip>
-                        )}
+                            </Tooltip>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  </AccordionTrigger>
+                    </AccordionTrigger>
+                    {runCommentMap.has(run._id) && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground shrink-0"
+                            onClick={() => setViewingCommentForRun(run._id)}
+                          >
+                            <IconMessagePlus size={14} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>View user message</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {isActiveRun && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setShowStopConfirm(true)}
+                              disabled={isStopping || !isOwner}
+                            >
+                              {isStopping ? (
+                                <IconLoader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <IconPlayerStop size={14} />
+                              )}
+                              Stop
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!isOwner && (
+                          <TooltipContent>
+                            Only the task owner can stop execution
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    )}
+                  </div>
                   <AccordionContent>
                     <div className="space-y-2">
                       {run.status === "running" &&

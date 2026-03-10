@@ -13,6 +13,48 @@ import {
   parseSectionsFromJson,
   extractSummaryFromJson,
 } from "./_taskWorkflow/auditParser";
+import type { QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+const auditReturnValidator = v.union(
+  v.object({
+    _id: v.id("audits"),
+    _creationTime: v.number(),
+    entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+    runId: v.optional(v.id("agentRuns")),
+    status: evaluationStatusValidator,
+    sections: v.array(auditSectionValidator),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  }),
+  v.null(),
+);
+
+async function getLatestAuditByEntityId(
+  ctx: QueryCtx,
+  entityId: Id<"agentTasks"> | Id<"sessions">,
+) {
+  const latest = await ctx.db
+    .query("audits")
+    .withIndex("by_entity_created", (q) => q.eq("entityId", entityId))
+    .order("desc")
+    .first();
+
+  if (!latest) return null;
+
+  return {
+    _id: latest._id,
+    _creationTime: latest._creationTime,
+    entityId: latest.entityId,
+    runId: latest.runId,
+    status: latest.status,
+    sections: latest.sections ?? [],
+    summary: latest.summary,
+    error: latest.error,
+    createdAt: latest.createdAt,
+  };
+}
 
 const auditReturnValidator = v.object({
   _id: v.id("audits"),
@@ -55,40 +97,8 @@ export const listByTask = authQuery({
 
 export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
-  returns: v.union(
-    v.object({
-      _id: v.id("audits"),
-      _creationTime: v.number(),
-      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
-      runId: v.optional(v.id("agentRuns")),
-      status: evaluationStatusValidator,
-      sections: v.array(auditSectionValidator),
-      summary: v.optional(v.string()),
-      error: v.optional(v.string()),
-      createdAt: v.number(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const audits = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.sessionId))
-      .collect();
-    if (audits.length === 0) return null;
-    const latest = audits.sort((a, b) => b.createdAt - a.createdAt)[0];
-
-    return {
-      _id: latest._id,
-      _creationTime: latest._creationTime,
-      entityId: latest.entityId,
-      runId: latest.runId,
-      status: latest.status,
-      sections: latest.sections ?? [],
-      summary: latest.summary,
-      error: latest.error,
-      createdAt: latest.createdAt,
-    };
-  },
+  returns: auditReturnValidator,
+  handler: async (ctx, args) => getLatestAuditByEntityId(ctx, args.sessionId),
 });
 
 export const startSessionAudit = authMutation({

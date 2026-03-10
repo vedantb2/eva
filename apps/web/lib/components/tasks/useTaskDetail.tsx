@@ -368,7 +368,7 @@ export function useTaskDetail(
       >
         <IconClock size={11} />
         {status === "todo" ? "Scheduled for" : "Was scheduled for"}{" "}
-        {dayjs(task.scheduledAt).format("MMM D, h:mm A")}
+        {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
       </Badge>
     </div>
   ) : null;
@@ -377,7 +377,9 @@ export function useTaskDetail(
     <div>
       <div className="flex items-center justify-end mb-2">
         <span className="text-xs text-muted-foreground">
-          {task?.createdAt ? dayjs(task.createdAt).format("MMM D, YYYY") : ""}
+          {task?.createdAt
+            ? dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")
+            : ""}
         </span>
       </div>
       {isEditingDescription ? (
@@ -540,7 +542,7 @@ export function useTaskDetail(
                       </Badge>
                       <span className="text-xs text-muted-foreground truncate">
                         {dayjs(latestAudit.createdAt).format(
-                          "M/D/YYYY, h:mm:ss A",
+                          "DD/MM/YYYY HH:mm",
                         )}
                       </span>
                     </div>
@@ -605,7 +607,7 @@ export function useTaskDetail(
                       </Badge>
                       <span className="text-xs text-muted-foreground truncate">
                         {dayjs(latestAudit.createdAt).format(
-                          "M/D/YYYY, h:mm:ss A",
+                          "DD/MM/YYYY HH:mm",
                         )}
                       </span>
                     </div>
@@ -694,13 +696,21 @@ export function useTaskDetail(
                                 : run.status === "error"
                                   ? "error"
                                   : "queued"
-                            : run.status === "running"
-                              ? "running"
-                              : run.status === "success"
-                                ? "completed"
-                                : run.status === "error"
-                                  ? "error"
-                                  : "queued"}
+                            : runCommentMap.has(run._id)
+                              ? run.status === "running"
+                                ? "making changes"
+                                : run.status === "success"
+                                  ? "made changes"
+                                  : run.status === "error"
+                                    ? "error"
+                                    : "queued"
+                              : run.status === "running"
+                                ? "running"
+                                : run.status === "success"
+                                  ? "success"
+                                  : run.status === "error"
+                                    ? "error"
+                                    : "queued"}
                         </Badge>
                         {runCommentMap.has(run._id) && (
                           <Tooltip>
@@ -721,7 +731,7 @@ export function useTaskDetail(
                         )}
                         <span className="text-xs text-muted-foreground truncate">
                           {run.startedAt
-                            ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                            ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
                             : "Queued"}
                         </span>
                       </div>
@@ -739,9 +749,7 @@ export function useTaskDetail(
                             </TooltipTrigger>
                             <TooltipContent>
                               Completed{" "}
-                              {dayjs(run.finishedAt).format(
-                                "M/D/YYYY, h:mm:ss A",
-                              )}
+                              {dayjs(run.finishedAt).format("DD/MM/YYYY HH:mm")}
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
@@ -833,7 +841,9 @@ export function useTaskDetail(
                                 }`}
                               >
                                 <span className="text-muted-foreground flex-shrink-0">
-                                  {dayjs(log.timestamp).format("h:mm:ss A")}
+                                  {dayjs(log.timestamp).format(
+                                    "DD/MM/YYYY HH:mm",
+                                  )}
                                 </span>
                                 <span className="break-all">{log.message}</span>
                               </div>
@@ -1019,7 +1029,7 @@ export function useTaskDetail(
               {pastAudits.map((pastAudit) => (
                 <div key={pastAudit._id} className="space-y-2">
                   <span className="text-xs text-muted-foreground">
-                    {dayjs(pastAudit.createdAt).format("M/D/YYYY, h:mm:ss A")}
+                    {dayjs(pastAudit.createdAt).format("DD/MM/YYYY HH:mm")}
                   </span>
                   {renderAuditResults(pastAudit)}
                 </div>

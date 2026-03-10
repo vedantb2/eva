@@ -410,7 +410,7 @@ export function useTaskDetail(
                     ? undefined
                     : "Description can only be edited in To Do"
                 }
-                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${variant === "inline" ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
+                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${variant === "inline" ? "max-h-[30vh] overflow-y-auto scrollbar" : ""} ${
                   !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
                 }`}
               >

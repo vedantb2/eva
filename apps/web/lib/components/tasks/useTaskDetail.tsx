@@ -102,11 +102,15 @@ export function useTaskDetail(
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
-  const audit = useQuery(api.audits.getByTask, { taskId });
+  const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const latestAudit = allAudits?.[0] ?? null;
+  const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
     api.streaming.get,
-    audit?.status === "running" && audit.runId
-      ? { entityId: `task-audit-run-${audit.runId}` }
+    (latestAudit?.status === "running" ||
+      latestAudit?.fixStatus === "fixing") &&
+      latestAudit?.runId
+      ? { entityId: `task-audit-run-${latestAudit.runId}` }
       : "skip",
   );
   const users = useQuery(api.users.listAll);
@@ -180,8 +184,7 @@ export function useTaskDetail(
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
   const status = task?.status;
-  const showProofSection =
-    status !== undefined && status !== "todo" && status !== "in_progress";
+  const showProofSection = status !== undefined && status !== "todo";
   const projectOptions = projects ?? [];
   const hasSelectedProject =
     task?.projectId !== undefined &&
@@ -490,6 +493,64 @@ export function useTaskDetail(
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
+          {latestAudit?.status === "running" && (
+            <Accordion type="multiple" defaultValue={["audit-streaming"]}>
+              <AccordionItem
+                value="audit-streaming"
+                className="border rounded-lg px-3"
+              >
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">Auditing</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {auditStreaming?.currentActivity &&
+                    (() => {
+                      const steps = parseActivitySteps(
+                        auditStreaming.currentActivity,
+                      );
+                      return steps ? (
+                        <ActivitySteps
+                          steps={steps}
+                          isStreaming
+                          name="Auditing"
+                        />
+                      ) : null;
+                    })()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
+          {latestAudit?.fixStatus === "fixing" && (
+            <Accordion type="multiple" defaultValue={["fix-streaming"]}>
+              <AccordionItem
+                value="fix-streaming"
+                className="border rounded-lg px-3"
+              >
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">Fixing audit issues</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {auditStreaming?.currentActivity &&
+                    (() => {
+                      const steps = parseActivitySteps(
+                        auditStreaming.currentActivity,
+                      );
+                      return steps ? (
+                        <ActivitySteps
+                          steps={steps}
+                          isStreaming
+                          name="Fixing"
+                        />
+                      ) : null;
+                    })()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
               run.status === "running" || run.status === "queued";
@@ -503,34 +564,55 @@ export function useTaskDetail(
                   value={run._id}
                   className="border rounded-lg px-3"
                 >
-                  <div className="flex items-center gap-2">
-                    <AccordionTrigger>
-                      <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                          {run.status === "running" ? (
-                            <IconLoader2
-                              size={16}
-                              className="animate-spin text-warning"
-                            />
-                          ) : run.status === "error" ? (
-                            <IconAlertTriangle
-                              size={16}
-                              className="text-destructive"
-                            />
-                          ) : run.status === "success" ? (
-                            <IconCheck size={16} className="text-success" />
-                          ) : (
-                            <IconCircleDot
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                          )}
-                          <span className="text-xs text-muted-foreground truncate">
-                            {run.startedAt
-                              ? dayjs(run.startedAt).format(
-                                  "M/D/YYYY, h:mm:ss A",
-                                )
-                              : "Queued"}
+                  <AccordionTrigger>
+                    <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <Badge
+                          variant={
+                            run.status === "running"
+                              ? "warning"
+                              : run.status === "error"
+                                ? "destructive"
+                                : run.status === "success"
+                                  ? "success"
+                                  : "secondary"
+                          }
+                        >
+                          {run.status === "running"
+                            ? "Making changes"
+                            : run.status === "success"
+                              ? "Made changes"
+                              : run.status === "error"
+                                ? "Error"
+                                : "Queued"}
+                        </Badge>
+                        {runCommentMap.has(run._id) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingCommentForRun(run._id);
+                                }}
+                              >
+                                <IconMessagePlus size={14} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>View user message</TooltipContent>
+                          </Tooltip>
+                        )}
+                        <span className="text-xs text-muted-foreground truncate">
+                          {run.startedAt
+                            ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                            : "Queued"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isActiveRun && run.startedAt ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatElapsed(activeRunElapsed)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -715,49 +797,49 @@ export function useTaskDetail(
             </p>
           ))
         : null}
-      {(!proofs || proofs.length === 0) && (
-        <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
-      )}
+      {(!proofs || proofs.length === 0) &&
+        (status === "in_progress" ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <IconLoader2 size={14} className="animate-spin" />
+            Waiting for proof upload...
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
+        ))}
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">No proof available</p>
   );
 
-  const auditSection = audit ? (
+  const [showPastAudits, setShowPastAudits] = useState(false);
+
+  const renderAuditResults = (auditData: NonNullable<typeof latestAudit>) => (
     <div className="space-y-3">
       <Badge
         variant={
-          audit.status === "completed"
+          auditData.status === "completed"
             ? "success"
-            : audit.status === "error"
+            : auditData.status === "error"
               ? "destructive"
               : "warning"
         }
       >
-        {audit.status}
+        {auditData.status}
       </Badge>
-      {audit.status === "running" &&
-        auditStreaming?.currentActivity &&
-        (() => {
-          const steps = parseActivitySteps(auditStreaming.currentActivity);
-          return steps ? (
-            <ActivitySteps steps={steps} isStreaming name="Auditing" />
-          ) : null;
-        })()}
-      {audit.status === "error" && audit.error && (
+      {auditData.status === "error" && auditData.error && (
         <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
-          {audit.error}
+          {auditData.error}
         </div>
       )}
-      {audit.status === "completed" && (
+      {auditData.status === "completed" && (
         <>
-          {audit.summary && (
+          {auditData.summary && (
             <p className="text-sm text-muted-foreground mb-3">
-              {audit.summary}
+              {auditData.summary}
             </p>
           )}
           <Accordion type="multiple" className="space-y-2">
-            {audit.sections
+            {auditData.sections
               .filter((section) => section.results.length > 0)
               .map((section) => (
                 <AccordionItem
@@ -810,7 +892,46 @@ export function useTaskDetail(
                 </AccordionItem>
               ))}
           </Accordion>
+          {auditData.fixStatus === "fix_completed" && (
+            <Badge variant="success" className="mt-3">
+              Fixed audit issues
+            </Badge>
+          )}
+          {auditData.fixStatus === "fix_error" && (
+            <Badge variant="destructive" className="mt-3">
+              Fix failed
+            </Badge>
+          )}
         </>
+      )}
+    </div>
+  );
+
+  const auditSection = latestAudit ? (
+    <div className="space-y-4">
+      {renderAuditResults(latestAudit)}
+      {pastAudits.length > 0 && (
+        <div>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowPastAudits((v) => !v)}
+          >
+            {showPastAudits ? "Hide" : "Show"} past audits ({pastAudits.length})
+          </button>
+          {showPastAudits && (
+            <div className="mt-3 space-y-4 border-t pt-3">
+              {pastAudits.map((pastAudit) => (
+                <div key={pastAudit._id} className="space-y-2">
+                  <span className="text-xs text-muted-foreground">
+                    {dayjs(pastAudit.createdAt).format("M/D/YYYY, h:mm:ss A")}
+                  </span>
+                  {renderAuditResults(pastAudit)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   ) : (
@@ -1302,7 +1423,7 @@ export function useTaskDetail(
   const hasTabContent =
     (runs !== undefined && runs.length > 0) ||
     (proofs !== undefined && proofs.length > 0) ||
-    audit !== undefined ||
+    latestAudit !== null ||
     (comments !== undefined && comments.length > 0);
 
   const showTabsColumn = status !== "todo" || hasTabContent;
@@ -1320,7 +1441,7 @@ export function useTaskDetail(
     footerButtons,
     stopConfirmDialog,
     userMessageDialog,
-    audit,
+    latestAudit,
     showProofSection,
     showTabsColumn,
     activeTab,

@@ -231,6 +231,44 @@ export async function runTestQuery(
   };
 }
 
+export async function runMutation(
+  convexUrl: string,
+  deployKey: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const response = await fetch(`${convexUrl}/api/mutation`, {
+    method: "POST",
+    headers: authHeaders(deployKey),
+    body: JSON.stringify({ path: functionPath, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
+}
+
+export async function runAction(
+  convexUrl: string,
+  deployKey: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const response = await fetch(`${convexUrl}/api/action`, {
+    method: "POST",
+    headers: authHeaders(deployKey),
+    body: JSON.stringify({ path: functionPath, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
+}
+
 export interface Repo {
   id: string;
   owner: string;

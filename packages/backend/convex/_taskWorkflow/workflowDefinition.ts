@@ -184,10 +184,17 @@ export const taskExecutionWorkflow = workflow.define({
               : (auditResult.error ?? "Audit failed"),
           });
 
+          let finalAuditResult = auditResult;
+
           if (auditResult.success && auditResult.result) {
             const failures = extractAuditFailures(auditResult.result);
             if (failures.length > 0) {
               try {
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fixing",
+                });
+
                 const fixPrompt = buildAuditFixPrompt(
                   failures,
                   data.branchName,
@@ -204,8 +211,46 @@ export const taskExecutionWorkflow = workflow.define({
                 });
 
                 await step.awaitEvent(auditFixCompleteEvent);
+
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_completed",
+                });
+
+                const reAuditId = await step.runMutation(
+                  internal.taskWorkflow.createAudit,
+                  {
+                    taskId: args.taskId,
+                    runId: args.runId,
+                  },
+                );
+
+                await step.runAction(internal.daytona.launchAudit, {
+                  sandboxId,
+                  prompt: buildAuditPrompt(auditCategories),
+                  taskId: String(args.taskId),
+                  runId: args.runId,
+                  userId: args.userId,
+                  repoId: args.repoId,
+                });
+
+                const reAuditResult = await step.awaitEvent(auditCompleteEvent);
+
+                await step.runMutation(internal.taskWorkflow.saveAuditResult, {
+                  auditId: reAuditId,
+                  result: reAuditResult.result,
+                  error: reAuditResult.success
+                    ? undefined
+                    : (reAuditResult.error ?? "Re-audit failed"),
+                });
+
+                finalAuditResult = reAuditResult;
               } catch (fixErr) {
                 console.error("Audit fix step failed:", fixErr);
+                await step.runMutation(internal.taskWorkflow.setFixStatus, {
+                  auditId,
+                  fixStatus: "fix_error",
+                });
               }
             }
           }
@@ -218,10 +263,10 @@ export const taskExecutionWorkflow = workflow.define({
                 repoOwner: data.repoOwner,
                 repoName: data.repoName,
                 branchName: data.branchName,
-                auditResult: auditResult.result,
-                auditError: auditResult.success
+                auditResult: finalAuditResult.result,
+                auditError: finalAuditResult.success
                   ? null
-                  : (auditResult.error ?? "Audit failed"),
+                  : (finalAuditResult.error ?? "Audit failed"),
               },
             );
           }

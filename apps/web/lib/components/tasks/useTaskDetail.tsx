@@ -184,8 +184,7 @@ export function useTaskDetail(
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
   const status = task?.status;
-  const showProofSection =
-    status !== undefined && status !== "todo" && status !== "in_progress";
+  const showProofSection = status !== undefined && status !== "todo";
   const projectOptions = projects ?? [];
   const hasSelectedProject =
     task?.projectId !== undefined &&
@@ -777,9 +776,15 @@ export function useTaskDetail(
             </p>
           ))
         : null}
-      {(!proofs || proofs.length === 0) && (
-        <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
-      )}
+      {(!proofs || proofs.length === 0) &&
+        (status === "in_progress" ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <IconLoader2 size={14} className="animate-spin" />
+            Waiting for proof upload...
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No proof uploaded yet</p>
+        ))}
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">No proof available</p>

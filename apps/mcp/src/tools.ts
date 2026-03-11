@@ -290,89 +290,125 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     },
   );
 
+  const taskArgs = {
+    title: z.string().describe("Short task title"),
+    description: z
+      .string()
+      .describe(
+        "The full prompt, plan, or instructions for the task (plain text or markdown)",
+      ),
+    repoName: z
+      .string()
+      .describe(
+        'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
+      ),
+    model: z
+      .enum(["opus", "sonnet", "haiku"])
+      .optional()
+      .describe(
+        "Claude model to use. If omitted, uses the repo's default model.",
+      ),
+    baseBranch: z
+      .string()
+      .optional()
+      .describe(
+        "Branch to base work off of. If omitted, uses the repo's default base branch.",
+      ),
+  };
+
+  type TaskInput = {
+    title: string;
+    description: string;
+    repoName: string;
+    model?: "opus" | "sonnet" | "haiku";
+    baseBranch?: string;
+  };
+
+  async function createTaskForRepo(
+    input: TaskInput,
+  ): Promise<
+    { taskId: string; repoFullName: string } | ReturnType<typeof errorResult>
+  > {
+    const { deployKey, userId } = await getContext();
+    const repos = await listUserRepos(convexUrl, deployKey, userId);
+
+    const normalizedInput = input.repoName.toLowerCase();
+    const repo = repos.find((r) => {
+      const fullName = `${r.owner}/${r.name}`.toLowerCase();
+      return (
+        fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
+      );
+    });
+
+    if (!repo) {
+      const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
+      return errorResult(
+        `Repo "${input.repoName}" not found. Your repos: ${available}`,
+      );
+    }
+
+    const mutationArgs: Record<string, string> = {
+      repoId: repo.id,
+      title: input.title,
+      description: input.description,
+    };
+    if (input.model) mutationArgs.model = input.model;
+    if (input.baseBranch) mutationArgs.baseBranch = input.baseBranch;
+
+    const taskIdResult = await runMutation(
+      convexUrl,
+      deployKey,
+      "_agentTasks/mutations:createQuickTask",
+      mutationArgs,
+    );
+
+    if (typeof taskIdResult !== "string") {
+      return errorResult(
+        "Unexpected response from createQuickTask: expected a task ID string.",
+      );
+    }
+
+    return { taskId: taskIdResult, repoFullName: `${repo.owner}/${repo.name}` };
+  }
+
   server.tool(
     "create_and_run_task",
     "Create a task on the Eva platform and immediately start execution. Use this to send plans, prompts, or instructions to Eva for autonomous execution against a repo.",
-    {
-      title: z.string().describe("Short task title"),
-      description: z
-        .string()
-        .describe(
-          "The full prompt, plan, or instructions for the task (plain text or markdown)",
-        ),
-      repoName: z
-        .string()
-        .describe(
-          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
-        ),
-      model: z
-        .enum(["opus", "sonnet", "haiku"])
-        .optional()
-        .describe(
-          "Claude model to use. If omitted, uses the repo's default model.",
-        ),
-      baseBranch: z
-        .string()
-        .optional()
-        .describe(
-          "Branch to base work off of. If omitted, uses the repo's default base branch.",
-        ),
-    },
-    async ({ title, description, repoName, model, baseBranch }) => {
-      const { deployKey, userId } = await getContext();
-      const repos = await listUserRepos(convexUrl, deployKey, userId);
+    taskArgs,
+    async (input) => {
+      const result = await createTaskForRepo(input);
+      if ("isError" in result) return result;
 
-      const normalizedInput = repoName.toLowerCase();
-      const repo = repos.find((r) => {
-        const fullName = `${r.owner}/${r.name}`.toLowerCase();
-        return (
-          fullName === normalizedInput ||
-          r.name.toLowerCase() === normalizedInput
-        );
-      });
-
-      if (!repo) {
-        const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
-        return errorResult(
-          `Repo "${repoName}" not found. Your repos: ${available}`,
-        );
-      }
-
-      const mutationArgs: Record<string, string> = {
-        repoId: repo.id,
-        title,
-        description,
-      };
-      if (model) mutationArgs.model = model;
-      if (baseBranch) mutationArgs.baseBranch = baseBranch;
-
-      const taskIdResult = await runMutation(
-        convexUrl,
-        deployKey,
-        "_agentTasks/mutations:createQuickTask",
-        mutationArgs,
-      );
-
-      if (typeof taskIdResult !== "string") {
-        return errorResult(
-          "Unexpected response from createQuickTask: expected a task ID string.",
-        );
-      }
-
+      const { deployKey } = await getContext();
       await runMutation(
         convexUrl,
         deployKey,
         "_agentTasks/execution:startExecution",
-        {
-          id: taskIdResult,
-        },
+        { id: result.taskId },
       );
 
       return textResult({
-        taskId: taskIdResult,
-        repo: `${repo.owner}/${repo.name}`,
-        title,
+        taskId: result.taskId,
+        repo: result.repoFullName,
+        title: input.title,
         status: "execution_started",
+      });
+    },
+  );
+
+  server.tool(
+    "create_task",
+    "Create a task on the Eva platform without starting execution. Use this to queue tasks for later review or manual execution.",
+    taskArgs,
+    async (input) => {
+      const result = await createTaskForRepo(input);
+      if ("isError" in result) return result;
+
+      return textResult({
+        taskId: result.taskId,
+        repo: result.repoFullName,
+        title: input.title,
+        status: "created",
       });
     },
   );

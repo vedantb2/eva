@@ -12,9 +12,9 @@ import {
 } from "@tabler/icons-react";
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
+  Sheet,
+  SheetContent,
+  SheetTitle,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -63,13 +63,13 @@ export function SessionSidebar({
   };
 
   return (
-    <Dialog
+    <Sheet
       open={isOpen}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <DialogContent className="fixed left-0 top-0 h-full w-64 translate-x-0 translate-y-0 rounded-none border-r border-border p-0 flex flex-col data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left">
+      <SheetContent side="left" className="w-64 p-0" hideCloseButton>
         <div className="flex items-center h-14 px-4">
           <div className="flex items-center gap-1.5 bg-accent rounded-full pr-4">
             <img
@@ -79,9 +79,9 @@ export function SessionSidebar({
               height={30}
               className="rounded-full"
             />
-            <DialogTitle className="text-xl tracking-tight font-semibold text-primary">
+            <SheetTitle className="text-xl tracking-tight font-semibold text-primary">
               Eva
-            </DialogTitle>
+            </SheetTitle>
           </div>
         </div>
 
@@ -234,7 +234,7 @@ export function SessionSidebar({
             </Tooltip>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

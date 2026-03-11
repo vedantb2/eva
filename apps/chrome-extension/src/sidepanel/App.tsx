@@ -125,9 +125,6 @@ function AuthenticatedApp() {
     "?";
 
   const createSession = useMutation(api.sessions.create);
-  const getOrCreateExtensionSession = useMutation(
-    api.sessions.getOrCreateExtensionSession,
-  );
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
@@ -447,13 +444,7 @@ function AuthenticatedApp() {
     syncedToolbarVisible,
   ]);
 
-  useEffect(() => {
-    if (selectedRepoId && user?.id) {
-      getOrCreateExtensionSession({
-        repoId: selectedRepoId,
-      }).then((result) => setCurrentSessionId(result.id));
-    }
-  }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);
+  // No auto-session creation — user picks from sidebar or creates via "+" button
 
   const handleRepoChange = (repoId: string) => {
     const typedId = repoId as Id<"githubRepos">;

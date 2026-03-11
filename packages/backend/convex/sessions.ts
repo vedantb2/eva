@@ -22,6 +22,4 @@ export {
 
 export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
-export { getOrCreateExtensionSession } from "./_sessions/extension";
-
 export { getInternal, setPrUrl } from "./_sessions/internal";

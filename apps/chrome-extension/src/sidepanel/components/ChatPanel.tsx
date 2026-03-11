@@ -382,6 +382,20 @@ Please review all components and files used on this page before implementing the
     }
   };
 
+  if (!sessionId) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
+        <IconMessageCircle2
+          size={40}
+          className="text-muted-foreground/40 mb-3"
+        />
+        <p className="text-sm text-muted-foreground">
+          Create a new session or select one from the sidebar to get started.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Conversation key={sessionId} className="flex-1">

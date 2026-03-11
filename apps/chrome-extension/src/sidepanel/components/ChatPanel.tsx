@@ -5,6 +5,7 @@ import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
 import {
+  Button,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -31,6 +32,7 @@ import {
   PromptInputSpeech,
   PromptInputSettings,
   ActivitySteps,
+  Spinner,
   type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
@@ -47,6 +49,9 @@ import {
   IconCode,
   IconClipboardList,
   IconMessageCircle2,
+  IconPlayerStop,
+  IconSparkles,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
@@ -65,11 +70,11 @@ type EphemeralMessage = {
   userId?: string;
 };
 
-type Mode = "ask" | "flag";
+type Mode = "execute" | "ask" | "plan" | "flag";
 
 interface ChatPanelProps {
-  selectedRepoId: string | null;
-  sessionId: string | null;
+  selectedRepoId: Id<"githubRepos"> | null;
+  sessionId: Id<"sessions"> | null;
   capturedContexts: ExtractedContext[];
   onClearContext: (index?: number) => void;
   toolbarVisible: boolean;
@@ -102,20 +107,21 @@ export function ChatPanel({
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const cancelExecution = useMutation(api.sessionWorkflow.cancelExecution);
   const selectedRepo = useQuery(
     api.githubRepos.get,
-    selectedRepoId ? { id: selectedRepoId as Id<"githubRepos"> } : "skip",
+    selectedRepoId ? { id: selectedRepoId } : "skip",
   );
   const addMessage = useMutation(api.sessions.addMessage);
 
   const currentSession = useQuery(
     api.sessions.get,
-    sessionId ? { id: sessionId as Id<"sessions"> } : "skip",
+    sessionId ? { id: sessionId } : "skip",
   );
 
   const sessionMessages = useQuery(
     api.messages.listByParent,
-    sessionId ? { parentId: sessionId as Id<"sessions"> } : "skip",
+    sessionId ? { parentId: sessionId } : "skip",
   );
 
   const streaming = useQuery(
@@ -124,7 +130,15 @@ export function ChatPanel({
   );
   const streamingActivity = streaming?.currentActivity;
 
+  const summaryStreaming = useQuery(
+    api.streaming.get,
+    sessionId ? { entityId: `summary:${sessionId}` } : "skip",
+  );
+
+  const isExecutionActive = Boolean(currentSession?.activeWorkflowId);
+
   const isLoadingSession = sessionId !== null && currentSession === undefined;
+  const isLoadingMessages = sessionId !== null && sessionMessages === undefined;
   const messages: Array<SessionMessage | EphemeralMessage> =
     sessionMessages ?? (sessionId ? [] : ephemeralMessages);
 
@@ -142,7 +156,7 @@ export function ChatPanel({
     async (msg: EphemeralMessage) => {
       if (sessionId) {
         await addMessage({
-          id: sessionId as Id<"sessions">,
+          id: sessionId,
           role: msg.role,
           content: msg.content,
           mode: msg.mode,
@@ -153,6 +167,16 @@ export function ChatPanel({
     },
     [sessionId, addMessage],
   );
+
+  const handleCancel = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      await cancelExecution({ sessionId });
+      setIsLoading(false);
+    } catch (e) {
+      console.error("Failed to cancel:", e);
+    }
+  }, [sessionId, cancelExecution]);
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !selectedRepoId || isLoading) return;
@@ -195,7 +219,7 @@ Please review all components and files used on this page before implementing the
         }
 
         await createQuickTask({
-          repoId: selectedRepoId as Id<"githubRepos">,
+          repoId: selectedRepoId,
           title: text.slice(0, 100),
           description: fullDescription,
         });
@@ -224,23 +248,26 @@ Please review all components and files used on this page before implementing the
           currentWindow: true,
         });
         const pageUrl = tab?.url || "";
-        const fullMessage = pageUrl
-          ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${text}`
-          : text;
+
+        const fullMessage =
+          mode === "ask" && pageUrl
+            ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${text}`
+            : text;
 
         await appendMessage({
           role: "user",
           content: text,
           timestamp: Date.now(),
-          mode: "ask",
+          mode,
         });
 
         if (!selectedRepo) throw new Error("Repository not found");
+        if (!sessionId) throw new Error("No active session");
 
         await startExecution({
-          sessionId: sessionId as Id<"sessions">,
+          sessionId,
           message: fullMessage,
-          mode: "ask",
+          mode,
           model,
           responseLength,
           installationId: selectedRepo.installationId,
@@ -253,6 +280,28 @@ Please review all components and files used on this page before implementing the
         });
         setIsLoading(false);
       }
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    if (!currentSession?.planContent || !selectedRepo || !sessionId) return;
+    setIsLoading(true);
+    try {
+      await startExecution({
+        sessionId,
+        message: `Implement the plan:\n\n${currentSession.planContent}`,
+        mode: "execute",
+        model,
+        responseLength,
+        installationId: selectedRepo.installationId,
+      });
+    } catch (error) {
+      await appendMessage({
+        role: "assistant",
+        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        timestamp: Date.now(),
+      });
+      setIsLoading(false);
     }
   };
 
@@ -291,7 +340,7 @@ Please review all components and files used on this page before implementing the
         }
 
         const taskId = await createQuickTask({
-          repoId: selectedRepoId as Id<"githubRepos">,
+          repoId: selectedRepoId,
           title: payload.title.slice(0, 100),
           description,
         });
@@ -301,7 +350,7 @@ Please review all components and files used on this page before implementing the
               type: "ANNOTATION_TASK_CREATED",
               payload: {
                 pinId: payload.pinId,
-                taskId: taskId as string,
+                taskId: String(taskId),
                 userId: convexUserId,
                 creatorInitials,
               },
@@ -326,11 +375,13 @@ Please review all components and files used on this page before implementing the
   const getPlaceholder = () => {
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
+    if (mode === "execute") return "Tell Eva what to build or change...";
     if (mode === "ask") {
       return capturedContexts.length > 0
         ? `Ask Eva about ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
         : "Ask Eva about the codebase...";
     }
+    if (mode === "plan") return "Describe what you want Eva to plan...";
     return capturedContexts.length > 0
       ? `Describe the issue with ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
       : "Describe an issue to Eva to flag...";
@@ -342,30 +393,103 @@ Please review all components and files used on this page before implementing the
     await handleSend(text);
   };
 
+  const handleModeChange = (v: string) => {
+    if (v === "execute" || v === "ask" || v === "plan" || v === "flag") {
+      setMode(v);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Conversation key={sessionId} className="flex-1">
         <ConversationContent className="gap-4 p-4">
-          {messages.length === 0 ? (
+          {currentSession?.planContent && (
+            <Collapsible className="rounded-lg border border-primary/30 bg-primary/5 overflow-hidden">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-primary/10 transition-colors group">
+                <IconClipboardList
+                  size={16}
+                  className="text-primary shrink-0"
+                />
+                <span className="flex-1 text-left">Plan</span>
+                <IconChevronRight
+                  size={14}
+                  className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-3 border-t border-primary/20 pt-2">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-xs whitespace-pre-wrap">
+                  {currentSession.planContent}
+                </div>
+                {!isExecutionActive && (
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={handleApprovePlan}
+                    disabled={isLoading}
+                  >
+                    <IconCode size={14} />
+                    Approve & Execute Plan
+                  </Button>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {currentSession?.summary && currentSession.summary.length > 0 && (
+            <Collapsible className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
+                <IconSparkles size={16} className="text-primary shrink-0" />
+                <span className="flex-1 text-left">Summary</span>
+                <IconChevronRight
+                  size={14}
+                  className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-3 border-t border-border pt-2 text-sm text-muted-foreground space-y-1">
+                {currentSession.summary.map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+                {summaryStreaming?.currentActivity && (
+                  <p className="italic text-xs">
+                    {summaryStreaming.currentActivity}
+                  </p>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {isLoadingMessages ? (
+            <div className="flex items-center justify-center py-8">
+              <Spinner />
+            </div>
+          ) : messages.length === 0 ? (
             <ConversationEmptyState
               icon={
-                mode === "ask" ? (
-                  <IconMessageCircle size={28} className="text-primary" />
-                ) : (
+                mode === "flag" ? (
                   <IconFlag size={28} className="text-primary" />
+                ) : (
+                  <IconMessageCircle size={28} className="text-primary" />
                 )
               }
               title={
-                mode === "ask"
-                  ? "Ask Eva questions about your codebase"
-                  : capturedContexts.length > 0
-                    ? "Describe the issue you want to flag to Eva"
-                    : "Flag an issue for Eva"
+                mode === "execute"
+                  ? "Tell Eva what to build"
+                  : mode === "ask"
+                    ? "Ask Eva questions about your codebase"
+                    : mode === "plan"
+                      ? "Describe what to plan"
+                      : capturedContexts.length > 0
+                        ? "Describe the issue you want to flag to Eva"
+                        : "Flag an issue for Eva"
               }
               description={
-                mode === "ask"
-                  ? "Get AI-powered answers by Eva"
-                  : "Use the select tool to capture element context"
+                mode === "execute"
+                  ? "Eva will write code and push changes"
+                  : mode === "ask"
+                    ? "Get AI-powered answers by Eva"
+                    : mode === "plan"
+                      ? "Eva will create a PRD without making changes"
+                      : "Use the select tool to capture element context"
               }
             />
           ) : (
@@ -373,6 +497,10 @@ Please review all components and files used on this page before implementing the
               const prev = index > 0 ? messages[index - 1] : undefined;
               const isFlagResponse =
                 message.role === "assistant" && prev?.mode === "flag";
+              const isSystemAlert =
+                "_id" in message &&
+                "isSystemAlert" in message &&
+                message.isSystemAlert;
 
               const key = "_id" in message ? message._id : `ephemeral-${index}`;
 
@@ -386,21 +514,30 @@ Please review all components and files used on this page before implementing the
                 >
                   {message.role === "assistant" && (
                     <div className="flex items-center gap-2">
-                      <img
-                        src="/icons/icon.png"
-                        alt="Eva"
-                        className="flex-shrink-0 w-7 h-7 rounded-full"
-                      />
+                      {isSystemAlert ? (
+                        <IconAlertTriangle
+                          size={20}
+                          className="text-amber-500 flex-shrink-0"
+                        />
+                      ) : (
+                        <img
+                          src="/icons/icon.png"
+                          alt="Eva"
+                          className="flex-shrink-0 w-7 h-7 rounded-full"
+                        />
+                      )}
                       <span className="text-xs font-medium text-muted-foreground">
-                        Eva
+                        {isSystemAlert ? "System" : "Eva"}
                       </span>
                     </div>
                   )}
                   <MessageContent
                     className={
-                      message.role === "user"
-                        ? "rounded-lg bg-secondary text-foreground px-4 py-3"
-                        : "px-1 py-2"
+                      isSystemAlert
+                        ? "rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3"
+                        : message.role === "user"
+                          ? "rounded-lg bg-secondary text-foreground px-4 py-3"
+                          : "px-1 py-2"
                     }
                   >
                     {isFlagResponse && prev ? (
@@ -452,9 +589,25 @@ Please review all components and files used on this page before implementing the
                     ) : (
                       <>
                         {message.role === "assistant" ? (
-                          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                            {message.content}
-                          </MessageResponse>
+                          <>
+                            {"imageUrl" in message && message.imageUrl && (
+                              <img
+                                src={String(message.imageUrl)}
+                                alt="Attached image"
+                                className="rounded-lg max-w-full max-h-64 mb-2"
+                              />
+                            )}
+                            {"videoUrl" in message && message.videoUrl && (
+                              <video
+                                src={String(message.videoUrl)}
+                                controls
+                                className="rounded-lg max-w-full max-h-64 mb-2"
+                              />
+                            )}
+                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                              {message.content}
+                            </MessageResponse>
+                          </>
                         ) : (
                           <>
                             <p className="text-sm whitespace-pre-wrap break-words">
@@ -515,15 +668,17 @@ Please review all components and files used on this page before implementing the
                       </>
                     )}
                   </MessageContent>
-                  {message.role === "user" && message.userId && (
-                    <div className="mt-0.5 ml-auto">
-                      <UserInitials
-                        userId={message.userId as Id<"users">}
-                        hideLastSeen
-                        size="md"
-                      />
-                    </div>
-                  )}
+                  {message.role === "user" &&
+                    "_id" in message &&
+                    message.userId && (
+                      <div className="mt-0.5 ml-auto">
+                        <UserInitials
+                          userId={message.userId}
+                          hideLastSeen
+                          size="md"
+                        />
+                      </div>
+                    )}
                 </AIMessage>
               );
             })
@@ -614,16 +769,30 @@ Please review all components and files used on this page before implementing the
         <div className="relative pt-4">
           <Tabs
             value={mode}
-            onValueChange={(v) => setMode(v === "flag" ? "flag" : "ask")}
+            onValueChange={handleModeChange}
             className="absolute left-3 top-4 z-20 -translate-y-1/2"
           >
             <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
+              <TabsTrigger
+                value="execute"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconCode className="w-3 h-3" />
+                Execute
+              </TabsTrigger>
               <TabsTrigger
                 value="ask"
                 className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
                 <IconMessageCircle className="w-3 h-3" />
                 Ask
+              </TabsTrigger>
+              <TabsTrigger
+                value="plan"
+                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              >
+                <IconClipboardList className="w-3 h-3" />
+                Plan
               </TabsTrigger>
               <TabsTrigger
                 value="flag"
@@ -652,10 +821,23 @@ Please review all components and files used on this page before implementing the
               </PromptInputTools>
               <div className="flex items-center gap-1">
                 <PromptInputSpeech disabled={isInputDisabled} />
-                <PromptInputSubmit
-                  status={isLoading ? "submitted" : undefined}
-                  disabled={isInputDisabled}
-                />
+                {isLoading || isExecutionActive ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={handleCancel}
+                      >
+                        <IconPlayerStop size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cancel execution</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <PromptInputSubmit disabled={isInputDisabled} />
+                )}
               </div>
             </PromptInputFooter>
           </PromptInput>

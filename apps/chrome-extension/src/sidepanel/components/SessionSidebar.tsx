@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import {
@@ -8,6 +8,7 @@ import {
   IconPalette,
   IconSun,
   IconMoon,
+  IconArchive,
 } from "@tabler/icons-react";
 import {
   Button,
@@ -23,8 +24,8 @@ import { UserButton, useUser } from "@clerk/chrome-extension";
 interface SessionSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  repoId: string;
-  currentSessionId: string | null;
+  repoId: Id<"githubRepos">;
+  currentSessionId: Id<"sessions"> | null;
   onSessionSelect: (sessionId: string) => void;
   afterSignOutUrl: string;
   theme: string;
@@ -46,15 +47,11 @@ export function SessionSidebar({
     new Set(["Sessions", "Designs"]),
   );
 
-  const sessions = useQuery(
-    api.sessions.list,
-    repoId ? { repoId: repoId as Id<"githubRepos"> } : "skip",
-  );
+  const sessions = useQuery(api.sessions.list, { repoId });
+  const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
+  const archiveSession = useMutation(api.sessions.archive);
 
-  const designSessions = useQuery(
-    api.designSessions.list,
-    repoId ? { repoId: repoId as Id<"githubRepos"> } : "skip",
-  );
+  const designSessions = useQuery(api.designSessions.list, { repoId });
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -111,26 +108,75 @@ export function SessionSidebar({
                   </p>
                 ) : (
                   sessions.map((session) => (
+                    <div
+                      key={session._id}
+                      className={`flex items-center gap-1 rounded-lg text-sm transition-colors w-full group ${
+                        session._id === currentSessionId
+                          ? "bg-accent text-primary font-medium"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          onSessionSelect(session._id);
+                          onClose();
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 flex-1 min-w-0 text-left"
+                      >
+                        <IconMessage className="size-4 shrink-0" />
+                        <span className="truncate">{session.title}</span>
+                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              archiveSession({ id: session._id });
+                            }}
+                            className="p-1 mr-1 rounded opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity"
+                          >
+                            <IconArchive size={14} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Archive</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {archivedSessions && archivedSessions.length > 0 && (
+            <div className="mt-3">
+              <button
+                onClick={() => toggleSection("Archived")}
+                className="flex items-center gap-1.5 py-0.5 mb-1 w-full text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase hover:text-muted-foreground transition-colors"
+              >
+                Archived
+                <IconChevronDown
+                  className={`w-3 h-3 transition-transform ${expandedSections.has("Archived") ? "" : "-rotate-90"}`}
+                />
+              </button>
+              {expandedSections.has("Archived") && (
+                <div className="space-y-0.5 pl-2">
+                  {archivedSessions.map((session) => (
                     <button
                       key={session._id}
                       onClick={() => {
                         onSessionSelect(session._id);
                         onClose();
                       }}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left ${
-                        session._id === currentSessionId
-                          ? "bg-accent text-primary font-medium"
-                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                      }`}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground"
                     >
-                      <IconMessage className="size-4 shrink-0" />
+                      <IconArchive className="size-4 shrink-0" />
                       <span className="truncate">{session.title}</span>
                     </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-3">
             <button

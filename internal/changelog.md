@@ -1,5 +1,29 @@
 # Changelog
 
+## Chrome Extension — Full Feature Parity Update - 2026-03-11
+
+- **Why**: Extension was broken after backend changes (theme system not working, messages not loading, repo selector missing monorepo support, execution flow using removed two-step `triggerExecution` + `getInstallationToken` pattern). Additionally, extension lacked many web app features (plan mode, cancel execution, session archiving, notification badge).
+- **Changes (Phase 1 — Fix Broken Things)**:
+  1. Ported full custom theme system from web app (`useTheme` hook) — applies accent colors, radius, fonts, letter-spacing via CSS variables from Convex-synced preferences.
+  2. Rewrote `RepoSelector` with monorepo support — groups by owner, shows `name/subdirectory` for monorepo sub-apps, uses `Doc<"githubRepos">` type.
+  3. Fixed messages not loading — separated `useQuery` from `?? []` default so `isLoadingRepos` correctly detects undefined, added loading spinner while `sessionMessages` is undefined.
+  4. Removed dead `triggerExecution` + `getInstallationToken` two-step flow, simplified to single `startExecution({ id })` call.
+  5. Added `"draft"` and `"cancelled"` to `TaskStatus` type, updated pin status colors in `AnnotationOverlay`.
+  6. Changed all state to typed `Id<> | null` instead of `string | null` with `as` casts. Added type guards for message payloads instead of `as unknown as` casts.
+  7. Removed dead message types (`CREATE_TASK`, `GET_REPOS`, `GET_SESSION`, `ASK_QUESTION`) and their interfaces.
+  8. Cleaned up unused types from `types.ts` (`UserInfo`, `RepoInfo`, `AuthState`, `ExtensionSettings`, `SessionInfo`, `SessionMessage`).
+- **Changes (Phase 2 — Missing Chat Features)**:
+  1. Added cancel execution — stop button when execution in progress, calls `sessionWorkflow.cancelExecution`.
+  2. Added all 4 execution modes: Execute, Ask, Plan, Flag (tabs in input area).
+  3. Added plan content display — collapsible panel shows `session.planContent` with "Approve & Execute Plan" button.
+  4. Added session summary display with streaming support.
+  5. Added session archiving — archive button per session, separate "Archived" section in sidebar.
+  6. Added system alert message styling (amber/orange for `isSystemAlert` messages).
+  7. Added image/video display in assistant messages (`imageUrl`, `videoUrl` fields).
+- **Changes (Phase 3 — Polish)**:
+  1. Added notification badge on sidebar menu button (queries `notifications.countUnread`).
+  2. Added "Open in Conductor" deep link button in header — opens current repo/session in web app.
+
 ## Sandbox MCP auth and env var scoping - 2026-03-11
 
 - **Why**: Raw `CONVEX_DEPLOY_KEY` was being injected into sandboxes, giving untrusted code direct admin access to the database. Sandboxes should access Convex through scoped MCP tokens instead.

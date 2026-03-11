@@ -161,12 +161,16 @@ function pinStatusColor(status: TaskStatus | undefined): {
   opacity: number;
 } {
   switch (status) {
+    case "draft":
+      return { bg: "#94a3b8", opacity: 0.7 };
     case "in_progress":
       return { bg: "#facc15", opacity: 1 };
     case "business_review":
       return { bg: "#fb923c", opacity: 1 };
     case "code_review":
       return { bg: "#c084fc", opacity: 1 };
+    case "cancelled":
+      return { bg: "#ef4444", opacity: 0.6 };
     default:
       return { bg: "#a1a1aa", opacity: 1 };
   }

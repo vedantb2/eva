@@ -6,7 +6,7 @@ import {
   SignInButton,
   useUser,
 } from "@clerk/chrome-extension";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
@@ -21,27 +21,16 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@conductor/ui";
-import { IconBolt, IconMenu2, IconPlus } from "@tabler/icons-react";
+import {
+  IconBolt,
+  IconExternalLink,
+  IconMenu2,
+  IconPlus,
+} from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { type StoredPin } from "@/shared/messaging";
+import { type StoredPin, CONDUCTOR_URL } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
-
-function useTheme() {
-  const syncedTheme = useQuery(api.auth.getTheme);
-  const setThemeMutation = useMutation(api.auth.setTheme);
-  const theme = syncedTheme ?? "dark";
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setThemeMutation({ theme: next });
-  };
-
-  return { theme, toggleTheme };
-}
+import { useTheme } from "./hooks/useTheme";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -68,18 +57,43 @@ const isAllowedUrl = (url: string) => {
   }
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isExtractedContext(value: unknown): value is ExtractedContext {
+  if (!isRecord(value)) return false;
+  if (!isRecord(value.element) || !isRecord(value.metadata)) return false;
+  return (
+    typeof value.element.tagName === "string" &&
+    typeof value.metadata.capturedAt === "number"
+  );
+}
+
+function isStoredPinRecord(value: unknown): value is Record<string, StoredPin> {
+  if (!isRecord(value)) return false;
+  for (const v of Object.values(value)) {
+    if (!isRecord(v) || typeof v.x !== "number" || typeof v.y !== "number")
+      return false;
+  }
+  return true;
+}
+
 function AuthenticatedApp() {
   const { user } = useUser();
   const { theme, toggleTheme } = useTheme();
-  const repos = useQuery(api.githubRepos.list, {}) ?? [];
-  const isLoadingRepos = repos === undefined;
-  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
+  const reposResult = useQuery(api.githubRepos.list, {});
+  const repos = reposResult ?? [];
+  const isLoadingRepos = reposResult === undefined;
+  const [selectedRepoId, setSelectedRepoId] =
+    useState<Id<"githubRepos"> | null>(null);
   const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(
     [],
   );
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] =
+    useState<Id<"sessions"> | null>(null);
   const syncedToolbarVisible = useQuery(api.auth.getToolbarVisible);
   const toolbarVisible = syncedToolbarVisible === true;
   const setToolbarVisibleMutation = useMutation(api.auth.setToolbarVisible);
@@ -88,43 +102,28 @@ function AuthenticatedApp() {
     pins: Record<string, StoredPin>;
   } | null>(null);
   const [newProjectTitle, setNewProjectTitle] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null,
-  );
+  const [selectedProjectId, setSelectedProjectId] =
+    useState<Id<"projects"> | null>(null);
   const [isCreatingTasks, setIsCreatingTasks] = useState(false);
 
   const convexUserId = useQuery(api.auth.me);
+  const unreadCount = useQuery(api.notifications.countUnread, {});
   const creatorInitials =
     `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() ||
     "?";
 
-  const getInstallationToken = useAction(api.github.getInstallationTokenAction);
   const createSession = useMutation(api.sessions.create);
   const getOrCreateExtensionSession = useMutation(
     api.sessions.getOrCreateExtensionSession,
   );
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const startExecution = useMutation(api.agentTasks.startExecution);
-  const triggerExecution = useMutation(api.taskWorkflow.triggerExecution);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
   const createFromTasks = useMutation(api.projects.createFromTasks);
 
-  const executeTaskWorkflow = useCallback(
-    async (result: Awaited<ReturnType<typeof startExecution>>) => {
-      const { token: githubToken } = await getInstallationToken({
-        installationId: result.installationId,
-      });
-      await triggerExecution({
-        ...result,
-        githubToken,
-      });
-    },
-    [getInstallationToken, triggerExecution],
-  );
-
   const projects = useQuery(
     api.projects.list,
-    selectedRepoId ? { repoId: selectedRepoId as Id<"githubRepos"> } : "skip",
+    selectedRepoId ? { repoId: selectedRepoId } : "skip",
   );
 
   const sendToolbarResult = useCallback((success: boolean, message: string) => {
@@ -166,7 +165,7 @@ function AuthenticatedApp() {
       for (const pin of entries) {
         try {
           await createQuickTask({
-            repoId: selectedRepoId as Id<"githubRepos">,
+            repoId: selectedRepoId,
             title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
             description: buildDescription(pin, pageUrl),
           });
@@ -202,7 +201,7 @@ function AuthenticatedApp() {
       for (const [pinId, pin] of entries) {
         try {
           const taskId = await createQuickTask({
-            repoId: selectedRepoId as Id<"githubRepos">,
+            repoId: selectedRepoId,
             title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
             description: buildDescription(pin, pageUrl),
           });
@@ -212,17 +211,14 @@ function AuthenticatedApp() {
                 type: "ANNOTATION_TASK_CREATED",
                 payload: {
                   pinId,
-                  taskId: taskId as string,
+                  taskId: String(taskId),
                   userId: convexUserId ?? undefined,
                   creatorInitials,
                 },
               });
             }
           });
-          const result = await startExecution({
-            id: taskId,
-          });
-          await executeTaskWorkflow(result);
+          await startExecution({ id: taskId });
           created++;
         } catch (e) {
           console.error("Failed to run task:", e);
@@ -237,9 +233,10 @@ function AuthenticatedApp() {
       selectedRepoId,
       createQuickTask,
       startExecution,
-      executeTaskWorkflow,
       buildDescription,
       sendRunAllResult,
+      convexUserId,
+      creatorInitials,
     ],
   );
 
@@ -252,7 +249,7 @@ function AuthenticatedApp() {
     for (const pin of entries) {
       try {
         const id = await createQuickTask({
-          repoId: selectedRepoId as Id<"githubRepos">,
+          repoId: selectedRepoId,
           title: pin.text.slice(0, 100) || `Annotation #${pin.number}`,
           description: buildDescription(pin, pageUrl),
         });
@@ -266,11 +263,11 @@ function AuthenticatedApp() {
         if (selectedProjectId) {
           await assignToProject({
             taskIds,
-            projectId: selectedProjectId as Id<"projects">,
+            projectId: selectedProjectId,
           });
         } else if (newProjectTitle.trim()) {
           await createFromTasks({
-            repoId: selectedRepoId as Id<"githubRepos">,
+            repoId: selectedRepoId,
             title: newProjectTitle.trim(),
             taskIds,
           });
@@ -320,9 +317,10 @@ function AuthenticatedApp() {
       changeInfo: chrome.tabs.TabChangeInfo,
     ) => {
       if (changeInfo.url) {
+        const url = changeInfo.url;
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id === tabId) {
-            setIsValidUrl(isAllowedUrl(changeInfo.url!));
+            setIsValidUrl(isAllowedUrl(url));
           }
         });
       }
@@ -333,8 +331,8 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     chrome.storage.local.get(["defaultRepoId"], (result) => {
-      if (result.defaultRepoId) {
-        setSelectedRepoId(result.defaultRepoId);
+      if (result.defaultRepoId && typeof result.defaultRepoId === "string") {
+        setSelectedRepoId(result.defaultRepoId as Id<"githubRepos">);
       }
     });
   }, []);
@@ -364,10 +362,10 @@ function AuthenticatedApp() {
       _sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type === "ELEMENT_CAPTURED" && message.payload) {
-        setCapturedContexts((prev) => [
-          ...prev,
-          message.payload as unknown as ExtractedContext,
-        ]);
+        const captured = message.payload;
+        if (isExtractedContext(captured)) {
+          setCapturedContexts((prev) => [...prev, captured]);
+        }
       }
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -377,39 +375,54 @@ function AuthenticatedApp() {
         });
       }
       if (message.type === "TOOLBAR_ADD_QUICK_TASKS" && message.payload) {
-        const { pageUrl, pins } = message.payload as unknown as {
-          pageUrl: string;
-          pins: Record<string, StoredPin>;
-        };
-        handleAddAllQuickTasks(pageUrl, pins);
+        const payload = message.payload;
+        if (
+          isRecord(payload) &&
+          typeof payload.pageUrl === "string" &&
+          isRecord(payload.pins) &&
+          isStoredPinRecord(payload.pins)
+        ) {
+          handleAddAllQuickTasks(payload.pageUrl, payload.pins);
+        }
       }
       if (message.type === "TOOLBAR_ADD_TO_PROJECT" && message.payload) {
-        setPendingProjectPins(
-          message.payload as unknown as {
-            pageUrl: string;
-            pins: Record<string, StoredPin>;
-          },
-        );
+        const payload = message.payload;
+        if (
+          isRecord(payload) &&
+          typeof payload.pageUrl === "string" &&
+          isRecord(payload.pins) &&
+          isStoredPinRecord(payload.pins)
+        ) {
+          setPendingProjectPins({
+            pageUrl: payload.pageUrl,
+            pins: payload.pins,
+          });
+        }
       }
       if (message.type === "RUN_ALL_ANNOTATIONS" && message.payload) {
-        const { pageUrl, pins } = message.payload as unknown as {
-          pageUrl: string;
-          pins: Record<string, StoredPin>;
-        };
-        handleRunAll(pageUrl, pins);
+        const payload = message.payload;
+        if (
+          isRecord(payload) &&
+          typeof payload.pageUrl === "string" &&
+          isRecord(payload.pins) &&
+          isStoredPinRecord(payload.pins)
+        ) {
+          handleRunAll(payload.pageUrl, payload.pins);
+        }
       }
       if (message.type === "RUN_ANNOTATION_TASK" && message.payload) {
-        const { taskId } = message.payload as { taskId: string };
-        (async () => {
-          try {
-            const result = await startExecution({
-              id: taskId as Id<"agentTasks">,
-            });
-            await executeTaskWorkflow(result);
-          } catch (e) {
-            console.error("Failed to run annotation task:", e);
-          }
-        })();
+        const payload = message.payload;
+        if (isRecord(payload) && typeof payload.taskId === "string") {
+          (async () => {
+            try {
+              await startExecution({
+                id: payload.taskId as Id<"agentTasks">,
+              });
+            } catch (e) {
+              console.error("Failed to run annotation task:", e);
+            }
+          })();
+        }
       }
     };
 
@@ -419,20 +432,20 @@ function AuthenticatedApp() {
     handleAddAllQuickTasks,
     handleRunAll,
     startExecution,
-    executeTaskWorkflow,
     syncedToolbarVisible,
   ]);
 
   useEffect(() => {
     if (selectedRepoId && user?.id) {
       getOrCreateExtensionSession({
-        repoId: selectedRepoId as Id<"githubRepos">,
+        repoId: selectedRepoId,
       }).then((result) => setCurrentSessionId(result.id));
     }
   }, [selectedRepoId, user?.id, getOrCreateExtensionSession]);
 
   const handleRepoChange = (repoId: string) => {
-    setSelectedRepoId(repoId);
+    const typedId = repoId as Id<"githubRepos">;
+    setSelectedRepoId(typedId);
     setCurrentSessionId(null);
     chrome.storage.local.set({ defaultRepoId: repoId });
   };
@@ -449,10 +462,24 @@ function AuthenticatedApp() {
   const handleNewSession = async () => {
     if (!selectedRepoId) return;
     const sessionId = await createSession({
-      repoId: selectedRepoId as Id<"githubRepos">,
+      repoId: selectedRepoId,
       title: `Session ${new Date().toLocaleDateString()}`,
     });
     setCurrentSessionId(sessionId);
+  };
+
+  const handleSessionSelect = (sessionId: string) => {
+    setCurrentSessionId(sessionId as Id<"sessions">);
+  };
+
+  const handleOpenInConductor = () => {
+    const selectedRepo = repos.find((r) => r._id === selectedRepoId);
+    if (!selectedRepo) return;
+    const base = `${CONDUCTOR_URL}/${selectedRepo.owner}/${selectedRepo.name}`;
+    const url = currentSessionId
+      ? `${base}/sessions/${currentSessionId}`
+      : base;
+    chrome.tabs.create({ url });
   };
 
   if (isValidUrl === null || isLoadingRepos) {
@@ -488,8 +515,14 @@ function AuthenticatedApp() {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(true)}
+              className="relative"
             >
               <IconMenu2 size={20} />
+              {unreadCount !== undefined && unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent>Sessions</TooltipContent>
@@ -499,7 +532,21 @@ function AuthenticatedApp() {
           selectedRepoId={selectedRepoId}
           onRepoChange={handleRepoChange}
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          {selectedRepoId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleOpenInConductor}
+                >
+                  <IconExternalLink size={18} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open in Conductor</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={handleNewSession}>
@@ -599,7 +646,7 @@ function AuthenticatedApp() {
           onClose={() => setSidebarOpen(false)}
           repoId={selectedRepoId}
           currentSessionId={currentSessionId}
-          onSessionSelect={setCurrentSessionId}
+          onSessionSelect={handleSessionSelect}
           afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
           theme={theme}
           onToggleTheme={toggleTheme}

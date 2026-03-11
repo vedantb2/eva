@@ -43,10 +43,9 @@ export async function launchScript(
         },
       },
     });
-    await exec(sandbox, "mkdir -p /home/daytona/.claude", 10);
     await sandbox.fs.uploadFile(
       Buffer.from(mcpConfig, "utf-8"),
-      "/home/daytona/.claude/.mcp.json",
+      "/workspace/repo/.mcp.json",
     );
   }
 

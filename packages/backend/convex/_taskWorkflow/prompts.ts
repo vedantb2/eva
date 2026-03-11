@@ -44,6 +44,17 @@ export function buildImplementationPrompt(
   const commitScope = isQuickTask
     ? "feat"
     : `feat(task-${task.taskNumber ?? task.title})`;
+  const latestChangeRequest =
+    changeRequests?.[changeRequests.length - 1]?.trim();
+  const editCommitTitle = latestChangeRequest
+    ? latestChangeRequest
+        .replace(/\s+/g, " ")
+        .replace(/"/g, '\\"')
+        .slice(0, 120)
+    : task.title;
+  const commitMessage = changeRequests?.length
+    ? `edit: ${editCommitTitle}`
+    : `${commitScope}: ${task.title}`;
 
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
@@ -64,7 +75,7 @@ ${subtasksList}${changeRequestSection}
 2. Implement changes by editing source code files
 3. Update CLAUDE.md if you made major changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
-5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitScope}: ${task.title}"
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 6. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):

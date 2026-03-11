@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -64,6 +65,30 @@ app.use((req: Request, _res: Response, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const tokenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many token requests, try again later" },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many registration requests, try again later" },
+});
+
+const mcpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many requests, try again later" },
+});
+
 app.get(
   "/.well-known/oauth-protected-resource",
   (_req: Request, res: Response) => {
@@ -78,7 +103,7 @@ app.get(
   },
 );
 
-app.post("/oauth/register", (req: Request, res: Response) => {
+app.post("/oauth/register", registerLimiter, (req: Request, res: Response) => {
   console.log("  Registration body:", JSON.stringify(req.body));
   const body =
     typeof req.body === "object" && req.body !== null ? req.body : {};
@@ -107,7 +132,7 @@ app.post("/oauth/authorize", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/oauth/token", async (req: Request, res: Response) => {
+app.post("/oauth/token", tokenLimiter, async (req: Request, res: Response) => {
   const body = bodyToStringRecord(req);
   console.log("  Token request grant_type:", body.grant_type);
   const result = await exchangeToken(body);
@@ -177,11 +202,11 @@ function handleMcpGet(req: Request, res: Response) {
   handleMcpUnsupported(req, res);
 }
 
-app.post("/", handleMcpPost);
+app.post("/", mcpLimiter, handleMcpPost);
 app.get("/", handleMcpGet);
 app.delete("/", handleMcpUnsupported);
 
-app.post("/mcp", handleMcpPost);
+app.post("/mcp", mcpLimiter, handleMcpPost);
 app.get("/mcp", handleMcpGet);
 app.delete("/mcp", handleMcpUnsupported);
 

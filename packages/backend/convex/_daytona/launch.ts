@@ -47,7 +47,11 @@ export async function launchScript(
       Buffer.from(claudeConfig, "utf-8"),
       "/tmp/.claude.json",
     );
-    await exec(sandbox, "cp /tmp/.claude.json /home/daytona/.claude.json", 10);
+    await exec(
+      sandbox,
+      "sudo cp /tmp/.claude.json /home/daytona/.claude.json && sudo chown daytona:daytona /home/daytona/.claude.json",
+      10,
+    );
   }
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");

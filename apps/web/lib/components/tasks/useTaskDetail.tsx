@@ -159,25 +159,26 @@ export function useTaskDetail(
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
-  const handleAddComment = async (requestChanges = false) => {
+  const handleAddComment = async () => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
+    await createComment({ taskId, content: text });
+  };
+
+  const handleSubmitRequestChanges = async () => {
+    const text = commentText.trim();
+    if (!text) return;
+    setCommentText("");
+    setRequestingChanges(false);
     try {
       await createComment({ taskId, content: text });
-
-      if (requestChanges) {
-        try {
-          await startExecution({ id: taskId });
-          setActiveTab("activity");
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : "Failed to start execution";
-          setExecutionError(message);
-        }
-      }
-    } finally {
-      setRequestingChanges(false);
+      await startExecution({ id: taskId });
+      setActiveTab("activity");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to start execution";
+      setExecutionError(message);
     }
   };
 
@@ -1084,14 +1085,25 @@ export function useTaskDetail(
           }}
           className="flex-1"
         />
-        <Button
-          size="icon"
-          className="rounded-full shrink-0"
-          disabled={!commentText.trim()}
-          onClick={() => handleAddComment(requestingChanges)}
-        >
-          <IconArrowUp size={18} />
-        </Button>
+        {requestingChanges ? (
+          <Button
+            size="icon"
+            className="rounded-full shrink-0"
+            disabled={!commentText.trim()}
+            onClick={handleSubmitRequestChanges}
+          >
+            <IconArrowUp size={18} />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            className="rounded-full shrink-0"
+            disabled={!commentText.trim()}
+            onClick={handleAddComment}
+          >
+            <IconArrowUp size={18} />
+          </Button>
+        )}
       </div>
       {requestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">

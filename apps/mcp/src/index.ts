@@ -5,6 +5,7 @@ import {
   getOAuthMetadata,
   getProtectedResourceMetadata,
   renderAuthPage,
+  renderHandshakePage,
   processClerkAuth,
   exchangeToken,
   handleClientRegistration,
@@ -166,12 +167,23 @@ function handleMcpUnsupported(_req: Request, res: Response) {
   res.status(405).json({ error: "Method not supported in stateless mode" });
 }
 
+function handleMcpGet(req: Request, res: Response) {
+  if (req.query.__clerk_handshake) {
+    const publishableKey = process.env.CLERK_PUBLISHABLE_KEY;
+    if (publishableKey) {
+      res.type("html").send(renderHandshakePage(publishableKey));
+      return;
+    }
+  }
+  handleMcpUnsupported(req, res);
+}
+
 app.post("/", handleMcpPost);
-app.get("/", handleMcpUnsupported);
+app.get("/", handleMcpGet);
 app.delete("/", handleMcpUnsupported);
 
 app.post("/mcp", handleMcpPost);
-app.get("/mcp", handleMcpUnsupported);
+app.get("/mcp", handleMcpGet);
 app.delete("/mcp", handleMcpUnsupported);
 
 app.get("/health", (_req: Request, res: Response) => {

@@ -155,6 +155,8 @@ export function renderAuthPage(query: Record<string, string>): string {
     </form>
   </div>
   <script>
+    sessionStorage.setItem('mcp_oauth_return_url', window.location.href);
+
     var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
 
     var keyParts = PUBLISHABLE_KEY.split('_');
@@ -228,6 +230,50 @@ export function renderAuthPage(query: Record<string, string>): string {
       var el = document.getElementById('error-msg');
       el.textContent = msg;
       el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>`;
+}
+
+export function renderHandshakePage(publishableKey: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+</head>
+<body>
+  <p>Redirecting...</p>
+  <script>
+    var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
+    var keyParts = PUBLISHABLE_KEY.split('_');
+    var keyPayload = keyParts.slice(2).join('_');
+    var fapiUrl = atob(keyPayload).replace(/\\$$/, '');
+
+    var script = document.createElement('script');
+    script.src = 'https://' + fapiUrl + '/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.setAttribute('data-clerk-publishable-key', PUBLISHABLE_KEY);
+    script.addEventListener('load', function() {
+      var clerk = window.Clerk;
+      if (!clerk) { fallback(); return; }
+      clerk.load().then(function() {
+        var returnUrl = sessionStorage.getItem('mcp_oauth_return_url');
+        if (returnUrl) {
+          sessionStorage.removeItem('mcp_oauth_return_url');
+          window.location.href = returnUrl;
+        } else {
+          fallback();
+        }
+      }).catch(fallback);
+    });
+    script.addEventListener('error', fallback);
+    document.head.appendChild(script);
+
+    function fallback() {
+      document.body.textContent = 'Authentication handshake failed. Please try connecting again from Claude.';
     }
   </script>
 </body>

@@ -8,22 +8,62 @@ import {
   runTestQuery,
   wrapQueryHandler,
   getDeployKey,
-  listRepos,
+  listUserRepos,
+  checkRepoAccess,
   getRepoConvexCredentials,
   runMutation,
+  resolveUserByClerkId,
 } from "./convex-api.js";
+
+function errorResult(message: string) {
+  return {
+    content: [{ type: "text" as const, text: message }],
+    isError: true,
+  };
+}
+
+function textResult(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+  };
+}
 
 export function registerTools(
   server: McpServer,
   credentials: ConvexCredentials,
 ): void {
-  const { convexUrl } = credentials;
+  const { convexUrl, clerkUserId } = credentials;
 
-  async function resolveTarget(
-    repoId: string | undefined,
-  ): Promise<{ convexUrl: string; deployKey: string }> {
+  async function getContext(): Promise<{
+    deployKey: string;
+    userId: string;
+  }> {
     const deployKey = await getDeployKey(convexUrl);
-    if (!repoId) return { convexUrl, deployKey };
+    const userId = await resolveUserByClerkId(
+      convexUrl,
+      deployKey,
+      clerkUserId,
+    );
+    if (!userId) {
+      throw new Error("User not found. Ensure your Eva account exists.");
+    }
+    return { deployKey, userId };
+  }
+
+  async function resolveTargetWithAccess(
+    repoId: string,
+    deployKey: string,
+    userId: string,
+  ): Promise<{ convexUrl: string; deployKey: string }> {
+    const hasAccess = await checkRepoAccess(
+      convexUrl,
+      deployKey,
+      repoId,
+      userId,
+    );
+    if (!hasAccess) {
+      throw new Error("Access denied: you do not have access to this repo.");
+    }
     const repoCreds = await getRepoConvexCredentials(
       convexUrl,
       deployKey,
@@ -39,38 +79,31 @@ export function registerTools(
 
   server.tool(
     "list_repos",
-    "List all GitHub repos connected to this Eva instance. Call this first to let the user choose which codebase to work with.",
+    "List all GitHub repos you have access to. Call this first to let the user choose which codebase to work with.",
     {},
     async () => {
-      const deployKey = await getDeployKey(convexUrl);
-      const repos = await listRepos(convexUrl, deployKey);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(repos, null, 2),
-          },
-        ],
-      };
+      const { deployKey, userId } = await getContext();
+      const repos = await listUserRepos(convexUrl, deployKey, userId);
+      return textResult(repos);
     },
   );
 
   server.tool(
     "list_tables",
-    "List all tables in the Convex deployment with their field definitions, indexes, and inferred shapes. Call this first to understand the data model.",
+    "List all tables in a repo's Convex deployment with their field definitions, indexes, and inferred shapes.",
     {
       repoId: z
         .string()
-        .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
+          "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
     },
     async ({ repoId }) => {
-      const { convexUrl: targetUrl, deployKey } = await resolveTarget(repoId);
+      const { deployKey, userId } = await getContext();
+      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
       const [shapes, declaredTables] = await Promise.all([
-        getTableShapes(targetUrl, deployKey),
-        getDeclaredSchema(targetUrl, deployKey),
+        getTableShapes(target.convexUrl, target.deployKey),
+        getDeclaredSchema(target.convexUrl, target.deployKey),
       ]);
 
       const schemaByTable: Record<string, (typeof declaredTables)[number]> = {};
@@ -90,14 +123,7 @@ export function registerTools(
         inferredShape: shapes[name] ?? null,
       }));
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(tables, null, 2),
-          },
-        ],
-      };
+      return textResult(tables);
     },
   );
 
@@ -121,35 +147,30 @@ export function registerTools(
         .describe("Pagination cursor from a previous query"),
       repoId: z
         .string()
-        .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
+          "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
     },
     async ({ table, order, limit, cursor, repoId }) => {
-      const { convexUrl: targetUrl, deployKey } = await resolveTarget(repoId);
-      const result = await queryTableData(targetUrl, deployKey, table, order, {
-        numItems: limit,
-        cursor: cursor ?? null,
-      });
+      const { deployKey, userId } = await getContext();
+      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const result = await queryTableData(
+        target.convexUrl,
+        target.deployKey,
+        table,
+        order,
+        {
+          numItems: limit,
+          cursor: cursor ?? null,
+        },
+      );
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                page: result.page,
-                isDone: result.isDone,
-                continueCursor: result.continueCursor,
-                count: result.page.length,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+      return textResult({
+        page: result.page,
+        isDone: result.isDone,
+        continueCursor: result.continueCursor,
+        count: result.page.length,
+      });
     },
   );
 
@@ -162,26 +183,24 @@ export function registerTools(
         .describe('The document ID (e.g. "j572abc123..." or "kd83xyz...")'),
       repoId: z
         .string()
-        .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
+          "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
     },
     async ({ id, repoId }) => {
       if (!/^[a-zA-Z0-9_]+$/.test(id)) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Invalid document ID format. IDs should be alphanumeric.",
-            },
-          ],
-          isError: true,
-        };
+        return errorResult(
+          "Invalid document ID format. IDs should be alphanumeric.",
+        );
       }
-      const { convexUrl: targetUrl, deployKey } = await resolveTarget(repoId);
+      const { deployKey, userId } = await getContext();
+      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
       const source = wrapQueryHandler(`return await ctx.db.get("${id}");`);
-      const result = await runTestQuery(targetUrl, deployKey, source);
+      const result = await runTestQuery(
+        target.convexUrl,
+        target.deployKey,
+        source,
+      );
 
       const output: { document: typeof result.value; logLines?: string[] } = {
         document: result.value,
@@ -190,20 +209,13 @@ export function registerTools(
         output.logLines = result.logLines;
       }
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(output, null, 2),
-          },
-        ],
-      };
+      return textResult(output);
     },
   );
 
   server.tool(
     "run_query",
-    `Run arbitrary read-only Convex query code. This is the most powerful tool — use it for joins, aggregations, filters, and complex data retrieval.
+    `Run arbitrary read-only Convex query code against a repo's database. This is the most powerful tool — use it for joins, aggregations, filters, and complex data retrieval.
 
 Provide the body of an async handler function. The \`ctx\` object is available with:
 - ctx.db.query("tableName") — query a table (supports .filter(), .order(), .collect(), .first(), .take(n))
@@ -218,15 +230,19 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         ),
       repoId: z
         .string()
-        .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
+          "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
     },
     async ({ code, repoId }) => {
-      const { convexUrl: targetUrl, deployKey } = await resolveTarget(repoId);
+      const { deployKey, userId } = await getContext();
+      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
       const source = wrapQueryHandler(code);
-      const result = await runTestQuery(targetUrl, deployKey, source);
+      const result = await runTestQuery(
+        target.convexUrl,
+        target.deployKey,
+        source,
+      );
 
       const output: { result: typeof result.value; logLines?: string[] } = {
         result: result.value,
@@ -235,14 +251,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         output.logLines = result.logLines;
       }
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(output, null, 2),
-          },
-        ],
-      };
+      return textResult(output);
     },
   );
 
@@ -253,37 +262,28 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       table: z.string().describe("Table name"),
       repoId: z
         .string()
-        .optional()
         .describe(
-          "Repo ID from list_repos. When provided, queries that repo's own Convex database instead of Eva.",
+          "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
     },
     async ({ table, repoId }) => {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Invalid table name. Use alphanumeric characters and underscores.",
-            },
-          ],
-          isError: true,
-        };
+        return errorResult(
+          "Invalid table name. Use alphanumeric characters and underscores.",
+        );
       }
-      const { convexUrl: targetUrl, deployKey } = await resolveTarget(repoId);
+      const { deployKey, userId } = await getContext();
+      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
       const source = wrapQueryHandler(
         `const docs = await ctx.db.query("${table}").collect(); return docs.length;`,
       );
-      const result = await runTestQuery(targetUrl, deployKey, source);
+      const result = await runTestQuery(
+        target.convexUrl,
+        target.deployKey,
+        source,
+      );
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ table, count: result.value }, null, 2),
-          },
-        ],
-      };
+      return textResult({ table, count: result.value });
     },
   );
 
@@ -300,7 +300,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       repoName: z
         .string()
         .describe(
-          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against connected repos.',
+          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
         ),
       model: z
         .enum(["opus", "sonnet", "haiku"])
@@ -316,8 +316,8 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         ),
     },
     async ({ title, description, repoName, model, baseBranch }) => {
-      const deployKey = await getDeployKey(convexUrl);
-      const repos = await listRepos(convexUrl, deployKey);
+      const { deployKey, userId } = await getContext();
+      const repos = await listUserRepos(convexUrl, deployKey, userId);
 
       const normalizedInput = repoName.toLowerCase();
       const repo = repos.find((r) => {
@@ -330,15 +330,9 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
 
       if (!repo) {
         const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Repo "${repoName}" not found. Available repos: ${available}`,
-            },
-          ],
-          isError: true,
-        };
+        return errorResult(
+          `Repo "${repoName}" not found. Your repos: ${available}`,
+        );
       }
 
       const mutationArgs: Record<string, string> = {
@@ -357,15 +351,9 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       );
 
       if (typeof taskIdResult !== "string") {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Unexpected response from createQuickTask: expected a task ID string.",
-            },
-          ],
-          isError: true,
-        };
+        return errorResult(
+          "Unexpected response from createQuickTask: expected a task ID string.",
+        );
       }
 
       await runMutation(
@@ -377,23 +365,12 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         },
       );
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                taskId: taskIdResult,
-                repo: `${repo.owner}/${repo.name}`,
-                title,
-                status: "execution_started",
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+      return textResult({
+        taskId: taskIdResult,
+        repo: `${repo.owner}/${repo.name}`,
+        title,
+        status: "execution_started",
+      });
     },
   );
 }

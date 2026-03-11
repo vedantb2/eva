@@ -1,5 +1,16 @@
 # Changelog
 
+## Add per-user data scoping to MCP server - 2026-03-11
+
+- **Why**: The MCP server authenticated users via OAuth but used a single shared deploy key for all queries — any authenticated user could access every repo's data, every table, and create tasks on any repo. This was a security hole.
+- **Changes**:
+  1. Added `resolveUserByClerkId()`, `listUserRepos()`, and `checkRepoAccess()` to `convex-api.ts` — maps Clerk user ID to Convex user ID and checks repo ownership/team membership.
+  2. All tools now resolve the authenticated user and verify repo access before executing.
+  3. `list_repos` only returns repos the user owns or has team membership for.
+  4. `repoId` is now required (not optional) on all data query tools (`list_tables`, `query_table`, `get_document`, `run_query`, `count_table`) — querying Eva's own internal database via MCP is no longer possible.
+  5. `create_and_run_task` searches only the user's accessible repos.
+  6. Also fixed Clerk handshake redirect breaking MCP OAuth flow for users with existing sessions.
+
 ## Cleanup audit categories: remove system defaults, add per-app support - 2026-03-09
 
 - **Why**: System-seeded audit categories were inflexible and forced a specific set on users. Moving to fully user-defined categories gives more control. Per-app audit support lets monorepo users configure different audits for different apps.

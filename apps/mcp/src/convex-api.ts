@@ -289,6 +289,72 @@ export async function listRepos(
     .parse(result.value);
 }
 
+export async function resolveUserByClerkId(
+  convexUrl: string,
+  deployKey: string,
+  clerkUserId: string,
+): Promise<string | null> {
+  const source = wrapQueryHandler(
+    `const user = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", ${JSON.stringify(clerkUserId)})).first();
+    return user ? user._id : null;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  if (typeof result.value === "string") return result.value;
+  return null;
+}
+
+export async function listUserRepos(
+  convexUrl: string,
+  deployKey: string,
+  userId: string,
+): Promise<Repo[]> {
+  const source = wrapQueryHandler(
+    `const userId = ${JSON.stringify(userId)};
+    const repos = await ctx.db.query("githubRepos").collect();
+    const accessible = [];
+    for (const repo of repos) {
+      if (repo.connectedBy === userId) {
+        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name });
+        continue;
+      }
+      if (repo.teamId) {
+        const membership = await ctx.db.query("teamMembers")
+          .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
+          .first();
+        if (membership) {
+          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name });
+        }
+      }
+    }
+    return accessible;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  return z
+    .array(z.object({ id: z.string(), owner: z.string(), name: z.string() }))
+    .parse(result.value);
+}
+
+export async function checkRepoAccess(
+  convexUrl: string,
+  deployKey: string,
+  repoId: string,
+  userId: string,
+): Promise<boolean> {
+  const source = wrapQueryHandler(
+    `const repo = await ctx.db.get(${JSON.stringify(repoId)});
+    if (!repo) return false;
+    const userId = ${JSON.stringify(userId)};
+    if (repo.connectedBy === userId) return true;
+    if (!repo.teamId) return false;
+    const membership = await ctx.db.query("teamMembers")
+      .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
+      .first();
+    return membership !== null;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  return result.value === true;
+}
+
 interface EnvVar {
   key: string;
   value: string;

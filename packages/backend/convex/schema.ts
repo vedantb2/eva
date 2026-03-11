@@ -254,6 +254,8 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     fixStatus: v.optional(evalFixStatusValidator),
     createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    fixCompletedAt: v.optional(v.number()),
   })
     .index("by_entity", ["entityId"])
     .index("by_entity_created", ["entityId", "createdAt"]),

@@ -66,6 +66,7 @@ export const saveAuditResult = internalMutation({
       await ctx.db.patch(args.auditId, {
         status: "error",
         error: args.error ?? "Audit failed",
+        completedAt: Date.now(),
       });
       if (runId && args.activityLog) {
         await upsertActivityLog(ctx, runId, args.activityLog, "audit");
@@ -82,11 +83,13 @@ export const saveAuditResult = internalMutation({
         status: "completed",
         sections: parseSectionsFromJson(raw),
         summary: extractSummaryFromJson(raw),
+        completedAt: Date.now(),
       });
     } catch {
       await ctx.db.patch(args.auditId, {
         status: "error",
         error: "Failed to parse audit JSON",
+        completedAt: Date.now(),
       });
     }
 
@@ -114,7 +117,16 @@ export const setFixStatus = internalMutation({
     const audit = await ctx.db.get(args.auditId);
     if (!audit) return null;
 
-    await ctx.db.patch(args.auditId, { fixStatus: args.fixStatus });
+    const patchData: {
+      fixStatus: typeof args.fixStatus;
+      fixCompletedAt?: number;
+    } = {
+      fixStatus: args.fixStatus,
+    };
+    if (args.fixStatus === "fix_completed" || args.fixStatus === "fix_error") {
+      patchData.fixCompletedAt = Date.now();
+    }
+    await ctx.db.patch(args.auditId, patchData);
 
     if (audit.runId && args.activityLog) {
       await upsertActivityLog(ctx, audit.runId, args.activityLog, "fix");

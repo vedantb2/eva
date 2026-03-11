@@ -117,6 +117,14 @@ export function useTaskDetail(
       ? { entityId: `task-audit-run-${latestAudit.runId}` }
       : "skip",
   );
+  const auditElapsed = useElapsedSeconds(
+    latestAudit?.createdAt,
+    latestAudit?.status === "running",
+  );
+  const fixElapsed = useElapsedSeconds(
+    latestAudit?.fixStatus === "fixing" ? latestAudit.createdAt : undefined,
+    latestAudit?.fixStatus === "fixing",
+  );
   const users = useQuery(api.users.listAll);
   const projects = useQuery(
     api.projects.list,
@@ -546,6 +554,16 @@ export function useTaskDetail(
                         )}
                       </span>
                     </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {latestAudit.fixStatus === "fixing"
+                        ? formatElapsed(fixElapsed)
+                        : latestAudit.fixCompletedAt
+                          ? formatDuration(
+                              latestAudit.createdAt,
+                              latestAudit.fixCompletedAt,
+                            )
+                          : null}
+                    </span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
@@ -611,22 +629,38 @@ export function useTaskDetail(
                         )}
                       </span>
                     </div>
-                    {latestAudit.status === "completed" &&
-                      latestAudit.sections.length > 0 && (
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {latestAudit.sections.reduce(
+                    <div className="flex items-center gap-2 shrink-0">
+                      {latestAudit.status === "completed" &&
+                        latestAudit.sections.length > 0 &&
+                        (() => {
+                          const passed = latestAudit.sections.reduce(
                             (sum, s) =>
                               sum + s.results.filter((r) => r.passed).length,
                             0,
-                          )}
-                          /
-                          {latestAudit.sections.reduce(
+                          );
+                          const total = latestAudit.sections.reduce(
                             (sum, s) => sum + s.results.length,
                             0,
-                          )}{" "}
-                          passed
-                        </span>
-                      )}
+                          );
+                          return (
+                            <Badge
+                              variant={passed === total ? "success" : "warning"}
+                            >
+                              {passed}/{total}
+                            </Badge>
+                          );
+                        })()}
+                      <span className="text-xs text-muted-foreground">
+                        {latestAudit.status === "running"
+                          ? formatElapsed(auditElapsed)
+                          : latestAudit.completedAt
+                            ? formatDuration(
+                                latestAudit.createdAt,
+                                latestAudit.completedAt,
+                              )
+                            : null}
+                      </span>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>

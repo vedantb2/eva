@@ -26,6 +26,8 @@ const auditReturnValidator = v.object({
   error: v.optional(v.string()),
   fixStatus: v.optional(evalFixStatusValidator),
   createdAt: v.number(),
+  completedAt: v.optional(v.number()),
+  fixCompletedAt: v.optional(v.number()),
 });
 
 export const listByTask = authQuery({
@@ -50,6 +52,8 @@ export const listByTask = authQuery({
         error: audit.error,
         fixStatus: audit.fixStatus,
         createdAt: audit.createdAt,
+        completedAt: audit.completedAt,
+        fixCompletedAt: audit.fixCompletedAt,
       }));
   },
 });
@@ -99,6 +103,8 @@ export const getBySession = authQuery({
       error: latest.error,
       fixStatus: latest.fixStatus,
       createdAt: latest.createdAt,
+      completedAt: latest.completedAt,
+      fixCompletedAt: latest.fixCompletedAt,
     };
   },
 });
@@ -159,6 +165,7 @@ export const handleSessionCompletion = authMutation({
       await ctx.db.patch(audit._id, {
         status: "error",
         error: args.error ?? "Audit failed",
+        completedAt: Date.now(),
       });
       return null;
     }
@@ -171,11 +178,13 @@ export const handleSessionCompletion = authMutation({
         status: "completed",
         sections: parseSectionsFromJson(raw),
         summary: extractSummaryFromJson(raw),
+        completedAt: Date.now(),
       });
     } catch {
       await ctx.db.patch(audit._id, {
         status: "error",
         error: "Failed to parse audit JSON",
+        completedAt: Date.now(),
       });
     }
 
@@ -225,6 +234,7 @@ export const fail = internalMutation({
     await ctx.db.patch(args.id, {
       status: "error",
       error: args.error,
+      completedAt: Date.now(),
     });
     return null;
   },

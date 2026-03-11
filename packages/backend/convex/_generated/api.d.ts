@@ -33,7 +33,6 @@ import type * as _projects_development from "../_projects/development.js";
 import type * as _projects_helpers from "../_projects/helpers.js";
 import type * as _projects_mutations from "../_projects/mutations.js";
 import type * as _projects_queries from "../_projects/queries.js";
-import type * as _sessions_extension from "../_sessions/extension.js";
 import type * as _sessions_helpers from "../_sessions/helpers.js";
 import type * as _sessions_internal from "../_sessions/internal.js";
 import type * as _sessions_mutations from "../_sessions/mutations.js";
@@ -160,7 +159,6 @@ declare const fullApi: ApiFromModules<{
   "_projects/helpers": typeof _projects_helpers;
   "_projects/mutations": typeof _projects_mutations;
   "_projects/queries": typeof _projects_queries;
-  "_sessions/extension": typeof _sessions_extension;
   "_sessions/helpers": typeof _sessions_helpers;
   "_sessions/internal": typeof _sessions_internal;
   "_sessions/mutations": typeof _sessions_mutations;

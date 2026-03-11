@@ -90,7 +90,14 @@ export function registerTools(
     async () => {
       const { deployKey, userId } = await getContext();
       const repos = await listUserRepos(convexUrl, deployKey, userId);
-      return textResult(repos);
+      return textResult(
+        repos.map((r) => ({
+          id: r.id,
+          owner: r.owner,
+          name: r.name,
+          app: r.rootDirectory,
+        })),
+      );
     },
   );
 
@@ -319,6 +326,12 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       .describe(
         "Branch to base work off of. If omitted, uses the repo's default base branch.",
       ),
+    app: z
+      .string()
+      .optional()
+      .describe(
+        'App name within a monorepo (e.g. "web", "mcp", "chrome-extension"). Matches against rootDirectory. Required when a repo has multiple apps.',
+      ),
   };
 
   type TaskInput = {
@@ -327,6 +340,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     repoName: string;
     model?: "opus" | "sonnet" | "haiku";
     baseBranch?: string;
+    app?: string;
   };
 
   async function createTaskForRepo(
@@ -338,12 +352,44 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     const repos = await listUserRepos(convexUrl, deployKey, userId);
 
     const normalizedInput = input.repoName.toLowerCase();
-    const repo = repos.find((r) => {
+    const normalizedApp = input.app?.toLowerCase();
+
+    const nameMatches = repos.filter((r) => {
       const fullName = `${r.owner}/${r.name}`.toLowerCase();
       return (
         fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
       );
     });
+
+    let repo: (typeof repos)[number] | undefined;
+    if (nameMatches.length === 0) {
+      repo = undefined;
+    } else if (nameMatches.length === 1) {
+      repo = nameMatches[0];
+    } else if (normalizedApp) {
+      repo = nameMatches.find((r) => {
+        if (!r.rootDirectory) return false;
+        const rootDir = r.rootDirectory.toLowerCase();
+        return (
+          rootDir === normalizedApp || rootDir.endsWith(`/${normalizedApp}`)
+        );
+      });
+      if (!repo) {
+        const apps = nameMatches
+          .map((r) => r.rootDirectory ?? "(root)")
+          .join(", ");
+        return errorResult(
+          `Multiple apps found for "${input.repoName}" but none matched app "${input.app}". Available apps: ${apps}`,
+        );
+      }
+    } else {
+      const apps = nameMatches
+        .map((r) => r.rootDirectory ?? "(root)")
+        .join(", ");
+      return errorResult(
+        `Multiple apps found for "${input.repoName}". Specify the "app" parameter to disambiguate. Available apps: ${apps}`,
+      );
+    }
 
     if (!repo) {
       const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");

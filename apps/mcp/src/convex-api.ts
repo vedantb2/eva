@@ -274,6 +274,7 @@ export interface Repo {
   id: string;
   owner: string;
   name: string;
+  rootDirectory: string | null;
 }
 
 export async function listRepos(
@@ -282,11 +283,18 @@ export async function listRepos(
 ): Promise<Repo[]> {
   const source = wrapQueryHandler(
     `const repos = await ctx.db.query("githubRepos").collect();
-    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name }));`,
+    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name, rootDirectory: r.rootDirectory ?? null }));`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z
-    .array(z.object({ id: z.string(), owner: z.string(), name: z.string() }))
+    .array(
+      z.object({
+        id: z.string(),
+        owner: z.string(),
+        name: z.string(),
+        rootDirectory: z.string().nullable(),
+      }),
+    )
     .parse(result.value);
 }
 
@@ -315,7 +323,7 @@ export async function listUserRepos(
     const accessible = [];
     for (const repo of repos) {
       if (repo.connectedBy === userId) {
-        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name });
+        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
         continue;
       }
       if (repo.teamId) {
@@ -323,7 +331,7 @@ export async function listUserRepos(
           .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
           .first();
         if (membership) {
-          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name });
+          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
         }
       }
     }
@@ -331,7 +339,14 @@ export async function listUserRepos(
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z
-    .array(z.object({ id: z.string(), owner: z.string(), name: z.string() }))
+    .array(
+      z.object({
+        id: z.string(),
+        owner: z.string(),
+        name: z.string(),
+        rootDirectory: z.string().nullable(),
+      }),
+    )
     .parse(result.value);
 }
 

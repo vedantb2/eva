@@ -60,6 +60,7 @@ export const launchAudit = internalAction({
       "taskWorkflow:handleAuditCompletion",
       "taskId",
       args.taskId,
+      args.repoId,
       {
         model: "haiku",
         extraEnvVars: {
@@ -94,6 +95,7 @@ export const launchAuditFix = internalAction({
       "taskWorkflow:handleAuditFixCompletion",
       "taskId",
       args.taskId,
+      args.repoId,
       {
         model: "sonnet",
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
@@ -148,6 +150,7 @@ export const runSessionAudit = internalAction({
         "audits:handleSessionCompletion",
         "sessionId",
         String(args.sessionId),
+        session.repoId,
         {
           model: "haiku",
           claudeSessionId: sessionClaudeUuid(args.sessionId),

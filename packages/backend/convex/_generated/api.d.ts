@@ -83,6 +83,7 @@ import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
 import type * as mcpQueries from "../mcpQueries.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
+import type * as mcpTokenMinter from "../mcpTokenMinter.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
@@ -209,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   logs: typeof logs;
   mcpQueries: typeof mcpQueries;
   mcpRoutes: typeof mcpRoutes;
+  mcpTokenMinter: typeof mcpTokenMinter;
   messages: typeof messages;
   migrations: typeof migrations;
   notifications: typeof notifications;

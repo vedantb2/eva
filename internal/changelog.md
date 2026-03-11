@@ -1,5 +1,16 @@
 # Changelog
 
+## Sandbox MCP auth and env var scoping - 2026-03-11
+
+- **Why**: Raw `CONVEX_DEPLOY_KEY` was being injected into sandboxes, giving untrusted code direct admin access to the database. Sandboxes should access Convex through scoped MCP tokens instead.
+- **Changes**:
+  1. Added `sandboxExclude` flag on env var entries — excluded vars are available server-side but never injected into sandboxes.
+  2. Added internal JWT auth to MCP: Eva backend mints short-lived (8h) tokens scoped to a single repo. MCP enforces `scopedRepoId` on all tool calls.
+  3. Sandbox launch now writes `/home/daytona/.claude.json` with a Bearer-authenticated MCP server config, so Claude Code in the sandbox gets MCP tools automatically.
+  4. Split env vars UI into two sections: sandbox-injected vars on top, excluded vars below with a lock icon. Toggle button to move vars between sections.
+  5. Added `resolveAllEnvVars` for server-side code that needs unfiltered access (MCP routes, Linear, snapshots), kept `resolveEnvVars` for sandbox injection.
+- **Action required**: Set `MCP_BASE_URL` and `MCP_BOOTSTRAP_SECRET` in Convex env vars, `MCP_INTERNAL_SECRET` on the MCP server.
+
 ## MCP security: separate bootstrap secret and client registration validation - 2026-03-11
 
 - **Why**: `MCP_JWT_SECRET` was reused for both JWT signing and bootstrap endpoint auth — if one leaked, both were compromised. Also, OAuth accepted any redirect URI from any unregistered client, enabling potential auth code interception.

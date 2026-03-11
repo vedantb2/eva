@@ -17,16 +17,22 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
   const upsertTeamVar = useAction(api.teamEnvVarsActions.upsertVar);
   const revealTeamValue = useAction(api.teamEnvVarsActions.revealValue);
   const removeTeamVar = useMutation(api.teamEnvVars.removeVar);
+  const toggleSandboxExclude = useMutation(
+    api.teamEnvVars.toggleSandboxExclude,
+  );
 
   return (
     <EnvVarsTable
       vars={teamEnvVars}
-      onUpsert={async (key, value) => {
-        await upsertTeamVar({ teamId, key, value });
+      onUpsert={async (key, value, sandboxExclude) => {
+        await upsertTeamVar({ teamId, key, value, sandboxExclude });
       }}
       onReveal={(key) => revealTeamValue({ teamId, key })}
       onRemove={async (key) => {
         await removeTeamVar({ teamId, key });
+      }}
+      onToggleSandboxExclude={async (key, sandboxExclude) => {
+        await toggleSandboxExclude({ teamId, key, sandboxExclude });
       }}
       description="Team-level variables inherited by all repositories in this team."
     />

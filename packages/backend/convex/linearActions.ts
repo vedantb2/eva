@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveEnvVars } from "./envVarResolver";
+import { resolveAllEnvVars } from "./envVarResolver";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 
@@ -34,7 +34,7 @@ export const fetchIssues = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const envVars = await resolveEnvVars(ctx, args.repoId);
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
     const apiKey = envVars.LINEAR_API_KEY;
 
     if (!apiKey) {

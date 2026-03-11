@@ -17,7 +17,7 @@ export const revealValue = action({
       throw new Error("Not authenticated");
     }
     const vars: Array<{ key: string; value: string }> = await ctx.runQuery(
-      internal.repoEnvVars.getForSandbox,
+      internal.repoEnvVars.getAllInternal,
       { repoId: args.repoId },
     );
     for (const entry of vars) {
@@ -34,6 +34,7 @@ export const upsertVar = action({
     repoId: v.id("githubRepos"),
     key: v.string(),
     value: v.string(),
+    sandboxExclude: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -46,6 +47,7 @@ export const upsertVar = action({
       repoId: args.repoId,
       key: args.key,
       value: encrypted,
+      sandboxExclude: args.sandboxExclude,
     });
     return null;
   },

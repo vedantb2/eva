@@ -55,6 +55,11 @@ export function registerTools(
     deployKey: string,
     userId: string,
   ): Promise<{ convexUrl: string; deployKey: string }> {
+    if (credentials.scopedRepoId && credentials.scopedRepoId !== repoId) {
+      throw new Error(
+        "Access denied: this token is scoped to a different repository.",
+      );
+    }
     const hasAccess = await checkRepoAccess(
       convexUrl,
       deployKey,

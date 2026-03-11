@@ -135,6 +135,7 @@ export async function signAndLaunchScript(
   completionMutation: string,
   entityIdField: string,
   entityId: string,
+  repoId: Id<"githubRepos">,
   opts: {
     model?: string;
     allowedTools?: string;
@@ -147,9 +148,17 @@ export async function signAndLaunchScript(
     internal.sandboxJwt.signSandboxToken,
     { userId },
   );
+
+  const mcpToken = await ctx.runAction(
+    internal.mcpTokenMinter.mintSandboxMcpToken,
+    { userId, repoId },
+  );
+
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
   const streamingHmac = computeStreamingHmac(streamingEntityId);
   const convexSiteUrl = process.env.CONVEX_SITE_URL ?? "";
+  const mcpBaseUrl = process.env.MCP_BASE_URL ?? "";
+
   await launchScript(
     sandbox,
     prompt,
@@ -164,6 +173,8 @@ export async function signAndLaunchScript(
         STREAMING_HMAC: streamingHmac,
         CONVEX_SITE_URL: convexSiteUrl,
       },
+      mcpToken: mcpToken.token,
+      mcpBaseUrl,
     },
   );
 }

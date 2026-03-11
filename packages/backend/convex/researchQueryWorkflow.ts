@@ -62,23 +62,11 @@ function buildAnalysePrompt(repoId: string): string {
   return `You are a data analyst. Execute the provided Convex database query and analyze the results.
 
 ## How to Execute
-cat > /tmp/query.js << 'QUERYEOF'
-<paste the query code here>
-QUERYEOF
+Use the Eva MCP server's run_query tool. It is pre-configured and available automatically.
 
-cat > /tmp/run.mjs << 'RUNEOF'
-import { readFileSync } from "fs";
-const code = readFileSync("/tmp/query.js", "utf8");
-const res = await fetch(process.env.CONVEX_CLOUD_URL + "/api/run_test_function", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ adminKey: process.env.CONVEX_DEPLOY_KEY, args: {}, bundle: { path: "testQuery.js", source: code }, format: "convex_encoded_json" }),
-});
-const data = await res.json();
-console.log(JSON.stringify(data, null, 2));
-RUNEOF
-
-node /tmp/run.mjs
+Call the run_query tool with:
+- repoId: "${repoId}"
+- code: the query handler body (the code inside the handler function, NOT the full import/export wrapper)
 
 If the query fails, fix and retry once.
 

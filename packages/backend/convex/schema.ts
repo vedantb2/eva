@@ -272,7 +272,13 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"]),
   repoEnvVars: defineTable({
     repoId: v.id("githubRepos"),
-    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    vars: v.array(
+      v.object({
+        key: v.string(),
+        value: v.string(),
+        sandboxExclude: v.optional(v.boolean()),
+      }),
+    ),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
   extensionReleases: defineTable({
@@ -330,7 +336,13 @@ const schema = defineSchema({
   }).index("by_status", ["status"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
-    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    vars: v.array(
+      v.object({
+        key: v.string(),
+        value: v.string(),
+        sandboxExclude: v.optional(v.boolean()),
+      }),
+    ),
     updatedAt: v.number(),
   }).index("by_team", ["teamId"]),
   logs: defineTable({

@@ -9,6 +9,7 @@ import { z } from "zod";
 export interface ConvexCredentials {
   convexUrl: string;
   clerkUserId: string;
+  scopedRepoId?: string;
 }
 
 interface AuthCodeEntry {
@@ -49,6 +50,14 @@ function getJwtSecret(): string {
   const secret = process.env.MCP_JWT_SECRET;
   if (!secret) {
     throw new Error("MCP_JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
+
+function getInternalSecret(): string {
+  const secret = process.env.MCP_INTERNAL_SECRET;
+  if (!secret) {
+    throw new Error("MCP_INTERNAL_SECRET environment variable is required");
   }
   return secret;
 }
@@ -556,7 +565,7 @@ function handleRefreshToken(token: string): TokenResult {
 
 const mcpTokenPayloadSchema = z.object({ sub: z.string() });
 
-export async function verifyToken(
+async function verifyOAuthToken(
   token: string,
 ): Promise<ConvexCredentials | null> {
   try {
@@ -570,6 +579,66 @@ export async function verifyToken(
   } catch {
     return null;
   }
+}
+
+const internalTokenPayloadSchema = z.object({
+  sub: z.string(),
+  iss: z.literal("eva"),
+  aud: z.literal("mcp-internal"),
+  repoId: z.string(),
+});
+
+function verifyInternalToken(token: string): ConvexCredentials | null {
+  try {
+    const decoded = jwt.verify(token, getInternalSecret());
+    const payload = internalTokenPayloadSchema.safeParse(decoded);
+    if (!payload.success) return null;
+    return {
+      convexUrl: getConvexUrl(),
+      clerkUserId: payload.data.sub,
+      scopedRepoId: payload.data.repoId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyToken(
+  token: string,
+): Promise<ConvexCredentials | null> {
+  const oauthResult = await verifyOAuthToken(token);
+  if (oauthResult) return oauthResult;
+  return verifyInternalToken(token);
+}
+
+const mintRequestSchema = z.object({
+  clerkUserId: z.string(),
+  repoId: z.string(),
+});
+
+export function mintInternalToken(
+  body: Record<string, string>,
+  bootstrapSecret: string,
+): { token: string; expiresIn: number } | null {
+  const expected = process.env.MCP_BOOTSTRAP_SECRET;
+  if (!expected || bootstrapSecret !== expected) return null;
+
+  const parsed = mintRequestSchema.safeParse(body);
+  if (!parsed.success) return null;
+
+  const expiresIn = 28800;
+  const token = jwt.sign(
+    {
+      sub: parsed.data.clerkUserId,
+      iss: "eva",
+      aud: "mcp-internal",
+      repoId: parsed.data.repoId,
+    },
+    getInternalSecret(),
+    { expiresIn },
+  );
+
+  return { token, expiresIn };
 }
 
 export function extractBearerToken(

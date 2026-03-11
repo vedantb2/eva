@@ -12,6 +12,7 @@ import {
   handleClientRegistration,
   verifyToken,
   extractBearerToken,
+  mintInternalToken,
 } from "./auth.js";
 import { registerTools } from "./tools.js";
 import type { ConvexCredentials } from "./auth.js";
@@ -209,6 +210,22 @@ app.delete("/", handleMcpUnsupported);
 app.post("/mcp", mcpLimiter, handleMcpPost);
 app.get("/mcp", handleMcpGet);
 app.delete("/mcp", handleMcpUnsupported);
+
+app.post("/api/internal/mint-token", (req: Request, res: Response) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("MCPBootstrap ")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const secret = auth.slice("MCPBootstrap ".length);
+  const body = bodyToStringRecord(req);
+  const result = mintInternalToken(body, secret);
+  if (!result) {
+    res.status(403).json({ error: "Invalid credentials or request" });
+    return;
+  }
+  res.json(result);
+});
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });

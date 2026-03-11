@@ -156,6 +156,12 @@ export const runModeValidator = v.union(
   v.literal("resolve_conflicts"),
 );
 
+export const activityLogTypeValidator = v.union(
+  v.literal("run"),
+  v.literal("audit"),
+  v.literal("fix"),
+);
+
 export const webhookEventStatusValidator = v.union(
   v.literal("pending"),
   v.literal("completed"),
@@ -293,6 +299,7 @@ export const githubRepoFields = {
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
+  deploymentProjectName: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

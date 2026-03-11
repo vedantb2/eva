@@ -68,9 +68,12 @@ export function AnnotationTool({
     const pins: Record<string, StoredPin> = savedPins
       ? JSON.parse(savedPins)
       : {};
-    const ids = Object.values(pins)
-      .filter((p) => p.taskId)
-      .map((p) => p.taskId as Id<"agentTasks">);
+    const ids: Id<"agentTasks">[] = [];
+    for (const p of Object.values(pins)) {
+      if (p.taskId) {
+        ids.push(p.taskId as Id<"agentTasks">);
+      }
+    }
     setTrackedTaskIds(ids);
   }, [savedPins]);
 
@@ -115,26 +118,46 @@ export function AnnotationTool({
   useEffect(() => {
     const handleMessage = (message: {
       type: string;
-      payload?:
-        | AnnotationPayload
-        | { pageUrl: string; pins: Record<string, StoredPin> };
+      payload?: Record<string, unknown>;
     }) => {
       if (message.type === "SAVE_ANNOTATION_TASK" && message.payload) {
-        onAnnotationTask(message.payload as AnnotationPayload);
+        const p = message.payload;
+        if (
+          typeof p.title === "string" &&
+          typeof p.pageUrl === "string" &&
+          typeof p.pinId === "string"
+        ) {
+          onAnnotationTask({
+            title: p.title,
+            pageUrl: p.pageUrl,
+            position: (p.position ?? {
+              x: 0,
+              y: 0,
+            }) as AnnotationPayload["position"],
+            pinId: p.pinId,
+            elementContext:
+              p.elementContext as AnnotationPayload["elementContext"],
+          });
+        }
       }
       if (message.type === "STOP_ANNOTATION") {
         onActiveChange(false);
       }
       if (message.type === "ANNOTATIONS_CHANGED" && message.payload) {
-        const { pageUrl: url, pins } = message.payload as {
-          pageUrl: string;
-          pins: Record<string, StoredPin>;
-        };
-        lastPushedRef.current = JSON.stringify(pins);
-        if (Object.keys(pins).length === 0) {
-          removeAnnotations({ pageUrl: url });
-        } else {
-          saveAnnotations({ pageUrl: url, pins: JSON.stringify(pins) });
+        const p = message.payload;
+        if (
+          typeof p.pageUrl === "string" &&
+          typeof p.pins === "object" &&
+          p.pins !== null
+        ) {
+          const url = p.pageUrl;
+          const pins = p.pins as Record<string, StoredPin>;
+          lastPushedRef.current = JSON.stringify(pins);
+          if (Object.keys(pins).length === 0) {
+            removeAnnotations({ pageUrl: url });
+          } else {
+            saveAnnotations({ pageUrl: url, pins: JSON.stringify(pins) });
+          }
         }
       }
       if (message.type === "REQUEST_ANNOTATIONS" && savedPins !== undefined) {

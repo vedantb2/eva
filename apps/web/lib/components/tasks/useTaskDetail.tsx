@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   Select,
   SelectContent,
   SelectItem,
@@ -34,6 +35,7 @@ import {
   CarouselPrevious,
   CarouselNext,
   CarouselDots,
+  Label,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -66,7 +68,7 @@ import {
   IconBrandVercel,
   IconHammer,
 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Streamdown } from "streamdown";
@@ -78,6 +80,7 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { SchedulePopover } from "./SchedulePopover";
 import { RunActivityLog } from "./RunActivityLog";
+import { AuditActivityLog } from "./AuditActivityLog";
 
 const NO_PROJECT_VALUE = "__none__";
 
@@ -114,6 +117,14 @@ export function useTaskDetail(
       ? { entityId: `task-audit-run-${latestAudit.runId}` }
       : "skip",
   );
+  const auditElapsed = useElapsedSeconds(
+    latestAudit?.createdAt,
+    latestAudit?.status === "running",
+  );
+  const fixElapsed = useElapsedSeconds(
+    latestAudit?.fixStatus === "fixing" ? latestAudit.createdAt : undefined,
+    latestAudit?.fixStatus === "fixing",
+  );
   const users = useQuery(api.users.listAll);
   const projects = useQuery(
     api.projects.list,
@@ -133,6 +144,7 @@ export function useTaskDetail(
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState<
     "activity" | "proof" | "audit" | "comments"
@@ -157,28 +169,26 @@ export function useTaskDetail(
     setBaseBranch(task?.baseBranch ?? "main");
   }, [task?.baseBranch]);
 
-  useEffect(() => {
-    setExecutionError(null);
-  }, [activeTab]);
-
-  const handleAddComment = async (requestChanges = false) => {
+  const handleAddComment = async () => {
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
+    await createComment({ taskId, content: text });
+  };
+
+  const handleSubmitRequestChanges = async () => {
+    const text = commentText.trim();
+    if (!text) return;
+    setCommentText("");
+    setRequestingChanges(false);
     try {
       await createComment({ taskId, content: text });
-
-      if (requestChanges) {
-        try {
-          await startExecution({ id: taskId });
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : "Failed to start execution";
-          setExecutionError(message);
-        }
-      }
-    } finally {
-      setRequestingChanges(false);
+      await startExecution({ id: taskId });
+      setActiveTab("activity");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to start execution";
+      setExecutionError(message);
     }
   };
 
@@ -366,7 +376,7 @@ export function useTaskDetail(
       >
         <IconClock size={11} />
         {status === "todo" ? "Scheduled for" : "Was scheduled for"}{" "}
-        {dayjs(task.scheduledAt).format("MMM D, h:mm A")}
+        {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
       </Badge>
     </div>
   ) : null;
@@ -375,7 +385,9 @@ export function useTaskDetail(
     <div>
       <div className="flex items-center justify-end mb-2">
         <span className="text-xs text-muted-foreground">
-          {task?.createdAt ? dayjs(task.createdAt).format("MMM D, YYYY") : ""}
+          {task?.createdAt
+            ? dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")
+            : ""}
         </span>
       </div>
       {isEditingDescription ? (
@@ -507,64 +519,179 @@ export function useTaskDetail(
     sortedRunsDesc.length > 0 ? (
       <div className="pt-4">
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
-          {latestAudit?.status === "running" && (
-            <Accordion type="multiple" defaultValue={["audit-streaming"]}>
-              <AccordionItem
-                value="audit-streaming"
-                className="border rounded-lg px-3"
-              >
-                <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="warning">Auditing</Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  {auditStreaming?.currentActivity &&
-                    (() => {
-                      const steps = parseActivitySteps(
-                        auditStreaming.currentActivity,
-                      );
-                      return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          isStreaming
-                          name="Auditing"
-                        />
-                      ) : null;
-                    })()}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
-          {latestAudit?.fixStatus === "fixing" && (
-            <Accordion type="multiple" defaultValue={["fix-streaming"]}>
-              <AccordionItem
-                value="fix-streaming"
-                className="border rounded-lg px-3"
-              >
-                <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="warning">Fixing audit issues</Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  {auditStreaming?.currentActivity &&
-                    (() => {
-                      const steps = parseActivitySteps(
-                        auditStreaming.currentActivity,
-                      );
-                      return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          isStreaming
-                          name="Fixing"
-                        />
-                      ) : null;
-                    })()}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
+          {(allAudits ?? []).map((audit, auditIndex) => {
+            const isLatest = auditIndex === 0;
+            const isAuditStreaming = isLatest && audit.status === "running";
+            const isFixStreaming = isLatest && audit.fixStatus === "fixing";
+            return (
+              <Fragment key={audit._id}>
+                {audit.fixStatus && (
+                  <Accordion
+                    type="multiple"
+                    defaultValue={isFixStreaming ? [`fix-${audit._id}`] : []}
+                  >
+                    <AccordionItem
+                      value={`fix-${audit._id}`}
+                      className="border rounded-lg px-3"
+                    >
+                      <AccordionTrigger>
+                        <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                            <Badge
+                              variant={
+                                audit.fixStatus === "fixing"
+                                  ? "warning"
+                                  : audit.fixStatus === "fix_error"
+                                    ? "destructive"
+                                    : "success"
+                              }
+                            >
+                              {audit.fixStatus === "fixing"
+                                ? "fixing audit issues"
+                                : audit.fixStatus === "fix_error"
+                                  ? "fix error"
+                                  : "fixed audit issues"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {dayjs(audit.createdAt).format(
+                                "DD/MM/YYYY HH:mm",
+                              )}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {isFixStreaming
+                              ? formatElapsed(fixElapsed)
+                              : audit.fixCompletedAt
+                                ? formatDuration(
+                                    audit.createdAt,
+                                    audit.fixCompletedAt,
+                                  )
+                                : null}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2">
+                          {isFixStreaming &&
+                            auditStreaming?.currentActivity &&
+                            (() => {
+                              const steps = parseActivitySteps(
+                                auditStreaming.currentActivity,
+                              );
+                              return steps ? (
+                                <ActivitySteps
+                                  steps={steps}
+                                  isStreaming
+                                  name="Fixing"
+                                />
+                              ) : null;
+                            })()}
+                          {!isFixStreaming && audit.runId && (
+                            <AuditActivityLog runId={audit.runId} type="fix" />
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+                <Accordion
+                  type="multiple"
+                  defaultValue={isAuditStreaming ? [`audit-${audit._id}`] : []}
+                >
+                  <AccordionItem
+                    value={`audit-${audit._id}`}
+                    className="border rounded-lg px-3"
+                  >
+                    <AccordionTrigger>
+                      <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <Badge
+                            variant={
+                              audit.status === "running"
+                                ? "warning"
+                                : audit.status === "error"
+                                  ? "destructive"
+                                  : "success"
+                            }
+                          >
+                            {audit.status === "running"
+                              ? "auditing"
+                              : audit.status === "error"
+                                ? "audit error"
+                                : "audited"}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {dayjs(audit.createdAt).format("DD/MM/YYYY HH:mm")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {audit.status === "completed" &&
+                            audit.sections.length > 0 &&
+                            (() => {
+                              const passed = audit.sections.reduce(
+                                (sum, s) =>
+                                  sum +
+                                  s.results.filter((r) => r.passed).length,
+                                0,
+                              );
+                              const total = audit.sections.reduce(
+                                (sum, s) => sum + s.results.length,
+                                0,
+                              );
+                              return (
+                                <Badge
+                                  variant={
+                                    passed === total ? "success" : "warning"
+                                  }
+                                >
+                                  {passed}/{total}
+                                </Badge>
+                              );
+                            })()}
+                          <span className="text-xs text-muted-foreground">
+                            {isAuditStreaming
+                              ? formatElapsed(auditElapsed)
+                              : audit.completedAt
+                                ? formatDuration(
+                                    audit.createdAt,
+                                    audit.completedAt,
+                                  )
+                                : null}
+                          </span>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2">
+                        {isAuditStreaming &&
+                          auditStreaming?.currentActivity &&
+                          (() => {
+                            const steps = parseActivitySteps(
+                              auditStreaming.currentActivity,
+                            );
+                            return steps ? (
+                              <ActivitySteps
+                                steps={steps}
+                                isStreaming
+                                name="Auditing"
+                              />
+                            ) : null;
+                          })()}
+                        {!isAuditStreaming && audit.runId && (
+                          <AuditActivityLog runId={audit.runId} type="audit" />
+                        )}
+                        {audit.status === "error" && (
+                          <p className="text-sm text-destructive">
+                            {audit.error ?? "Audit failed"}
+                          </p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </Fragment>
+            );
+          })}
           {sortedRunsDesc.map((run) => {
             const isActiveRun =
               run.status === "running" || run.status === "queued";
@@ -592,13 +719,29 @@ export function useTaskDetail(
                                   : "secondary"
                           }
                         >
-                          {run.status === "running"
-                            ? "Making changes"
-                            : run.status === "success"
-                              ? "Made changes"
-                              : run.status === "error"
-                                ? "Error"
-                                : "Queued"}
+                          {run.mode === "resolve_conflicts"
+                            ? run.status === "running"
+                              ? "resolving conflicts"
+                              : run.status === "success"
+                                ? "resolved conflicts"
+                                : run.status === "error"
+                                  ? "error"
+                                  : "queued"
+                            : runCommentMap.has(run._id)
+                              ? run.status === "running"
+                                ? "making changes"
+                                : run.status === "success"
+                                  ? "made changes"
+                                  : run.status === "error"
+                                    ? "error"
+                                    : "queued"
+                              : run.status === "running"
+                                ? "running"
+                                : run.status === "success"
+                                  ? "success"
+                                  : run.status === "error"
+                                    ? "error"
+                                    : "queued"}
                         </Badge>
                         {runCommentMap.has(run._id) && (
                           <Tooltip>
@@ -619,7 +762,7 @@ export function useTaskDetail(
                         )}
                         <span className="text-xs text-muted-foreground truncate">
                           {run.startedAt
-                            ? dayjs(run.startedAt).format("M/D/YYYY, h:mm:ss A")
+                            ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
                             : "Queued"}
                         </span>
                       </div>
@@ -637,9 +780,7 @@ export function useTaskDetail(
                             </TooltipTrigger>
                             <TooltipContent>
                               Completed{" "}
-                              {dayjs(run.finishedAt).format(
-                                "M/D/YYYY, h:mm:ss A",
-                              )}
+                              {dayjs(run.finishedAt).format("DD/MM/YYYY HH:mm")}
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
@@ -731,7 +872,9 @@ export function useTaskDetail(
                                 }`}
                               >
                                 <span className="text-muted-foreground flex-shrink-0">
-                                  {dayjs(log.timestamp).format("h:mm:ss A")}
+                                  {dayjs(log.timestamp).format(
+                                    "DD/MM/YYYY HH:mm",
+                                  )}
                                 </span>
                                 <span className="break-all">{log.message}</span>
                               </div>
@@ -917,7 +1060,7 @@ export function useTaskDetail(
               {pastAudits.map((pastAudit) => (
                 <div key={pastAudit._id} className="space-y-2">
                   <span className="text-xs text-muted-foreground">
-                    {dayjs(pastAudit.createdAt).format("M/D/YYYY, h:mm:ss A")}
+                    {dayjs(pastAudit.createdAt).format("DD/MM/YYYY HH:mm")}
                   </span>
                   {renderAuditResults(pastAudit)}
                 </div>
@@ -960,6 +1103,28 @@ export function useTaskDetail(
           ))}
         </div>
       )}
+      {(status === "business_review" ||
+        status === "code_review" ||
+        status === "done" ||
+        status === "cancelled") && (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`task-make-changes-${taskId}`}
+            checked={requestingChanges}
+            disabled={Boolean(hasActiveRun)}
+            onCheckedChange={(checked) => {
+              setRequestingChanges(checked === true);
+              if (executionError) setExecutionError(null);
+            }}
+          />
+          <Label
+            htmlFor={`task-make-changes-${taskId}`}
+            className={hasActiveRun ? "text-muted-foreground" : ""}
+          >
+            Make changes
+          </Label>
+        </div>
+      )}
       <div className="flex gap-2 items-end">
         <Textarea
           rows={3}
@@ -975,18 +1140,26 @@ export function useTaskDetail(
           }}
           className="flex-1"
         />
-        <Button
-          size="icon"
-          className="rounded-full shrink-0"
-          disabled={!commentText.trim()}
-          onClick={() => handleAddComment(requestingChanges)}
-        >
-          <IconArrowUp size={18} />
-        </Button>
+        {requestingChanges ? (
+          <Button
+            size="icon"
+            className="rounded-full shrink-0"
+            disabled={!commentText.trim()}
+            onClick={handleSubmitRequestChanges}
+          >
+            <IconArrowUp size={18} />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            className="rounded-full shrink-0"
+            disabled={!commentText.trim()}
+            onClick={handleAddComment}
+          >
+            <IconArrowUp size={18} />
+          </Button>
+        )}
       </div>
-      {executionError && (
-        <p className="text-xs text-destructive">{executionError}</p>
-      )}
       {requestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">
           Submitting will create a comment and re-run Eva with your changes
@@ -1247,123 +1420,131 @@ export function useTaskDetail(
   );
 
   const footerButtons = (
-    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-      {latestPrUrl && (status === "code_review" || status === "done") && (
-        <Button asChild variant="outline">
-          <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-            <IconGitPullRequest size={18} />
-            <span className="hidden sm:inline">View PR</span>
-          </a>
-        </Button>
+    <div className="space-y-2">
+      {executionError && (
+        <p className="text-xs text-destructive text-right">{executionError}</p>
       )}
-      {latestDeployment?.deploymentStatus && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                asChild={
-                  latestDeployment.deploymentStatus === "deployed" &&
-                  !!latestDeployment.deploymentUrl
-                }
-                variant="outline"
-                disabled={latestDeployment.deploymentStatus !== "deployed"}
-              >
-                {latestDeployment.deploymentStatus === "deployed" &&
-                latestDeployment.deploymentUrl ? (
-                  <a
-                    href={latestDeployment.deploymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconBrandVercel size={18} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </a>
-                ) : (
-                  <>
-                    <IconBrandVercel size={18} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            {latestDeployment.deploymentStatus === "deployed"
-              ? "Open preview deployment"
-              : latestDeployment.deploymentStatus === "error"
-                ? "Deployment failed"
-                : latestDeployment.deploymentStatus === "building"
-                  ? "Deployment is building..."
-                  : "Deployment is queued..."}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {status !== "todo" && status !== "in_progress" && (
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setRequestingChanges(true);
-            setActiveTab("comments");
-          }}
-        >
-          <IconMessagePlus size={18} />
-          <span className="hidden sm:inline">Request Changes</span>
-        </Button>
-      )}
-      {!hasActiveRun && status === "code_review" && (
-        <Button
-          variant="secondary"
-          onClick={handleResolveConflicts}
-          disabled={isStarting}
-        >
-          {isStarting ? (
-            <IconLoader2 size={18} className="animate-spin" />
-          ) : (
-            <IconHammer size={18} />
-          )}
-          <span className="hidden sm:inline">Resolve Conflicts</span>
-        </Button>
-      )}
-      {!hasActiveRun && status === "todo" && (
-        <>
-          <SchedulePopover
-            taskId={taskId}
-            scheduledAt={task?.scheduledAt}
-            disabled={!isOwner || isBlocked}
-          />
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+        {latestPrUrl && (status === "code_review" || status === "done") && (
+          <Button asChild variant="outline">
+            <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
+              <IconGitPullRequest size={18} />
+              <span className="hidden sm:inline">View PR</span>
+            </a>
+          </Button>
+        )}
+        {latestDeployment?.deploymentStatus && (
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
                 <Button
-                  onClick={handleStartExecution}
-                  disabled={
-                    isStarting ||
-                    isBlocked ||
-                    !isOwner ||
-                    task?.scheduledAt !== undefined
+                  asChild={
+                    latestDeployment.deploymentStatus === "deployed" &&
+                    !!latestDeployment.deploymentUrl
                   }
+                  variant="outline"
+                  disabled={latestDeployment.deploymentStatus !== "deployed"}
                 >
-                  {isStarting ? (
-                    <IconLoader2 size={18} className="animate-spin" />
+                  {latestDeployment.deploymentStatus === "deployed" &&
+                  latestDeployment.deploymentUrl ? (
+                    <a
+                      href={latestDeployment.deploymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <IconBrandVercel size={18} />
+                      <span className="hidden sm:inline">View Preview</span>
+                    </a>
                   ) : (
-                    <IconPlayerPlay size={18} />
+                    <>
+                      <IconBrandVercel size={18} />
+                      <span className="hidden sm:inline">View Preview</span>
+                    </>
                   )}
-                  Run Eva
                 </Button>
               </div>
             </TooltipTrigger>
-            {task?.scheduledAt !== undefined ? (
-              <TooltipContent>
-                Task is scheduled — remove the schedule to run immediately
-              </TooltipContent>
-            ) : (
-              !isOwner && (
-                <TooltipContent>Only the task owner can run Eva</TooltipContent>
-              )
-            )}
+            <TooltipContent>
+              {latestDeployment.deploymentStatus === "deployed"
+                ? "Open preview deployment"
+                : latestDeployment.deploymentStatus === "error"
+                  ? "Deployment failed"
+                  : latestDeployment.deploymentStatus === "building"
+                    ? "Deployment is building..."
+                    : "Deployment is queued..."}
+            </TooltipContent>
           </Tooltip>
-        </>
-      )}
+        )}
+        {status !== "todo" && status !== "in_progress" && (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setRequestingChanges(true);
+              if (executionError) setExecutionError(null);
+              setActiveTab("comments");
+            }}
+          >
+            <IconMessagePlus size={18} />
+            <span className="hidden sm:inline">Request Changes</span>
+          </Button>
+        )}
+        {!hasActiveRun && status === "code_review" && (
+          <Button
+            variant="secondary"
+            onClick={() => setShowResolveConfirm(true)}
+            disabled={isStarting}
+          >
+            {isStarting ? (
+              <IconLoader2 size={18} className="animate-spin" />
+            ) : (
+              <IconHammer size={18} />
+            )}
+            <span className="hidden sm:inline">Resolve Conflicts</span>
+          </Button>
+        )}
+        {!hasActiveRun && status === "todo" && (
+          <>
+            <SchedulePopover
+              taskId={taskId}
+              scheduledAt={task?.scheduledAt}
+              disabled={!isOwner || isBlocked}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    onClick={handleStartExecution}
+                    disabled={
+                      isStarting ||
+                      isBlocked ||
+                      !isOwner ||
+                      task?.scheduledAt !== undefined
+                    }
+                  >
+                    {isStarting ? (
+                      <IconLoader2 size={18} className="animate-spin" />
+                    ) : (
+                      <IconPlayerPlay size={18} />
+                    )}
+                    Run Eva
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {task?.scheduledAt !== undefined ? (
+                <TooltipContent>
+                  Task is scheduled — remove the schedule to run immediately
+                </TooltipContent>
+              ) : (
+                !isOwner && (
+                  <TooltipContent>
+                    Only the task owner can run Eva
+                  </TooltipContent>
+                )
+              )}
+            </Tooltip>
+          </>
+        )}
+      </div>
     </div>
   );
 
@@ -1396,6 +1577,41 @@ export function useTaskDetail(
           >
             {isStopping && <IconLoader2 size={16} className="animate-spin" />}
             Stop Execution
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const resolveConfirmDialog = (
+    <Dialog
+      open={showResolveConfirm}
+      onOpenChange={(v) => {
+        if (!v) setShowResolveConfirm(false);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Resolve Conflicts</DialogTitle>
+        </DialogHeader>
+        <p className="text-muted-foreground">
+          This will start the agent to merge the latest base branch changes and
+          resolve any conflicts. The task will remain in code review after
+          completion.
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setShowResolveConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              setShowResolveConfirm(false);
+              handleResolveConflicts();
+            }}
+            disabled={isStarting}
+          >
+            {isStarting && <IconLoader2 size={16} className="animate-spin" />}
+            Resolve Conflicts
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1447,6 +1663,7 @@ export function useTaskDetail(
     statusFieldsSection,
     footerButtons,
     stopConfirmDialog,
+    resolveConfirmDialog,
     userMessageDialog,
     latestAudit,
     showProofSection,
@@ -1455,5 +1672,12 @@ export function useTaskDetail(
     setActiveTab,
     layoutGridClass,
     modalWidthClass,
+    isActivityBusy:
+      Boolean(hasActiveRun) ||
+      latestAudit?.status === "running" ||
+      latestAudit?.fixStatus === "fixing",
+    isProofBusy: status === "in_progress",
+    isAuditBusy:
+      latestAudit?.status === "running" || latestAudit?.fixStatus === "fixing",
   };
 }

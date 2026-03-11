@@ -30,12 +30,6 @@ const REQUIRED_KEYS: Array<{
     required: true,
     description: "API key for provisioning and managing Daytona sandboxes",
   },
-  {
-    key: "CONVEX_DEPLOY_KEY",
-    required: false,
-    description:
-      "Deploy key for the sandbox to call back to Convex (required for task completion callbacks)",
-  },
 ];
 
 export function SetupBanner() {

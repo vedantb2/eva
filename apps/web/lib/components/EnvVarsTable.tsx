@@ -19,6 +19,8 @@ import {
   IconEye,
   IconEyeOff,
   IconKey,
+  IconLock,
+  IconLockOpen,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -28,13 +30,22 @@ import {
 interface EnvVar {
   key: string;
   value: string;
+  sandboxExclude: boolean;
 }
 
 interface EnvVarsTableProps {
   vars: EnvVar[] | undefined;
-  onUpsert?: (key: string, value: string) => Promise<void>;
+  onUpsert?: (
+    key: string,
+    value: string,
+    sandboxExclude: boolean,
+  ) => Promise<void>;
   onReveal?: (key: string) => Promise<string | null>;
   onRemove?: (key: string) => Promise<void>;
+  onToggleSandboxExclude?: (
+    key: string,
+    sandboxExclude: boolean,
+  ) => Promise<void>;
   description: string;
   readOnly?: boolean;
 }
@@ -70,6 +81,7 @@ export function EnvVarsTable({
   onUpsert,
   onReveal,
   onRemove,
+  onToggleSandboxExclude,
   description,
   readOnly = false,
 }: EnvVarsTableProps) {
@@ -108,7 +120,7 @@ export function EnvVarsTable({
   const handleAdd = async () => {
     if (!keyInput.trim() || !valueInput.trim() || !onUpsert) return;
     setSaving(true);
-    await onUpsert(keyInput.trim(), valueInput);
+    await onUpsert(keyInput.trim(), valueInput, false);
     setSaving(false);
     setAdding(false);
     setKeyInput("");
@@ -127,8 +139,9 @@ export function EnvVarsTable({
 
   const saveEdit = async () => {
     if (!editingKey || !editValue.trim() || !onUpsert) return;
+    const existing = vars?.find((v) => v.key === editingKey);
     setSaving(true);
-    await onUpsert(editingKey, editValue);
+    await onUpsert(editingKey, editValue, existing?.sandboxExclude ?? false);
     setSaving(false);
     setEditingKey(null);
     setEditValue("");
@@ -197,7 +210,7 @@ export function EnvVarsTable({
     if (parsed.length === 0) return;
     setBulkSaving(true);
     for (const { key, value } of parsed) {
-      await onUpsert(key, value);
+      await onUpsert(key, value, false);
     }
     setBulkSaving(false);
     setShowBulkPaste(false);
@@ -205,7 +218,195 @@ export function EnvVarsTable({
   };
 
   const parsedPreview = parseEnvVars(bulkText);
+  const sandboxVars = vars?.filter((v) => !v.sandboxExclude) ?? [];
+  const excludedVars = vars?.filter((v) => v.sandboxExclude) ?? [];
   const showTable = (vars && vars.length > 0) || adding;
+
+  const renderRow = (v: EnvVar) => (
+    <tr key={v.key} className="border-b border-border/40 last:border-0">
+      <td className="px-2.5 py-2.5 font-mono text-xs sm:px-4">{v.key}</td>
+      <td className="px-2.5 py-2.5 sm:px-4">
+        {editingKey === v.key ? (
+          <Input
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            placeholder="Enter new value"
+            className="h-7 font-mono text-xs"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveEdit();
+              if (e.key === "Escape") cancelEdit();
+            }}
+          />
+        ) : (
+          <span className="font-mono text-xs text-muted-foreground">
+            {revealedValues[v.key] ?? v.value}
+          </span>
+        )}
+      </td>
+      <td className="px-2.5 py-2.5 text-right sm:px-4">
+        {editingKey === v.key ? (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={saveEdit}
+              disabled={!editValue.trim() || saving}
+              title="Save"
+              className="text-primary hover:text-primary"
+            >
+              <IconCheck size={14} />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={cancelEdit}
+              title="Cancel"
+            >
+              <IconX size={14} />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => toggleReveal(v.key)}
+              disabled={revealingKey === v.key}
+              title={
+                revealedValues[v.key] !== undefined
+                  ? "Hide value"
+                  : "Reveal value"
+              }
+            >
+              {revealedValues[v.key] !== undefined ? (
+                <IconEyeOff size={14} />
+              ) : (
+                <IconEye size={14} />
+              )}
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => copyValue(v.key)}
+              title={copiedKey === v.key ? "Copied!" : "Copy value"}
+            >
+              {copiedKey === v.key ? (
+                <IconCheck size={14} className="text-primary" />
+              ) : (
+                <IconCopy size={14} />
+              )}
+            </Button>
+            {!readOnly && (
+              <>
+                {onToggleSandboxExclude && (
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() =>
+                      onToggleSandboxExclude(v.key, !v.sandboxExclude)
+                    }
+                    title={
+                      v.sandboxExclude
+                        ? "Excluded from sandbox (click to include)"
+                        : "Included in sandbox (click to exclude)"
+                    }
+                  >
+                    {v.sandboxExclude ? (
+                      <IconLock size={14} className="text-amber-500" />
+                    ) : (
+                      <IconLockOpen size={14} />
+                    )}
+                  </Button>
+                )}
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => startEdit(v.key)}
+                  title="Edit"
+                >
+                  <IconPencil size={14} />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setDeleteKey(v.key)}
+                  title="Delete"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <IconTrash size={14} />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+
+  const tableHeader = (
+    <thead>
+      <tr className="border-b border-border/60 text-left text-muted-foreground">
+        <th className="px-2.5 py-2.5 font-medium sm:px-4">Key</th>
+        <th className="px-2.5 py-2.5 font-medium sm:px-4">Value</th>
+        <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
+          Actions
+        </th>
+      </tr>
+    </thead>
+  );
+
+  const addingRow = adding ? (
+    <tr className="border-b border-border/40">
+      <td className="px-2.5 py-2.5 sm:px-4">
+        <Input
+          value={keyInput}
+          onChange={(e) => setKeyInput(e.target.value)}
+          onPaste={handleKeyInputPaste}
+          placeholder="e.g. API_KEY"
+          className="h-7 font-mono text-xs"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Escape") cancelAdd();
+          }}
+        />
+      </td>
+      <td className="px-2.5 py-2.5 sm:px-4">
+        <Input
+          value={valueInput}
+          onChange={(e) => setValueInput(e.target.value)}
+          placeholder="Enter value"
+          className="h-7 font-mono text-xs"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAdd();
+            if (e.key === "Escape") cancelAdd();
+          }}
+        />
+      </td>
+      <td className="px-2.5 py-2.5 text-right sm:px-4">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={handleAdd}
+            disabled={!keyInput.trim() || !valueInput.trim() || saving}
+            title="Save"
+            className="text-primary hover:text-primary"
+          >
+            <IconCheck size={14} />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={cancelAdd}
+            title="Cancel"
+          >
+            <IconX size={14} />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  ) : null;
 
   return (
     <div>
@@ -238,179 +439,43 @@ export function EnvVarsTable({
           <p className="text-sm">No environment variables configured</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border/70 overflow-x-auto">
-          <table className="w-full text-sm min-w-[360px]">
-            <thead>
-              <tr className="border-b border-border/60 text-left text-muted-foreground">
-                <th className="px-2.5 py-2.5 font-medium sm:px-4">Key</th>
-                <th className="px-2.5 py-2.5 font-medium sm:px-4">Value</th>
-                <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {adding && (
-                <tr className="border-b border-border/40">
-                  <td className="px-2.5 py-2.5 sm:px-4">
-                    <Input
-                      value={keyInput}
-                      onChange={(e) => setKeyInput(e.target.value)}
-                      onPaste={handleKeyInputPaste}
-                      placeholder="e.g. API_KEY"
-                      className="h-7 font-mono text-xs"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") cancelAdd();
-                      }}
-                    />
-                  </td>
-                  <td className="px-2.5 py-2.5 sm:px-4">
-                    <Input
-                      value={valueInput}
-                      onChange={(e) => setValueInput(e.target.value)}
-                      placeholder="Enter value"
-                      className="h-7 font-mono text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAdd();
-                        if (e.key === "Escape") cancelAdd();
-                      }}
-                    />
-                  </td>
-                  <td className="px-2.5 py-2.5 text-right sm:px-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={handleAdd}
-                        disabled={
-                          !keyInput.trim() || !valueInput.trim() || saving
-                        }
-                        title="Save"
-                        className="text-primary hover:text-primary"
-                      >
-                        <IconCheck size={14} />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={cancelAdd}
-                        title="Cancel"
-                      >
-                        <IconX size={14} />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {vars.map((v) => (
-                <tr
-                  key={v.key}
-                  className="border-b border-border/40 last:border-0"
-                >
-                  <td className="px-2.5 py-2.5 font-mono text-xs sm:px-4">
-                    {v.key}
-                  </td>
-                  <td className="px-2.5 py-2.5 sm:px-4">
-                    {editingKey === v.key ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        placeholder="Enter new value"
-                        className="h-7 font-mono text-xs"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEdit();
-                          if (e.key === "Escape") cancelEdit();
-                        }}
-                      />
-                    ) : (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {revealedValues[v.key] ?? v.value}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2.5 py-2.5 text-right sm:px-4">
-                    {editingKey === v.key ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={saveEdit}
-                          disabled={!editValue.trim() || saving}
-                          title="Save"
-                          className="text-primary hover:text-primary"
-                        >
-                          <IconCheck size={14} />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={cancelEdit}
-                          title="Cancel"
-                        >
-                          <IconX size={14} />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => toggleReveal(v.key)}
-                          disabled={revealingKey === v.key}
-                          title={
-                            revealedValues[v.key] !== undefined
-                              ? "Hide value"
-                              : "Reveal value"
-                          }
-                        >
-                          {revealedValues[v.key] !== undefined ? (
-                            <IconEyeOff size={14} />
-                          ) : (
-                            <IconEye size={14} />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => copyValue(v.key)}
-                          title={copiedKey === v.key ? "Copied!" : "Copy value"}
-                        >
-                          {copiedKey === v.key ? (
-                            <IconCheck size={14} className="text-primary" />
-                          ) : (
-                            <IconCopy size={14} />
-                          )}
-                        </Button>
-                        {!readOnly && (
-                          <>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => startEdit(v.key)}
-                              title="Edit"
-                            >
-                              <IconPencil size={14} />
-                            </Button>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => setDeleteKey(v.key)}
-                              title="Delete"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <IconTrash size={14} />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-6">
+          <div className="rounded-lg border border-border/70 overflow-x-auto">
+            <table className="w-full text-sm min-w-[360px]">
+              {tableHeader}
+              <tbody>
+                {addingRow}
+                {sandboxVars.map(renderRow)}
+                {sandboxVars.length === 0 && !adding && (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-4 py-6 text-center text-xs text-muted-foreground"
+                    >
+                      No sandbox variables
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {excludedVars.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-1.5">
+                <IconLock size={14} className="text-amber-500" />
+                <p className="text-xs font-medium text-muted-foreground">
+                  Excluded from Sandbox
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/70 overflow-x-auto">
+                <table className="w-full text-sm min-w-[360px]">
+                  {tableHeader}
+                  <tbody>{excludedVars.map(renderRow)}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

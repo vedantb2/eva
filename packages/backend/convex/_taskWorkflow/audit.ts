@@ -4,6 +4,7 @@ import {
   clearStreamingActivity,
   extractJsonBlock,
   getTaskAuditStreamingEntityId,
+  upsertActivityLog,
   upsertStreamingActivity,
 } from "./helpers";
 import { parseSectionsFromJson, extractSummaryFromJson } from "./auditParser";
@@ -44,6 +45,7 @@ export const saveAuditResult = internalMutation({
     auditId: v.id("audits"),
     result: v.union(v.string(), v.null()),
     error: v.optional(v.string()),
+    activityLog: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -64,7 +66,11 @@ export const saveAuditResult = internalMutation({
       await ctx.db.patch(args.auditId, {
         status: "error",
         error: args.error ?? "Audit failed",
+        completedAt: Date.now(),
       });
+      if (runId && args.activityLog) {
+        await upsertActivityLog(ctx, runId, args.activityLog, "audit");
+      }
       await clearAuditStreaming();
       return null;
     }
@@ -77,12 +83,18 @@ export const saveAuditResult = internalMutation({
         status: "completed",
         sections: parseSectionsFromJson(raw),
         summary: extractSummaryFromJson(raw),
+        completedAt: Date.now(),
       });
     } catch {
       await ctx.db.patch(args.auditId, {
         status: "error",
         error: "Failed to parse audit JSON",
+        completedAt: Date.now(),
       });
+    }
+
+    if (runId && args.activityLog) {
+      await upsertActivityLog(ctx, runId, args.activityLog, "audit");
     }
 
     await clearAuditStreaming();
@@ -98,13 +110,27 @@ export const setFixStatus = internalMutation({
       v.literal("fix_completed"),
       v.literal("fix_error"),
     ),
+    activityLog: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const audit = await ctx.db.get(args.auditId);
     if (!audit) return null;
 
-    await ctx.db.patch(args.auditId, { fixStatus: args.fixStatus });
+    const patchData: {
+      fixStatus: typeof args.fixStatus;
+      fixCompletedAt?: number;
+    } = {
+      fixStatus: args.fixStatus,
+    };
+    if (args.fixStatus === "fix_completed" || args.fixStatus === "fix_error") {
+      patchData.fixCompletedAt = Date.now();
+    }
+    await ctx.db.patch(args.auditId, patchData);
+
+    if (audit.runId && args.activityLog) {
+      await upsertActivityLog(ctx, audit.runId, args.activityLog, "fix");
+    }
     return null;
   },
 });

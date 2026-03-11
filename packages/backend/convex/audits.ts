@@ -5,8 +5,9 @@ import {
   evaluationStatusValidator,
   auditSectionValidator,
   evalFixStatusValidator,
+  activityLogTypeValidator,
 } from "./validators";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
 import {
@@ -25,6 +26,8 @@ const auditReturnValidator = v.object({
   error: v.optional(v.string()),
   fixStatus: v.optional(evalFixStatusValidator),
   createdAt: v.number(),
+  completedAt: v.optional(v.number()),
+  fixCompletedAt: v.optional(v.number()),
 });
 
 export const listByTask = authQuery({
@@ -49,7 +52,31 @@ export const listByTask = authQuery({
         error: audit.error,
         fixStatus: audit.fixStatus,
         createdAt: audit.createdAt,
+        completedAt: audit.completedAt,
+        fixCompletedAt: audit.fixCompletedAt,
       }));
+  },
+});
+
+export const getActivityLog = authQuery({
+  args: {
+    runId: v.id("agentRuns"),
+    type: activityLogTypeValidator,
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    const task = await ctx.db.get(run.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+
+    const log = await ctx.db
+      .query("agentRunActivityLogs")
+      .withIndex("by_run_and_type", (q) =>
+        q.eq("runId", args.runId).eq("type", args.type),
+      )
+      .first();
+    return log?.activityLog ?? null;
   },
 });
 
@@ -76,6 +103,8 @@ export const getBySession = authQuery({
       error: latest.error,
       fixStatus: latest.fixStatus,
       createdAt: latest.createdAt,
+      completedAt: latest.completedAt,
+      fixCompletedAt: latest.fixCompletedAt,
     };
   },
 });
@@ -136,6 +165,7 @@ export const handleSessionCompletion = authMutation({
       await ctx.db.patch(audit._id, {
         status: "error",
         error: args.error ?? "Audit failed",
+        completedAt: Date.now(),
       });
       return null;
     }
@@ -148,11 +178,13 @@ export const handleSessionCompletion = authMutation({
         status: "completed",
         sections: parseSectionsFromJson(raw),
         summary: extractSummaryFromJson(raw),
+        completedAt: Date.now(),
       });
     } catch {
       await ctx.db.patch(audit._id, {
         status: "error",
         error: "Failed to parse audit JSON",
+        completedAt: Date.now(),
       });
     }
 
@@ -202,6 +234,7 @@ export const fail = internalMutation({
     await ctx.db.patch(args.id, {
       status: "error",
       error: args.error,
+      completedAt: Date.now(),
     });
     return null;
   },

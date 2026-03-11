@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveEnvVars } from "./envVarResolver";
+import { resolveAllEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import { getDaytona } from "./_daytona/helpers";
 
@@ -330,7 +330,7 @@ export const deleteDaytonaSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const envVars = await resolveEnvVars(ctx, args.repoId);
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
     const daytonaApiKey = envVars.DAYTONA_API_KEY;
 
     if (!daytonaApiKey) {

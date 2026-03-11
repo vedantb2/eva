@@ -24,6 +24,7 @@ export * from "./ui/popover";
 export * from "./ui/progress";
 export * from "./ui/select";
 export * from "./ui/separator";
+export * from "./ui/sheet";
 export * from "./ui/spinner";
 export * from "./ui/tabs";
 export * from "./ui/textarea";

@@ -4,7 +4,13 @@ import { authQuery, authMutation } from "./functions";
 
 export const list = authQuery({
   args: { teamId: v.id("teams") },
-  returns: v.array(v.object({ key: v.string(), value: v.string() })),
+  returns: v.array(
+    v.object({
+      key: v.string(),
+      value: v.string(),
+      sandboxExclude: v.boolean(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const membership = await ctx.db
       .query("teamMembers")
@@ -21,7 +27,30 @@ export const list = authQuery({
       .first();
 
     if (!doc) return [];
-    return doc.vars.map((entry) => ({ key: entry.key, value: "••••••" }));
+    return doc.vars.map((entry) => ({
+      key: entry.key,
+      value: "••••••",
+      sandboxExclude: entry.sandboxExclude ?? false,
+    }));
+  },
+});
+
+export const getAllInternal = internalQuery({
+  args: { teamId: v.id("teams") },
+  returns: v.array(
+    v.object({
+      key: v.string(),
+      value: v.string(),
+      sandboxExclude: v.optional(v.boolean()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db
+      .query("teamEnvVars")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .first();
+    if (!doc) return [];
+    return doc.vars;
   },
 });
 
@@ -34,7 +63,9 @@ export const getForSandbox = internalQuery({
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .first();
     if (!doc) return [];
-    return doc.vars;
+    return doc.vars
+      .filter((entry) => !entry.sandboxExclude)
+      .map((entry) => ({ key: entry.key, value: entry.value }));
   },
 });
 
@@ -43,6 +74,7 @@ export const upsertVarInternal = internalMutation({
     teamId: v.id("teams"),
     key: v.string(),
     value: v.string(),
+    sandboxExclude: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -52,12 +84,22 @@ export const upsertVarInternal = internalMutation({
       .first();
     if (doc) {
       const vars = doc.vars.filter((entry) => entry.key !== args.key);
-      vars.push({ key: args.key, value: args.value });
+      vars.push({
+        key: args.key,
+        value: args.value,
+        sandboxExclude: args.sandboxExclude ?? false,
+      });
       await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
     } else {
       await ctx.db.insert("teamEnvVars", {
         teamId: args.teamId,
-        vars: [{ key: args.key, value: args.value }],
+        vars: [
+          {
+            key: args.key,
+            value: args.value,
+            sandboxExclude: args.sandboxExclude ?? false,
+          },
+        ],
         updatedAt: Date.now(),
       });
     }
@@ -89,6 +131,38 @@ export const removeVar = authMutation({
     if (!doc) return null;
 
     const vars = doc.vars.filter((entry) => entry.key !== args.key);
+    await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const toggleSandboxExclude = authMutation({
+  args: {
+    teamId: v.id("teams"),
+    key: v.string(),
+    sandboxExclude: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
+      )
+      .first();
+
+    if (!membership) throw new Error("Not a team member");
+
+    const doc = await ctx.db
+      .query("teamEnvVars")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .first();
+    if (!doc) return null;
+    const vars = doc.vars.map((entry) =>
+      entry.key === args.key
+        ? { ...entry, sandboxExclude: args.sandboxExclude }
+        : entry,
+    );
     await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
     return null;
   },

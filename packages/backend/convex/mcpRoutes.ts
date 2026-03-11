@@ -3,7 +3,7 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { resolveEnvVars } from "./envVarResolver";
+import { resolveAllEnvVars } from "./envVarResolver";
 import type { Id } from "./_generated/dataModel";
 
 function isRepoId(id: string): id is Id<"githubRepos"> {
@@ -21,7 +21,7 @@ export const getDecryptedRepoEnvVars = internalAction({
       return [];
     }
 
-    const merged = await resolveEnvVars(ctx, args.repoId);
+    const merged = await resolveAllEnvVars(ctx, args.repoId);
     return Object.entries(merged).map(([key, value]) => ({ key, value }));
   },
 });

@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  activityLogTypeValidator,
   roleValidator,
   sessionStatusValidator,
   evaluationStatusValidator,
@@ -79,8 +80,11 @@ const schema = defineSchema({
   agentRunActivityLogs: defineTable({
     runId: v.id("agentRuns"),
     activityLog: v.string(),
+    type: v.optional(activityLogTypeValidator),
     updatedAt: v.number(),
-  }).index("by_run", ["runId"]),
+  })
+    .index("by_run", ["runId"])
+    .index("by_run_and_type", ["runId", "type"]),
 
   githubRepos: defineTable(githubRepoFields)
     .index("by_github_id", ["githubId"])
@@ -250,6 +254,8 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     fixStatus: v.optional(evalFixStatusValidator),
     createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    fixCompletedAt: v.optional(v.number()),
   })
     .index("by_entity", ["entityId"])
     .index("by_entity_created", ["entityId", "createdAt"]),
@@ -268,7 +274,13 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"]),
   repoEnvVars: defineTable({
     repoId: v.id("githubRepos"),
-    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    vars: v.array(
+      v.object({
+        key: v.string(),
+        value: v.string(),
+        sandboxExclude: v.optional(v.boolean()),
+      }),
+    ),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
   extensionReleases: defineTable({
@@ -326,7 +338,13 @@ const schema = defineSchema({
   }).index("by_status", ["status"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
-    vars: v.array(v.object({ key: v.string(), value: v.string() })),
+    vars: v.array(
+      v.object({
+        key: v.string(),
+        value: v.string(),
+        sandboxExclude: v.optional(v.boolean()),
+      }),
+    ),
     updatedAt: v.number(),
   }).index("by_team", ["teamId"]),
   logs: defineTable({

@@ -96,10 +96,19 @@ export const getActivityLog = authQuery({
     const task = await ctx.db.get(run.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
 
-    const activityLog = await ctx.db
-      .query("agentRunActivityLogs")
-      .withIndex("by_run", (q) => q.eq("runId", args.id))
-      .first();
+    const activityLog =
+      (await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run_and_type", (q) =>
+          q.eq("runId", args.id).eq("type", "run"),
+        )
+        .first()) ??
+      (await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run_and_type", (q) =>
+          q.eq("runId", args.id).eq("type", undefined),
+        )
+        .first());
     return activityLog?.activityLog ?? null;
   },
 });
@@ -231,7 +240,9 @@ export const complete = authMutation({
     if (args.activityLog !== undefined) {
       const existingActivityLog = await ctx.db
         .query("agentRunActivityLogs")
-        .withIndex("by_run", (q) => q.eq("runId", args.id))
+        .withIndex("by_run_and_type", (q) =>
+          q.eq("runId", args.id).eq("type", "run"),
+        )
         .first();
       if (existingActivityLog) {
         await ctx.db.patch(existingActivityLog._id, {
@@ -242,6 +253,7 @@ export const complete = authMutation({
         await ctx.db.insert("agentRunActivityLogs", {
           runId: args.id,
           activityLog: args.activityLog,
+          type: "run",
           updatedAt: now,
         });
       }

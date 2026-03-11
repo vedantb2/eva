@@ -1,5 +1,94 @@
 # Changelog
 
+## Fix MCP create_task/start_execution auth - 2026-03-11
+
+- **Why**: MCP `create_task` and `create_and_run_task` tools were failing with "Not authenticated". The MCP server was using deploy key auth (`Authorization: Convex ${deployKey}`) for mutations, but `authMutation` requires user identity from `ctx.auth.getUserIdentity()` which only works with JWT/Clerk auth. Deploy key auth bypasses identity entirely.
+- **Fix**: MCP server now signs user JWTs using the sandbox private key (`SANDBOX_JWT_PRIVATE_KEY`) with the user's clerkUserId as the subject. Mutations are called with `Authorization: Bearer ${jwt}` so Convex recognizes the user natively. Added `jose` dependency for ES256 JWT signing.
+- **Files**: `apps/mcp/src/convex-api.ts` (added `signUserJwt`, `runMutationAsUser`), `apps/mcp/src/tools.ts` (switched to `runMutationAsUser`)
+- **Design decision**: Tasks created via MCP are attributed to whoever authenticated the MCP OAuth flow (the real user), not the Eva service account. This keeps the audit trail accurate — Eva user should only be the creator when Eva itself creates tasks autonomously (e.g. sandbox execution).
+
+## Chrome Extension — Full Feature Parity Update - 2026-03-11
+
+- **Why**: Extension was broken after backend changes (theme system not working, messages not loading, repo selector missing monorepo support, execution flow using removed two-step `triggerExecution` + `getInstallationToken` pattern). Additionally, extension lacked many web app features (plan mode, cancel execution, session archiving, notification badge).
+- **Changes (Phase 1 — Fix Broken Things)**:
+  1. Ported full custom theme system from web app (`useTheme` hook) — applies accent colors, radius, fonts, letter-spacing via CSS variables from Convex-synced preferences.
+  2. Rewrote `RepoSelector` with monorepo support — groups by owner, shows `name/subdirectory` for monorepo sub-apps, uses `Doc<"githubRepos">` type.
+  3. Fixed messages not loading — separated `useQuery` from `?? []` default so `isLoadingRepos` correctly detects undefined, added loading spinner while `sessionMessages` is undefined.
+  4. Removed dead `triggerExecution` + `getInstallationToken` two-step flow, simplified to single `startExecution({ id })` call.
+  5. Added `"draft"` and `"cancelled"` to `TaskStatus` type, updated pin status colors in `AnnotationOverlay`.
+  6. Changed all state to typed `Id<> | null` instead of `string | null` with `as` casts. Added type guards for message payloads instead of `as unknown as` casts.
+  7. Removed dead message types (`CREATE_TASK`, `GET_REPOS`, `GET_SESSION`, `ASK_QUESTION`) and their interfaces.
+  8. Cleaned up unused types from `types.ts` (`UserInfo`, `RepoInfo`, `AuthState`, `ExtensionSettings`, `SessionInfo`, `SessionMessage`).
+- **Changes (Phase 2 — Missing Chat Features)**:
+  1. Added cancel execution — stop button when execution in progress, calls `sessionWorkflow.cancelExecution`.
+  2. Added all 4 execution modes: Execute, Ask, Plan, Flag (tabs in input area).
+  3. Added plan content display — collapsible panel shows `session.planContent` with "Approve & Execute Plan" button.
+  4. Added session summary display with streaming support.
+  5. Added session archiving — archive button per session, separate "Archived" section in sidebar.
+  6. Added system alert message styling (amber/orange for `isSystemAlert` messages).
+  7. Added image/video display in assistant messages (`imageUrl`, `videoUrl` fields).
+- **Changes (Phase 3 — Polish)**:
+  1. Added notification badge on sidebar menu button (queries `notifications.countUnread`).
+  2. Added "Open in Conductor" deep link button in header — opens current repo/session in web app.
+
+## Sandbox MCP auth and env var scoping - 2026-03-11
+
+- **Why**: Raw `CONVEX_DEPLOY_KEY` was being injected into sandboxes, giving untrusted code direct admin access to the database. Sandboxes should access Convex through scoped MCP tokens instead.
+- **Changes**:
+  1. Added `sandboxExclude` flag on env var entries — excluded vars are available server-side but never injected into sandboxes.
+  2. Added internal JWT auth to MCP: Eva backend mints short-lived (8h) tokens scoped to a single repo. MCP enforces `scopedRepoId` on all tool calls.
+  3. Sandbox launch now writes `/home/daytona/.claude.json` with a Bearer-authenticated MCP server config, so Claude Code in the sandbox gets MCP tools automatically.
+  4. Split env vars UI into two sections: sandbox-injected vars on top, excluded vars below with a lock icon. Toggle button to move vars between sections.
+  5. Added `resolveAllEnvVars` for server-side code that needs unfiltered access (MCP routes, Linear, snapshots), kept `resolveEnvVars` for sandbox injection.
+- **Action required**: Set `MCP_BASE_URL` and `MCP_BOOTSTRAP_SECRET` in Convex env vars, `MCP_INTERNAL_SECRET` on the MCP server.
+
+## MCP security: separate bootstrap secret and client registration validation - 2026-03-11
+
+- **Why**: `MCP_JWT_SECRET` was reused for both JWT signing and bootstrap endpoint auth — if one leaked, both were compromised. Also, OAuth accepted any redirect URI from any unregistered client, enabling potential auth code interception.
+- **Changes**:
+  1. Separated bootstrap auth into its own `MCP_BOOTSTRAP_SECRET` env var in both `http.ts` (Convex) and `convex-api.ts` (MCP app). JWT signing still uses `MCP_JWT_SECRET`.
+  2. Client registrations are now persisted in-memory with their `redirect_uris`. Auto-expire after 24h.
+  3. `/oauth/authorize` and token exchange now reject unknown `client_id`s.
+  4. `redirect_uri` is validated against the URIs registered for that client during both authorize and auth callback.
+- **Action required**: Set `MCP_BOOTSTRAP_SECRET` env var in both Railway (MCP app) and Convex dashboard. Generate a new random secret — do not reuse `MCP_JWT_SECRET`.
+
+## MCP security: constant-time comparisons and error sanitization - 2026-03-11
+
+- **Why**: Security review found timing-attack-vulnerable string comparisons for HMAC/token verification and error messages leaking internal details to clients.
+- **Changes**:
+  1. Added `timingSafeEqual()` helper in `http.ts` — used for bootstrap token, deploy key, webhook HMAC, and streaming heartbeat HMAC verification.
+  2. Sanitized all error responses in MCP `index.ts` — generic messages to clients, detailed errors logged server-side only.
+
+## Add explicit "Make changes" toggle in comments - 2026-03-11
+
+- **Why**: The Comments tab had hidden rerun behavior tied to internal state, which made it unclear whether sending a message would only save a comment or actually re-run Eva. Making that choice visible above the input removes ambiguity and matches the Request Changes entry point.
+- **Changes**:
+  1. Added a visible `Make changes` toggle above the task comments input for post-run task states.
+  2. Clicking `Request Changes` now opens the Comments tab and enables that toggle automatically.
+  3. The send button continues to use the current toggle state to decide whether to create only a comment or create a comment and start a new run.
+- **Reason for change**: This keeps the workflow explicit for users while preserving the existing rerun path and minimizing code churn.
+
+## MCP security hardening - 2026-03-11
+
+- **Why**: Security review identified injection risk in code interpolation, excessively long JWT tokens with no revocation, and env-vars endpoint lacking server-side access checks.
+- **Changes**:
+  1. Use `JSON.stringify()` for all code interpolation in `get_document` and `count_table` tools — defense-in-depth against injection.
+  2. Reduced JWT access token lifetime from 30 days to 1 hour. Refresh tokens (30 day) with `refresh_token` grant type support added.
+  3. Added user-existence re-validation on every MCP request via Clerk Backend SDK — revoked/deleted users are immediately blocked.
+  4. Moved repo access check into the `/api/mcp/env-vars` Convex HTTP endpoint (new `mcpQueries.ts`) — defense-in-depth so even if MCP app layer is bypassed, env vars are protected.
+  5. User-scoped credential cache (keyed by `userId:repoId` instead of just `repoId`).
+
+## Add per-user data scoping to MCP server - 2026-03-11
+
+- **Why**: The MCP server authenticated users via OAuth but used a single shared deploy key for all queries — any authenticated user could access every repo's data, every table, and create tasks on any repo. This was a security hole.
+- **Changes**:
+  1. Added `resolveUserByClerkId()`, `listUserRepos()`, and `checkRepoAccess()` to `convex-api.ts` — maps Clerk user ID to Convex user ID and checks repo ownership/team membership.
+  2. All tools now resolve the authenticated user and verify repo access before executing.
+  3. `list_repos` only returns repos the user owns or has team membership for.
+  4. `repoId` is now required (not optional) on all data query tools (`list_tables`, `query_table`, `get_document`, `run_query`, `count_table`) — querying Eva's own internal database via MCP is no longer possible.
+  5. `create_and_run_task` searches only the user's accessible repos.
+  6. Also fixed Clerk handshake redirect breaking MCP OAuth flow for users with existing sessions.
+
 ## Cleanup audit categories: remove system defaults, add per-app support - 2026-03-09
 
 - **Why**: System-seeded audit categories were inflexible and forced a specific set on users. Moving to fully user-defined categories gives more control. Per-app audit support lets monorepo users configure different audits for different apps.

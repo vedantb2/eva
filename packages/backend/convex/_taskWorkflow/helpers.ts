@@ -48,10 +48,11 @@ export async function upsertActivityLog(
   ctx: MutationCtx,
   runId: Id<"agentRuns">,
   activityLog: string,
+  type: "run" | "audit" | "fix" = "run",
 ): Promise<void> {
   const existing = await ctx.db
     .query("agentRunActivityLogs")
-    .withIndex("by_run", (q) => q.eq("runId", runId))
+    .withIndex("by_run_and_type", (q) => q.eq("runId", runId).eq("type", type))
     .first();
   const now = Date.now();
   if (existing) {
@@ -60,6 +61,7 @@ export async function upsertActivityLog(
     await ctx.db.insert("agentRunActivityLogs", {
       runId,
       activityLog,
+      type,
       updatedAt: now,
     });
   }

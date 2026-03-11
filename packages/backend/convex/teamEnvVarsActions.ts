@@ -17,7 +17,7 @@ export const revealValue = action({
       throw new Error("Not authenticated");
     }
     const vars: Array<{ key: string; value: string }> = await ctx.runQuery(
-      internal.teamEnvVars.getForSandbox,
+      internal.teamEnvVars.getAllInternal,
       { teamId: args.teamId },
     );
     for (const entry of vars) {
@@ -34,6 +34,7 @@ export const upsertVar = action({
     teamId: v.id("teams"),
     key: v.string(),
     value: v.string(),
+    sandboxExclude: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -46,6 +47,7 @@ export const upsertVar = action({
       teamId: args.teamId,
       key: args.key,
       value: encrypted,
+      sandboxExclude: args.sandboxExclude,
     });
     return null;
   },

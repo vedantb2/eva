@@ -1,6 +1,17 @@
 import { v } from "convex/values";
+import { internalQuery } from "./_generated/server";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
+
+export const getInternal = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(v.object({ clerkId: v.string() }), v.null()),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || !user.clerkId) return null;
+    return { clerkId: user.clerkId };
+  },
+});
 
 export const get = authQuery({
   args: { id: v.id("users") },

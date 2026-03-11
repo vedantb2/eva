@@ -323,6 +323,7 @@ export const launchOnExistingSandbox = internalAction({
       args.completionMutation,
       args.entityIdField,
       args.entityId,
+      args.repoId,
       {
         model: args.model,
         allowedTools: args.allowedTools,

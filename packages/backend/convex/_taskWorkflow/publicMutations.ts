@@ -123,6 +123,7 @@ export const handleAuditCompletion = authMutation({
         success: args.success,
         result: args.result,
         error: args.error,
+        activityLog: args.activityLog,
       },
     });
 

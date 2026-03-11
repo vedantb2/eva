@@ -158,6 +158,7 @@ export const updateConfig = authMutation({
     defaultModel: v.optional(claudeModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
+    deploymentProjectName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -179,19 +180,27 @@ export const updateConfig = authMutation({
       }
     }
 
-    const patch: Record<string, string | boolean> = {};
+    const sharedPatch: Record<string, string | boolean> = {};
     if (args.defaultBaseBranch !== undefined)
-      patch.defaultBaseBranch = args.defaultBaseBranch;
-    if (args.defaultModel !== undefined) patch.defaultModel = args.defaultModel;
+      sharedPatch.defaultBaseBranch = args.defaultBaseBranch;
+    if (args.defaultModel !== undefined)
+      sharedPatch.defaultModel = args.defaultModel;
     if (args.sessionsVncEnabled !== undefined)
-      patch.sessionsVncEnabled = args.sessionsVncEnabled;
+      sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)
-      patch.sessionsVscodeEnabled = args.sessionsVscodeEnabled;
+      sharedPatch.sessionsVscodeEnabled = args.sessionsVscodeEnabled;
 
     const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
     for (const siblingId of siblingIds) {
-      await ctx.db.patch(siblingId, patch);
+      await ctx.db.patch(siblingId, sharedPatch);
     }
+
+    if (args.deploymentProjectName !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        deploymentProjectName: args.deploymentProjectName,
+      });
+    }
+
     return null;
   },
 });

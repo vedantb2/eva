@@ -23,7 +23,7 @@ export const getTaskData = internalQuery({
     taskDescription: v.optional(v.string()),
     projectSandboxId: v.optional(v.string()),
     hasSubtasks: v.boolean(),
-    appLabel: v.optional(v.string()),
+    deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     auditCategories: v.array(
       v.object({ name: v.string(), description: v.string() }),
@@ -78,10 +78,6 @@ export const getTaskData = internalQuery({
             changeRequests.length > 0 ? changeRequests : undefined,
           );
 
-    const appLabel = repo.rootDirectory
-      ? repo.rootDirectory.split("/").pop() || undefined
-      : undefined;
-
     const canonicalRepoId = repo.parentRepoId ?? args.repoId;
     const appId = repo.parentRepoId ? args.repoId : undefined;
 
@@ -120,7 +116,7 @@ export const getTaskData = internalQuery({
       taskDescription: task.description,
       projectSandboxId,
       hasSubtasks: sortedSubtasks.length > 0,
-      appLabel,
+      deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       auditCategories: enabledCategories,
     };

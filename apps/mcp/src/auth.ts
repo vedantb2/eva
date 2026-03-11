@@ -1,11 +1,15 @@
 import crypto from "node:crypto";
-import { verifyToken as verifyClerkToken } from "@clerk/backend";
+import {
+  createClerkClient,
+  verifyToken as verifyClerkToken,
+} from "@clerk/backend";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 export interface ConvexCredentials {
   convexUrl: string;
   clerkUserId: string;
+  scopedRepoId?: string;
 }
 
 interface AuthCodeEntry {
@@ -17,7 +21,16 @@ interface AuthCodeEntry {
 
 const authCodeStore = new Map<string, AuthCodeEntry>();
 
+interface ClientRegistration {
+  clientId: string;
+  redirectUris: string[];
+  registeredAt: number;
+}
+
+const clientStore = new Map<string, ClientRegistration>();
+
 const CODE_TTL_MS = 5 * 60 * 1000;
+const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 setInterval(() => {
   const now = Date.now();
@@ -26,12 +39,25 @@ setInterval(() => {
       authCodeStore.delete(code);
     }
   }
+  for (const [id, client] of clientStore) {
+    if (now - client.registeredAt > CLIENT_TTL_MS) {
+      clientStore.delete(id);
+    }
+  }
 }, 60_000);
 
 function getJwtSecret(): string {
   const secret = process.env.MCP_JWT_SECRET;
   if (!secret) {
     throw new Error("MCP_JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
+
+function getInternalSecret(): string {
+  const secret = process.env.MCP_INTERNAL_SECRET;
+  if (!secret) {
+    throw new Error("MCP_INTERNAL_SECRET environment variable is required");
   }
   return secret;
 }
@@ -52,6 +78,16 @@ function getClerkSecretKey(): string {
   return key;
 }
 
+async function verifyClerkUserExists(clerkUserId: string): Promise<boolean> {
+  try {
+    const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
+    await clerk.users.getUser(clerkUserId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getConvexUrl(): string {
   const convexUrl = process.env.CONVEX_CLOUD_URL;
   if (!convexUrl) {
@@ -67,7 +103,7 @@ export function getOAuthMetadata(baseUrl: string) {
     token_endpoint: `${baseUrl}/oauth/token`,
     registration_endpoint: `${baseUrl}/oauth/register`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none"],
   };
@@ -83,6 +119,23 @@ export function getProtectedResourceMetadata(baseUrl: string) {
 
 export function handleClientRegistration(requestBody: Record<string, unknown>) {
   const clientId = crypto.randomUUID();
+
+  const rawUris = requestBody.redirect_uris;
+  const redirectUris: string[] = [];
+  if (Array.isArray(rawUris)) {
+    for (const uri of rawUris) {
+      if (typeof uri === "string" && validateRedirectUri(uri)) {
+        redirectUris.push(uri);
+      }
+    }
+  }
+
+  clientStore.set(clientId, {
+    clientId,
+    redirectUris,
+    registeredAt: Date.now(),
+  });
+
   return {
     ...requestBody,
     client_id: clientId,
@@ -113,6 +166,20 @@ function escapeHtml(str: string): string {
 
 export function renderAuthPage(query: Record<string, string>): string {
   const params = authorizeQuerySchema.parse(query);
+
+  const client = clientStore.get(params.client_id);
+  if (!client) {
+    throw new Error("Unknown client_id. Register via /oauth/register first.");
+  }
+  if (
+    client.redirectUris.length > 0 &&
+    !client.redirectUris.includes(params.redirect_uri)
+  ) {
+    throw new Error(
+      "redirect_uri does not match registered URIs for this client",
+    );
+  }
+
   const publishableKey = getClerkPublishableKey();
 
   return `<!DOCTYPE html>
@@ -155,6 +222,8 @@ export function renderAuthPage(query: Record<string, string>): string {
     </form>
   </div>
   <script>
+    sessionStorage.setItem('mcp_oauth_return_url', window.location.href);
+
     var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
 
     var keyParts = PUBLISHABLE_KEY.split('_');
@@ -234,6 +303,50 @@ export function renderAuthPage(query: Record<string, string>): string {
 </html>`;
 }
 
+export function renderHandshakePage(publishableKey: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+</head>
+<body>
+  <p>Redirecting...</p>
+  <script>
+    var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
+    var keyParts = PUBLISHABLE_KEY.split('_');
+    var keyPayload = keyParts.slice(2).join('_');
+    var fapiUrl = atob(keyPayload).replace(/\\$$/, '');
+
+    var script = document.createElement('script');
+    script.src = 'https://' + fapiUrl + '/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.setAttribute('data-clerk-publishable-key', PUBLISHABLE_KEY);
+    script.addEventListener('load', function() {
+      var clerk = window.Clerk;
+      if (!clerk) { fallback(); return; }
+      clerk.load().then(function() {
+        var returnUrl = sessionStorage.getItem('mcp_oauth_return_url');
+        if (returnUrl) {
+          sessionStorage.removeItem('mcp_oauth_return_url');
+          window.location.href = returnUrl;
+        } else {
+          fallback();
+        }
+      }).catch(fallback);
+    });
+    script.addEventListener('error', fallback);
+    document.head.appendChild(script);
+
+    function fallback() {
+      document.body.textContent = 'Authentication handshake failed. Please try connecting again from Claude.';
+    }
+  </script>
+</body>
+</html>`;
+}
+
 function validateRedirectUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);
@@ -261,6 +374,19 @@ export async function processClerkAuth(
     throw new Error("Invalid redirect URI");
   }
 
+  const client = clientStore.get(params.client_id);
+  if (!client) {
+    throw new Error("Unknown client_id. Register via /oauth/register first.");
+  }
+  if (
+    client.redirectUris.length > 0 &&
+    !client.redirectUris.includes(params.redirect_uri)
+  ) {
+    throw new Error(
+      "redirect_uri does not match registered URIs for this client",
+    );
+  }
+
   const clerkPayload = await verifyClerkToken(params.clerk_token, {
     secretKey: getClerkSecretKey(),
   });
@@ -286,11 +412,17 @@ export async function processClerkAuth(
   return redirectUrl.toString();
 }
 
-const tokenBodySchema = z.object({
+const authCodeBodySchema = z.object({
   grant_type: z.literal("authorization_code"),
   code: z.string(),
   redirect_uri: z.string(),
   code_verifier: z.string(),
+  client_id: z.string(),
+});
+
+const refreshBodySchema = z.object({
+  grant_type: z.literal("refresh_token"),
+  refresh_token: z.string(),
   client_id: z.string(),
 });
 
@@ -311,10 +443,33 @@ type TokenResult =
   | { ok: true; response: TokenResponse }
   | { ok: false; error: TokenError };
 
+function issueTokens(clerkUserId: string): TokenResponse {
+  const accessToken = jwt.sign({ sub: clerkUserId }, getJwtSecret(), {
+    expiresIn: "1h",
+  });
+  const refreshToken = jwt.sign(
+    { sub: clerkUserId, type: "refresh" },
+    getJwtSecret(),
+    { expiresIn: "30d" },
+  );
+  return {
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: 3600,
+    scope: "claudeai",
+    refresh_token: refreshToken,
+  };
+}
+
 export async function exchangeToken(
   body: Record<string, string>,
 ): Promise<TokenResult> {
-  const parseResult = tokenBodySchema.safeParse(body);
+  const refreshParse = refreshBodySchema.safeParse(body);
+  if (refreshParse.success) {
+    return handleRefreshToken(refreshParse.data.refresh_token);
+  }
+
+  const parseResult = authCodeBodySchema.safeParse(body);
   if (!parseResult.success) {
     return {
       ok: false,
@@ -325,6 +480,16 @@ export async function exchangeToken(
     };
   }
   const params = parseResult.data;
+
+  if (!clientStore.has(params.client_id)) {
+    return {
+      ok: false,
+      error: {
+        error: "invalid_client",
+        error_description: "Unknown client_id",
+      },
+    };
+  }
 
   const entry = authCodeStore.get(params.code);
   if (!entry || entry.expiresAt < Date.now()) {
@@ -365,38 +530,115 @@ export async function exchangeToken(
     };
   }
 
-  const accessToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
-    expiresIn: "30d",
-  });
-  const refreshToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
-    expiresIn: "90d",
-  });
+  return { ok: true, response: issueTokens(entry.clerkUserId) };
+}
 
-  return {
-    ok: true,
-    response: {
-      access_token: accessToken,
-      token_type: "Bearer",
-      expires_in: 30 * 24 * 60 * 60,
-      scope: "claudeai",
-      refresh_token: refreshToken,
-    },
-  };
+const refreshTokenPayloadSchema = z.object({
+  sub: z.string(),
+  type: z.literal("refresh"),
+});
+
+function handleRefreshToken(token: string): TokenResult {
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    const payload = refreshTokenPayloadSchema.safeParse(decoded);
+    if (!payload.success) {
+      return {
+        ok: false,
+        error: {
+          error: "invalid_grant",
+          error_description: "Invalid refresh token",
+        },
+      };
+    }
+    return { ok: true, response: issueTokens(payload.data.sub) };
+  } catch {
+    return {
+      ok: false,
+      error: {
+        error: "invalid_grant",
+        error_description: "Expired or invalid refresh token",
+      },
+    };
+  }
 }
 
 const mcpTokenPayloadSchema = z.object({ sub: z.string() });
 
-export async function verifyToken(
+async function verifyOAuthToken(
   token: string,
 ): Promise<ConvexCredentials | null> {
   try {
     const decoded = jwt.verify(token, getJwtSecret());
     const payload = mcpTokenPayloadSchema.safeParse(decoded);
     if (!payload.success) return null;
-    return { convexUrl: getConvexUrl(), clerkUserId: payload.data.sub };
+    const clerkUserId = payload.data.sub;
+    const userExists = await verifyClerkUserExists(clerkUserId);
+    if (!userExists) return null;
+    return { convexUrl: getConvexUrl(), clerkUserId };
   } catch {
     return null;
   }
+}
+
+const internalTokenPayloadSchema = z.object({
+  sub: z.string(),
+  iss: z.literal("eva"),
+  aud: z.literal("mcp-internal"),
+  repoId: z.string(),
+});
+
+function verifyInternalToken(token: string): ConvexCredentials | null {
+  try {
+    const decoded = jwt.verify(token, getInternalSecret());
+    const payload = internalTokenPayloadSchema.safeParse(decoded);
+    if (!payload.success) return null;
+    return {
+      convexUrl: getConvexUrl(),
+      clerkUserId: payload.data.sub,
+      scopedRepoId: payload.data.repoId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyToken(
+  token: string,
+): Promise<ConvexCredentials | null> {
+  const oauthResult = await verifyOAuthToken(token);
+  if (oauthResult) return oauthResult;
+  return verifyInternalToken(token);
+}
+
+const mintRequestSchema = z.object({
+  clerkUserId: z.string(),
+  repoId: z.string(),
+});
+
+export function mintInternalToken(
+  body: Record<string, string>,
+  bootstrapSecret: string,
+): { token: string; expiresIn: number } | null {
+  const expected = process.env.MCP_BOOTSTRAP_SECRET;
+  if (!expected || bootstrapSecret !== expected) return null;
+
+  const parsed = mintRequestSchema.safeParse(body);
+  if (!parsed.success) return null;
+
+  const expiresIn = 28800;
+  const token = jwt.sign(
+    {
+      sub: parsed.data.clerkUserId,
+      iss: "eva",
+      aud: "mcp-internal",
+      repoId: parsed.data.repoId,
+    },
+    getInternalSecret(),
+    { expiresIn },
+  );
+
+  return { token, expiresIn };
 }
 
 export function extractBearerToken(

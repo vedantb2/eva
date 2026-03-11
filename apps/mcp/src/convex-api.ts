@@ -1,13 +1,14 @@
 import { z } from "zod";
+import { importJWK, SignJWT } from "jose";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 let cachedDeployKey: { value: string; expiresAt: number } | null = null;
 
-function getMcpSecret(): string {
-  const secret = process.env.MCP_JWT_SECRET;
+function getBootstrapSecret(): string {
+  const secret = process.env.MCP_BOOTSTRAP_SECRET;
   if (!secret) {
-    throw new Error("MCP_JWT_SECRET environment variable is required");
+    throw new Error("MCP_BOOTSTRAP_SECRET environment variable is required");
   }
   return secret;
 }
@@ -23,12 +24,12 @@ export async function getDeployKey(convexUrl: string): Promise<string> {
     return cachedDeployKey.value;
   }
   const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/bootstrap`, {
-    headers: { Authorization: `MCPBootstrap ${getMcpSecret()}` },
+    headers: { Authorization: `MCPBootstrap ${getBootstrapSecret()}` },
   });
   if (!response.ok) {
     throw new Error(
       `Failed to bootstrap deploy key: HTTP ${response.status}. ` +
-        "Ensure EVA_DEPLOY_KEY and MCP_JWT_SECRET are set in Convex env vars.",
+        "Ensure EVA_DEPLOY_KEY and MCP_BOOTSTRAP_SECRET are set in Convex env vars.",
     );
   }
   const body = bootstrapResponseSchema.parse(await response.json());
@@ -273,6 +274,7 @@ export interface Repo {
   id: string;
   owner: string;
   name: string;
+  rootDirectory: string | null;
 }
 
 export async function listRepos(
@@ -281,12 +283,92 @@ export async function listRepos(
 ): Promise<Repo[]> {
   const source = wrapQueryHandler(
     `const repos = await ctx.db.query("githubRepos").collect();
-    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name }));`,
+    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name, rootDirectory: r.rootDirectory ?? null }));`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z
-    .array(z.object({ id: z.string(), owner: z.string(), name: z.string() }))
+    .array(
+      z.object({
+        id: z.string(),
+        owner: z.string(),
+        name: z.string(),
+        rootDirectory: z.string().nullable(),
+      }),
+    )
     .parse(result.value);
+}
+
+export async function resolveUserByClerkId(
+  convexUrl: string,
+  deployKey: string,
+  clerkUserId: string,
+): Promise<string | null> {
+  const source = wrapQueryHandler(
+    `const user = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", ${JSON.stringify(clerkUserId)})).first();
+    return user ? user._id : null;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  if (typeof result.value === "string") return result.value;
+  return null;
+}
+
+export async function listUserRepos(
+  convexUrl: string,
+  deployKey: string,
+  userId: string,
+): Promise<Repo[]> {
+  const source = wrapQueryHandler(
+    `const userId = ${JSON.stringify(userId)};
+    const repos = await ctx.db.query("githubRepos").collect();
+    const accessible = [];
+    for (const repo of repos) {
+      if (repo.connectedBy === userId) {
+        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
+        continue;
+      }
+      if (repo.teamId) {
+        const membership = await ctx.db.query("teamMembers")
+          .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
+          .first();
+        if (membership) {
+          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
+        }
+      }
+    }
+    return accessible;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  return z
+    .array(
+      z.object({
+        id: z.string(),
+        owner: z.string(),
+        name: z.string(),
+        rootDirectory: z.string().nullable(),
+      }),
+    )
+    .parse(result.value);
+}
+
+export async function checkRepoAccess(
+  convexUrl: string,
+  deployKey: string,
+  repoId: string,
+  userId: string,
+): Promise<boolean> {
+  const source = wrapQueryHandler(
+    `const repo = await ctx.db.get(${JSON.stringify(repoId)});
+    if (!repo) return false;
+    const userId = ${JSON.stringify(userId)};
+    if (repo.connectedBy === userId) return true;
+    if (!repo.teamId) return false;
+    const membership = await ctx.db.query("teamMembers")
+      .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
+      .first();
+    return membership !== null;`,
+  );
+  const result = await runTestQuery(convexUrl, deployKey, source);
+  return result.value === true;
 }
 
 interface EnvVar {
@@ -298,6 +380,7 @@ async function getRepoEnvVars(
   convexUrl: string,
   deployKey: string,
   repoId: string,
+  userId: string,
 ): Promise<EnvVar[]> {
   const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/env-vars`, {
     method: "POST",
@@ -305,7 +388,7 @@ async function getRepoEnvVars(
       "Content-Type": "application/json",
       Authorization: `Convex ${deployKey}`,
     },
-    body: JSON.stringify({ repoId }),
+    body: JSON.stringify({ repoId, userId }),
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
@@ -326,13 +409,15 @@ export async function getRepoConvexCredentials(
   evaUrl: string,
   evaDeployKey: string,
   repoId: string,
+  userId: string,
 ): Promise<{ convexUrl: string; deployKey: string } | null> {
-  const cached = repoCredentialsCache.get(repoId);
+  const cacheKey = `${userId}:${repoId}`;
+  const cached = repoCredentialsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { convexUrl: cached.convexUrl, deployKey: cached.deployKey };
   }
 
-  const vars = await getRepoEnvVars(evaUrl, evaDeployKey, repoId);
+  const vars = await getRepoEnvVars(evaUrl, evaDeployKey, repoId, userId);
   const urlEntry = vars.find(
     (v) => v.key === "NEXT_PUBLIC_CONVEX_URL" || v.key === "CONVEX_URL",
   );
@@ -347,6 +432,75 @@ export async function getRepoConvexCredentials(
     deployKey: keyEntry.value,
     expiresAt: Date.now() + CACHE_TTL_MS,
   };
-  repoCredentialsCache.set(repoId, creds);
+  repoCredentialsCache.set(cacheKey, creds);
   return { convexUrl: creds.convexUrl, deployKey: creds.deployKey };
+}
+
+let cachedUserJwt: {
+  clerkUserId: string;
+  jwt: string;
+  expiresAt: number;
+} | null = null;
+
+export async function signUserJwt(clerkUserId: string): Promise<string> {
+  if (
+    cachedUserJwt &&
+    cachedUserJwt.clerkUserId === clerkUserId &&
+    cachedUserJwt.expiresAt > Date.now()
+  ) {
+    return cachedUserJwt.jwt;
+  }
+
+  const privateKeyJson = process.env.SANDBOX_JWT_PRIVATE_KEY;
+  if (!privateKeyJson) {
+    throw new Error("Missing SANDBOX_JWT_PRIVATE_KEY env var");
+  }
+
+  const issuer = process.env.CONVEX_SITE_URL;
+  if (!issuer) {
+    throw new Error("Missing CONVEX_SITE_URL env var");
+  }
+
+  const privateKeyJwk: Record<string, string> = JSON.parse(privateKeyJson);
+  const kid = privateKeyJwk.kid ?? "sandbox-1";
+  const key = await importJWK(privateKeyJwk, "ES256");
+
+  const jwt = await new SignJWT({ sub: clerkUserId })
+    .setProtectedHeader({ alg: "ES256", kid })
+    .setIssuer(issuer)
+    .setAudience("convex")
+    .setExpirationTime("1h")
+    .setIssuedAt()
+    .sign(key);
+
+  cachedUserJwt = {
+    clerkUserId,
+    jwt,
+    expiresAt: Date.now() + 55 * 60 * 1000,
+  };
+
+  return jwt;
+}
+
+export async function runMutationAsUser(
+  convexUrl: string,
+  clerkUserId: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const jwt = await signUserJwt(clerkUserId);
+  const response = await fetch(`${convexUrl}/api/mutation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ path: functionPath, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
 }

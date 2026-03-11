@@ -5,12 +5,24 @@ import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
 const http = httpRouter();
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  let mismatch = 0;
+  for (let i = 0; i < bufA.byteLength; i++) {
+    mismatch |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return mismatch === 0;
+}
+
 function verifyMcpBootstrapToken(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
-  const expected = process.env.MCP_JWT_SECRET;
+  const expected = process.env.MCP_BOOTSTRAP_SECRET;
   if (!expected) return false;
-  return auth === `MCPBootstrap ${expected}`;
+  return timingSafeEqual(auth, `MCPBootstrap ${expected}`);
 }
 
 function verifyDeployKey(request: Request): boolean {
@@ -18,18 +30,17 @@ function verifyDeployKey(request: Request): boolean {
   if (!auth) return false;
   const expected = process.env.EVA_DEPLOY_KEY;
   if (!expected) return false;
-  return auth === `Convex ${expected}`;
+  return timingSafeEqual(auth, `Convex ${expected}`);
 }
 
-function hasRepoId(body: object): body is { repoId: unknown } {
-  return "repoId" in body;
-}
-
-function parseRepoId(body: unknown): string | null {
+function parseEnvVarsBody(
+  body: unknown,
+): { repoId: string; userId: string } | null {
   if (typeof body !== "object" || body === null) return null;
-  if (!hasRepoId(body)) return null;
-  if (typeof body.repoId !== "string" || body.repoId.length === 0) return null;
-  return body.repoId;
+  if (!("repoId" in body) || typeof body.repoId !== "string") return null;
+  if (!("userId" in body) || typeof body.userId !== "string") return null;
+  if (body.repoId.length === 0 || body.userId.length === 0) return null;
+  return { repoId: body.repoId, userId: body.userId };
 }
 
 http.route({
@@ -59,16 +70,24 @@ http.route({
     }
 
     const body: unknown = await request.json();
-    const repoId = parseRepoId(body);
-    if (!repoId) {
-      return new Response("Invalid request body: repoId required", {
+    const parsed = parseEnvVarsBody(body);
+    if (!parsed) {
+      return new Response("Invalid request body: repoId and userId required", {
         status: 400,
       });
     }
 
+    const hasAccess: boolean = await ctx.runQuery(
+      internal.mcpQueries.checkRepoAccessForUser,
+      { repoId: parsed.repoId, userId: parsed.userId },
+    );
+    if (!hasAccess) {
+      return new Response("Access denied", { status: 403 });
+    }
+
     const vars = await ctx.runAction(
       internal.mcpRoutes.getDecryptedRepoEnvVars,
-      { repoId },
+      { repoId: parsed.repoId },
     );
     return Response.json(vars);
   }),
@@ -211,7 +230,7 @@ async function verifyWebhookSignature(
     Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-  return computed === signature;
+  return timingSafeEqual(computed, signature);
 }
 
 http.route({
@@ -307,7 +326,7 @@ http.route({
     }
 
     const expected = await computeStreamingHmac(secret, entityId);
-    if (hmac !== expected) {
+    if (!timingSafeEqual(hmac, expected)) {
       return new Response("Invalid HMAC", { status: 403 });
     }
 

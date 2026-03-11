@@ -24,6 +24,9 @@ export function TeamEnvVarsClient() {
   const upsertTeamVar = useAction(api.teamEnvVarsActions.upsertVar);
   const revealTeamValue = useAction(api.teamEnvVarsActions.revealValue);
   const removeTeamVar = useMutation(api.teamEnvVars.removeVar);
+  const toggleSandboxExclude = useMutation(
+    api.teamEnvVars.toggleSandboxExclude,
+  );
 
   if (!repo.teamId || !team) {
     return (
@@ -44,9 +47,14 @@ export function TeamEnvVarsClient() {
       <EnvVarsTable
         vars={teamEnvVars}
         description="Team-level variables inherited by all repositories in this team."
-        onUpsert={async (key, value) => {
+        onUpsert={async (key, value, sandboxExclude) => {
           if (!repo.teamId) return;
-          await upsertTeamVar({ teamId: repo.teamId, key, value });
+          await upsertTeamVar({
+            teamId: repo.teamId,
+            key,
+            value,
+            sandboxExclude,
+          });
         }}
         onReveal={async (key) => {
           if (!repo.teamId) return null;
@@ -55,6 +63,14 @@ export function TeamEnvVarsClient() {
         onRemove={async (key) => {
           if (!repo.teamId) return;
           await removeTeamVar({ teamId: repo.teamId, key });
+        }}
+        onToggleSandboxExclude={async (key, sandboxExclude) => {
+          if (!repo.teamId) return;
+          await toggleSandboxExclude({
+            teamId: repo.teamId,
+            key,
+            sandboxExclude,
+          });
         }}
       />
       <div className="flex items-center gap-2">

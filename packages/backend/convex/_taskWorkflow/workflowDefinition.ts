@@ -115,6 +115,7 @@ export const taskExecutionWorkflow = workflow.define({
             repoOwner: data.repoOwner,
             repoName: data.repoName,
             branchName: data.branchName,
+            deploymentProjectName: data.deploymentProjectName,
           },
         );
       }
@@ -138,7 +139,11 @@ export const taskExecutionWorkflow = workflow.define({
             labels: [
               "eva",
               args.projectId ? "project" : "quick-task",
-              ...(data.appLabel ? [data.appLabel] : []),
+              ...(data.rootDirectory
+                ? [data.rootDirectory.split("/").pop()].filter(
+                    (l): l is string => l !== undefined && l !== "",
+                  )
+                : []),
             ],
           },
         );
@@ -184,6 +189,7 @@ export const taskExecutionWorkflow = workflow.define({
             error: auditResult.success
               ? undefined
               : (auditResult.error ?? "Audit failed"),
+            activityLog: auditResult.activityLog,
           });
 
           let finalAuditResult = auditResult;
@@ -212,11 +218,12 @@ export const taskExecutionWorkflow = workflow.define({
                   repoId: args.repoId,
                 });
 
-                await step.awaitEvent(auditFixCompleteEvent);
+                const fixResult = await step.awaitEvent(auditFixCompleteEvent);
 
                 await step.runMutation(internal.taskWorkflow.setFixStatus, {
                   auditId,
                   fixStatus: "fix_completed",
+                  activityLog: fixResult.activityLog,
                 });
 
                 const reAuditId = await step.runMutation(
@@ -244,6 +251,7 @@ export const taskExecutionWorkflow = workflow.define({
                   error: reAuditResult.success
                     ? undefined
                     : (reAuditResult.error ?? "Re-audit failed"),
+                  activityLog: reAuditResult.activityLog,
                 });
 
                 finalAuditResult = reAuditResult;

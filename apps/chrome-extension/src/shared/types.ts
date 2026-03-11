@@ -44,38 +44,3 @@ export interface ExtractedContext {
     reactVersion: string;
   };
 }
-
-export interface UserInfo {
-  id: string;
-  email: string;
-  name: string;
-}
-
-export interface RepoInfo {
-  _id: string;
-  owner: string;
-  name: string;
-  installationId: number;
-}
-
-export interface AuthState {
-  isAuthenticated: boolean;
-  token: string | null;
-  user: UserInfo | null;
-}
-
-export interface ExtensionSettings {
-  defaultRepoId: string | null;
-  conductorUrl: string;
-}
-
-export interface SessionMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-export interface SessionInfo {
-  id: string;
-  repoId: string;
-  messages: SessionMessage[];
-}

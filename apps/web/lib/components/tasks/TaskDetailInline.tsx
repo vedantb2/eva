@@ -28,9 +28,13 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     statusFieldsSection,
     footerButtons,
     stopConfirmDialog,
+    resolveConfirmDialog,
     userMessageDialog,
     activeTab,
     setActiveTab,
+    isActivityBusy,
+    isProofBusy,
+    isAuditBusy,
   } = useTaskDetail(taskId, onClose, true);
 
   return (
@@ -58,14 +62,23 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                     <TabsTrigger value="activity" className="gap-1.5">
                       <IconTerminal2 size={14} />
                       Activity
+                      {isActivityBusy && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      )}
                     </TabsTrigger>
                     <TabsTrigger value="proof" className="gap-1.5">
                       <IconPhoto size={14} />
                       Proof
+                      {isProofBusy && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      )}
                     </TabsTrigger>
                     <TabsTrigger value="audit" className="gap-1.5">
                       <IconShieldCheck size={14} />
                       Audit
+                      {isAuditBusy && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      )}
                     </TabsTrigger>
                     <TabsTrigger value="comments" className="gap-1.5">
                       <IconMessagePlus size={14} />
@@ -97,6 +110,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
         </div>
       </div>
       {stopConfirmDialog}
+      {resolveConfirmDialog}
       {userMessageDialog}
     </>
   );

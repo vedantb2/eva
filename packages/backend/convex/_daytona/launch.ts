@@ -18,6 +18,8 @@ export async function launchScript(
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
+    mcpToken?: string;
+    mcpBaseUrl?: string;
   } = {},
 ): Promise<void> {
   await sandbox.fs.uploadFile(
@@ -29,6 +31,23 @@ export async function launchScript(
     Buffer.from(CALLBACK_SCRIPT, "utf-8"),
     "/tmp/run-design.mjs",
   );
+
+  if (opts.mcpBaseUrl && opts.mcpToken) {
+    const mcpConfig = JSON.stringify({
+      mcpServers: {
+        eva: {
+          url: `${opts.mcpBaseUrl}/mcp`,
+          headers: {
+            Authorization: `Bearer ${opts.mcpToken}`,
+          },
+        },
+      },
+    });
+    await sandbox.fs.uploadFile(
+      Buffer.from(mcpConfig, "utf-8"),
+      "/workspace/repo/.mcp.json",
+    );
+  }
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const envParts = [

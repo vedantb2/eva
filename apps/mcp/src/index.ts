@@ -1,15 +1,18 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   getOAuthMetadata,
   getProtectedResourceMetadata,
   renderAuthPage,
+  renderHandshakePage,
   processClerkAuth,
   exchangeToken,
   handleClientRegistration,
   verifyToken,
   extractBearerToken,
+  mintInternalToken,
 } from "./auth.js";
 import { registerTools } from "./tools.js";
 import type { ConvexCredentials } from "./auth.js";
@@ -63,6 +66,30 @@ app.use((req: Request, _res: Response, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const tokenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many token requests, try again later" },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many registration requests, try again later" },
+});
+
+const mcpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many requests, try again later" },
+});
+
 app.get(
   "/.well-known/oauth-protected-resource",
   (_req: Request, res: Response) => {
@@ -77,7 +104,7 @@ app.get(
   },
 );
 
-app.post("/oauth/register", (req: Request, res: Response) => {
+app.post("/oauth/register", registerLimiter, (req: Request, res: Response) => {
   console.log("  Registration body:", JSON.stringify(req.body));
   const body =
     typeof req.body === "object" && req.body !== null ? req.body : {};
@@ -90,8 +117,8 @@ app.get("/oauth/authorize", (req: Request, res: Response) => {
     const html = renderAuthPage(query);
     res.type("html").send(html);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid request";
-    res.status(400).send(message);
+    console.error("  Authorize error:", err);
+    res.status(400).send("Invalid authorization request");
   }
 });
 
@@ -101,12 +128,12 @@ app.post("/oauth/authorize", async (req: Request, res: Response) => {
     const redirectUrl = await processClerkAuth(body);
     res.redirect(redirectUrl);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid request";
-    res.status(400).send(message);
+    console.error("  Auth callback error:", err);
+    res.status(400).send("Authentication failed");
   }
 });
 
-app.post("/oauth/token", async (req: Request, res: Response) => {
+app.post("/oauth/token", tokenLimiter, async (req: Request, res: Response) => {
   const body = bodyToStringRecord(req);
   console.log("  Token request grant_type:", body.grant_type);
   const result = await exchangeToken(body);
@@ -154,10 +181,9 @@ async function handleMcpPost(req: Request, res: Response) {
     await transport.handleRequest(req, res, req.body);
     console.log("  MCP: request handled ok");
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    console.error("  MCP error:", message);
+    console.error("  MCP error:", err);
     if (!res.headersSent) {
-      res.status(500).json({ error: message });
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 }
@@ -166,13 +192,40 @@ function handleMcpUnsupported(_req: Request, res: Response) {
   res.status(405).json({ error: "Method not supported in stateless mode" });
 }
 
-app.post("/", handleMcpPost);
-app.get("/", handleMcpUnsupported);
+function handleMcpGet(req: Request, res: Response) {
+  if (req.query.__clerk_handshake) {
+    const publishableKey = process.env.CLERK_PUBLISHABLE_KEY;
+    if (publishableKey) {
+      res.type("html").send(renderHandshakePage(publishableKey));
+      return;
+    }
+  }
+  handleMcpUnsupported(req, res);
+}
+
+app.post("/", mcpLimiter, handleMcpPost);
+app.get("/", handleMcpGet);
 app.delete("/", handleMcpUnsupported);
 
-app.post("/mcp", handleMcpPost);
-app.get("/mcp", handleMcpUnsupported);
+app.post("/mcp", mcpLimiter, handleMcpPost);
+app.get("/mcp", handleMcpGet);
 app.delete("/mcp", handleMcpUnsupported);
+
+app.post("/api/internal/mint-token", (req: Request, res: Response) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("MCPBootstrap ")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const secret = auth.slice("MCPBootstrap ".length);
+  const body = bodyToStringRecord(req);
+  const result = mintInternalToken(body, secret);
+  if (!result) {
+    res.status(403).json({ error: "Invalid credentials or request" });
+    return;
+  }
+  res.json(result);
+});
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });

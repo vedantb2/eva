@@ -1,5 +1,12 @@
 # Changelog
 
+## MCP security: constant-time comparisons and error sanitization - 2026-03-11
+
+- **Why**: Security review found timing-attack-vulnerable string comparisons for HMAC/token verification and error messages leaking internal details to clients.
+- **Changes**:
+  1. Added `timingSafeEqual()` helper in `http.ts` — used for bootstrap token, deploy key, webhook HMAC, and streaming heartbeat HMAC verification.
+  2. Sanitized all error responses in MCP `index.ts` — generic messages to clients, detailed errors logged server-side only.
+
 ## Add explicit "Make changes" toggle in comments - 2026-03-11
 
 - **Why**: The Comments tab had hidden rerun behavior tied to internal state, which made it unclear whether sending a message would only save a comment or actually re-run Eva. Making that choice visible above the input removes ambiguity and matches the Request Changes entry point.

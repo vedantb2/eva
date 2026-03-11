@@ -91,8 +91,8 @@ app.get("/oauth/authorize", (req: Request, res: Response) => {
     const html = renderAuthPage(query);
     res.type("html").send(html);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid request";
-    res.status(400).send(message);
+    console.error("  Authorize error:", err);
+    res.status(400).send("Invalid authorization request");
   }
 });
 
@@ -102,8 +102,8 @@ app.post("/oauth/authorize", async (req: Request, res: Response) => {
     const redirectUrl = await processClerkAuth(body);
     res.redirect(redirectUrl);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid request";
-    res.status(400).send(message);
+    console.error("  Auth callback error:", err);
+    res.status(400).send("Authentication failed");
   }
 });
 
@@ -155,10 +155,9 @@ async function handleMcpPost(req: Request, res: Response) {
     await transport.handleRequest(req, res, req.body);
     console.log("  MCP: request handled ok");
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    console.error("  MCP error:", message);
+    console.error("  MCP error:", err);
     if (!res.headersSent) {
-      res.status(500).json({ error: message });
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 }

@@ -5,12 +5,24 @@ import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
 const http = httpRouter();
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  let mismatch = 0;
+  for (let i = 0; i < bufA.byteLength; i++) {
+    mismatch |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return mismatch === 0;
+}
+
 function verifyMcpBootstrapToken(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
   const expected = process.env.MCP_JWT_SECRET;
   if (!expected) return false;
-  return auth === `MCPBootstrap ${expected}`;
+  return timingSafeEqual(auth, `MCPBootstrap ${expected}`);
 }
 
 function verifyDeployKey(request: Request): boolean {
@@ -18,7 +30,7 @@ function verifyDeployKey(request: Request): boolean {
   if (!auth) return false;
   const expected = process.env.EVA_DEPLOY_KEY;
   if (!expected) return false;
-  return auth === `Convex ${expected}`;
+  return timingSafeEqual(auth, `Convex ${expected}`);
 }
 
 function parseEnvVarsBody(
@@ -218,7 +230,7 @@ async function verifyWebhookSignature(
     Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-  return computed === signature;
+  return timingSafeEqual(computed, signature);
 }
 
 http.route({
@@ -314,7 +326,7 @@ http.route({
     }
 
     const expected = await computeStreamingHmac(secret, entityId);
-    if (hmac !== expected) {
+    if (!timingSafeEqual(hmac, expected)) {
       return new Response("Invalid HMAC", { status: 403 });
     }
 

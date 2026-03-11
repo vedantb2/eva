@@ -20,13 +20,27 @@ interface AuthCodeEntry {
 
 const authCodeStore = new Map<string, AuthCodeEntry>();
 
+interface ClientRegistration {
+  clientId: string;
+  redirectUris: string[];
+  registeredAt: number;
+}
+
+const clientStore = new Map<string, ClientRegistration>();
+
 const CODE_TTL_MS = 5 * 60 * 1000;
+const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 setInterval(() => {
   const now = Date.now();
   for (const [code, entry] of authCodeStore) {
     if (entry.expiresAt < now) {
       authCodeStore.delete(code);
+    }
+  }
+  for (const [id, client] of clientStore) {
+    if (now - client.registeredAt > CLIENT_TTL_MS) {
+      clientStore.delete(id);
     }
   }
 }, 60_000);
@@ -96,6 +110,23 @@ export function getProtectedResourceMetadata(baseUrl: string) {
 
 export function handleClientRegistration(requestBody: Record<string, unknown>) {
   const clientId = crypto.randomUUID();
+
+  const rawUris = requestBody.redirect_uris;
+  const redirectUris: string[] = [];
+  if (Array.isArray(rawUris)) {
+    for (const uri of rawUris) {
+      if (typeof uri === "string" && validateRedirectUri(uri)) {
+        redirectUris.push(uri);
+      }
+    }
+  }
+
+  clientStore.set(clientId, {
+    clientId,
+    redirectUris,
+    registeredAt: Date.now(),
+  });
+
   return {
     ...requestBody,
     client_id: clientId,
@@ -126,6 +157,20 @@ function escapeHtml(str: string): string {
 
 export function renderAuthPage(query: Record<string, string>): string {
   const params = authorizeQuerySchema.parse(query);
+
+  const client = clientStore.get(params.client_id);
+  if (!client) {
+    throw new Error("Unknown client_id. Register via /oauth/register first.");
+  }
+  if (
+    client.redirectUris.length > 0 &&
+    !client.redirectUris.includes(params.redirect_uri)
+  ) {
+    throw new Error(
+      "redirect_uri does not match registered URIs for this client",
+    );
+  }
+
   const publishableKey = getClerkPublishableKey();
 
   return `<!DOCTYPE html>
@@ -320,6 +365,19 @@ export async function processClerkAuth(
     throw new Error("Invalid redirect URI");
   }
 
+  const client = clientStore.get(params.client_id);
+  if (!client) {
+    throw new Error("Unknown client_id. Register via /oauth/register first.");
+  }
+  if (
+    client.redirectUris.length > 0 &&
+    !client.redirectUris.includes(params.redirect_uri)
+  ) {
+    throw new Error(
+      "redirect_uri does not match registered URIs for this client",
+    );
+  }
+
   const clerkPayload = await verifyClerkToken(params.clerk_token, {
     secretKey: getClerkSecretKey(),
   });
@@ -413,6 +471,16 @@ export async function exchangeToken(
     };
   }
   const params = parseResult.data;
+
+  if (!clientStore.has(params.client_id)) {
+    return {
+      ok: false,
+      error: {
+        error: "invalid_client",
+        error_description: "Unknown client_id",
+      },
+    };
+  }
 
   const entry = authCodeStore.get(params.code);
   if (!entry || entry.expiresAt < Date.now()) {

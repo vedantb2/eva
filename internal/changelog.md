@@ -1,5 +1,15 @@
 # Changelog
 
+## MCP security: separate bootstrap secret and client registration validation - 2026-03-11
+
+- **Why**: `MCP_JWT_SECRET` was reused for both JWT signing and bootstrap endpoint auth — if one leaked, both were compromised. Also, OAuth accepted any redirect URI from any unregistered client, enabling potential auth code interception.
+- **Changes**:
+  1. Separated bootstrap auth into its own `MCP_BOOTSTRAP_SECRET` env var in both `http.ts` (Convex) and `convex-api.ts` (MCP app). JWT signing still uses `MCP_JWT_SECRET`.
+  2. Client registrations are now persisted in-memory with their `redirect_uris`. Auto-expire after 24h.
+  3. `/oauth/authorize` and token exchange now reject unknown `client_id`s.
+  4. `redirect_uri` is validated against the URIs registered for that client during both authorize and auth callback.
+- **Action required**: Set `MCP_BOOTSTRAP_SECRET` env var in both Railway (MCP app) and Convex dashboard. Generate a new random secret — do not reuse `MCP_JWT_SECRET`.
+
 ## MCP security: constant-time comparisons and error sanitization - 2026-03-11
 
 - **Why**: Security review found timing-attack-vulnerable string comparisons for HMAC/token verification and error messages leaking internal details to clients.

@@ -20,7 +20,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 function verifyMcpBootstrapToken(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
-  const expected = process.env.MCP_JWT_SECRET;
+  const expected = process.env.MCP_BOOTSTRAP_SECRET;
   if (!expected) return false;
   return timingSafeEqual(auth, `MCPBootstrap ${expected}`);
 }

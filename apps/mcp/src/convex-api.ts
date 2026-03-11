@@ -4,10 +4,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 let cachedDeployKey: { value: string; expiresAt: number } | null = null;
 
-function getMcpSecret(): string {
-  const secret = process.env.MCP_JWT_SECRET;
+function getBootstrapSecret(): string {
+  const secret = process.env.MCP_BOOTSTRAP_SECRET;
   if (!secret) {
-    throw new Error("MCP_JWT_SECRET environment variable is required");
+    throw new Error("MCP_BOOTSTRAP_SECRET environment variable is required");
   }
   return secret;
 }
@@ -23,12 +23,12 @@ export async function getDeployKey(convexUrl: string): Promise<string> {
     return cachedDeployKey.value;
   }
   const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/bootstrap`, {
-    headers: { Authorization: `MCPBootstrap ${getMcpSecret()}` },
+    headers: { Authorization: `MCPBootstrap ${getBootstrapSecret()}` },
   });
   if (!response.ok) {
     throw new Error(
       `Failed to bootstrap deploy key: HTTP ${response.status}. ` +
-        "Ensure EVA_DEPLOY_KEY and MCP_JWT_SECRET are set in Convex env vars.",
+        "Ensure EVA_DEPLOY_KEY and MCP_BOOTSTRAP_SECRET are set in Convex env vars.",
     );
   }
   const body = bootstrapResponseSchema.parse(await response.json());

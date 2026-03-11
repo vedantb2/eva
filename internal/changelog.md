@@ -5,6 +5,7 @@
 - **Why**: MCP `create_task` and `create_and_run_task` tools were failing with "Not authenticated". The MCP server was using deploy key auth (`Authorization: Convex ${deployKey}`) for mutations, but `authMutation` requires user identity from `ctx.auth.getUserIdentity()` which only works with JWT/Clerk auth. Deploy key auth bypasses identity entirely.
 - **Fix**: MCP server now signs user JWTs using the sandbox private key (`SANDBOX_JWT_PRIVATE_KEY`) with the user's clerkUserId as the subject. Mutations are called with `Authorization: Bearer ${jwt}` so Convex recognizes the user natively. Added `jose` dependency for ES256 JWT signing.
 - **Files**: `apps/mcp/src/convex-api.ts` (added `signUserJwt`, `runMutationAsUser`), `apps/mcp/src/tools.ts` (switched to `runMutationAsUser`)
+- **Design decision**: Tasks created via MCP are attributed to whoever authenticated the MCP OAuth flow (the real user), not the Eva service account. This keeps the audit trail accurate — Eva user should only be the creator when Eva itself creates tasks autonomously (e.g. sandbox execution).
 
 ## Chrome Extension — Full Feature Parity Update - 2026-03-11
 

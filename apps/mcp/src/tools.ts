@@ -11,7 +11,7 @@ import {
   listUserRepos,
   checkRepoAccess,
   getRepoConvexCredentials,
-  runMutation,
+  runMutationAsUser,
   resolveUserByClerkId,
 } from "./convex-api.js";
 
@@ -360,9 +360,9 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     if (input.model) mutationArgs.model = input.model;
     if (input.baseBranch) mutationArgs.baseBranch = input.baseBranch;
 
-    const taskIdResult = await runMutation(
+    const taskIdResult = await runMutationAsUser(
       convexUrl,
-      deployKey,
+      clerkUserId,
       "_agentTasks/mutations:createQuickTask",
       mutationArgs,
     );
@@ -384,10 +384,9 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       const result = await createTaskForRepo(input);
       if ("isError" in result) return result;
 
-      const { deployKey } = await getContext();
-      await runMutation(
+      await runMutationAsUser(
         convexUrl,
-        deployKey,
+        clerkUserId,
         "_agentTasks/execution:startExecution",
         { id: result.taskId },
       );

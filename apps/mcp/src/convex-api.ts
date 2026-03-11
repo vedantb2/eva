@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { importJWK, SignJWT } from "jose";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -418,4 +419,73 @@ export async function getRepoConvexCredentials(
   };
   repoCredentialsCache.set(cacheKey, creds);
   return { convexUrl: creds.convexUrl, deployKey: creds.deployKey };
+}
+
+let cachedUserJwt: {
+  clerkUserId: string;
+  jwt: string;
+  expiresAt: number;
+} | null = null;
+
+export async function signUserJwt(clerkUserId: string): Promise<string> {
+  if (
+    cachedUserJwt &&
+    cachedUserJwt.clerkUserId === clerkUserId &&
+    cachedUserJwt.expiresAt > Date.now()
+  ) {
+    return cachedUserJwt.jwt;
+  }
+
+  const privateKeyJson = process.env.SANDBOX_JWT_PRIVATE_KEY;
+  if (!privateKeyJson) {
+    throw new Error("Missing SANDBOX_JWT_PRIVATE_KEY env var");
+  }
+
+  const issuer = process.env.CONVEX_SITE_URL;
+  if (!issuer) {
+    throw new Error("Missing CONVEX_SITE_URL env var");
+  }
+
+  const privateKeyJwk: Record<string, string> = JSON.parse(privateKeyJson);
+  const kid = privateKeyJwk.kid ?? "sandbox-1";
+  const key = await importJWK(privateKeyJwk, "ES256");
+
+  const jwt = await new SignJWT({ sub: clerkUserId })
+    .setProtectedHeader({ alg: "ES256", kid })
+    .setIssuer(issuer)
+    .setAudience("convex")
+    .setExpirationTime("1h")
+    .setIssuedAt()
+    .sign(key);
+
+  cachedUserJwt = {
+    clerkUserId,
+    jwt,
+    expiresAt: Date.now() + 55 * 60 * 1000,
+  };
+
+  return jwt;
+}
+
+export async function runMutationAsUser(
+  convexUrl: string,
+  clerkUserId: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const jwt = await signUserJwt(clerkUserId);
+  const response = await fetch(`${convexUrl}/api/mutation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ path: functionPath, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
 }

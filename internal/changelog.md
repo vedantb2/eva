@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix MCP create_task/start_execution auth - 2026-03-11
+
+- **Why**: MCP `create_task` and `create_and_run_task` tools were failing with "Not authenticated". The MCP server was using deploy key auth (`Authorization: Convex ${deployKey}`) for mutations, but `authMutation` requires user identity from `ctx.auth.getUserIdentity()` which only works with JWT/Clerk auth. Deploy key auth bypasses identity entirely.
+- **Fix**: MCP server now signs user JWTs using the sandbox private key (`SANDBOX_JWT_PRIVATE_KEY`) with the user's clerkUserId as the subject. Mutations are called with `Authorization: Bearer ${jwt}` so Convex recognizes the user natively. Added `jose` dependency for ES256 JWT signing.
+- **Files**: `apps/mcp/src/convex-api.ts` (added `signUserJwt`, `runMutationAsUser`), `apps/mcp/src/tools.ts` (switched to `runMutationAsUser`)
+
 ## Chrome Extension — Full Feature Parity Update - 2026-03-11
 
 - **Why**: Extension was broken after backend changes (theme system not working, messages not loading, repo selector missing monorepo support, execution flow using removed two-step `triggerExecution` + `getInstallationToken` pattern). Additionally, extension lacked many web app features (plan mode, cancel execution, session archiving, notification badge).

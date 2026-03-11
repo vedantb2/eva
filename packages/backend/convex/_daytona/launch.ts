@@ -33,7 +33,7 @@ export async function launchScript(
   );
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
-    const claudeConfig = JSON.stringify({
+    const mcpConfig = JSON.stringify({
       mcpServers: {
         eva: {
           url: `${opts.mcpBaseUrl}/mcp`,
@@ -43,14 +43,10 @@ export async function launchScript(
         },
       },
     });
+    await exec(sandbox, "mkdir -p /home/daytona/.claude", 10);
     await sandbox.fs.uploadFile(
-      Buffer.from(claudeConfig, "utf-8"),
-      "/tmp/.claude.json",
-    );
-    await exec(
-      sandbox,
-      "sudo cp /tmp/.claude.json /home/daytona/.claude.json && sudo chown daytona:daytona /home/daytona/.claude.json",
-      10,
+      Buffer.from(mcpConfig, "utf-8"),
+      "/home/daytona/.claude/.mcp.json",
     );
   }
 

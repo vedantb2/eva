@@ -364,6 +364,7 @@ async function getRepoEnvVars(
   convexUrl: string,
   deployKey: string,
   repoId: string,
+  userId: string,
 ): Promise<EnvVar[]> {
   const response = await fetch(`${toSiteUrl(convexUrl)}/api/mcp/env-vars`, {
     method: "POST",
@@ -371,7 +372,7 @@ async function getRepoEnvVars(
       "Content-Type": "application/json",
       Authorization: `Convex ${deployKey}`,
     },
-    body: JSON.stringify({ repoId }),
+    body: JSON.stringify({ repoId, userId }),
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
@@ -392,13 +393,15 @@ export async function getRepoConvexCredentials(
   evaUrl: string,
   evaDeployKey: string,
   repoId: string,
+  userId: string,
 ): Promise<{ convexUrl: string; deployKey: string } | null> {
-  const cached = repoCredentialsCache.get(repoId);
+  const cacheKey = `${userId}:${repoId}`;
+  const cached = repoCredentialsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { convexUrl: cached.convexUrl, deployKey: cached.deployKey };
   }
 
-  const vars = await getRepoEnvVars(evaUrl, evaDeployKey, repoId);
+  const vars = await getRepoEnvVars(evaUrl, evaDeployKey, repoId, userId);
   const urlEntry = vars.find(
     (v) => v.key === "NEXT_PUBLIC_CONVEX_URL" || v.key === "CONVEX_URL",
   );
@@ -413,6 +416,6 @@ export async function getRepoConvexCredentials(
     deployKey: keyEntry.value,
     expiresAt: Date.now() + CACHE_TTL_MS,
   };
-  repoCredentialsCache.set(repoId, creds);
+  repoCredentialsCache.set(cacheKey, creds);
   return { convexUrl: creds.convexUrl, deployKey: creds.deployKey };
 }

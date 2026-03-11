@@ -21,15 +21,14 @@ function verifyDeployKey(request: Request): boolean {
   return auth === `Convex ${expected}`;
 }
 
-function hasRepoId(body: object): body is { repoId: unknown } {
-  return "repoId" in body;
-}
-
-function parseRepoId(body: unknown): string | null {
+function parseEnvVarsBody(
+  body: unknown,
+): { repoId: string; userId: string } | null {
   if (typeof body !== "object" || body === null) return null;
-  if (!hasRepoId(body)) return null;
-  if (typeof body.repoId !== "string" || body.repoId.length === 0) return null;
-  return body.repoId;
+  if (!("repoId" in body) || typeof body.repoId !== "string") return null;
+  if (!("userId" in body) || typeof body.userId !== "string") return null;
+  if (body.repoId.length === 0 || body.userId.length === 0) return null;
+  return { repoId: body.repoId, userId: body.userId };
 }
 
 http.route({
@@ -59,16 +58,24 @@ http.route({
     }
 
     const body: unknown = await request.json();
-    const repoId = parseRepoId(body);
-    if (!repoId) {
-      return new Response("Invalid request body: repoId required", {
+    const parsed = parseEnvVarsBody(body);
+    if (!parsed) {
+      return new Response("Invalid request body: repoId and userId required", {
         status: 400,
       });
     }
 
+    const hasAccess: boolean = await ctx.runQuery(
+      internal.mcpQueries.checkRepoAccessForUser,
+      { repoId: parsed.repoId, userId: parsed.userId },
+    );
+    if (!hasAccess) {
+      return new Response("Access denied", { status: 403 });
+    }
+
     const vars = await ctx.runAction(
       internal.mcpRoutes.getDecryptedRepoEnvVars,
-      { repoId },
+      { repoId: parsed.repoId },
     );
     return Response.json(vars);
   }),

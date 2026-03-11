@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
-import { verifyToken as verifyClerkToken } from "@clerk/backend";
+import {
+  createClerkClient,
+  verifyToken as verifyClerkToken,
+} from "@clerk/backend";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
@@ -52,6 +55,16 @@ function getClerkSecretKey(): string {
   return key;
 }
 
+async function verifyClerkUserExists(clerkUserId: string): Promise<boolean> {
+  try {
+    const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
+    await clerk.users.getUser(clerkUserId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getConvexUrl(): string {
   const convexUrl = process.env.CONVEX_CLOUD_URL;
   if (!convexUrl) {
@@ -67,7 +80,7 @@ export function getOAuthMetadata(baseUrl: string) {
     token_endpoint: `${baseUrl}/oauth/token`,
     registration_endpoint: `${baseUrl}/oauth/register`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none"],
   };
@@ -332,11 +345,17 @@ export async function processClerkAuth(
   return redirectUrl.toString();
 }
 
-const tokenBodySchema = z.object({
+const authCodeBodySchema = z.object({
   grant_type: z.literal("authorization_code"),
   code: z.string(),
   redirect_uri: z.string(),
   code_verifier: z.string(),
+  client_id: z.string(),
+});
+
+const refreshBodySchema = z.object({
+  grant_type: z.literal("refresh_token"),
+  refresh_token: z.string(),
   client_id: z.string(),
 });
 
@@ -357,10 +376,33 @@ type TokenResult =
   | { ok: true; response: TokenResponse }
   | { ok: false; error: TokenError };
 
+function issueTokens(clerkUserId: string): TokenResponse {
+  const accessToken = jwt.sign({ sub: clerkUserId }, getJwtSecret(), {
+    expiresIn: "1h",
+  });
+  const refreshToken = jwt.sign(
+    { sub: clerkUserId, type: "refresh" },
+    getJwtSecret(),
+    { expiresIn: "30d" },
+  );
+  return {
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: 3600,
+    scope: "claudeai",
+    refresh_token: refreshToken,
+  };
+}
+
 export async function exchangeToken(
   body: Record<string, string>,
 ): Promise<TokenResult> {
-  const parseResult = tokenBodySchema.safeParse(body);
+  const refreshParse = refreshBodySchema.safeParse(body);
+  if (refreshParse.success) {
+    return handleRefreshToken(refreshParse.data.refresh_token);
+  }
+
+  const parseResult = authCodeBodySchema.safeParse(body);
   if (!parseResult.success) {
     return {
       ok: false,
@@ -411,23 +453,37 @@ export async function exchangeToken(
     };
   }
 
-  const accessToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
-    expiresIn: "30d",
-  });
-  const refreshToken = jwt.sign({ sub: entry.clerkUserId }, getJwtSecret(), {
-    expiresIn: "90d",
-  });
+  return { ok: true, response: issueTokens(entry.clerkUserId) };
+}
 
-  return {
-    ok: true,
-    response: {
-      access_token: accessToken,
-      token_type: "Bearer",
-      expires_in: 30 * 24 * 60 * 60,
-      scope: "claudeai",
-      refresh_token: refreshToken,
-    },
-  };
+const refreshTokenPayloadSchema = z.object({
+  sub: z.string(),
+  type: z.literal("refresh"),
+});
+
+function handleRefreshToken(token: string): TokenResult {
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    const payload = refreshTokenPayloadSchema.safeParse(decoded);
+    if (!payload.success) {
+      return {
+        ok: false,
+        error: {
+          error: "invalid_grant",
+          error_description: "Invalid refresh token",
+        },
+      };
+    }
+    return { ok: true, response: issueTokens(payload.data.sub) };
+  } catch {
+    return {
+      ok: false,
+      error: {
+        error: "invalid_grant",
+        error_description: "Expired or invalid refresh token",
+      },
+    };
+  }
 }
 
 const mcpTokenPayloadSchema = z.object({ sub: z.string() });
@@ -439,7 +495,10 @@ export async function verifyToken(
     const decoded = jwt.verify(token, getJwtSecret());
     const payload = mcpTokenPayloadSchema.safeParse(decoded);
     if (!payload.success) return null;
-    return { convexUrl: getConvexUrl(), clerkUserId: payload.data.sub };
+    const clerkUserId = payload.data.sub;
+    const userExists = await verifyClerkUserExists(clerkUserId);
+    if (!userExists) return null;
+    return { convexUrl: getConvexUrl(), clerkUserId };
   } catch {
     return null;
   }

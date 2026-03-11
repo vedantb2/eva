@@ -1,5 +1,15 @@
 # Changelog
 
+## MCP security hardening - 2026-03-11
+
+- **Why**: Security review identified injection risk in code interpolation, excessively long JWT tokens with no revocation, and env-vars endpoint lacking server-side access checks.
+- **Changes**:
+  1. Use `JSON.stringify()` for all code interpolation in `get_document` and `count_table` tools — defense-in-depth against injection.
+  2. Reduced JWT access token lifetime from 30 days to 1 hour. Refresh tokens (30 day) with `refresh_token` grant type support added.
+  3. Added user-existence re-validation on every MCP request via Clerk Backend SDK — revoked/deleted users are immediately blocked.
+  4. Moved repo access check into the `/api/mcp/env-vars` Convex HTTP endpoint (new `mcpQueries.ts`) — defense-in-depth so even if MCP app layer is bypassed, env vars are protected.
+  5. User-scoped credential cache (keyed by `userId:repoId` instead of just `repoId`).
+
 ## Add per-user data scoping to MCP server - 2026-03-11
 
 - **Why**: The MCP server authenticated users via OAuth but used a single shared deploy key for all queries — any authenticated user could access every repo's data, every table, and create tasks on any repo. This was a security hole.

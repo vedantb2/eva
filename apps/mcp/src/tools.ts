@@ -68,6 +68,7 @@ export function registerTools(
       convexUrl,
       deployKey,
       repoId,
+      userId,
     );
     if (!repoCreds) {
       throw new Error(
@@ -195,7 +196,9 @@ export function registerTools(
       }
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
-      const source = wrapQueryHandler(`return await ctx.db.get("${id}");`);
+      const source = wrapQueryHandler(
+        `return await ctx.db.get(${JSON.stringify(id)});`,
+      );
       const result = await runTestQuery(
         target.convexUrl,
         target.deployKey,
@@ -275,7 +278,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
       const source = wrapQueryHandler(
-        `const docs = await ctx.db.query("${table}").collect(); return docs.length;`,
+        `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
       );
       const result = await runTestQuery(
         target.convexUrl,

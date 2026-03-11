@@ -46,8 +46,6 @@ import {
   IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
-  IconCode,
-  IconClipboardList,
   IconMessageCircle2,
   IconPlayerStop,
   IconSparkles,
@@ -65,12 +63,12 @@ type EphemeralMessage = {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
-  mode?: "execute" | "ask" | "plan" | "flag";
+  mode?: "ask" | "flag";
   activityLog?: string;
   userId?: string;
 };
 
-type Mode = "execute" | "ask" | "plan" | "flag";
+type Mode = "ask" | "flag";
 
 interface ChatPanelProps {
   selectedRepoId: Id<"githubRepos"> | null;
@@ -283,28 +281,6 @@ Please review all components and files used on this page before implementing the
     }
   };
 
-  const handleApprovePlan = async () => {
-    if (!currentSession?.planContent || !selectedRepo || !sessionId) return;
-    setIsLoading(true);
-    try {
-      await startExecution({
-        sessionId,
-        message: `Implement the plan:\n\n${currentSession.planContent}`,
-        mode: "execute",
-        model,
-        responseLength,
-        installationId: selectedRepo.installationId,
-      });
-    } catch (error) {
-      await appendMessage({
-        role: "assistant",
-        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        timestamp: Date.now(),
-      });
-      setIsLoading(false);
-    }
-  };
-
   const handleAnnotationTask = useCallback(
     async (payload: {
       title: string;
@@ -375,13 +351,11 @@ Please review all components and files used on this page before implementing the
   const getPlaceholder = () => {
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
-    if (mode === "execute") return "Tell Eva what to build or change...";
     if (mode === "ask") {
       return capturedContexts.length > 0
         ? `Ask Eva about ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
         : "Ask Eva about the codebase...";
     }
-    if (mode === "plan") return "Describe what you want Eva to plan...";
     return capturedContexts.length > 0
       ? `Describe the issue with ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
       : "Describe an issue to Eva to flag...";
@@ -394,7 +368,7 @@ Please review all components and files used on this page before implementing the
   };
 
   const handleModeChange = (v: string) => {
-    if (v === "execute" || v === "ask" || v === "plan" || v === "flag") {
+    if (v === "ask" || v === "flag") {
       setMode(v);
     }
   };
@@ -403,38 +377,6 @@ Please review all components and files used on this page before implementing the
     <div className="flex flex-col flex-1 overflow-hidden">
       <Conversation key={sessionId} className="flex-1">
         <ConversationContent className="gap-4 p-4">
-          {currentSession?.planContent && (
-            <Collapsible className="rounded-lg border border-primary/30 bg-primary/5 overflow-hidden">
-              <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-primary/10 transition-colors group">
-                <IconClipboardList
-                  size={16}
-                  className="text-primary shrink-0"
-                />
-                <span className="flex-1 text-left">Plan</span>
-                <IconChevronRight
-                  size={14}
-                  className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-3 border-t border-primary/20 pt-2">
-                <div className="prose prose-sm dark:prose-invert max-w-none text-xs whitespace-pre-wrap">
-                  {currentSession.planContent}
-                </div>
-                {!isExecutionActive && (
-                  <Button
-                    size="sm"
-                    className="mt-3"
-                    onClick={handleApprovePlan}
-                    disabled={isLoading}
-                  >
-                    <IconCode size={14} />
-                    Approve & Execute Plan
-                  </Button>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
           {currentSession?.summary && currentSession.summary.length > 0 && (
             <Collapsible className="rounded-lg border border-border bg-muted/30 overflow-hidden">
               <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
@@ -472,24 +414,16 @@ Please review all components and files used on this page before implementing the
                 )
               }
               title={
-                mode === "execute"
-                  ? "Tell Eva what to build"
-                  : mode === "ask"
-                    ? "Ask Eva questions about your codebase"
-                    : mode === "plan"
-                      ? "Describe what to plan"
-                      : capturedContexts.length > 0
-                        ? "Describe the issue you want to flag to Eva"
-                        : "Flag an issue for Eva"
+                mode === "ask"
+                  ? "Ask Eva questions about your codebase"
+                  : capturedContexts.length > 0
+                    ? "Describe the issue you want to flag to Eva"
+                    : "Flag an issue for Eva"
               }
               description={
-                mode === "execute"
-                  ? "Eva will write code and push changes"
-                  : mode === "ask"
-                    ? "Get AI-powered answers by Eva"
-                    : mode === "plan"
-                      ? "Eva will create a PRD without making changes"
-                      : "Use the select tool to capture element context"
+                mode === "ask"
+                  ? "Get AI-powered answers by Eva"
+                  : "Use the select tool to capture element context"
               }
             />
           ) : (
@@ -590,6 +524,26 @@ Please review all components and files used on this page before implementing the
                       <>
                         {message.role === "assistant" ? (
                           <>
+                            {message.activityLog &&
+                              (() => {
+                                const steps = parseActivitySteps(
+                                  message.activityLog,
+                                );
+                                return steps ? (
+                                  <ActivitySteps steps={steps} />
+                                ) : (
+                                  <Reasoning defaultOpen={false}>
+                                    <ReasoningTrigger
+                                      getThinkingMessage={() => "View logs"}
+                                    />
+                                    <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
+                                      <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
+                                        {message.activityLog}
+                                      </pre>
+                                    </CollapsibleContent>
+                                  </Reasoning>
+                                );
+                              })()}
                             {"imageUrl" in message && message.imageUrl && (
                               <img
                                 src={String(message.imageUrl)}
@@ -616,22 +570,10 @@ Please review all components and files used on this page before implementing the
                             <div className="flex items-center justify-between gap-3">
                               {message.mode && (
                                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                  {message.mode === "execute" && (
-                                    <>
-                                      <IconCode className="w-2.5 h-2.5" />{" "}
-                                      Execute
-                                    </>
-                                  )}
                                   {message.mode === "ask" && (
                                     <>
                                       <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
                                       Ask
-                                    </>
-                                  )}
-                                  {message.mode === "plan" && (
-                                    <>
-                                      <IconClipboardList className="w-2.5 h-2.5" />{" "}
-                                      PRD
                                     </>
                                   )}
                                 </div>
@@ -644,27 +586,6 @@ Please review all components and files used on this page before implementing the
                             </div>
                           </>
                         )}
-                        {message.role === "assistant" &&
-                          message.activityLog &&
-                          (() => {
-                            const steps = parseActivitySteps(
-                              message.activityLog,
-                            );
-                            return steps ? (
-                              <ActivitySteps steps={steps} />
-                            ) : (
-                              <Reasoning defaultOpen={false}>
-                                <ReasoningTrigger
-                                  getThinkingMessage={() => "View logs"}
-                                />
-                                <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                  <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                    {message.activityLog}
-                                  </pre>
-                                </CollapsibleContent>
-                              </Reasoning>
-                            );
-                          })()}
                       </>
                     )}
                   </MessageContent>
@@ -774,25 +695,11 @@ Please review all components and files used on this page before implementing the
           >
             <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
               <TabsTrigger
-                value="execute"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconCode className="w-3 h-3" />
-                Execute
-              </TabsTrigger>
-              <TabsTrigger
                 value="ask"
                 className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
                 <IconMessageCircle className="w-3 h-3" />
                 Ask
-              </TabsTrigger>
-              <TabsTrigger
-                value="plan"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconClipboardList className="w-3 h-3" />
-                Plan
               </TabsTrigger>
               <TabsTrigger
                 value="flag"

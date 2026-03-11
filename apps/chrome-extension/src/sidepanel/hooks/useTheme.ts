@@ -35,15 +35,12 @@ interface CustomTheme {
 }
 
 const FONT_FAMILIES: Record<FontFamily, string> = {
-  inter: "var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif",
-  roboto: "var(--font-roboto), Roboto, ui-sans-serif, system-ui, sans-serif",
-  poppins: "var(--font-poppins), Poppins, ui-sans-serif, system-ui, sans-serif",
-  "dm-sans":
-    "var(--font-dm-sans), 'DM Sans', ui-sans-serif, system-ui, sans-serif",
-  "space-grotesk":
-    "var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
-  geist:
-    "var(--font-geist-sans), 'Geist Sans', ui-sans-serif, system-ui, sans-serif",
+  inter: "Inter, ui-sans-serif, system-ui, sans-serif",
+  roboto: "Roboto, ui-sans-serif, system-ui, sans-serif",
+  poppins: "Poppins, ui-sans-serif, system-ui, sans-serif",
+  "dm-sans": "'DM Sans', ui-sans-serif, system-ui, sans-serif",
+  "space-grotesk": "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  geist: "'Geist Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
 const RADIUS_VALUES: Record<RadiusSize, string> = {

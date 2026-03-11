@@ -93,6 +93,7 @@ export const scheduleDeploymentTracking = internalMutation({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    deploymentProjectName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -106,6 +107,7 @@ export const scheduleDeploymentTracking = internalMutation({
         repoOwner: args.repoOwner,
         repoName: args.repoName,
         branchName: args.branchName,
+        deploymentProjectName: args.deploymentProjectName,
         attempt: 0,
       },
     );

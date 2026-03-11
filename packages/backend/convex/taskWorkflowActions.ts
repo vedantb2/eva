@@ -262,6 +262,7 @@ export const pollDeploymentStatus = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    deploymentProjectName: v.optional(v.string()),
     attempt: v.number(),
   },
   returns: v.null(),
@@ -280,12 +281,12 @@ export const pollDeploymentStatus = internalAction({
         owner: args.repoOwner,
         repo: args.repoName,
         sha: commitSha,
-        per_page: 1,
+        per_page: 10,
       });
 
       if (deployments.length === 0) {
         console.log(
-          `[deployment-poll] No deployment found for ${args.repoOwner}/${args.repoName} branch=${args.branchName} sha=${commitSha} attempt=${args.attempt}`,
+          `[deployment-poll] No deployment found for ${args.repoOwner}/${args.repoName} branch=${args.branchName} sha=${commitSha} attempt=${args.attempt} project=${args.deploymentProjectName ?? "none"}`,
         );
         if (args.attempt < MAX_POLL_ATTEMPTS) {
           await ctx.scheduler.runAfter(
@@ -297,17 +298,24 @@ export const pollDeploymentStatus = internalAction({
         return null;
       }
 
+      const projectNameLower = args.deploymentProjectName?.toLowerCase();
+      const targetDeployment = projectNameLower
+        ? (deployments.find((d) =>
+            d.environment.toLowerCase().includes(projectNameLower),
+          ) ?? deployments[0])
+        : deployments[0];
+
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({
           owner: args.repoOwner,
           repo: args.repoName,
-          deployment_id: deployments[0].id,
+          deployment_id: targetDeployment.id,
           per_page: 1,
         });
 
       if (statuses.length === 0) {
         console.log(
-          `[deployment-poll] Deployment ${deployments[0].id} found but no statuses yet, attempt=${args.attempt}`,
+          `[deployment-poll] Deployment ${targetDeployment.id} found but no statuses yet, attempt=${args.attempt} project=${args.deploymentProjectName ?? "none"}`,
         );
         await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
           runId: args.runId,
@@ -330,8 +338,9 @@ export const pollDeploymentStatus = internalAction({
       const deploymentUrl =
         (rawUrl ? toBranchPreviewUrl(rawUrl, args.branchName) : undefined) ??
         rawUrl;
+
       console.log(
-        `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"}`,
+        `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"}`,
       );
 
       await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {

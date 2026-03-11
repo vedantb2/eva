@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  Input,
 } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
@@ -70,6 +71,32 @@ export function ConfigClient() {
                 <code>Sonnet</code> if not set.
               </p>
             </div>
+
+            {repo.parentRepoId && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Deployment Project Name
+                </label>
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="e.g. my-vercel-project"
+                  defaultValue={repo.deploymentProjectName ?? ""}
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val !== (repo.deploymentProjectName ?? "")) {
+                      updateConfig({
+                        repoId,
+                        deploymentProjectName: val || undefined,
+                      });
+                    }
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Vercel or Netlify project name for this app. Used to match the
+                  correct preview deployment in monorepos.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

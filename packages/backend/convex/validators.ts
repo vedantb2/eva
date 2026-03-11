@@ -299,6 +299,7 @@ export const githubRepoFields = {
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
+  deploymentProjectName: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

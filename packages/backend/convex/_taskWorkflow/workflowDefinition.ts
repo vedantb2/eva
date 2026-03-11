@@ -115,6 +115,7 @@ export const taskExecutionWorkflow = workflow.define({
             repoOwner: data.repoOwner,
             repoName: data.repoName,
             branchName: data.branchName,
+            deploymentProjectName: data.deploymentProjectName,
           },
         );
       }
@@ -138,7 +139,11 @@ export const taskExecutionWorkflow = workflow.define({
             labels: [
               "eva",
               args.projectId ? "project" : "quick-task",
-              ...(data.appLabel ? [data.appLabel] : []),
+              ...(data.rootDirectory
+                ? [data.rootDirectory.split("/").pop()].filter(
+                    (l): l is string => l !== undefined && l !== "",
+                  )
+                : []),
             ],
           },
         );

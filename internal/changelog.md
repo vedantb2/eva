@@ -1,5 +1,14 @@
 # Changelog
 
+## Add explicit "Make changes" toggle in comments - 2026-03-11
+
+- **Why**: The Comments tab had hidden rerun behavior tied to internal state, which made it unclear whether sending a message would only save a comment or actually re-run Eva. Making that choice visible above the input removes ambiguity and matches the Request Changes entry point.
+- **Changes**:
+  1. Added a visible `Make changes` toggle above the task comments input for post-run task states.
+  2. Clicking `Request Changes` now opens the Comments tab and enables that toggle automatically.
+  3. The send button continues to use the current toggle state to decide whether to create only a comment or create a comment and start a new run.
+- **Reason for change**: This keeps the workflow explicit for users while preserving the existing rerun path and minimizing code churn.
+
 ## MCP security hardening - 2026-03-11
 
 - **Why**: Security review identified injection risk in code interpolation, excessively long JWT tokens with no revocation, and env-vars endpoint lacking server-side access checks.

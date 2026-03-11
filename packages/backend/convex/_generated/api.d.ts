@@ -81,6 +81,7 @@ import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
 import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
+import type * as mcpQueries from "../mcpQueries.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
@@ -206,6 +207,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   linearActions: typeof linearActions;
   logs: typeof logs;
+  mcpQueries: typeof mcpQueries;
   mcpRoutes: typeof mcpRoutes;
   messages: typeof messages;
   migrations: typeof migrations;

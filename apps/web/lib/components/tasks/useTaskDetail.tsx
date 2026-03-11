@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   Select,
   SelectContent,
   SelectItem,
@@ -34,6 +35,7 @@ import {
   CarouselPrevious,
   CarouselNext,
   CarouselDots,
+  Label,
 } from "@conductor/ui";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -1070,6 +1072,28 @@ export function useTaskDetail(
           ))}
         </div>
       )}
+      {(status === "business_review" ||
+        status === "code_review" ||
+        status === "done" ||
+        status === "cancelled") && (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`task-make-changes-${taskId}`}
+            checked={requestingChanges}
+            disabled={Boolean(hasActiveRun)}
+            onCheckedChange={(checked) => {
+              setRequestingChanges(checked === true);
+              if (executionError) setExecutionError(null);
+            }}
+          />
+          <Label
+            htmlFor={`task-make-changes-${taskId}`}
+            className={hasActiveRun ? "text-muted-foreground" : ""}
+          >
+            Make changes
+          </Label>
+        </div>
+      )}
       <div className="flex gap-2 items-end">
         <Textarea
           rows={3}
@@ -1425,6 +1449,7 @@ export function useTaskDetail(
             variant="secondary"
             onClick={() => {
               setRequestingChanges(true);
+              if (executionError) setExecutionError(null);
               setActiveTab("comments");
             }}
           >

@@ -49,7 +49,6 @@ import {
   IconMessageCircle2,
   IconPlayerStop,
   IconSparkles,
-  IconAlertTriangle,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
 import type { Id } from "@conductor/backend";
@@ -69,6 +68,16 @@ type EphemeralMessage = {
 };
 
 type Mode = "ask" | "flag";
+
+function formatDuration(startedAt: number, finishedAt: number): string {
+  const totalSeconds = Math.round((finishedAt - startedAt) / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
 
 interface ChatPanelProps {
   selectedRepoId: Id<"githubRepos"> | null;
@@ -438,6 +447,37 @@ Please review all components and files used on this page before implementing the
 
               const key = "_id" in message ? message._id : `ephemeral-${index}`;
 
+              if (isSystemAlert) {
+                return (
+                  <div key={key} className="flex items-center gap-3 py-1">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap max-w-[60%] truncate">
+                      {message.content}
+                    </span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                );
+              }
+
+              const evaIcon = (
+                <img
+                  src="/icons/icon.png"
+                  alt="Eva"
+                  className="w-4 h-4 rounded-full"
+                />
+              );
+
+              const finishedAt =
+                "_id" in message &&
+                "finishedAt" in message &&
+                typeof message.finishedAt === "number"
+                  ? message.finishedAt
+                  : null;
+              const duration =
+                finishedAt && message.timestamp
+                  ? formatDuration(message.timestamp, finishedAt)
+                  : undefined;
+
               return (
                 <AIMessage
                   key={key}
@@ -446,32 +486,11 @@ Please review all components and files used on this page before implementing the
                     message.role === "assistant" ? "max-w-full" : undefined
                   }
                 >
-                  {message.role === "assistant" && (
-                    <div className="flex items-center gap-2">
-                      {isSystemAlert ? (
-                        <IconAlertTriangle
-                          size={20}
-                          className="text-amber-500 flex-shrink-0"
-                        />
-                      ) : (
-                        <img
-                          src="/icons/icon.png"
-                          alt="Eva"
-                          className="flex-shrink-0 w-7 h-7 rounded-full"
-                        />
-                      )}
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {isSystemAlert ? "System" : "Eva"}
-                      </span>
-                    </div>
-                  )}
                   <MessageContent
                     className={
-                      isSystemAlert
-                        ? "rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3"
-                        : message.role === "user"
-                          ? "rounded-lg bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
+                      message.role === "user"
+                        ? "rounded-lg bg-secondary text-foreground px-4 py-3"
+                        : "px-1 py-2"
                     }
                   >
                     {isFlagResponse && prev ? (
@@ -502,7 +521,13 @@ Please review all components and files used on this page before implementing the
                       (() => {
                         const steps = parseActivitySteps(streamingActivity);
                         return steps ? (
-                          <ActivitySteps steps={steps} isStreaming />
+                          <ActivitySteps
+                            steps={steps}
+                            isStreaming
+                            name="Eva"
+                            icon={evaIcon}
+                            startedAt={message.timestamp}
+                          />
                         ) : (
                           <Reasoning isStreaming defaultOpen>
                             <ReasoningTrigger
@@ -530,7 +555,13 @@ Please review all components and files used on this page before implementing the
                                   message.activityLog,
                                 );
                                 return steps ? (
-                                  <ActivitySteps steps={steps} />
+                                  <ActivitySteps
+                                    steps={steps}
+                                    name="Eva"
+                                    icon={evaIcon}
+                                    startedAt={message.timestamp}
+                                    duration={duration}
+                                  />
                                 ) : (
                                   <Reasoning defaultOpen={false}>
                                     <ReasoningTrigger
@@ -609,21 +640,25 @@ Please review all components and files used on this page before implementing the
             messages.length > 0 &&
             messages[messages.length - 1].role !== "assistant" && (
               <AIMessage from="assistant" className="max-w-full">
-                <div className="flex items-center gap-2">
-                  <img
-                    src="/icons/icon.png"
-                    alt="Eva"
-                    className="flex-shrink-0 w-7 h-7 rounded-full"
-                  />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Eva
-                  </span>
-                </div>
                 <MessageContent className="px-1 py-2">
                   {(() => {
                     const steps = parseActivitySteps(streamingActivity);
+                    const loadingEvaIcon = (
+                      <img
+                        src="/icons/icon.png"
+                        alt="Eva"
+                        className="w-4 h-4 rounded-full"
+                      />
+                    );
+                    const lastMsg = messages[messages.length - 1];
                     return steps ? (
-                      <ActivitySteps steps={steps} isStreaming />
+                      <ActivitySteps
+                        steps={steps}
+                        isStreaming
+                        name="Eva"
+                        icon={loadingEvaIcon}
+                        startedAt={lastMsg.timestamp}
+                      />
                     ) : (
                       <Reasoning isStreaming defaultOpen>
                         <ReasoningTrigger

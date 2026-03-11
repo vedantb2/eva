@@ -6,7 +6,12 @@ import {
   SignInButton,
   useUser,
 } from "@clerk/chrome-extension";
-import { useMutation, useQuery } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import { api } from "@conductor/backend";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";
@@ -14,6 +19,11 @@ import { RepoSelector } from "./components/RepoSelector";
 import { SessionSidebar } from "./components/SessionSidebar";
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
   Input,
   Spinner,
   Tooltip,
@@ -105,6 +115,8 @@ function AuthenticatedApp() {
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
   const [isCreatingTasks, setIsCreatingTasks] = useState(false);
+  const [isCreateSessionOpen, setIsCreateSessionOpen] = useState(false);
+  const [newSessionTitle, setNewSessionTitle] = useState("");
 
   const convexUserId = useQuery(api.auth.me);
   const unreadCount = useQuery(api.notifications.countUnread, {});
@@ -459,13 +471,15 @@ function AuthenticatedApp() {
     chrome.runtime.sendMessage({ type: "CLEAR_CONTEXT" });
   };
 
-  const handleNewSession = async () => {
-    if (!selectedRepoId) return;
+  const handleCreateSession = async () => {
+    if (!selectedRepoId || !newSessionTitle.trim()) return;
     const sessionId = await createSession({
       repoId: selectedRepoId,
-      title: `Session ${new Date().toLocaleDateString()}`,
+      title: newSessionTitle.trim(),
     });
     setCurrentSessionId(sessionId);
+    setNewSessionTitle("");
+    setIsCreateSessionOpen(false);
   };
 
   const handleSessionSelect = (sessionId: string) => {
@@ -549,7 +563,11 @@ function AuthenticatedApp() {
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleNewSession}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCreateSessionOpen(true)}
+              >
                 <IconPlus size={20} />
               </Button>
             </TooltipTrigger>
@@ -652,6 +670,49 @@ function AuthenticatedApp() {
           onToggleTheme={toggleTheme}
         />
       )}
+
+      <Dialog open={isCreateSessionOpen} onOpenChange={setIsCreateSessionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="session-title"
+              className="text-sm font-medium text-foreground"
+            >
+              Session Title
+            </label>
+            <Input
+              id="session-title"
+              placeholder="e.g., Add user authentication"
+              value={newSessionTitle}
+              onChange={(e) => setNewSessionTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateSession();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsCreateSessionOpen(false);
+                setNewSessionTitle("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateSession}
+              disabled={!newSessionTitle.trim()}
+            >
+              Create Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -694,7 +755,14 @@ export default function App() {
             <SignInScreen />
           </SignedOut>
           <SignedIn>
-            <AuthenticatedApp />
+            <AuthLoading>
+              <div className="flex items-center justify-center h-screen bg-background">
+                <Spinner />
+              </div>
+            </AuthLoading>
+            <Authenticated>
+              <AuthenticatedApp />
+            </Authenticated>
           </SignedIn>
         </TooltipProvider>
       </ConvexProvider>

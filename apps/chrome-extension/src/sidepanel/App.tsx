@@ -136,6 +136,32 @@ function AuthenticatedApp() {
   const [currentTabHost, setCurrentTabHost] = useState<string | null>(null);
   const [dismissedSuggestion, setDismissedSuggestion] =
     useState<Id<"githubRepos"> | null>(null);
+
+  const suggestedRepoId = useMemo(() => {
+    if (!currentTabHost) return null;
+    let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
+    for (const [domain, repoId] of domainToRepoId) {
+      if (
+        domainMatches(currentTabHost, domain) &&
+        (!bestMatch || domain.length > bestMatch.domain.length)
+      ) {
+        bestMatch = { domain, repoId };
+      }
+    }
+    if (!bestMatch) return null;
+    const matchedRepoId = bestMatch.repoId;
+    const exists = repos.some((r) => r._id === matchedRepoId);
+    if (!exists) return null;
+    return matchedRepoId;
+  }, [currentTabHost, domainToRepoId, repos]);
+
+  const suggestedRepo =
+    suggestedRepoId &&
+    suggestedRepoId !== selectedRepoId &&
+    dismissedSuggestion !== suggestedRepoId
+      ? repos.find((r) => r._id === suggestedRepoId)
+      : null;
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] =
     useState<Id<"sessions"> | null>(null);
@@ -634,6 +660,36 @@ function AuthenticatedApp() {
           </Tooltip>
         </div>
       </header>
+
+      {suggestedRepo && (
+        <div className="border-b border-border bg-muted/50 px-4 py-2 space-y-1.5">
+          <p className="text-sm text-muted-foreground">
+            This page matches{" "}
+            <span className="font-medium text-foreground">
+              {suggestedRepo.owner}/{suggestedRepo.name}
+            </span>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                handleRepoChange(suggestedRepo._id);
+                setDismissedSuggestion(null);
+              }}
+            >
+              Switch
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDismissedSuggestion(suggestedRepo._id)}
+            >
+              ✕
+            </Button>
+          </div>
+        </div>
+      )}
 
       {pendingProjectPins && (
         <div className="border-b border-border bg-muted/50 p-4 space-y-3">

@@ -1,5 +1,14 @@
 # Changelog
 
+## Domain-based repo auto-select for Chrome extension - 2026-03-12
+
+- Added `domains` field to `githubRepos` schema — each app/repo can have associated hostnames (e.g. `myapp.com`, `staging.myapp.com`)
+- New "Domains" section on the config page (`/settings/config`) to manage hostnames per app, with input normalization (strips protocols/paths, stores only hostnames)
+- Chrome extension now auto-selects the correct repo when browsing a configured domain, replacing the need to manually switch repos
+- Replaced hardcoded `ALLOWED_HOSTS` with a merge of static localhost defaults + DB-configured domains + `.vercel.app` wildcard
+- Uses longest-match domain resolution so `eprocurement.carepulse.co.uk` correctly selects its own app over the parent `carepulse.co.uk` app
+- Auto-select fires on both initial load and tab navigation; user can still manually override via the repo dropdown
+
 ## Fix MCP create_task/start_execution auth - 2026-03-11
 
 - **Why**: MCP `create_task` and `create_and_run_task` tools were failing with "Not authenticated". The MCP server was using deploy key auth (`Authorization: Convex ${deployKey}`) for mutations, but `authMutation` requires user identity from `ctx.auth.getUserIdentity()` which only works with JWT/Clerk auth. Deploy key auth bypasses identity entirely.

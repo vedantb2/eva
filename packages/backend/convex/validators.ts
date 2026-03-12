@@ -300,6 +300,7 @@ export const githubRepoFields = {
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
   deploymentProjectName: v.optional(v.string()),
+  domains: v.optional(v.array(v.string())),
 };
 
 export const conversationMessageValidator = v.object({

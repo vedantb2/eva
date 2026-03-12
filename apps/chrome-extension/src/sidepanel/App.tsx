@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   ClerkProvider,
   SignedIn,
@@ -50,22 +50,30 @@ if (!PUBLISHABLE_KEY) {
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
-const ALLOWED_HOSTS = [
-  "localhost:3000",
-  "localhost:3001",
-  "carepulse.co.uk",
-  "staging.carepulse.co.uk",
-  "eprocurement.carepulse.co.uk",
-];
+const ALLOWED_HOSTS = ["localhost:3000", "localhost:3001"];
 
-const isAllowedUrl = (url: string) => {
+function getHostFromUrl(url: string): string | null {
   try {
-    const { host } = new URL(url);
-    return ALLOWED_HOSTS.includes(host) || host.endsWith(".vercel.app");
+    return new URL(url).host;
   } catch {
-    return false;
+    return null;
   }
-};
+}
+
+function domainMatches(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function isAllowedHost(
+  host: string,
+  repoDomains: ReadonlyArray<string>,
+): boolean {
+  return (
+    ALLOWED_HOSTS.includes(host) ||
+    host.endsWith(".vercel.app") ||
+    repoDomains.some((d) => domainMatches(host, d))
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,6 +103,30 @@ function AuthenticatedApp() {
   const reposResult = useQuery(api.githubRepos.list, {});
   const repos = reposResult ?? [];
   const isLoadingRepos = reposResult === undefined;
+
+  const domainToRepoId = useMemo(() => {
+    const map = new Map<string, Id<"githubRepos">>();
+    for (const repo of repos) {
+      if (repo.domains) {
+        for (const raw of repo.domains) {
+          let hostname = raw;
+          try {
+            const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+            hostname = url.hostname;
+          } catch {
+            // already a plain hostname
+          }
+          map.set(hostname, repo._id);
+        }
+      }
+    }
+    return map;
+  }, [repos]);
+
+  const allRepoDomains = useMemo(
+    () => Array.from(domainToRepoId.keys()),
+    [domainToRepoId],
+  );
   const [selectedRepoId, setSelectedRepoId] =
     useState<Id<"githubRepos"> | null>(null);
   const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(
@@ -311,13 +343,41 @@ function AuthenticatedApp() {
     return () => port.disconnect();
   }, []);
 
+  const handleRepoChange = useCallback((repoId: string) => {
+    const typedId = repoId as Id<"githubRepos">;
+    setSelectedRepoId(typedId);
+    setCurrentSessionId(null);
+    chrome.storage.local.set({ defaultRepoId: repoId });
+  }, []);
+
+  const autoSelectByHost = useCallback(
+    (host: string) => {
+      let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
+        null;
+      for (const [domain, repoId] of domainToRepoId) {
+        if (
+          domainMatches(host, domain) &&
+          (!bestMatch || domain.length > bestMatch.domain.length)
+        ) {
+          bestMatch = { domain, repoId };
+        }
+      }
+      if (bestMatch && bestMatch.repoId !== selectedRepoId) {
+        handleRepoChange(bestMatch.repoId);
+      }
+    },
+    [domainToRepoId, selectedRepoId, handleRepoChange],
+  );
+
   useEffect(() => {
     const checkCurrentTab = async () => {
       const [tab] = await chrome.tabs.query({
         active: true,
         currentWindow: true,
       });
-      setIsValidUrl(tab?.url ? isAllowedUrl(tab.url) : false);
+      const host = tab?.url ? getHostFromUrl(tab.url) : null;
+      setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
+      if (host) autoSelectByHost(host);
     };
     checkCurrentTab();
 
@@ -326,17 +386,18 @@ function AuthenticatedApp() {
       changeInfo: chrome.tabs.TabChangeInfo,
     ) => {
       if (changeInfo.url) {
-        const url = changeInfo.url;
+        const host = getHostFromUrl(changeInfo.url);
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-          if (tab?.id === tabId) {
-            setIsValidUrl(isAllowedUrl(url));
+          if (tab?.id === tabId && host) {
+            setIsValidUrl(isAllowedHost(host, allRepoDomains));
+            autoSelectByHost(host);
           }
         });
       }
     };
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
     return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-  }, []);
+  }, [allRepoDomains, autoSelectByHost]);
 
   useEffect(() => {
     chrome.storage.local.get(["defaultRepoId"], (result) => {
@@ -446,13 +507,6 @@ function AuthenticatedApp() {
 
   // No auto-session creation — user picks from sidebar or creates via "+" button
 
-  const handleRepoChange = (repoId: string) => {
-    const typedId = repoId as Id<"githubRepos">;
-    setSelectedRepoId(typedId);
-    setCurrentSessionId(null);
-    chrome.storage.local.set({ defaultRepoId: repoId });
-  };
-
   const handleClearContext = (index?: number) => {
     if (index === undefined) {
       setCapturedContexts([]);
@@ -503,6 +557,9 @@ function AuthenticatedApp() {
         </p>
         <ul className="mt-4 text-muted-foreground list-disc list-inside">
           {ALLOWED_HOSTS.map((host) => (
+            <li key={host}>{host}</li>
+          ))}
+          {allRepoDomains.map((host) => (
             <li key={host}>{host}</li>
           ))}
           <li>*.vercel.app</li>

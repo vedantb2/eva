@@ -80,7 +80,9 @@ export function AuditsClient() {
             </p>
           )}
 
-          {!isApp && <AddCategoryForm repoId={repoId} />}
+          <AddCategoryForm
+            repoId={isApp && repo.parentRepoId ? repo.parentRepoId : repoId}
+          />
         </div>
 
         {isApp && (

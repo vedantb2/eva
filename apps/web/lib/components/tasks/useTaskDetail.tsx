@@ -107,6 +107,12 @@ export function useTaskDetail(
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const auditCategories = useQuery(
+    api.auditCategories.listByRepo,
+    task?.repoId ? { repoId: task.repoId } : "skip",
+  );
+  const hasEnabledAuditCategories =
+    auditCategories?.some((c) => c.enabled) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
   const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
@@ -1071,7 +1077,11 @@ export function useTaskDetail(
       )}
     </div>
   ) : (
-    <p className="text-sm text-muted-foreground">No audit available</p>
+    <p className="text-sm text-muted-foreground">
+      {hasEnabledAuditCategories
+        ? "No audit available"
+        : "No audits were enabled when Eva ran this task"}
+    </p>
   );
 
   const commentsSection = (

@@ -407,7 +407,7 @@ export function useTaskDetail(
                 <FormattedText
                   content={mainDesc}
                   editable={isEditingDescription}
-                  className="text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0"
+                  className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
                   onBlur={(markdown) => {
                     const trimmed = markdown.trim();
                     if (canEditTaskText && trimmed !== task?.description) {

@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const EXTENSIONS = [
   StarterKit.configure({
@@ -23,6 +23,8 @@ export function FormattedText({
   className?: string;
   onBlur?: (html: string) => void;
 }) {
+  const prevEditable = useRef(editable);
+
   const editor = useEditor({
     extensions: EXTENSIONS,
     content,
@@ -38,17 +40,15 @@ export function FormattedText({
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(editable);
-    if (editable) {
+    if (!prevEditable.current && editable) {
       editor.commands.focus("end");
     }
+    prevEditable.current = editable;
   }, [editor, editable]);
 
   useEffect(() => {
     if (!editor || editable) return;
-    const currentHtml = editor.getHTML();
-    if (currentHtml !== content) {
-      editor.commands.setContent(content);
-    }
+    editor.commands.setContent(content);
   }, [editor, content, editable]);
 
   return <EditorContent editor={editor} className={className} />;

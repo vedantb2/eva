@@ -253,6 +253,62 @@ export const getActivityTimeline = authQuery({
   },
 });
 
+export const getActivityHeatmap = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      count: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+
+    const oneYearAgo = Date.now() - 365 * 86_400_000;
+
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo_and_updatedAt", (q) =>
+        q.eq("repoId", args.repoId).gte("updatedAt", oneYearAgo),
+      )
+      .collect();
+
+    const dailyCounts = new Map<string, number>();
+    for (const task of tasks) {
+      if (task.status !== "done") continue;
+      const day = new Date(task.updatedAt).toISOString().slice(0, 10);
+      dailyCounts.set(day, (dailyCounts.get(day) ?? 0) + 1);
+    }
+
+    const runs = await Promise.all(
+      tasks.map((task) =>
+        ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect(),
+      ),
+    );
+    for (const taskRuns of runs) {
+      for (const run of taskRuns) {
+        if (
+          run.status === "success" &&
+          run.finishedAt &&
+          run.finishedAt >= oneYearAgo
+        ) {
+          const day = new Date(run.finishedAt).toISOString().slice(0, 10);
+          dailyCounts.set(day, (dailyCounts.get(day) ?? 0) + 1);
+        }
+      }
+    }
+
+    return [...dailyCounts.entries()]
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  },
+});
+
 export const getLeaderboard = authQuery({
   args: {
     repoId: v.id("githubRepos"),

@@ -133,6 +133,9 @@ function AuthenticatedApp() {
     [],
   );
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
+  const [currentTabHost, setCurrentTabHost] = useState<string | null>(null);
+  const [dismissedSuggestion, setDismissedSuggestion] =
+    useState<Id<"githubRepos"> | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] =
     useState<Id<"sessions"> | null>(null);
@@ -343,31 +346,11 @@ function AuthenticatedApp() {
     return () => port.disconnect();
   }, []);
 
-  const handleRepoChange = useCallback((repoId: string) => {
-    const typedId = repoId as Id<"githubRepos">;
-    setSelectedRepoId(typedId);
+  const handleRepoChange = useCallback((repoId: Id<"githubRepos">) => {
+    setSelectedRepoId(repoId);
     setCurrentSessionId(null);
     chrome.storage.local.set({ defaultRepoId: repoId });
   }, []);
-
-  const autoSelectByHost = useCallback(
-    (host: string) => {
-      let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
-        null;
-      for (const [domain, repoId] of domainToRepoId) {
-        if (
-          domainMatches(host, domain) &&
-          (!bestMatch || domain.length > bestMatch.domain.length)
-        ) {
-          bestMatch = { domain, repoId };
-        }
-      }
-      if (bestMatch && bestMatch.repoId !== selectedRepoId) {
-        handleRepoChange(bestMatch.repoId);
-      }
-    },
-    [domainToRepoId, selectedRepoId, handleRepoChange],
-  );
 
   useEffect(() => {
     const checkCurrentTab = async () => {
@@ -377,7 +360,22 @@ function AuthenticatedApp() {
       });
       const host = tab?.url ? getHostFromUrl(tab.url) : null;
       setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
-      if (host) autoSelectByHost(host);
+      setCurrentTabHost(host);
+      if (host) {
+        let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
+          null;
+        for (const [domain, repoId] of domainToRepoId) {
+          if (
+            domainMatches(host, domain) &&
+            (!bestMatch || domain.length > bestMatch.domain.length)
+          ) {
+            bestMatch = { domain, repoId };
+          }
+        }
+        if (bestMatch && !selectedRepoId) {
+          handleRepoChange(bestMatch.repoId);
+        }
+      }
     };
     checkCurrentTab();
 
@@ -390,14 +388,27 @@ function AuthenticatedApp() {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id === tabId && host) {
             setIsValidUrl(isAllowedHost(host, allRepoDomains));
-            autoSelectByHost(host);
+            setCurrentTabHost(host);
           }
         });
       }
     };
+
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      chrome.tabs.get(activeInfo.tabId, (tab) => {
+        const host = tab?.url ? getHostFromUrl(tab.url) : null;
+        setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
+        setCurrentTabHost(host);
+      });
+    };
+
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-  }, [allRepoDomains, autoSelectByHost]);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
+  }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
 
   useEffect(() => {
     chrome.storage.local.get(["defaultRepoId"], (result) => {

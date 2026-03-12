@@ -1,47 +1,10 @@
 {
   "mcpServers": {
-    "figma": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "figma-developer-mcp", "--stdio"],
-      "env": { "FIGMA_API_KEY": "${FIGMA_API_KEY}" }
-    },
-    "linear": {
-      "type": "http",
-      "url": "https://mcp.linear.app/mcp",
-      "headers": { "Authorization": "Bearer ${LINEAR_API_KEY}" }
-    },
-    "sentry": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@sentry/mcp-server",
-        "--access-token",
-        "${SENTRY_ACCESS_TOKEN}"
-      ]
-    },
-    "posthog": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote@latest",
-        "https://mcp.posthog.com/sse",
-        "--header",
-        "Authorization:Bearer ${POSTHOG_API_KEY}"
-      ]
-    },
-    "supabase-db": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--access-token",
-        "${SUPABASE_ACCESS_TOKEN}",
-        "--read-only"
-      ]
+    "eva": {
+      "url": "https://eva-mcp-staging.up.railway.app/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzM1anV4VWlBNkE5aDJKYlc3VEVEazM5ajN5byIsImlzcyI6ImV2YSIsImF1ZCI6Im1jcC1pbnRlcm5hbCIsInJlcG9JZCI6Im1oN2NjYWJwejV3NzI5Z3k5ZTN2cGthY2h4ODI1OTE2IiwiaWF0IjoxNzczMzQ1MDQzLCJleHAiOjE3NzMzNzM4NDN9.58ACZISUrkM1l37Pfd56mOx6lTGsEQNbnxkAn42EUIY"
+      }
     }
   }
 }

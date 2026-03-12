@@ -71,8 +71,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
+import { FormattedText } from "./_utils";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -443,12 +442,9 @@ export function useTaskDetail(
                   !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
                 }`}
               >
-                <Streamdown
-                  plugins={{ code }}
-                  className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
-                >
+                <FormattedText className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
                   {mainDesc}
-                </Streamdown>
+                </FormattedText>
               </div>
               {elementDetails && (
                 <Accordion type="single" collapsible className="mt-2 px-0">

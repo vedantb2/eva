@@ -11,8 +11,8 @@ export const taskStatusValidator = v.union(
   v.literal("draft"),
   v.literal("todo"),
   v.literal("in_progress"),
-  v.literal("business_review"),
   v.literal("code_review"),
+  v.literal("business_review"),
   v.literal("done"),
   v.literal("cancelled"),
 );

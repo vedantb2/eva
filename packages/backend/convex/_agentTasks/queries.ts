@@ -35,8 +35,8 @@ export const getActiveTasks = authQuery({
     const activeStatuses = [
       "todo",
       "in_progress",
-      "business_review",
       "code_review",
+      "business_review",
     ] as const;
 
     let repoIds: Array<Id<"githubRepos">>;
@@ -79,8 +79,8 @@ export const getAllTasks = authQuery({
     const nonDraftStatuses = [
       "todo",
       "in_progress",
-      "business_review",
       "code_review",
+      "business_review",
       "done",
       "cancelled",
     ] as const;

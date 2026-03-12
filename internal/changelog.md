@@ -1,5 +1,13 @@
 # Changelog
 
+## Swap code review and business review stage order - 2026-03-12
+
+- Pipeline now flows: in_progress → code_review → business_review → done (previously business_review came first)
+- After a successful agent run, tasks now land in code_review (first review stage) instead of business_review
+- Simplified runLifecycle.ts — resolve_conflicts and normal runs both go to code_review now (no conditional needed)
+- Updated project phase recomputation to treat business_review (now the final review stage) as "active"
+- Swapped column/section ordering across all frontend views (kanban, list, project tasks, bulk status modal)
+
 ## Remove flag mode from chrome extension and sessions page - 2026-03-12
 
 - Removed "flag" tab mode from chrome extension chat UI — extension now only supports "ask" mode (read-only Q&A with MCP access)

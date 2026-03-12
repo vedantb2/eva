@@ -23,8 +23,8 @@ import {
 const STATUS_OPTIONS = [
   { value: "todo", label: "To Do" },
   { value: "in_progress", label: "In Progress" },
-  { value: "business_review", label: "Business Review" },
   { value: "code_review", label: "Code Review" },
+  { value: "business_review", label: "Business Review" },
   { value: "done", label: "Done" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;

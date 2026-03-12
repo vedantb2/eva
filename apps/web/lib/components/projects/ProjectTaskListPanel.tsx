@@ -20,8 +20,8 @@ type TaskStatus = Task["status"];
 const STATUS_ORDER: TaskStatus[] = [
   "todo",
   "in_progress",
-  "business_review",
   "code_review",
+  "business_review",
   "done",
   "cancelled",
 ];
@@ -42,8 +42,8 @@ export function ProjectTaskListPanel({
       draft: [],
       todo: [],
       in_progress: [],
-      business_review: [],
       code_review: [],
+      business_review: [],
       done: [],
       cancelled: [],
     };

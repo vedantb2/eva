@@ -1,5 +1,12 @@
 # Changelog
 
+## Repo switch nudge banner for Chrome extension - 2026-03-12
+
+- Instead of silently auto-switching repos when navigating to a different domain, the extension now shows a nudge banner: "This page matches owner/repo-name" with Switch/dismiss buttons
+- Added `chrome.tabs.onActivated` listener so the extension detects tab switches (previously only detected URL changes within the same tab via `onUpdated`)
+- User controls when to switch repos — prevents disorienting context switches mid-conversation
+- Fixed `handleRepoChange` to accept `Id<"githubRepos">` instead of untyped `string`, removing an `as` cast
+
 ## Swap code review and business review stage order - 2026-03-12
 
 - Pipeline now flows: in_progress → code_review → business_review → done (previously business_review came first)

@@ -38,7 +38,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { type StoredPin, CONDUCTOR_URL } from "@/shared/messaging";
+import { type StoredPin, EVA_URL } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 import { useTheme } from "./hooks/useTheme";
 
@@ -374,8 +374,16 @@ function AuthenticatedApp() {
 
   const handleRepoChange = useCallback((repoId: Id<"githubRepos">) => {
     setSelectedRepoId(repoId);
-    setCurrentSessionId(null);
     chrome.storage.local.set({ defaultRepoId: repoId });
+    chrome.storage.local.get(["lastSessionByRepo"], (result) => {
+      const map = isRecord(result.lastSessionByRepo)
+        ? result.lastSessionByRepo
+        : {};
+      const saved = map[repoId];
+      setCurrentSessionId(
+        typeof saved === "string" ? (saved as Id<"sessions">) : null,
+      );
+    });
   }, []);
 
   useEffect(() => {
@@ -437,12 +445,38 @@ function AuthenticatedApp() {
   }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
 
   useEffect(() => {
-    chrome.storage.local.get(["defaultRepoId"], (result) => {
-      if (result.defaultRepoId && typeof result.defaultRepoId === "string") {
-        setSelectedRepoId(result.defaultRepoId as Id<"githubRepos">);
-      }
-    });
+    chrome.storage.local.get(
+      ["defaultRepoId", "lastSessionByRepo"],
+      (result) => {
+        const repoId = result.defaultRepoId;
+        if (repoId && typeof repoId === "string") {
+          setSelectedRepoId(repoId as Id<"githubRepos">);
+          const map = isRecord(result.lastSessionByRepo)
+            ? result.lastSessionByRepo
+            : {};
+          const saved = map[repoId];
+          if (typeof saved === "string") {
+            setCurrentSessionId(saved as Id<"sessions">);
+          }
+        }
+      },
+    );
   }, []);
+
+  useEffect(() => {
+    if (!selectedRepoId) return;
+    chrome.storage.local.get(["lastSessionByRepo"], (result) => {
+      const map = isRecord(result.lastSessionByRepo)
+        ? { ...result.lastSessionByRepo }
+        : {};
+      if (currentSessionId) {
+        map[selectedRepoId] = currentSessionId;
+      } else {
+        delete map[selectedRepoId];
+      }
+      chrome.storage.local.set({ lastSessionByRepo: map });
+    });
+  }, [currentSessionId, selectedRepoId]);
 
   useEffect(() => {
     if (syncedToolbarVisible === undefined || syncedToolbarVisible === null)
@@ -568,10 +602,14 @@ function AuthenticatedApp() {
     setCurrentSessionId(sessionId as Id<"sessions">);
   };
 
-  const handleOpenInConductor = () => {
+  const handleGoHome = () => {
+    setCurrentSessionId(null);
+  };
+
+  const handleOpenInEva = () => {
     const selectedRepo = repos.find((r) => r._id === selectedRepoId);
     if (!selectedRepo) return;
-    const base = `${CONDUCTOR_URL}/${selectedRepo.owner}/${selectedRepo.name}`;
+    const base = `${EVA_URL}/${selectedRepo.owner}/${selectedRepo.name}`;
     const url = currentSessionId
       ? `${base}/sessions/${currentSessionId}`
       : base;
@@ -635,15 +673,11 @@ function AuthenticatedApp() {
           {selectedRepoId && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleOpenInConductor}
-                >
+                <Button variant="ghost" size="icon" onClick={handleOpenInEva}>
                   <IconExternalLink size={18} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open in Conductor</TooltipContent>
+              <TooltipContent>Open in Eva</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -780,6 +814,7 @@ function AuthenticatedApp() {
           repoId={selectedRepoId}
           currentSessionId={currentSessionId}
           onSessionSelect={handleSessionSelect}
+          onGoHome={handleGoHome}
           afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
           theme={theme}
           onToggleTheme={toggleTheme}

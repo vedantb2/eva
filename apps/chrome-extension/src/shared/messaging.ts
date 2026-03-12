@@ -206,8 +206,8 @@ export type ExtensionMessage =
   | RunAllResultMessage
   | RunAnnotationTaskMessage;
 
-export const CONDUCTOR_URL =
+export const EVA_URL =
   typeof chrome !== "undefined" &&
   chrome.runtime?.getManifest?.()?.version_name === "development"
     ? "http://localhost:3000"
-    : "https://conductor-lake.vercel.app";
+    : "https://eva-git-staging-vedantb.vercel.app";

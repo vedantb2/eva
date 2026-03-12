@@ -10,6 +10,7 @@ import {
   IconMoon,
   IconArchive,
   IconMessageCircle2,
+  IconHome,
 } from "@tabler/icons-react";
 import {
   Button,
@@ -18,6 +19,9 @@ import {
   SheetTitle,
   SearchInput,
   Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -32,6 +36,7 @@ interface SessionSidebarProps {
   repoId: Id<"githubRepos">;
   currentSessionId: Id<"sessions"> | null;
   onSessionSelect: (sessionId: string) => void;
+  onGoHome: () => void;
   afterSignOutUrl: string;
   theme: string;
   onToggleTheme: () => void;
@@ -43,6 +48,7 @@ export function SessionSidebar({
   repoId,
   currentSessionId,
   onSessionSelect,
+  onGoHome,
   afterSignOutUrl,
   theme,
   onToggleTheme,
@@ -80,9 +86,14 @@ export function SessionSidebar({
 
   const handleSearchClear = () => setSearch("");
 
-  const handleViewChange = (next: View) => {
-    setView(next);
+  const handleViewChange = (next: string) => {
+    setView(next as View);
     setSearch("");
+  };
+
+  const handleGoHome = () => {
+    onGoHome();
+    onClose();
   };
 
   return (
@@ -93,7 +104,7 @@ export function SessionSidebar({
       }}
     >
       <SheetContent side="left" className="w-64 p-0" hideCloseButton>
-        <div className="flex items-center h-14 px-4 shrink-0">
+        <div className="flex items-center justify-between h-14 px-4 shrink-0">
           <div className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5">
             <img
               src={chrome.runtime.getURL("icons/icon.png")}
@@ -106,31 +117,29 @@ export function SessionSidebar({
               Eva
             </SheetTitle>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleGoHome}>
+                <IconHome size={18} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Home</TooltipContent>
+          </Tooltip>
         </div>
 
-        <div className="flex gap-1 px-3 pb-2 shrink-0">
-          <button
-            onClick={() => handleViewChange("sessions")}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              view === "sessions"
-                ? "bg-accent text-primary"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            }`}
-          >
-            <IconMessage size={14} />
-            Sessions
-          </button>
-          <button
-            onClick={() => handleViewChange("designs")}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              view === "designs"
-                ? "bg-accent text-primary"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            }`}
-          >
-            <IconPalette size={14} />
-            Designs
-          </button>
+        <div className="px-3 pb-2 shrink-0">
+          <Tabs value={view} onValueChange={handleViewChange}>
+            <TabsList className="w-full">
+              <TabsTrigger value="sessions" className="flex-1 gap-1.5 text-xs">
+                <IconMessage size={14} />
+                Sessions
+              </TabsTrigger>
+              <TabsTrigger value="designs" className="flex-1 gap-1.5 text-xs">
+                <IconPalette size={14} />
+                Designs
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="px-3 pb-2 shrink-0">

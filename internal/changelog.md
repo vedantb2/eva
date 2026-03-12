@@ -1,5 +1,12 @@
 # Changelog
 
+## Chrome extension bug fixes: branding, URL, session persistence, sidebar tabs - 2026-03-12
+
+- Renamed "Open in Conductor" → "Open in Eva" and updated production URL from `conductor-lake.vercel.app` to `eva-git-staging-vedantb.vercel.app`
+- Opening the extension now restores the last viewed session **per repo** (persisted as `lastSessionByRepo` map in `chrome.storage.local`) instead of showing an empty screen — switching repos also restores that repo's last session
+- Added home button to sidebar sheet header so users can navigate back to the empty/home screen
+- Replaced custom tab buttons in sidebar with the shared `Tabs`/`TabsList`/`TabsTrigger` UI components for consistency
+
 ## Repo switch nudge banner for Chrome extension - 2026-03-12
 
 - Instead of silently auto-switching repos when navigating to a different domain, the extension now shows a nudge banner: "This page matches owner/repo-name" with Switch/dismiss buttons

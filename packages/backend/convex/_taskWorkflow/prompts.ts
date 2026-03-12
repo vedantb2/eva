@@ -91,9 +91,10 @@ Skip entirely if your changes are backend-only with no UI impact. Do NOT mention
 1. Run \`agent-browser set viewport 1920 1080\`
 2. Start dev server in background, wait for ready
 3. Navigate to the page that shows your change: \`agent-browser open http://localhost:3000/<relevant-route>\`
-4. For simple/single-page changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
-5. For complex/multi-page changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait for load, scroll to show changes), then \`agent-browser record stop\`
-6. Kill the dev server
+4. For multi-step changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait for load, scroll to show changes), then \`agent-browser record stop\`
+5. For extremely simple changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
+6. Always prefer recording a video walkthrough of the change, screenshot only if the change is very minor or hard to capture in video (e.g. a small text change). If in doubt, record a video.
+7. Kill the dev server
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 
 ## Rules:

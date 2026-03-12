@@ -33,7 +33,14 @@
       "better-sqlite3",
       "electron",
       "node-pty"
-    ]
+    ],
+    "packageExtensions": {
+      "@convex-dev/prosemirror-sync": {
+        "peerDependencies": {
+          "@tiptap/pm": "*"
+        }
+      }
+    }
   },
   "devDependencies": {
     "husky": "^9.1.7",

@@ -87,10 +87,7 @@ export const getSessionData = internalQuery({
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .collect();
 
-    const conversation = messages
-      .filter((m) => m.mode !== "flag")
-      .map((m) => m.content)
-      .join("\n\n");
+    const conversation = messages.map((m) => m.content).join("\n\n");
 
     const prompt = `Summarize what was accomplished in this coding session into 3-6 short bullet points. Focus on concrete outcomes: features built, bugs fixed, files changed, decisions made. Be direct and specific.
 

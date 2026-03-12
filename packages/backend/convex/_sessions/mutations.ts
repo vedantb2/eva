@@ -33,12 +33,7 @@ export const addMessage = authMutation({
     role: roleValidator,
     content: v.string(),
     mode: v.optional(
-      v.union(
-        v.literal("execute"),
-        v.literal("ask"),
-        v.literal("plan"),
-        v.literal("flag"),
-      ),
+      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan")),
     ),
     activityLog: v.optional(v.string()),
   },

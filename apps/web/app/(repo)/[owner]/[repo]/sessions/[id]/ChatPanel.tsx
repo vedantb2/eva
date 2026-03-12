@@ -52,7 +52,7 @@ import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { sessionModeParser } from "@/lib/search-params";
@@ -276,10 +276,6 @@ export function ChatPanel({
     await handleSend(text);
   };
 
-  const filteredMessages = useMemo(
-    () => messages.filter((m) => m.mode !== "flag"),
-    [messages],
-  );
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
@@ -423,7 +419,7 @@ export function ChatPanel({
       </AnimatePresence>
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3">
-          {filteredMessages.length === 0 ? (
+          {messages.length === 0 ? (
             <ConversationEmptyState
               title={
                 isSandboxActive
@@ -432,7 +428,7 @@ export function ChatPanel({
               }
             />
           ) : (
-            filteredMessages.map((message) =>
+            messages.map((message) =>
               message.isSystemAlert ? (
                 <SystemAlertMessage
                   key={message._id}

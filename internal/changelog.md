@@ -1,5 +1,12 @@
 # Changelog
 
+## Remove flag mode from chrome extension and sessions page - 2026-03-12
+
+- Removed "flag" tab mode from chrome extension chat UI — extension now only supports "ask" mode (read-only Q&A with MCP access)
+- Removed flag message filtering from session detail page and summarize workflow since flag messages will no longer be created
+- Added migration function (`migrateFlagMessages`) to convert existing flag messages to ask mode — run before removing `v.literal("flag")` from validators
+- Kept `v.literal("flag")` in `sessionModeValidator` temporarily until migration runs (chicken-egg pattern)
+
 ## Domain-based repo auto-select for Chrome extension - 2026-03-12
 
 - Added `domains` field to `githubRepos` schema — each app/repo can have associated hostnames (e.g. `myapp.com`, `staging.myapp.com`)

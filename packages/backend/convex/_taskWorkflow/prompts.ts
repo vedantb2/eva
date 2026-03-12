@@ -71,16 +71,16 @@ IMPORTANT: This task was already implemented. The branch "${branchName}" has com
 ${subtasksList}${changeRequestSection}
 
 ## Steps:
-1. Read CLAUDE.md to understand the codebase
+1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Update CLAUDE.md if you made major changes
-4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
-5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-6. Run: git push -u origin ${branchName}
+3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
+5. Run: git push -u origin ${branchName}
 
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
-Skip entirely if your changes are backend-only with no UI impact. Do NOT mention proof capture in your response or commit message.
+Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).
+Do NOT mention proof capture in your response or commit message.
 
 ### How to decide WHAT to capture:
 - Think about which page/route your changes affect. If you edited a settings form, navigate to /settings. If you changed a dashboard widget, go to /dashboard.
@@ -91,17 +91,19 @@ Skip entirely if your changes are backend-only with no UI impact. Do NOT mention
 1. Run \`agent-browser set viewport 1920 1080\`
 2. Start dev server in background, wait for ready
 3. Navigate to the page that shows your change: \`agent-browser open http://localhost:3000/<relevant-route>\`
-4. For multi-step changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait for load, scroll to show changes), then \`agent-browser record stop\`
-5. For extremely simple changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
-6. Always prefer recording a video walkthrough of the change, screenshot only if the change is very minor or hard to capture in video (e.g. a small text change). If in doubt, record a video.
-7. Kill the dev server
+4. Wait minimum 5 seconds after each navigation for the page to fully render before capturing or navigating further.
+5. For multi-step changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
+6. For extremely simple changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
+7. Always prefer recording a video walkthrough of the change, screenshot only if the change is very minor or hard to capture in video (e.g. a small text change). If in doubt, record a video.
+8. **Verify proof quality**: Review the screenshot/recording output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
+9. Kill the dev server
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
 
 ## Rules:
-- Do NOT create .md plan files or run lint/test/dev commands (except the build step above and dev server for proof)
+- Do NOT create .md plan files or run lint/dev commands (except the build/test steps above and dev server for proof)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
-- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
-- For gh: \`GH_PROMPT_DISABLED=1 timeout 20 gh ...\`
+- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
+- For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 

@@ -68,11 +68,10 @@ import {
   IconBrandVercel,
   IconHammer,
 } from "@tabler/icons-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
+import { FormattedText } from "./_components/FormattedText";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -155,11 +154,9 @@ export function useTaskDetail(
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editDescription, setEditDescription] = useState("");
   const [viewingCommentForRun, setViewingCommentForRun] = useState<
     string | null
   >(null);
-  const descriptionEditorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTagsInput((task?.tags ?? []).join(", "));
@@ -238,26 +235,6 @@ export function useTaskDetail(
     setIsEditingTitle(false);
     setIsEditingDescription(false);
   }, [canEditTaskText]);
-
-  useEffect(() => {
-    if (!isEditingDescription) return;
-    const editor = descriptionEditorRef.current;
-    if (!editor || typeof window === "undefined") return;
-    editor.innerText = editDescription;
-    editor.focus();
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  }, [isEditingDescription]);
-
-  const beginDescriptionEdit = (value: string) => {
-    if (!canEditTaskText) return;
-    setEditDescription(value);
-    setIsEditingDescription(true);
-  };
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -390,116 +367,89 @@ export function useTaskDetail(
             : ""}
         </span>
       </div>
-      {isEditingDescription ? (
-        <div
-          ref={descriptionEditorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={(event) =>
-            setEditDescription(event.currentTarget.innerText.replace(/\r/g, ""))
-          }
-          onBlur={() => {
-            const trimmed = editDescription.trim();
-            if (canEditTaskText && trimmed !== task?.description) {
-              updateTask({ id: taskId, description: trimmed });
-            }
-            setIsEditingDescription(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && e.ctrlKey) {
-              e.currentTarget.blur();
-            } else if (e.key === "Escape") {
-              setEditDescription(task?.description ?? "");
-              setIsEditingDescription(false);
-            }
-          }}
-          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
-        />
-      ) : task?.description ? (
-        (() => {
-          const separatorIndex = task.description.indexOf("---");
-          const mainDesc =
-            separatorIndex !== -1
-              ? task.description.slice(0, separatorIndex).trimEnd()
-              : task.description;
-          const elementDetails =
-            separatorIndex !== -1
-              ? task.description.slice(separatorIndex + 3).trimStart()
-              : null;
-          return (
-            <>
-              <div
-                onClick={
-                  canEditTaskText
-                    ? () => beginDescriptionEdit(task.description ?? "")
-                    : undefined
-                }
-                title={
-                  canEditTaskText
-                    ? undefined
-                    : "Description can only be edited in To Do"
-                }
-                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
-                  !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
-                }`}
-              >
-                <Streamdown
-                  plugins={{ code }}
-                  className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
-                >
-                  {mainDesc}
-                </Streamdown>
-              </div>
-              {elementDetails && (
-                <Accordion type="single" collapsible className="mt-2 px-0">
-                  <AccordionItem value="element-details">
-                    <AccordionTrigger>
-                      <span className="text-xs text-muted-foreground">
-                        Element Details
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <SyntaxHighlighter
-                        language="css"
-                        style={oneDark}
-                        wrapLines
-                        wrapLongLines
-                        customStyle={{
-                          fontSize: "0.75rem",
-                          borderRadius: "0.5rem",
-                          margin: 0,
-                        }}
-                      >
-                        {elementDetails}
-                      </SyntaxHighlighter>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+      {(() => {
+        const description = task?.description ?? "";
+        const separatorIndex = description.indexOf("---");
+        const mainDesc =
+          separatorIndex !== -1
+            ? description.slice(0, separatorIndex).trimEnd()
+            : description;
+        const elementDetails =
+          separatorIndex !== -1
+            ? description.slice(separatorIndex + 3).trimStart()
+            : null;
+        return (
+          <>
+            <div
+              onClick={
+                !isEditingDescription && canEditTaskText
+                  ? () => setIsEditingDescription(true)
+                  : undefined
+              }
+              title={
+                !isEditingDescription && !canEditTaskText
+                  ? "Description can only be edited in To Do"
+                  : undefined
+              }
+              className={`min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline && !isEditingDescription ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
+                isEditingDescription
+                  ? ""
+                  : !canEditTaskText
+                    ? ""
+                    : "cursor-pointer hover:bg-muted/50"
+              }`}
+            >
+              {!description && !isEditingDescription ? (
+                <p className="text-sm text-muted-foreground italic">
+                  Click to add description...
+                </p>
+              ) : (
+                <FormattedText
+                  content={mainDesc}
+                  editable={isEditingDescription}
+                  className="text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0"
+                  onBlur={(markdown) => {
+                    const trimmed = markdown.trim();
+                    if (canEditTaskText && trimmed !== task?.description) {
+                      const fullDesc = elementDetails
+                        ? `${trimmed}\n---\n${elementDetails}`
+                        : trimmed;
+                      updateTask({ id: taskId, description: fullDesc });
+                    }
+                    setIsEditingDescription(false);
+                  }}
+                />
               )}
-            </>
-          );
-        })()
-      ) : (
-        <p
-          onClick={() => {
-            if (canEditTaskText) {
-              beginDescriptionEdit("");
-            }
-          }}
-          title={
-            canEditTaskText
-              ? undefined
-              : "Description can only be edited in To Do"
-          }
-          className={`text-sm text-muted-foreground italic ${
-            !canEditTaskText
-              ? ""
-              : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
-          }`}
-        >
-          Click to add description...
-        </p>
-      )}
+            </div>
+            {!isEditingDescription && elementDetails && (
+              <Accordion type="single" collapsible className="mt-2 px-0">
+                <AccordionItem value="element-details">
+                  <AccordionTrigger>
+                    <span className="text-xs text-muted-foreground">
+                      Element Details
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <SyntaxHighlighter
+                      language="css"
+                      style={oneDark}
+                      wrapLines
+                      wrapLongLines
+                      customStyle={{
+                        fontSize: "0.75rem",
+                        borderRadius: "0.5rem",
+                        margin: 0,
+                      }}
+                    >
+                      {elementDetails}
+                    </SyntaxHighlighter>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 

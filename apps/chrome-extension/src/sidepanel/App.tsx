@@ -21,6 +21,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -199,10 +200,12 @@ function AuthenticatedApp() {
   const sendToolbarResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: "TOOLBAR_RESULT",
-          payload: { success, message },
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: "TOOLBAR_RESULT",
+            payload: { success, message },
+          })
+          .catch(() => {});
       }
     });
   }, []);
@@ -214,9 +217,11 @@ function AuthenticatedApp() {
     });
     if (!tab?.id) return;
     const next = !toolbarVisible;
-    chrome.tabs.sendMessage(tab.id, {
-      type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-    });
+    chrome.tabs
+      .sendMessage(tab.id, {
+        type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+      })
+      .catch(() => {});
     setToolbarVisibleMutation({ visible: next });
   }, [toolbarVisible, setToolbarVisibleMutation]);
 
@@ -255,10 +260,12 @@ function AuthenticatedApp() {
   const sendRunAllResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: "RUN_ALL_RESULT",
-          payload: { success, message },
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: "RUN_ALL_RESULT",
+            payload: { success, message },
+          })
+          .catch(() => {});
       }
     });
   }, []);
@@ -277,15 +284,17 @@ function AuthenticatedApp() {
           });
           chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (tab?.id) {
-              chrome.tabs.sendMessage(tab.id, {
-                type: "ANNOTATION_TASK_CREATED",
-                payload: {
-                  pinId,
-                  taskId: String(taskId),
-                  userId: convexUserId ?? undefined,
-                  creatorInitials,
-                },
-              });
+              chrome.tabs
+                .sendMessage(tab.id, {
+                  type: "ANNOTATION_TASK_CREATED",
+                  payload: {
+                    pinId,
+                    taskId: String(taskId),
+                    userId: convexUserId ?? undefined,
+                    creatorInitials,
+                  },
+                })
+                .catch(() => {});
             }
           });
           await startExecution({ id: taskId });
@@ -483,9 +492,11 @@ function AuthenticatedApp() {
       return;
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+          })
+          .catch(() => {});
       }
     });
   }, [syncedToolbarVisible]);
@@ -511,7 +522,9 @@ function AuthenticatedApp() {
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id && syncedToolbarVisible) {
-            chrome.tabs.sendMessage(tab.id, { type: "SHOW_TOOLBAR" });
+            chrome.tabs
+              .sendMessage(tab.id, { type: "SHOW_TOOLBAR" })
+              .catch(() => {});
           }
         });
       }
@@ -825,6 +838,9 @@ function AuthenticatedApp() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Session</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new chat session
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <label

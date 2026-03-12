@@ -58,22 +58,26 @@ chrome.runtime.onMessage.addListener(
       }
 
       case "ANNOTATIONS_CHANGED": {
-        chrome.runtime.sendMessage({
-          type: "ANNOTATIONS_CHANGED",
-          payload: message.payload,
-        });
+        chrome.runtime
+          .sendMessage({
+            type: "ANNOTATIONS_CHANGED",
+            payload: message.payload,
+          })
+          .catch(() => {});
         sendResponse({ success: true });
         break;
       }
 
       case "STOP_ANNOTATION": {
-        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" });
+        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" }).catch(() => {});
         sendResponse({ success: true });
         break;
       }
 
       case "REQUEST_ANNOTATIONS": {
-        chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
+        chrome.runtime
+          .sendMessage({ type: "REQUEST_ANNOTATIONS" })
+          .catch(() => {});
         sendResponse({ success: true });
         break;
       }
@@ -82,10 +86,12 @@ chrome.runtime.onMessage.addListener(
       case "TOOLBAR_ADD_QUICK_TASKS":
       case "TOOLBAR_ADD_TO_PROJECT":
       case "RUN_ALL_ANNOTATIONS": {
-        chrome.runtime.sendMessage({
-          type: message.type,
-          payload: message.payload,
-        });
+        chrome.runtime
+          .sendMessage({
+            type: message.type,
+            payload: message.payload,
+          })
+          .catch(() => {});
         sendResponse({ success: true });
         break;
       }

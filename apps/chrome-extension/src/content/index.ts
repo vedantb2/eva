@@ -121,6 +121,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
+chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" }).catch(() => {});
 ensureToolbarMount();
-chrome.runtime.sendMessage({ type: "REQUEST_TOOLBAR_STATE" });
+chrome.runtime.sendMessage({ type: "REQUEST_TOOLBAR_STATE" }).catch(() => {});

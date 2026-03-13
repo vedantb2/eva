@@ -1,5 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -17,23 +17,7 @@ const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
 const CONNECT_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 30_000;
 
-const READ_ONLY_TOOLS = new Set([
-  "execute_sql",
-  "generate_typescript_types",
-  "get_anon_key",
-  "get_cost",
-  "get_logs",
-  "get_organization",
-  "get_project",
-  "get_project_url",
-  "list_branches",
-  "list_edge_functions",
-  "list_extensions",
-  "list_migrations",
-  "list_organizations",
-  "list_projects",
-  "list_tables",
-]);
+const SUPABASE_REMOTE_URL = "https://mcp.supabase.com/mcp?read_only=true";
 
 interface CachedToken {
   clerkUserId: string;
@@ -84,16 +68,6 @@ async function resolveSupabaseToken(
   return null;
 }
 
-function buildChildEnv(token: string): Record<string, string> {
-  const env: Record<string, string> = { SUPABASE_ACCESS_TOKEN: token };
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  return env;
-}
-
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
@@ -117,12 +91,18 @@ function withTimeout<T>(
   });
 }
 
-async function spawnClient(token: string): Promise<Client> {
-  const transport = new StdioClientTransport({
-    command: "npx",
-    args: ["@supabase/mcp-server-supabase", "--read-only"],
-    env: buildChildEnv(token),
+function createTransport(token: string): StreamableHTTPClientTransport {
+  return new StreamableHTTPClientTransport(new URL(SUPABASE_REMOTE_URL), {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
   });
+}
+
+async function connectClient(token: string): Promise<Client> {
+  const transport = createTransport(token);
   const client = new Client({ name: "eva-supabase-proxy", version: "1.0.0" });
   try {
     await withTimeout(
@@ -132,7 +112,6 @@ async function spawnClient(token: string): Promise<Client> {
     );
   } catch (err) {
     await client.close().catch(() => {});
-    await transport.close().catch(() => {});
     throw err;
   }
   return client;
@@ -210,11 +189,13 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log("  Supabase: token found, discovering tools...");
+  console.log(
+    "  Supabase: token found, discovering tools from remote server...",
+  );
 
   let tools: Tool[];
   try {
-    const client = await spawnClient(token);
+    const client = await connectClient(token);
     try {
       const result = await withTimeout(
         client.listTools(),
@@ -235,14 +216,11 @@ export async function registerSupabaseTools(
     return;
   }
 
-  const readOnlyTools = tools.filter((t) => READ_ONLY_TOOLS.has(t.name));
-  const skipped = tools.length - readOnlyTools.length;
-
   console.log(
-    `  Supabase: discovered ${tools.length} tools, registering ${readOnlyTools.length} read-only (skipped ${skipped} write tools)`,
+    `  Supabase: discovered ${tools.length} tools, registering with prefix "${SUPABASE_PREFIX}"`,
   );
 
-  for (const tool of readOnlyTools) {
+  for (const tool of tools) {
     const prefixedName = `${SUPABASE_PREFIX}${tool.name}`;
     const zodShape = toolSchemaToZodShape(tool.inputSchema);
 
@@ -265,7 +243,7 @@ export async function registerSupabaseTools(
         }
 
         try {
-          const client = await spawnClient(currentToken);
+          const client = await connectClient(currentToken);
           try {
             const result = await withTimeout(
               client.callTool({ name: tool.name, arguments: args }),
@@ -332,5 +310,5 @@ export async function registerSupabaseTools(
     );
   }
 
-  console.log(`  Supabase: registered ${readOnlyTools.length} read-only tools`);
+  console.log(`  Supabase: registered ${tools.length} tools`);
 }

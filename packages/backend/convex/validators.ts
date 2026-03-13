@@ -202,6 +202,12 @@ export const fontFamilyValidator = v.union(
   v.literal("dm-sans"),
   v.literal("space-grotesk"),
   v.literal("geist"),
+  v.literal("source-serif"),
+  v.literal("jakarta"),
+  v.literal("outfit"),
+  v.literal("nunito"),
+  v.literal("ibm-plex"),
+  v.literal("figtree"),
 );
 
 export const letterSpacingValidator = v.union(

@@ -30,7 +30,13 @@ export type FontFamily =
   | "poppins"
   | "dm-sans"
   | "space-grotesk"
-  | "geist";
+  | "geist"
+  | "source-serif"
+  | "jakarta"
+  | "outfit"
+  | "nunito"
+  | "ibm-plex"
+  | "figtree";
 export type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
 
 export interface CustomTheme {
@@ -108,6 +114,39 @@ export const FONT_FAMILIES: Record<
     variable: "--font-geist-sans",
     stack:
       "var(--font-geist-sans), 'Geist Sans', ui-sans-serif, system-ui, sans-serif",
+  },
+  "source-serif": {
+    label: "Source Serif",
+    variable: "--font-source-serif",
+    stack:
+      "var(--font-source-serif), 'Source Serif 4', Georgia, 'Times New Roman', serif",
+  },
+  jakarta: {
+    label: "Jakarta Sans",
+    variable: "--font-jakarta",
+    stack:
+      "var(--font-jakarta), 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+  },
+  outfit: {
+    label: "Outfit",
+    variable: "--font-outfit",
+    stack: "var(--font-outfit), Outfit, ui-sans-serif, system-ui, sans-serif",
+  },
+  nunito: {
+    label: "Nunito",
+    variable: "--font-nunito",
+    stack: "var(--font-nunito), Nunito, ui-sans-serif, system-ui, sans-serif",
+  },
+  "ibm-plex": {
+    label: "IBM Plex Sans",
+    variable: "--font-ibm-plex",
+    stack:
+      "var(--font-ibm-plex), 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+  },
+  figtree: {
+    label: "Figtree",
+    variable: "--font-figtree",
+    stack: "var(--font-figtree), Figtree, ui-sans-serif, system-ui, sans-serif",
   },
 };
 

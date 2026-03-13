@@ -85,7 +85,7 @@ export function registerTools(
 
   server.tool(
     "list_repos",
-    "List all GitHub repos you have access to. Call this first to let the user choose which codebase to work with.",
+    "List all GitHub repos you have access to. Call this first to discover available repos and their instructions for data routing (e.g. which backend to query for which data).",
     {},
     async () => {
       const { deployKey, userId } = await getContext();

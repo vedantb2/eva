@@ -485,20 +485,6 @@ export async function signUserJwt(clerkUserId: string): Promise<string> {
   return jwt;
 }
 
-export async function getRepoMcpRootPrompt(
-  convexUrl: string,
-  deployKey: string,
-  repoId: string,
-): Promise<string | null> {
-  const source = wrapQueryHandler(
-    `const repo = await ctx.db.get(${JSON.stringify(repoId)});
-    return repo?.mcpRootPrompt ?? null;`,
-  );
-  const result = await runTestQuery(convexUrl, deployKey, source);
-  if (typeof result.value === "string") return result.value;
-  return null;
-}
-
 export async function runMutationAsUser(
   convexUrl: string,
   clerkUserId: string,

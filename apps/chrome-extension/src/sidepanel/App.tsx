@@ -39,7 +39,12 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { type StoredPin, EVA_URL } from "@/shared/messaging";
+import {
+  type StoredPin,
+  EVA_URL,
+  extractHostname,
+  sendTabMessage,
+} from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 import { useTheme } from "./hooks/useTheme";
 
@@ -89,6 +94,37 @@ function isExtractedContext(value: unknown): value is ExtractedContext {
   );
 }
 
+function findBestMatchingRepoId(
+  host: string,
+  domainToRepoId: Map<string, Id<"githubRepos">>,
+): Id<"githubRepos"> | null {
+  let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
+  for (const [domain, repoId] of domainToRepoId) {
+    if (
+      domainMatches(host, domain) &&
+      (!bestMatch || domain.length > bestMatch.domain.length)
+    ) {
+      bestMatch = { domain, repoId };
+    }
+  }
+  return bestMatch ? bestMatch.repoId : null;
+}
+
+function restoreSessionForRepo(
+  repoId: Id<"githubRepos">,
+  setCurrentSessionId: (id: Id<"sessions"> | null) => void,
+): void {
+  chrome.storage.local.get(["lastSessionByRepo"], (result) => {
+    const map = isRecord(result.lastSessionByRepo)
+      ? result.lastSessionByRepo
+      : {};
+    const saved = map[repoId];
+    setCurrentSessionId(
+      typeof saved === "string" ? (saved as Id<"sessions">) : null,
+    );
+  });
+}
+
 function isStoredPinRecord(value: unknown): value is Record<string, StoredPin> {
   if (!isRecord(value)) return false;
   for (const v of Object.values(value)) {
@@ -110,16 +146,17 @@ function AuthenticatedApp() {
     for (const repo of repos) {
       if (repo.domains) {
         for (const raw of repo.domains) {
-          let hostname = raw;
-          try {
-            const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
-            hostname = url.hostname;
-          } catch {
-            // already a plain hostname
-          }
-          map.set(hostname, repo._id);
+          map.set(extractHostname(raw), repo._id);
         }
       }
+    }
+    return map;
+  }, [repos]);
+
+  const repoById = useMemo(() => {
+    const map = new Map<Id<"githubRepos">, (typeof repos)[number]>();
+    for (const repo of repos) {
+      map.set(repo._id, repo);
     }
     return map;
   }, [repos]);
@@ -138,29 +175,19 @@ function AuthenticatedApp() {
   const [dismissedSuggestion, setDismissedSuggestion] =
     useState<Id<"githubRepos"> | null>(null);
 
-  const suggestedRepoId = useMemo(() => {
-    if (!currentTabHost) return null;
-    let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
-    for (const [domain, repoId] of domainToRepoId) {
-      if (
-        domainMatches(currentTabHost, domain) &&
-        (!bestMatch || domain.length > bestMatch.domain.length)
-      ) {
-        bestMatch = { domain, repoId };
-      }
-    }
-    if (!bestMatch) return null;
-    const matchedRepoId = bestMatch.repoId;
-    const exists = repos.some((r) => r._id === matchedRepoId);
-    if (!exists) return null;
-    return matchedRepoId;
-  }, [currentTabHost, domainToRepoId, repos]);
+  const suggestedRepoId = useMemo(
+    () =>
+      currentTabHost
+        ? findBestMatchingRepoId(currentTabHost, domainToRepoId)
+        : null,
+    [currentTabHost, domainToRepoId],
+  );
 
   const suggestedRepo =
     suggestedRepoId &&
     suggestedRepoId !== selectedRepoId &&
     dismissedSuggestion !== suggestedRepoId
-      ? repos.find((r) => r._id === suggestedRepoId)
+      ? (repoById.get(suggestedRepoId) ?? null)
       : null;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -200,12 +227,10 @@ function AuthenticatedApp() {
   const sendToolbarResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs
-          .sendMessage(tab.id, {
-            type: "TOOLBAR_RESULT",
-            payload: { success, message },
-          })
-          .catch(() => {});
+        sendTabMessage(tab.id, {
+          type: "TOOLBAR_RESULT",
+          payload: { success, message },
+        });
       }
     });
   }, []);
@@ -217,11 +242,10 @@ function AuthenticatedApp() {
     });
     if (!tab?.id) return;
     const next = !toolbarVisible;
-    chrome.tabs
-      .sendMessage(tab.id, {
-        type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-      })
-      .catch(() => {});
+    sendTabMessage(
+      tab.id,
+      next ? { type: "SHOW_TOOLBAR" } : { type: "HIDE_TOOLBAR" },
+    );
     setToolbarVisibleMutation({ visible: next });
   }, [toolbarVisible, setToolbarVisibleMutation]);
 
@@ -260,12 +284,10 @@ function AuthenticatedApp() {
   const sendRunAllResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs
-          .sendMessage(tab.id, {
-            type: "RUN_ALL_RESULT",
-            payload: { success, message },
-          })
-          .catch(() => {});
+        sendTabMessage(tab.id, {
+          type: "RUN_ALL_RESULT",
+          payload: { success, message },
+        });
       }
     });
   }, []);
@@ -284,17 +306,15 @@ function AuthenticatedApp() {
           });
           chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (tab?.id) {
-              chrome.tabs
-                .sendMessage(tab.id, {
-                  type: "ANNOTATION_TASK_CREATED",
-                  payload: {
-                    pinId,
-                    taskId: String(taskId),
-                    userId: convexUserId ?? undefined,
-                    creatorInitials,
-                  },
-                })
-                .catch(() => {});
+              sendTabMessage(tab.id, {
+                type: "ANNOTATION_TASK_CREATED",
+                payload: {
+                  pinId,
+                  taskId: String(taskId),
+                  userId: convexUserId ?? undefined,
+                  creatorInitials,
+                },
+              });
             }
           });
           await startExecution({ id: taskId });
@@ -384,15 +404,7 @@ function AuthenticatedApp() {
   const handleRepoChange = useCallback((repoId: Id<"githubRepos">) => {
     setSelectedRepoId(repoId);
     chrome.storage.local.set({ defaultRepoId: repoId });
-    chrome.storage.local.get(["lastSessionByRepo"], (result) => {
-      const map = isRecord(result.lastSessionByRepo)
-        ? result.lastSessionByRepo
-        : {};
-      const saved = map[repoId];
-      setCurrentSessionId(
-        typeof saved === "string" ? (saved as Id<"sessions">) : null,
-      );
-    });
+    restoreSessionForRepo(repoId, setCurrentSessionId);
   }, []);
 
   useEffect(() => {
@@ -405,18 +417,9 @@ function AuthenticatedApp() {
       setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
       setCurrentTabHost(host);
       if (host) {
-        let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
-          null;
-        for (const [domain, repoId] of domainToRepoId) {
-          if (
-            domainMatches(host, domain) &&
-            (!bestMatch || domain.length > bestMatch.domain.length)
-          ) {
-            bestMatch = { domain, repoId };
-          }
-        }
-        if (bestMatch && !selectedRepoId) {
-          handleRepoChange(bestMatch.repoId);
+        const matched = findBestMatchingRepoId(host, domainToRepoId);
+        if (matched && !selectedRepoId) {
+          handleRepoChange(matched);
         }
       }
     };
@@ -454,22 +457,14 @@ function AuthenticatedApp() {
   }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
 
   useEffect(() => {
-    chrome.storage.local.get(
-      ["defaultRepoId", "lastSessionByRepo"],
-      (result) => {
-        const repoId = result.defaultRepoId;
-        if (repoId && typeof repoId === "string") {
-          setSelectedRepoId(repoId as Id<"githubRepos">);
-          const map = isRecord(result.lastSessionByRepo)
-            ? result.lastSessionByRepo
-            : {};
-          const saved = map[repoId];
-          if (typeof saved === "string") {
-            setCurrentSessionId(saved as Id<"sessions">);
-          }
-        }
-      },
-    );
+    chrome.storage.local.get(["defaultRepoId"], (result) => {
+      const repoId = result.defaultRepoId;
+      if (repoId && typeof repoId === "string") {
+        const typedRepoId = repoId as Id<"githubRepos">;
+        setSelectedRepoId(typedRepoId);
+        restoreSessionForRepo(typedRepoId, setCurrentSessionId);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -492,11 +487,12 @@ function AuthenticatedApp() {
       return;
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs
-          .sendMessage(tab.id, {
-            type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-          })
-          .catch(() => {});
+        sendTabMessage(
+          tab.id,
+          syncedToolbarVisible
+            ? { type: "SHOW_TOOLBAR" }
+            : { type: "HIDE_TOOLBAR" },
+        );
       }
     });
   }, [syncedToolbarVisible]);
@@ -522,9 +518,7 @@ function AuthenticatedApp() {
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id && syncedToolbarVisible) {
-            chrome.tabs
-              .sendMessage(tab.id, { type: "SHOW_TOOLBAR" })
-              .catch(() => {});
+            sendTabMessage(tab.id, { type: "SHOW_TOOLBAR" });
           }
         });
       }

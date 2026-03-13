@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { createShadowMount } from "./shadow-root";
+import { sendChromeMessage } from "@/shared/messaging";
 import {
   activateAnnotation,
   deactivateAnnotation,
@@ -121,6 +122,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" }).catch(() => {});
+sendChromeMessage({ type: "REQUEST_ANNOTATIONS" });
 ensureToolbarMount();
-chrome.runtime.sendMessage({ type: "REQUEST_TOOLBAR_STATE" }).catch(() => {});
+sendChromeMessage({ type: "REQUEST_TOOLBAR_STATE" });

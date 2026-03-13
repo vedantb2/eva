@@ -146,6 +146,15 @@ export function ConfigClient() {
   );
 }
 
+function extractHostname(raw: string): string {
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    return url.hostname;
+  } catch {
+    return raw;
+  }
+}
+
 function DomainsSection() {
   const { repo, repoId } = useRepo();
   const updateConfig = useMutation(api.githubRepos.updateConfig);
@@ -156,13 +165,7 @@ function DomainsSection() {
   const addDomain = () => {
     const raw = newDomain.trim().toLowerCase();
     if (!raw) return;
-    let hostname = raw;
-    try {
-      const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
-      hostname = url.hostname;
-    } catch {
-      // already a plain hostname
-    }
+    const hostname = extractHostname(raw);
     if (domains.includes(hostname)) return;
     updateConfig({ repoId, domains: [...domains, hostname] });
     setNewDomain("");

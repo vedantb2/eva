@@ -1,3 +1,9 @@
+import {
+  type ExtensionMessage,
+  sendChromeMessage,
+  sendTabMessage,
+} from "@/shared/messaging";
+
 let capturedContext: unknown = null;
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -6,9 +12,7 @@ chrome.runtime.onConnect.addListener((port) => {
     chrome.tabs.query({}, (tabs) => {
       for (const tab of tabs) {
         if (tab.id) {
-          chrome.tabs
-            .sendMessage(tab.id, { type: "PANEL_CLOSED" })
-            .catch(() => {});
+          sendTabMessage(tab.id, { type: "PANEL_CLOSED" });
         }
       }
     });
@@ -22,11 +26,6 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-
-interface ExtensionMessage {
-  type: string;
-  payload?: unknown;
-}
 
 chrome.runtime.onMessage.addListener(
   (
@@ -58,26 +57,19 @@ chrome.runtime.onMessage.addListener(
       }
 
       case "ANNOTATIONS_CHANGED": {
-        chrome.runtime
-          .sendMessage({
-            type: "ANNOTATIONS_CHANGED",
-            payload: message.payload,
-          })
-          .catch(() => {});
+        sendChromeMessage(message);
         sendResponse({ success: true });
         break;
       }
 
       case "STOP_ANNOTATION": {
-        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" }).catch(() => {});
+        sendChromeMessage(message);
         sendResponse({ success: true });
         break;
       }
 
       case "REQUEST_ANNOTATIONS": {
-        chrome.runtime
-          .sendMessage({ type: "REQUEST_ANNOTATIONS" })
-          .catch(() => {});
+        sendChromeMessage(message);
         sendResponse({ success: true });
         break;
       }
@@ -86,12 +78,7 @@ chrome.runtime.onMessage.addListener(
       case "TOOLBAR_ADD_QUICK_TASKS":
       case "TOOLBAR_ADD_TO_PROJECT":
       case "RUN_ALL_ANNOTATIONS": {
-        chrome.runtime
-          .sendMessage({
-            type: message.type,
-            payload: message.payload,
-          })
-          .catch(() => {});
+        sendChromeMessage(message);
         sendResponse({ success: true });
         break;
       }

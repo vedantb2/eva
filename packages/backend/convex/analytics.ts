@@ -13,6 +13,9 @@ export const getImpactStats = authQuery({
     sessionsWithPr: v.number(),
     shipRate: v.number(),
     tasksCompleted: v.number(),
+    prevPrsShipped: v.optional(v.number()),
+    prevTasksCompleted: v.optional(v.number()),
+    prevShipRate: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
@@ -25,73 +28,99 @@ export const getImpactStats = authQuery({
       };
     }
     const startTime = args.startTime;
-    const prUrls = new Set<string>();
+
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filteredSessions =
-      startTime !== undefined
-        ? sessions.filter((s) => s._creationTime >= startTime)
-        : sessions;
-    let sessionsWithPr = 0;
-    for (const s of filteredSessions) {
-      if (s.prUrl) {
-        sessionsWithPr++;
-        prUrls.add(s.prUrl);
-      }
-    }
-    const filteredTasks =
-      startTime !== undefined
-        ? await ctx.db
-            .query("agentTasks")
-            .withIndex("by_repo_and_updatedAt", (q) =>
-              q.eq("repoId", args.repoId).gte("updatedAt", startTime),
-            )
-            .collect()
-        : await ctx.db
-            .query("agentTasks")
-            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-            .collect();
-    const tasksCompleted = filteredTasks.filter(
-      (t) => t.status === "done",
-    ).length;
-    const taskRunResults = await Promise.all(
-      filteredTasks.map((task) =>
+    const allTasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    const allTaskRuns = await Promise.all(
+      allTasks.map((task) =>
         ctx.db
           .query("agentRuns")
           .withIndex("by_task", (q) => q.eq("taskId", task._id))
           .collect(),
       ),
     );
-    for (const runs of taskRunResults) {
-      for (const run of runs) {
-        if (run.prUrl) prUrls.add(run.prUrl);
-      }
-    }
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const filteredProjects =
-      startTime !== undefined
-        ? projects.filter((p) => p._creationTime >= startTime)
-        : projects;
-    for (const p of filteredProjects) {
-      if (p.prUrl) prUrls.add(p.prUrl);
+
+    function computeStats(from: number | undefined) {
+      const prUrls = new Set<string>();
+      const filtered =
+        from !== undefined
+          ? sessions.filter((s) => s._creationTime >= from)
+          : sessions;
+      let withPr = 0;
+      for (const s of filtered) {
+        if (s.prUrl) {
+          withPr++;
+          prUrls.add(s.prUrl);
+        }
+      }
+      const filteredTasks =
+        from !== undefined
+          ? allTasks.filter((t) => t.updatedAt >= from)
+          : allTasks;
+      const done = filteredTasks.filter((t) => t.status === "done").length;
+      for (let i = 0; i < allTasks.length; i++) {
+        const task = allTasks[i];
+        if (from !== undefined && task.updatedAt < from) continue;
+        for (const run of allTaskRuns[i]) {
+          if (run.prUrl) prUrls.add(run.prUrl);
+        }
+      }
+      const filteredProjects =
+        from !== undefined
+          ? projects.filter((p) => p._creationTime >= from)
+          : projects;
+      for (const p of filteredProjects) {
+        if (p.prUrl) prUrls.add(p.prUrl);
+      }
+      const total = filtered.length;
+      const rate = total > 0 ? Math.round((withPr / total) * 100) : 0;
+      return {
+        prsShipped: prUrls.size,
+        totalSessions: total,
+        sessionsWithPr: withPr,
+        shipRate: rate,
+        tasksCompleted: done,
+      };
     }
-    const totalSessions = filteredSessions.length;
-    const shipRate =
-      totalSessions > 0
-        ? Math.round((sessionsWithPr / totalSessions) * 100)
-        : 0;
-    return {
-      prsShipped: prUrls.size,
-      totalSessions,
-      sessionsWithPr,
-      shipRate,
-      tasksCompleted,
-    };
+
+    const current = computeStats(startTime);
+
+    if (startTime !== undefined) {
+      const periodMs = Date.now() - startTime;
+      const prevStart = startTime - periodMs;
+      const prev = computeStats(prevStart);
+      const prevFiltered = {
+        prsShipped: prev.prsShipped - current.prsShipped,
+        tasksCompleted: prev.tasksCompleted - current.tasksCompleted,
+        totalSessions: prev.totalSessions - current.totalSessions,
+        sessionsWithPr: prev.sessionsWithPr - current.sessionsWithPr,
+        shipRate: 0,
+      };
+      prevFiltered.shipRate =
+        prevFiltered.totalSessions > 0
+          ? Math.round(
+              (prevFiltered.sessionsWithPr / prevFiltered.totalSessions) * 100,
+            )
+          : 0;
+      return {
+        ...current,
+        prevPrsShipped: prevFiltered.prsShipped,
+        prevTasksCompleted: prevFiltered.tasksCompleted,
+        prevShipRate: prevFiltered.shipRate,
+      };
+    }
+
+    return current;
   },
 });
 
@@ -256,6 +285,7 @@ export const getActivityTimeline = authQuery({
 export const getActivityHeatmap = authQuery({
   args: {
     repoId: v.id("githubRepos"),
+    startTime: v.optional(v.number()),
   },
   returns: v.array(
     v.object({
@@ -266,12 +296,12 @@ export const getActivityHeatmap = authQuery({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
 
-    const oneYearAgo = Date.now() - 365 * 86_400_000;
+    const cutoff = args.startTime ?? Date.now() - 365 * 86_400_000;
 
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_repo_and_updatedAt", (q) =>
-        q.eq("repoId", args.repoId).gte("updatedAt", oneYearAgo),
+        q.eq("repoId", args.repoId).gte("updatedAt", cutoff),
       )
       .collect();
 
@@ -295,7 +325,7 @@ export const getActivityHeatmap = authQuery({
         if (
           run.status === "success" &&
           run.finishedAt &&
-          run.finishedAt >= oneYearAgo
+          run.finishedAt >= cutoff
         ) {
           const day = new Date(run.finishedAt).toISOString().slice(0, 10);
           dailyCounts.set(day, (dailyCounts.get(day) ?? 0) + 1);

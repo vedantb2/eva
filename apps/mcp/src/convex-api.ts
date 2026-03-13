@@ -376,7 +376,7 @@ interface EnvVar {
   value: string;
 }
 
-async function getRepoEnvVars(
+export async function getRepoEnvVars(
   convexUrl: string,
   deployKey: string,
   repoId: string,

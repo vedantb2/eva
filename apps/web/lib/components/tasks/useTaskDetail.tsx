@@ -107,12 +107,11 @@ export function useTaskDetail(
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const allAudits = useQuery(api.audits.listByTask, { taskId });
-  const auditCategories = useQuery(
-    api.auditCategories.listByRepo,
-    task?.repoId ? { repoId: task.repoId } : "skip",
-  );
   const hasEnabledAuditCategories =
-    auditCategories?.some((c) => c.enabled) ?? true;
+    useQuery(
+      api.auditCategories.hasEnabledCategories,
+      task?.repoId ? { repoId: task.repoId } : "skip",
+    ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
   const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(

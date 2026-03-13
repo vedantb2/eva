@@ -65,22 +65,6 @@ function domainMatches(host: string, domain: string): boolean {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-function findBestMatchingRepoId(
-  host: string,
-  domainToRepoId: Map<string, Id<"githubRepos">>,
-): Id<"githubRepos"> | null {
-  let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
-  for (const [domain, repoId] of domainToRepoId) {
-    if (
-      domainMatches(host, domain) &&
-      (!bestMatch || domain.length > bestMatch.domain.length)
-    ) {
-      bestMatch = { domain, repoId };
-    }
-  }
-  return bestMatch ? bestMatch.repoId : null;
-}
-
 function isAllowedHost(
   host: string,
   repoDomains: ReadonlyArray<string>,
@@ -156,11 +140,17 @@ function AuthenticatedApp() {
 
   const suggestedRepoId = useMemo(() => {
     if (!currentTabHost) return null;
-    const matchedRepoId = findBestMatchingRepoId(
-      currentTabHost,
-      domainToRepoId,
-    );
-    if (!matchedRepoId) return null;
+    let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
+    for (const [domain, repoId] of domainToRepoId) {
+      if (
+        domainMatches(currentTabHost, domain) &&
+        (!bestMatch || domain.length > bestMatch.domain.length)
+      ) {
+        bestMatch = { domain, repoId };
+      }
+    }
+    if (!bestMatch) return null;
+    const matchedRepoId = bestMatch.repoId;
     const exists = repos.some((r) => r._id === matchedRepoId);
     if (!exists) return null;
     return matchedRepoId;
@@ -215,9 +205,7 @@ function AuthenticatedApp() {
             type: "TOOLBAR_RESULT",
             payload: { success, message },
           })
-          .catch((err) =>
-            console.error("sendMessage TOOLBAR_RESULT failed", err),
-          );
+          .catch(() => {});
       }
     });
   }, []);
@@ -233,7 +221,7 @@ function AuthenticatedApp() {
       .sendMessage(tab.id, {
         type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
       })
-      .catch((err) => console.error("sendMessage toggle toolbar failed", err));
+      .catch(() => {});
     setToolbarVisibleMutation({ visible: next });
   }, [toolbarVisible, setToolbarVisibleMutation]);
 
@@ -277,9 +265,7 @@ function AuthenticatedApp() {
             type: "RUN_ALL_RESULT",
             payload: { success, message },
           })
-          .catch((err) =>
-            console.error("sendMessage RUN_ALL_RESULT failed", err),
-          );
+          .catch(() => {});
       }
     });
   }, []);
@@ -308,12 +294,7 @@ function AuthenticatedApp() {
                     creatorInitials,
                   },
                 })
-                .catch((err) =>
-                  console.error(
-                    "sendMessage ANNOTATION_TASK_CREATED failed",
-                    err,
-                  ),
-                );
+                .catch(() => {});
             }
           });
           await startExecution({ id: taskId });
@@ -414,11 +395,6 @@ function AuthenticatedApp() {
     });
   }, []);
 
-  const allRepoDomainsRef = useRef(allRepoDomains);
-  useEffect(() => {
-    allRepoDomainsRef.current = allRepoDomains;
-  }, [allRepoDomains]);
-
   useEffect(() => {
     const checkCurrentTab = async () => {
       const [tab] = await chrome.tabs.query({
@@ -429,16 +405,23 @@ function AuthenticatedApp() {
       setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
       setCurrentTabHost(host);
       if (host) {
-        const matchedRepoId = findBestMatchingRepoId(host, domainToRepoId);
-        if (matchedRepoId && !selectedRepoId) {
-          handleRepoChange(matchedRepoId);
+        let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
+          null;
+        for (const [domain, repoId] of domainToRepoId) {
+          if (
+            domainMatches(host, domain) &&
+            (!bestMatch || domain.length > bestMatch.domain.length)
+          ) {
+            bestMatch = { domain, repoId };
+          }
+        }
+        if (bestMatch && !selectedRepoId) {
+          handleRepoChange(bestMatch.repoId);
         }
       }
     };
     checkCurrentTab();
-  }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
 
-  useEffect(() => {
     const handleTabUpdate = (
       tabId: number,
       changeInfo: chrome.tabs.TabChangeInfo,
@@ -447,7 +430,7 @@ function AuthenticatedApp() {
         const host = getHostFromUrl(changeInfo.url);
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id === tabId && host) {
-            setIsValidUrl(isAllowedHost(host, allRepoDomainsRef.current));
+            setIsValidUrl(isAllowedHost(host, allRepoDomains));
             setCurrentTabHost(host);
           }
         });
@@ -457,9 +440,7 @@ function AuthenticatedApp() {
     const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
       chrome.tabs.get(activeInfo.tabId, (tab) => {
         const host = tab?.url ? getHostFromUrl(tab.url) : null;
-        setIsValidUrl(
-          host ? isAllowedHost(host, allRepoDomainsRef.current) : false,
-        );
+        setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
         setCurrentTabHost(host);
       });
     };
@@ -470,7 +451,7 @@ function AuthenticatedApp() {
       chrome.tabs.onUpdated.removeListener(handleTabUpdate);
       chrome.tabs.onActivated.removeListener(handleTabActivated);
     };
-  }, []);
+  }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
 
   useEffect(() => {
     chrome.storage.local.get(
@@ -515,9 +496,7 @@ function AuthenticatedApp() {
           .sendMessage(tab.id, {
             type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
           })
-          .catch((err) =>
-            console.error("sendMessage toolbar sync failed", err),
-          );
+          .catch(() => {});
       }
     });
   }, [syncedToolbarVisible]);
@@ -545,9 +524,7 @@ function AuthenticatedApp() {
           if (tab?.id && syncedToolbarVisible) {
             chrome.tabs
               .sendMessage(tab.id, { type: "SHOW_TOOLBAR" })
-              .catch((err) =>
-                console.error("sendMessage SHOW_TOOLBAR failed", err),
-              );
+              .catch(() => {});
           }
         });
       }

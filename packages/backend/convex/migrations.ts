@@ -1,6 +1,5 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
@@ -86,19 +85,5 @@ export const cleanupStaleRuns = internalMutation({
     }
 
     return { tasksFixed, runsFixed };
-  },
-});
-
-export const clearFlagSessionMode = internalMutation({
-  args: { paginationOpts: paginationOptsValidator },
-  returns: v.object({ isDone: v.boolean(), continueCursor: v.string() }),
-  handler: async (ctx, args) => {
-    const result = await ctx.db.query("messages").paginate(args.paginationOpts);
-    for (const message of result.page) {
-      if (message.mode === "flag") {
-        await ctx.db.patch(message._id, { mode: undefined });
-      }
-    }
-    return { isDone: result.isDone, continueCursor: result.continueCursor };
   },
 });

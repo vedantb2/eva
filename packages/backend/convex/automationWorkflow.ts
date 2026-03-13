@@ -174,7 +174,9 @@ export const automationExecutionWorkflow = workflow.define({
             sandboxId,
             repoId: args.repoId,
           });
-        } catch {}
+        } catch (cleanupError) {
+          console.error("Failed to cleanup sandbox:", cleanupError);
+        }
       }
     } finally {
       await step.runMutation(internal.automations.clearRunWorkflow, {

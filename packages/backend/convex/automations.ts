@@ -11,7 +11,7 @@ import {
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { workflow } from "./workflowManager";
 import type { WorkflowId } from "@convex-dev/workflow";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
 
 const crons = new Crons(components.crons);
@@ -89,7 +89,7 @@ export const update = authMutation({
       throw new Error("Not authorized");
     }
 
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    const patch: Partial<Doc<"automations">> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
     if (args.description !== undefined) patch.description = args.description;
     if (args.cronSchedule !== undefined) patch.cronSchedule = args.cronSchedule;
@@ -214,15 +214,6 @@ export const triggerAutomation = internalMutation({
 
     if (
       lastRun &&
-      !lastRun.acknowledged &&
-      lastRun.status !== "queued" &&
-      lastRun.status !== "running"
-    ) {
-      return null;
-    }
-
-    if (
-      lastRun &&
       (lastRun.status === "queued" || lastRun.status === "running")
     ) {
       return null;
@@ -299,7 +290,7 @@ export const updateRunStatus = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const patch: Record<string, unknown> = { status: args.status };
+    const patch: Partial<Doc<"automationRuns">> = { status: args.status };
     if (args.sandboxId !== undefined) patch.sandboxId = args.sandboxId;
     if (args.error !== undefined) patch.error = args.error;
     if (args.resultSummary !== undefined)

@@ -51,8 +51,6 @@ import type * as _taskWorkflow_runLifecycle from "../_taskWorkflow/runLifecycle.
 import type * as _taskWorkflow_scheduling from "../_taskWorkflow/scheduling.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
-import type * as automations from "../automations.js";
-import type * as automationWorkflow from "../automationWorkflow.js";
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
@@ -60,6 +58,8 @@ import type * as annotations from "../annotations.js";
 import type * as auditCategories from "../auditCategories.js";
 import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
+import type * as automationWorkflow from "../automationWorkflow.js";
+import type * as automations from "../automations.js";
 import type * as buildWorkflow from "../buildWorkflow.js";
 import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
@@ -179,8 +179,6 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/scheduling": typeof _taskWorkflow_scheduling;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
-  automations: typeof automations;
-  automationWorkflow: typeof automationWorkflow;
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;
@@ -188,6 +186,8 @@ declare const fullApi: ApiFromModules<{
   auditCategories: typeof auditCategories;
   audits: typeof audits;
   auth: typeof auth;
+  automationWorkflow: typeof automationWorkflow;
+  automations: typeof automations;
   buildWorkflow: typeof buildWorkflow;
   daytona: typeof daytona;
   designPersonas: typeof designPersonas;

@@ -9,6 +9,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { timeRangeParser, logEntityTypesParser } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
+import { IconFileOff } from "@tabler/icons-react";
 import { parseResultEvent } from "./_utils";
 import { LogsSummaryGrid } from "./_components/LogsSummaryGrid";
 import { LogsHeader } from "./_components/LogsHeader";
@@ -118,22 +119,25 @@ export function LogsClient() {
       }
     >
       {logs === undefined ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-16">
           <Spinner size="lg" />
         </div>
       ) : logs.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          No logs found
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
+          <div className="rounded-xl bg-secondary p-3">
+            <IconFileOff size={24} />
+          </div>
+          <p className="text-sm">No logs found for this time range</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <LogsSummaryGrid
             totalCost={totalCost}
             totalDuration={totalDuration}
             totalInput={totalInput}
             totalOutput={totalOutput}
           />
-          <div className="space-y-2">
+          <div className="space-y-1">
             {grouped.map((group) => (
               <LogEntryGroup
                 key={group.type}

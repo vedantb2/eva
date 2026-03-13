@@ -22,8 +22,15 @@ function sessionHash(sessionId: PersistableSessionId): string {
   return createHash("sha256").update(String(sessionId)).digest("hex");
 }
 
-export function sessionVolumeName(sessionId: PersistableSessionId): string {
-  return `claude-session-${sessionHash(sessionId).slice(0, 40)}`;
+function repoHash(repoId: Id<"githubRepos">): string {
+  return createHash("sha256").update(String(repoId)).digest("hex");
+}
+
+function repoVolumeName(
+  repoId: Id<"githubRepos">,
+  kind: "sessions" | "design",
+): string {
+  return `claude-${kind}-${repoHash(repoId).slice(0, 40)}`;
 }
 
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
@@ -40,11 +47,13 @@ export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   ].join("-");
 }
 
-export async function ensureSessionClaudeVolume(
+async function ensureRepoVolume(
   daytona: Daytona,
+  repoId: Id<"githubRepos">,
+  kind: "sessions" | "design",
   sessionId: PersistableSessionId,
 ): Promise<VolumeMount[]> {
-  const volumeName = sessionVolumeName(sessionId);
+  const volumeName = repoVolumeName(repoId, kind);
   const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
 
   let volume = await daytona.volume.get(volumeName, true);
@@ -63,5 +72,24 @@ export async function ensureSessionClaudeVolume(
     volume = await daytona.volume.get(volumeName);
   }
 
-  return [{ volumeId: volume.id, mountPath: CLAUDE_VOLUME_MOUNT_PATH }];
+  const subpath = sessionHash(sessionId).slice(0, 40);
+  return [
+    { volumeId: volume.id, mountPath: CLAUDE_VOLUME_MOUNT_PATH, subpath },
+  ];
+}
+
+export async function ensureSessionClaudeVolume(
+  daytona: Daytona,
+  repoId: Id<"githubRepos">,
+  sessionId: Id<"sessions">,
+): Promise<VolumeMount[]> {
+  return ensureRepoVolume(daytona, repoId, "sessions", sessionId);
+}
+
+export async function ensureDesignClaudeVolume(
+  daytona: Daytona,
+  repoId: Id<"githubRepos">,
+  designSessionId: Id<"designSessions">,
+): Promise<VolumeMount[]> {
+  return ensureRepoVolume(daytona, repoId, "design", designSessionId);
 }

@@ -143,7 +143,11 @@ export const prepareSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      ? await ensureSessionClaudeVolume(
+          daytona,
+          args.repoId,
+          args.sessionPersistenceId,
+        )
       : undefined;
 
     let sandbox: Sandbox | undefined;

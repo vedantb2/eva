@@ -51,6 +51,8 @@ import type * as _taskWorkflow_runLifecycle from "../_taskWorkflow/runLifecycle.
 import type * as _taskWorkflow_scheduling from "../_taskWorkflow/scheduling.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
+import type * as automations from "../automations.js";
+import type * as automationWorkflow from "../automationWorkflow.js";
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
@@ -177,6 +179,8 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/scheduling": typeof _taskWorkflow_scheduling;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
+  automations: typeof automations;
+  automationWorkflow: typeof automationWorkflow;
   agentRuns: typeof agentRuns;
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;

@@ -338,6 +338,34 @@ export const projectDetailsFields = {
   generatedSpec: v.optional(v.string()),
 };
 
+export const automationFields = {
+  repoId: v.id("githubRepos"),
+  title: v.string(),
+  description: v.string(),
+  cronSchedule: v.string(),
+  model: v.optional(claudeModelValidator),
+  enabled: v.boolean(),
+  cronJobId: v.optional(v.string()),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const automationRunFields = {
+  automationId: v.id("automations"),
+  repoId: v.id("githubRepos"),
+  status: runStatusValidator,
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  resultSummary: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  error: v.optional(v.string()),
+  acknowledged: v.boolean(),
+  sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  activityLog: v.optional(v.string()),
+};
+
 export const messageFields = {
   role: roleValidator,
   content: v.string(),

@@ -19,6 +19,8 @@ import {
   customThemeValidator,
   webhookEventStatusValidator,
   messageFields,
+  automationFields,
+  automationRunFields,
   agentTaskFields,
   agentRunFields,
   sessionFields,
@@ -347,6 +349,14 @@ const schema = defineSchema({
     ),
     updatedAt: v.number(),
   }).index("by_team", ["teamId"]),
+  automations: defineTable(automationFields)
+    .index("by_repo", ["repoId"])
+    .index("by_repo_and_enabled", ["repoId", "enabled"]),
+
+  automationRuns: defineTable(automationRunFields)
+    .index("by_automation", ["automationId"])
+    .index("by_automation_and_status", ["automationId", "status"]),
+
   logs: defineTable({
     entityType: v.string(),
     entityId: v.string(),

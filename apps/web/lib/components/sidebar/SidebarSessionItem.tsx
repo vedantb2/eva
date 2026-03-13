@@ -6,12 +6,30 @@ import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 
+type SessionStatus = "active" | "starting" | "closed";
+
+const STATUS_STYLES: Record<SessionStatus, { dot: string; label: string }> = {
+  active: {
+    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]",
+    label: "Active",
+  },
+  starting: {
+    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+    label: "Starting",
+  },
+  closed: {
+    dot: "bg-muted-foreground/40",
+    label: "Closed",
+  },
+};
+
 interface SidebarSessionItemProps {
   href: string;
   title: string;
   userId: Id<"users">;
   createdAt: number;
   updatedAt?: number;
+  status: SessionStatus;
   isSelected: boolean;
   onNavigate?: () => void;
 }
@@ -22,11 +40,12 @@ export function SidebarSessionItem({
   userId,
   createdAt,
   updatedAt,
+  status,
   isSelected,
   onNavigate,
 }: SidebarSessionItemProps) {
   const timestamp = updatedAt ?? createdAt;
-  const timestampLabel = updatedAt ? "Updated" : "Created";
+  const statusStyle = STATUS_STYLES[status];
 
   return (
     <Link
@@ -34,7 +53,11 @@ export function SidebarSessionItem({
       onClick={onNavigate}
       className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+          title={statusStyle.label}
+        />
         <h3
           className={cn(
             "truncate text-sm font-medium transition-colors duration-200",
@@ -49,7 +72,7 @@ export function SidebarSessionItem({
           <UserInitials userId={userId} />
         </div>
         <span className="shrink-0 text-xs text-muted-foreground/60">
-          {timestampLabel} {dayjs(timestamp).fromNow()}
+          {dayjs(timestamp).fromNow()}
         </span>
       </div>
     </Link>

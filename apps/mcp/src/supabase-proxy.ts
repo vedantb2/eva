@@ -106,11 +106,17 @@ async function spawnClient(token: string): Promise<Client> {
     env: buildChildEnv(token),
   });
   const client = new Client({ name: "eva-supabase-proxy", version: "1.0.0" });
-  await withTimeout(
-    client.connect(transport),
-    CONNECT_TIMEOUT_MS,
-    "Supabase MCP connect",
-  );
+  try {
+    await withTimeout(
+      client.connect(transport),
+      CONNECT_TIMEOUT_MS,
+      "Supabase MCP connect",
+    );
+  } catch (err) {
+    await client.close().catch(() => {});
+    await transport.close().catch(() => {});
+    throw err;
+  }
   return client;
 }
 

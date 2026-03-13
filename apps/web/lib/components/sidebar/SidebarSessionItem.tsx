@@ -4,11 +4,14 @@ import Link from "next/link";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
+import dayjs from "@conductor/shared/dates";
 
 interface SidebarSessionItemProps {
   href: string;
   title: string;
   userId: Id<"users">;
+  createdAt: number;
+  updatedAt?: number;
   isSelected: boolean;
   onNavigate?: () => void;
 }
@@ -17,9 +20,14 @@ export function SidebarSessionItem({
   href,
   title,
   userId,
+  createdAt,
+  updatedAt,
   isSelected,
   onNavigate,
 }: SidebarSessionItemProps) {
+  const timestamp = updatedAt ?? createdAt;
+  const timestampLabel = updatedAt ? "Updated" : "Created";
+
   return (
     <Link
       href={href}
@@ -36,10 +44,13 @@ export function SidebarSessionItem({
           {title}
         </h3>
       </div>
-      <div className="mt-2 flex items-center">
+      <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex -space-x-1">
           <UserInitials userId={userId} />
         </div>
+        <span className="shrink-0 text-xs text-muted-foreground/60">
+          {timestampLabel} {dayjs(timestamp).fromNow()}
+        </span>
       </div>
     </Link>
   );

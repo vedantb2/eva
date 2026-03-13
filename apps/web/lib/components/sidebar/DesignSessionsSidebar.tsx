@@ -181,6 +181,8 @@ export function DesignSessionsSidebar({
                           href={`${baseUrl}/${session._id}`}
                           title={session.title}
                           userId={session.userId}
+                          createdAt={session._creationTime}
+                          updatedAt={session.updatedAt}
                           isSelected={isSelected}
                           onNavigate={onNavigate}
                         />

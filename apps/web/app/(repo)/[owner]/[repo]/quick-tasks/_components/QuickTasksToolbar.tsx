@@ -110,10 +110,10 @@ export function QuickTasksToolbar({
             <Button
               variant="secondary"
               size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[120px] sm:max-w-[180px]"
+              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[100px] sm:max-w-[180px]"
             >
               <IconFolder size={16} />
-              <span className="truncate">{filterLabel}</span>
+              <span className="truncate hidden sm:inline">{filterLabel}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

@@ -162,7 +162,7 @@ export function QuickTasksListView({
                 >
                   <div className="flex items-center sticky top-0 z-10 bg-background pb-1.5 pt-0.5">
                     <CollapsibleTrigger asChild>
-                      <button className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50">
+                      <button className="flex flex-1 items-center gap-2 rounded-lg px-2 py-2.5 sm:px-3 sm:py-2 text-left transition-colors hover:bg-muted/50">
                         <IconChevronRight
                           size={14}
                           className={`text-muted-foreground transition-transform duration-200 ${

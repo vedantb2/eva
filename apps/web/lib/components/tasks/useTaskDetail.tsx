@@ -319,7 +319,7 @@ export function useTaskDetail(
     }
   };
 
-  const modalWidthClass = "max-w-[72rem]";
+  const modalWidthClass = "max-w-[calc(100vw-2rem)] md:max-w-[72rem]";
   const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
 
   const titleContent = (
@@ -419,7 +419,7 @@ export function useTaskDetail(
                   ? "Description can only be edited in To Do"
                   : undefined
               }
-              className={`min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline && !isEditingDescription ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
+              className={`min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline && !isEditingDescription ? "max-h-[30vh] sm:max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
                 isEditingDescription
                   ? ""
                   : !canEditTaskText
@@ -517,7 +517,7 @@ export function useTaskDetail(
   const runsSection =
     activityTimeline.length > 0 ? (
       <div className="pt-4">
-        <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
+        <div className="space-y-2 max-h-[400px] sm:max-h-[600px] overflow-y-auto scrollbar pr-1 sm:pr-2">
           {activityTimeline.map((item) => {
             if (item.kind === "audit") {
               const audit = item.audit;
@@ -915,7 +915,7 @@ export function useTaskDetail(
   const proofSection = showProofSection ? (
     <div className="space-y-3">
       {mediaProofs && mediaProofs.length > 0 ? (
-        <div className="px-6">
+        <div className="px-2 sm:px-6">
           <Carousel opts={{ loop: mediaProofs.length > 1 }}>
             <CarouselContent>
               {mediaProofs.map((proof) => (
